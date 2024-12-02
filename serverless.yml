@@ -1,0 +1,57 @@
+service: my-serverless-app
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-south-1
+  environment:
+    DB_HOST: your-db-host
+    DB_USER: your-db-user
+    DB_PASSWORD: your-db-password
+    DB_NAME: your-db-name
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-optimize
+
+functions:
+  getItems:
+    handler: handler.getItems
+    events:
+      - httpApi:
+          path: /items
+          method: get
+
+resources:
+  Resources:
+    MyPostgresDB:
+      Type: AWS::RDS::DBInstance
+      Properties:
+        DBInstanceIdentifier: mydbinstance
+        AllocatedStorage: '20'
+        DBInstanceClass: db.t2.micro
+        Engine: postgres
+        MasterUsername: your-db-user
+        MasterUserPassword: your-db-password
+        DBName: your-db-name
+        VPCSecurityGroups:
+          - !GetAtt MyDBSecurityGroup.GroupId
+
+    MyDBSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Enable access to PostgreSQL database
+        VpcId: your-vpc-id
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: '5432'
+            ToPort: '5432'
+            CidrIp: 0.0.0.0/0
+
+# Outputs section to get the database endpoint after deployment
+Outputs:
+  DatabaseEndpoint:
+    Description: "PostgreSQL Database Endpoint"
+    Value: !GetAtt MyPostgresDB.Endpoint.Address
