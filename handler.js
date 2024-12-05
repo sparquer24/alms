@@ -1,27 +1,30 @@
-const { Client } = require('pg');
+const { Pool } = require("pg");
 
-module.exports.getItems = async (event) => {
-  const client = new Client({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-  });
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
 
-  await client.connect();
+module.exports.createUser = async (event) => {
+  const { name, email } = JSON.parse(event.body);
 
   try {
-    const res = await client.query('SELECT * FROM items'); // Assuming 'items' is your sample table name.
+    const result = await pool.query(
+      "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *",
+      [name, email]
+    );
     return {
-      statusCode: 200,
-      body: JSON.stringify(res.rows),
+      statusCode: 201,
+      body: JSON.stringify(result.rows[0]),
     };
-  } catch (err) {
+  } catch (error) {
+    console.error(error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ error: "Failed to create user" }),
     };
-  } finally {
-    await client.end();
   }
 };
