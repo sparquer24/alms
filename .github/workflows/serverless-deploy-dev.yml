@@ -31,3 +31,7 @@ jobs:
 
       - name: Deploy with Serverless
         run: npx serverless deploy
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
