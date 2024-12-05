@@ -10,8 +10,8 @@ provider:
     DB_HOST: ${self:custom.dbHost}
     DB_PORT: 5432
 
-custom:
-  dbHost: ${ssm:/your-service-name/dev/db-host} # Using SSM Parameter Store for DB Host
+# custom:
+#   dbHost: ${ssm:/your-service-name/dev/db-host} # Using SSM Parameter Store for DB Host
 
 resources:
   Resources:
@@ -31,7 +31,7 @@ resources:
       Type: AWS::EC2::SecurityGroup
       Properties:
         GroupDescription: Enable Postgres access
-        VpcId: YOUR_VPC_ID # Replace with your VPC ID
+        VpcId: vpc-02ed68bc5c542a9e1 # Replace with your VPC ID
         SecurityGroupIngress:
           - IpProtocol: tcp
             FromPort: '5432'
