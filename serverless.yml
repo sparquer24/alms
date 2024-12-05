@@ -47,4 +47,4 @@ functions:
           method: post
 
 plugins:
-  - serverless-aws-alias # Optional for managing multiple stages
+  
