@@ -2,7 +2,7 @@ service: serverless-postgres
 
 provider:
   name: aws
-  runtime: nodejs14.x
+  runtime: nodejs18.x
   environment:
     DB_USER: ${env:DB_USER}
     DB_NAME: ${env:DB_NAME}

@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "serverless-aws-alias": "^1.8.0"
   }
 }
