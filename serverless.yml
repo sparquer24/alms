@@ -10,8 +10,8 @@ provider:
     DB_HOST: ${self:custom.dbHost}
     DB_PORT: 5432
 
-# custom:
-#   dbHost: ${ssm:/your-service-name/dev/db-host} # Using SSM Parameter Store for DB Host
+custom:
+  dbHost: my-db-hostname.amazonaws.com # Using SSM Parameter Store for DB Host
 
 resources:
   Resources:
