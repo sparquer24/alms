@@ -1,57 +1,50 @@
-service: my-serverless-app
-
-frameworkVersion: '3'
+service: serverless-postgres
 
 provider:
   name: aws
-  runtime: nodejs18.x
-  region: ap-south-1
+  runtime: nodejs14.x
   environment:
-    DB_HOST: your-db-host
-    DB_USER: your-db-user
-    DB_PASSWORD: your-db-password
-    DB_NAME: your-db-name
+    DB_USER: ${env:DB_USER}
+    DB_NAME: ${env:DB_NAME}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_HOST: ${self:custom.dbHost}
+    DB_PORT: 5432
 
-plugins:
-  - serverless-offline
-  - serverless-plugin-optimize
-
-functions:
-  getItems:
-    handler: handler.getItems
-    events:
-      - httpApi:
-          path: /items
-          method: get
+custom:
+  dbHost: ${ssm:/your-service-name/dev/db-host} # Using SSM Parameter Store for DB Host
 
 resources:
   Resources:
-    MyPostgresDB:
+    PostgresDB:
       Type: AWS::RDS::DBInstance
       Properties:
-        DBInstanceIdentifier: mydbinstance
-        AllocatedStorage: '20'
         DBInstanceClass: db.t2.micro
         Engine: postgres
-        MasterUsername: your-db-user
-        MasterUserPassword: your-db-password
-        DBName: your-db-name
+        MasterUsername: ${env:DB_USER}
+        MasterUserPassword: ${env:DB_PASSWORD}
+        DBName: ${env:DB_NAME}
+        AllocatedStorage: '20'
         VPCSecurityGroups:
-          - !GetAtt MyDBSecurityGroup.GroupId
+          - !GetAtt MySecurityGroup.GroupId
 
-    MyDBSecurityGroup:
+    MySecurityGroup:
       Type: AWS::EC2::SecurityGroup
       Properties:
-        GroupDescription: Enable access to PostgreSQL database
-        VpcId: your-vpc-id
+        GroupDescription: Enable Postgres access
+        VpcId: YOUR_VPC_ID # Replace with your VPC ID
         SecurityGroupIngress:
           - IpProtocol: tcp
             FromPort: '5432'
             ToPort: '5432'
-            CidrIp: 0.0.0.0/0
+            CidrIp: 0.0.0.0/0 # Change this to restrict access
 
-# Outputs section to get the database endpoint after deployment
-Outputs:
-  DatabaseEndpoint:
-    Description: "PostgreSQL Database Endpoint"
-    Value: !GetAtt MyPostgresDB.Endpoint.Address
+functions:
+  createUser:
+    handler: handler.createUser
+    events:
+      - http:
+          path: users
+          method: post
+
+plugins:
+  - serverless-aws-alias # Optional for managing multiple stages
