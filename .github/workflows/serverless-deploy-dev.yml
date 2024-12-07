@@ -36,4 +36,4 @@ jobs:
 
       # Step 5: Deploy with Serverless Framework
       - name: Deploy with Serverless
-        run: serverless deploy --no-strict-auth
+        run: serverless deploy
