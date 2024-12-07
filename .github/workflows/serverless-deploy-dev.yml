@@ -22,6 +22,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # Step 4: Install Serverless Framework v4
+      - name: Install Serverless Framework
+        run: npm install -g serverless@4
+
       # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -32,4 +36,4 @@ jobs:
 
       # Step 5: Deploy with Serverless Framework
       - name: Deploy with Serverless
-        run: npx serverless deploy
+        run: serverless deploy --no-strict-auth

@@ -1,9 +1,12 @@
-service: serverless-postgresql-example
+service: alms
+
+org: null  # Opt-out of Serverless Dashboard
+app: null  # Opt-out of Serverless Dashboard
 
 provider:
   name: aws
   runtime: nodejs18.x
-  region: us-east-1
+  region: ap-south-1
   environment:
     PG_HOST: ${env:PG_HOST}
     PG_USER: ${env:PG_USER}
