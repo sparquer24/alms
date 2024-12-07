@@ -1,50 +1,33 @@
-service: serverless-postgres
+service: serverless-postgresql-example
 
 provider:
   name: aws
   runtime: nodejs18.x
+  region: us-east-1
   environment:
-    DB_USER: ${env:DB_USER}
-    DB_NAME: ${env:DB_NAME}
-    DB_PASSWORD: ${env:DB_PASSWORD}
-    DB_HOST: ${self:custom.dbHost}
-    DB_PORT: 5432
+    PG_HOST: ${env:PG_HOST}
+    PG_USER: ${env:PG_USER}
+    PG_PASSWORD: ${env:PG_PASSWORD}
+    PG_DATABASE: ${env:PG_DATABASE}
 
-custom:
-  dbHost: my-db-hostname.amazonaws.com # Using SSM Parameter Store for DB Host
+functions:
+  createEntry:
+    handler: handler.createEntry
+    events:
+      - http:
+          path: create-entry
+          method: post
 
 resources:
   Resources:
-    PostgresDB:
+    MyPostgresDB:
       Type: AWS::RDS::DBInstance
       Properties:
+        DBInstanceIdentifier: my-postgresql-instance
+        AllocatedStorage: 20
         DBInstanceClass: db.t2.micro
         Engine: postgres
-        MasterUsername: ${env:DB_USER}
-        MasterUserPassword: ${env:DB_PASSWORD}
-        DBName: ${env:DB_NAME}
-        AllocatedStorage: '20'
-        VPCSecurityGroups:
-          - !GetAtt MySecurityGroup.GroupId
-
-    MySecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-        GroupDescription: Enable Postgres access
-        VpcId: vpc-02ed68bc5c542a9e1 # Replace with your VPC ID
-        SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: '5432'
-            ToPort: '5432'
-            CidrIp: 0.0.0.0/0 # Change this to restrict access
-
-functions:
-  createUser:
-    handler: handler.createUser
-    events:
-      - http:
-          path: users
-          method: post
-
-plugins:
-  
+        MasterUsername: admin
+        MasterUserPassword: P@ssw0rd#AWS2024!
+        PubliclyAccessible: true
+        DBName: alms_dev_db
