@@ -26,6 +26,12 @@ jobs:
     - name: PWD
       run: pwd
 
+    - name: Change to frontend directory
+      run: cd frontend
+
+    - name: PWD
+      run: pwd
+
     # - name: Clear cache 
     #   run: | 
     #     rm -rf node_modules 
