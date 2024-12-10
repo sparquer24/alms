@@ -24,12 +24,6 @@ jobs:
           cd /home/runner/work/alms/alms/backend
           npm install
 
-      # Step 4: Install Serverless Framework v4
-      - name: Install Serverless Framework
-        run: |
-          cd /home/runner/work/alms/alms/backend
-          npm install -g serverless@4
-
       # Step 4: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
