@@ -27,7 +27,9 @@ jobs:
       run: pwd
 
     - name: Change to frontend directory
-      run: cd /home/runner/work/alms/alms/frontend
+      run: |
+        cd /home/runner/work/alms/alms/frontend
+        pwd
 
     - name: PWD
       run: pwd
