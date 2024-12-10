@@ -2,7 +2,7 @@ import type { AWS } from '@serverless/typescript';
 
 const serverlessConfiguration: AWS = {
   service: 'my-serverless-project',
-  frameworkVersion: '3',
+  frameworkVersion: '4',
   plugins: ['serverless-esbuild', 'serverless-offline'], // Add serverless-offline here
   provider: {
     name: 'aws',
