@@ -27,7 +27,7 @@ jobs:
       run: pwd
 
     - name: Change to frontend directory
-      run: cd frontend
+      run: cd /home/runner/work/alms/alms/frontend
 
     - name: PWD
       run: pwd
@@ -38,10 +38,14 @@ jobs:
     #     rm -rf .cache
 
     - name: Install dependencies with npm install
-      run: npm i  # Use npm ci for clean installs
+      run: |
+        cd /home/runner/work/alms/alms/frontend
+        npm i  # Use npm ci for clean installs
 
     - name: Build React app
-      run: npm run build || true  # This creates the build folder
+      run: |
+        cd /home/runner/work/alms/alms/frontend
+        npm run build || true  # This creates the build folder
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
