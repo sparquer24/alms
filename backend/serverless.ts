@@ -3,7 +3,7 @@ import type { AWS } from '@serverless/typescript';
 const serverlessConfiguration: AWS = {
   service: 'my-serverless-project',
   frameworkVersion: '4',
-  plugins: ['serverless-esbuild', 'serverless-offline'], // Add serverless-offline here
+  plugins: ['serverless-offline'], // Add serverless-offline here
   provider: {
     name: 'aws',
     runtime: 'nodejs20.x',
@@ -48,19 +48,12 @@ const serverlessConfiguration: AWS = {
     },
   },
   custom: {
-    esbuild: {
-      bundle: true,
-      minify: false,
-      sourcemap: true,
-      exclude: ['aws-sdk'],
-      target: 'node20',
-      platform: 'node',
-    }, 'serverless-offline': {
+    'serverless-offline': {
       httpPort: 3001, // Custom port for HTTP
       lambdaPort: 3002, // Custom port for Lambda invocations
       host: 'localhost', // Bind to a specific host
       noPrependStageInUrl: true, // Disable prepending the stage name to the URL
-      useChildProcesses: true, // Run each function in its own child process
+      useChildProcesses: true, // Run each function in its child process
     },
   },
 };
