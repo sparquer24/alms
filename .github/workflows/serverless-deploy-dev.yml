@@ -40,4 +40,6 @@ jobs:
 
       # Step 5: Deploy with Serverless Framework
       - name: Deploy with Serverless
-        run: serverless deploy
+        run: |
+          cd /home/runner/work/alms/alms/backend
+          serverless deploy
