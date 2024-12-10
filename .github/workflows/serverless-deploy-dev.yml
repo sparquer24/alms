@@ -36,4 +36,4 @@ jobs:
       - name: Deploy with Serverless
         run: |
           cd /home/runner/work/alms/alms/backend
-          serverless deploy
+          npx serverless deploy
