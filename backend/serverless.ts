@@ -14,18 +14,18 @@ const serverlessConfiguration: AWS = {
     },
   },
   functions: {
-    hello: {
-      handler: 'src/functions/hello/handler.main',
+    login: {
+      handler: 'src/handlers/users.loginHandler',
       events: [
         {
           http: {
-            path: 'hello',
+            path: 'login',
             method: 'get',
             request: {
               parameters: {
                 querystrings: {
                   name: true, // This makes the 'name' query parameter required
-                  age: false, // This makes the 'age' query parameter optional
+                  password: true, // This makes the 'age' query parameter optional
                 },
               },
             },
