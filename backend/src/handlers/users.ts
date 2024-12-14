@@ -6,16 +6,10 @@ interface ValidationError {
     message: string;
 }
 
-const validateUserInput = async (input: any): Promise<ValidationError[] | null> => {
-    const errors: ValidationError[] = [];
-    
-    
-    return errors.length > 0 ? errors : null;
-};
 
 export const loginHandler: APIGatewayProxyHandler = async (event: any): Promise<APIGatewayProxyResult> => {
     try {
-        const { username, password } = event.query;
+        const { username, password } = event.body;
 
         // Validate input
         if (!username || typeof username !== 'string') {

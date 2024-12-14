@@ -3,8 +3,8 @@ import { CustomError } from '../utils/CustomError';
 export const standardResponse = {
     success: (data: any, responseCode = 'SUCCESS') => ({
         statusCode: 200,
+        isSuccess: true,
         body: JSON.stringify({
-            isSuccess: true,
             responseCode,
             data,
             error: { error: '', errorDescription: '' },
@@ -15,8 +15,8 @@ export const standardResponse = {
         const error = new CustomError(message, statusCode);
         return {
             statusCode: error.statusCode, // Use the statusCode from CustomError
+            isSuccess: false,
             body: JSON.stringify({
-                isSuccess: false,
                 responseCode,
                 data: null,
                 error: {
@@ -30,8 +30,8 @@ export const standardResponse = {
 
     badRequest: (message: string, responseCode = 'BAD_REQUEST') => ({
         statusCode: 400,
+        isSuccess: false,
         body: JSON.stringify({
-            isSuccess: false,
             responseCode,
             data: null,
             error: {
@@ -43,8 +43,8 @@ export const standardResponse = {
 
     noContent: (responseCode = 'NO_CONTENT') => ({
         statusCode: 204,
+        isSuccess: true,
         body: JSON.stringify({
-            isSuccess: true,
             responseCode,
             data: null,
             error: { error: '', errorDescription: '' },
@@ -53,8 +53,8 @@ export const standardResponse = {
 
     unauthorized: (message: string, responseCode = 'UNAUTHORIZED') => ({
         statusCode: 401,
+        isSuccess: false,
         body: JSON.stringify({
-            isSuccess: false,
             responseCode,
             data: null,
             error: {
@@ -66,8 +66,8 @@ export const standardResponse = {
 
     created: (data: any, responseCode = 'CREATED') => ({
         statusCode: 201,
+        isSuccess: true,
         body: JSON.stringify({
-            isSuccess: true,
             responseCode,
             data,
             error: { error: '', errorDescription: '' },

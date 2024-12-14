@@ -7,7 +7,6 @@ export const login = async (username: string, password: string) => {
         if (errAuthenticateUser) {
             return [errAuthenticateUser];
         }
-        l = 5
         return [null, seccessAuthenticateUser];
     } catch (err:any) {
         console.error('Error in validateUserService:', err);

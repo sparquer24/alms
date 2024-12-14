@@ -11,6 +11,8 @@ const serverlessConfiguration: AWS = {
     timeout: 10,
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      CLIENT_ID: "7usr9q8uc06io6d9eaug9m7p1o",
+      USER_POOL_ID: "ap-south-1_bFOQKZMWS",
     },
   },
   functions: {
@@ -20,14 +22,14 @@ const serverlessConfiguration: AWS = {
         {
           http: {
             path: 'login',
-            method: 'get',
+            method: 'post',
             request: {
               parameters: {
-                querystrings: {
-                  name: true, // This makes the 'name' query parameter required
-                  password: true, // This makes the 'age' query parameter optional
-                },
-              },
+                paths: {
+                  username: true,
+                  password: true
+                }
+              }
             },
           integration: 'lambda', // Direct integration with Lambda
           cors: {
