@@ -2,7 +2,7 @@ import axios from 'axios';
 import jsCookie from 'js-cookie';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:3001',
+  baseURL: 'https://api-dev.sparquer.com',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json', // Default headers
