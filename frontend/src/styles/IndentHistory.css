@@ -1,0 +1,186 @@
+.spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.dashboard-indent-page {
+    margin: 110px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 190px);
+    max-height: calc(100vh - 190px);
+    overflow: auto;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    /* Ensure modal is above other content */
+}
+
+.modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    /* Ensure modal is above overlay */
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.error-message {
+    color: red;
+    font-size: 0.9em;
+}
+
+.data-table-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.data-table-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.data-table-show {
+    flex: 0;
+}
+
+.data-table-show select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.data-table-search {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.data-table-search input {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 200px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: #f4f4f4;
+}
+
+.data-table td {
+    background-color: #fff;
+}
+
+.data-table tr:nth-child(even) td {
+    background-color: #f9f9f9;
+}
+
+.data-table tr:hover td {
+    background-color: #f1f1f1;
+}
+
+/* Style for the indent number link */
+.data-table td span {
+    color: blue;
+    /* text-decoration: underline; */
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* .data-table td span:hover {
+    text-decoration: none;
+} */
+
+.data-table-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.data-table-pagination button {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f8f9fa;
+    cursor: pointer;
+}
+
+.main-content {
+    margin-top: 70px;
+    /* Adjust this value based on the height of your header */
+}
+
+/* Modal Styles */
+.modal {
+    display: block;
+    /* Make sure the modal is visible */
+    position: fixed;
+    z-index: 1000;
+    /* Ensure it's on top of other elements */
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 50%;
+    background-color: white;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}

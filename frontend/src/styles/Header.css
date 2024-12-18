@@ -1,0 +1,108 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  /* Ensures the header stays above other content */
+  display: flex;
+  flex-direction: column;
+  padding: 20px 30px;
+  background: linear-gradient(180deg, #17225B 0%, #596DD9 100%);
+  color: #fff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-roles{
+  font-weight: bold;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 5px;
+  height: 50px;
+}
+
+.header-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.header-logo img {
+  width: 80px;
+  height: auto;
+  cursor: pointer;
+}
+
+.header-navigation {
+  display: flex;
+  align-items: center;
+}
+
+.header-button {
+  color: #fff;
+  background-color: #E52F2F;
+  text-decoration: none;
+  padding: 5px 10px;
+  margin-right: 5px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  font-size: 0.9em;
+}
+
+.header-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.header-text {
+  background-color: #111A48;
+  padding: 10px 15px;
+  border-radius: 5px;
+  color: white;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.header-path {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+}
+
+.header-path span {
+  margin-right: 5px;
+}
+
+.header-path span:last-child {
+  font-weight: bold;
+  color: #fff;
+}
+
+.header-button {
+  display: flex;
+  align-items: center;
+  color: #fff;
+  background-color: #E52F2F;
+  text-decoration: none;
+  padding: 5px 10px;
+  margin-right: 5px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  font-size: 0.9em;
+}
+
+.header-button svg {
+  margin-right: 5px;
+}
+
+.header-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}

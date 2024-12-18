@@ -1,45 +1,41 @@
-import React, { useState } from "react";
-import "../styles/login.css"; // Import styles specific to login
+import React, { useState } from 'react';
 
-const LoginForm = ({ onLogin }: { onLogin: (username: string, password: string) => void }) => {
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
+interface LoginFormProps {
+  onLogin: (username: string, password: string) => void;
+}
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onLogin(username, password);
-    };
+const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
 
-    return (
-        <div className="login-box">
-            <h1 className="title">Login</h1>
-            <form className="login-form" onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="username">Username</label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                    />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                <button type="submit" className="submit-btn">
-                    Submit
-                </button>
-            </form>
-        </div>
-    );
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    onLogin(username, password);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label htmlFor="username">Username</label>
+        <input
+          type="text"
+          id="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </div>
+      <div>
+        <label htmlFor="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+      <button type="submit">Login</button>
+    </form>
+  );
 };
 
 export default LoginForm;

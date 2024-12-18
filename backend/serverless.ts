@@ -40,11 +40,8 @@ const serverlessConfiguration: AWS = {
             path: 'login',
             method: 'post',
             request: {
-              parameters: {
-                paths: {
-                  username: true,
-                  password: true
-                }
+              schemas:{
+                'application/json': '${file(src/requestBody/loginRequest.json)}'
               }
             },
           ...corsHeaders
@@ -60,13 +57,6 @@ const serverlessConfiguration: AWS = {
           http: {
             path: 'logout',
             method: 'post',
-            request: {
-              parameters: {
-                paths: {
-                  accessToken: true
-                }
-              }
-            },
           ...corsHeaders
           },
         },

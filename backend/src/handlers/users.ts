@@ -37,7 +37,7 @@ export const loginHandler: APIGatewayProxyHandler = async (event: any): Promise<
 
 export const logoutHandler: APIGatewayProxyHandler = async (event: any): Promise<APIGatewayProxyResult> => {
     try {
-        const { accessToken } = event.body;
+        const accessToken  = event.headers.Authorization || event.headers.authorization;
 
         // Validate input
         if (!accessToken || typeof accessToken !== 'string') {
