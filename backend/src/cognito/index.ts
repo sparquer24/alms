@@ -70,3 +70,35 @@ export const authenticateUser = async (username: string, password: string): Prom
         return [{ message: error.message }, null];
     }
 };
+
+
+/**
+ * Logout user by invalidating all sessions (global sign-out).
+ * 
+ * @param {string} accessToken - The access token of the authenticated user.
+ * @returns {Promise<[any, any]>} - An array with error and result.
+ */
+export const logoutUser = async (accessToken: string): Promise<[any, any]> => {
+    try {
+        if (!accessToken) {
+            return [{ message: 'Access token is required for logout.' }, null];
+        }
+
+        const cognito = new AWS.CognitoIdentityServiceProvider();
+
+        const data = await new Promise((resolve, reject) => {
+            cognito.globalSignOut({ AccessToken: accessToken }, (err, result) => {
+                if (err) {
+                    console.error('Error in globalSignOut:', err);
+                    reject(err);
+                } else {
+                    resolve(result);
+                }
+            });
+        });
+        return [null, { message: 'User logged out successfully.', data }];
+    } catch (error: any) {
+        console.error('Error in logoutUser:', error);
+        return [{ message: error.message }, null];
+    }
+};

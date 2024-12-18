@@ -1,5 +1,21 @@
 import type { AWS } from '@serverless/typescript';
 
+let corsHeaders = {
+  integration: 'lambda', // Direct integration with Lambda
+  cors: {
+    origin: '*', // Allow all origins; replace with specific domain if needed
+    headers: [
+      'Content-Type',
+      'Authorization',
+      'X-Amz-Date',
+      'X-Api-Key',
+      'X-Amz-Security-Token',
+      'X-Amz-User-Agent',
+      'Authorization',
+    ],
+  },
+};
+
 const serverlessConfiguration: AWS = {
   service: 'my-serverless-project',
   frameworkVersion: '4',
@@ -16,7 +32,7 @@ const serverlessConfiguration: AWS = {
     },
   },
   functions: {
-    login: {
+    loginHandler: {
       handler: 'src/handlers/users.loginHandler',
       events: [
         {
@@ -31,19 +47,27 @@ const serverlessConfiguration: AWS = {
                 }
               }
             },
-          integration: 'lambda', // Direct integration with Lambda
-          cors: {
-            origin: '*', // Allow all origins; replace with specific domain if needed
-            headers: [
-              'Content-Type',
-              'Authorization',
-              'X-Amz-Date',
-              'X-Api-Key',
-              'X-Amz-Security-Token',
-              'X-Amz-User-Agent',
-              'Authorization',
-            ],
+          ...corsHeaders
           },
+        },
+      ],
+    },
+    // logout
+    logoutHandler: {
+      handler: 'src/handlers/users.logoutHandler',
+      events: [
+        {
+          http: {
+            path: 'logout',
+            method: 'post',
+            request: {
+              parameters: {
+                paths: {
+                  accessToken: true
+                }
+              }
+            },
+          ...corsHeaders
           },
         },
       ],

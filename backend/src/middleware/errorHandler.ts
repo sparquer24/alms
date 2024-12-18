@@ -10,8 +10,6 @@ export const errorHandler = async (
     try {
         return await next();
     } catch (error) {
-        console.error('Error caught:', error);
-
         if (error instanceof CustomError) {
             return {
                 statusCode: error.statusCode,
