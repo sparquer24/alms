@@ -1,0 +1,219 @@
+/* Modal overlay style */
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal {
+  height: 0px !important;
+  overflow: hidden !important;
+  padding: 0 0 265px !important;
+  z-index: 9999 !important;
+}
+button.nested-popup.btn.btn-danger {
+  width: 100px;
+    font-weight: bold;
+}
+button.nested-popup.btn.btn-primary {
+  width: 100px;
+    font-weight: bold;
+}
+
+/* Modal style */
+.popup {
+  background-color: #fff;
+  padding: 20px;
+  width: 90%;
+  max-width: 600px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Modal title style */
+.modal-title {
+  margin: 0;
+  font-size: 1.2em;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding: 10px 0;
+  margin-bottom: 10px;
+}
+
+/* Close button style (merged) */
+.popup .close-btn,
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #f44336;
+  border: none;
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2em;
+  padding: 0 10px;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modal body style */
+.modal-body {
+  margin-bottom: 20px;
+}
+
+/* Item input styles */
+.item-inputs {
+  margin-top: 20px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* Shared form input style */
+.form-input,
+textarea.form-input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+textarea.form-input {
+  width: 100%;
+  height: 100px;
+  resize: none;
+}
+
+/* Error input style */
+.error-input {
+  border-color: #f44336;
+}
+
+/* Remove button for items */
+.remove-btn {
+  background: #ff4d4d;
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.remove-btn:hover {
+  background: #ff3333;
+}
+
+/* Button styles */
+.subheader-button,
+.btn-danger {
+  background-color: #f44336;
+  border: none;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.subheader-button:hover,
+.btn-danger:hover {
+  background-color: #e52f2f;
+}
+
+/* Cancel button styles */
+.subheader-button.cancel,
+.button-group .cancel {
+  background-color: #6c757d;
+}
+
+.subheader-button.cancel:hover,
+.button-group .cancel:hover {
+  background-color: #5a6268;
+}
+
+/* Button group styles */
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* General textarea */
+textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+/* Form styles */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Item input containers */
+.item-inputs .item {
+  display: flex;
+  gap: 10px;
+  align-items: normal;
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.item-inputs .item .qty-cont{
+  position: relative;
+}
+
+.item-inputs .item .qty-cont p{
+  margin-bottom: 0;
+  position: absolute;
+  bottom: -20px;
+}
+
+.item-inputs .item .remove-btn, .item-inputs .item .quantity {
+  height: 38px;
+}
+
+.css-b62m3t-container {
+  width: 350px !important;
+}
+
+.form-input_quantity-input {
+  width: 20px !important;
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.form-input:hover {
+  border-color: #2684FF;
+}
+
+/* Popup.css */
+.error-text {
+  color: red;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+
+
+/* #2684FF */
+
