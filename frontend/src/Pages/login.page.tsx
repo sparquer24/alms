@@ -57,7 +57,7 @@ const Login: React.FC = () => {
                 username,
                 password,
             });
-            console.log({ response });
+
             if (!response.isSuccess) {
                 toast.error('Invalid credentials!');
                 return;

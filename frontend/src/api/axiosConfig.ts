@@ -2,14 +2,13 @@ import axios from 'axios';
 import jsCookie from 'js-cookie';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://api-dev.sparquer.com',
-  timeout: 10000,
+  baseURL: 'https://alms-api-dev.sparquer.com',
+  timeout: 30000,
   headers: {
-    'Content-Type': 'application/json', // Default headers
+    'Content-Type': 'application/json' 
   },
 });
 
-// const setTokenData = 'Authorization': `Bearer ${jsCookie.get('token')}`, 
 
 // Function to update Authorization header
 export const setAuthToken = (token: any) => {
@@ -38,6 +37,7 @@ export const postData = async (url: string, data: any, options = {}) => {
     const response = await axiosInstance.post(url, data, options);
     return response.data;
   } catch (error) {
+    console.log({error});
     throw new Error('Could not post data');
   }
 };

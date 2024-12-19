@@ -11,10 +11,8 @@ const DashboardPage: React.FC = () => {
     // Function to handle logout
     const handleLogout = async () => {
         try {
-            const response = await postData('http://localhost:3001/logout ', {
-                accessToken: jsCookie.get('token'),
-            });
-
+            const response = await postData('/logout ', {}, { headers: { Authorization: jsCookie.get('token') } });
+            console.log('response', response);
             if (response.isSuccess) {
                 jsCookie.remove('token');
                 jsCookie.remove('user');
