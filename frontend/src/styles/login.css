@@ -141,16 +141,19 @@ button:disabled {
 .arms-logo {
   width: 400px;
   height: 60px;
+  margin: 0 -20px;
   text-align: center;
+  justify-content: center;
+  display: flex;
 }
 
 .arms-logo img {
-  margin-top: 20px;
-  height: 100%;
-  background-color: #555;
+  height: 90%;
+  background-color: #555555d2;
   padding: 5px;
-  display: flex;
+  margin: 0 10px;
 }
+
 /* Styling for Table Layout */
 .login-input {
   text-align: start;
