@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import '../styles/login.css';
 import jsCookie from 'js-cookie';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import ps_logo from '../assets/ps_logo.png';
-import arms_logo from '../assets/passport-img.png';
+import armsLogo from '../assets/passport-img.png';
+import policeLogo from '../assets/ps_logo.png';
+import { ToastContainer, toast } from 'react-toastify';
 import { setAuthToken } from '../../src/api/axiosConfig';
-import { useAppDispatch } from '../features/store.hook';
 import { postData } from '../../src/api/axiosConfig';
+import axios from 'axios';
 
-const Login: React.FC = () => {
-    const dispatch = useAppDispatch();
+const Login = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -83,69 +80,74 @@ const Login: React.FC = () => {
     };
 
     return (
-        <div className='main'>
-            <div className='container'>
-                <div className='login_logo'>
-                    <img src={ps_logo} alt='PS Logo' />
-                </div>
-                <form className='form-container' onSubmit={handleSubmit}>
-                    <div className='arms-logo'>
-                        <img src={arms_logo} alt='PS Logo' />
-                        <h1>Arms License</h1>
+        <>
+            <div
+                className="min-h-screen bg-cover bg-center flex flex-col justify-center items-center overflow-hidden bg-black bg-opacity-10"
+                style={{
+                    backgroundImage: `url('src/assets/backgroundIMGALMS.jpeg')`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: 'cover',
+                }}
+            >
+                <div className="flex flex-col md:flex-row justify-center items-center gap-10">
+                    {/* Left Section */}
+                    <div className="flex justify-center items-center flex-grow">
+                        <img src={policeLogo} alt="Telangana Police Badge" className="h-[400px] w-[400px] md:h-[500px] md:w-[500px]" />
                     </div>
-                    <h5 className='form-title'>Login</h5>
-                    <table className="login-input">
-                        <tr>
-                            <td>
-                                <label htmlFor="username" className="form-label">User Name</label>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input
-                                    id="username"
-                                    type="text"
-                                    placeholder="Enter your user name"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    required
-                                />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <label htmlFor="password" className="form-label">Password</label>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div className="password-wrapper">
-                                    <input
-                                        id="password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        placeholder="Enter your password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required
-                                    />
-                                    <span
-                                        className="toggle-password"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        {showPassword ? '👁️' : '🙈'}
-                                    </span>
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
-                    <button type='submit' disabled={loading}>
-                        {loading ? 'Signing In...' : 'Submit'}
-                    </button>
-                </form>
 
+                    {/* Right Section */}
+                    <form
+                        onSubmit={handleSubmit}
+                        className="flex flex-col gap-4 w-full max-w-lg bg-white p-20 rounded-lg shadow-md shadow-[0px_0px_10px_0px_#00000040]"
+                        style={{ margin: '10px 0' }}
+                    >
+                        <div className="flex items-center justify-center bg-gray-50 gap-2 ">
+                            <img src={armsLogo} alt="Telangana Police" className="h-16 mr-4" />
+                            <h3 className="text-3xl text-violet-900 font-bold">Telangana Police</h3>
+                        </div>
+                        <h4 className="text-gray-600 text-2xl font-bold">Login</h4>
 
+                        <div className="flex flex-col">
+                            <label htmlFor="userId" className="text-gray-700 font-bold">User Name</label>
+                            <input
+                                type="text"
+                                id="userName"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="Enter your name"
+                                className="mt-2 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div className="flex items-center relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Enter your password"
+                                className="mt-3 p-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                            />
+                            <span
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer text-gray-500"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {/* {showPassword ? '👁️' : '🙈'} */}
+                            </span>
+                        </div>
+
+                        <button
+                            type="submit" disabled={loading}
+                            className="bg-[#31208A] text-white font-bold py-2 rounded-lg hover:bg-blue-700 focus:outline-none"
+                        >
+                            {loading ? 'Signing In...' : 'Submit'}
+                        </button>
+                    </form>
+                </div>
             </div>
-        </div>
+
+
+        </>
     );
 };
 

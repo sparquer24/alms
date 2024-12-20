@@ -1,5 +1,4 @@
 import policeBadge from '../assets/ps_logo.png'; // Assume you have a police badge image in your assets folder
-import '../styles/NotFound.css'; // Custom CSS file for styling the NotFound page
 
 const NotFound = () => {
     return (

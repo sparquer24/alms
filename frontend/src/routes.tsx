@@ -2,17 +2,13 @@ import {FC, Suspense, lazy} from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import jsCookie from 'js-cookie';
 import { setAuthToken } from './api/axiosConfig';
-const InventoryPage = lazy(() => import('./Pages/inventory.page'));
-import IndentHistory from './components/IndentHistory';
-import NotFound from './Pages/NotFound'; // Ensure you have the NotFound component
 import DashboardPage from './Pages/dashboard.page';
 import Login from './Pages/login.page';
-import InventoryHistory from './components/inventory/InventoryHistory';
-import { setUser } from './features/user/userSlice';
-import { useAppDispatch } from './features/store.hook';
+import NotFound from './Pages/NotFound';
+import FormComponent from './Pages/Form.page';
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
-    const dispatch = useAppDispatch();
+    // const dispatch = useAppDispatch();
 
     const token = jsCookie.get('token');
     const user = token ? JSON.parse(jsCookie.get('user') as string) : null;
@@ -22,14 +18,14 @@ const PrivateRoute = ({ children }: { children: JSX.Element }) => {
         return <Navigate to="/login" />
     }
     setAuthToken(token);
-    dispatch(setUser({role: userGroup, username: user?.username}));
+      // dispatch(setUser({role: userGroup, username: user?.username}));
 
     return children;
 };
 
 const AppRoutes: FC = () => {
     return (<Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login/>} />
           <Route
             path="/dashboard"
             element={
@@ -39,28 +35,10 @@ const AppRoutes: FC = () => {
             }
           />
           <Route
-            path="/inventory/:tab?"
+            path="/form"
             element={
               <PrivateRoute>
-                <Suspense fallback={"fetching..."}>
-                  <InventoryPage />
-                </Suspense>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/indentdetails/:id"
-            element={
-              <PrivateRoute>
-                <IndentHistory />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/inventorydetails/:id"
-            element={
-              <PrivateRoute>
-                <InventoryHistory />
+                <FormComponent />
               </PrivateRoute>
             }
           />
