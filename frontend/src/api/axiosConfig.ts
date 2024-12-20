@@ -13,7 +13,7 @@ const axiosInstance = axios.create({
 // Function to update Authorization header
 export const setAuthToken = (token: any) => {
   if (token) {
-    axiosInstance.defaults.headers['Authorization'] = `Bearer ${token}`;
+    axiosInstance.defaults.headers['Authorization'] = `${token}`;
   }
   else {
     delete axiosInstance.defaults.headers['Authorization']; // Remove token if not provided

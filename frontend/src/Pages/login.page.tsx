@@ -63,9 +63,7 @@ const Login = () => {
             const data_res = JSON.parse(response.body);
             console.log(data_res);
             jsCookie.set('user', JSON.stringify(data_res?.data), { expires: 1 });
-
             const accessToken = data_res?.data.accessToken;
-            console.log({ accessToken });
             jsCookie.set('token', accessToken, { expires: 1 });
             setAuthToken(accessToken);
             toast.success('Successfully logged in!');
