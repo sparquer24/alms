@@ -1,22 +1,48 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type HeaderProps = {
     title: string;
     subtitle: string;
     buttonLabel: string;
+    enableButton?: boolean;
+    enableNavigation?: boolean;
+    navigationPath?: string; // Path to navigate
 };
 
-const Header: React.FC<HeaderProps> = ({ title, subtitle, buttonLabel }) => {
+const Header: React.FC<HeaderProps> = ({ 
+    title, 
+    subtitle, 
+    buttonLabel, 
+    enableButton = true, 
+    enableNavigation = true, 
+    navigationPath = '/form' // Default path
+}) => {
+    const navigate = useNavigate();
+
+    const handleClick = () => {
+        if (enableNavigation) {
+            navigate(navigationPath);
+        } else {
+            console.log('Custom button action triggered!');
+        }
+    };
+
     return (
-        <div className="flex justify-between items-center px-6 py-4 bg-gray-100">
+        <header className="container mx-auto px-4 py-6 flex justify-between items-center">
             <div>
-                <h1 className="text-2xl font-bold text-blue-600">{title}</h1>
-                <p>{subtitle}</p>
+                <h1 className="text-2xl font-bold text-blue-700">{title}</h1>
+                <p className="text-gray-600">{subtitle}</p>
             </div>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                {buttonLabel}
-            </button>
-        </div>
+            {enableButton && (
+                <button
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+                    onClick={handleClick}
+                >
+                    <span className="mr-2">+</span> {buttonLabel}
+                </button>
+            )}
+        </header>
     );
 };
 

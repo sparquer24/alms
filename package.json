@@ -1,5 +1,11 @@
 {
   "devDependencies": {
     "@types/node": "^22.10.2"
+  },
+  "scripts": {
+    "df": "./frontend tsc -b && vite build",
+    "bb": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   }
 }

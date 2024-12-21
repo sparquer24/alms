@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import jsCookie from 'js-cookie';
-import armsLogo from '../assets/passport-img.png';
-import policeLogo from '../assets/ps_logo.png';
+import armsLogo from '/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg';
+import policeLogo from '/assets/ps_logo.png';
 import { ToastContainer, toast } from 'react-toastify';
 import { setAuthToken } from '../../src/api/axiosConfig';
 import { postData } from '../../src/api/axiosConfig';
@@ -82,7 +82,7 @@ const Login = () => {
             <div
                 className="min-h-screen bg-cover bg-center flex flex-col justify-center items-center overflow-hidden bg-black bg-opacity-10"
                 style={{
-                    backgroundImage: `url('src/assets/backgroundIMGALMS.jpeg')`,
+                    backgroundImage: `url('/assets/backgroundIMGALMS.jpeg')`,
                     backgroundRepeat: 'no-repeat',
                     backgroundSize: 'cover',
                 }}
@@ -101,7 +101,7 @@ const Login = () => {
                     >
                         <div className="flex items-center justify-center bg-gray-50 gap-2 ">
                             <img src={armsLogo} alt="Telangana Police" className="h-16 mr-4" />
-                            <h3 className="text-3xl text-violet-900 font-bold">Telangana Police</h3>
+                            <h3 className="text-4xl text-violet-900 font-bold">Arms License</h3>
                         </div>
                         <h4 className="text-gray-600 text-2xl font-bold">Login</h4>
 
@@ -117,7 +117,8 @@ const Login = () => {
                             />
                         </div>
 
-                        <div className="flex items-center relative">
+                        <div className="flex flex-col">
+                            <label htmlFor="password" className="text-gray-700 font-bold">Password</label>
                             <input
                                 type={showPassword ? "text" : "password"}
                                 id="password"

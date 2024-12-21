@@ -1,4 +1,4 @@
-import policeBadge from '../assets/ps_logo.png'; // Assume you have a police badge image in your assets folder
+import policeBadge from '/assets/ps_logo.png'; // Assume you have a police badge image in your assets folder
 
 const NotFound = () => {
     return (

@@ -1,34 +1,10 @@
 import React, { useState } from 'react';
-import FormComponent from '../Pages/Form.page';
 import { useNavigate } from 'react-router-dom';
-import { postData } from '../api/axiosConfig';
-import jsCookie from 'js-cookie';
 
 const Dashboard = () => {
     const [activeTab, setActiveTab] = useState('New Requests');
     const [selectedRows, setSelectedRows] = useState<string[]>([]);
     const navigate = useNavigate();
-
-    // Function to handle logout
-    const handleLogout = async () => {
-        try {
-            const response = await postData('/logout ', {
-            });
-
-            if (response.isSuccess) {
-                jsCookie.remove('token');
-                jsCookie.remove('user');
-                console.log('Logout successful');
-                // Redirect to login page after successful logout
-                navigate('/login');
-            } else {
-                console.error('Logout failed');
-            }
-        } catch (error) {
-            console.error('Error during logout:', error);
-        }
-    };
-
     const data = [
         {
             id: '203241008',
@@ -74,31 +50,6 @@ const Dashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Navbar */}
-            <nav className="bg-gradient-to-r from-blue-800 to-blue-600 text-white shadow-lg">
-                <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-                    <div className="text-lg font-bold">Arms License</div>
-                    <div className="text-xl font-semibold">Telangana Police</div>
-                    <button onClick={handleLogout} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-                        Logout
-                    </button>
-                </div>
-            </nav>
-
-            {/* Header Section */}
-            <header className="container mx-auto px-4 py-6 flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-blue-700">Zonal Superintendent Dashboard</h1>
-                    <p className="text-gray-600">Requests Insights</p>
-                </div>
-                <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
-                    onClick={() => navigate('/form')}
-                >
-                    <span className="mr-2">+</span> New Application Form
-                </button>
-            </header>
-
             {/* Tabs */}
             <div className="container mx-auto px-4">
                 <div className="flex border-b border-gray-200">
