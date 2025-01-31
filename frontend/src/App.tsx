@@ -1,36 +1,21 @@
-import { BrowserRouter as Router, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { ThemeProvider } from "@mui/material/styles";
+import 'react-toastify/dist/ReactToastify.css'; 
+import AppRoutes from './routes/routes';
 import { Provider } from 'react-redux';
-import { ToastContainer } from 'react-toastify';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import 'react-toastify/dist/ReactToastify.css'; // Import the CSS
-import AppRoutes from './routes';
+import store from './store';
+import theme from './components/common/styles/ThemeProvider';
 
-// Create a wrapper component for conditional rendering of Header and Footer
-const Layout = ({ children }: { children: JSX.Element }) => {
-  const location = useLocation();
-  const hideHeaderFooter = location.pathname === '/login';
-  return (
-    <>
-      {/* {!hideHeaderFooter && <Header />} */}
-      {/* { <PrivateRoute>
-        <NavigationHeader />
-      </PrivateRoute>} */}
-      {children}
-      {/* {!hideHeaderFooter && <Footer />} */}
-    </>
-  );
-};
 
 function App() {
   return (
-    // <Provider store={App}>
-      <Router>
-        {/* <ToastContainer /> */}
-        <Layout>
-          <AppRoutes />
-        </Layout>
-      </Router>
-    // </Provider>
+    <ThemeProvider theme={theme}>
+    <Provider store={store}>
+    <Router>
+    <AppRoutes />
+  </Router>
+  </Provider>
+  </ThemeProvider>
   );
 }
 

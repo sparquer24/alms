@@ -1,41 +1,91 @@
-import React from 'react';
+import React from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  Chip,
+  IconButton,
+} from "@mui/material";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
-type TableProps = {
-  headers: string[];
-  data: Record<string, any>[];
-  onRowSelect: (row: Record<string, any>) => void;
+const getStatusChip = (status: string) => {
+  switch (status) {
+    case "Approved":
+      return <Chip label="Approved" color="success" sx={{ fontWeight: "bold" }} />;
+    case "Rejected":
+      return <Chip label="Rejected" color="error" sx={{ fontWeight: "bold" }} />;
+    case "Pending":
+      return <Chip label="Pending" color="warning" sx={{ fontWeight: "bold" }} />;
+    default:
+      return <Chip label="N/A" sx={{ fontWeight: "bold", backgroundColor: "#E1D5F0" }} />;
+  }
 };
 
-const Table: React.FC<TableProps> = ({ headers, data, onRowSelect }) => {
+const CommonTable = ({ data }: { data: Array<any> }) => {
+
   return (
-    <table className="min-w-full bg-white">
-      <thead>
-        <tr className="bg-gray-200">
-          <th className="p-2">
-            <input type="checkbox" />
-          </th>
-          {headers.map((header, index) => (
-            <th key={index} className="p-2">{header}</th>
+    <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
+      <Table>
+        <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
+          <TableRow>
+            <TableCell><strong>S.no</strong></TableCell>
+            <TableCell><strong>ID</strong></TableCell>
+            <TableCell><strong>UIN Number</strong></TableCell>
+            <TableCell><strong>Applicant Name</strong></TableCell>
+            <TableCell><strong>Date & Time</strong></TableCell>
+            <TableCell><strong>Additional Information</strong></TableCell>
+            <TableCell><strong>Status</strong></TableCell>
+            <TableCell><strong>Action</strong></TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {data.map((row, index) => (
+            <TableRow key={row.id || index}>
+              <TableCell>{index + 1}</TableCell>
+              <TableCell>{row.id}</TableCell>
+              <TableCell>{row.uin}</TableCell>
+              <TableCell>{row.name}</TableCell>
+              <TableCell>{row.date}</TableCell>
+              <TableCell>{row.info}</TableCell>
+              <TableCell>{getStatusChip(row.status)}</TableCell>
+              <TableCell>
+                {row.status === "N/A" ? (
+                  <Button
+                    variant="contained"
+                    sx={{
+                      backgroundColor: "#001678",
+                      color: "#fff",
+                      fontWeight: "bold",
+                      textTransform: "none",
+                      fontSize: "14px",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      "&:hover": {
+                        backgroundColor: "#001460",
+                      },
+                    }}
+                  >
+                    Forward <ArrowForwardIcon sx={{ fontSize: "18px" }} />
+                  </Button>) : (
+                  <IconButton color="primary" size="small">
+                    <VisibilityIcon />
+                  </IconButton>
+                )}
+              </TableCell>
+            </TableRow>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((row, index) => (
-          <tr
-            key={index}
-            className={`text-center ${index % 2 === 0 ? 'bg-gray-100' : 'bg-white'}`}
-          >
-            <td>
-              <input type="checkbox" onChange={() => onRowSelect(row)} />
-            </td>
-            {Object.values(row).map((value, i) => (
-              <td key={i} className="p-2">{value}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 };
 
-export default Table;
+export default CommonTable;

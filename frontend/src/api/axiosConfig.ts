@@ -1,8 +1,7 @@
 import axios from 'axios';
-import jsCookie from 'js-cookie';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://alms-api-dev.sparquer.com',
+  baseURL: import.meta.env.VITE_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json' 
@@ -11,12 +10,12 @@ const axiosInstance = axios.create({
 
 
 // Function to update Authorization header
-export const setAuthToken = (token: any) => {
+export const setAuthToken = (token: string) => {
   if (token) {
     axiosInstance.defaults.headers['Authorization'] = `${token}`;
   }
   else {
-    delete axiosInstance.defaults.headers['Authorization']; // Remove token if not provided
+    delete axiosInstance.defaults.headers['Authorization']; 
   }
 };
 

@@ -1,0 +1,65 @@
+[
+    {
+      "label": "New Requests",
+      "data": [
+        { "id": 1, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "N/A" },
+        { "id": 1, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "N/A" },
+        { "id": 1, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "N/A" },
+        { "id": 1, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "N/A" },
+        { "id": 1, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "N/A" },
+        { "id": 1, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "N/A" }
+      ]
+    },
+    {
+      "label": "Approved Requests",
+      "data": [
+        { "id": 2, "uin": "203241008", "name": "Lorem", "date": "25.07.2018 14:14:0", "info": "Lorem ipsum .PDF", "status": "Approved" },
+        { "id": 2, "uin": "203241008", "name": "Lorem", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Approved" },
+        { "id": 2, "uin": "203241008", "name": "Lorem", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Approved" }
+
+      ]
+    },
+    {
+      "label": "Rejected Requests",
+      "data": [
+        { "id": 3, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018", "info": "Lorem ipsum .PDF", "status": "Rejected" },
+        { "id": 3, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018", "info": "Lorem ipsum .PDF", "status": "Rejected" },
+        { "id": 3, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018", "info": "Lorem ipsum .PDF", "status": "Rejected" },
+        { "id": 3, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018", "info": "Lorem ipsum .PDF", "status": "Rejected" }
+
+      ]
+    },
+    {
+      "label": "Pending Requests",
+      "data": [
+        { "id": 4, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Pending" },
+        { "id": 4, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Pending" },
+        { "id": 4, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Pending" }
+      ]
+    },
+    {
+      "label": "Reverify Requests",
+      "data": [
+        { "id": 5, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Reverify" },
+        { "id": 5, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Reverify" },
+        { "id": 5, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Reverify" }
+      ]
+    },
+    {
+      "label": "Forward Application",
+      "data": [
+        { "id": 6, "uin": "203241008", "name": "sagar", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Forward" },
+        { "id": 6, "uin": "203241008", "name": "sagar2", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Forward" },
+        { "id": 6, "uin": "203241008", "name": "sagar3", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Forward" }
+      ]
+    },
+    {
+      "label": "Drafts",
+      "data": [
+        { "id": 7, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Drafts" },
+        { "id": 7, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Drafts" },
+        { "id": 7, "uin": "203241008", "name": "Lorem ipsum", "date": "25.07.2018 14:14:09", "info": "Lorem ipsum .PDF", "status": "Drafts" }
+      ]
+    }
+  ]
+  
