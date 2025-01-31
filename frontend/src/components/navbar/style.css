@@ -1,0 +1,5 @@
+.header-background {
+    background-image: url('../../../assets/dark-blue.svg') !important;
+    background-size: cover;
+    background-position: center;
+  }
