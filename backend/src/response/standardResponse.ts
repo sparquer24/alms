@@ -1,5 +1,5 @@
 import { CustomError } from '../utils/CustomError';
-const Headers = {
+const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -8,11 +8,12 @@ const Headers = {
 };
 
 export const standardResponse = {
-    success: (data: any, responseCode = 'SUCCESS') => ({
-        statusCode: 200,
-        isSuccess: true,
-        Headers,
+    success: (data: any, responseCode = 'SUCCESS', statusCode = 200) => ({
+        statusCode,
+        isSuccess: statusCode === 200,
+        headers,
         body: JSON.stringify({
+            statusCode,
             responseCode,
             data,
             error: { error: '', errorDescription: '' },
@@ -24,8 +25,9 @@ export const standardResponse = {
         return {
             statusCode: error.statusCode, // Use the statusCode from CustomError
             isSuccess: false,
-            Headers,
+            headers,
             body: JSON.stringify({
+                statusCode,
                 responseCode,
                 data: null,
                 error: {
@@ -36,12 +38,12 @@ export const standardResponse = {
         };
     },
 
-
     badRequest: (message: string, responseCode = 'BAD_REQUEST') => ({
         statusCode: 400,
         isSuccess: false,
-        Headers,
+        headers,
         body: JSON.stringify({
+            statusCode: 400,
             responseCode,
             data: null,
             error: {
@@ -54,8 +56,9 @@ export const standardResponse = {
     noContent: (responseCode = 'NO_CONTENT') => ({
         statusCode: 204,
         isSuccess: true,
-        Headers,
+        headers,
         body: JSON.stringify({
+            statusCode: 204,
             responseCode,
             data: null,
             error: { error: '', errorDescription: '' },
@@ -65,8 +68,9 @@ export const standardResponse = {
     unauthorized: (message: string, responseCode = 'UNAUTHORIZED') => ({
         statusCode: 401,
         isSuccess: false,
-        Headers,
+        headers,
         body: JSON.stringify({
+            statusCode: 401,
             responseCode,
             data: null,
             error: {
@@ -79,8 +83,9 @@ export const standardResponse = {
     created: (data: any, responseCode = 'CREATED') => ({
         statusCode: 201,
         isSuccess: true,
-        Headers,
+        headers,
         body: JSON.stringify({
+            statusCode: 201,
             responseCode,
             data,
             error: { error: '', errorDescription: '' },

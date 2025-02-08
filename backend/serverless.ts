@@ -30,6 +30,13 @@ const serverlessConfiguration: AWS = {
       CLIENT_ID: "7usr9q8uc06io6d9eaug9m7p1o",
       USER_POOL_ID: "ap-south-1_bFOQKZMWS",
     },
+    httpApi: {
+      cors: {
+        allowedOrigins: ['*'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedMethods: ['OPTIONS', 'POST'],
+      },
+    },
   },
   functions: {
     loginHandler: {
@@ -44,7 +51,8 @@ const serverlessConfiguration: AWS = {
                 'application/json': '${file(src/requestBody/loginRequest.json)}'
               }
             },
-          ...corsHeaders
+            ...corsHeaders,
+            integration: "lambda-proxy",
           },
         },
       ],

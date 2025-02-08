@@ -7,32 +7,30 @@ interface ValidationError {
 }
 import { CustomError } from '../utils/CustomError';
 
-
-export const loginHandler: APIGatewayProxyHandler = async (event: any): Promise<APIGatewayProxyResult> => {
+export const loginHandler: APIGatewayProxyHandler = async (event): Promise<APIGatewayProxyResult> => {
     try {
-        const { username, password } = event.body;
-
-        // Validate input
-        if (!username || typeof username !== 'string') {
-            return standardResponse.error('Username is required and must be a string');
+        if (!event.body) {
+            return standardResponse.badRequest("Request body is missing.");
         }
 
-        if (!password || typeof password !== 'string') {
-            return standardResponse.error('Password is required and must be a string');
+        const { username, password } = JSON.parse(event.body);
+
+        if (!username || typeof username !== "string" || !password || typeof password !== "string") {
+            return standardResponse.error("Invalid username or password format", 400);
         }
 
         // Call service layer for authentication
         const [errLogin, responseLogin] = await login(username, password);
         if (errLogin) {
-            return standardResponse.error(errLogin.message);
+            return standardResponse.error(errLogin.message, 401);
         }
 
         return standardResponse.success(responseLogin);
-    } catch (err) {
-        console.error('Error in loginHandler:', err);
-        return standardResponse.error('Internal server error');
+    } catch (error: any) {
+        return standardResponse.error(error.message || "Internal Server Error", error.statusCode || 500);
     }
 };
+
 
 
 export const logoutHandler: APIGatewayProxyHandler = async (event: any): Promise<APIGatewayProxyResult> => {
