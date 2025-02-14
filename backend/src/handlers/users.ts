@@ -7,24 +7,31 @@ interface ValidationError {
 }
 import { CustomError } from '../utils/CustomError';
 
+// Define the expected request payload
+interface LoginRequest {
+    username: string;
+    password: string;
+  }
+
 export const loginHandler: APIGatewayProxyHandler = async (event): Promise<APIGatewayProxyResult> => {
     try {
         if (!event.body) {
             return standardResponse.badRequest("Request body is missing.");
         }
 
-        const { username, password } = JSON.parse(event.body);
+         // Parse and validate the request payload
+        const body: LoginRequest = JSON.parse(event.body);
 
-        if (!username || typeof username !== "string" || !password || typeof password !== "string") {
-            return standardResponse.error("Invalid username or password format", 400);
+        if (!body.username || typeof body.username !== "string" || !body.password || typeof body.password !== "string") {
+        return standardResponse.error("Invalid username or password format", 400);
         }
 
         // Call service layer for authentication
-        const [errLogin, responseLogin] = await login(username, password);
+        const [errLogin, responseLogin] = await login(body.username, body.password);
+        
         if (errLogin) {
-            return standardResponse.error(errLogin.message, 401);
+        return standardResponse.error(errLogin.message, 401);
         }
-
         return standardResponse.success(responseLogin);
     } catch (error: any) {
         return standardResponse.error(error.message || "Internal Server Error", error.statusCode || 500);
