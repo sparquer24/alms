@@ -2,16 +2,11 @@ import { APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda';
 // import { validateUserInput } from '../validators/validateUserInput';
 import { login, logout } from '../services/users';
 import { standardResponse } from '../response/standardResponse';
+import {LoginRequest} from '../requestBody/login';
 interface ValidationError {
     message: string;
 }
 import { CustomError } from '../utils/CustomError';
-
-// Define the expected request payload
-interface LoginRequest {
-    username: string;
-    password: string;
-  }
 
 export const loginHandler: APIGatewayProxyHandler = async (event): Promise<APIGatewayProxyResult> => {
     try {
@@ -37,7 +32,6 @@ export const loginHandler: APIGatewayProxyHandler = async (event): Promise<APIGa
         return standardResponse.error(error.message || "Internal Server Error", error.statusCode || 500);
     }
 };
-
 
 
 export const logoutHandler: APIGatewayProxyHandler = async (event: any): Promise<APIGatewayProxyResult> => {

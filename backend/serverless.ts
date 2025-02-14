@@ -46,11 +46,6 @@ const serverlessConfiguration: AWS = {
           http: {
             path: 'login',
             method: 'post',
-            request: {
-              schemas:{
-                'application/json': '${file(src/requestBody/loginRequest.json)}'
-              }
-            },
             ...corsHeaders,
             integration: "lambda-proxy",
           },
