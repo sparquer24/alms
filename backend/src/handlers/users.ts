@@ -2,35 +2,49 @@ import { APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda';
 // import { validateUserInput } from '../validators/validateUserInput';
 import { login, logout } from '../services/users';
 import { standardResponse } from '../response/standardResponse';
+import {LoginRequest} from '../requestBody/login';
+import { findUserByCognitoId } from '../repository/users';
 interface ValidationError {
     message: string;
 }
 import { CustomError } from '../utils/CustomError';
 
-
-export const loginHandler: APIGatewayProxyHandler = async (event: any): Promise<APIGatewayProxyResult> => {
+export const loginHandler: APIGatewayProxyHandler = async (event): Promise<APIGatewayProxyResult> => {
     try {
-        const { username, password } = event.body;
-
-        // Validate input
-        if (!username || typeof username !== 'string') {
-            return standardResponse.error('Username is required and must be a string');
+        if (!event.body) {
+            return standardResponse.badRequest("Request body is missing.");
         }
 
-        if (!password || typeof password !== 'string') {
-            return standardResponse.error('Password is required and must be a string');
+         // Parse and validate the request payload
+        const body: LoginRequest = JSON.parse(event.body);
+
+        if (!body.username || typeof body.username !== "string" || !body.password || typeof body.password !== "string") {
+        return standardResponse.error("Invalid username or password format", 400);
         }
 
         // Call service layer for authentication
-        const [errLogin, responseLogin] = await login(username, password);
+        const [errLogin, responseLogin] = await login(body.username, body.password);
+        
         if (errLogin) {
-            return standardResponse.error(errLogin.message);
+        return standardResponse.error(errLogin.message, 401);
+        }
+        // Extract Cognito ID (sub) from responseLogin.User.UserAttributes
+        const userAttributes = responseLogin.user.UserAttributes;
+        const userCognitoIdObj = userAttributes.find((attr: { Name: string; Value: string }) => attr.Name === "sub");
+
+        if (!userCognitoIdObj || !userCognitoIdObj.Value) {
+            return standardResponse.error("Cognito user ID (sub) not found.", 500);
         }
 
+        const userCognitoId = userCognitoIdObj.Value;
+        const user = await findUserByCognitoId(userCognitoId);
+
+        if (!user) {
+            return standardResponse.error("User not found in the database", 404);
+        }
         return standardResponse.success(responseLogin);
-    } catch (err) {
-        console.error('Error in loginHandler:', err);
-        return standardResponse.error('Internal server error');
+    } catch (error: any) {
+        return standardResponse.error(error.message || "Internal Server Error", error.statusCode || 500);
     }
 };
 
