@@ -65,6 +65,18 @@ const serverlessConfiguration: AWS = {
         },
       ],
     },
+    getMeHandler: {
+      handler: 'src/handlers/getMe.getMeHandler',
+      events: [
+        {
+          http: {
+            path: 'UserDetails',
+            method: 'get',
+            ...corsHeaders,
+          },
+        },
+      ],
+    },
   },
   custom: {
     'serverless-offline': {

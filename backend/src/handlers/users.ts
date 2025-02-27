@@ -3,6 +3,7 @@ import { APIGatewayProxyResult, APIGatewayProxyHandler } from 'aws-lambda';
 import { login, logout } from '../services/users';
 import { standardResponse } from '../response/standardResponse';
 import {LoginRequest} from '../requestBody/login';
+import { findUserByCognitoId } from '../repository/users';
 interface ValidationError {
     message: string;
 }
@@ -26,6 +27,20 @@ export const loginHandler: APIGatewayProxyHandler = async (event): Promise<APIGa
         
         if (errLogin) {
         return standardResponse.error(errLogin.message, 401);
+        }
+        // Extract Cognito ID (sub) from responseLogin.User.UserAttributes
+        const userAttributes = responseLogin.user.UserAttributes;
+        const userCognitoIdObj = userAttributes.find((attr: { Name: string; Value: string }) => attr.Name === "sub");
+
+        if (!userCognitoIdObj || !userCognitoIdObj.Value) {
+            return standardResponse.error("Cognito user ID (sub) not found.", 500);
+        }
+
+        const userCognitoId = userCognitoIdObj.Value;
+        const user = await findUserByCognitoId(userCognitoId);
+
+        if (!user) {
+            return standardResponse.error("User not found in the database", 404);
         }
         return standardResponse.success(responseLogin);
     } catch (error: any) {

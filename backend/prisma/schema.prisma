@@ -8,8 +8,124 @@ datasource db {
 }
 
 model User {
-  id    Int      @id @default(autoincrement())
-  email String   @unique
-  name  String?
-  @@map("users")
+  Id            String   @id
+  UserCognitoId String   @unique
+  EmailId       String
+  Name          String
+  Role          Role     @relation(fields: [RoleId], references: [Id])
+  RoleId        String  
+  State         State?   @relation(fields: [StateId], references: [Id])
+  StateId       String?
+  District      District?   @relation(fields: [DistrictId], references: [Id])
+  DistrictId    String?
+  Wings          Wings?   @relation(fields: [WingId], references: [Id])
+  WingId        String?
+  Zone          Zone?   @relation(fields: [ZoneId], references: [Id])
+  ZoneId        String?
+  Division      Division?   @relation(fields: [DivisionId], references: [Id])
+  DivisionId    String?
+  PoliceStation PoliceStation?   @relation(fields: [PoliceStationId], references: [Id])
+  PoliceStationId String?
+  CreatedAt     DateTime @default(now())
+  ModifiedAt    DateTime @updatedAt
+}
+
+model Role {
+  Id         String   @id
+  Title      String
+  Active     Boolean  @default(true)
+  CreatedAt  DateTime @default(now())
+  ModifiedAt DateTime @updatedAt
+  User       User[]
+  RolePermissionLinks RolePermissionLink[]
+}
+
+model Permission {
+  Id         String   @id
+  Title      String
+  Active     Boolean  @default(true)
+  CreatedAt  DateTime @default(now())
+  ModifiedAt DateTime @updatedAt
+  RolePermissionLinks RolePermissionLink[]
+}
+
+model RolePermissionLink {
+  Id            String      @id
+  Role          Role        @relation(fields: [RoleId], references: [Id])
+  RoleId        String
+  Permission    Permission  @relation(fields: [PermissionId], references: [Id])
+  PermissionId  String
+  CreatedAt     DateTime    @default(now())
+  ModifiedAt    DateTime    @updatedAt
+}
+model Country {
+  Id          String @id
+  Name        String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  States      State[]
+}
+
+model State {
+  Id          String @id
+  Name        String
+  Country     Country @relation(fields: [CountryId], references: [Id])
+  CountryId   String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  Districts   District[]
+  Users       User[]
+}
+
+model District {
+  Id          String @id
+  Name        String
+  State       State @relation(fields: [StateId], references: [Id])
+  StateId     String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  Wings       Wings[]
+  User       User[]
+}
+
+model Wings {
+  Id      String @id
+  Name    String
+  District    District @relation(fields: [DistrictId], references: [Id])
+  DistrictId  String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  Zones       Zone[]
+  User       User[]
+}
+model Zone {
+  Id          String @id
+  Name        String
+  Wing        Wings @relation(fields: [WingId], references: [Id])
+  WingId      String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  Divisions   Division[]
+  User       User[]
+}
+
+model Division {
+  Id     String @id
+  Name   String
+  Zone   Zone  @relation(fields: [ZoneId], references: [Id])
+  ZoneId  String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  PoliceStation   PoliceStation[]
+  User       User[]
+}
+
+model PoliceStation {
+  Id      String @id
+  Name    String
+  Division  Division @relation(fields: [DivisionId], references: [Id])
+  DivisionId   String
+  CreatedAt   DateTime  @default(now())
+  ModifiedAt  DateTime @updatedAt
+  User       User[]
 }
