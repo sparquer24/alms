@@ -18,13 +18,15 @@ let corsHeaders = {
 
 const serverlessConfiguration: AWS = {
   service: 'my-serverless-project',
-  frameworkVersion: '4',
-  plugins: ['serverless-offline'], // Add serverless-offline here
+  frameworkVersion: '3',
+  plugins: ['serverless-offline', 'serverless-plugin-typescript', 'serverless-dotenv-plugin'], // Plugins
+  
   provider: {
     name: 'aws',
-    runtime: 'nodejs20.x',
+    runtime: 'nodejs18.x',
     region: 'ap-south-1',
-    timeout: 10,
+    stage: 'dev',
+    timeout: 10,    
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       CLIENT_ID: "7usr9q8uc06io6d9eaug9m7p1o",
@@ -32,38 +34,229 @@ const serverlessConfiguration: AWS = {
     },
   },
   functions: {
-    loginHandler: {
-      handler: 'src/handlers/users.loginHandler',
+    // User Management
+    getUsers: {
+      handler: 'src/handlers/user.getUsers',
       events: [
         {
           http: {
-            path: 'login',
-            method: 'post',
-            request: {
-              schemas:{
-                'application/json': '${file(src/requestBody/loginRequest.json)}'
-              }
-            },
-          ...corsHeaders
+            path: 'api/users',
+            method: 'get',
+            ...corsHeaders
           },
         },
       ],
     },
-    // logout
-    logoutHandler: {
-      handler: 'src/handlers/users.logoutHandler',
+    // Authentication
+    login: {
+      handler: 'src/handlers/auth.login',
       events: [
         {
           http: {
-            path: 'logout',
+            path: 'api/auth/login',
             method: 'post',
-          ...corsHeaders
+            ...corsHeaders
           },
         },
       ],
     },
-  },
-  custom: {
+    logout: {
+      handler: 'src/handlers/auth.logout',
+      events: [
+        {
+          http: {
+            path: 'api/auth/logout',
+            method: 'post',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    getMe: {
+      handler: 'src/handlers/auth.getMe',
+      events: [
+        {
+          http: {
+            path: 'api/auth/me',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    // Application Management
+    getApplications: {
+      handler: 'src/handlers/application.getApplications',
+      events: [
+        {
+          http: {
+            path: 'api/applications',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    getApplicationById: {
+      handler: 'src/handlers/application.getApplicationById',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    createApplication: {
+      handler: 'src/handlers/application.createApplication',
+      events: [
+        {
+          http: {
+            path: 'api/applications',
+            method: 'post',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    updateApplicationStatus: {
+      handler: 'src/handlers/application.updateApplicationStatus',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}/status',
+            method: 'patch',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    forwardApplication: {
+      handler: 'src/handlers/application.forwardApplication',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}/forward',
+            method: 'post',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    batchProcessApplications: {
+      handler: 'src/handlers/application.batchProcessApplications',
+      events: [
+        {
+          http: {
+            path: 'api/applications/batch',
+            method: 'post',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    // Document Management
+    uploadDocument: {
+      handler: 'src/handlers/document.uploadDocument',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}/documents',
+            method: 'post',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    getDocuments: {
+      handler: 'src/handlers/document.getDocuments',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}/documents',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    deleteDocument: {
+      handler: 'src/handlers/document.deleteDocument',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}/documents/{documentId}',
+            method: 'delete',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    // Report APIs
+    getStatistics: {
+      handler: 'src/handlers/report.getStatistics',
+      events: [
+        {
+          http: {
+            path: 'api/reports/statistics',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    getApplicationsByStatus: {
+      handler: 'src/handlers/report.getApplicationsByStatus',
+      events: [
+        {
+          http: {
+            path: 'api/reports/applications-by-status',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    generateApplicationPDF: {
+      handler: 'src/handlers/report.generateApplicationPDF',
+      events: [
+        {
+          http: {
+            path: 'api/applications/{id}/pdf',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    // Role APIs
+    getRoleActions: {
+      handler: 'src/handlers/role.getRoleActions',
+      events: [
+        {
+          http: {
+            path: 'api/roles/actions',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+    getRoleHierarchy: {
+      handler: 'src/handlers/role.getRoleHierarchy',
+      events: [
+        {
+          http: {
+            path: 'api/roles/hierarchy',
+            method: 'get',
+            ...corsHeaders
+          },
+        },
+      ],
+    },
+  },  custom: {
     'serverless-offline': {
       httpPort: 3001, // Custom port for HTTP
       lambdaPort: 3002, // Custom port for Lambda invocations
@@ -71,7 +264,12 @@ const serverlessConfiguration: AWS = {
       noPrependStageInUrl: true, // Disable prepending the stage name to the URL
       useChildProcesses: true, // Run each function in its child process
     },
+    dotenv: {
+      path: './.env',
+      include: ['CLIENT_ID', 'USER_POOL_ID', 'JWT_SECRET'],
+    },
   },
 };
 
+// @ts-ignore
 module.exports = serverlessConfiguration;

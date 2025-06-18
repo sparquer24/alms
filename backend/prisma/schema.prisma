@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Roles {
+  id               Int              @id @default(autoincrement())
+  code             String           @unique
+  name             String
+  is_active        Boolean          @default(true)
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  // Relations
+  users            Users[]
+  rolePermissions  RolePermissions[]
+  @@map("roles")
+}
+model Permissions {
+  id               Int              @id @default(autoincrement())
+  code             String           @unique
+  name             String
+  category         String
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  // Relations
+  rolePermissions  RolePermissions[]
+  @@map("permissions")
+}
+model RolePermissions {
+  id               Int              @id @default(autoincrement())
+  role             Roles            @relation(fields: [role_id], references: [id])
+  role_id          Int
+  permission       Permissions      @relation(fields: [permission_id], references: [id])
+  permission_id    Int
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  @@unique([role_id, permission_id])
+  @@map("role_permissions")
+}
+
+
+model States {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique
+  districts Districts[]
+  users     Users[]
+
+  @@map("states")
+}
+
+model Districts {
+  id      Int     @id @default(autoincrement())
+  name    String
+  state   States  @relation(fields: [stateId], references: [id])
+  stateId Int
+  zones   Zones[]
+  users   Users[]
+
+  @@map("districts")
+}
+
+model Zones {
+  id         Int         @id @default(autoincrement())
+  name       String
+  district   Districts   @relation(fields: [districtId], references: [id])
+  districtId Int
+  divisions  Divisions[]
+  users      Users[]
+
+  @@map("zones")
+}
+
+model Divisions {
+  id       Int              @id @default(autoincrement())
+  name     String
+  zone     Zones            @relation(fields: [zoneId], references: [id])
+  zoneId   Int
+  stations PoliceStations[]
+  users    Users[]
+
+  @@map("divisions")
+}
+
+model PoliceStations {
+  id         Int       @id @default(autoincrement())
+  name       String
+  division   Divisions @relation(fields: [divisionId], references: [id])
+  divisionId Int
+  users      Users[]
+
+  @@map("police_stations")
+}
+
+model Users {
+  id              Int             @id @default(autoincrement())
+  username        String          @unique
+  email           String          @unique
+  passwordHash    String
+  isActive        Boolean         @default(true)
+  lastLogin       DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @default(now())
+  // Foreign Keys
+  role            Roles           @relation(fields: [roleId], references: [id])
+  roleId          Int
+  state           States?         @relation(fields: [stateId], references: [id])
+  stateId         Int?
+  district        Districts?      @relation(fields: [districtId], references: [id])
+  districtId      Int?
+  zone            Zones?          @relation(fields: [zoneId], references: [id])
+  zoneId          Int?
+  division        Divisions?      @relation(fields: [divisionId], references: [id])
+  divisionId      Int?
+  policeStation   PoliceStations? @relation(fields: [policeStationId], references: [id])
+  policeStationId Int?
+
+  @@map("users")
+}
+

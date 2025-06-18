@@ -1,49 +1,39 @@
 {
-  "name": "alms-server",
+  "name": "alms-backend",
   "version": "1.0.0",
-  "description": "Serverless aws-nodejs-typescript template",
+  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "serverless offline",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate:dev": "prisma migrate dev",
-    "prisma:migrate:prod": "prisma migrate deploy",
-    "prisma:studio": "prisma studio",
-    "prisma:db:pull": "prisma db pull"
+    "dev": "serverless offline --config serverless.ts",
+    "test": "jest"
   },
-  "prisma": {
-    "schema": "./src/prisma/schema.prisma"
-  },
-  "engines": {
-    "node": ">=14.15.0"
-  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
   "dependencies": {
-    "@middy/core": "^3.4.0",
-    "@middy/http-json-body-parser": "^3.4.0",
-    "@prisma/client": "^6.0.1",
-    "amazon-cognito-identity-js": "^6.3.12",
-    "aws-sdk": "^2.1692.0",
-    "crypto": "^1.0.1"
+    "@prisma/client": "^6.9.0",
+    "@types/bcrypt": "^5.0.2",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "mocha": "^11.6.0",
+    "pg": "^8.16.0",
+    "supertest": "^7.1.1"
   },
   "devDependencies": {
-    "@serverless/typescript": "^3.0.0",
-    "@types/aws-lambda": "^8.10.146",
-    "@types/dotenv": "^8.2.3",
-    "@types/node": "^14.18.63",
-    "esbuild": "^0.14.11",
-    "eslint": "^9.16.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "json-schema-to-ts": "^1.5.0",
-    "prettier": "^3.4.2",
-    "prisma": "^6.0.1",
-    "serverless": "^4.4.14",
-    "serverless-esbuild": "^1.23.3",
-    "serverless-offline": "^14.4.0",
+    "@serverless/typescript": "^4.15.1",
+    "@types/aws-lambda": "^8.10.149",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^24.0.1",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.0.0",
+    "prisma": "^6.9.0",
+    "serverless": "^3.40.0",
+    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-offline": "^12.0.4",
+    "serverless-plugin-typescript": "^2.1.5",
     "ts-node": "^10.9.2",
-    "tsconfig-paths": "^3.9.0",
-    "typescript": "^4.9.5"
-  },
-  "author": "The serverless webpack authors (https://github.com/elastic-coders/serverless-webpack)",
-  "license": "MIT"
+    "typescript": "^5.8.3"
+  }
 }

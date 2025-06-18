@@ -1,0 +1,1 @@
+// Removed all functions related to 'document' as per request.

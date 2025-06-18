@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #121010 ;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Application Detail View Styles */
+.application-detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.document-item {
+  transition: all 0.2s ease;
+}
+
+.document-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.action-button-container {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 5;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
