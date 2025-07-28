@@ -1,0 +1,346 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------- Enums ----------------
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ArmsCategory {
+  RESTRICTED
+  PERMISSIBLE
+}
+
+enum AreaOfUse {
+  DISTRICT
+  STATE
+  INDIA
+}
+
+enum LicenseResult {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+enum FileType {
+  AADHAR_CARD
+  PAN_CARD
+  TRAINING_CERTIFICATE
+  OTHER_STATE_LICENSE
+  EXISTING_LICENSE
+  SAFE_CUSTODY
+  MEDICAL_REPORT
+  OTHER
+}
+
+model Statuses {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  name            String
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  applications    FreshLicenseApplicationsForms[]
+}
+
+model States {
+  id              Int                      @id @default(autoincrement())
+  name            String                   @unique
+  districts       Districts[]
+  users           Users[]                   @relation("StateUsers")
+  addresses       FreshLicenseApplicationsFormAddresses[]
+  occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
+  applications    FreshLicenseApplicationsForms[]
+}
+
+model Districts {
+  id              Int                      @id @default(autoincrement())
+  name            String                   @unique
+  state           States                    @relation(fields: [stateId], references: [id])
+  stateId         Int
+  zones           Zones[]
+  users           Users[]                   @relation("DistrictUsers")
+  addresses       FreshLicenseApplicationsFormAddresses[]
+  occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
+  applications    FreshLicenseApplicationsForms[]
+}
+
+model Zones {
+  id         Int        @id @default(autoincrement())
+  name       String     @unique
+  district   Districts   @relation(fields: [districtId], references: [id])
+  districtId Int
+  divisions  Divisions[]
+  users      Users[]     @relation("ZoneUsers")
+}
+
+model Divisions {
+  id       Int             @id @default(autoincrement())
+  name     String          @unique
+  zone     Zones            @relation(fields: [zoneId], references: [id])
+  zoneId   Int
+  stations PoliceStations[]
+  users    Users[]          @relation("DivisionUsers")
+}
+
+model PoliceStations {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  division   Divisions @relation(fields: [divisionId], references: [id])
+  divisionId Int
+  users      Users[]   @relation("PoliceStationUsers")
+  jurisdictionAddresses FreshLicenseApplicationsFormAddresses[] @relation("JurisdictionStation")
+}
+
+model Roles {
+  id              Int              @id @default(autoincrement())
+  code            String           @unique
+  name            String
+  is_active       Boolean          @default(true)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  can_forward    Boolean          @default(false)
+  can_re_enquiry Boolean          @default(false)
+  can_generate_ground_report Boolean          @default(false)
+  can_FLAF Boolean          @default(false) // Fresh License Application Form
+  users           Users[]
+  currentRoleApplications FreshLicenseApplicationsForms[] @relation("CurrentRole")
+  previousRoleApplications FreshLicenseApplicationsForms[] @relation("PreviousRole")
+}
+
+
+model FreshLicenseApplicationsFormCriminalHistories {
+  id             String    @id @default(uuid())
+  applicationId  String
+  convicted      Boolean
+  firNumber      String?
+  underSection   String?
+  policeStation  String?
+  unit           String?
+  district       String?
+  state          String?
+  offence        String?
+  sentence       String?
+  dateOfSentence DateTime?
+
+  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
+model FreshLicenseApplicationsFormLicenseHistories {
+  id            String @id @default(uuid())
+  applicationId String
+
+  previouslyApplied    Boolean
+  dateApplied          DateTime?
+  licenseName          String?
+  authority            String?
+  result               LicenseResult?
+  status               String?
+  rejectionDocumentUrl String?
+
+  licenseSuspended Boolean?
+  licenseDetails   String?
+
+  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
+model FreshLicenseApplicationsFormFileUploads {
+  id            String   @id @default(uuid())
+  applicationId String
+  fileType      FileType
+  fileUrl       String
+  uploadedAt    DateTime @default(now())
+
+  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
+model Users {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String?  @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  phoneNo String? @unique
+
+  roleId Int
+  role   Roles @relation(fields: [roleId], references: [id])
+
+  policeStationId Int?
+  policeStation   PoliceStations? @relation("PoliceStationUsers", fields: [policeStationId], references: [id])
+
+  stateId Int?
+  state   States? @relation("StateUsers", fields: [stateId], references: [id])
+
+  districtId Int?
+  district   Districts? @relation("DistrictUsers", fields: [districtId], references: [id])
+
+  zoneId Int?
+  zone   Zones? @relation("ZoneUsers", fields: [zoneId], references: [id])
+
+  divisionId Int?
+  division   Divisions? @relation("DivisionUsers", fields: [divisionId], references: [id])
+
+  actionsFrom ActionHistories[] @relation("ActionFromUser")
+  actionsTo   ActionHistories[] @relation("ActionToUser")
+  currentUserApplications FreshLicenseApplicationsForms[] @relation("ActionFromUser")
+  previousUserApplications FreshLicenseApplicationsForms[] @relation("ActionToUser")
+
+  flowMaps        FlowMaps[]
+  nextUserInFlows FlowNextUsers[] @relation("NextUserInFlow")
+}
+
+model FlowMaps {
+  id            String          @id @default(uuid())
+  currentUserId String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  actions       ActionHistories[]
+  currentUser   Users            @relation(fields: [currentUserId], references: [id])
+  nextUsers     FlowNextUsers[]
+}
+
+model FlowNextUsers {
+  id         String  @id @default(uuid())
+  flowMapId  String
+  nextUserId String
+  flowMap    FlowMaps @relation(fields: [flowMapId], references: [id])
+  nextUser   Users    @relation("NextUserInFlow", fields: [nextUserId], references: [id])
+}
+
+model ActionHistories {
+  id          String   @id @default(uuid())
+  flowMapId   String
+  fromUserId  String
+  toUserId    String
+  actionTaken String
+  createdAt   DateTime @default(now())
+  flowMap     FlowMaps  @relation(fields: [flowMapId], references: [id])
+  fromUser    Users     @relation("ActionFromUser", fields: [fromUserId], references: [id])
+  toUser      Users     @relation("ActionToUser", fields: [toUserId], references: [id])
+}
+
+model FreshLicenseApplicationsFormAddresses {
+  id                  String   @id @default(uuid())
+  addressLine         String
+  stateId             Int
+  districtId          Int
+  sinceResiding       DateTime
+  jurisdictionStationId Int
+
+  state    States    @relation(fields: [stateId], references: [id])
+  district Districts @relation(fields: [districtId], references: [id])
+  jurisdictionStation PoliceStations? @relation("JurisdictionStation", fields: [jurisdictionStationId], references: [id])
+
+  presentApplications   FreshLicenseApplicationsForms[] @relation("PresentAddress")
+  permanentApplications FreshLicenseApplicationsForms[] @relation("PermanentAddress")
+}
+
+model FreshLicenseApplicationsFormContactInfos {
+  id                 String                  @id @default(uuid())
+  telephoneOffice    String?
+  telephoneResidence String?
+  mobileNumber       String
+  officeMobileNumber String?
+  alternativeMobile  String?
+  application        FreshLicenseApplicationsForms?
+}
+
+model FreshLicenseApplicationsFormOccupationInfos {
+  id                     String  @id @default(uuid())
+  occupation             String
+  officeAddress          String
+  stateId                Int
+  districtId             Int
+  cropProtectionRequired Boolean @default(false)
+  cropLocation           String?
+  areaUnderCultivation   Float? // Acres/hectares, clarify in frontend
+
+  state    States    @relation(fields: [stateId], references: [id])
+  district Districts @relation(fields: [districtId], references: [id])
+
+  applications FreshLicenseApplicationsForms[]
+}
+
+model FreshLicenseApplicationsFormBiometricDatas {
+  id                String                  @id @default(uuid())
+  signatureImageUrl String?
+  irisScanImageUrl  String?
+  photoImageUrl     String?
+  application       FreshLicenseApplicationsForms?
+}
+
+// ---------------- Application schema ----------------
+
+model FreshLicenseApplicationsForms {
+  id                String @id @default(uuid())
+  acknowledgementNo String @unique
+
+  firstName          String
+  middleName         String?
+  lastName           String
+  filledBy           String? // Application filled by (zs name)
+  parentOrSpouseName String
+  sex                Sex
+  placeOfBirth       String
+  dateOfBirth        DateTime
+  panNumber          String?
+  aadharNumber       String   @unique
+  dobInWords         String?     
+
+  presentAddressId   String
+  permanentAddressId String?
+  contactInfoId      String  @unique
+  occupationInfoId   String?
+  biometricDataId    String? @unique
+
+  needForLicense       String
+  descriptionOfArms    String
+  armsCategory         ArmsCategory
+  areasOfUse           AreaOfUse
+  specialConsideration String?
+
+  statusId   Int?     // Foreign key to Status table
+  currentRoleId Int? // Foreign key to Role table
+  previousRoleId Int? // Foreign key to Role table
+  currentUserId   String? // Foreign key to User table
+  previousUserId  String? // Foreign key to User table
+
+  createdAt  DateTime @default(now())
+
+  stateId    Int
+  districtId Int
+
+  // Relations
+  status           Statuses?         @relation(fields: [statusId], references: [id])
+  currentRole   Roles?   @relation("CurrentRole", fields: [currentRoleId], references: [id])
+  previousRole  Roles?   @relation("PreviousRole", fields: [previousRoleId], references: [id])
+  currentUser   Users?   @relation("ActionFromUser", fields: [currentUserId], references: [id])
+  previousUser  Users?   @relation("ActionToUser", fields: [previousUserId], references: [id])
+
+  presentAddress   FreshLicenseApplicationsFormAddresses         @relation("PresentAddress", fields: [presentAddressId], references: [id])
+  permanentAddress FreshLicenseApplicationsFormAddresses?        @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
+  contactInfo      FreshLicenseApplicationsFormContactInfos     @relation(fields: [contactInfoId], references: [id])
+  occupationInfo   FreshLicenseApplicationsFormOccupationInfos? @relation(fields: [occupationInfoId], references: [id])
+  biometricData    FreshLicenseApplicationsFormBiometricDatas?  @relation(fields: [biometricDataId], references: [id])
+
+  criminalHistory FreshLicenseApplicationsFormCriminalHistories[]
+  licenseHistory  FreshLicenseApplicationsFormLicenseHistories[]
+  fileUploads     FreshLicenseApplicationsFormFileUploads[]
+
+  state    States    @relation(fields: [stateId], references: [id])
+  district Districts @relation(fields: [districtId], references: [id])
+}

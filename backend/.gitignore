@@ -1,9 +1,24 @@
-# package directories
-node_modules
-jspm_packages
+# Node modules
+node_modules/
 
-# Serverless directories
-.serverless
+# Environment variables
+.env
 
-# esbuild directories
-.esbuild
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# VS Code settings
+.vscode/
