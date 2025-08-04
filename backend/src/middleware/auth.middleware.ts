@@ -31,18 +31,9 @@ export class AuthGuard implements CanActivate {
       const user = await prisma.users.findUnique({
         where: { id: decoded.sub },
         include: {
-          role: {
-            // include: {
-            //   rolePermissions: {
-            //     include: {
-            //       permission: true
-            //     }
-            //   }
-            // }
-          }
-        }
+          role: {}, // Include role information
+        },
       });
-
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
@@ -72,14 +63,6 @@ export class AuthGuard implements CanActivate {
         context.getHandler(),
         context.getClass(),
       ]);
-
-      if (requiredPermissions && requiredPermissions.length > 0) {
-        // const userPermissions = user.role?.rolePermissions.map(rp => rp.permission.code) || [];
-        // const hasPermission = requiredPermissions.some(permission => userPermissions.includes(permission));
-        // if (!hasPermission) {
-        //   throw new ForbiddenException('Insufficient permissions');
-        // }
-      }
 
       return true;
     } catch (error) {

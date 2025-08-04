@@ -8,7 +8,6 @@ datasource db {
 }
 
 // ---------------- Enums ----------------
-
 enum Sex {
   MALE
   FEMALE
@@ -26,7 +25,7 @@ enum AreaOfUse {
   INDIA
 }
 
-enum LicenseResult {
+enum previousStatusOfLicence {
   APPROVED
   PENDING
   REJECTED
@@ -41,6 +40,17 @@ enum FileType {
   SAFE_CUSTODY
   MEDICAL_REPORT
   OTHER
+}
+
+enum LicensePurpose {
+  SELF_PROTECTION
+  SPORTS
+  HEIRLOOM_POLICY
+}
+
+enum WeaponCategory {
+  RESTRICTED
+  PERMISSIBLE
 }
 
 model Statuses {
@@ -120,45 +130,99 @@ model Roles {
   previousRoleApplications FreshLicenseApplicationsForms[] @relation("PreviousRole")
 }
 
-
 model FreshLicenseApplicationsFormCriminalHistories {
   id             String    @id @default(uuid())
   applicationId  String
   convicted      Boolean
-  firNumber      String?
-  underSection   String?
-  policeStation  String?
-  unit           String?
-  district       String?
-  state          String?
-  offence        String?
-  sentence       String?
-  dateOfSentence DateTime?
-
+  convictionData Json? // FIR number , Uder Section, Police Station, Unit, District, state, Offence, Sentence, Date of Sentence(date format)
+  bondExecutionOrdered  Boolean?
+  bondDate  DateTime?
+  periodOfBond String? // e.g., "2 years", Period for which bound 
+  prohibitedUnderArmsAct  Boolean?
+  prohibitedDate DateTime?
   application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
 }
 
+// model FreshLicenseApplicationsFormLicenseHistories {
+//   id            String @id @default(uuid())
+//   applicationId String
+//   previouslyApplied    Boolean // If yes , fill the below fields
+//   dateApplied          DateTime?
+//   namelicenseAuthority          String?
+//   result  String // Result (Pl. Specify) 
+//   previousStatusOfLicence    previousStatusOfLicence?
+//   uploadPreviousLicense  String? // URL to the uploaded license document
+//   nameLicenseSuspendedAuthority Boolean?
+//   licenseReason   String?
+
+//   application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+// };
+
 model FreshLicenseApplicationsFormLicenseHistories {
-  id            String @id @default(uuid())
-  applicationId String
+  id                             String   @id @default(uuid())
 
-  previouslyApplied    Boolean
-  dateApplied          DateTime?
-  licenseName          String?
-  authority            String?
-  result               LicenseResult?
-  status               String?
-  rejectionDocumentUrl String?
+  applicationId                  String
+  // (a) Previous application info
+  hasAppliedBefore               Boolean
+  previousApplications           Json?   // Array of previous application details
 
-  licenseSuspended Boolean?
-  licenseDetails   String?
+  // (b) Any other application (no question content given, so assume similar)
+  hasOtherApplications           Boolean
+  otherApplications              Json?   // Optional reason + authority
+
+  // (c) Family member license details
+  familyMemberHasArmsLicense     Boolean
+  familyMemberLicenses           Json?   // Array of license holders
+
+  // (d) Safe storage
+  hasSafePlaceForArms            Boolean
+  safeStorageDetails             String?
+
+  // (e) Rule 10 training
+  hasUndergoneTraining           Boolean
+  trainingDetails                String?
 
   application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+}
+
+model WeaponTypeMaster {
+  id          String   @id @default(uuid())
+  name        String   @unique     // e.g., "Rifle"
+  description String?
+  imageUrl    String?     // S3 or local image URL
+
+  // Relation to license requests (many-to-many)
+  licenseRequests FreshLicenseApplicationsFormLicenseRequestDetails[] @relation("RequestedWeapons")
+}
+
+model FreshLicenseApplicationsFormLicenseRequestDetails {
+  id                     String   @id @default(uuid())
+
+  // 15. Need for license
+  needForLicense       LicensePurpose?  // Uses enum
+
+  // 16 a. Weapon type
+  weaponCategory         WeaponCategory? // "restricted" | "permissible"
+  // Many-to-many with WeaponTypeMaster
+  requestedWeapons WeaponTypeMaster[] @relation("RequestedWeapons")
+
+  // 17. Area to carry arms
+  areaOfValidity         String? // "District" | "State" | "Throughout India", address of zs
+
+  applicationId          String
+  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 model FreshLicenseApplicationsFormFileUploads {
   id            String   @id @default(uuid())
   applicationId String
+  fileName      String
+  fileSize      Int
   fileType      FileType
   fileUrl       String
   uploadedAt    DateTime @default(now())
@@ -256,6 +320,7 @@ model FreshLicenseApplicationsFormContactInfos {
   mobileNumber       String
   officeMobileNumber String?
   alternativeMobile  String?
+  applicationId      String?   @unique
   application        FreshLicenseApplicationsForms?
 }
 
@@ -265,7 +330,7 @@ model FreshLicenseApplicationsFormOccupationInfos {
   officeAddress          String
   stateId                Int
   districtId             Int
-  cropProtectionRequired Boolean @default(false)
+  // cropProtectionRequired Boolean @default(false)
   cropLocation           String?
   areaUnderCultivation   Float? // Acres/hectares, clarify in frontend
 
@@ -280,11 +345,11 @@ model FreshLicenseApplicationsFormBiometricDatas {
   signatureImageUrl String?
   irisScanImageUrl  String?
   photoImageUrl     String?
+  applicationId      String   @unique
   application       FreshLicenseApplicationsForms?
 }
 
 // ---------------- Application schema ----------------
-
 model FreshLicenseApplicationsForms {
   id                String @id @default(uuid())
   acknowledgementNo String @unique
@@ -295,8 +360,26 @@ model FreshLicenseApplicationsForms {
   filledBy           String? // Application filled by (zs name)
   parentOrSpouseName String
   sex                Sex
+
+  statusId   Int?    // Foreign key to Status table
+  currentRoleId Int? // Foreign key to Role table
+  previousRoleId Int? // Foreign key to Role table
+  currentUserId   String? // Foreign key to User table
+  previousUserId  String? // Foreign key to User table
+  stateId    Int
+  districtId Int
+
+  isApprovied        Boolean @default(false)
+  isRejected         Boolean @default(false)
+  isPending          Boolean @default(false)
+  isReEnquiry        Boolean @default(false)
+  isReEnquiryDone   Boolean @default(false) // If re-enquiry is done
+  isGroundReportGenerated Boolean @default(false) // If ground report is generated
+  isFLAFGenerated   Boolean @default(false) // If FLAF is generated
+
   placeOfBirth       String
   dateOfBirth        DateTime
+
   panNumber          String?
   aadharNumber       String   @unique
   dobInWords         String?     
@@ -307,25 +390,11 @@ model FreshLicenseApplicationsForms {
   occupationInfoId   String?
   biometricDataId    String? @unique
 
-  needForLicense       String
-  descriptionOfArms    String
-  armsCategory         ArmsCategory
-  areasOfUse           AreaOfUse
-  specialConsideration String?
-
-  statusId   Int?     // Foreign key to Status table
-  currentRoleId Int? // Foreign key to Role table
-  previousRoleId Int? // Foreign key to Role table
-  currentUserId   String? // Foreign key to User table
-  previousUserId  String? // Foreign key to User table
-
   createdAt  DateTime @default(now())
-
-  stateId    Int
-  districtId Int
+  updatedAt  DateTime @default(now()) @updatedAt
 
   // Relations
-  status           Statuses?         @relation(fields: [statusId], references: [id])
+  status        Statuses?         @relation(fields: [statusId], references: [id])
   currentRole   Roles?   @relation("CurrentRole", fields: [currentRoleId], references: [id])
   previousRole  Roles?   @relation("PreviousRole", fields: [previousRoleId], references: [id])
   currentUser   Users?   @relation("ActionFromUser", fields: [currentUserId], references: [id])
@@ -335,11 +404,16 @@ model FreshLicenseApplicationsForms {
   permanentAddress FreshLicenseApplicationsFormAddresses?        @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
   contactInfo      FreshLicenseApplicationsFormContactInfos     @relation(fields: [contactInfoId], references: [id])
   occupationInfo   FreshLicenseApplicationsFormOccupationInfos? @relation(fields: [occupationInfoId], references: [id])
-  biometricData    FreshLicenseApplicationsFormBiometricDatas?  @relation(fields: [biometricDataId], references: [id])
 
   criminalHistory FreshLicenseApplicationsFormCriminalHistories[]
   licenseHistory  FreshLicenseApplicationsFormLicenseHistories[]
+
+  licenseDetails FreshLicenseApplicationsFormLicenseRequestDetails[]
+
+
   fileUploads     FreshLicenseApplicationsFormFileUploads[]
+  biometricData    FreshLicenseApplicationsFormBiometricDatas?  @relation(fields: [biometricDataId], references: [id])
+
 
   state    States    @relation(fields: [stateId], references: [id])
   district Districts @relation(fields: [districtId], references: [id])
