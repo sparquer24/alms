@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    container_name: alms-backend
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - db
+  db:
+    image: postgres:16-alpine
+    container_name: alms-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pg&1234
+      POSTGRES_DB: alms
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
