@@ -123,7 +123,7 @@ model Roles {
   updated_at      DateTime         @updatedAt
   can_forward    Boolean          @default(false)
   can_re_enquiry Boolean          @default(false)
-  can_generate_ground_report Boolean          @default(false)
+  can_generate_ground_report Boolean   @default(false)
   can_FLAF Boolean          @default(false) // Fresh License Application Form
   users           Users[]
   currentRoleApplications FreshLicenseApplicationsForms[] @relation("CurrentRole")
@@ -417,4 +417,21 @@ model FreshLicenseApplicationsForms {
 
   state    States    @relation(fields: [stateId], references: [id])
   district Districts @relation(fields: [districtId], references: [id])
+
+  FreshLicenseApplicationsFormWorkflowHistories FreshLicenseApplicationsFormWorkflowHistories[]
+}
+
+model FreshLicenseApplicationsFormWorkflowHistories {
+  id               String   @id @default(uuid())
+  applicationId    String
+  previousUserId   String
+  nextUserId       String
+  previousRoleId   String
+  nextRoleId       String
+  actionTaken      String   // enum recommended
+  remarks          String?
+  createdAt        DateTime @default(now())
+
+  application      FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+  // ... other relations if needed
 }
