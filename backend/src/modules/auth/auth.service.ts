@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcrypt';
 import { LoginRequest } from '../../request/auth';
 import { LoginResponse } from '../../response/auth';
 import { ERROR_MESSAGES } from '../../constants/auth';
@@ -9,11 +10,31 @@ import prisma from '../../db/prismaClient';
 @Injectable()
 export class AuthService {
   private readonly jwtSecret = process.env.JWT_SECRET;
+  private readonly saltRounds = 12;
 
   constructor() {
     if (!this.jwtSecret) {
       throw new Error('JWT_SECRET environment variable is not defined');
     }
+  }
+
+  /**
+   * Hash a password using bcrypt
+   * @param password - Plain text password
+   * @returns Hashed password
+   */
+  async hashPassword(password: string): Promise<string> {
+    return await bcrypt.hash(password, this.saltRounds);
+  }
+
+  /**
+   * Verify a password against a hash
+   * @param password - Plain text password
+   * @param hash - Hashed password
+   * @returns Whether the password matches
+   */
+  async verifyPassword(password: string, hash: string): Promise<boolean> {
+    return await bcrypt.compare(password, hash);
   }
 
   /**
@@ -41,7 +62,8 @@ export class AuthService {
         user: {
           id: user.id,
           username: user.username,
-          email: user.email
+          email: user.email,
+          roleId: user.roleId
         }
       };
     } catch (error) {
@@ -57,7 +79,6 @@ export class AuthService {
 
   /**
    * Validate user credentials
-   * TODO: Implement actual database validation
    * @param username - Username
    * @param password - Password
    * @returns User data or null
@@ -68,16 +89,24 @@ export class AuthService {
       where: { username },
     });
 
-    // If user not found or password does not match, return null
-    if (!user || user.password !== password) {
+    console.log('Validating user:', username, 'Found:', !!user);
+    // If user not found, return null
+    if (!user) {
       return null;
     }
 
-    // Return user data
+    // Verify password using bcrypt
+    const isPasswordValid = await this.verifyPassword(password, user.password);
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    // Return user data (excluding password)
     return {
       id: user.id,
       username: user.username,
-      email: user.email
+      email: user.email,
+      roleId: user.roleId
     };
   }
 
@@ -90,11 +119,13 @@ export class AuthService {
     const payload = {
       sub: user.id,
       username: user.username,
-      email: user.email
+      email: user.email,
+      user_id: user.id,
+      role_id: user.roleId
     };
 
-    return jwt.sign(payload, this.jwtSecret!, { 
-      expiresIn: '24h' 
+    return jwt.sign(payload, this.jwtSecret!, {
+      expiresIn: '24h'
     });
   }
 

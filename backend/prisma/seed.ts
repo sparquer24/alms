@@ -3,284 +3,186 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting database seeding...');
+  // --- Hyderabad Police Users and Roles Seeding ---
+  await prisma.users.deleteMany({});
+  await prisma.roles.deleteMany({});
+  const roles = [
+    { code: 'APPLICANT', name: 'Citizen Applicant' },
+    { code: 'ZS', name: 'Zonal Superintendent' },
+    { code: 'SHO', name: 'Station House Officer' },
+    { code: 'ACP', name: 'Assistant Commissioner of Police' },
+    { code: 'DCP', name: 'Deputy Commissioner of Police' },
+    { code: 'AS', name: 'Arms Superintendent' },
+    { code: 'ADO', name: 'Administrative Officer' },
+    { code: 'CADO', name: 'Chief Administrative Officer' },
+    { code: 'JTCP', name: 'Joint Commissioner of Police' },
+    { code: 'CP', name: 'Commissioner of Police' },
+    { code: 'ARMS_SUPDT', name: 'Arms Superintendent' },
+    { code: 'ARMS_SEAT', name: 'Arms Seat' },
+    { code: 'ACO', name: 'Assistant Compliance Officer' },
+    { code: 'ADMIN', name: 'System Administrator' },
+  ];
+  for (const role of roles) {
+    await prisma.roles.create({
+      data: {
+        code: role.code,
+        name: role.name,
+        is_active: true,
+        can_forward: false,
+        can_re_enquiry: false,
+        can_generate_ground_report: false,
+        can_FLAF: false,
+      },
+    });
+  }
 
-  // Create Roles
-  const adminRole = await prisma.roles.upsert({
-    where: { code: 'ADMIN' },
-    update: {},
-    create: {
-      code: 'ADMIN',
-      name: 'Administrator',
-      is_active: true,
-    },
-  });
+  const roleMap: Record<string, number> = {};
+  const dbRoles = await prisma.roles.findMany();
+  dbRoles.forEach(r => { roleMap[r.code] = r.id; });
 
-  const userRole = await prisma.roles.upsert({
-    where: { code: 'USER' },
-    update: {},
-    create: {
-      code: 'USER',
-      name: 'User',
-      is_active: true,
-    },
-  });
+  const state = await prisma.states.findUnique({ where: { name: 'Telangana' } });
+  const district = await prisma.districts.findUnique({ where: { name: 'Hyderabad' } });
 
-  const policeRole = await prisma.roles.upsert({
-    where: { code: 'POLICE' },
-    update: {},
-    create: {
-      code: 'POLICE',
-      name: 'Police Officer',
-      is_active: true,
-    },
-  });
+  // Fetch police stations, zones, divisions
+  const policeStations = await prisma.policeStations.findMany();
+  const zones = await prisma.zones.findMany();
+  const divisions = await prisma.divisions.findMany();
 
-  // Create States
-  const telangana = await prisma.states.upsert({
-    where: { name: 'Telangana' },
-    update: {},
-    create: {
-      name: 'Telangana',
-    },
-  });
+  // Helper: get first available ID from each table
+  const policeStationId = policeStations.length > 0 ? policeStations[0].id : undefined;
+  const zonalId = zones.length > 0 ? zones[0].id : undefined;
+  const divisionId = divisions.length > 0 ? divisions[0].id : undefined;
 
-  // Create Districts
-  const hyderabad = await prisma.districts.upsert({
-    where: { name: 'Hyderabad' },
-    update: {},
-    create: {
-      name: 'Hyderabad',
-      stateId: telangana.id,
+  // Users array and creation loop
+  const users = [
+    {
+      username: 'CADO_HYD',
+      email: 'cado-admin-hyd@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660022',
+      role: 'CADO',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zoneId: zonalId,
+      divisionId,
     },
-  });
+    {
+      username: 'JTCP_ADMIN',
+      email: 'jtcp-admnhyd@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660798', // made unique
+      role: 'JTCP',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'SUPDT_STORES_HYD',
+      email: 'supdt-stores-hyd@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660003',
+      role: 'STORE',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'SUPDT_TL_HYD',
+      email: 'supdt-tnl-hyd@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660032',
+      role: 'TL',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'CP_HYD',
+      email: 'cp-hyderabad@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660799',
+      role: 'CP',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'ACP_NORTH',
+      email: 'acp-north@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660101',
+      role: 'ACP',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'DCP_CENTRAL',
+      email: 'dcp-central@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660202',
+      role: 'DCP',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'SHO_WEST',
+      email: 'sho-west@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660303',
+      role: 'SHO',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    {
+      username: 'ADMIN_USER',
+      email: 'admin@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660404',
+      role: 'ADMIN',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
+    },
+    // ...add all other users from the provided list, mapping division/zone/ps if available...
+  ];
 
-  // Create Zones for Hyderabad
-  const zoneEast = await prisma.zones.upsert({
-    where: { name: 'East Zone' },
-    update: {},
-    create: {
-      name: 'East Zone',
-      districtId: hyderabad.id,
-    },
-  });
-  const zoneCentral = await prisma.zones.upsert({
-    where: { name: 'Central Zone' },
-    update: {},
-    create: {
-      name: 'Central Zone',
-      districtId: hyderabad.id,
-    },
-  });
-  const zoneSouth = await prisma.zones.upsert({
-    where: { name: 'South Zone' },
-    update: {},
-    create: {
-      name: 'South Zone',
-      districtId: hyderabad.id,
-    },
-  });
-
-  // Create Divisions for Hyderabad Zones
-  const divisionMahankali = await prisma.divisions.upsert({
-    where: { name: 'Mahankali' },
-    update: {},
-    create: {
-      name: 'Mahankali',
-      zoneId: zoneEast.id,
-    },
-  });
-  const divisionAsifNagar = await prisma.divisions.upsert({
-    where: { name: 'Asif Nagar' },
-    update: {},
-    create: {
-      name: 'Asif Nagar',
-      zoneId: zoneCentral.id,
-    },
-  });
-  const divisionChilkalguda = await prisma.divisions.upsert({
-    where: { name: 'Chilkalguda' },
-    update: {},
-    create: {
-      name: 'Chilkalguda',
-      zoneId: zoneEast.id,
-    },
-  });
-  const divisionBegumpet = await prisma.divisions.upsert({
-    where: { name: 'Begumpet' },
-    update: {},
-    create: {
-      name: 'Begumpet',
-      zoneId: zoneCentral.id,
-    },
-  });
-  const divisionSaidabad = await prisma.divisions.upsert({
-    where: { name: 'Saidabad' },
-    update: {},
-    create: {
-      name: 'Saidabad',
-      zoneId: zoneSouth.id,
-    },
-  });
-
-  // Create Police Stations for Hyderabad Divisions
-  const psReinBazar = await prisma.policeStations.upsert({
-    where: { name: 'Rein Bazar PS' },
-    update: {},
-    create: {
-      name: 'Rein Bazar PS',
-      divisionId: divisionMahankali.id,
-    },
-  });
-  const psBanjaraHills = await prisma.policeStations.upsert({
-    where: { name: 'Banjara Hills PS' },
-    update: {},
-    create: {
-      name: 'Banjara Hills PS',
-      divisionId: divisionBegumpet.id,
-    },
-  });
-  const psBandlaguda = await prisma.policeStations.upsert({
-    where: { name: 'BANDLAGUDA PS' },
-    update: {},
-    create: {
-      name: 'BANDLAGUDA PS',
-      divisionId: divisionAsifNagar.id,
-    },
-  });
-  const psSultanBazar = await prisma.policeStations.upsert({
-    where: { name: 'Sultan Bazar PS' },
-    update: {},
-    create: {
-      name: 'Sultan Bazar PS',
-      divisionId: divisionChilkalguda.id,
-    },
-  });
-  const psKulsumpura = await prisma.policeStations.upsert({
-    where: { name: 'Kulsumpura PS' },
-    update: {},
-    create: {
-      name: 'Kulsumpura PS',
-      divisionId: divisionSaidabad.id,
-    },
-  });
-
-  // Create Application Statuses
-  const statusDraft = await prisma.statuses.upsert({
-    where: { code: 'DRAFT' },
-    update: {},
-    create: {
-      code: 'DRAFT',
-      name: 'Draft',
-      description: 'Application is in draft state',
-      isActive: true,
-    },
-  });
-
-  const statusSubmitted = await prisma.statuses.upsert({
-    where: { code: 'SUBMITTED' },
-    update: {},
-    create: {
-      code: 'SUBMITTED',
-      name: 'Submitted',
-      description: 'Application has been submitted for review',
-      isActive: true,
-    },
-  });
-
-  const statusUnderReview = await prisma.statuses.upsert({
-    where: { code: 'UNDER_REVIEW' },
-    update: {},
-    create: {
-      code: 'UNDER_REVIEW',
-      name: 'Under Review',
-      description: 'Application is being reviewed by authorities',
-      isActive: true,
-    },
-  });
-
-  const statusDocumentVerification = await prisma.statuses.upsert({
-    where: { code: 'DOCUMENT_VERIFICATION' },
-    update: {},
-    create: {
-      code: 'DOCUMENT_VERIFICATION',
-      name: 'Document Verification',
-      description: 'Documents are being verified',
-      isActive: true,
-    },
-  });
-
-  const statusFieldVerification = await prisma.statuses.upsert({
-    where: { code: 'FIELD_VERIFICATION' },
-    update: {},
-    create: {
-      code: 'FIELD_VERIFICATION',
-      name: 'Field Verification',
-      description: 'Field verification is in progress',
-      isActive: true,
-    },
-  });
-
-  const statusInterviewScheduled = await prisma.statuses.upsert({
-    where: { code: 'INTERVIEW_SCHEDULED' },
-    update: {},
-    create: {
-      code: 'INTERVIEW_SCHEDULED',
-      name: 'Interview Scheduled',
-      description: 'Interview has been scheduled',
-      isActive: true,
-    },
-  });
-
-  const statusApproved = await prisma.statuses.upsert({
-    where: { code: 'APPROVED' },
-    update: {},
-    create: {
-      code: 'APPROVED',
-      name: 'Approved',
-      description: 'Application has been approved',
-      isActive: true,
-    },
-  });
-
-  const statusRejected = await prisma.statuses.upsert({
-    where: { code: 'REJECTED' },
-    update: {},
-    create: {
-      code: 'REJECTED',
-      name: 'Rejected',
-      description: 'Application has been rejected',
-      isActive: true,
-    },
-  });
-
-  const statusOnHold = await prisma.statuses.upsert({
-    where: { code: 'ON_HOLD' },
-    update: {},
-    create: {
-      code: 'ON_HOLD',
-      name: 'On Hold',
-      description: 'Application is temporarily on hold',
-      isActive: true,
-    },
-  });
-
-  const statusCancelled = await prisma.statuses.upsert({
-    where: { code: 'CANCELLED' },
-    update: {},
-    create: {
-      code: 'CANCELLED',
-      name: 'Cancelled',
-      description: 'Application has been cancelled',
-      isActive: true,
-    },
-  });
-
-  console.log('Database seeding completed successfully!');
-  console.log(`Created roles: ${adminRole.name}, ${userRole.name}, ${policeRole.name}`);
-  console.log(`Created state: ${telangana.name}`);
-  console.log(`Created district: ${hyderabad.name}`);
-  console.log('Created application statuses: Draft, Submitted, Under Review, Document Verification, Field Verification, Interview Scheduled, Approved, Rejected, On Hold, Cancelled');
+  for (const user of users) {
+    if (!roleMap[user.role]) continue;
+    await prisma.users.create({
+      data: {
+        username: user.username,
+        email: user.email,
+        password: user.password,
+        phoneNo: user.phoneNo,
+        roleId: roleMap[user.role],
+        stateId: user.stateId,
+        districtId: user.districtId,
+        policeStationId: user.policeStationId,
+        zoneId: user.zoneId,
+        divisionId: user.divisionId,
+      },
+    });
+  }
 }
 
 main()

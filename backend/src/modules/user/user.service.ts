@@ -1,5 +1,6 @@
 
 import { Injectable } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
 
 export interface CreateUserInput {
@@ -26,6 +27,17 @@ function validateCreateUserInput(data: any): asserts data is Required<CreateUser
 
 @Injectable()
 export class UserService {
+  private readonly saltRounds = 12;
+
+  /**
+   * Hash a password using bcrypt
+   * @param password - Plain text password
+   * @returns Hashed password
+   */
+  async hashPassword(password: string): Promise<string> {
+    return await bcrypt.hash(password, this.saltRounds);
+  }
+
   async getUsers(role?: string): Promise<any[]> {
     const where: any = {};
     if (role) {
@@ -44,13 +56,42 @@ export class UserService {
 
   async createUser(data: CreateUserInput) {
     validateCreateUserInput(data);
+    
+    // Hash the password before storing
+    const hashedPassword = await this.hashPassword(data.password);
+    
     return await prisma.users.create({
       data: {
         username: data.username,
         email: data.email,
-        password: data.password,
+        password: hashedPassword,
         phoneNo: data.phoneNo,
         roleId: Number(data.roleId),
+      },
+    });
+  }
+
+  /**
+   * Update user password with proper hashing
+   * @param userId - User ID
+   * @param newPassword - New plain text password
+   * @returns Updated user
+   */
+  async updatePassword(userId: string, newPassword: string) {
+    if (!newPassword || typeof newPassword !== 'string') {
+      throw new Error('Password is required and must be a string.');
+    }
+
+    const hashedPassword = await this.hashPassword(newPassword);
+    
+    return await prisma.users.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        updatedAt: true,
       },
     });
   }

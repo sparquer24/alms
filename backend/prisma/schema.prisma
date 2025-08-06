@@ -75,6 +75,16 @@ model States {
   applications    FreshLicenseApplicationsForms[]
 }
 
+enum ActionType {
+  FORWARD
+  REJECT
+  GROUND_REPORT
+  DISPOSE
+  CLOSE
+  RED_FLAG
+  APPROVE
+}
+
 model Districts {
   id              Int                      @id @default(autoincrement())
   name            String                   @unique
@@ -414,6 +424,7 @@ model FreshLicenseApplicationsForms {
   fileUploads     FreshLicenseApplicationsFormFileUploads[]
   biometricData    FreshLicenseApplicationsFormBiometricDatas?  @relation(fields: [biometricDataId], references: [id])
 
+  remarks          String?
 
   state    States    @relation(fields: [stateId], references: [id])
   district Districts @relation(fields: [districtId], references: [id])
