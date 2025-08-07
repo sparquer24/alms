@@ -82,16 +82,42 @@ export class ApplicationFormController {
       const statusId = req.query?.statusId ? Number(req.query.statusId) : undefined;
 
       let applications;
-      if (['ADMIN', 'POLICE_OFFICER', 'DM_OFFICE'].includes(userRole)) { // need to move to constants
-        applications = await this.applicationFormService.getFilteredApplications({ statusId });
-      } else {
-        applications = await this.applicationFormService.getFilteredApplications({ statusId, currentUserId: userId });
-      }
+      // if (['ADMIN', 'POLICE_OFFICER', 'DM_OFFICE'].includes(userRole)) { // need to move to constants
+      //   applications = await this.applicationFormService.getFilteredApplications({ statusId });
+      // } 
+
+      applications = await this.applicationFormService.getFilteredApplications({ statusId, currentUserId: userId });
+
+      // For each application, collect the relation table names (keys with object/array values)
+      const applicationsWithRelations = applications.map((app: any) => {
+        const relationNames: string[] = [];
+        for (const key in app) {
+          if (!Object.prototype.hasOwnProperty.call(app, key)) continue;
+          // Exclude primitive fields and id fields
+          const value = app[key];
+          if (
+            value &&
+            (typeof value === 'object') &&
+            !(value instanceof Date) &&
+            !Array.isArray(value) &&
+            Object.keys(value).length > 0
+          ) {
+            relationNames.push(key);
+          }
+          if (Array.isArray(value) && value.length > 0) {
+            relationNames.push(key);
+          }
+        }
+        return {
+          ...app,
+          relations: relationNames,
+        };
+      });
 
       return {
         success: true,
         message: 'Applications retrieved successfully',
-        data: applications,
+        data: applicationsWithRelations,
       };
     } catch (error: any) {
       throw new HttpException(
