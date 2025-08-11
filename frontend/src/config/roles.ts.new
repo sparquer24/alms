@@ -1,0 +1,477 @@
+// This file contains all the role-based configurations for the Arms License Management System
+// Roles include Applicant, Zonal Superintendent, DCP, ACP, SHO, Arms Superintendent, etc.
+
+export interface RoleConfig {
+  roleName: string;
+  displayName: string;
+  permissions: {
+    // View permissions
+    canViewFreshForm: boolean;
+    canViewForwarded: boolean;
+    canViewReturned: boolean;
+    canViewRedFlagged: boolean;
+    canViewDisposed: boolean;
+    canViewSent: boolean;
+    canViewFinalDisposal: boolean;
+    canViewReports: boolean;
+    canAccessSettings: boolean;
+    
+    // Action permissions
+    canSubmitApplication: boolean; // For applicants
+    canCaptureUIN: boolean; // For ZS
+    canCaptureBiometrics: boolean; // For ZS
+    canUploadDocuments: boolean; // For ZS, SHO
+    canForwardToACP: boolean; // For DCP, ZS
+    canForwardToSHO: boolean; // For ACP
+    canForwardToDCP: boolean; // For ACP, ZS, SHO
+    canForwardToAS: boolean; // For DCP
+    canForwardToCP: boolean; // For DCP, JTCP, CADO
+    canConductEnquiry: boolean; // For SHO
+    canAddRemarks: boolean; // For all officers
+    canApproveTA: boolean; // For DCP (Transport Authority)
+    canApproveAI: boolean; // For CP (Arms Import)
+    canReject: boolean; // For DCP, CP
+    canRequestResubmission: boolean; // For DCP, CP
+    canGeneratePDF: boolean; // For ZS
+  };
+  dashboardTitle: string;
+  menuItems: string[];
+}
+
+export const RoleTypes = {
+  APPLICANT: 'APPLICANT', // Citizen who applies for license
+  ZS: 'ZS', // Zonal Superintendent
+  DCP: 'DCP', // Deputy Commissioner of Police
+  ACP: 'ACP', // Assistant Commissioner of Police
+  SHO: 'SHO', // Station House Officer
+  AS: 'AS', // Arms Superintendent
+  ADO: 'ADO', // Administrative Officer
+  CADO: 'CADO', // Chief Administrative Officer
+  JTCP: 'JTCP', // Joint Commissioner of Police (JtCP)
+  CP: 'CP', // Commissioner of Police
+  ADMIN: 'ADMIN', // Super Admin
+} as const;
+
+export type RoleType = (typeof RoleTypes)[keyof typeof RoleTypes];
+
+// Role-based configurations
+export const roleConfigurations: Record<RoleType, RoleConfig> = {
+  [RoleTypes.APPLICANT]: {
+    roleName: 'APPLICANT',
+    displayName: 'Citizen Applicant',
+    permissions: {
+      // View permissions
+      canViewFreshForm: true,
+      canViewForwarded: false,
+      canViewReturned: true,
+      canViewRedFlagged: false,
+      canViewDisposed: false,
+      canViewSent: false,
+      canViewFinalDisposal: true, // Can view their own approved/rejected applications
+      canViewReports: false,
+      canAccessSettings: false,
+      
+      // Action permissions
+      canSubmitApplication: true, // Can submit new applications
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: true, // Can upload their own documents
+      canForwardToACP: false,
+      canForwardToSHO: false,
+      canForwardToDCP: false,
+      canForwardToAS: false,
+      canForwardToCP: false,
+      canConductEnquiry: false,
+      canAddRemarks: false,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'Applicant Dashboard',
+    menuItems: ['freshform', 'returned', 'final'],
+  },
+
+  [RoleTypes.ZS]: {
+    roleName: 'ZS',
+    displayName: 'Zonal Superintendent',
+    permissions: {
+      // View permissions
+      canViewFreshForm: true,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: false,
+      canViewSent: true,
+      canViewFinalDisposal: true,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: true, // Can capture and upload UIN
+      canCaptureBiometrics: true, // Can capture biometric data
+      canUploadDocuments: true, // Can upload documents
+      canForwardToACP: true,
+      canForwardToSHO: false,
+      canForwardToDCP: true,
+      canForwardToAS: false,
+      canForwardToCP: false,
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: true, // Can generate final PDF
+    },
+    dashboardTitle: 'Zonal Superintendent Dashboard',
+    menuItems: ['freshform', 'forwarded', 'returned', 'flagged', 'sent', 'final', 'reports'],
+  },
+
+  [RoleTypes.DCP]: {
+    roleName: 'DCP',
+    displayName: 'Deputy Commissioner of Police',
+    permissions: {
+      // View permissions
+      canViewFreshForm: true,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: true,
+      canViewSent: true,
+      canViewFinalDisposal: true,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: true, // Can forward to ACP for enquiry
+      canForwardToSHO: false,
+      canForwardToDCP: false,
+      canForwardToAS: true, // Can forward to AS for AI approvals
+      canForwardToCP: true, // Can indirectly forward to CP via AS
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: true, // Can approve TA Fresh and TA Renewal
+      canApproveAI: false,
+      canReject: true, // Can reject applications
+      canRequestResubmission: true, // Can request resubmission
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'DCP Dashboard',
+    menuItems: ['freshform', 'forwarded', 'returned', 'flagged', 'disposed', 'sent', 'final', 'reports'],
+  },
+
+  [RoleTypes.ACP]: {
+    roleName: 'ACP',
+    displayName: 'Assistant Commissioner of Police',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: false,
+      canViewSent: true,
+      canViewFinalDisposal: false,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: false,
+      canForwardToSHO: true, // Can forward to SHO for enquiry
+      canForwardToDCP: true, // Can forward back to DCP with remarks
+      canForwardToAS: false,
+      canForwardToCP: false,
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'ACP Dashboard',
+    menuItems: ['forwarded', 'returned', 'sent', 'reports'],
+  },
+
+  [RoleTypes.SHO]: {
+    roleName: 'SHO',
+    displayName: 'Station House Officer',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: false,
+      canViewDisposed: false,
+      canViewSent: true,
+      canViewFinalDisposal: false,
+      canViewReports: true,
+      canAccessSettings: false,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: true, // Can upload enquiry reports
+      canForwardToACP: true, // Can forward back to ACP with reports
+      canForwardToSHO: false,
+      canForwardToDCP: false,
+      canForwardToAS: false,
+      canForwardToCP: false,
+      canConductEnquiry: true, // Can conduct enquiry
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'SHO Dashboard',
+    menuItems: ['forwarded', 'returned', 'sent', 'reports'],
+  },
+
+  [RoleTypes.AS]: {
+    roleName: 'AS',
+    displayName: 'Arms Superintendent',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: false,
+      canViewSent: true,
+      canViewFinalDisposal: true,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: false,
+      canForwardToSHO: false,
+      canForwardToDCP: true, // Can forward back to DCP
+      canForwardToAS: false,
+      canForwardToCP: true, // Can forward to CP via administrative chain
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'Arms Superintendent Dashboard',
+    menuItems: ['forwarded', 'returned', 'flagged', 'sent', 'final', 'reports'],
+  },
+
+  [RoleTypes.ADO]: {
+    roleName: 'ADO',
+    displayName: 'Administrative Officer',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: false,
+      canViewDisposed: false,
+      canViewSent: true,
+      canViewFinalDisposal: false,
+      canViewReports: true,
+      canAccessSettings: false,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: false,
+      canForwardToSHO: false,
+      canForwardToDCP: false,
+      canForwardToAS: false,
+      canForwardToCP: false, // Can't forward directly to CP
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'Administrative Officer Dashboard',
+    menuItems: ['forwarded', 'returned', 'sent', 'reports'],
+  },
+
+  [RoleTypes.CADO]: {
+    roleName: 'CADO',
+    displayName: 'Chief Administrative Officer',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: false,
+      canViewSent: true,
+      canViewFinalDisposal: false,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: false,
+      canForwardToSHO: false,
+      canForwardToDCP: false,
+      canForwardToAS: false,
+      canForwardToCP: true, // Can forward to JTCP
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'Chief Administrative Officer Dashboard',
+    menuItems: ['forwarded', 'returned', 'flagged', 'sent', 'reports'],
+  },
+
+  [RoleTypes.JTCP]: {
+    roleName: 'JTCP',
+    displayName: 'Joint Commissioner of Police',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: true,
+      canViewSent: true,
+      canViewFinalDisposal: true,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: false,
+      canForwardToSHO: false,
+      canForwardToDCP: false,
+      canForwardToAS: false,
+      canForwardToCP: true, // Can forward to CP with remarks
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: false,
+      canReject: false,
+      canRequestResubmission: false,
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'Joint Commissioner Dashboard',
+    menuItems: ['forwarded', 'returned', 'flagged', 'disposed', 'sent', 'final', 'reports'],
+  },
+
+  [RoleTypes.CP]: {
+    roleName: 'CP',
+    displayName: 'Commissioner of Police',
+    permissions: {
+      // View permissions
+      canViewFreshForm: false,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: true,
+      canViewSent: true,
+      canViewFinalDisposal: true,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: false,
+      canCaptureUIN: false,
+      canCaptureBiometrics: false,
+      canUploadDocuments: false,
+      canForwardToACP: false,
+      canForwardToSHO: false,
+      canForwardToDCP: true, // Can send back to DCP
+      canForwardToAS: false,
+      canForwardToCP: false,
+      canConductEnquiry: false,
+      canAddRemarks: true,
+      canApproveTA: false,
+      canApproveAI: true, // Can approve AI licenses
+      canReject: true, // Can reject applications
+      canRequestResubmission: true, // Can request resubmission
+      canGeneratePDF: false,
+    },
+    dashboardTitle: 'Commissioner of Police Dashboard',
+    menuItems: ['forwarded', 'returned', 'flagged', 'disposed', 'sent', 'final', 'reports'],
+  },
+
+  [RoleTypes.ADMIN]: {
+    roleName: 'ADMIN',
+    displayName: 'System Administrator',
+    permissions: {
+      // View permissions
+      canViewFreshForm: true,
+      canViewForwarded: true,
+      canViewReturned: true,
+      canViewRedFlagged: true,
+      canViewDisposed: true,
+      canViewSent: true,
+      canViewFinalDisposal: true,
+      canViewReports: true,
+      canAccessSettings: true,
+      
+      // Action permissions
+      canSubmitApplication: true,
+      canCaptureUIN: true,
+      canCaptureBiometrics: true,
+      canUploadDocuments: true,
+      canForwardToACP: true,
+      canForwardToSHO: true,
+      canForwardToDCP: true,
+      canForwardToAS: true,
+      canForwardToCP: true,
+      canConductEnquiry: true,
+      canAddRemarks: true,
+      canApproveTA: true,
+      canApproveAI: true,
+      canReject: true,
+      canRequestResubmission: true,
+      canGeneratePDF: true,
+    },
+    dashboardTitle: 'System Administrator Dashboard',
+    menuItems: ['freshform', 'forwarded', 'returned', 'flagged', 'disposed', 'sent', 'final', 'reports', 'settings'],
+  },
+};
+
+// A utility function to get the role configuration
+export const getRoleConfig = (role: RoleType): RoleConfig => {
+  return roleConfigurations[role] || roleConfigurations[RoleTypes.APPLICANT]; // Default to APPLICANT if role not found
+};
+
+// Export the current role (this would normally be set based on user authentication)
+// This is just a placeholder and should be replaced with actual authentication logic
+export const getCurrentRole = (): RoleType => {
+  // This would normally come from an auth context or similar
+  return RoleTypes.DCP; // Default to DCP for now
+};

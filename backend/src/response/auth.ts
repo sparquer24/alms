@@ -5,7 +5,7 @@ export interface LoginResponse {
     id: string;
     username: string;
     email?: string;
-    roleId: number;
+    role?: string; // Assuming role is a string, adjust as necessary
   };
 }
 

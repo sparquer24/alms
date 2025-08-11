@@ -4,37 +4,62 @@ const prisma = new PrismaClient();
 
 async function main() {
   // --- Hyderabad Police Users and Roles Seeding ---
-  await prisma.users.deleteMany({});
-  await prisma.roles.deleteMany({});
-  const roles = [
-    { code: 'APPLICANT', name: 'Citizen Applicant' },
-    { code: 'ZS', name: 'Zonal Superintendent' },
-    { code: 'SHO', name: 'Station House Officer' },
-    { code: 'ACP', name: 'Assistant Commissioner of Police' },
-    { code: 'DCP', name: 'Deputy Commissioner of Police' },
-    { code: 'AS', name: 'Arms Superintendent' },
-    { code: 'ADO', name: 'Administrative Officer' },
-    { code: 'CADO', name: 'Chief Administrative Officer' },
-    { code: 'JTCP', name: 'Joint Commissioner of Police' },
-    { code: 'CP', name: 'Commissioner of Police' },
-    { code: 'ARMS_SUPDT', name: 'Arms Superintendent' },
-    { code: 'ARMS_SEAT', name: 'Arms Seat' },
-    { code: 'ACO', name: 'Assistant Compliance Officer' },
-    { code: 'ADMIN', name: 'System Administrator' },
+  // --- Statuses Seeding ---
+  await prisma.statuses.deleteMany({});
+  const statuses = [
+    { code: 'FORWARD', name: 'Forward', description: 'Application forwarded to next stage' },
+    { code: 'REJECT', name: 'Reject', description: 'Application rejected' },
+    { code: 'APPROVED', name: 'Approved', description: 'Application approved' },
+    { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled' },
+    { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required' },
+    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
+    { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
+    { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
+    { code: 'INITIATE', name: 'Initiate', description: 'Application initiated' },
+    { code: 'CLOSE', name: 'Close', description: 'Application closed' },
+    { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
   ];
-  for (const role of roles) {
-    await prisma.roles.create({
+  for (const status of statuses) {
+    await prisma.statuses.create({
       data: {
-        code: role.code,
-        name: role.name,
-        is_active: true,
-        can_forward: false,
-        can_re_enquiry: false,
-        can_generate_ground_report: false,
-        can_FLAF: false,
+        code: status.code,
+        name: status.name,
+        description: status.description,
+        isActive: true,
       },
     });
   }
+  await prisma.users.deleteMany({});
+  await prisma.roles.deleteMany({});
+  // const roles = [
+  //   { code: 'APPLICANT', name: 'Citizen Applicant' },
+  //   { code: 'ZS', name: 'Zonal Superintendent' },
+  //   { code: 'SHO', name: 'Station House Officer' },
+  //   { code: 'ACP', name: 'Assistant Commissioner of Police' },
+  //   { code: 'DCP', name: 'Deputy Commissioner of Police' },
+  //   { code: 'AS', name: 'Arms Superintendent' },
+  //   { code: 'ADO', name: 'Administrative Officer' },
+  //   { code: 'CADO', name: 'Chief Administrative Officer' },
+  //   { code: 'JTCP', name: 'Joint Commissioner of Police' },
+  //   { code: 'CP', name: 'Commissioner of Police' },
+  //   { code: 'ARMS_SUPDT', name: 'Arms Superintendent' },
+  //   { code: 'ARMS_SEAT', name: 'Arms Seat' },
+  //   { code: 'ACO', name: 'Assistant Compliance Officer' },
+  //   { code: 'ADMIN', name: 'System Administrator' },
+  // ];
+  // for (const role of roles) {
+  //   await prisma.roles.create({
+  //     data: {
+  //       code: role.code,
+  //       name: role.name,
+  //       is_active: true,
+  //       can_forward: false,
+  //       can_re_enquiry: false,
+  //       can_generate_ground_report: false,
+  //       can_FLAF: false,
+  //     },
+  //   });
+  // }
 
   const roleMap: Record<string, number> = {};
   const dbRoles = await prisma.roles.findMany();
@@ -188,7 +213,7 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e);
-    process.exit(1);
+    // process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
