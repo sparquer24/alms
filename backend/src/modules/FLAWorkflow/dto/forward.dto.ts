@@ -1,4 +1,23 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn, IsArray, ValidateNested, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class AttachmentDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  type!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  contentType!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  url!: string;
+}
 
 export class ForwardDto {
   @IsString()
@@ -12,6 +31,12 @@ export class ForwardDto {
   @IsString()
   @IsOptional()
   nextUserId?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
+  @IsOptional()
+  attachments?: AttachmentDto[];
 
   @IsString()
   @IsNotEmpty()

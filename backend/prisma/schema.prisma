@@ -63,8 +63,23 @@ model Statuses {
   updatedAt       DateTime @updatedAt
   
   applications    FreshLicenseApplicationsForms[]
+  actions         Actiones[]
 }
 
+model Actiones {
+  id             Int      @id @default(autoincrement())
+  code            String   @unique
+  name            String
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  statusId        Int
+  status          Statuses @relation(fields: [statusId], references: [id])
+
+  applicationsHistory  FreshLicenseApplicationsFormWorkflowHistories[] @relation("ActionesToWorkflowHistory")
+}
 model States {
   id              Int                      @id @default(autoincrement())
   name            String                   @unique
@@ -74,17 +89,6 @@ model States {
   occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
   applications    FreshLicenseApplicationsForms[]
 }
-
-enum ActionType {
-  FORWARD
-  REJECT
-  GROUND_REPORT
-  DISPOSE
-  CLOSE
-  RED_FLAG
-  APPROVE
-}
-
 model Districts {
   id              Int                      @id @default(autoincrement())
   name            String                   @unique
@@ -141,8 +145,8 @@ model Roles {
 }
 
 model FreshLicenseApplicationsFormCriminalHistories {
-  id             String    @id @default(uuid())
-  applicationId  String
+  id             Int    @id @default(autoincrement())
+  applicationId  Int
   convicted      Boolean
   convictionData Json? // FIR number , Uder Section, Police Station, Unit, District, state, Offence, Sentence, Date of Sentence(date format)
   bondExecutionOrdered  Boolean?
@@ -153,25 +157,10 @@ model FreshLicenseApplicationsFormCriminalHistories {
   application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
 }
 
-// model FreshLicenseApplicationsFormLicenseHistories {
-//   id            String @id @default(uuid())
-//   applicationId String
-//   previouslyApplied    Boolean // If yes , fill the below fields
-//   dateApplied          DateTime?
-//   namelicenseAuthority          String?
-//   result  String // Result (Pl. Specify) 
-//   previousStatusOfLicence    previousStatusOfLicence?
-//   uploadPreviousLicense  String? // URL to the uploaded license document
-//   nameLicenseSuspendedAuthority Boolean?
-//   licenseReason   String?
-
-//   application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
-// };
-
 model FreshLicenseApplicationsFormLicenseHistories {
-  id                             String   @id @default(uuid())
+  id                             Int   @id @default(autoincrement())
 
-  applicationId                  String
+  applicationId                  Int
   // (a) Previous application info
   hasAppliedBefore               Boolean
   previousApplications           Json?   // Array of previous application details
@@ -198,7 +187,7 @@ model FreshLicenseApplicationsFormLicenseHistories {
 }
 
 model WeaponTypeMaster {
-  id          String   @id @default(uuid())
+  id          Int   @id @default(autoincrement())
   name        String   @unique     // e.g., "Rifle"
   description String?
   imageUrl    String?     // S3 or local image URL
@@ -208,7 +197,7 @@ model WeaponTypeMaster {
 }
 
 model FreshLicenseApplicationsFormLicenseRequestDetails {
-  id                     String   @id @default(uuid())
+  id                     Int   @id @default(autoincrement())
 
   // 15. Need for license
   needForLicense       LicensePurpose?  // Uses enum
@@ -221,7 +210,7 @@ model FreshLicenseApplicationsFormLicenseRequestDetails {
   // 17. Area to carry arms
   areaOfValidity         String? // "District" | "State" | "Throughout India", address of zs
 
-  applicationId          String
+  applicationId          Int
   application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
 
   createdAt              DateTime @default(now())
@@ -229,8 +218,8 @@ model FreshLicenseApplicationsFormLicenseRequestDetails {
 }
 
 model FreshLicenseApplicationsFormFileUploads {
-  id            String   @id @default(uuid())
-  applicationId String
+  id            Int   @id @default(autoincrement())
+  applicationId Int
   fileName      String
   fileSize      Int
   fileType      FileType
@@ -241,7 +230,7 @@ model FreshLicenseApplicationsFormFileUploads {
 }
 
 model Users {
-  id        String   @id @default(uuid())
+  id        Int   @id @default(autoincrement())
   username  String   @unique
   email     String?  @unique
   password  String
@@ -278,8 +267,8 @@ model Users {
 }
 
 model FlowMaps {
-  id            String          @id @default(uuid())
-  currentUserId String
+  id            Int          @id @default(autoincrement())
+  currentUserId Int
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   actions       ActionHistories[]
@@ -288,18 +277,18 @@ model FlowMaps {
 }
 
 model FlowNextUsers {
-  id         String  @id @default(uuid())
-  flowMapId  String
-  nextUserId String
+  id         Int  @id @default(autoincrement())
+  flowMapId  Int
+  nextUserId Int
   flowMap    FlowMaps @relation(fields: [flowMapId], references: [id])
   nextUser   Users    @relation("NextUserInFlow", fields: [nextUserId], references: [id])
 }
 
 model ActionHistories {
-  id          String   @id @default(uuid())
-  flowMapId   String
-  fromUserId  String
-  toUserId    String
+  id          Int   @id @default(autoincrement())
+  flowMapId   Int
+  fromUserId  Int
+  toUserId    Int
   actionTaken String
   createdAt   DateTime @default(now())
   flowMap     FlowMaps  @relation(fields: [flowMapId], references: [id])
@@ -308,7 +297,7 @@ model ActionHistories {
 }
 
 model FreshLicenseApplicationsFormAddresses {
-  id                  String   @id @default(uuid())
+  id                  Int   @id @default(autoincrement())
   addressLine         String
   stateId             Int
   districtId          Int
@@ -324,18 +313,18 @@ model FreshLicenseApplicationsFormAddresses {
 }
 
 model FreshLicenseApplicationsFormContactInfos {
-  id                 String                  @id @default(uuid())
+  id                 Int                  @id @default(autoincrement())
   telephoneOffice    String?
   telephoneResidence String?
   mobileNumber       String
   officeMobileNumber String?
   alternativeMobile  String?
-  applicationId      String?   @unique
+  applicationId      Int?   @unique
   application        FreshLicenseApplicationsForms?
 }
 
 model FreshLicenseApplicationsFormOccupationInfos {
-  id                     String  @id @default(uuid())
+  id                     Int  @id @default(autoincrement())
   occupation             String
   officeAddress          String
   stateId                Int
@@ -351,17 +340,17 @@ model FreshLicenseApplicationsFormOccupationInfos {
 }
 
 model FreshLicenseApplicationsFormBiometricDatas {
-  id                String                  @id @default(uuid())
+  id                Int                  @id @default(autoincrement())
   signatureImageUrl String?
   irisScanImageUrl  String?
   photoImageUrl     String?
-  applicationId      String   @unique
+  applicationId      Int   @unique
   application       FreshLicenseApplicationsForms?
 }
 
 // ---------------- Application schema ----------------
 model FreshLicenseApplicationsForms {
-  id                String @id @default(uuid())
+  id                Int @id @default(autoincrement())
   acknowledgementNo String @unique
 
   firstName          String
@@ -374,8 +363,8 @@ model FreshLicenseApplicationsForms {
   statusId   Int?    // Foreign key to Status table
   currentRoleId Int? // Foreign key to Role table
   previousRoleId Int? // Foreign key to Role table
-  currentUserId   String? // Foreign key to User table
-  previousUserId  String? // Foreign key to User table
+  currentUserId   Int? // Foreign key to User table
+  previousUserId  Int? // Foreign key to User table
   stateId    Int
   districtId Int
 
@@ -394,11 +383,11 @@ model FreshLicenseApplicationsForms {
   aadharNumber       String   @unique
   dobInWords         String?     
 
-  presentAddressId   String
-  permanentAddressId String?
-  contactInfoId      String  @unique
-  occupationInfoId   String?
-  biometricDataId    String? @unique
+  presentAddressId   Int
+  permanentAddressId Int?
+  contactInfoId      Int  @unique
+  occupationInfoId   Int?
+  biometricDataId    Int? @unique
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
@@ -433,15 +422,20 @@ model FreshLicenseApplicationsForms {
 }
 
 model FreshLicenseApplicationsFormWorkflowHistories {
-  id               String   @id @default(uuid())
-  applicationId    String
-  previousUserId   String
-  nextUserId       String
-  previousRoleId   String
-  nextRoleId       String
+  id               Int   @id @default(autoincrement())
+  applicationId    Int
+  previousUserId   Int
+  nextUserId       Int
+  previousRoleId   Int?
+  nextRoleId       Int?
   actionTaken      String   // enum recommended
   remarks          String?
   createdAt        DateTime @default(now())
+
+  attachments      Json?    // Array of { name, type, contentType, url }
+
+  actionesId       Int?
+  actiones         Actiones? @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id])
 
   application      FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
   // ... other relations if needed

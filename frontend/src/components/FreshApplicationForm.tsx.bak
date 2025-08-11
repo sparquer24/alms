@@ -1,0 +1,848 @@
+"use client";
+
+import { useState } from 'react';
+import { useAuth } from '../config/auth';
+import { mockApplications } from '../config/mockData';
+import React from 'react';
+
+// Create a proper interface for the form data
+interface FormData {
+  applicantName: string;
+  applicantMobile: string;
+  applicantEmail: string;
+  fatherName: string;
+  gender: string;
+  dateOfBirth: string;
+  age: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  licenseType: string;
+  weaponType: string;
+  purposeOfWeapon: string;
+  photoUrl?: string;
+  idProofUrl?: string;
+  addressProofUrl?: string;
+  [key: string]: string | undefined; // For other dynamic fields
+}
+
+// Interface for document files
+interface DocumentFile {
+  file: File;
+  preview: string;
+}
+
+interface FreshApplicationFormProps {
+  onSubmit: (formData: FormData) => void;
+  onCancel: () => void;
+}
+
+export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplicationFormProps) {
+  const { userRole, userName } = useAuth();
+  const [formStep, setFormStep] = useState(1);
+  // Store document files for preview
+  const [documentFiles, setDocumentFiles] = useState<Record<string, DocumentFile | null>>({
+    idProofUploaded: null,
+    addressProofUploaded: null,
+    photographUploaded: null,
+    characterCertificateUploaded: null,
+    medicalCertificateUploaded: null,
+    trainingCertificateUploaded: null,
+  });
+  const [formData, setFormData] = useState({
+    // Personal Information
+    applicantName: '',
+    applicantMobile: '',
+    applicantEmail: '',
+    applicantAddress: '',
+    applicantIdType: 'aadhar',
+    applicantIdNumber: '',
+    applicantGender: '',
+    applicantDateOfBirth: '',
+    
+    // License Information
+    applicationType: 'New License',
+    weaponType: '',
+    weaponReason: '',
+    licenseType: 'Regular',
+    licenseValidity: '3',
+    
+    // Supporting Documents
+    idProofUploaded: false,
+    addressProofUploaded: false,
+    photographUploaded: false,
+    characterCertificateUploaded: false,
+    medicalCertificateUploaded: false,
+    trainingCertificateUploaded: false,
+    
+    // Declarations
+    isPreviouslyHeldLicense: 'no',
+    previousLicenseNumber: '',
+    hasCriminalRecord: 'no',
+    criminalRecordDetails: '',
+    hasSubmittedTrueInfo: false,
+  });
+  
+  // Validation errors
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Handle input changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    
+    // Clear error when field is modified
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+  
+  // Handle document file upload
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>, docId: string) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      // Create a file URL for preview
+      const filePreview = URL.createObjectURL(file);
+      
+      // Store the file and its preview
+      setDocumentFiles(prev => ({
+        ...prev,
+        [docId]: { file, preview: filePreview }
+      }));
+      
+      // Update form data to indicate the file has been uploaded
+      setFormData(prev => ({
+        ...prev,
+        [docId]: true
+      }));
+      
+      // Clear error if exists
+      if (errors[docId]) {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[docId];
+          return newErrors;
+        });
+      }
+    }
+  };
+  
+  // Clean up file preview URLs when component unmounts
+  React.useEffect(() => {
+    return () => {
+      // Revoke all URL objects to prevent memory leaks
+      Object.values(documentFiles).forEach(docFile => {
+        if (docFile && docFile.preview) {
+          URL.revokeObjectURL(docFile.preview);
+        }
+      });
+    };
+  }, [documentFiles]);
+
+  // Validate form fields for current step
+  const validateCurrentStep = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (formStep === 1) {
+      if (!formData.applicantName) newErrors.applicantName = 'Applicant name is required';
+      if (!formData.applicantMobile) {
+        newErrors.applicantMobile = 'Mobile number is required';
+      } else if (!/^[0-9]{10}$/.test(formData.applicantMobile)) {
+        newErrors.applicantMobile = 'Please enter a valid 10-digit mobile number';
+      }
+      
+      if (!formData.applicantEmail) {
+        newErrors.applicantEmail = 'Email is required';
+      } else if (!/^\S+@\S+\.\S+$/.test(formData.applicantEmail)) {
+        newErrors.applicantEmail = 'Please enter a valid email address';
+      }
+      
+      if (!formData.applicantAddress) newErrors.applicantAddress = 'Address is required';
+      if (!formData.applicantIdNumber) newErrors.applicantIdNumber = 'ID number is required';
+      if (!formData.applicantGender) newErrors.applicantGender = 'Please select gender';
+      if (!formData.applicantDateOfBirth) newErrors.applicantDateOfBirth = 'Date of birth is required';
+    }
+    
+    if (formStep === 2) {
+      if (!formData.weaponType) newErrors.weaponType = 'Weapon type is required';
+      if (!formData.weaponReason) newErrors.weaponReason = 'Reason for weapon is required';
+    }
+    
+    if (formStep === 3) {
+      if (!formData.idProofUploaded) newErrors.idProofUploaded = 'ID proof is required';
+      if (!formData.addressProofUploaded) newErrors.addressProofUploaded = 'Address proof is required';
+      if (!formData.photographUploaded) newErrors.photographUploaded = 'Photograph is required';
+    }
+    
+    if (formStep === 4 && !formData.hasSubmittedTrueInfo) {
+      newErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  // Handle next step
+  const handleNextStep = () => {
+    if (validateCurrentStep()) {
+      setFormStep(prev => prev + 1);
+    }
+  };
+  
+  // Handle previous step
+  const handlePreviousStep = () => {
+    setFormStep(prev => prev - 1);
+  };
+  
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validateCurrentStep()) {
+      // Generate new application ID
+      const newId = `AL-2025-${(mockApplications.length + 1).toString().padStart(3, '0')}`;
+      
+      // Create new application object
+      const newApplication = {
+        id: newId,
+        applicantName: formData.applicantName,
+        applicantMobile: formData.applicantMobile,
+        applicantEmail: formData.applicantEmail,
+        applicantAddress: formData.applicantAddress,
+        applicantID: formData.applicantIdNumber,
+        applicationType: formData.applicationType,
+        weaponType: formData.weaponType,
+        licenseType: formData.licenseType,
+        applicationDate: new Date().toISOString().split('T')[0],
+        status: 'initiated' as const,
+        assignedTo: userRole,
+        lastUpdated: new Date().toISOString().split('T')[0],
+        documents: {
+          idProof: formData.idProofUploaded,
+          addressProof: formData.addressProofUploaded,
+          photograph: formData.photographUploaded,
+          characterCertificate: formData.characterCertificateUploaded,
+          medicalCertificate: formData.medicalCertificateUploaded,
+          trainingCertificate: formData.trainingCertificateUploaded,
+        },
+        comments: [
+          `Application initiated by ${userName} (${userRole}) on ${new Date().toLocaleDateString()}`
+        ],
+        approvalHistory: [
+          {
+            officerRole: userRole,
+            officerName: userName,
+            date: new Date().toISOString().split('T')[0],
+            status: 'forwarded' as const,
+            comments: 'Application initiated and ready for processing'
+          }
+        ]
+      };
+      
+      onSubmit(newApplication);
+    }
+  };
+  
+  return (
+    <div className="bg-white shadow-md rounded-lg p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">New Arms License Application</h2>
+        <p className="text-gray-600 mt-1">Please fill in all required fields to submit a new application</p>
+      </div>
+      
+      {/* Progress Steps */}
+      <div className="mb-8">
+        <div className="flex justify-between">
+          <div className={`text-center flex-1 ${formStep >= 1 ? 'text-[#6366F1]' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full ${formStep >= 1 ? 'bg-[#6366F1] text-white' : 'bg-gray-200 text-gray-600'}`}>
+              1
+            </div>
+            <div className="text-xs mt-1">Personal Info</div>
+          </div>
+          <div className={`text-center flex-1 ${formStep >= 2 ? 'text-[#6366F1]' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full ${formStep >= 2 ? 'bg-[#6366F1] text-white' : 'bg-gray-200 text-gray-600'}`}>
+              2
+            </div>
+            <div className="text-xs mt-1">Weapon Details</div>
+          </div>
+          <div className={`text-center flex-1 ${formStep >= 3 ? 'text-[#6366F1]' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full ${formStep >= 3 ? 'bg-[#6366F1] text-white' : 'bg-gray-200 text-gray-600'}`}>
+              3
+            </div>
+            <div className="text-xs mt-1">Documents</div>
+          </div>
+          <div className={`text-center flex-1 ${formStep >= 4 ? 'text-[#6366F1]' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full ${formStep >= 4 ? 'bg-[#6366F1] text-white' : 'bg-gray-200 text-gray-600'}`}>
+              4
+            </div>
+            <div className="text-xs mt-1">Review</div>
+          </div>
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit}>
+        {/* Step 1: Personal Information */}
+        {formStep === 1 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-800">Personal Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Full Name *</label>
+                <input
+                  type="text"
+                  name="applicantName"
+                  value={formData.applicantName}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                />
+                {errors.applicantName && <p className="text-red-500 text-xs mt-1">{errors.applicantName}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mobile Number *</label>
+                <input
+                  type="tel"
+                  name="applicantMobile"
+                  value={formData.applicantMobile}
+                  onChange={handleChange}
+                  maxLength={10}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantMobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                />
+                {errors.applicantMobile && <p className="text-red-500 text-xs mt-1">{errors.applicantMobile}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email *</label>
+                <input
+                  type="email"
+                  name="applicantEmail"
+                  value={formData.applicantEmail}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantEmail ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                />
+                {errors.applicantEmail && <p className="text-red-500 text-xs mt-1">{errors.applicantEmail}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Gender *</label>
+                <select
+                  name="applicantGender"
+                  value={formData.applicantGender}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantGender ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.applicantGender && <p className="text-red-500 text-xs mt-1">{errors.applicantGender}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date of Birth *</label>
+                <input
+                  type="date"
+                  name="applicantDateOfBirth"
+                  value={formData.applicantDateOfBirth}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantDateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                />
+                {errors.applicantDateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.applicantDateOfBirth}</p>}
+              </div>
+              
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Residential Address *</label>
+                <textarea
+                  name="applicantAddress"
+                  value={formData.applicantAddress}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                  rows={3}
+                />
+                {errors.applicantAddress && <p className="text-red-500 text-xs mt-1">{errors.applicantAddress}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">ID Type *</label>
+                <select
+                  name="applicantIdType"
+                  value={formData.applicantIdType}
+                  onChange={handleChange}
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                >
+                  <option value="aadhar">Aadhar Card</option>
+                  <option value="pan">PAN Card</option>
+                  <option value="voter">Voter ID</option>
+                  <option value="driving">Driving License</option>
+                  <option value="passport">Passport</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">ID Number *</label>
+                <input
+                  type="text"
+                  name="applicantIdNumber"
+                  value={formData.applicantIdNumber}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.applicantIdNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                />
+                {errors.applicantIdNumber && <p className="text-red-500 text-xs mt-1">{errors.applicantIdNumber}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 2: Weapon Details */}
+        {formStep === 2 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-800">Weapon Details</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Application Type *</label>
+                <select
+                  name="applicationType"
+                  value={formData.applicationType}
+                  onChange={handleChange}
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                >
+                  <option value="New License">New License</option>
+                  <option value="Renewal">Renewal</option>
+                  <option value="Transfer">Transfer</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Weapon Type *</label>
+                <select
+                  name="weaponType"
+                  value={formData.weaponType}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.weaponType ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                >
+                  <option value="">Select Weapon Type</option>
+                  <option value="Rifle">Rifle</option>
+                  <option value="Shotgun">Shotgun</option>
+                  <option value="Handgun">Handgun</option>
+                  <option value="Pistol">Pistol</option>
+                  <option value="Revolver">Revolver</option>
+                </select>
+                {errors.weaponType && <p className="text-red-500 text-xs mt-1">{errors.weaponType}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">License Type</label>
+                <select
+                  name="licenseType"
+                  value={formData.licenseType}
+                  onChange={handleChange}
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                >
+                  <option value="Regular">Regular</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Security">Security</option>
+                  <option value="Agricultural">Agricultural</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">License Validity (Years)</label>
+                <select
+                  name="licenseValidity"
+                  value={formData.licenseValidity}
+                  onChange={handleChange}
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                >
+                  <option value="3">3 Years</option>
+                  <option value="5">5 Years</option>
+                </select>
+              </div>
+              
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Reason for Weapon *</label>
+                <textarea
+                  name="weaponReason"
+                  value={formData.weaponReason}
+                  onChange={handleChange}
+                  className={`mt-1 block w-full p-2 border ${errors.weaponReason ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                  rows={3}
+                  placeholder="Please provide a detailed reason why you need this weapon"
+                />
+                {errors.weaponReason && <p className="text-red-500 text-xs mt-1">{errors.weaponReason}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Have you previously held an arms license?</label>
+                <div className="mt-1 flex gap-4">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="isPreviouslyHeldLicense"
+                      value="yes"
+                      checked={formData.isPreviouslyHeldLicense === 'yes'}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-[#6366F1]"
+                    />
+                    <span className="ml-2">Yes</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="isPreviouslyHeldLicense"
+                      value="no"
+                      checked={formData.isPreviouslyHeldLicense === 'no'}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-[#6366F1]"
+                    />
+                    <span className="ml-2">No</span>
+                  </label>
+                </div>
+              </div>
+              
+              {formData.isPreviouslyHeldLicense === 'yes' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Previous License Number</label>
+                  <input
+                    type="text"
+                    name="previousLicenseNumber"
+                    value={formData.previousLicenseNumber}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                  />
+                </div>
+              )}
+              
+              <div className="col-span-1 md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Do you have any criminal records?</label>
+                <div className="mt-1 flex gap-4">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="hasCriminalRecord"
+                      value="yes"
+                      checked={formData.hasCriminalRecord === 'yes'}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-[#6366F1]"
+                    />
+                    <span className="ml-2">Yes</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      name="hasCriminalRecord"
+                      value="no"
+                      checked={formData.hasCriminalRecord === 'no'}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-[#6366F1]"
+                    />
+                    <span className="ml-2">No</span>
+                  </label>
+                </div>
+              </div>
+              
+              {formData.hasCriminalRecord === 'yes' && (
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Criminal Record Details</label>
+                  <textarea
+                    name="criminalRecordDetails"
+                    value={formData.criminalRecordDetails}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    rows={3}
+                    placeholder="Please provide details of your criminal record"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Step 3: Documents Upload */}
+        {formStep === 3 && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-800">Required Documents</h3>
+            <p className="text-sm text-gray-600 mb-4">Please upload all required documents in PDF or image format</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/*
+                { id: 'idProofUploaded', name: 'ID Proof', required: true },
+                { id: 'addressProofUploaded', name: 'Address Proof', required: true },
+                { id: 'photographUploaded', name: 'Recent Passport Size Photograph', required: true },
+                { id: 'characterCertificateUploaded', name: 'Character Certificate', required: false },
+                { id: 'medicalCertificateUploaded', name: 'Medical Certificate', required: false },
+                { id: 'trainingCertificateUploaded', name: 'Training Certificate', required: false },
+              ].map((doc) => (
+                <div key={doc.id} className="border border-gray-300 rounded-lg p-4">
+                  <label className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      {doc.name} {doc.required && <span className="text-red-500">*</span>}
+                    </span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${formData[doc.id as keyof typeof formData] ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {formData[doc.id as keyof typeof formData] ? 'Uploaded' : 'Not Uploaded'}
+                    </span>
+                  </label>
+                  
+                  {/* Document preview */}
+                  {documentFiles[doc.id] && documentFiles[doc.id]?.preview && (
+                    <div className="mt-2 flex justify-center">
+                      {documentFiles[doc.id]?.file?.type.includes('pdf') ? (
+                        <div className="bg-gray-100 rounded-lg p-3 text-center w-full">
+                          <svg className="h-10 w-10 mx-auto text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          <p className="mt-1 text-xs text-gray-600 truncate">
+                            {documentFiles[doc.id]?.file?.name}
+                          </p>
+                        </div>
+                      ) : (
+                        <img 
+                          src={documentFiles[doc.id]?.preview} 
+                          alt={`${doc.name} preview`}
+                          className="max-h-40 rounded-lg object-contain"
+                        />
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="mt-2">
+                    <label className="block w-full cursor-pointer bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-100 transition">
+                      <span className="text-sm text-gray-600">{formData[doc.id as keyof typeof formData] ? 'Change file' : 'Click to upload'}</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => handleDocumentUpload(e, doc.id)}
+                      />
+                    </label>
+                    {doc.required && errors[doc.id] && <p className="text-red-500 text-xs mt-1">{errors[doc.id]}</p>}
+                  </div>
+                  
+                  {/* Option to delete uploaded file */}
+                  {documentFiles[doc.id] && (
+                    <div className="mt-2 text-center">
+                      <button
+                        type="button"
+                        className="text-xs text-red-600 hover:text-red-800"
+                        onClick={() => {
+                          // Revoke the object URL to prevent memory leaks
+                          if (documentFiles[doc.id]?.preview) {
+                            URL.revokeObjectURL(documentFiles[doc.id]!.preview);
+                          }
+                          
+                          // Clear the uploaded document
+                          setDocumentFiles(prev => ({
+                            ...prev,
+                            [doc.id]: null
+                          }));
+                          
+                          // Update form data
+                          setFormData(prev => ({
+                            ...prev,
+                            [doc.id]: false
+                          }));
+                        }}
+                      >
+                        Remove file
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Step 4: Review & Submit */}
+        {formStep === 4 && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-800">Review Application</h3>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-3">Personal Information</h4>
+              <div className="grid grid-cols-2 gap-y-2 text-sm">
+                <div className="text-gray-600">Full Name:</div>
+                <div className="font-medium">{formData.applicantName}</div>
+                
+                <div className="text-gray-600">Mobile Number:</div>
+                <div className="font-medium">{formData.applicantMobile}</div>
+                
+                <div className="text-gray-600">Email:</div>
+                <div className="font-medium">{formData.applicantEmail}</div>
+                
+                <div className="text-gray-600">Gender:</div>
+                <div className="font-medium">{formData.applicantGender}</div>
+                
+                <div className="text-gray-600">Date of Birth:</div>
+                <div className="font-medium">{formData.applicantDateOfBirth}</div>
+                
+                <div className="text-gray-600">ID Type:</div>
+                <div className="font-medium">
+                  {formData.applicantIdType === 'aadhar' ? 'Aadhar Card' :
+                    formData.applicantIdType === 'pan' ? 'PAN Card' :
+                    formData.applicantIdType === 'voter' ? 'Voter ID' :
+                    formData.applicantIdType === 'driving' ? 'Driving License' : 'Passport'}
+                </div>
+                
+                <div className="text-gray-600">ID Number:</div>
+                <div className="font-medium">{formData.applicantIdNumber}</div>
+                
+                <div className="text-gray-600 col-span-2">Address:</div>
+                <div className="font-medium col-span-2">{formData.applicantAddress}</div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-3">Weapon Details</h4>
+              <div className="grid grid-cols-2 gap-y-2 text-sm">
+                <div className="text-gray-600">Application Type:</div>
+                <div className="font-medium">{formData.applicationType}</div>
+                
+                <div className="text-gray-600">Weapon Type:</div>
+                <div className="font-medium">{formData.weaponType}</div>
+                
+                <div className="text-gray-600">License Type:</div>
+                <div className="font-medium">{formData.licenseType}</div>
+                
+                <div className="text-gray-600">License Validity:</div>
+                <div className="font-medium">{formData.licenseValidity} Years</div>
+                
+                <div className="text-gray-600 col-span-2">Reason for Weapon:</div>
+                <div className="font-medium col-span-2">{formData.weaponReason}</div>
+                
+                <div className="text-gray-600">Previous License:</div>
+                <div className="font-medium">
+                  {formData.isPreviouslyHeldLicense === 'yes' ? 
+                    `Yes (${formData.previousLicenseNumber})` : 'No'}
+                </div>
+                
+                <div className="text-gray-600">Criminal Record:</div>
+                <div className="font-medium">
+                  {formData.hasCriminalRecord === 'yes' ? 'Yes' : 'No'}
+                </div>
+                
+                {formData.hasCriminalRecord === 'yes' && (
+                  <>
+                    <div className="text-gray-600 col-span-2">Criminal Record Details:</div>
+                    <div className="font-medium col-span-2">{formData.criminalRecordDetails}</div>
+                  </>
+                )}
+              </div>
+            </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-3">Document Status</h4>
+              <div className="grid grid-cols-2 gap-y-4 text-sm">
+                {[
+                  { id: 'idProofUploaded', name: 'ID Proof' },
+                  { id: 'addressProofUploaded', name: 'Address Proof' },
+                  { id: 'photographUploaded', name: 'Photograph' },
+                  { id: 'characterCertificateUploaded', name: 'Character Certificate' },
+                  { id: 'medicalCertificateUploaded', name: 'Medical Certificate' },
+                  { id: 'trainingCertificateUploaded', name: 'Training Certificate' },
+                ].map((doc) => (
+                  <React.Fragment key={doc.id}>
+                    <div className="text-gray-600">{doc.name}:</div>
+                    <div className="font-medium">
+                      <span className={`px-2 py-1 text-xs rounded-full ${formData[doc.id as keyof typeof formData] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {formData[doc.id as keyof typeof formData] ? 'Uploaded' : 'Not Uploaded'}
+                      </span>
+                      
+                      {/* Show preview thumbnail in review */}
+                      {documentFiles[doc.id] && documentFiles[doc.id]?.preview && (
+                        <div className="mt-1">
+                          {documentFiles[doc.id]?.file?.type.includes('pdf') ? (
+                            <div className="inline-block bg-gray-100 rounded p-1 mr-1">
+                              <svg className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <img 
+                              src={documentFiles[doc.id]?.preview} 
+                              alt={`${doc.name} preview`}
+                              className="h-6 w-6 object-cover rounded inline-block mr-1"
+                            />
+                          )}
+                          <span className="text-xs text-gray-600">
+                            {documentFiles[doc.id]?.file?.name?.length && documentFiles[doc.id]?.file?.name?.length > 15 
+                              ? `${documentFiles[doc.id]?.file?.name?.substring(0, 15)}...` 
+                              : documentFiles[doc.id]?.file?.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+            
+            <div className="py-4">
+              <label className="flex items-start">
+                <input
+                  type="checkbox"
+                  name="hasSubmittedTrueInfo"
+                  checked={formData.hasSubmittedTrueInfo as boolean}
+                  onChange={handleChange}
+                  className={`mt-1 h-4 w-4 text-[#6366F1]`}
+                />
+                <span className="ml-2 text-sm text-gray-700">
+                  I hereby declare that all the information furnished above is true to the best of my knowledge. I understand that providing false information may result in rejection of the application and legal action.
+                </span>
+              </label>
+              {errors.hasSubmittedTrueInfo && <p className="text-red-500 text-xs mt-1">{errors.hasSubmittedTrueInfo}</p>}
+            </div>
+          </div>
+        )}
+        
+        {/* Form Navigation */}
+        <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
+          {formStep > 1 ? (
+            <button
+              type="button"
+              onClick={handlePreviousStep}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            >
+              Previous
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          )}
+          
+          {formStep < 4 ? (
+            <button
+              type="button"
+              onClick={handleNextStep}
+              className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5]"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5]"
+            >
+              Submit Application
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}

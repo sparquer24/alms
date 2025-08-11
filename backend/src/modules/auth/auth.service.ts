@@ -63,7 +63,7 @@ export class AuthService {
           id: user.id,
           username: user.username,
           email: user.email,
-          roleId: user.roleId
+          role: user.role
         }
       };
     } catch (error) {
@@ -87,9 +87,16 @@ export class AuthService {
     // Check user credentials against the database
     const user = await prisma.users.findUnique({
       where: { username },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        password: true,
+        role: true, // Include role details if needed
+        
+      }
     });
 
-    console.log('Validating user:', username, 'Found:', !!user);
     // If user not found, return null
     if (!user) {
       return null;
@@ -106,7 +113,7 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      roleId: user.roleId
+      role: user.role
     };
   }
 
@@ -121,7 +128,6 @@ export class AuthService {
       username: user.username,
       email: user.email,
       user_id: user.id,
-      role_id: user.roleId
     };
 
     return jwt.sign(payload, this.jwtSecret!, {

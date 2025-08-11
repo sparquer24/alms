@@ -41,6 +41,14 @@ POST /workflow/action
   "actionType": "forward" | "reject" | "ground_report", // Required: Action to perform
   "nextUserId": "string",            // Optional: Next user ID (required for 'forward')
   "remarks": "string",                // Required: Remarks for the action
+  "attachments": [                    // Optional: Array of attachment objects
+    {
+      "name": "string",              // Name of the attachment file
+      "type": "string",              // Type/category of the attachment
+      "contentType": "string",       // MIME type (e.g., 'application/pdf')
+      "url": "string"                // URL or storage reference for the file
+    }
+  ],
   "currentUserId": "string",         // Required: ID of the user performing the action
   "currentRoleId": "string"          // Required: Role ID of the user performing the action
 }
@@ -76,6 +84,7 @@ Authorization: Bearer <JWT_TOKEN>
   - `actionType` (string, required: 'forward', 'reject', or 'ground_report')
   - `nextUserId` (string, required for 'forward')
   - `remarks` (string, required)
+  - `attachments` (array, optional): Each item should have `name`, `type`, `contentType`, and `url` fields.
   - `currentUserId` (string, required)
   - `currentRoleId` (string, required)
 
@@ -90,6 +99,11 @@ Authorization: Bearer <JWT_TOKEN>
   - `actionType`: The workflow action ('forward', 'reject', 'ground_report').
   - `nextUserId`: The user ID to forward to (only for 'forward').
   - `remarks`: Remarks for the action.
+  - `attachments`: (Optional) Array of attachment objects. Each object should have:
+    - `name`: Name of the file
+    - `type`: Type/category of the attachment
+    - `contentType`: MIME type (e.g., 'application/pdf')
+    - `url`: URL or storage reference for the file
   - `currentUserId`: The user performing the action.
   - `currentRoleId`: The role of the user performing the action.
 - **Process:**

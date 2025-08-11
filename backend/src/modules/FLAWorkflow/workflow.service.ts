@@ -12,7 +12,7 @@ export class WorkflowService {
     nextUserId?: string;
     remarks: string;
     currentUserId: string;
-    currentRoleId: string;
+    attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
   }) {
     // 1. Fetch Application Data
     const application = await this.prisma.freshLicenseApplicationsForms.findUnique({
@@ -22,13 +22,18 @@ export class WorkflowService {
       throw new NotFoundException('Application not found');
     }
 
-    // 2. Validate User Permission (replace with your actual logic)
-    // Example: Only certain roles can perform certain actions based on status
-    // You should fetch current status and role, and check allowed transitions
-    const allowedActions = ['forward', 'reject', 'ground_report'];
-    if (!allowedActions.includes(payload.actionType)) {
-      throw new BadRequestException('Invalid action type');
+    // 1b. Fetch current user's roleId
+    const currentUser = await this.prisma.users.findUnique({
+      where: { id: payload.currentUserId },
+      select: { roleId: true },
+    });
+    if (!currentUser || !currentUser.roleId) {
+      throw new InternalServerErrorException(`Role for current user '${payload.currentUserId}' not found.`);
     }
+    const currentRoleId = currentUser.roleId;
+
+    // 2. Validate User Permission (replace with your actual logic)
+    // You should fetch current status and role, and check allowed transitions
     // Example permission check (replace with your own logic)
     // if (!isUserAllowed(application.status_id, payload.currentRoleId, payload.actionType)) {
     //   throw new ForbiddenException('You are not authorized to perform this action.');
@@ -39,18 +44,20 @@ export class WorkflowService {
     let newCurrentUserId = application.currentUserId;
     let newCurrentRoleId = application.currentRoleId;
 
-    // Map actionType to status code
-    const statusCodeMap: Record<string, string> = {
-      forward: 'FORWARDED',
-      reject: 'REJECTED',
-      ground_report: 'GROUND_REPORT',
-    };
-    const statusCode = statusCodeMap[payload.actionType];
-    if (statusCode) {
-      const status = await this.prisma.statuses.findUnique({ where: { code: statusCode } });
-      if (!status) throw new InternalServerErrorException(`Status code '${statusCode}' not found.`);
-      newStatusId = status.id;
+    // Fetch status for the actionType from the actiones table
+    const action = await this.prisma.actiones.findFirst({
+      where: {
+        code: payload.actionType.toUpperCase(),
+        isActive: true,
+      },
+    });
+    if (action) {
+      newStatusId = action.id;
     }
+    // Optionally, throw if not found and action is not 'forward' (which may not have a status)
+    // else if (['forward', 'reject', 'ground_report'].includes(payload.actionType)) {
+    //   throw new InternalServerErrorException(`Status for action '${payload.actionType}' not found in Actiones table.`);
+    // }
 
     if (payload.actionType === 'forward') {
       newCurrentUserId = payload.nextUserId ?? null;
@@ -76,7 +83,7 @@ export class WorkflowService {
         statusId: newStatusId,
         previousUserId: payload.currentUserId, // Use userId from JWT/payload
         currentUserId: newCurrentUserId,
-        previousRoleId: Number(payload.currentRoleId), // Use roleId from JWT/payload, ensure number
+        previousRoleId: currentRoleId, // Use roleId fetched from DB
         currentRoleId: newCurrentRoleId,
         remarks: payload.remarks,
       },
@@ -88,10 +95,11 @@ export class WorkflowService {
         applicationId: payload.applicationId,
         previousUserId: payload.currentUserId ?? '', // Use userId from JWT/payload
         nextUserId: newCurrentUserId ?? '',
-        previousRoleId: payload.currentRoleId ? String(Number(payload.currentRoleId)) : '', // Use roleId from JWT/payload, ensure number
-        nextRoleId: newCurrentRoleId ? String(newCurrentRoleId) : '',
+        previousRoleId: currentRoleId ?? null, // Use roleId fetched from DB
+        nextRoleId: newCurrentRoleId ?? null,
         actionTaken: payload.actionType,
         remarks: payload.remarks,
+        attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
       },
     });
 
