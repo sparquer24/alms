@@ -58,6 +58,18 @@ export class ApplicationFormController {
         );
       }
       
+      // Handle Prisma null constraint violation (e.g., id field)
+      if (error.message && error.message.includes('Null constraint violation') && error.message.includes('id')) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'A required field was missing or invalid when saving the address. Please ensure all address fields are filled correctly.',
+            error: 'Address creation failed due to missing or invalid data (id field)'
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
       // Handle any other unexpected errors
       throw new HttpException(
         {

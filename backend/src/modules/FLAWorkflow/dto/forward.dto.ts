@@ -24,9 +24,9 @@ export class ForwardDto {
   @IsNotEmpty()
   applicationId!: string;
 
-  @IsString()
+  // Accept actionId as number
   @IsNotEmpty()
-  actionType!: 'forward' | 'reject' | 'ground_report';
+  actionId!: number;
 
   @IsString()
   @IsOptional()
