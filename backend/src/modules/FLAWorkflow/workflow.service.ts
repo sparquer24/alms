@@ -7,11 +7,12 @@ export class WorkflowService {
   private prisma = new PrismaClient();
 
   async handleUserAction(payload: {
-    applicationId: string;
-    actionType: 'forward' | 'reject' | 'ground_report';
-    nextUserId?: string;
+    applicationId: number;
+    actionId: number;
+    action: any; // full action object from Actiones table
+    nextUserId?: number;
     remarks: string;
-    currentUserId: string;
+    currentUserId: number;
     attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
   }) {
     // 1. Fetch Application Data
@@ -44,25 +45,15 @@ export class WorkflowService {
     let newCurrentUserId = application.currentUserId;
     let newCurrentRoleId = application.currentRoleId;
 
-    // Fetch status for the actionType from the actiones table
-    const action = await this.prisma.actiones.findFirst({
-      where: {
-        code: payload.actionType.toUpperCase(),
-        isActive: true,
-      },
-    });
-    if (action) {
-      newStatusId = action.id;
+    // Use action from payload
+    if (payload.action) {
+      newStatusId = payload.action.id;
     }
-    // Optionally, throw if not found and action is not 'forward' (which may not have a status)
-    // else if (['forward', 'reject', 'ground_report'].includes(payload.actionType)) {
-    //   throw new InternalServerErrorException(`Status for action '${payload.actionType}' not found in Actiones table.`);
-    // }
 
-    if (payload.actionType === 'forward') {
+    if (payload.action && payload.action.code.toLowerCase() === 'forward') {
       newCurrentUserId = payload.nextUserId ?? null;
       // Fetch next user's roleId
-      if (payload.nextUserId) {
+      if (payload.nextUserId !== undefined && payload.nextUserId !== null) {
         const nextUser = await this.prisma.users.findUnique({ where: { id: payload.nextUserId } });
         if (!nextUser || !nextUser.roleId) {
           throw new InternalServerErrorException(`Role for next user '${payload.nextUserId}' not found.`);
@@ -71,7 +62,7 @@ export class WorkflowService {
       } else {
         newCurrentRoleId = null;
       }
-    } else if (payload.actionType === 'reject') {
+    } else if (payload.action && payload.action.code.toLowerCase() === 'reject') {
       newCurrentUserId = null;
       newCurrentRoleId = null;
     }
@@ -90,17 +81,20 @@ export class WorkflowService {
     });
 
     // 5. Add workflow history log
+    const workflowHistoryData: any = {
+      applicationId: payload.applicationId,
+      previousUserId: payload.currentUserId ?? null, // Use userId from JWT/payload
+      previousRoleId: currentRoleId ?? null, // Use roleId fetched from DB
+      nextRoleId: newCurrentRoleId ?? null,
+      actionTaken: payload.action.code,
+      remarks: payload.remarks,
+      attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
+    };
+    if (newCurrentUserId !== null && newCurrentUserId !== undefined) {
+      workflowHistoryData.nextUserId = newCurrentUserId;
+    }
     await this.prisma.freshLicenseApplicationsFormWorkflowHistories.create({
-      data: {
-        applicationId: payload.applicationId,
-        previousUserId: payload.currentUserId ?? '', // Use userId from JWT/payload
-        nextUserId: newCurrentUserId ?? '',
-        previousRoleId: currentRoleId ?? null, // Use roleId fetched from DB
-        nextRoleId: newCurrentRoleId ?? null,
-        actionTaken: payload.actionType,
-        remarks: payload.remarks,
-        attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
-      },
+      data: workflowHistoryData,
     });
 
     return updatedApplication;

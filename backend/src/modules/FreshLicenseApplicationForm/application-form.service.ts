@@ -501,7 +501,7 @@ export class ApplicationFormService {
               where: { id: licenseRequestDetails.id },
               data: {
                 requestedWeapons: {
-                  connect: data.licenseRequestDetails.requestedWeaponIds.map(id => ({ id }))
+                  connect: data.licenseRequestDetails.requestedWeaponIds.map(id => ({ id: Number(id) }))
                 }
               }
             });
@@ -623,9 +623,9 @@ export class ApplicationFormService {
     }
   }
 
-  async getApplicationById(id: string) {
+  async getApplicationById(id: string | number) {
     return await prisma.freshLicenseApplicationsForms.findUnique({
-      where: { id },
+      where: { id: typeof id === 'string' ? Number(id) : id },
       include: {
         presentAddress: {
           include: {

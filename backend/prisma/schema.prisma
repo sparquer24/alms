@@ -7,7 +7,331 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------- Enums ----------------
+model Statuses {
+  id           Int                             @id @default(autoincrement())
+  code         String                          @unique
+  name         String
+  description  String?
+  isActive     Boolean                         @default(true)
+  createdAt    DateTime                        @default(now())
+  updatedAt    DateTime                        @updatedAt
+  applications FreshLicenseApplicationsForms[]
+}
+
+model Actiones {
+  id                  Int                                             @id @default(autoincrement())
+  code                String                                          @unique
+  name                String
+  description         String?
+  isActive            Boolean                                         @default(true)
+  createdAt           DateTime                                        @default(now())
+  updatedAt           DateTime                                        @updatedAt
+  applicationsHistory FreshLicenseApplicationsFormWorkflowHistories[] @relation("ActionesToWorkflowHistory")
+}
+
+model States {
+  id              Int                                           @id @default(autoincrement())
+  name            String                                        @unique
+  districts       Districts[]
+  addresses       FreshLicenseApplicationsFormAddresses[]
+  occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
+  applications    FreshLicenseApplicationsForms[]
+  users           Users[]                                       @relation("StateUsers")
+}
+
+model Districts {
+  id              Int                                           @id @default(autoincrement())
+  name            String                                        @unique
+  stateId         Int
+  state           States                                        @relation(fields: [stateId], references: [id])
+  addresses       FreshLicenseApplicationsFormAddresses[]
+  occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
+  applications    FreshLicenseApplicationsForms[]
+  users           Users[]                                       @relation("DistrictUsers")
+  zones           Zones[]
+}
+
+model Zones {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  districtId Int
+  divisions  Divisions[]
+  users      Users[]     @relation("ZoneUsers")
+  district   Districts   @relation(fields: [districtId], references: [id])
+}
+
+model Divisions {
+  id       Int              @id @default(autoincrement())
+  name     String           @unique
+  zoneId   Int
+  zone     Zones            @relation(fields: [zoneId], references: [id])
+  stations PoliceStations[]
+  users    Users[]          @relation("DivisionUsers")
+}
+
+model PoliceStations {
+  id                    Int                                     @id @default(autoincrement())
+  name                  String                                  @unique
+  divisionId            Int
+  jurisdictionAddresses FreshLicenseApplicationsFormAddresses[] @relation("JurisdictionStation")
+  division              Divisions                               @relation(fields: [divisionId], references: [id])
+  users                 Users[]                                 @relation("PoliceStationUsers")
+}
+
+model Roles {
+  id                         Int                             @id @default(autoincrement())
+  code                       String                          @unique
+  name                       String
+  is_active                  Boolean                         @default(true)
+  created_at                 DateTime                        @default(now())
+  updated_at                 DateTime                        @updatedAt
+  can_forward                Boolean                         @default(false)
+  can_re_enquiry             Boolean                         @default(false)
+  can_generate_ground_report Boolean                         @default(false)
+  can_FLAF                   Boolean                         @default(false)
+  currentRoleApplications    FreshLicenseApplicationsForms[] @relation("CurrentRole")
+  previousRoleApplications   FreshLicenseApplicationsForms[] @relation("PreviousRole")
+  users                      Users[]
+}
+
+model FreshLicenseApplicationsFormCriminalHistories {
+  id                       Int                             @id @default(autoincrement())
+  applicationId            Int
+  convicted                Boolean
+  bondDate               DateTime?
+  bondExecutionOrdered   Boolean?
+  convictionData         Json?
+  periodOfBond           String?
+  prohibitedDate         DateTime?
+  prohibitedUnderArmsAct Boolean?
+  application            FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
+model FreshLicenseApplicationsFormLicenseHistories {
+  id                       Int                             @id @default(autoincrement())
+  applicationId            Int
+  createdAt                DateTime                        @default(now())
+  familyMemberHasArmsLicense Boolean
+  familyMemberLicenses       Json?
+  hasAppliedBefore           Boolean
+  hasOtherApplications       Boolean
+  hasSafePlaceForArms        Boolean
+  hasUndergoneTraining       Boolean
+  otherApplications          Json?
+  previousApplications       Json?
+  safeStorageDetails         String?
+  trainingDetails            String?
+  updatedAt                  DateTime                      @updatedAt
+  application                FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
+model WeaponTypeMaster {
+  id              Int                             @id @default(autoincrement())
+  name            String                                              @unique
+  description     String?
+  imageUrl        String?
+  licenseRequests FreshLicenseApplicationsFormLicenseRequestDetails[] @relation("RequestedWeapons")
+}
+
+model FreshLicenseApplicationsFormLicenseRequestDetails {
+  id               Int                             @id @default(autoincrement())
+  needForLicense   LicensePurpose?
+  weaponCategory   WeaponCategory?
+  areaOfValidity   String?
+  applicationId    Int
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+  application      FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+  requestedWeapons WeaponTypeMaster[]            @relation("RequestedWeapons")
+}
+
+model FreshLicenseApplicationsFormFileUploads {
+   id           Int                             @id @default(autoincrement())
+  applicationId Int
+  fileType      FileType
+  fileUrl       String
+  uploadedAt    DateTime                      @default(now())
+  fileName      String
+  fileSize      Int
+  application   FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
+model Users {
+  id                       Int                             @id @default(autoincrement())
+  username                 String                          @unique
+  email                    String?                         @unique
+  password                 String
+  createdAt                DateTime                        @default(now())
+  updatedAt                DateTime                        @updatedAt
+  phoneNo                  String?                         @unique
+  roleId                   Int
+  policeStationId          Int?
+  stateId                  Int?
+  districtId               Int?
+  zoneId                   Int?
+  divisionId               Int?
+  actionsFrom              ActionHistories[]               @relation("ActionFromUser")
+  actionsTo                ActionHistories[]               @relation("ActionToUser")
+  flowMaps                 FlowMaps[]
+  nextUserInFlows          FlowNextUsers[]                 @relation("NextUserInFlow")
+  currentUserApplications  FreshLicenseApplicationsForms[] @relation("ActionFromUser")
+  previousUserApplications FreshLicenseApplicationsForms[] @relation("ActionToUser")
+  district                 Districts?                      @relation("DistrictUsers", fields: [districtId], references: [id])
+  division                 Divisions?                      @relation("DivisionUsers", fields: [divisionId], references: [id])
+  policeStation            PoliceStations?                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id])
+  role                     Roles                           @relation(fields: [roleId], references: [id])
+  state                    States?                         @relation("StateUsers", fields: [stateId], references: [id])
+  zone                     Zones?                          @relation("ZoneUsers", fields: [zoneId], references: [id])
+}
+
+model FlowMaps {
+  id            Int               @id @default(autoincrement())
+  currentUserId Int
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  actions       ActionHistories[]
+  currentUser   Users             @relation(fields: [currentUserId], references: [id])
+  nextUsers     FlowNextUsers[]
+}
+
+model FlowNextUsers {
+   id        Int        @id @default(autoincrement())
+  flowMapId  Int
+  nextUserId Int
+  flowMap    FlowMaps @relation(fields: [flowMapId], references: [id])
+  nextUser   Users    @relation("NextUserInFlow", fields: [nextUserId], references: [id])
+}
+
+model ActionHistories {
+  id          Int      @id @default(autoincrement())
+  flowMapId   Int
+  fromUserId  Int
+  toUserId    Int
+  actionTaken String
+  createdAt   DateTime @default(now())
+  flowMap     FlowMaps @relation(fields: [flowMapId], references: [id])
+  fromUser    Users    @relation("ActionFromUser", fields: [fromUserId], references: [id])
+  toUser      Users    @relation("ActionToUser", fields: [toUserId], references: [id])
+}
+
+model FreshLicenseApplicationsFormAddresses {
+  id                    Int                             @id @default(autoincrement())
+  addressLine           String
+  stateId               Int
+  districtId            Int
+  sinceResiding         DateTime
+  jurisdictionStationId Int
+  district              Districts                       @relation(fields: [districtId], references: [id])
+  jurisdictionStation   PoliceStations                  @relation("JurisdictionStation", fields: [jurisdictionStationId], references: [id])
+  state                 States                          @relation(fields: [stateId], references: [id])
+  permanentApplications FreshLicenseApplicationsForms[] @relation("PermanentAddress")
+  presentApplications   FreshLicenseApplicationsForms[] @relation("PresentAddress")
+}
+
+model FreshLicenseApplicationsFormContactInfos {
+  id                 Int                            @id @default(autoincrement())
+  telephoneOffice    String?
+  telephoneResidence String?
+  mobileNumber       String
+  officeMobileNumber String?
+  alternativeMobile  String?
+  applicationId      Int?                           @unique
+  application        FreshLicenseApplicationsForms?
+}
+
+model FreshLicenseApplicationsFormOccupationInfos {
+  id                   Int                             @id @default(autoincrement())
+  occupation           String
+  officeAddress        String
+  stateId              Int
+  districtId           Int
+  cropLocation         String?
+  areaUnderCultivation Float?
+  district             Districts                       @relation(fields: [districtId], references: [id])
+  state                States                          @relation(fields: [stateId], references: [id])
+  applications         FreshLicenseApplicationsForms[]
+}
+
+model FreshLicenseApplicationsFormBiometricDatas {
+  id                Int                            @id @default(autoincrement())
+  signatureImageUrl String?
+  irisScanImageUrl  String?
+  photoImageUrl     String?
+  applicationId     Int                            @unique
+  application       FreshLicenseApplicationsForms?
+}
+
+model FreshLicenseApplicationsForms {
+  id                                            Int                            @id @default(autoincrement())
+  acknowledgementNo                             String                                              @unique
+  firstName                                     String
+  middleName                                    String?
+  lastName                                      String
+  filledBy                                      String?
+  parentOrSpouseName                            String
+  sex                                           Sex
+  placeOfBirth                                  String
+  dateOfBirth                                   DateTime
+  panNumber                                     String?
+  aadharNumber                                  String                                              @unique
+  dobInWords                                    String?
+  presentAddressId                              Int
+  permanentAddressId                            Int?
+  contactInfoId                                 Int                                                 @unique
+  occupationInfoId                              Int?
+  biometricDataId                               Int?                                                @unique
+  statusId                                      Int?
+  currentRoleId                                 Int?
+  previousRoleId                                Int?
+  currentUserId                                 Int?
+  previousUserId                                Int?
+  createdAt                                     DateTime                                            @default(now())
+  stateId                                       Int
+  districtId                                    Int
+  updatedAt                                     DateTime                                            @default(now()) @updatedAt
+  isApprovied                                   Boolean                                             @default(false)
+  isFLAFGenerated                               Boolean                                             @default(false)
+  isGroundReportGenerated                       Boolean                                             @default(false)
+  isPending                                     Boolean                                             @default(false)
+  isReEnquiry                                   Boolean                                             @default(false)
+  isReEnquiryDone                               Boolean                                             @default(false)
+  isRejected                                    Boolean                                             @default(false)
+  remarks                                       String?
+  criminalHistory                               FreshLicenseApplicationsFormCriminalHistories[]
+  fileUploads                                   FreshLicenseApplicationsFormFileUploads[]
+  licenseHistory                                FreshLicenseApplicationsFormLicenseHistories[]
+  licenseDetails                                FreshLicenseApplicationsFormLicenseRequestDetails[]
+  FreshLicenseApplicationsFormWorkflowHistories FreshLicenseApplicationsFormWorkflowHistories[]
+  biometricData                                 FreshLicenseApplicationsFormBiometricDatas?         @relation(fields: [biometricDataId], references: [id])
+  contactInfo                                   FreshLicenseApplicationsFormContactInfos            @relation(fields: [contactInfoId], references: [id])
+  currentRole                                   Roles?                                              @relation("CurrentRole", fields: [currentRoleId], references: [id])
+  currentUser                                   Users?                                              @relation("ActionFromUser", fields: [currentUserId], references: [id])
+  district                                      Districts                                           @relation(fields: [districtId], references: [id])
+  occupationInfo                                FreshLicenseApplicationsFormOccupationInfos?        @relation(fields: [occupationInfoId], references: [id])
+  permanentAddress                              FreshLicenseApplicationsFormAddresses?              @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
+  presentAddress                                FreshLicenseApplicationsFormAddresses               @relation("PresentAddress", fields: [presentAddressId], references: [id])
+  previousRole                                  Roles?                                              @relation("PreviousRole", fields: [previousRoleId], references: [id])
+  previousUser                                  Users?                                              @relation("ActionToUser", fields: [previousUserId], references: [id])
+  state                                         States                                              @relation(fields: [stateId], references: [id])
+  status                                        Statuses?                                           @relation(fields: [statusId], references: [id])
+}
+
+model FreshLicenseApplicationsFormWorkflowHistories {
+  id             Int                            @id @default(autoincrement())
+  applicationId  Int
+  previousUserId Int
+  nextUserId     Int
+  actionTaken    String
+  remarks        String?
+  createdAt      DateTime                      @default(now())
+  previousRoleId Int?
+  nextRoleId     Int?
+  actionesId     Int?
+  attachments    Json?
+  actiones       Actiones?                     @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id])
+  application    FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+}
+
 enum Sex {
   MALE
   FEMALE
@@ -51,392 +375,4 @@ enum LicensePurpose {
 enum WeaponCategory {
   RESTRICTED
   PERMISSIBLE
-}
-
-model Statuses {
-  id              Int      @id @default(autoincrement())
-  code            String   @unique
-  name            String
-  description     String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  applications    FreshLicenseApplicationsForms[]
-  actions         Actiones[]
-}
-
-model Actiones {
-  id             Int      @id @default(autoincrement())
-  code            String   @unique
-  name            String
-  description     String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  statusId        Int
-  status          Statuses @relation(fields: [statusId], references: [id])
-
-  applicationsHistory  FreshLicenseApplicationsFormWorkflowHistories[] @relation("ActionesToWorkflowHistory")
-}
-model States {
-  id              Int                      @id @default(autoincrement())
-  name            String                   @unique
-  districts       Districts[]
-  users           Users[]                   @relation("StateUsers")
-  addresses       FreshLicenseApplicationsFormAddresses[]
-  occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
-  applications    FreshLicenseApplicationsForms[]
-}
-model Districts {
-  id              Int                      @id @default(autoincrement())
-  name            String                   @unique
-  state           States                    @relation(fields: [stateId], references: [id])
-  stateId         Int
-  zones           Zones[]
-  users           Users[]                   @relation("DistrictUsers")
-  addresses       FreshLicenseApplicationsFormAddresses[]
-  occupationInfos FreshLicenseApplicationsFormOccupationInfos[]
-  applications    FreshLicenseApplicationsForms[]
-}
-
-model Zones {
-  id         Int        @id @default(autoincrement())
-  name       String     @unique
-  district   Districts   @relation(fields: [districtId], references: [id])
-  districtId Int
-  divisions  Divisions[]
-  users      Users[]     @relation("ZoneUsers")
-}
-
-model Divisions {
-  id       Int             @id @default(autoincrement())
-  name     String          @unique
-  zone     Zones            @relation(fields: [zoneId], references: [id])
-  zoneId   Int
-  stations PoliceStations[]
-  users    Users[]          @relation("DivisionUsers")
-}
-
-model PoliceStations {
-  id         Int      @id @default(autoincrement())
-  name       String   @unique
-  division   Divisions @relation(fields: [divisionId], references: [id])
-  divisionId Int
-  users      Users[]   @relation("PoliceStationUsers")
-  jurisdictionAddresses FreshLicenseApplicationsFormAddresses[] @relation("JurisdictionStation")
-}
-
-model Roles {
-  id              Int              @id @default(autoincrement())
-  code            String           @unique
-  name            String
-  is_active       Boolean          @default(true)
-  created_at      DateTime         @default(now())
-  updated_at      DateTime         @updatedAt
-  can_forward    Boolean          @default(false)
-  can_re_enquiry Boolean          @default(false)
-  can_generate_ground_report Boolean   @default(false)
-  can_FLAF Boolean          @default(false) // Fresh License Application Form
-  users           Users[]
-  currentRoleApplications FreshLicenseApplicationsForms[] @relation("CurrentRole")
-  previousRoleApplications FreshLicenseApplicationsForms[] @relation("PreviousRole")
-}
-
-model FreshLicenseApplicationsFormCriminalHistories {
-  id             Int    @id @default(autoincrement())
-  applicationId  Int
-  convicted      Boolean
-  convictionData Json? // FIR number , Uder Section, Police Station, Unit, District, state, Offence, Sentence, Date of Sentence(date format)
-  bondExecutionOrdered  Boolean?
-  bondDate  DateTime?
-  periodOfBond String? // e.g., "2 years", Period for which bound 
-  prohibitedUnderArmsAct  Boolean?
-  prohibitedDate DateTime?
-  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
-}
-
-model FreshLicenseApplicationsFormLicenseHistories {
-  id                             Int   @id @default(autoincrement())
-
-  applicationId                  Int
-  // (a) Previous application info
-  hasAppliedBefore               Boolean
-  previousApplications           Json?   // Array of previous application details
-
-  // (b) Any other application (no question content given, so assume similar)
-  hasOtherApplications           Boolean
-  otherApplications              Json?   // Optional reason + authority
-
-  // (c) Family member license details
-  familyMemberHasArmsLicense     Boolean
-  familyMemberLicenses           Json?   // Array of license holders
-
-  // (d) Safe storage
-  hasSafePlaceForArms            Boolean
-  safeStorageDetails             String?
-
-  // (e) Rule 10 training
-  hasUndergoneTraining           Boolean
-  trainingDetails                String?
-
-  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @updatedAt
-}
-
-model WeaponTypeMaster {
-  id          Int   @id @default(autoincrement())
-  name        String   @unique     // e.g., "Rifle"
-  description String?
-  imageUrl    String?     // S3 or local image URL
-
-  // Relation to license requests (many-to-many)
-  licenseRequests FreshLicenseApplicationsFormLicenseRequestDetails[] @relation("RequestedWeapons")
-}
-
-model FreshLicenseApplicationsFormLicenseRequestDetails {
-  id                     Int   @id @default(autoincrement())
-
-  // 15. Need for license
-  needForLicense       LicensePurpose?  // Uses enum
-
-  // 16 a. Weapon type
-  weaponCategory         WeaponCategory? // "restricted" | "permissible"
-  // Many-to-many with WeaponTypeMaster
-  requestedWeapons WeaponTypeMaster[] @relation("RequestedWeapons")
-
-  // 17. Area to carry arms
-  areaOfValidity         String? // "District" | "State" | "Throughout India", address of zs
-
-  applicationId          Int
-  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
-
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-}
-
-model FreshLicenseApplicationsFormFileUploads {
-  id            Int   @id @default(autoincrement())
-  applicationId Int
-  fileName      String
-  fileSize      Int
-  fileType      FileType
-  fileUrl       String
-  uploadedAt    DateTime @default(now())
-
-  application FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
-}
-
-model Users {
-  id        Int   @id @default(autoincrement())
-  username  String   @unique
-  email     String?  @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  phoneNo String? @unique
-
-  roleId Int
-  role   Roles @relation(fields: [roleId], references: [id])
-
-  policeStationId Int?
-  policeStation   PoliceStations? @relation("PoliceStationUsers", fields: [policeStationId], references: [id])
-
-  stateId Int?
-  state   States? @relation("StateUsers", fields: [stateId], references: [id])
-
-  districtId Int?
-  district   Districts? @relation("DistrictUsers", fields: [districtId], references: [id])
-
-  zoneId Int?
-  zone   Zones? @relation("ZoneUsers", fields: [zoneId], references: [id])
-
-  divisionId Int?
-  division   Divisions? @relation("DivisionUsers", fields: [divisionId], references: [id])
-
-  actionsFrom ActionHistories[] @relation("ActionFromUser")
-  actionsTo   ActionHistories[] @relation("ActionToUser")
-  currentUserApplications FreshLicenseApplicationsForms[] @relation("ActionFromUser")
-  previousUserApplications FreshLicenseApplicationsForms[] @relation("ActionToUser")
-
-  flowMaps        FlowMaps[]
-  nextUserInFlows FlowNextUsers[] @relation("NextUserInFlow")
-}
-
-model FlowMaps {
-  id            Int          @id @default(autoincrement())
-  currentUserId Int
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  actions       ActionHistories[]
-  currentUser   Users            @relation(fields: [currentUserId], references: [id])
-  nextUsers     FlowNextUsers[]
-}
-
-model FlowNextUsers {
-  id         Int  @id @default(autoincrement())
-  flowMapId  Int
-  nextUserId Int
-  flowMap    FlowMaps @relation(fields: [flowMapId], references: [id])
-  nextUser   Users    @relation("NextUserInFlow", fields: [nextUserId], references: [id])
-}
-
-model ActionHistories {
-  id          Int   @id @default(autoincrement())
-  flowMapId   Int
-  fromUserId  Int
-  toUserId    Int
-  actionTaken String
-  createdAt   DateTime @default(now())
-  flowMap     FlowMaps  @relation(fields: [flowMapId], references: [id])
-  fromUser    Users     @relation("ActionFromUser", fields: [fromUserId], references: [id])
-  toUser      Users     @relation("ActionToUser", fields: [toUserId], references: [id])
-}
-
-model FreshLicenseApplicationsFormAddresses {
-  id                  Int   @id @default(autoincrement())
-  addressLine         String
-  stateId             Int
-  districtId          Int
-  sinceResiding       DateTime
-  jurisdictionStationId Int
-
-  state    States    @relation(fields: [stateId], references: [id])
-  district Districts @relation(fields: [districtId], references: [id])
-  jurisdictionStation PoliceStations? @relation("JurisdictionStation", fields: [jurisdictionStationId], references: [id])
-
-  presentApplications   FreshLicenseApplicationsForms[] @relation("PresentAddress")
-  permanentApplications FreshLicenseApplicationsForms[] @relation("PermanentAddress")
-}
-
-model FreshLicenseApplicationsFormContactInfos {
-  id                 Int                  @id @default(autoincrement())
-  telephoneOffice    String?
-  telephoneResidence String?
-  mobileNumber       String
-  officeMobileNumber String?
-  alternativeMobile  String?
-  applicationId      Int?   @unique
-  application        FreshLicenseApplicationsForms?
-}
-
-model FreshLicenseApplicationsFormOccupationInfos {
-  id                     Int  @id @default(autoincrement())
-  occupation             String
-  officeAddress          String
-  stateId                Int
-  districtId             Int
-  // cropProtectionRequired Boolean @default(false)
-  cropLocation           String?
-  areaUnderCultivation   Float? // Acres/hectares, clarify in frontend
-
-  state    States    @relation(fields: [stateId], references: [id])
-  district Districts @relation(fields: [districtId], references: [id])
-
-  applications FreshLicenseApplicationsForms[]
-}
-
-model FreshLicenseApplicationsFormBiometricDatas {
-  id                Int                  @id @default(autoincrement())
-  signatureImageUrl String?
-  irisScanImageUrl  String?
-  photoImageUrl     String?
-  applicationId      Int   @unique
-  application       FreshLicenseApplicationsForms?
-}
-
-// ---------------- Application schema ----------------
-model FreshLicenseApplicationsForms {
-  id                Int @id @default(autoincrement())
-  acknowledgementNo String @unique
-
-  firstName          String
-  middleName         String?
-  lastName           String
-  filledBy           String? // Application filled by (zs name)
-  parentOrSpouseName String
-  sex                Sex
-
-  statusId   Int?    // Foreign key to Status table
-  currentRoleId Int? // Foreign key to Role table
-  previousRoleId Int? // Foreign key to Role table
-  currentUserId   Int? // Foreign key to User table
-  previousUserId  Int? // Foreign key to User table
-  stateId    Int
-  districtId Int
-
-  isApprovied        Boolean @default(false)
-  isRejected         Boolean @default(false)
-  isPending          Boolean @default(false)
-  isReEnquiry        Boolean @default(false)
-  isReEnquiryDone   Boolean @default(false) // If re-enquiry is done
-  isGroundReportGenerated Boolean @default(false) // If ground report is generated
-  isFLAFGenerated   Boolean @default(false) // If FLAF is generated
-
-  placeOfBirth       String
-  dateOfBirth        DateTime
-
-  panNumber          String?
-  aadharNumber       String   @unique
-  dobInWords         String?     
-
-  presentAddressId   Int
-  permanentAddressId Int?
-  contactInfoId      Int  @unique
-  occupationInfoId   Int?
-  biometricDataId    Int? @unique
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
-
-  // Relations
-  status        Statuses?         @relation(fields: [statusId], references: [id])
-  currentRole   Roles?   @relation("CurrentRole", fields: [currentRoleId], references: [id])
-  previousRole  Roles?   @relation("PreviousRole", fields: [previousRoleId], references: [id])
-  currentUser   Users?   @relation("ActionFromUser", fields: [currentUserId], references: [id])
-  previousUser  Users?   @relation("ActionToUser", fields: [previousUserId], references: [id])
-
-  presentAddress   FreshLicenseApplicationsFormAddresses         @relation("PresentAddress", fields: [presentAddressId], references: [id])
-  permanentAddress FreshLicenseApplicationsFormAddresses?        @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
-  contactInfo      FreshLicenseApplicationsFormContactInfos     @relation(fields: [contactInfoId], references: [id])
-  occupationInfo   FreshLicenseApplicationsFormOccupationInfos? @relation(fields: [occupationInfoId], references: [id])
-
-  criminalHistory FreshLicenseApplicationsFormCriminalHistories[]
-  licenseHistory  FreshLicenseApplicationsFormLicenseHistories[]
-
-  licenseDetails FreshLicenseApplicationsFormLicenseRequestDetails[]
-
-
-  fileUploads     FreshLicenseApplicationsFormFileUploads[]
-  biometricData    FreshLicenseApplicationsFormBiometricDatas?  @relation(fields: [biometricDataId], references: [id])
-
-  remarks          String?
-
-  state    States    @relation(fields: [stateId], references: [id])
-  district Districts @relation(fields: [districtId], references: [id])
-
-  FreshLicenseApplicationsFormWorkflowHistories FreshLicenseApplicationsFormWorkflowHistories[]
-}
-
-model FreshLicenseApplicationsFormWorkflowHistories {
-  id               Int   @id @default(autoincrement())
-  applicationId    Int
-  previousUserId   Int
-  nextUserId       Int
-  previousRoleId   Int?
-  nextRoleId       Int?
-  actionTaken      String   // enum recommended
-  remarks          String?
-  createdAt        DateTime @default(now())
-
-  attachments      Json?    // Array of { name, type, contentType, url }
-
-  actionesId       Int?
-  actiones         Actiones? @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id])
-
-  application      FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
-  // ... other relations if needed
 }

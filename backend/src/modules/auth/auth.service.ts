@@ -128,6 +128,7 @@ export class AuthService {
       username: user.username,
       email: user.email,
       user_id: user.id,
+      role_id: user.role?.id // Add role_id to JWT payload
     };
 
     return jwt.sign(payload, this.jwtSecret!, {
