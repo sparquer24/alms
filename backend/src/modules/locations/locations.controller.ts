@@ -1,12 +1,40 @@
 import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
 
+@ApiTags('Locations')
 @Controller('api/locations')
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   // States API - GET /api/locations/states?id=1 (optional)
   @Get('states')
+  @ApiOperation({ 
+    summary: 'Get States', 
+    description: 'Retrieve all states or a specific state by ID' 
+  })
+  @ApiQuery({ 
+    name: 'id', 
+    required: false, 
+    description: 'State ID to retrieve specific state',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'States retrieved successfully',
+    example: {
+      success: true,
+      message: 'States retrieved successfully',
+      data: [
+        { id: 1, name: 'West Bengal', code: 'WB' },
+        { id: 2, name: 'Maharashtra', code: 'MH' }
+      ],
+      count: 2
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid state ID' })
+  @ApiResponse({ status: 404, description: 'State not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getStates(@Query('id') id?: string) {
     try {
       const stateId = id ? parseInt(id, 10) : undefined;
@@ -56,6 +84,39 @@ export class LocationsController {
 
   // Districts API - GET /api/locations/districts?id=1&stateId=1 (both optional)
   @Get('districts')
+  @ApiOperation({ 
+    summary: 'Get Districts', 
+    description: 'Retrieve all districts or filter by state ID, or get specific district by ID' 
+  })
+  @ApiQuery({ 
+    name: 'id', 
+    required: false, 
+    description: 'District ID to retrieve specific district',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'stateId', 
+    required: false, 
+    description: 'State ID to filter districts by state',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Districts retrieved successfully',
+    example: {
+      success: true,
+      message: 'Districts retrieved successfully',
+      data: [
+        { id: 1, name: 'Kolkata', stateId: 1 },
+        { id: 2, name: 'Howrah', stateId: 1 }
+      ],
+      count: 2,
+      filters: { stateId: 1 }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid district ID or state ID' })
+  @ApiResponse({ status: 404, description: 'District not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getDistricts(
     @Query('id') id?: string,
     @Query('stateId') stateId?: string
@@ -120,6 +181,39 @@ export class LocationsController {
 
   // Zones API - GET /api/locations/zones?id=1&districtId=1 (both optional)
   @Get('zones')
+  @ApiOperation({ 
+    summary: 'Get Zones', 
+    description: 'Retrieve all zones or filter by district ID, or get specific zone by ID' 
+  })
+  @ApiQuery({ 
+    name: 'id', 
+    required: false, 
+    description: 'Zone ID to retrieve specific zone',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'districtId', 
+    required: false, 
+    description: 'District ID to filter zones by district',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Zones retrieved successfully',
+    example: {
+      success: true,
+      message: 'Zones retrieved successfully',
+      data: [
+        { id: 1, name: 'North Zone', districtId: 1 },
+        { id: 2, name: 'South Zone', districtId: 1 }
+      ],
+      count: 2,
+      filters: { districtId: 1 }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid zone ID or district ID' })
+  @ApiResponse({ status: 404, description: 'Zone not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getZones(
     @Query('id') id?: string,
     @Query('districtId') districtId?: string
@@ -184,6 +278,39 @@ export class LocationsController {
 
   // Divisions API - GET /api/locations/divisions?id=1&zoneId=1 (both optional)
   @Get('divisions')
+  @ApiOperation({ 
+    summary: 'Get Divisions', 
+    description: 'Retrieve all divisions or filter by zone ID, or get specific division by ID' 
+  })
+  @ApiQuery({ 
+    name: 'id', 
+    required: false, 
+    description: 'Division ID to retrieve specific division',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'zoneId', 
+    required: false, 
+    description: 'Zone ID to filter divisions by zone',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Divisions retrieved successfully',
+    example: {
+      success: true,
+      message: 'Divisions retrieved successfully',
+      data: [
+        { id: 1, name: 'Central Division', zoneId: 1 },
+        { id: 2, name: 'East Division', zoneId: 1 }
+      ],
+      count: 2,
+      filters: { zoneId: 1 }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid division ID or zone ID' })
+  @ApiResponse({ status: 404, description: 'Division not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getDivisions(
     @Query('id') id?: string,
     @Query('zoneId') zoneId?: string
@@ -248,6 +375,39 @@ export class LocationsController {
 
   // Police Stations API - GET /api/locations/police-stations?id=1&divisionId=1 (both optional)
   @Get('police-stations')
+  @ApiOperation({ 
+    summary: 'Get Police Stations', 
+    description: 'Retrieve all police stations or filter by division ID, or get specific police station by ID' 
+  })
+  @ApiQuery({ 
+    name: 'id', 
+    required: false, 
+    description: 'Police Station ID to retrieve specific police station',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'divisionId', 
+    required: false, 
+    description: 'Division ID to filter police stations by division',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Police stations retrieved successfully',
+    example: {
+      success: true,
+      message: 'Police stations retrieved successfully',
+      data: [
+        { id: 1, name: 'Lalbazar Police Station', divisionId: 1 },
+        { id: 2, name: 'Bowbazar Police Station', divisionId: 1 }
+      ],
+      count: 2,
+      filters: { divisionId: 1 }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid police station ID or division ID' })
+  @ApiResponse({ status: 404, description: 'Police station not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getPoliceStations(
     @Query('id') id?: string,
     @Query('divisionId') divisionId?: string
@@ -312,6 +472,57 @@ export class LocationsController {
 
   // Enhanced: Get location hierarchy for a specific location type and ID
   @Get('hierarchy')
+  @ApiOperation({ 
+    summary: 'Get Location Hierarchy', 
+    description: 'Get the complete location hierarchy for a specific location. Provide only one location ID parameter.' 
+  })
+  @ApiQuery({ 
+    name: 'stateId', 
+    required: false, 
+    description: 'State ID to get hierarchy from state level',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'districtId', 
+    required: false, 
+    description: 'District ID to get hierarchy from district level',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'zoneId', 
+    required: false, 
+    description: 'Zone ID to get hierarchy from zone level',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'divisionId', 
+    required: false, 
+    description: 'Division ID to get hierarchy from division level',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'policeStationId', 
+    required: false, 
+    description: 'Police Station ID to get complete hierarchy',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Location hierarchy retrieved successfully',
+    example: {
+      success: true,
+      message: 'Location hierarchy retrieved successfully',
+      data: {
+        state: { id: 1, name: 'West Bengal' },
+        district: { id: 1, name: 'Kolkata' },
+        zone: { id: 1, name: 'North Zone' },
+        division: { id: 1, name: 'Central Division' },
+        policeStation: { id: 1, name: 'Lalbazar Police Station' }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Please provide only one location ID at a time' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getLocationHierarchy(
     @Query('stateId') stateId?: string,
     @Query('districtId') districtId?: string,
