@@ -1,14 +1,76 @@
 import { Controller, Post, Body, UseGuards, Req, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { ForwardDto } from './dto/forward.dto';
 import { WorkflowService } from './workflow.service';
 import { Request } from 'express';
 
+@ApiTags('Workflow')
 @Controller('workflow')
 export class WorkflowController {
   constructor(private readonly workflowService: WorkflowService) {}
+  
   @UseGuards(JwtAuthGuard)
   @Post('action')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Handle Workflow Action', 
+    description: 'Process workflow actions like forward, approve, reject, etc. on applications' 
+  })
+  @ApiBody({
+    description: 'Workflow action data',
+    examples: {
+      'Forward Application': {
+        value: {
+          applicationId: 123,
+          actionId: 1,
+          nextUserId: 456,
+          remarks: 'Forwarding to next level for review',
+          attachments: [
+            {
+              name: 'verification_report.pdf',
+              type: 'DOCUMENT',
+              contentType: 'application/pdf',
+              url: 'https://example.com/files/verification_report.pdf'
+            }
+          ]
+        }
+      },
+      'Approve Application': {
+        value: {
+          applicationId: 123,
+          actionId: 2,
+          remarks: 'Application approved after thorough review'
+        }
+      },
+      'Reject Application': {
+        value: {
+          applicationId: 123,
+          actionId: 3,
+          remarks: 'Application rejected due to incomplete documentation'
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Action performed successfully',
+    example: {
+      success: true,
+      message: 'forward performed successfully.',
+      updatedApplication: {
+        id: 123,
+        status: 'FORWARDED',
+        currentUserId: 456,
+        updatedAt: '2025-08-20T12:00:00.000Z'
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid action data or missing required fields' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - User not authorized for this action' })
+  @ApiResponse({ status: 404, description: 'Not found - Application or action not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async handleAction(
     @Body() body: ForwardDto & { actionId?: number; attachments?: Array<{ name: string; type: string; contentType: string; url: string }> },
     @Req() req: Request

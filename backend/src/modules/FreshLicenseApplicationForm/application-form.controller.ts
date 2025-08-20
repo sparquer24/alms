@@ -1,14 +1,66 @@
 import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationFormService, CreateFreshLicenseApplicationsFormsInput } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
 import { RequirePermissions } from '../../decorators/permissions.decorator';
 
+@ApiTags('Application Form')
 @Controller('api/application-form')
 @UseGuards(AuthGuard)
+@ApiBearerAuth('JWT-auth')
 export class ApplicationFormController {
   constructor(private readonly applicationFormService: ApplicationFormService) {}
 
   @Post()
+  @ApiOperation({ 
+    summary: 'Create Fresh License Application', 
+    description: 'Create a new arms license application form' 
+  })
+  @ApiBody({
+    description: 'Application form data',
+    examples: {
+      'Sample Application': {
+        value: {
+          personalInfo: {
+            name: 'John Doe',
+            fatherName: 'Robert Doe',
+            dateOfBirth: '1990-01-01',
+            aadharNumber: '123456789012',
+            panNumber: 'ABCDE1234F'
+          },
+          address: {
+            houseNumber: '123',
+            street: 'Main Street',
+            area: 'Downtown',
+            city: 'Kolkata',
+            pincode: '700001',
+            stateId: 1,
+            districtId: 1
+          },
+          licenseType: 'FRESH',
+          purpose: 'SELF_PROTECTION'
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Application created successfully',
+    example: {
+      success: true,
+      message: 'Arms License Application created successfully',
+      data: {
+        id: 'app_123',
+        applicationNumber: 'ALMS2025001',
+        status: 'SUBMITTED',
+        createdAt: '2025-08-20T12:00:00.000Z'
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid application data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 409, description: 'Conflict - Duplicate data (e.g., Aadhar already exists)' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   // @RequirePermissions('CREATE_APPLICATION')
   async createApplication(@Body() createApplicationDto: CreateFreshLicenseApplicationsFormsInput, @Request() req: any) {
     try {
@@ -83,6 +135,36 @@ export class ApplicationFormController {
   }
 
   @Get()
+  @ApiOperation({ 
+    summary: 'Get All Applications', 
+    description: 'Retrieve all applications accessible to the current user' 
+  })
+  @ApiQuery({ 
+    name: 'statusId', 
+    required: false, 
+    description: 'Filter applications by status ID',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Applications retrieved successfully',
+    example: {
+      success: true,
+      message: 'Applications retrieved successfully',
+      data: [
+        {
+          id: 'app_123',
+          applicationNumber: 'ALMS2025001',
+          status: 'SUBMITTED',
+          applicantName: 'John Doe',
+          createdAt: '2025-08-20T12:00:00.000Z',
+          relations: ['personalInfo', 'address', 'documents']
+        }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   // @RequirePermissions('VIEW_APPLICATIONS')
   async getAllApplications(@Request() req: any) {
     try {
@@ -144,6 +226,43 @@ export class ApplicationFormController {
   }
 
   @Get(':id')
+  @ApiOperation({ 
+    summary: 'Get Application by ID', 
+    description: 'Retrieve a specific application by its ID' 
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'Application ID',
+    example: 'app_123'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Application retrieved successfully',
+    example: {
+      success: true,
+      message: 'Application retrieved successfully',
+      data: {
+        id: 'app_123',
+        applicationNumber: 'ALMS2025001',
+        status: 'SUBMITTED',
+        personalInfo: {
+          name: 'John Doe',
+          fatherName: 'Robert Doe',
+          dateOfBirth: '1990-01-01'
+        },
+        address: {
+          houseNumber: '123',
+          street: 'Main Street',
+          city: 'Kolkata'
+        },
+        createdAt: '2025-08-20T12:00:00.000Z'
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied to this application' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   // @RequirePermissions('VIEW_APPLICATION_DETAILS')
   async getApplicationById(@Param('id') id: string, @Request() req: any) {
     try {
@@ -198,6 +317,24 @@ export class ApplicationFormController {
 
   // Helper endpoints for getting valid IDs
   @Get('helpers/states')
+  @ApiOperation({ 
+    summary: 'Get States for Application Form', 
+    description: 'Get all available states for use in application forms' 
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'States retrieved successfully',
+    example: {
+      success: true,
+      message: 'States retrieved successfully',
+      data: [
+        { id: 1, name: 'West Bengal', code: 'WB' },
+        { id: 2, name: 'Maharashtra', code: 'MH' }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getStates() {
     try {
       const states = await this.applicationFormService.getStates();
@@ -219,6 +356,30 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/districts/:stateId')
+  @ApiOperation({ 
+    summary: 'Get Districts by State', 
+    description: 'Get all districts for a specific state' 
+  })
+  @ApiParam({ 
+    name: 'stateId', 
+    description: 'State ID',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Districts retrieved successfully',
+    example: {
+      success: true,
+      message: 'Districts retrieved successfully',
+      data: [
+        { id: 1, name: 'Kolkata', stateId: 1 },
+        { id: 2, name: 'Howrah', stateId: 1 }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 404, description: 'State not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getDistrictsByState(@Param('stateId') stateId: string) {
     try {
       const districts = await this.applicationFormService.getDistrictsByState(Number(stateId));
@@ -240,6 +401,30 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/police-stations/:divisionId')
+  @ApiOperation({ 
+    summary: 'Get Police Stations by Division', 
+    description: 'Get all police stations for a specific division' 
+  })
+  @ApiParam({ 
+    name: 'divisionId', 
+    description: 'Division ID',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Police stations retrieved successfully',
+    example: {
+      success: true,
+      message: 'Police stations retrieved successfully',
+      data: [
+        { id: 1, name: 'Lalbazar Police Station', divisionId: 1 },
+        { id: 2, name: 'Bowbazar Police Station', divisionId: 1 }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 404, description: 'Division not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getPoliceStationsByDivision(@Param('divisionId') divisionId: string) {
     try {
       const policeStations = await this.applicationFormService.getPoliceStationsByDivision(Number(divisionId));
@@ -261,6 +446,37 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/validate-ids')
+  @ApiOperation({ 
+    summary: 'Validate Reference IDs', 
+    description: 'Validate if the provided state and district IDs are valid and exist' 
+  })
+  @ApiQuery({ 
+    name: 'stateId', 
+    required: false, 
+    description: 'State ID to validate',
+    example: '1'
+  })
+  @ApiQuery({ 
+    name: 'districtId', 
+    required: false, 
+    description: 'District ID to validate',
+    example: '1'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'ID validation completed',
+    example: {
+      success: true,
+      message: 'ID validation completed',
+      data: {
+        valid: true,
+        state: { id: 1, name: 'West Bengal', valid: true },
+        district: { id: 1, name: 'Kolkata', valid: true }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async validateIds(@Request() req: any) {
     try {
       const { stateId, districtId } = req.query;
@@ -288,6 +504,44 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/check-aadhar/:aadharNumber')
+  @ApiOperation({ 
+    summary: 'Check Aadhar Number Availability', 
+    description: 'Check if an Aadhar number already exists in the system' 
+  })
+  @ApiParam({ 
+    name: 'aadharNumber', 
+    description: 'Aadhar number to check (12 digits)',
+    example: '123456789012'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Aadhar check completed',
+    example: {
+      success: true,
+      message: 'Aadhar number is available',
+      data: {
+        exists: false,
+        aadharNumber: '123456789012',
+        available: true
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Aadhar already exists',
+    example: {
+      success: true,
+      message: 'Aadhar number already exists in system',
+      data: {
+        exists: true,
+        aadharNumber: '123456789012',
+        available: false
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 400, description: 'Invalid Aadhar number format' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async checkAadharExists(@Param('aadharNumber') aadharNumber: string) {
     try {
       const result = await this.applicationFormService.checkAadharExists(aadharNumber);
