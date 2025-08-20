@@ -35,12 +35,45 @@ import {
  */
 export const AuthApi = {
   login: async (params: LoginParams): Promise<ApiResponse<any>> => {
-    const response = await fetch(AUTH_APIS.LOGIN, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(params),
+    console.log('🌐 APIClient - login called with params:', { 
+      username: params.username, 
+      passwordLength: params.password.length 
     });
-    return response.json();
+    
+    const url = AUTH_APIS.LOGIN;
+    const headers = getHeaders();
+    const body = JSON.stringify(params);
+    
+    console.log('🌐 Request details:');
+    console.log('  URL:', url);
+    console.log('  Headers:', headers);
+    console.log('  Body:', body);
+    console.log('  Method: POST');
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: body,
+      });
+      
+      console.log('🌐 Raw response status:', response.status);
+      console.log('🌐 Raw response statusText:', response.statusText);
+      console.log('🌐 Raw response headers:', Object.fromEntries(response.headers.entries()));
+      
+      // Clone response to read it twice (once for logging, once for return)
+      const responseClone = response.clone();
+      const responseText = await responseClone.text();
+      console.log('🌐 Raw response text:', responseText);
+      
+      const data = await response.json();
+      console.log('🌐 Parsed response data:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('🌐 APIClient login error:', error);
+      throw error;
+    }
   },
 
   // Note: getCurrentUser is the only auth endpoint that requires authorization (for getting current user info)

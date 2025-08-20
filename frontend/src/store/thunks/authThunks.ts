@@ -59,31 +59,53 @@ export const login = createAsyncThunk(
   'auth/login',
   async ({ username, password }: { username: string; password: string }, { dispatch }) => {
     try {
+      console.log('🔐 Auth thunk - login started');
+      console.log('📝 Login credentials:', { username, passwordLength: password.length });
+      
       dispatch(setLoading(true));
+      
+      console.log('📡 Making API call to AuthApi.login...');
       const response = await AuthApi.login({ username, password });
-      console.log('Login API response:', response);
+      console.log('📡 Login API response received:', response);
       
       // Handle different response structures
       let token: string;
       let user: any = null;
       
-      // Check if response has the expected structure
-      if (response.body && response.body.token) {
-        // Standard response structure
+      console.log('🔍 Checking response structure:', {
+        hasBody: !!response.body,
+        hasSuccess: !!response.success,
+        hasStatusCode: response.statusCode,
+        response: response
+      });
+      
+      // Backend returns { success: true, token: "...", user: {...} } directly (not wrapped in body)
+      if (response.success && (response as any).token) {
+        // Direct response from backend
+        token = (response as any).token;
+        user = (response as any).user;
+        console.log('✅ Token found in direct response');
+      } else if (response.body && response.body.token) {
+        // Standard wrapped response structure
         token = response.body.token;
-      } else if (response.token) {
-        // Direct token in response
-        token = response.token;
+        user = response.body.user;
+        console.log('✅ Token found in response.body');
       } else {
-        console.error('Login response missing token:', response);
+        console.error('❌ Login response missing token:', response);
+        if (response.statusCode === 401) {
+          throw new Error(response.message || 'Invalid username or password');
+        }
         throw new Error('Login succeeded but no token was returned.');
       }
+      
+      console.log('🔍 Token received (first 20 chars):', token.substring(0, 20) + '...');
       
       // Try to get user info from the token or make a separate call
       try {
         // First, try to decode the JWT token to get basic user info
+        console.log('🔓 Decoding JWT token...');
         const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        console.log('Token payload:', tokenPayload);
+        console.log('🔍 Token payload:', tokenPayload);
         
         // Create a basic user object from token payload
         user = {
@@ -99,23 +121,29 @@ export const login = createAsyncThunk(
           availableActions: []
         };
         
+        console.log('👤 User object created from token:', user);
+        
         // Try to fetch additional user info from /api/auth/me
         try {
+          console.log('📡 Fetching additional user info from /api/auth/me...');
           const userResponse = await AuthApi.getCurrentUser(token);
+          console.log('📡 getCurrentUser response:', userResponse);
+          
           if (userResponse.success && userResponse.body) {
             // Merge the fetched user data with token data
             user = { ...user, ...userResponse.body };
+            console.log('✅ User data merged with API response:', user);
           }
         } catch (meError) {
-          console.warn('Failed to fetch user details from /api/auth/me, using token data:', meError);
+          console.warn('⚠️ Failed to fetch user details from /api/auth/me, using token data:', meError);
           // Continue with token data only
         }
       } catch (tokenError) {
-        console.error('Failed to decode token:', tokenError);
+        console.error('❌ Failed to decode token:', tokenError);
         throw new Error('Invalid token received from server');
       }
       
-      console.log('Final user object:', user);
+      console.log('✅ Final user object:', user);
       dispatch(setCredentials({ user, token }));
       
       // Store token and user info in cookies with the correct structure for middleware
@@ -126,15 +154,25 @@ export const login = createAsyncThunk(
         role: user.role, // Extract role for middleware compatibility
         name: user.name
       };
+      
+      console.log('🍪 Setting auth cookie with data:', {
+        ...authData,
+        token: authData.token.substring(0, 20) + '...'
+      });
+      
       setCookie('auth', JSON.stringify(authData), {
         maxAge: 60 * 60 * 24, // 1 day
         path: '/',
       });
       
+      console.log('🎉 Login process completed successfully');
       return { token, user };
     } catch (error) {
-      dispatch(setError(error instanceof Error ? error.message : 'Login failed'));
-      console.error('Login thunk error:', error);
+      console.error('❌ Login thunk error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      console.error('❌ Error message:', errorMessage);
+      
+      dispatch(setError(errorMessage));
       throw error;
     } finally {
       dispatch(setLoading(false));
