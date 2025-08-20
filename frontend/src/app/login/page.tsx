@@ -15,6 +15,7 @@ import {
 } from '../../store/slices/authSlice';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import type { AppDispatch } from '../../store/store';
+import { DebugPanel } from '../../components/DebugPanel';
 
 // Types
 interface LoginFormData {
@@ -69,6 +70,7 @@ const useUrlErrorHandler = (dispatch: AppDispatch) => {
 
   useEffect(() => {
     const urlError = searchParams?.get('error');
+    
     if (urlError) {
       const errorMessage = ERROR_MESSAGES[urlError] || ERROR_MESSAGES.default;
       dispatch(setError(errorMessage));
@@ -204,10 +206,12 @@ export default function Login() {
     }
 
     try {
-      const result = await dispatch(login({ 
+      const loginPayload = { 
         username: formData.username.trim(), 
         password: formData.password 
-      })).unwrap();
+      };
+      
+      const result = await dispatch(login(loginPayload)).unwrap();
       
       dispatch(setError(''));
       
@@ -218,7 +222,6 @@ export default function Login() {
       window.location.replace(redirectPath);
     } catch (err) {
       // Error is handled by the thunk and stored in Redux state
-      console.error('Login error:', err);
       resetForm();
     }
   }, [dispatch, formData, isFormValid, resetForm]);
@@ -294,7 +297,19 @@ export default function Login() {
           </div>
 
           {/* Forgot Password Link */}
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  updateField('username', 'CADO_HYD');
+                  updateField('password', 'password');
+                }}
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+              >
+                🧪 Fill Test Credentials
+              </button>
+            </div>
             <div className="text-sm">
               <Link 
                 href="/reset-password" 
@@ -326,6 +341,9 @@ export default function Login() {
           </div>
         </form>
       </div>
+      
+      {/* Debug Panel - only shows in development */}
+      <DebugPanel formData={formData} isFormValid={isFormValid} />
     </div>
   );
 }

@@ -1,0 +1,1075 @@
+{
+  "timestamp": "2025-08-20T06:43:42.785Z",
+  "version": "1.0.0",
+  "schema": {
+    "totalTables": 20,
+    "description": "ALMS Database Metadata Backup"
+  },
+  "metadata": {
+    "statuses": [
+      {
+        "id": 1,
+        "code": "FORWARD",
+        "name": "Forward",
+        "description": "Application forwarded to next stage",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.410Z",
+        "updatedAt": "2025-08-12T06:23:46.410Z"
+      },
+      {
+        "id": 2,
+        "code": "REJECT",
+        "name": "Reject",
+        "description": "Application rejected",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.415Z",
+        "updatedAt": "2025-08-12T06:23:46.415Z"
+      },
+      {
+        "id": 3,
+        "code": "APPROVED",
+        "name": "Approved",
+        "description": "Application approved",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.418Z",
+        "updatedAt": "2025-08-12T06:23:46.418Z"
+      },
+      {
+        "id": 4,
+        "code": "CANCEL",
+        "name": "Cancel",
+        "description": "Application cancelled",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.420Z",
+        "updatedAt": "2025-08-12T06:23:46.420Z"
+      },
+      {
+        "id": 5,
+        "code": "RE_ENQUIRY",
+        "name": "Re-Enquiry",
+        "description": "Re-enquiry required",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.424Z",
+        "updatedAt": "2025-08-12T06:23:46.424Z"
+      },
+      {
+        "id": 6,
+        "code": "GROUND_REPORT",
+        "name": "Ground Report",
+        "description": "Ground report required",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.428Z",
+        "updatedAt": "2025-08-12T06:23:46.428Z"
+      },
+      {
+        "id": 7,
+        "code": "DISPOSE",
+        "name": "Dispose",
+        "description": "Application disposed",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.433Z",
+        "updatedAt": "2025-08-12T06:23:46.433Z"
+      },
+      {
+        "id": 8,
+        "code": "RED_FLAG",
+        "name": "Red-Flag",
+        "description": "Red-flagged application",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.436Z",
+        "updatedAt": "2025-08-12T06:23:46.436Z"
+      },
+      {
+        "id": 9,
+        "code": "INITIATE",
+        "name": "Initiate",
+        "description": "Application initiated",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.439Z",
+        "updatedAt": "2025-08-12T06:23:46.439Z"
+      },
+      {
+        "id": 10,
+        "code": "CLOSE",
+        "name": "Close",
+        "description": "Application closed",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.443Z",
+        "updatedAt": "2025-08-12T06:23:46.443Z"
+      },
+      {
+        "id": 11,
+        "code": "RECOMMEND",
+        "name": "Recommend",
+        "description": "Application recommended",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:23:46.446Z",
+        "updatedAt": "2025-08-12T06:23:46.446Z"
+      }
+    ],
+    "actions": [
+      {
+        "id": 23,
+        "code": "FORWARD",
+        "name": "Forward",
+        "description": "Application forwarded to next stage",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.138Z",
+        "updatedAt": "2025-08-12T06:35:25.138Z"
+      },
+      {
+        "id": 24,
+        "code": "REJECT",
+        "name": "Reject",
+        "description": "Application rejected",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.141Z",
+        "updatedAt": "2025-08-12T06:35:25.141Z"
+      },
+      {
+        "id": 25,
+        "code": "APPROVED",
+        "name": "Approved",
+        "description": "Application approved",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.143Z",
+        "updatedAt": "2025-08-12T06:35:25.143Z"
+      },
+      {
+        "id": 26,
+        "code": "CANCEL",
+        "name": "Cancel",
+        "description": "Application cancelled",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.143Z",
+        "updatedAt": "2025-08-12T06:35:25.143Z"
+      },
+      {
+        "id": 27,
+        "code": "RE_ENQUIRY",
+        "name": "Re-Enquiry",
+        "description": "Re-enquiry required",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.145Z",
+        "updatedAt": "2025-08-12T06:35:25.145Z"
+      },
+      {
+        "id": 28,
+        "code": "GROUND_REPORT",
+        "name": "Ground Report",
+        "description": "Ground report required",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.147Z",
+        "updatedAt": "2025-08-12T06:35:25.147Z"
+      },
+      {
+        "id": 29,
+        "code": "DISPOSE",
+        "name": "Dispose",
+        "description": "Application disposed",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.148Z",
+        "updatedAt": "2025-08-12T06:35:25.148Z"
+      },
+      {
+        "id": 30,
+        "code": "RED_FLAG",
+        "name": "Red-Flag",
+        "description": "Red-flagged application",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.150Z",
+        "updatedAt": "2025-08-12T06:35:25.150Z"
+      },
+      {
+        "id": 31,
+        "code": "INITIATE",
+        "name": "Initiate",
+        "description": "Application initiated",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.151Z",
+        "updatedAt": "2025-08-12T06:35:25.151Z"
+      },
+      {
+        "id": 32,
+        "code": "CLOSE",
+        "name": "Close",
+        "description": "Application closed",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.154Z",
+        "updatedAt": "2025-08-12T06:35:25.154Z"
+      },
+      {
+        "id": 33,
+        "code": "RECOMMEND",
+        "name": "Recommend",
+        "description": "Application recommended",
+        "isActive": true,
+        "createdAt": "2025-08-12T06:35:25.155Z",
+        "updatedAt": "2025-08-12T06:35:25.155Z"
+      }
+    ],
+    "roles": [
+      {
+        "id": 33,
+        "code": "APPLICANT",
+        "name": "Citizen Applicant",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.156Z",
+        "updated_at": "2025-08-12T06:35:25.156Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 34,
+        "code": "ZS",
+        "name": "Zonal Superintendent",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.158Z",
+        "updated_at": "2025-08-12T06:35:25.158Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 35,
+        "code": "SHO",
+        "name": "Station House Officer",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.159Z",
+        "updated_at": "2025-08-12T06:35:25.159Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 36,
+        "code": "ACP",
+        "name": "Assistant Commissioner of Police",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.160Z",
+        "updated_at": "2025-08-12T06:35:25.160Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 37,
+        "code": "DCP",
+        "name": "Deputy Commissioner of Police",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.161Z",
+        "updated_at": "2025-08-12T06:35:25.161Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 38,
+        "code": "AS",
+        "name": "Arms Superintendent",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.163Z",
+        "updated_at": "2025-08-12T06:35:25.163Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 39,
+        "code": "ADO",
+        "name": "Administrative Officer",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.164Z",
+        "updated_at": "2025-08-12T06:35:25.164Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 40,
+        "code": "CADO",
+        "name": "Chief Administrative Officer",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.165Z",
+        "updated_at": "2025-08-12T06:35:25.165Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 41,
+        "code": "JTCP",
+        "name": "Joint Commissioner of Police",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.165Z",
+        "updated_at": "2025-08-12T06:35:25.165Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 42,
+        "code": "CP",
+        "name": "Commissioner of Police",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.166Z",
+        "updated_at": "2025-08-12T06:35:25.166Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 43,
+        "code": "ARMS_SUPDT",
+        "name": "Arms Superintendent",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.166Z",
+        "updated_at": "2025-08-12T06:35:25.166Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 44,
+        "code": "ARMS_SEAT",
+        "name": "Arms Seat",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.167Z",
+        "updated_at": "2025-08-12T06:35:25.167Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 45,
+        "code": "ACO",
+        "name": "Assistant Compliance Officer",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.167Z",
+        "updated_at": "2025-08-12T06:35:25.167Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 46,
+        "code": "ADMIN",
+        "name": "System Administrator",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.168Z",
+        "updated_at": "2025-08-12T06:35:25.168Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 47,
+        "code": "STORE",
+        "name": "Store Superintendent",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.168Z",
+        "updated_at": "2025-08-12T06:35:25.168Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      },
+      {
+        "id": 48,
+        "code": "TL",
+        "name": "Traffic License Superintendent",
+        "is_active": true,
+        "created_at": "2025-08-12T06:35:25.169Z",
+        "updated_at": "2025-08-12T06:35:25.169Z",
+        "can_forward": false,
+        "can_re_enquiry": false,
+        "can_generate_ground_report": false,
+        "can_FLAF": false
+      }
+    ],
+    "states": [
+      {
+        "id": 1,
+        "name": "Telangana"
+      }
+    ],
+    "districts": [
+      {
+        "id": 1,
+        "name": "Hyderabad",
+        "stateId": 1,
+        "state": {
+          "id": 1,
+          "name": "Telangana"
+        }
+      }
+    ],
+    "zones": [
+      {
+        "id": 1,
+        "name": "DSP COMMUNICATION",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 2,
+        "name": "JOINT CP, SB",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 3,
+        "name": "East Zone",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 4,
+        "name": "LEARNING CENTRE BEGUMPET",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 5,
+        "name": "CAO",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 6,
+        "name": "COMMANDANT, HOME GUARDS",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 7,
+        "name": "INCHARGE MAIN CONTROL ROOM",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 8,
+        "name": "JTCP CORD CAMP",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 9,
+        "name": "Women Safety Wing",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 10,
+        "name": "LEGAL ADVISOR",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 11,
+        "name": "JAO2-ADM-HYD",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 12,
+        "name": "MAIN GATE, ICCC",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 13,
+        "name": "Central Zone",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 14,
+        "name": "JtCP ADMIN CAMP",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      },
+      {
+        "id": 15,
+        "name": "CP CAMP",
+        "districtId": 1,
+        "district": {
+          "id": 1,
+          "name": "Hyderabad",
+          "stateId": 1
+        }
+      }
+    ],
+    "divisions": [
+      {
+        "id": 1,
+        "name": "DSP COMMUNICATION",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 2,
+        "name": "JOINT CP, SB",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 3,
+        "name": "East Zone",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 4,
+        "name": "LEARNING CENTRE BEGUMPET",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 5,
+        "name": "CAO",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 6,
+        "name": "COMMANDANT, HOME GUARDS",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 7,
+        "name": "INCHARGE MAIN CONTROL ROOM",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 8,
+        "name": "JTCP CORD CAMP",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 9,
+        "name": "Women Safety Wing",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 10,
+        "name": "LEGAL ADVISOR",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 11,
+        "name": "JAO2-ADM-HYD",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 12,
+        "name": "MAIN GATE, ICCC",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 13,
+        "name": "Central Zone",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 14,
+        "name": "JtCP ADMIN CAMP",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      },
+      {
+        "id": 15,
+        "name": "CP CAMP",
+        "zoneId": 1,
+        "zone": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "districtId": 1
+        }
+      }
+    ],
+    "policeStations": [
+      {
+        "id": 1,
+        "name": "Abids Police Station",
+        "divisionId": 1,
+        "division": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 2,
+        "name": "Begumpet Police Station",
+        "divisionId": 1,
+        "division": {
+          "id": 1,
+          "name": "DSP COMMUNICATION",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 3,
+        "name": "Banjara Hills Police Station",
+        "divisionId": 2,
+        "division": {
+          "id": 2,
+          "name": "JOINT CP, SB",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 4,
+        "name": "Charminar Police Station",
+        "divisionId": 2,
+        "division": {
+          "id": 2,
+          "name": "JOINT CP, SB",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 5,
+        "name": "Gachibowli Police Station",
+        "divisionId": 3,
+        "division": {
+          "id": 3,
+          "name": "East Zone",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 6,
+        "name": "Madhapur Police Station",
+        "divisionId": 3,
+        "division": {
+          "id": 3,
+          "name": "East Zone",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 7,
+        "name": "Jubilee Hills Police Station",
+        "divisionId": 3,
+        "division": {
+          "id": 3,
+          "name": "East Zone",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 8,
+        "name": "Kukatpally Police Station",
+        "divisionId": 4,
+        "division": {
+          "id": 4,
+          "name": "LEARNING CENTRE BEGUMPET",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 9,
+        "name": "Miyapur Police Station",
+        "divisionId": 4,
+        "division": {
+          "id": 4,
+          "name": "LEARNING CENTRE BEGUMPET",
+          "zoneId": 1
+        }
+      },
+      {
+        "id": 10,
+        "name": "Cyber Crime Police Station",
+        "divisionId": 5,
+        "division": {
+          "id": 5,
+          "name": "CAO",
+          "zoneId": 1
+        }
+      }
+    ],
+    "weaponTypes": [],
+    "users": [
+      {
+        "id": 1,
+        "username": "CADO_HYD",
+        "email": "cado-admin-hyd@tspolice.gov.in",
+        "phoneNo": "8712660022",
+        "roleId": 40,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.723Z",
+        "updatedAt": "2025-08-12T06:54:06.723Z",
+        "role": {
+          "code": "CADO",
+          "name": "Chief Administrative Officer"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 2,
+        "username": "JTCP_ADMIN",
+        "email": "jtcp-admnhyd@tspolice.gov.in",
+        "phoneNo": "8712660798",
+        "roleId": 41,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.728Z",
+        "updatedAt": "2025-08-12T06:54:06.728Z",
+        "role": {
+          "code": "JTCP",
+          "name": "Joint Commissioner of Police"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 3,
+        "username": "SUPDT_STORES_HYD",
+        "email": "supdt-stores-hyd@tspolice.gov.in",
+        "phoneNo": "8712660003",
+        "roleId": 47,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.733Z",
+        "updatedAt": "2025-08-12T06:54:06.733Z",
+        "role": {
+          "code": "STORE",
+          "name": "Store Superintendent"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 4,
+        "username": "SUPDT_TL_HYD",
+        "email": "supdt-tnl-hyd@tspolice.gov.in",
+        "phoneNo": "8712660032",
+        "roleId": 48,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.739Z",
+        "updatedAt": "2025-08-12T06:54:06.739Z",
+        "role": {
+          "code": "TL",
+          "name": "Traffic License Superintendent"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 5,
+        "username": "CP_HYD",
+        "email": "cp-hyderabad@tspolice.gov.in",
+        "phoneNo": "8712660799",
+        "roleId": 42,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.744Z",
+        "updatedAt": "2025-08-12T06:54:06.744Z",
+        "role": {
+          "code": "CP",
+          "name": "Commissioner of Police"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 6,
+        "username": "ACP_NORTH",
+        "email": "acp-north@tspolice.gov.in",
+        "phoneNo": "8712660101",
+        "roleId": 36,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.751Z",
+        "updatedAt": "2025-08-12T06:54:06.751Z",
+        "role": {
+          "code": "ACP",
+          "name": "Assistant Commissioner of Police"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 7,
+        "username": "DCP_CENTRAL",
+        "email": "dcp-central@tspolice.gov.in",
+        "phoneNo": "8712660202",
+        "roleId": 37,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.757Z",
+        "updatedAt": "2025-08-12T06:54:06.757Z",
+        "role": {
+          "code": "DCP",
+          "name": "Deputy Commissioner of Police"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 8,
+        "username": "SHO_WEST",
+        "email": "sho-west@tspolice.gov.in",
+        "phoneNo": "8712660303",
+        "roleId": 35,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.761Z",
+        "updatedAt": "2025-08-12T06:54:06.761Z",
+        "role": {
+          "code": "SHO",
+          "name": "Station House Officer"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      },
+      {
+        "id": 9,
+        "username": "ADMIN_USER",
+        "email": "admin@tspolice.gov.in",
+        "phoneNo": "8712660404",
+        "roleId": 46,
+        "policeStationId": null,
+        "stateId": 1,
+        "districtId": 1,
+        "zoneId": null,
+        "divisionId": null,
+        "createdAt": "2025-08-12T06:54:06.767Z",
+        "updatedAt": "2025-08-12T06:54:06.767Z",
+        "role": {
+          "code": "ADMIN",
+          "name": "System Administrator"
+        },
+        "state": {
+          "name": "Telangana"
+        },
+        "district": {
+          "name": "Hyderabad"
+        },
+        "zone": null,
+        "division": null,
+        "policeStation": null
+      }
+    ]
+  }
+}

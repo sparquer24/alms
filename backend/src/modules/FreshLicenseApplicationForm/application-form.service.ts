@@ -8,7 +8,6 @@ export interface CreateAddressInput {
   stateId: number;
   districtId: number;
   sinceResiding: Date;
-  jurisdictionStationId: number;
 }
 
 export interface CreateContactInfoInput {
@@ -116,7 +115,6 @@ function validateCreateApplicationInput(data: any): asserts data is Required<Cre
   if (!data.presentAddress.stateId) missingAddressFields.push('stateId');
   if (!data.presentAddress.districtId) missingAddressFields.push('districtId');
   if (!data.presentAddress.sinceResiding) missingAddressFields.push('sinceResiding');
-  if (typeof data.presentAddress.jurisdictionStationId !== 'number') missingAddressFields.push('jurisdictionStationId');
   if (missingAddressFields.length > 0) {
     throw new Error(`Present address fields are incomplete. Missing: ${missingAddressFields.join(', ')}`);
   }
@@ -214,7 +212,7 @@ export class ApplicationFormService {
     };
   }
 
-  async validateReferenceIds(ids: { stateId?: number; districtId?: number; jurisdictionStationId?: number }) {
+  async validateReferenceIds(ids: { stateId?: number; districtId?: number }) {
     const validation: any = {};
     
     if (ids.stateId) {
@@ -238,18 +236,6 @@ export class ApplicationFormService {
         id: ids.districtId,
         exists: !!district,
         data: district
-      };
-    }
-    
-    if (ids.jurisdictionStationId) {
-      const policeStation = await prisma.policeStations.findUnique({
-        where: { id: ids.jurisdictionStationId },
-        select: { id: true, name: true, divisionId: true }
-      });
-      validation.policeStation = {
-        id: ids.jurisdictionStationId,
-        exists: !!policeStation,
-        data: policeStation
       };
     }
     
@@ -279,11 +265,6 @@ export class ApplicationFormService {
       throw new Error(`Present address district with ID ${data.presentAddress.districtId} does not exist`);
     }
     
-    const jurisdictionStation = await prisma.policeStations.findUnique({ where: { id: data.presentAddress.jurisdictionStationId } });
-    if (!jurisdictionStation) {
-      throw new Error(`Jurisdiction station with ID ${data.presentAddress.jurisdictionStationId} does not exist`);
-    }
-    
     // Validate permanent address references if provided
     if (data.permanentAddress) {
       const permanentState = await prisma.states.findUnique({ where: { id: data.permanentAddress.stateId } });
@@ -294,11 +275,6 @@ export class ApplicationFormService {
       const permanentDistrict = await prisma.districts.findUnique({ where: { id: data.permanentAddress.districtId } });
       if (!permanentDistrict) {
         throw new Error(`Permanent address district with ID ${data.permanentAddress.districtId} does not exist`);
-      }
-      
-      const permanentJurisdictionStation = await prisma.policeStations.findUnique({ where: { id: data.permanentAddress.jurisdictionStationId } });
-      if (!permanentJurisdictionStation) {
-        throw new Error(`Permanent address jurisdiction station with ID ${data.permanentAddress.jurisdictionStationId} does not exist`);
       }
     }
     
@@ -350,7 +326,6 @@ export class ApplicationFormService {
             stateId: data.presentAddress.stateId,
             districtId: data.presentAddress.districtId,
             sinceResiding: new Date(data.presentAddress.sinceResiding),
-            jurisdictionStationId: data.presentAddress.jurisdictionStationId
           }
         });
         // Create permanent address if provided
@@ -362,7 +337,6 @@ export class ApplicationFormService {
               stateId: data.permanentAddress.stateId,
               districtId: data.permanentAddress.districtId,
               sinceResiding: new Date(data.permanentAddress.sinceResiding),
-              jurisdictionStationId: data.permanentAddress.jurisdictionStationId
             },
           });
         }
@@ -533,14 +507,12 @@ export class ApplicationFormService {
               include: {
                 state: true,
                 district: true,
-                jurisdictionStation: true,
               }
             },
             permanentAddress: {
               include: {
                 state: true,
                 district: true,
-                jurisdictionStation: true,
               }
             },
             contactInfo: true,
@@ -631,14 +603,12 @@ export class ApplicationFormService {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         permanentAddress: {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         contactInfo: true,
@@ -675,14 +645,12 @@ export class ApplicationFormService {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         permanentAddress: {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         contactInfo: true,
@@ -722,14 +690,12 @@ export class ApplicationFormService {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         permanentAddress: {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         contactInfo: true,
@@ -774,14 +740,12 @@ export class ApplicationFormService {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         permanentAddress: {
           include: {
             state: true,
             district: true,
-            jurisdictionStation: true,
           }
         },
         contactInfo: true,

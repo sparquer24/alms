@@ -263,12 +263,11 @@ export class ApplicationFormController {
   @Get('helpers/validate-ids')
   async validateIds(@Request() req: any) {
     try {
-      const { stateId, districtId, jurisdictionStationId } = req.query;
+      const { stateId, districtId } = req.query;
       
       const validation = await this.applicationFormService.validateReferenceIds({
         stateId: stateId ? Number(stateId) : undefined,
         districtId: districtId ? Number(districtId) : undefined,
-        jurisdictionStationId: jurisdictionStationId ? Number(jurisdictionStationId) : undefined,
       });
       
       return {

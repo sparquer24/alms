@@ -4,11 +4,17 @@
  */
 
 // Base API URL
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+console.log('🌐 API Configuration:', {
+  BASE_URL,
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
 
 // Authentication APIs
 export const AUTH_APIS = {
-  LOGIN: `${BASE_URL}/api/auth/login`,
+  LOGIN: `${BASE_URL}/auth/login`,
   LOGOUT: `${BASE_URL}/api/auth/logout`,
   GET_CURRENT_USER: `${BASE_URL}/api/auth/me`,
   CHANGE_PASSWORD: `${BASE_URL}/api/auth/change-password`,

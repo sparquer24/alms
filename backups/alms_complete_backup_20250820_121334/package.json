@@ -1,0 +1,45 @@
+{
+  "name": "alms",
+  "version": "1.0.0",
+  "description": "Arms License Management System",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "start": "ts-node src/main.ts",
+    "start:dev": "ts-node-dev --respawn src/main.ts",
+    "seed": "ts-node prisma/seed.ts",
+    "dev": "nest start --watch",
+    "backup:metadata": "ts-node scripts/backup-metadata.ts",
+    "restore:metadata": "ts-node scripts/restore-metadata.ts",
+    "backup:complete": "powershell -ExecutionPolicy Bypass -File scripts/create-complete-backup.ps1"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.0",
+    "prisma": "^6.13.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.5",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.5",
+    "@nestjs/platform-express": "^11.1.5",
+    "@prisma/client": "^6.13.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "dotenv": "^17.2.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
