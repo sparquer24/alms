@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBea
 import { ApplicationFormService, CreateFreshLicenseApplicationsFormsInput } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
 import { RequirePermissions } from '../../decorators/permissions.decorator';
+import prisma from '../../db/prismaClient';
 
 @ApiTags('Application Form')
 @Controller('api/application-form')
@@ -18,30 +19,6 @@ export class ApplicationFormController {
   })
   @ApiBody({
     description: 'Application form data',
-    examples: {
-      'Sample Application': {
-        value: {
-          personalInfo: {
-            name: 'John Doe',
-            fatherName: 'Robert Doe',
-            dateOfBirth: '1990-01-01',
-            aadharNumber: '123456789012',
-            panNumber: 'ABCDE1234F'
-          },
-          address: {
-            houseNumber: '123',
-            street: 'Main Street',
-            area: 'Downtown',
-            city: 'Kolkata',
-            pincode: '700001',
-            stateId: 1,
-            districtId: 1
-          },
-          licenseType: 'FRESH',
-          purpose: 'SELF_PROTECTION'
-        }
-      }
-    }
   })
   @ApiResponse({ 
     status: 201, 
@@ -59,11 +36,28 @@ export class ApplicationFormController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid application data' })
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions to create fresh license applications' })
   @ApiResponse({ status: 409, description: 'Conflict - Duplicate data (e.g., Aadhar already exists)' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   // @RequirePermissions('CREATE_APPLICATION')
   async createApplication(@Body() createApplicationDto: CreateFreshLicenseApplicationsFormsInput, @Request() req: any) {
     try {
+      // Check if user has permission to create fresh license applications
+      const user = await prisma.users.findUnique({
+        where: { id: req.user.sub },
+        include: { role: true }
+      });
+
+      if (!user?.role?.can_create_freshLicence) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'You do not have permission to create fresh license applications',
+            error: 'Insufficient permissions'
+          },
+          HttpStatus.FORBIDDEN
+        );
+      }
       // Add user context to the application using currentUserId as per schema
       const applicationData = {
         ...createApplicationDto,
