@@ -88,6 +88,7 @@ model Roles {
   can_re_enquiry             Boolean                         @default(false)
   can_generate_ground_report Boolean                         @default(false)
   can_FLAF                   Boolean                         @default(false)
+  can_create_freshLicence    Boolean                         @default(false)
   currentRoleApplications    FreshLicenseApplicationsForms[] @relation("CurrentRole")
   previousRoleApplications   FreshLicenseApplicationsForms[] @relation("PreviousRole")
   users                      Users[]
@@ -157,7 +158,7 @@ model FreshLicenseApplicationsFormFileUploads {
 
 model Users {
   id                       Int                             @id @default(autoincrement())
-  username                 String                          @unique
+  username                 String                          
   email                    String?                         @unique
   password                 String
   createdAt                DateTime                        @default(now())

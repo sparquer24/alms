@@ -45,22 +45,17 @@ export class AuthService {
   async authenticateUser(loginData: LoginRequest): Promise<LoginResponse> {
     const { username, password } = loginData;
 
-    try {
-      console.log('🔐 AuthService: Starting authentication for username:', username);
-      
+    try {   
       // For now, using dummy validation
       const user = await this.validateUser(username, password);
-      console.log('🔍 AuthService: User validation result:', user ? 'User found' : 'User not found');
       
       if (!user) {
-        console.log('❌ AuthService: Invalid credentials for username:', username);
         throw new UnauthorizedException(ERROR_MESSAGES.INVALID_CREDENTIALS);
       }
 
       // Generate JWT token
-      console.log('🔑 AuthService: Generating JWT token for user:', user.id);
       const token = this.generateToken(user);
-      
+
       const response = {
         success: true,
         token,
@@ -72,11 +67,9 @@ export class AuthService {
         }
       };
       
-      console.log('✅ AuthService: Authentication successful for user:', user.username);
       return response;
     } catch (error) {
       // Log the real error for debugging
-      console.error('❌ AuthService.authenticateUser error:', error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
@@ -92,32 +85,31 @@ export class AuthService {
    */
   private async validateUser(username: string, password: string): Promise<any> {
     try {
-      console.log('🔍 AuthService: Querying database for username:', username);
-      
       // Check user credentials against the database
-      const user = await prisma.users.findUnique({
+      const user = await prisma.users.findFirst({
         where: { username },
         select: {
           id: true,
           username: true,
           email: true,
           password: true,
-          role: true, // Include role details if needed
+          role: {
+            select: {
+              id: true,
+              name: true // Add other role fields if needed
+            }
+          }, // Include role details if needed
         }
       });
-
-      console.log('🔍 AuthService: Database query result:', user ? 'User found' : 'User not found');
 
       // If user not found, return null
       if (!user) {
         return null;
       }
 
-      console.log('🔐 AuthService: Verifying password for user:', username);
       // Verify password using bcrypt
       const isPasswordValid = await this.verifyPassword(password, user.password);
-      console.log('🔐 AuthService: Password verification result:', isPasswordValid ? 'Valid' : 'Invalid');
-      
+
       if (!isPasswordValid) {
         return null;
       }
@@ -130,10 +122,8 @@ export class AuthService {
         role: user.role
       };
       
-      console.log('✅ AuthService: User validation successful for:', username);
       return userData;
     } catch (error) {
-      console.error('❌ AuthService: Database error during user validation:', error);
       throw error;
     }
   }
