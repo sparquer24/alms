@@ -34,43 +34,43 @@ export const AdminRoleService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/roles?${queryString}`);
+    const response = await APIClient.get(`/admin/roles?${queryString}`);
     return response;
   },
 
   // Get role by ID
   getRoleById: async (id: string) => {
-    const response = await APIClient.get(`/api/admin/roles/${id}`);
+    const response = await APIClient.get(`/admin/roles/${id}`);
     return response;
   },
 
   // Create new role
   createRole: async (roleData: CreateRoleParams) => {
-    const response = await APIClient.post('/api/admin/roles', roleData);
+    const response = await APIClient.post('/admin/roles', roleData);
     return response;
   },
 
   // Update role
   updateRole: async (id: string, roleData: UpdateRoleParams) => {
-    const response = await APIClient.put(`/api/admin/roles/${id}`, roleData);
+    const response = await APIClient.put(`/admin/roles/${id}`, roleData);
     return response;
   },
 
   // Delete role
   deleteRole: async (id: string) => {
-    const response = await APIClient.delete(`/api/admin/roles/${id}`);
+    const response = await APIClient.delete(`/admin/roles/${id}`);
     return response;
   },
 
   // Update role permissions
   updateRolePermissions: async (id: string, permissions: Record<string, boolean>) => {
-    const response = await APIClient.put(`/api/admin/roles/${id}/permissions`, { permissions });
+    const response = await APIClient.put(`/admin/roles/${id}/permissions`, { permissions });
     return response;
   },
 
   // Get all available permissions
   getPermissions: async () => {
-    const response = await APIClient.get('/api/admin/permissions');
+    const response = await APIClient.get('/admin/permissions');
     return response;
   },
 
@@ -83,25 +83,25 @@ export const AdminRoleService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/roles/${id}/users?${queryString}`);
+    const response = await APIClient.get(`/admin/roles/${id}/users?${queryString}`);
     return response;
   },
 
   // Assign users to role
   assignUsersToRole: async (roleId: string, userIds: string[]) => {
-    const response = await APIClient.post(`/api/admin/roles/${roleId}/users`, { userIds });
+    const response = await APIClient.post(`/admin/roles/${roleId}/users`, { userIds });
     return response;
   },
 
   // Remove users from role
   removeUsersFromRole: async (roleId: string, userIds: string[]) => {
-    const response = await APIClient.delete(`/api/admin/roles/${roleId}/users`, { data: { userIds } });
+    const response = await APIClient.delete(`/admin/roles/${roleId}/users`, { data: { userIds } });
     return response;
   },
 
   // Get role usage statistics
   getRoleStats: async (id: string) => {
-    const response = await APIClient.get(`/api/admin/roles/${id}/stats`);
+    const response = await APIClient.get(`/admin/roles/${id}/stats`);
     return response;
   },
 }; 

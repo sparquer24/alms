@@ -22,7 +22,7 @@ const EditUserPage: React.FC = () => {
       try {
         setError(null);
 
-        const response = await fetch(`/api/admin/users/${userId}`);
+        const response = await fetch(`/admin/users/${userId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch user details');
         }
@@ -48,7 +48,7 @@ const EditUserPage: React.FC = () => {
     setSuccess(null);
 
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/admin/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, phone, password, role }),

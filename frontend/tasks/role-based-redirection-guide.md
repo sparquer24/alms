@@ -61,7 +61,7 @@ Users are automatically redirected to role-appropriate sections:
 
 The system expects these fields from the authentication APIs:
 
-#### Login API (`/api/auth/login`) Response:
+#### Login API (`/auth/login`) Response:
 ```json
 {
   "success": true,
@@ -71,7 +71,7 @@ The system expects these fields from the authentication APIs:
 }
 ```
 
-#### User Info API (`/api/auth/me`) Response:
+#### User Info API (`/auth/me`) Response:
 ```json
 {
   "success": true,

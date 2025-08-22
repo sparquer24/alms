@@ -10,7 +10,7 @@ The user preferences API allows users to customize their experience within the A
 
 ### 1. Get User Preferences
 
-**Endpoint**: `GET /api/users/preferences`
+**Endpoint**: `GET /users/preferences`
 
 **Authentication Required**: Yes (JWT token)
 
@@ -44,7 +44,7 @@ The user preferences API allows users to customize their experience within the A
 
 ### 2. Update User Preferences
 
-**Endpoint**: `PATCH /api/users/preferences`
+**Endpoint**: `PATCH /users/preferences`
 
 **Authentication Required**: Yes (JWT token)
 
@@ -119,7 +119,7 @@ When a user is created, a default set of preferences should be created:
 
 ```javascript
 // Example implementation using Node.js and Express
-router.get('/api/users/preferences', authenticate, async (req, res) => {
+router.get('/users/preferences', authenticate, async (req, res) => {
   try {
     // Get user ID from JWT token
     const userId = req.user.id;
@@ -166,7 +166,7 @@ router.get('/api/users/preferences', authenticate, async (req, res) => {
 
 ```javascript
 // Example implementation using Node.js and Express
-router.patch('/api/users/preferences', authenticate, async (req, res) => {
+router.patch('/users/preferences', authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     const updates = req.body;

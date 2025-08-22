@@ -55,7 +55,7 @@ export default function FlowMappingPage() {
     }
 
     // Save flow mapping
-    fetch("/api/flow-mapping", {
+    fetch("/flow-mapping", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentUser, nextUsers }),

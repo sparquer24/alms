@@ -1,22 +1,19 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCookie } from 'cookies-next';
+import { getAuthTokenFromCookie } from '../utils/authCookies';
 
 interface PublicRouteProps {
   children: ReactNode;
 }
 
 const checkAuthentication = (): boolean => {
-  const authCookie = getCookie('auth');
   try {
-    if (authCookie) {
-      const { token, user } = JSON.parse(authCookie as string);
-      return !!token && !!user;
-    }
+    const token = getAuthTokenFromCookie();
+    return !!token;
   } catch (e) {
     console.error('PublicRoute: Failed to parse auth cookie', e);
+    return false;
   }
-  return false;
 };
 
 const PublicRoute = ({ children }: PublicRouteProps) => {

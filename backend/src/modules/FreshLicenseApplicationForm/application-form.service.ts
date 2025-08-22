@@ -807,17 +807,49 @@ export class ApplicationFormService {
     });
   }
 
-  public async getFilteredApplications(filter: { statusId?: number; currentUserId?: string }) {
+  public async getFilteredApplications(filter: { statusId?: number; statusIds?: number[]; currentUserId?: string; page?: number; limit?: number; searchField?: string; search?: string; orderBy?: string; order?: 'asc' | 'desc' }) {
     const where: any = {};
-    if (filter.statusId !== undefined) {
+    if (filter.statusIds !== undefined && Array.isArray(filter.statusIds)) {
+      where.statusId = { in: filter.statusIds };
+    } else if (filter.statusId !== undefined) {
       where.statusId = filter.statusId;
     }
     if (filter.currentUserId !== undefined) {
       where.currentUserId = filter.currentUserId;
     }
-    return await prisma.freshLicenseApplicationsForms.findMany({
-      where,
-      include: {
+
+    const page = filter.page ?? 1;
+    const limit = filter.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    // Apply search filter if provided
+    if (filter.searchField && filter.search) {
+      // Only allow specific fields handled at controller level
+      if (['id', 'firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
+        if (filter.searchField === 'id') {
+          const idVal = Number(filter.search);
+          if (!isNaN(idVal)) where.id = idVal;
+        } else {
+          where[filter.searchField] = { contains: filter.search, mode: 'insensitive' } as any;
+        }
+      }
+    }
+
+    const orderByObj: any = {};
+    if (filter.orderBy) {
+      orderByObj[filter.orderBy] = filter.order ?? 'desc';
+    } else {
+      orderByObj.createdAt = 'desc';
+    }
+
+    const [total, data] = await Promise.all([
+      prisma.freshLicenseApplicationsForms.count({ where }),
+      prisma.freshLicenseApplicationsForms.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByObj,
+        include: {
         presentAddress: {
           include: {
             state: true,
@@ -853,8 +885,11 @@ export class ApplicationFormService {
         previousRole: true,
         currentUser: true,
         previousUser: true,
-      },
-    });
+        },
+      }),
+    ]);
+
+    return { total, data };
   }
 
   /**

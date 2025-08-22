@@ -9,29 +9,29 @@ The backend exposes a comprehensive set of REST APIs, grouped by module:
 - `GET /auth/verify` — Verify JWT token validity.
 
 ### User APIs
-- `POST /api/users` — Create a new user.
-- `GET /api/users` — List users, filter by role.
+- `POST /users` — Create a new user.
+- `GET /users` — List users, filter by role.
 
 ### Application Form APIs
-- `POST /api/application-form` — Create a new arms license application (multi-step, deeply validated).
-- `GET /api/application-form` — List all applications (filtered by role/status).
-- `GET /api/application-form/:id` — Get details of a specific application (access controlled).
-- `GET /api/application-form/helpers/states` — List all states.
-- `GET /api/application-form/helpers/districts/:stateId` — List districts for a state.
-- `GET /api/application-form/helpers/police-stations/:divisionId` — List police stations for a division.
-- `GET /api/application-form/helpers/validate-ids` — Validate reference IDs (state, district, police station).
-- `GET /api/application-form/helpers/check-aadhar/:aadharNumber` — Check if Aadhar number already exists.
+- `POST /application-form` — Create a new arms license application (multi-step, deeply validated).
+- `GET /application-form` — List all applications (filtered by role/status).
+- `GET /application-form/:id` — Get details of a specific application (access controlled).
+- `GET /application-form/helpers/states` — List all states.
+- `GET /application-form/helpers/districts/:stateId` — List districts for a state.
+- `GET /application-form/helpers/police-stations/:divisionId` — List police stations for a division.
+- `GET /application-form/helpers/validate-ids` — Validate reference IDs (state, district, police station).
+- `GET /application-form/helpers/check-aadhar/:aadharNumber` — Check if Aadhar number already exists.
 
 ### Workflow APIs
-- `POST /api/workflow/forward` — Forward an application to the next role/user, track workflow action.
+- `POST /workflow/forward` — Forward an application to the next role/user, track workflow action.
 
 ### Location APIs
-- `GET /api/locations/states` — List states (or get by ID).
-- `GET /api/locations/districts` — List districts (filter by state).
-- `GET /api/locations/zones` — List zones (filter by district).
-- `GET /api/locations/divisions` — List divisions (filter by zone).
-- `GET /api/locations/police-stations` — List police stations (filter by division).
-- `GET /api/locations/hierarchy` — Get full location hierarchy for a given ID.
+- `GET /locations/states` — List states (or get by ID).
+- `GET /locations/districts` — List districts (filter by state).
+- `GET /locations/zones` — List zones (filter by district).
+- `GET /locations/divisions` — List divisions (filter by zone).
+- `GET /locations/police-stations` — List police stations (filter by division).
+- `GET /locations/hierarchy` — Get full location hierarchy for a given ID.
 
 ---
 

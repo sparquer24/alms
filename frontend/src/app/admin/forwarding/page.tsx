@@ -26,7 +26,7 @@ export default function ForwardingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
-    const res = await fetch("/api/admin/forwarding", {
+    const res = await fetch("/admin/forwarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source, targets }),

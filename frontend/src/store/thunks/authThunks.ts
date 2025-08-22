@@ -3,46 +3,47 @@ import { AuthApi } from '../../config/APIClient';
 import { setCredentials, setLoading, setError, logout } from '../slices/authSlice';
 import { setCookie, getCookie } from 'cookies-next';
 
+// Single-flight guard to dedupe concurrent /auth/me requests
+let ongoingFetchCurrentUser: Promise<any> | null = null;
+async function fetchCurrentUser(token: string) {
+  if (!token) return null;
+  if (ongoingFetchCurrentUser) return ongoingFetchCurrentUser;
+  // Use getMe to retrieve the canonical user payload
+  ongoingFetchCurrentUser = AuthApi.getMe(token).finally(() => {
+    ongoingFetchCurrentUser = null;
+  });
+  return ongoingFetchCurrentUser;
+}
+
 export const initializeAuth = createAsyncThunk(
   'auth/initialize',
   async (_, { dispatch }) => {
     try {
-      // Check cookies for auth data
+      // Check cookies for auth data (be defensive about parsing)
       const cookieAuth = getCookie('auth');
-      
       if (cookieAuth) {
-        const authData = JSON.parse(cookieAuth as string);
-        // If all user info is present in cookie, use it and skip API call
-        if (
-          authData &&
-          authData.token &&
-          authData.user &&
-          authData.user.role &&
-          authData.user.name &&
-          authData.user.id
-        ) {
-          dispatch(setCredentials({ user: authData.user, token: authData.token }));
-          return { user: authData.user, token: authData.token };
+        // Try to JSON-parse first (legacy), otherwise treat cookieAuth as a raw token string
+        let token: string | null = null;
+        try {
+          const parsed = JSON.parse(cookieAuth as string);
+          token = parsed?.token ?? parsed?.accessToken ?? null;
+        } catch (e) {
+          // Not JSON, assume token string
+          token = typeof cookieAuth === 'string' ? cookieAuth : null;
         }
-        // Otherwise, verify the token is still valid
-        if (authData && authData.token && authData.isAuthenticated) {
-          const userResponse = await AuthApi.getCurrentUser(authData.token);
-          if (userResponse.success && userResponse.body) {
+
+        if (token) {
+          // Use the token to fetch canonical user payload (deduped)
+          const userResponse = await fetchCurrentUser(token);
+          if (userResponse && userResponse.success && userResponse.body) {
             const user = userResponse.body;
-            dispatch(setCredentials({ user, token: authData.token }));
-            // Update cookies with fresh data
-            const freshAuthData = {
-              token: authData.token,
-              user,
-              isAuthenticated: true,
-              role: user.role,
-              name: user.name
-            };
-            setCookie('auth', JSON.stringify(freshAuthData), {
+            dispatch(setCredentials({ user, token }));
+            // Persist only the token in the cookie (token-only semantics)
+            setCookie('auth', token, {
               maxAge: 60 * 60 * 24, // 1 day
               path: '/',
             });
-            return { user, token: authData.token };
+            return { user, token };
           } else {
             dispatch(logout());
           }
@@ -100,70 +101,75 @@ export const login = createAsyncThunk(
       
       console.log('🔍 Token received (first 20 chars):', token.substring(0, 20) + '...');
       
-      // Try to get user info from the token or make a separate call
+      // After obtaining the token, prefer calling /auth/getMe to fetch canonical user info
       try {
-        // First, try to decode the JWT token to get basic user info
-        console.log('🔓 Decoding JWT token...');
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        console.log('🔍 Token payload:', tokenPayload);
-        
-        // Create a basic user object from token payload
-        user = {
-          id: tokenPayload.userId || tokenPayload.sub,
-          username: tokenPayload.username,
-          role: tokenPayload.role,
-          name: tokenPayload.name || tokenPayload.username,
-          email: tokenPayload.email || '',
-          designation: tokenPayload.designation || '',
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-          permissions: [],
-          availableActions: []
-        };
-        
-        console.log('👤 User object created from token:', user);
-        
-        // Try to fetch additional user info from /api/auth/me
-        try {
-          console.log('📡 Fetching additional user info from /api/auth/me...');
-          const userResponse = await AuthApi.getCurrentUser(token);
-          console.log('📡 getCurrentUser response:', userResponse);
-          
-          if (userResponse.success && userResponse.body) {
-            // Merge the fetched user data with token data
-            user = { ...user, ...userResponse.body };
-            console.log('✅ User data merged with API response:', user);
+        console.log('📡 Calling /auth/getMe to fetch canonical user data');
+        const meResponse = await AuthApi.getMe(token);
+        console.log('📡 /auth/getMe response:', meResponse);
+
+        if (meResponse && meResponse.success && (meResponse.body || (meResponse as any).data)) {
+          // Some clients return body, others return data
+          const payload = meResponse.body ?? (meResponse as any).data ?? meResponse;
+          // Store the complete payload as the user object (preserve role object)
+          user = payload;
+          console.log('✅ Full user payload stored from /auth/getMe:', user);
+        } else {
+          // Fallback: decode token for basic user info
+          try {
+            console.log('🔓 Decoding JWT token as fallback...');
+            const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+            user = {
+              id: tokenPayload.userId || tokenPayload.sub,
+              username: tokenPayload.username,
+              role: tokenPayload.role,
+              name: tokenPayload.name || tokenPayload.username,
+              email: tokenPayload.email || '',
+              designation: tokenPayload.designation || '',
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString(),
+              permissions: [],
+              availableActions: []
+            };
+            console.log('✅ User created from token payload fallback:', user);
+          } catch (tokenError) {
+            console.error('❌ Failed to decode token in fallback:', tokenError);
+            throw new Error('Invalid token received from server');
           }
-        } catch (meError) {
-          console.warn('⚠️ Failed to fetch user details from /api/auth/me, using token data:', meError);
-          // Continue with token data only
         }
-      } catch (tokenError) {
-        console.error('❌ Failed to decode token:', tokenError);
-        throw new Error('Invalid token received from server');
+      } catch (meErr) {
+        console.warn('⚠️ /auth/getMe failed, falling back to token decode:', meErr);
+        // Fallback: decode token for basic user info
+        try {
+          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          user = {
+            id: tokenPayload.userId || tokenPayload.sub,
+            username: tokenPayload.username,
+            role: tokenPayload.role,
+            name: tokenPayload.name || tokenPayload.username,
+            email: tokenPayload.email || '',
+            designation: tokenPayload.designation || '',
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            permissions: [],
+            availableActions: []
+          };
+        } catch (tokenError) {
+          console.error('❌ Failed to decode token in fallback after getMe error:', tokenError);
+          throw new Error('Invalid token received from server');
+        }
       }
       
       console.log('✅ Final user object:', user);
       dispatch(setCredentials({ user, token }));
       
-      // Store token and user info in cookies with the correct structure for middleware
-      const authData = {
-        token,
-        user,
-        isAuthenticated: true,
-        role: user.role, // Extract role for middleware compatibility
-        name: user.name
-      };
-      
-      console.log('🍪 Setting auth cookie with data:', {
-        ...authData,
-        token: authData.token.substring(0, 20) + '...'
-      });
-      
-      setCookie('auth', JSON.stringify(authData), {
-        maxAge: 60 * 60 * 24, // 1 day
-        path: '/',
-      });
+
+
+        // Store only token in cookie to reduce cookie size and avoid leakage of user data
+        console.log('🍪 Setting auth cookie with token (first 20 chars):', token.substring(0, 20) + '...');
+        setCookie('auth', token, {
+          maxAge: 60 * 60 * 24, // 1 day
+          path: '/',
+        });
       
       console.log('🎉 Login process completed successfully');
       return { token, user };
@@ -186,18 +192,20 @@ export const getCurrentUser = createAsyncThunk(
     try {
       dispatch(setLoading(true));
       
-      // Get token from cookies
+      // Get token from cookies (support token-only and legacy JSON)
       const authCookie = getCookie('auth');
-      let token = null;
+      let token: string | null = null;
       if (authCookie) {
-        const authData = JSON.parse(authCookie as string);
-        token = authData.token;
+        try {
+          const parsed = JSON.parse(authCookie as string);
+          token = parsed?.token ?? parsed?.accessToken ?? null;
+        } catch (e) {
+          token = typeof authCookie === 'string' ? authCookie : null;
+        }
       }
-      
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
+
+      if (!token) throw new Error('No authentication token found');
+
       const response = await AuthApi.getCurrentUser(token);
       
       if (response.success && response.body) {

@@ -8,7 +8,8 @@ import ApplicationTable from '../../components/ApplicationTable';
 import FreshApplicationForm from '../../components/FreshApplicationForm';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus, ApplicationData } from '../../config/mockData';
+import { filterApplications, getApplicationsByStatus, ApplicationData } from '../../config/mockData';
+import { fetchData } from '../../api/axiosConfig';
 import { generateApplicationPDF, generateBatchReportPDF, getBatchReportHTML } from '../../config/pdfUtils';
 import { getRoleConfig } from '../../config/roles';
 import { isZS, APPLICATION_TYPES } from '../../config/helpers';
@@ -43,10 +44,26 @@ export default function FreshFormPage() {
     }
   }, [isAuthenticated, router, userRole]);
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    // Load applications from API (fall back to empty array)
+    const [applications, setApplications] = useState<ApplicationData[]>([]);
+    useEffect(() => {
+      let mounted = true;
+      const load = async () => {
+        setIsLoading(true);
+        try {
+          const res = await fetchData('/applications');
+          const apps = res?.body ?? (res as any)?.data ?? [];
+          if (mounted) setApplications(Array.isArray(apps) ? apps : []);
+        } catch (e) {
+          console.error('Failed to load applications', e);
+          if (mounted) setApplications([]);
+        } finally {
+          if (mounted) setIsLoading(false);
+        }
+      };
+      load();
+      return () => { mounted = false; };
+    }, []);
   }, []);
   
   useEffect(() => {
@@ -82,7 +99,7 @@ export default function FreshFormPage() {
   };
   // Filter applications based on freshform and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'freshform'),
+    getApplicationsByStatus(applications, 'freshform'),
     searchQuery,
     startDate,
     endDate
@@ -99,9 +116,8 @@ export default function FreshFormPage() {
   const handleSubmitApplication = (newApplication: ApplicationData) => {
     // In a real app, this would be an API call to save the application
     console.log('New application submitted:', newApplication);
-    
-    // Add new application to the mockApplications array
-    mockApplications.unshift(newApplication);
+  // TODO: call API to persist new application. For now prepend locally to state.
+  setApplications(prev => [newApplication, ...prev]);
     
     // Show success message
     setSuccessMessage(`Application ${newApplication.id} has been successfully submitted`);

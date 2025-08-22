@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, ConflictException, BadRequestException, InternalServerErrorException, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationFormService, CreateFreshLicenseApplicationsFormsInput } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
@@ -6,7 +6,7 @@ import { RequirePermissions } from '../../decorators/permissions.decorator';
 import prisma from '../../db/prismaClient';
 
 @ApiTags('Application Form')
-@Controller('api/application-form')
+@Controller('application-form')
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class ApplicationFormController {
@@ -160,24 +160,63 @@ export class ApplicationFormController {
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   // @RequirePermissions('VIEW_APPLICATIONS')
-  async getAllApplications(@Request() req: any) {
+  async getAllApplications(
+    @Request() req: any,
+    @Query('statusId') statusId?: string,
+    @Query('statusIds') statusIds?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('searchField') searchField?: string,
+    @Query('search') search?: string,
+    @Query('orderBy') orderBy?: string,
+    @Query('order') order?: string,
+  ) {
     try {
       // If user is not admin/officer, only show their own applications
       const userRole = req.user.roleCode;
       const userId = req.user.sub;
-      
-      // Get statusId from query params if provided
-      const statusId = req.query?.statusId ? Number(req.query.statusId) : undefined;
+      // Parse pagination params
+      const pageNum = page ? Math.max(Number(page), 1) : 1;
+      const limitNum = limit ? Math.max(Number(limit), 1) : 10;
 
-      let applications;
-      // if (['ADMIN', 'POLICE_OFFICER', 'DM_OFFICE'].includes(userRole)) { // need to move to constants
-      //   applications = await this.applicationFormService.getFilteredApplications({ statusId });
-      // } 
+      // Parse status IDs: support ?statusId=1 or ?statusId=1,2 or ?statusIds=1,2
+      let parsedStatusIds: number[] | undefined = undefined;
+      const raw = statusIds ?? statusId ?? req.query?.statusId;
+      if (raw) {
+        parsedStatusIds = String(raw)
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+          .map(Number)
+          .filter(n => !isNaN(n));
+        if (parsedStatusIds.length === 0) parsedStatusIds = undefined;
+      }
 
-      applications = await this.applicationFormService.getFilteredApplications({ statusId, currentUserId: userId });
+      // Parse search and searchField
+      const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
+      const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
+      const parsedSearchValue = search ?? undefined;
+
+      // Parse ordering
+      const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
+      const parsedOrderBy = orderBy && allowedOrderFields.includes(orderBy) ? orderBy : 'createdAt';
+      const parsedOrder = order && order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      const result = await this.applicationFormService.getFilteredApplications({
+        statusIds: parsedStatusIds,
+        currentUserId: userId,
+        page: pageNum,
+        limit: limitNum,
+        searchField: parsedSearchField,
+        search: parsedSearchValue,
+        orderBy: parsedOrderBy,
+        order: parsedOrder as 'asc' | 'desc',
+      });
+      const applications = result.data;
+      const total = result.total;
 
       // For each application, collect the relation table names (keys with object/array values)
-      const applicationsWithRelations = applications.map((app: any) => {
+  const applicationsWithRelations = applications.map((app: any) => {
         const relationNames: string[] = [];
         for (const key in app) {
           if (!Object.prototype.hasOwnProperty.call(app, key)) continue;
@@ -202,10 +241,18 @@ export class ApplicationFormController {
         };
       });
 
+      const totalPages = Math.ceil(total / (limitNum || 10));
+
       return {
         success: true,
         message: 'Applications retrieved successfully',
         data: applicationsWithRelations,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages,
+        }
       };
     } catch (error: any) {
       throw new HttpException(
@@ -309,7 +356,7 @@ export class ApplicationFormController {
     }
   }
 
-  // Helper endpoints for getting valid IDs
+  // Helper endpoints for getting valid IDs (routes under /application-form/helpers/...)
   @Get('helpers/states')
   @ApiOperation({ 
     summary: 'Get States for Application Form', 

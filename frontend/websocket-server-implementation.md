@@ -149,7 +149,7 @@ server.listen(PORT, () => {
 });
 
 // Example REST endpoint to trigger notifications (for testing)
-app.post('/api/trigger-notification', express.json(), (req, res) => {
+app.post('/trigger-notification', express.json(), (req, res) => {
   const { userId, notification } = req.body;
   
   if (!userId || !notification) {

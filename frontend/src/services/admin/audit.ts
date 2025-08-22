@@ -30,13 +30,13 @@ export const AdminAuditService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/audit?${queryString}`);
+    const response = await APIClient.get(`/admin/audit?${queryString}`);
     return response;
   },
 
   // Get audit log by ID
   getAuditLogById: async (id: string) => {
-    const response = await APIClient.get(`/api/admin/audit/${id}`);
+    const response = await APIClient.get(`/admin/audit/${id}`);
     return response;
   },
 
@@ -49,7 +49,7 @@ export const AdminAuditService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/audit/stats?${queryString}`);
+    const response = await APIClient.get(`/admin/audit/stats?${queryString}`);
     return response;
   },
 
@@ -62,7 +62,7 @@ export const AdminAuditService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/audit/export?${queryString}`, {
+    const response = await APIClient.get(`/admin/audit/export?${queryString}`, {
       responseType: 'blob',
     });
     return response;
@@ -77,13 +77,13 @@ export const AdminAuditService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/audit/user/${userId}/summary?${queryString}`);
+    const response = await APIClient.get(`/admin/audit/user/${userId}/summary?${queryString}`);
     return response;
   },
 
   // Get application activity
   getApplicationActivity: async (applicationId: string) => {
-    const response = await APIClient.get(`/api/admin/audit/application/${applicationId}`);
+    const response = await APIClient.get(`/admin/audit/application/${applicationId}`);
     return response;
   },
 
@@ -96,7 +96,7 @@ export const AdminAuditService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/audit/system/summary?${queryString}`);
+    const response = await APIClient.get(`/admin/audit/system/summary?${queryString}`);
     return response;
   },
 
@@ -109,7 +109,7 @@ export const AdminAuditService = {
       }
     });
 
-    const response = await APIClient.get(`/api/admin/audit/realtime?${queryString}`);
+    const response = await APIClient.get(`/admin/audit/realtime?${queryString}`);
     return response;
   },
 }; 

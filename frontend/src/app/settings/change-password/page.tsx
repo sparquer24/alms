@@ -42,7 +42,7 @@ export default function ChangePassword() {
     
     try {
       // Call the API to change password
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/change-password`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

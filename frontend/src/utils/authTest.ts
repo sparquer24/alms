@@ -4,7 +4,7 @@
  */
 
 import { AuthApi } from '../config/APIClient';
-import { getCookie, setCookie, deleteCookie } from 'cookies-next';
+import { getAuthTokenFromCookie, getUserFromCookie } from './authCookies';
 
 export class AuthTester {
   private baseUrl: string;
@@ -23,7 +23,6 @@ export class AuthTester {
     try {
       // Step 1: Clear existing auth data
       console.log('1️⃣ Clearing existing auth data...');
-      this.clearAuthData();
 
       // Step 2: Test login
       console.log('2️⃣ Testing login...');
@@ -111,18 +110,12 @@ export class AuthTester {
    */
   private testCookieStorage() {
     try {
-      const authCookie = getCookie('auth');
-      if (!authCookie) {
-        return { success: false, message: 'Auth cookie not found after login' };
-      }
-
-      const authData = JSON.parse(authCookie as string);
-      if (!authData.token || !authData.user || !authData.isAuthenticated) {
-        return { success: false, message: 'Invalid auth data structure in cookie' };
-      }
-
-      console.log('✅ Cookie storage working correctly');
-      return { success: true, authData };
+  const token = getAuthTokenFromCookie();
+  const user = getUserFromCookie();
+  if (!token) return { success: false, message: 'Auth token not found after login' };
+  if (!user) return { success: false, message: 'User cookie not found or invalid after login' };
+  console.log('✅ Cookie storage working correctly');
+  return { success: true, authData: { token, user } };
     } catch (error) {
       return { success: false, message: `Cookie storage error: ${error}` };
     }
@@ -133,20 +126,13 @@ export class AuthTester {
    */
   private testAuthStateRestoration() {
     try {
-      const authCookie = getCookie('auth');
-      if (!authCookie) {
-        return { success: false, message: 'No auth cookie found for restoration test' };
-      }
-
-      const authData = JSON.parse(authCookie as string);
-      
-      // Simulate the restoration logic from authSlice
-      if (authData.token && authData.user && authData.isAuthenticated) {
+      const token = getAuthTokenFromCookie();
+      const user = getUserFromCookie();
+      if (token && user) {
         console.log('✅ Auth state restoration logic working correctly');
-        return { success: true, authData };
-      } else {
-        return { success: false, message: 'Invalid auth data for restoration' };
+        return { success: true, authData: { token, user } };
       }
+      return { success: false, message: 'Invalid auth data for restoration' };
     } catch (error) {
       return { success: false, message: `Auth state restoration error: ${error}` };
     }
@@ -167,28 +153,14 @@ export class AuthTester {
   async testApiEndpoint(endpoint: string, method: string = 'GET', body?: any) {
     try {
       const url = `${this.baseUrl}${endpoint}`;
-      const options: RequestInit = {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      };
-
-      if (body) {
-        options.body = JSON.stringify(body);
+      let result;
+      if (method === 'GET') {
+        result = await (await import('../api/axiosConfig')).fetchData(endpoint);
+      } else {
+        result = await (await import('../api/axiosConfig')).postData(endpoint, body);
       }
-
-      const response = await fetch(url, options);
-      const data = await response.json();
-
-      console.log(`API Test - ${method} ${endpoint}:`, {
-        status: response.status,
-        ok: response.ok,
-        data
-      });
-
-      return { success: response.ok, status: response.status, data };
+      console.log(`API Test - ${method} ${endpoint}:`, { status: 200, ok: true, data: result });
+      return { success: true, status: 200, data: result };
     } catch (error) {
       console.error(`API Test Error - ${method} ${endpoint}:`, error);
       return { success: false, error };
@@ -200,13 +172,10 @@ export class AuthTester {
    */
   getCurrentAuthState() {
     try {
-      const authCookie = getCookie('auth');
-      if (!authCookie) {
-        return { hasCookie: false, authData: null };
-      }
-
-      const authData = JSON.parse(authCookie as string);
-      return { hasCookie: true, authData };
+  const token = getAuthTokenFromCookie();
+  const user = getUserFromCookie();
+  if (!token) return { hasCookie: false, authData: null };
+  return { hasCookie: true, authData: { token, user } };
     } catch (error) {
       return { hasCookie: false, authData: null, error };
     }

@@ -9,16 +9,19 @@ function getAuthFromCookie() {
     .find(row => row.startsWith('auth='));
   if (!authCookie) return null;
   try {
-    const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
-    if (
-      authData &&
-      authData.token &&
-      authData.user &&
-      authData.user.id &&
-      authData.user.name &&
-      authData.user.role &&
-      authData.isAuthenticated
-    ) {
+    const raw = decodeURIComponent(authCookie.split('=')[1]);
+    let authData: any = null;
+
+    try {
+      authData = JSON.parse(raw);
+    } catch (e) {
+      // Not JSON — treat as token-only
+      authData = { token: raw, isAuthenticated: true };
+    }
+
+    // Accept partial auth cookie (token + user info) and mark as valid if token exists
+    if (authData && authData.token) {
+      // If user object exists, prefer returning it
       return authData;
     }
   } catch (e) {
@@ -53,12 +56,13 @@ export const useAuthSync = () => {
   }, [dispatch, reduxIsAuthenticated, reduxUser, isInitialized]);
 
   if (cookieAuth) {
+    const c = cookieAuth as any;
     return {
-      isAuthenticated: cookieAuth.isAuthenticated,
-      user: cookieAuth.user,
-      token: cookieAuth.token,
-      userRole: cookieAuth.user.role,
-      userName: cookieAuth.user.name,
+      isAuthenticated: c.isAuthenticated,
+      user: c.user,
+      token: c.token,
+      userRole: c.user?.role,
+      userName: c.user?.name,
       isLoading: false,
     };
   }

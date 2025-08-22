@@ -59,7 +59,7 @@ All APIs follow this consistent response structure:
 ## 🔐 Authentication APIs
 
 ### 1. Login API
-**Endpoint:** `POST /api/auth/login`
+**Endpoint:** `POST /auth/login`
 
 **Description:** Authenticates user credentials and returns JWT token with user information.
 
@@ -123,7 +123,7 @@ All APIs follow this consistent response structure:
 ```
 
 ### 2. Get Current User API
-**Endpoint:** `GET /api/auth/me`
+**Endpoint:** `GET /auth/me`
 
 **Description:** Retrieves current authenticated user information.
 
@@ -162,7 +162,7 @@ Content-Type: application/json
 ```
 
 ### 3. Logout API
-**Endpoint:** `POST /api/auth/logout`
+**Endpoint:** `POST /auth/logout`
 
 **Headers Required:**
 ```
@@ -179,7 +179,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 4. Change Password API
-**Endpoint:** `POST /api/auth/change-password`
+**Endpoint:** `POST /auth/change-password`
 
 **Headers Required:**
 ```
@@ -204,7 +204,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 5. Reset Password API
-**Endpoint:** `POST /api/auth/reset-password`
+**Endpoint:** `POST /auth/reset-password`
 
 **Request Body:**
 ```typescript
@@ -227,7 +227,7 @@ Authorization: Bearer <jwt_token>
 ## 📋 Application Management APIs
 
 ### 1. Get All Applications
-**Endpoint:** `GET /api/applications`
+**Endpoint:** `GET /applications`
 
 **Headers Required:**
 ```
@@ -276,7 +276,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 2. Get Application by ID
-**Endpoint:** `GET /api/applications/{id}`
+**Endpoint:** `GET /applications/{id}`
 
 **Headers Required:**
 ```
@@ -326,7 +326,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 3. Create New Application
-**Endpoint:** `POST /api/applications`
+**Endpoint:** `POST /applications`
 
 **Headers Required:**
 ```
@@ -370,7 +370,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 4. Update Application Status
-**Endpoint:** `PUT /api/applications/{id}/status`
+**Endpoint:** `PUT /applications/{id}/status`
 
 **Headers Required:**
 ```
@@ -401,7 +401,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 5. Forward Application
-**Endpoint:** `POST /api/applications/{id}/forward`
+**Endpoint:** `POST /applications/{id}/forward`
 
 **Headers Required:**
 ```
@@ -432,7 +432,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 6. Batch Process Applications
-**Endpoint:** `POST /api/applications/batch`
+**Endpoint:** `POST /applications/batch`
 
 **Headers Required:**
 ```
@@ -483,7 +483,7 @@ Authorization: Bearer <jwt_token>
 ## 📄 Document Management APIs
 
 ### 1. Upload Document
-**Endpoint:** `POST /api/applications/{applicationId}/documents`
+**Endpoint:** `POST /applications/{applicationId}/documents`
 
 **Headers Required:**
 ```
@@ -516,7 +516,7 @@ Content-Type: multipart/form-data
 ```
 
 ### 2. Get Application Documents
-**Endpoint:** `GET /api/applications/{applicationId}/documents`
+**Endpoint:** `GET /applications/{applicationId}/documents`
 
 **Headers Required:**
 ```
@@ -536,7 +536,7 @@ Authorization: Bearer <jwt_token>
         "filename": "aadhar.pdf",
         "size": 1024576,
         "uploadedAt": "2024-06-25T10:35:00Z",
-        "downloadUrl": "/api/documents/doc_123/download"
+        "downloadUrl": "/documents/doc_123/download"
       },
       {
         "id": "doc_124",
@@ -544,7 +544,7 @@ Authorization: Bearer <jwt_token>
         "filename": "passport_photo.jpg",
         "size": 512000,
         "uploadedAt": "2024-06-25T10:40:00Z",
-        "downloadUrl": "/api/documents/doc_124/download"
+        "downloadUrl": "/documents/doc_124/download"
       }
     ]
   }
@@ -552,7 +552,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 3. Delete Document
-**Endpoint:** `DELETE /api/applications/{applicationId}/documents/{documentId}`
+**Endpoint:** `DELETE /applications/{applicationId}/documents/{documentId}`
 
 **Headers Required:**
 ```
@@ -573,7 +573,7 @@ Authorization: Bearer <jwt_token>
 ## 👥 User Management APIs
 
 ### 1. Get Users by Role
-**Endpoint:** `GET /api/users`
+**Endpoint:** `GET /users`
 
 **Headers Required:**
 ```
@@ -609,7 +609,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 2. Get User Preferences
-**Endpoint:** `GET /api/users/preferences`
+**Endpoint:** `GET /users/preferences`
 
 **Headers Required:**
 ```
@@ -641,7 +641,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 3. Update User Preferences
-**Endpoint:** `PUT /api/users/preferences`
+**Endpoint:** `PUT /users/preferences`
 
 **Headers Required:**
 ```
@@ -678,7 +678,7 @@ Authorization: Bearer <jwt_token>
 ## 🔔 Notification APIs
 
 ### 1. Get All Notifications
-**Endpoint:** `GET /api/notifications`
+**Endpoint:** `GET /notifications`
 
 **Headers Required:**
 ```
@@ -722,7 +722,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 2. Mark Notification as Read
-**Endpoint:** `PUT /api/notifications/{id}/read`
+**Endpoint:** `PUT /notifications/{id}/read`
 
 **Headers Required:**
 ```
@@ -739,7 +739,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 3. Mark All Notifications as Read
-**Endpoint:** `PUT /api/notifications/read-all`
+**Endpoint:** `PUT /notifications/read-all`
 
 **Headers Required:**
 ```
@@ -760,7 +760,7 @@ Authorization: Bearer <jwt_token>
 ## 📊 Dashboard APIs
 
 ### 1. Get Dashboard Summary
-**Endpoint:** `GET /api/dashboard/summary`
+**Endpoint:** `GET /dashboard/summary`
 
 **Headers Required:**
 ```
@@ -800,7 +800,7 @@ Authorization: Bearer <jwt_token>
 ## 📈 Report APIs
 
 ### 1. Get Statistics
-**Endpoint:** `GET /api/reports/statistics`
+**Endpoint:** `GET /reports/statistics`
 
 **Headers Required:**
 ```
@@ -839,7 +839,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 2. Get Applications by Status
-**Endpoint:** `GET /api/reports/applications-by-status`
+**Endpoint:** `GET /reports/applications-by-status`
 
 **Headers Required:**
 ```
@@ -881,7 +881,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 3. Generate PDF Report
-**Endpoint:** `GET /api/applications/{applicationId}/pdf`
+**Endpoint:** `GET /applications/{applicationId}/pdf`
 
 **Headers Required:**
 ```
@@ -901,7 +901,7 @@ Content-Disposition: attachment; filename="application_app_123.pdf"
 ## 🛡️ Role & Permission APIs
 
 ### 1. Get Available Actions
-**Endpoint:** `GET /api/roles/actions`
+**Endpoint:** `GET /roles/actions`
 
 **Headers Required:**
 ```
@@ -931,7 +931,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### 2. Get Role Hierarchy
-**Endpoint:** `GET /api/roles/hierarchy`
+**Endpoint:** `GET /roles/hierarchy`
 
 **Headers Required:**
 ```

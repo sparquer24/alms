@@ -123,22 +123,22 @@ export default Dashboard;
 #### Example:
 ```ts
 export const fetchDashboardData = async () => {
-  const response = await fetch('/api/dashboard');
+  const response = await fetch('/dashboard');
   return response.json();
 };
 
 export const fetchApplicationsData = async () => {
-  const response = await fetch('/api/applications');
+  const response = await fetch('/applications');
   return response.json();
 };
 
 export const fetchNotificationsData = async () => {
-  const response = await fetch('/api/notifications');
+  const response = await fetch('/notifications');
   return response.json();
 };
 
 export const fetchSettingsData = async () => {
-  const response = await fetch('/api/settings');
+  const response = await fetch('/settings');
   return response.json();
 };
 ```

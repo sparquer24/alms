@@ -6,7 +6,6 @@ import Header from "../../components/Header";
 import { useAuthSync } from "../../hooks/useAuthSync";
 import { useLayout } from "../../config/layoutContext";
 import { useNotifications } from "../../config/notificationContext";
-import { NotificationApi } from "../../config/APIClient";
 import { useRouter } from 'next/navigation';
 
 interface NotificationsViewProps {
@@ -42,25 +41,10 @@ export default function NotificationsPage() {
     if (isLoading) return;
     
     setIsLoading(true);
+    // Static notifications: no remote pagination available. Disable load more.
     try {
-      const nextPage = page + 1;
-      const response = await NotificationApi.getAll({ 
-        page: nextPage, 
-        pageSize: 20,
-        read: filter === 'all' ? undefined : filter === 'read'
-      });
-      
-      if (response.success && response.data) {
-        // Check if there are more notifications
-        if (response.data.notifications && response.data.notifications.length > 0) {
-          setPage(nextPage);
-          setHasMoreNotifications(response.data.pagination.page < response.data.pagination.totalPages);
-        } else {
-          setHasMoreNotifications(false);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading more notifications:', error);
+      // No-op: static data has no further pages.
+      setHasMoreNotifications(false);
     } finally {
       setIsLoading(false);
     }

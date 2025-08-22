@@ -601,8 +601,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
     if (isValid) {
       console.log("Form validation passed, submitting application");
-      // Generate new application ID
-      const newId = `AL-2025-${(mockApplications.length + 1).toString().padStart(3, '0')}`;
+  // Generate new application ID using timestamp to avoid reliance on mock data
+  const timestamp = Date.now();
+  const newId = `AL-2025-${String(timestamp).slice(-6)}`;
 
       // Calculate age based on date of birth if provided
       let age = '';

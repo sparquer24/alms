@@ -5,7 +5,7 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { isZS, APPLICATION_TYPES } from '../config/helpers';
-import { getCookie } from 'cookies-next';
+import { getRoleFromCookie } from '../utils/authCookies';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
@@ -71,7 +71,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   const [endDate, setEndDate] = useState<string>('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const role = getCookie('role');
+  const role = getRoleFromCookie();
 
   const handleSearch = useCallback(() => onSearch(searchQuery), [onSearch, searchQuery]);
   const handleDateFilter = useCallback(() => onDateFilter(startDate, endDate), [onDateFilter, startDate, endDate]);

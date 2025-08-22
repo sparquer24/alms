@@ -35,7 +35,7 @@ This document outlines the additional APIs that need to be implemented for the A
 
 ### 2. Notification Subscription API
 
-**Endpoint**: `PATCH /api/users/notification-preferences`
+**Endpoint**: `PATCH /users/notification-preferences`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -63,7 +63,7 @@ This document outlines the additional APIs that need to be implemented for the A
 
 ### 1. Chart Data API
 
-**Endpoint**: `GET /api/dashboard/charts`
+**Endpoint**: `GET /dashboard/charts`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -73,7 +73,7 @@ This document outlines the additional APIs that need to be implemented for the A
 - `startDate`: Required if dateRange is "custom"
 - `endDate`: Required if dateRange is "custom"
 
-**Example**: `/api/dashboard/charts?chartType=applicationByStatus&dateRange=last30days`
+**Example**: `/dashboard/charts?chartType=applicationByStatus&dateRange=last30days`
 
 **Response Example**:
 ```json
@@ -96,7 +96,7 @@ This document outlines the additional APIs that need to be implemented for the A
 
 ### 2. Performance Metrics API
 
-**Endpoint**: `GET /api/dashboard/performance-metrics`
+**Endpoint**: `GET /dashboard/performance-metrics`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -134,14 +134,14 @@ This document outlines the additional APIs that need to be implemented for the A
 
 ### 1. Permission Check API
 
-**Endpoint**: `GET /api/auth/check-permission`
+**Endpoint**: `GET /auth/check-permission`
 
 **Headers**: `Authorization: Bearer <token>`
 
 **Query Parameters**:
 - `permission`: The permission to check
 
-**Example**: `/api/auth/check-permission?permission=CAN_APPROVE_APPLICATIONS`
+**Example**: `/auth/check-permission?permission=CAN_APPROVE_APPLICATIONS`
 
 **Response Example**:
 ```json

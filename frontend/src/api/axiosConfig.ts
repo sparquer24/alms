@@ -1,11 +1,11 @@
 import axios from 'axios';
-import jsCookie from 'js-cookie';
+import { getCookie } from 'cookies-next';
 
 const axiosInstance = axios.create({
-  baseURL: 'https://alms-api-dev.sparquer.com',
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json' 
+    'Content-Type': 'application/json',
   },
 });
 
@@ -13,9 +13,10 @@ const axiosInstance = axios.create({
 // Function to update Authorization header
 export const setAuthToken = (token: any) => {
   if (token) {
-    axiosInstance.defaults.headers['Authorization'] = `${token}`;
-  }
-  else {
+    // Ensure token is a raw token string. If caller passed a Bearer-prefixed value, normalize it.
+    const normalized = typeof token === 'string' && token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    axiosInstance.defaults.headers['Authorization'] = normalized;
+  } else {
     delete axiosInstance.defaults.headers['Authorization']; // Remove token if not provided
   }
 };

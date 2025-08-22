@@ -61,23 +61,62 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
-      if (typeof window !== 'undefined') {
-        try {
-          const authCookie = document.cookie
-            .split('; ')
-            .find(row => row.startsWith('auth='));
-          
-          if (authCookie) {
-            const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
-            if (authData.token && authData.user && authData.isAuthenticated) {
-              state.user = authData.user;
+      if (typeof window === 'undefined') return;
+
+      try {
+        const cookies = document.cookie.split('; ').reduce<Record<string, string>>((acc, cur) => {
+          const [k, v] = cur.split('=');
+          acc[k] = v;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const authRaw = cookies['auth'];
+
+        if (!authRaw) return;
+
+        // Decode once
+        const decoded = decodeURIComponent(authRaw);
+
+        // Case 1: legacy JSON object stored in `auth` cookie
+        if (decoded.trim().startsWith('{')) {
+          try {
+            const authData = JSON.parse(decoded);
+            if (authData && authData.token) {
               state.token = authData.token;
-              state.isAuthenticated = true;
+              if (authData.user) state.user = authData.user;
+              state.isAuthenticated = !!authData.isAuthenticated || !!authData.token;
+              return;
+            }
+          } catch (e) {
+            // fallthrough to try token-only
+            console.debug('auth cookie looks like JSON but failed to parse, falling back to token-only');
+          }
+        }
+
+        // Case 2: token-only (JWT string) stored in auth cookie
+        if (decoded && typeof decoded === 'string') {
+          // token-only case
+          state.token = decoded;
+
+          // Try to recover user from separate `user` cookie (if present)
+          if (cookies['user']) {
+            try {
+              const userDecoded = decodeURIComponent(cookies['user']);
+              state.user = JSON.parse(userDecoded);
+            } catch (e) {
+              // If user cookie isn't JSON, ignore
             }
           }
-        } catch (error) {
-          console.error('Failed to restore auth state:', error);
+
+          // Try to set isAuthenticated if token exists
+          state.isAuthenticated = true;
+          return;
         }
+      } catch (error) {
+        // Keep restore operation safe — don't crash the app
+        // Log the raw error for debugging
+        // eslint-disable-next-line no-console
+        console.error('Failed to restore auth state:', error);
       }
     },
   },

@@ -11,6 +11,7 @@ import { HamburgerButton } from "./HamburgerButton";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
+import { ApplicationApi } from '../config/APIClient';
 
 // Mock implementation for useUserContext if unavailable
 const useUserContext = () => ({ user: { role: "USER" } });
@@ -138,6 +139,7 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
   const dispatch = useDispatch();
   const { userRole, token } = useAuthSync();
   const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole || "SHO"));
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const router = useRouter();
   const { user } = useUserContext();
   // Define RootState type or import it from your store typings
@@ -152,6 +154,49 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
   useEffect(() => {
     setRoleConfig(getRoleConfig(userRole || "SHO"));
   }, [userRole]);
+
+  // Menu -> statusIds mapping. Adjust these arrays as per backend status codes.
+  const menuStatusMap: Record<string, Array<number>> = {
+    freshform: [1],
+    inbox: [2, 3, 4],
+    sent: [5],
+    closed: [6],
+    finaldisposal: [7],
+    reports: [],
+  };
+
+  // Helper to fetch count for a given menu key
+  const fetchCountForMenu = async (menuKey: string) => {
+    try {
+      const statusIds = menuStatusMap[menuKey] ?? [];
+      if (!statusIds.length) return 0;
+      // Request with limit=1 to get meta/total if backend provides it
+      const resp: any = await ApplicationApi.getByStatuses(statusIds, { page: 1, limit: 1 });
+      // Accept multiple possible shapes for the total count
+      const payload = resp?.body ?? resp?.data ?? resp;
+      const total = payload?.total ?? payload?.meta?.total ?? payload?.count ?? (Array.isArray(payload) ? payload.length : undefined);
+      return typeof total === 'number' ? total : 0;
+    } catch (e) {
+      console.error('Error fetching count for menu', menuKey, e);
+      return 0;
+    }
+  };
+
+  // Fetch counts for visible menus when roleConfig or token changes
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const keys = (roleConfig.menuItems || []).map((m) => m.name);
+      const newCounts: Record<string, number> = {};
+      await Promise.all(keys.map(async (k) => {
+        const cnt = await fetchCountForMenu(k);
+        if (!cancelled) newCounts[k] = cnt;
+      }));
+      if (!cancelled) setCounts(newCounts);
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [roleConfig]);
 
   useEffect(() => {
     if (showSidebar) setVisible(true);
@@ -296,6 +341,7 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
                     key={item.name}
                     icon={item.icon}
                     label={item.label}
+                    count={counts[item.name]}
                     active={activeItem === item.name}
                     onClick={() => handleMenuClick({ name: item.name })}
                   />

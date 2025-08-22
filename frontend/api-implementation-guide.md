@@ -16,7 +16,7 @@ This guide provides implementation examples and code prompts for developing each
 
 ### Login API
 
-**Endpoint:** `/api/auth/login`  
+**Endpoint:** `/auth/login`  
 **Method:** POST
 
 ```javascript
@@ -28,7 +28,7 @@ const { User, AuditLog, RolePermission, RefreshToken } = require('../models');
 const router = express.Router();
 
 /**
- * @route POST /api/auth/login
+ * @route POST /auth/login
  * @desc Authenticate user and return JWT token
  * @access Public
  */
@@ -127,12 +127,12 @@ module.exports = router;
 
 ### Logout API
 
-**Endpoint:** `/api/auth/logout`  
+**Endpoint:** `/auth/logout`  
 **Method:** POST
 
 ```javascript
 /**
- * @route POST /api/auth/logout
+ * @route POST /auth/logout
  * @desc Invalidate user session and blacklist token
  * @access Private
  */
@@ -170,12 +170,12 @@ router.post('/logout', authMiddleware, async (req, res) => {
 
 ### Get Current User API
 
-**Endpoint:** `/api/auth/me`  
+**Endpoint:** `/auth/me`  
 **Method:** GET
 
 ```javascript
 /**
- * @route GET /api/auth/me
+ * @route GET /auth/me
  * @desc Get authenticated user details
  * @access Private
  */
@@ -211,7 +211,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       user_id: userId,
       ip_address: req.ip,
       details: JSON.stringify({
-        endpoint: '/api/auth/me',
+        endpoint: '/auth/me',
         method: 'GET'
       })
     });
@@ -244,12 +244,12 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 ### Get All Applications API
 
-**Endpoint:** `/api/applications`  
+**Endpoint:** `/applications`  
 **Method:** GET
 
 ```javascript
 /**
- * @route GET /api/applications
+ * @route GET /applications
  * @desc Get all applications with filtering and pagination
  * @access Private
  */
@@ -377,12 +377,12 @@ router.get('/', authMiddleware, async (req, res) => {
 
 ### Get Application by ID API
 
-**Endpoint:** `/api/applications/{id}`  
+**Endpoint:** `/applications/{id}`  
 **Method:** GET
 
 ```javascript
 /**
- * @route GET /api/applications/:id
+ * @route GET /applications/:id
  * @desc Get detailed application information by ID
  * @access Private
  */
@@ -526,12 +526,12 @@ async function getAvailableActions(role, status, application) {
 
 ### Create Application API
 
-**Endpoint:** `/api/applications`  
+**Endpoint:** `/applications`  
 **Method:** POST
 
 ```javascript
 /**
- * @route POST /api/applications
+ * @route POST /applications
  * @desc Create a new license application
  * @access Private
  */
@@ -710,12 +710,12 @@ router.post('/', authMiddleware, async (req, res) => {
 
 ### Update Application Status API
 
-**Endpoint:** `/api/applications/{id}/status`  
+**Endpoint:** `/applications/{id}/status`  
 **Method:** PATCH
 
 ```javascript
 /**
- * @route PATCH /api/applications/:id/status
+ * @route PATCH /applications/:id/status
  * @desc Update application status
  * @access Private
  */
@@ -894,12 +894,12 @@ async function checkStatusUpdatePermission(role, currentStatus, newStatus) {
 
 ### Forward Application API
 
-**Endpoint:** `/api/applications/{id}/forward`  
+**Endpoint:** `/applications/{id}/forward`  
 **Method:** POST
 
 ```javascript
 /**
- * @route POST /api/applications/:id/forward
+ * @route POST /applications/:id/forward
  * @desc Forward application to next authority
  * @access Private
  */
@@ -1066,12 +1066,12 @@ async function checkForwardPermission(fromRole, toRole, currentStatus) {
 
 ### Upload Document API
 
-**Endpoint:** `/api/applications/{id}/documents`  
+**Endpoint:** `/applications/{id}/documents`  
 **Method:** POST
 
 ```javascript
 /**
- * @route POST /api/applications/:id/documents
+ * @route POST /applications/:id/documents
  * @desc Upload document for an application
  * @access Private
  */
@@ -1205,12 +1205,12 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 
 ### Get Documents API
 
-**Endpoint:** `/api/applications/{id}/documents`  
+**Endpoint:** `/applications/{id}/documents`  
 **Method:** GET
 
 ```javascript
 /**
- * @route GET /api/applications/:id/documents
+ * @route GET /applications/:id/documents
  * @desc Get documents for an application
  * @access Private
  */
@@ -1318,12 +1318,12 @@ function generateSecureUrl(url, expiryMinutes) {
 
 ### Generate Application PDF API
 
-**Endpoint:** `/api/applications/{id}/pdf`  
+**Endpoint:** `/applications/{id}/pdf`  
 **Method:** GET
 
 ```javascript
 /**
- * @route GET /api/applications/:id/pdf
+ * @route GET /applications/:id/pdf
  * @desc Generate PDF for an application
  * @access Private
  */

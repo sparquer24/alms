@@ -6,7 +6,8 @@ import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import ApplicationTable from '../../../components/ApplicationTable';
 import { useAuthSync } from '../../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../../config/mockData';
+import { filterApplications, getApplicationsByStatus, ApplicationData } from '../../../config/mockData';
+import { fetchData } from '../../../api/axiosConfig';
 import { useAuth } from '../../../config/auth';
 import { getCookie } from 'cookies-next';
 import React from 'react';
@@ -21,6 +22,7 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
   const router = useRouter();
   const [type, setType] = useState<string | null>(null);
   const { userId } = useAuth();
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -30,6 +32,25 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
     })();
     return () => { isMounted = false; };
   }, [params]);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetchData('/applications');
+        const apps = res?.body ?? (res as any)?.data ?? [];
+        if (mounted) setApplications(Array.isArray(apps) ? apps : []);
+      } catch (e) {
+        console.error('Failed to load applications', e);
+        if (mounted) setApplications([]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    if (type) load();
+    return () => { mounted = false; };
+  }, [type]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -79,7 +100,7 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
   };
 
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, type, userId || undefined),
+    getApplicationsByStatus(applications, type as string, userId || undefined),
     searchQuery,
     startDate,
     endDate

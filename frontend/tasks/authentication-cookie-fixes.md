@@ -133,7 +133,7 @@ await testAuthFlow('custom_user', 'custom_password');
 
 ## Backend Requirements
 
-### 1. Login Endpoint (`/api/auth/login`)
+### 1. Login Endpoint (`/auth/login`)
 Must return:
 ```json
 {
@@ -150,7 +150,7 @@ Must return:
 }
 ```
 
-### 2. Get Current User Endpoint (`/api/auth/me`)
+### 2. Get Current User Endpoint (`/auth/me`)
 Must:
 - Accept `Authorization: Bearer <token>` header
 - Return user data if token is valid

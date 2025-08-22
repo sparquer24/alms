@@ -141,7 +141,7 @@ Access-Control-Allow-Origin: [your-frontend-domain]
 
 ## Backend Requirements
 
-### 1. Login Endpoint (`/api/auth/login`)
+### 1. Login Endpoint (`/auth/login`)
 
 Should return:
 ```json
@@ -159,7 +159,7 @@ Should return:
 }
 ```
 
-### 2. Get Current User Endpoint (`/api/auth/me`)
+### 2. Get Current User Endpoint (`/auth/me`)
 
 Should:
 - Accept `Authorization: Bearer <token>` header
@@ -206,7 +206,7 @@ console.log('Cookie:', document.cookie);
 ### Test API Endpoints
 ```javascript
 // Test login
-fetch('http://localhost:8000/api/auth/login', {
+fetch('http://localhost:8000/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ username: 'dcp_user', password: '1234' }),
@@ -214,7 +214,7 @@ fetch('http://localhost:8000/api/auth/login', {
 }).then(r => r.json()).then(console.log);
 
 // Test getCurrentUser
-fetch('http://localhost:8000/api/auth/me', {
+fetch('http://localhost:8000/auth/me', {
   headers: { 
     'Authorization': 'Bearer YOUR_TOKEN_HERE',
     'Content-Type': 'application/json'

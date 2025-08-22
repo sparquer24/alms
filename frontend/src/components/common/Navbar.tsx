@@ -9,7 +9,7 @@ const Navbar: React.FC = () => {
     // Function to handle logout
     const handleLogout = async () => {
         try {
-            const response = await postData('/logout ', {
+            const response = await postData('/logout', {
             });
 
             if (response.isSuccess) {

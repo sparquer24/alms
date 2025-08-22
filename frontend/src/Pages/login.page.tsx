@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import jsCookie from 'js-cookie';
+import { setCookie } from 'cookies-next';
+import { getAuthToken } from '../config/authenticatedApiClient';
 import armsLogo from '/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg';
 import policeLogo from '/assets/ps_logo.png';
 import { ToastContainer, toast } from 'react-toastify';
-import { setAuthToken } from '../../src/api/axiosConfig';
-import { postData } from '../../src/api/axiosConfig';
-import axios from 'axios';
+import { setAuthToken, postData } from '../api/axiosConfig';
+import { isAuthCookieValid } from '../utils/authCookies';
 
 const Login = () => {
     const location = useLocation();
@@ -19,30 +19,11 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
-        redirectLoggedInUser();
+        const token = getAuthToken();
+        if (token && location.pathname.startsWith('/login')) navigate('/dashboard');
     }, []);
 
-    const redirectLoggedInUser = () => {
-        const token = jsCookie.get('token');
-        if (token && location.pathname.startsWith('/login')) {
-            navigate('/dashboard');
-        }
-    };
-
-    const fetchData = async (url: string, token: string) => {
-        try {
-            const response = await axios.get(url, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            return { data: response.data, isSuccess: true, error: null };
-        } catch (error: any) {
-            return {
-                data: null,
-                isSuccess: false,
-                error: error.response?.data || { message: 'Unexpected error' },
-            };
-        }
-    };
+    // All API calls are centralized through src/api/axiosConfig.ts
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,14 +41,30 @@ const Login = () => {
                 return;
             }
 
-            const data_res = JSON.parse(response.body);
-            console.log(data_res);
-            jsCookie.set('user', JSON.stringify(data_res?.data), { expires: 1 });
-            const accessToken = data_res?.data.accessToken;
-            jsCookie.set('token', accessToken, { expires: 1 });
-            setAuthToken(accessToken);
-            toast.success('Successfully logged in!');
-            navigate('/dashboard');
+                        const data_res = JSON.parse(response.body);
+                        const userPayload = data_res?.data;
+                        console.log(userPayload);
+                        // store full user in cookie (optional) and set auth token as token-only
+                        if (userPayload) {
+                            setCookie('user', JSON.stringify(userPayload), { maxAge: 60 * 60 * 24 });
+                            const accessToken = userPayload.accessToken ?? userPayload.token ?? null;
+                            if (accessToken) {
+                                setCookie('auth', accessToken, { maxAge: 60 * 60 * 24 });
+                                setAuthToken(accessToken);
+                            }
+                            // set role cookie if present
+                            const roleCode = userPayload?.role?.code ?? null;
+                            if (roleCode) setCookie('role', roleCode, { maxAge: 60 * 60 * 24 });
+                        }
+                        // Validate cookies (auth, user, role) before redirecting.
+                        const ok = isAuthCookieValid();
+                        if (ok) {
+                            toast.success('Successfully logged in!');
+                            navigate('/dashboard');
+                        } else {
+                            // Keep user on login page and show an actionable message
+                            toast.error('Login did not produce required auth cookies. Please try again or contact admin.');
+                        }
         } catch (err) {
             console.error(err);
             setError('An unexpected error occurred');
@@ -90,7 +87,7 @@ const Login = () => {
                 <div className="flex flex-col md:flex-row justify-center items-center gap-10">
                     {/* Left Section */}
                     <div className="flex justify-center items-center flex-grow">
-                        <img src={policeLogo} alt="Telangana Police Badge" className="h-[400px] w-[400px] md:h-[500px] md:w-[500px]" />
+                        <img src={policeLogo.src} alt="Telangana Police Badge" className="h-[400px] w-[400px] md:h-[500px] md:w-[500px]" />
                     </div>
 
                     {/* Right Section */}

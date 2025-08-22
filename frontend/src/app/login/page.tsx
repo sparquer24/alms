@@ -299,16 +299,7 @@ export default function Login() {
           {/* Forgot Password Link */}
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  updateField('username', 'CADO_HYD');
-                  updateField('password', 'password');
-                }}
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-              >
-                🧪 Fill Test Credentials
-              </button>
+              {/* Placeholder for forgot password link */}
             </div>
             <div className="text-sm">
               <Link 

@@ -4,6 +4,7 @@
  */
 
 import { apiClient, getAuthToken, redirectToLogin } from './authenticatedApiClient';
+import { setAuthToken } from '../api/axiosConfig';
 import {
   BASE_URL,
   AUTH_APIS,
@@ -51,25 +52,9 @@ export const AuthApi = {
     console.log('  Method: POST');
     
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: headers,
-        body: body,
-      });
-      
-      console.log('🌐 Raw response status:', response.status);
-      console.log('🌐 Raw response statusText:', response.statusText);
-      console.log('🌐 Raw response headers:', Object.fromEntries(response.headers.entries()));
-      
-      // Clone response to read it twice (once for logging, once for return)
-      const responseClone = response.clone();
-      const responseText = await responseClone.text();
-      console.log('🌐 Raw response text:', responseText);
-      
-      const data = await response.json();
+      const data = await apiClient.post(url, params as any);
       console.log('🌐 Parsed response data:', data);
-      
-      return data;
+      return data as any;
     } catch (error) {
       console.error('🌐 APIClient login error:', error);
       throw error;
@@ -79,16 +64,27 @@ export const AuthApi = {
   // Note: getCurrentUser is the only auth endpoint that requires authorization (for getting current user info)
   getCurrentUser: async (token: string): Promise<ApiResponse<any>> => {
     try {
-      const response = await fetch(`${BASE_URL}/api/auth/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      return response.json();
+      return await apiClient.get('/auth/me');
     } catch (error) {
       console.error('Error getting current user:', error);
+      throw error;
+    }
+  },
+
+  // New: call /auth/getMe which returns a trimmed user object and accepts a token
+  getMe: async (token?: string): Promise<ApiResponse<any>> => {
+    try {
+      // If a token is provided (as during login), set it on the axios instance so apiClient.get works
+      if (token) {
+        try {
+          setAuthToken(token);
+        } catch (e) {
+          // ignore
+        }
+      }
+      return await apiClient.get('/auth/getMe');
+    } catch (error) {
+      console.error('Error getting /auth/getMe:', error);
       throw error;
     }
   },
@@ -96,7 +92,7 @@ export const AuthApi = {
   // All other auth endpoints use the authenticated client
   logout: async (): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.post('/api/auth/logout');
+      return await apiClient.post('/auth/logout');
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;
@@ -105,7 +101,7 @@ export const AuthApi = {
   
   changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.post('/api/auth/change-password', { currentPassword, newPassword });
+      return await apiClient.post('/auth/change-password', { currentPassword, newPassword });
     } catch (error) {
       console.error('Error changing password:', error);
       throw error;
@@ -113,21 +109,11 @@ export const AuthApi = {
   },
   
   resetPassword: async (email: string): Promise<ApiResponse<any>> => {
-    const response = await fetch(AUTH_APIS.RESET_PASSWORD, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ email }),
-    });
-    return response.json();
+  return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
   },
   
   refreshToken: async (refreshToken: string): Promise<ApiResponse<any>> => {
-    const response = await fetch(AUTH_APIS.REFRESH_TOKEN, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ refreshToken }),
-    });
-    return response.json();
+  return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
   },
 };
 
@@ -185,6 +171,19 @@ export const ApplicationApi = {
       return await apiClient.post('/applications/batch', params);
     } catch (error) {
       console.error('Error batch processing applications:', error);
+      throw error;
+    }
+  },
+  // New: fetch applications using the application-form endpoint filtered by status ids.
+  // Expects statusIds as array of string|number; optional query params like page/limit can be provided.
+  getByStatuses: async (statusIds: Array<string | number>, params: Record<string, any> = {}): Promise<ApiResponse<any>> => {
+    try {
+      const ids = (statusIds || []).map(String).join(',');
+      const query = { ...params, statusIds: ids };
+      // apiClient.get accepts params object; pass constructed query
+      return await apiClient.get(`/application-form`, query as any);
+    } catch (error) {
+      console.error('Error getting applications by statuses:', error);
       throw error;
     }
   },
@@ -257,18 +256,15 @@ export const ReportApi = {
         throw new Error('Authentication required');
       }
 
-      const response = await fetch(`${BASE_URL}/applications/${applicationId}/pdf`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401) {
-        redirectToLogin();
-        throw new Error('Authentication failed');
-      }
-
-      return response.blob();
+  // Use apiClient which ensures auth headers are set
+  const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
+  // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
+  if (blob instanceof Blob) return blob;
+  // If axios returned data as ArrayBuffer or base64, convert accordingly
+  // Fallback: try requesting via axiosInstance directly
+  const axios = await import('../api/axiosConfig');
+  const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
+  return resp.data as Blob;
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
@@ -369,7 +365,7 @@ export const NotificationApi = {
 export const DashboardApi = {
   getSummary: async (): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.get('/api/dashboard/summary');
+      return await apiClient.get('/dashboard/summary');
     } catch (error) {
       console.error('Error getting dashboard summary:', error);
       throw error;

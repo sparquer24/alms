@@ -159,4 +159,28 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.INVALID_TOKEN);
     }
   }
+
+  /**
+   * Get user by id including role and location hierarchy
+   * @param userId - numeric user id
+   * @returns user with role, state, district, division, zone and policeStation
+   */
+  async getUserWithLocation(userId: number) {
+    return await prisma.users.findUnique({
+      where: { id: Number(userId) },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        createdAt: true,
+        updatedAt: true,
+        role: { select: { id: true, name: true, code: true } },
+        state: { select: { id: true, name: true } },
+        district: { select: { id: true, name: true } },
+        division: { select: { id: true, name: true } },
+        zone: { select: { id: true, name: true } },
+        policeStation: { select: { id: true, name: true } },
+      },
+    });
+  }
 }

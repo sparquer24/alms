@@ -15,11 +15,11 @@ console.log('🌐 API Configuration:', {
 // Authentication APIs
 export const AUTH_APIS = {
   LOGIN: `${BASE_URL}/auth/login`,
-  LOGOUT: `${BASE_URL}/api/auth/logout`,
-  GET_CURRENT_USER: `${BASE_URL}/api/auth/me`,
-  CHANGE_PASSWORD: `${BASE_URL}/api/auth/change-password`,
-  RESET_PASSWORD: `${BASE_URL}/api/auth/reset-password`,
-  REFRESH_TOKEN: `${BASE_URL}/api/auth/refresh-token`,
+  LOGOUT: `${BASE_URL}/auth/logout`,
+  GET_CURRENT_USER: `${BASE_URL}/auth/me`,
+  CHANGE_PASSWORD: `${BASE_URL}/auth/change-password`,
+  RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
+  REFRESH_TOKEN: `${BASE_URL}/auth/refresh-token`,
 };
 
 // Application Management APIs
@@ -63,7 +63,7 @@ export const NOTIFICATION_APIS = {
 
 // Dashboard APIs
 export const DASHBOARD_APIS = {
-  GET_SUMMARY: `${BASE_URL}/api/dashboard/summary`,
+  GET_SUMMARY: `${BASE_URL}/dashboard/summary`,
 };
 
 // Role-Based Action APIs
