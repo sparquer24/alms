@@ -85,6 +85,12 @@ export interface CreateFreshLicenseApplicationsFormsInput {
   stateId: number;
   districtId: number;
   
+  // User and Role tracking fields (extracted from token)
+  currentUserId?: number;
+  currentRoleId?: number;
+  previousUserId?: number;
+  previousRoleId?: number;
+  
   // Nested objects
   presentAddress: CreateAddressInput;
   permanentAddress?: CreateAddressInput;
@@ -156,6 +162,33 @@ function validateCreateApplicationInput(data: any): asserts data is Required<Cre
 
 @Injectable()
 export class ApplicationFormService {
+  // Helper method to get user information with role details
+  private async getUserWithRole(userId: number) {
+    return await prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+      },
+    });
+  }
+
+  // Helper method to determine initial status for new applications
+  private async getInitialStatus() {
+    // Get the initial status (e.g., "SUBMITTED" or "PENDING")
+    const initialStatus = await prisma.statuses.findFirst({
+      where: { 
+        OR: [
+          { code: 'SUBMITTED' },
+          { code: 'PENDING' },
+          { code: 'INITIAL' }
+        ]
+      },
+      orderBy: { id: 'asc' } // Get the first available status
+    });
+    
+    return initialStatus?.id || null;
+  }
+
   // Helper methods to get valid IDs for testing
   async getStates() {
     return await prisma.states.findMany({
@@ -292,19 +325,57 @@ export class ApplicationFormService {
     }
   }
 
+  /**
+   * Creates a new fresh license application with proper user and role tracking.
+   * 
+   * This method ensures that:
+   * 1. currentUserId and currentRoleId are extracted from the authenticated user (token)
+   * 2. These fields are never left null or empty
+   * 3. previousUserId and previousRoleId are set to null for new applications
+   * 4. All required validations are performed before creation
+   * 
+   * @param data - Application data including user context from token
+   * @returns Created application with all relations
+   */
   async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
     try {
       validateCreateApplicationInput(data);
       
+      // Ensure currentUserId is provided (this should come from the token)
+      if (!data.currentUserId) {
+        throw new BadRequestException('Current user information is required. Please ensure you are properly authenticated.');
+      }
+
+      // Get user information with role details
+      const currentUser = await this.getUserWithRole(data.currentUserId);
+      if (!currentUser) {
+        throw new BadRequestException('Invalid user. User not found in the system.');
+      }
+
+      if (!currentUser.role) {
+        throw new BadRequestException('User role information is missing. Please contact administrator.');
+      }
+
+      // Set role information from current user
+      const applicationData = {
+        ...data,
+        currentUserId: currentUser.id,
+        currentRoleId: currentUser.roleId,
+        // For new applications, previous user and role are typically undefined
+        // They will be set when the application moves through workflow
+        previousUserId: data.previousUserId || undefined,
+        previousRoleId: data.previousRoleId || undefined,
+      };
+
       // Check if aadhar number already exists
       const existingApplication = await prisma.freshLicenseApplicationsForms.findUnique({
-        where: { aadharNumber: data.aadharNumber },
+        where: { aadharNumber: applicationData.aadharNumber },
         select: { id: true, acknowledgementNo: true, firstName: true, lastName: true }
       });
       
       if (existingApplication) {
         throw new ConflictException(
-          `An application already exists with Aadhar number ${data.aadharNumber}. ` +
+          `An application already exists with Aadhar number ${applicationData.aadharNumber}. ` +
           `Application ID: ${existingApplication.id}, ` +
           `Acknowledgement No: ${existingApplication.acknowledgementNo}, ` +
           `Applicant: ${existingApplication.firstName} ${existingApplication.lastName}`
@@ -312,7 +383,10 @@ export class ApplicationFormService {
       }
       
       // Validate reference IDs before starting transaction
-      await this.validateReferencesExist(data);
+      await this.validateReferencesExist(applicationData);
+      
+      // Get initial status for the application
+      const initialStatusId = await this.getInitialStatus();
       
       return await prisma.$transaction(async (tx) => {
         // Generate acknowledgement number
@@ -322,21 +396,21 @@ export class ApplicationFormService {
         // Create present address
         const presentAddress = await tx.freshLicenseApplicationsFormAddresses.create({
           data: {
-            addressLine: data.presentAddress.addressLine,
-            stateId: data.presentAddress.stateId,
-            districtId: data.presentAddress.districtId,
-            sinceResiding: new Date(data.presentAddress.sinceResiding),
+            addressLine: applicationData.presentAddress.addressLine,
+            stateId: applicationData.presentAddress.stateId,
+            districtId: applicationData.presentAddress.districtId,
+            sinceResiding: new Date(applicationData.presentAddress.sinceResiding),
           }
         });
         // Create permanent address if provided
         let permanentAddress = null;
-        if (data.permanentAddress) {
+        if (applicationData.permanentAddress) {
           permanentAddress = await tx.freshLicenseApplicationsFormAddresses.create({
             data: {
-              addressLine: data.permanentAddress.addressLine,
-              stateId: data.permanentAddress.stateId,
-              districtId: data.permanentAddress.districtId,
-              sinceResiding: new Date(data.permanentAddress.sinceResiding),
+              addressLine: applicationData.permanentAddress.addressLine,
+              stateId: applicationData.permanentAddress.stateId,
+              districtId: applicationData.permanentAddress.districtId,
+              sinceResiding: new Date(applicationData.permanentAddress.sinceResiding),
             },
           });
         }
@@ -344,48 +418,54 @@ export class ApplicationFormService {
         // Create contact info first (without applicationId since it doesn't exist in DB)
         const contactInfo = await tx.freshLicenseApplicationsFormContactInfos.create({
           data: {
-            telephoneOffice: data.contactInfo.telephoneOffice, 
-            telephoneResidence: data.contactInfo.telephoneResidence,
-            mobileNumber: data.contactInfo.mobileNumber,
-            officeMobileNumber: data.contactInfo.officeMobileNumber,
-            alternativeMobile: data.contactInfo.alternativeMobile,
+            telephoneOffice: applicationData.contactInfo.telephoneOffice, 
+            telephoneResidence: applicationData.contactInfo.telephoneResidence,
+            mobileNumber: applicationData.contactInfo.mobileNumber,
+            officeMobileNumber: applicationData.contactInfo.officeMobileNumber,
+            alternativeMobile: applicationData.contactInfo.alternativeMobile,
           },
         });
-
-        // Create the main application
+        
+        // Create the main application with user and role information
         const application = await tx.freshLicenseApplicationsForms.create({
           data: {
             acknowledgementNo,
-            firstName: data.firstName,
-            middleName: data.middleName,
-            lastName: data.lastName,
-            filledBy: data.filledBy,
-            parentOrSpouseName: data.parentOrSpouseName,
-            sex: data.sex,
-            placeOfBirth: data.placeOfBirth,
-            dateOfBirth: new Date(data.dateOfBirth),
-            panNumber: data.panNumber,
-            aadharNumber: data.aadharNumber,
-            dobInWords: data.dobInWords,
-            stateId: data.stateId,
-            districtId: data.districtId,
+            firstName: applicationData.firstName,
+            middleName: applicationData.middleName,
+            lastName: applicationData.lastName,
+            filledBy: applicationData.filledBy,
+            parentOrSpouseName: applicationData.parentOrSpouseName,
+            sex: applicationData.sex,
+            placeOfBirth: applicationData.placeOfBirth,
+            dateOfBirth: new Date(applicationData.dateOfBirth),
+            panNumber: applicationData.panNumber,
+            aadharNumber: applicationData.aadharNumber,
+            dobInWords: applicationData.dobInWords,
+            stateId: applicationData.stateId,
+            districtId: applicationData.districtId,
             presentAddressId: presentAddress.id,
             permanentAddressId: permanentAddress?.id,
             contactInfoId: contactInfo.id,
+            // Set user and role tracking fields - these should never be null/empty
+            currentUserId: applicationData.currentUserId,
+            currentRoleId: applicationData.currentRoleId,
+            previousUserId: applicationData.previousUserId || null, // null for new applications
+            previousRoleId: applicationData.previousRoleId || null, // null for new applications
+            statusId: initialStatusId, // Set initial status
           },
         });
 
         // Create occupation info if provided
         let occupationInfo = null;
-        if (data.occupationInfo) {
+        if (applicationData.occupationInfo) {
           occupationInfo = await tx.freshLicenseApplicationsFormOccupationInfos.create({
             data: {
-              occupation: data.occupationInfo.occupation,
-              officeAddress: data.occupationInfo.officeAddress,
-              stateId: data.occupationInfo.stateId,
-              districtId: data.occupationInfo.districtId,
-              cropLocation: data.occupationInfo.cropLocation,
-              areaUnderCultivation: data.occupationInfo.areaUnderCultivation,
+              occupation: applicationData.occupationInfo.occupation,
+              officeAddress: applicationData.occupationInfo.officeAddress,
+              stateId: applicationData.occupationInfo.stateId,
+              districtId: applicationData.occupationInfo.districtId,
+              cropLocation: applicationData.occupationInfo.cropLocation,
+              areaUnderCultivation: applicationData.occupationInfo.areaUnderCultivation,
             },
           });
           
@@ -398,13 +478,13 @@ export class ApplicationFormService {
 
         // Create biometric data if provided
         let biometricData = null;
-        if (data.biometricData) {
+        if (applicationData.biometricData) {
           biometricData = await tx.freshLicenseApplicationsFormBiometricDatas.create({
             data: {
               applicationId: application.id,
-              signatureImageUrl: data.biometricData.signatureImageUrl,
-              irisScanImageUrl: data.biometricData.irisScanImageUrl,
-              photoImageUrl: data.biometricData.photoImageUrl,
+              signatureImageUrl: applicationData.biometricData.signatureImageUrl,
+              irisScanImageUrl: applicationData.biometricData.irisScanImageUrl,
+              photoImageUrl: applicationData.biometricData.photoImageUrl,
             },
           });
           
@@ -416,9 +496,9 @@ export class ApplicationFormService {
         }
 
         // Create criminal history if provided
-        if (data.criminalHistory && data.criminalHistory.length > 0) {
+        if (applicationData.criminalHistory && applicationData.criminalHistory.length > 0) {
           await Promise.all(
-            data.criminalHistory.map((criminal) =>
+            applicationData.criminalHistory.map((criminal) =>
               tx.freshLicenseApplicationsFormCriminalHistories.create({
                 data: {
                   applicationId: application.id,
@@ -436,9 +516,9 @@ export class ApplicationFormService {
         }
 
         // Create license history if provided
-        if (data.licenseHistory && data.licenseHistory.length > 0) {
+        if (applicationData.licenseHistory && applicationData.licenseHistory.length > 0) {
           await Promise.all(
-            data.licenseHistory.map((license) =>
+            applicationData.licenseHistory.map((license) =>
               tx.freshLicenseApplicationsFormLicenseHistories.create({
                 data: {
                   applicationId: application.id,
@@ -459,23 +539,23 @@ export class ApplicationFormService {
         }
 
         // Create license request details if provided
-        if (data.licenseRequestDetails) {
+        if (applicationData.licenseRequestDetails) {
           const licenseRequestDetails = await tx.freshLicenseApplicationsFormLicenseRequestDetails.create({
             data: {
               applicationId: application.id,
-              needForLicense: data.licenseRequestDetails.needForLicense,
-              weaponCategory: data.licenseRequestDetails.weaponCategory,
-              areaOfValidity: data.licenseRequestDetails.areaOfValidity,
+              needForLicense: applicationData.licenseRequestDetails.needForLicense,
+              weaponCategory: applicationData.licenseRequestDetails.weaponCategory,
+              areaOfValidity: applicationData.licenseRequestDetails.areaOfValidity,
             },
           });
 
           // Connect requested weapons if provided
-          if (data.licenseRequestDetails.requestedWeaponIds && data.licenseRequestDetails.requestedWeaponIds.length > 0) {
+          if (applicationData.licenseRequestDetails.requestedWeaponIds && applicationData.licenseRequestDetails.requestedWeaponIds.length > 0) {
             await tx.freshLicenseApplicationsFormLicenseRequestDetails.update({
               where: { id: licenseRequestDetails.id },
               data: {
                 requestedWeapons: {
-                  connect: data.licenseRequestDetails.requestedWeaponIds.map(id => ({ id: Number(id) }))
+                  connect: applicationData.licenseRequestDetails.requestedWeaponIds.map(id => ({ id: Number(id) }))
                 }
               }
             });
@@ -483,9 +563,9 @@ export class ApplicationFormService {
         }
 
         // Create file uploads if provided
-        if (data.fileUploads && data.fileUploads.length > 0) {
+        if (applicationData.fileUploads && applicationData.fileUploads.length > 0) {
           await Promise.all(
-            data.fileUploads.map((file) =>
+            applicationData.fileUploads.map((file) =>
               tx.freshLicenseApplicationsFormFileUploads.create({
                 data: {
                   applicationId: application.id,
@@ -559,7 +639,7 @@ export class ApplicationFormService {
           case 'P2003':
             // Foreign key constraint violation
             throw new BadRequestException(
-              'Invalid reference data provided. Please check the provided IDs for states, districts, or police stations.'
+              'Invalid reference data provided. Please check the provided IDs for states, districts, users, or roles.'
             );
           
           case 'P2025':
@@ -577,7 +657,9 @@ export class ApplicationFormService {
       if (error instanceof Error && (
         error.message.includes('is required') ||
         error.message.includes('Invalid') ||
-        error.message.includes('does not exist')
+        error.message.includes('does not exist') ||
+        error.message.includes('User not found') ||
+        error.message.includes('User role information')
       )) {
         throw new BadRequestException(error.message);
       }
@@ -773,5 +855,89 @@ export class ApplicationFormService {
         previousUser: true,
       },
     });
+  }
+
+  /**
+   * Updates application user and role information during workflow transitions.
+   * 
+   * This method:
+   * 1. Moves current user/role to previous user/role
+   * 2. Sets new user/role as current
+   * 3. Ensures proper tracking throughout the workflow
+   * 4. Updates status and remarks if provided
+   * 
+   * @param applicationId - ID of the application to update
+   * @param newUserId - ID of the new user taking ownership
+   * @param statusId - Optional new status ID
+   * @param remarks - Optional remarks for the transition
+   * @returns Updated application with user/role information
+   */
+  // Method to update application user and role during workflow transitions
+  async updateApplicationUserAndRole(
+    applicationId: number, 
+    newUserId: number, 
+    statusId?: number,
+    remarks?: string
+  ) {
+    try {
+      // Get the current application to preserve the current user/role as previous
+      const currentApplication = await prisma.freshLicenseApplicationsForms.findUnique({
+        where: { id: applicationId },
+        select: {
+          id: true,
+          currentUserId: true,
+          currentRoleId: true,
+          acknowledgementNo: true,
+        }
+      });
+
+      if (!currentApplication) {
+        throw new BadRequestException(`Application with ID ${applicationId} not found.`);
+      }
+
+      // Get the new user with role information
+      const newUser = await this.getUserWithRole(newUserId);
+      if (!newUser) {
+        throw new BadRequestException('Invalid new user. User not found in the system.');
+      }
+
+      if (!newUser.role) {
+        throw new BadRequestException('New user role information is missing.');
+      }
+
+      // Update the application with new user/role and move current to previous
+      const updatedApplication = await prisma.freshLicenseApplicationsForms.update({
+        where: { id: applicationId },
+        data: {
+          // Move current to previous
+          previousUserId: currentApplication.currentUserId,
+          previousRoleId: currentApplication.currentRoleId,
+          // Set new current
+          currentUserId: newUser.id,
+          currentRoleId: newUser.roleId,
+          // Update status if provided
+          ...(statusId && { statusId }),
+          // Update remarks if provided
+          ...(remarks && { remarks }),
+          updatedAt: new Date(),
+        },
+        include: {
+          currentRole: true,
+          previousRole: true,
+          currentUser: true,
+          previousUser: true,
+          status: true,
+        }
+      });
+
+      return updatedApplication;
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      console.error('Error updating application user and role:', error);
+      throw new InternalServerErrorException('Failed to update application user and role information.');
+    }
   }
 }

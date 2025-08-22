@@ -61,7 +61,7 @@ export class ApplicationFormController {
       // Add user context to the application using currentUserId as per schema
       const applicationData = {
         ...createApplicationDto,
-        currentUserId: req.user.sub
+        currentUserId: req.user.sub // This extracts the user ID from the JWT token
       };
       const application = await this.applicationFormService.createApplication(applicationData);
       return {
