@@ -4,7 +4,19 @@ import { ForwardDto } from './dto/forward.dto';
 
 @Injectable()
 export class WorkflowService {
+  async getStatusesAndActions(id?: number) {
+    if (id) {
+      const status = await this.prisma.statuses.findUnique({ where: { id } });
+      const action = await this.prisma.actiones.findUnique({ where: { id } });
+      return { status, action };
+    } else {
+      const statuses = await this.prisma.statuses.findMany();
+      const actions = await this.prisma.actiones.findMany();
+      return { statuses, actions };
+    }
+  }
   private prisma = new PrismaClient();
+
 
   async handleUserAction(payload: {
     applicationId: number;
