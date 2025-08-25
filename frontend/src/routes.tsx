@@ -1,7 +1,7 @@
 import { FC, Suspense, lazy } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import jsCookie from 'js-cookie';
-import { setAuthToken } from './api/axiosConfig';
+import { setAuthToken } from './axiosConfig';
 import DashboardPage from './Pages/dashboard.page';
 import Login from './Pages/login.page';
 import NotFound from './Pages/NotFound';

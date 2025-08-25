@@ -11,7 +11,7 @@ This document outlines the expected API endpoints, request/response structures f
 
 ### **Endpoint**
 ```
-POST /api/auth/login
+POST /auth/login
 ```
 
 ### **Request Structure**
@@ -105,7 +105,7 @@ POST /api/auth/login
 
 ### **Endpoint**
 ```
-GET /api/auth/me
+GET /auth/me
 ```
 
 ### **Headers Required**
@@ -190,7 +190,7 @@ Content-Type: application/json
 
 ### **Endpoint**
 ```
-POST /api/auth/logout
+POST /auth/logout
 ```
 
 ### **Headers Required**
@@ -212,7 +212,7 @@ Content-Type: application/json
 
 ### **Endpoint**
 ```
-POST /api/auth/change-password
+POST /auth/change-password
 ```
 
 ### **Headers Required**
@@ -242,7 +242,7 @@ Content-Type: application/json
 
 ### **Endpoint**
 ```
-POST /api/auth/reset-password
+POST /auth/reset-password
 ```
 
 ### **Request Structure**

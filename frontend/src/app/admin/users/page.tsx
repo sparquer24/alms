@@ -24,7 +24,7 @@ const UserListPage: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch("/api/admin/users");
+        const response = await fetch("/admin/users");
         if (!response.ok) {
           throw new Error("Failed to fetch users");
         }

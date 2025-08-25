@@ -15,7 +15,7 @@ const STATUS_TYPES = [
 
 const fetchApplicationsByType = async (userId, type) => {
   // Replace with your real API endpoint
-  const res = await fetch(`/api/application/?user_id=${userId}&status_id=${type}`);
+  const res = await fetch(`/application/?user_id=${userId}&status_id=${type}`);
   if (!res.ok) return [];
   return res.json();
 };

@@ -3,11 +3,11 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
 
 @ApiTags('Locations')
-@Controller('api/locations')
+@Controller('locations')
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
-  // States API - GET /api/locations/states?id=1 (optional)
+  // States API - GET /locations/states?id=1 (optional)
   @Get('states')
   @ApiOperation({ 
     summary: 'Get States', 
@@ -82,7 +82,7 @@ export class LocationsController {
     }
   }
 
-  // Districts API - GET /api/locations/districts?id=1&stateId=1 (both optional)
+  // Districts API - GET /locations/districts?id=1&stateId=1 (both optional)
   @Get('districts')
   @ApiOperation({ 
     summary: 'Get Districts', 
@@ -179,7 +179,7 @@ export class LocationsController {
     }
   }
 
-  // Zones API - GET /api/locations/zones?id=1&districtId=1 (both optional)
+  // Zones API - GET /locations/zones?id=1&districtId=1 (both optional)
   @Get('zones')
   @ApiOperation({ 
     summary: 'Get Zones', 
@@ -276,7 +276,7 @@ export class LocationsController {
     }
   }
 
-  // Divisions API - GET /api/locations/divisions?id=1&zoneId=1 (both optional)
+  // Divisions API - GET /locations/divisions?id=1&zoneId=1 (both optional)
   @Get('divisions')
   @ApiOperation({ 
     summary: 'Get Divisions', 
@@ -373,7 +373,7 @@ export class LocationsController {
     }
   }
 
-  // Police Stations API - GET /api/locations/police-stations?id=1&divisionId=1 (both optional)
+  // Police Stations API - GET /locations/police-stations?id=1&divisionId=1 (both optional)
   @Get('police-stations')
   @ApiOperation({ 
     summary: 'Get Police Stations', 

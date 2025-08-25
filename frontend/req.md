@@ -5,7 +5,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ## Authentication APIs
 
 ### 1. User Login
-**Endpoint:** `/api/auth/login`  
+**Endpoint:** `/auth/login`  
 **Method:** POST  
 **Payload:**
 ```json
@@ -32,7 +32,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ```
 
 ### 2. User Logout
-**Endpoint:** `/api/auth/logout`  
+**Endpoint:** `/auth/logout`  
 **Method:** POST  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -44,7 +44,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ```
 
 ### 3. Get Current User
-**Endpoint:** `/api/auth/me`  
+**Endpoint:** `/auth/me`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -64,7 +64,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ## Application Management APIs
 
 ### 4. Get All Applications
-**Endpoint:** `/api/applications`  
+**Endpoint:** `/applications`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Query Parameters:**
@@ -111,7 +111,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ```
 
 ### 5. Get Application by ID
-**Endpoint:** `/api/applications/{id}`  
+**Endpoint:** `/applications/{id}`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -167,7 +167,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ```
 
 ### 6. Create New Application
-**Endpoint:** `/api/applications`  
+**Endpoint:** `/applications`  
 **Method:** POST  
 **Headers:** Authorization: Bearer {token}  
 **Payload:**
@@ -203,7 +203,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ```
 
 ### 7. Update Application Status
-**Endpoint:** `/api/applications/{id}/status`  
+**Endpoint:** `/applications/{id}/status`  
 **Method:** PATCH  
 **Headers:** Authorization: Bearer {token}  
 **Payload:**
@@ -223,7 +223,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ```
 
 ### 8. Forward Application
-**Endpoint:** `/api/applications/{id}/forward`  
+**Endpoint:** `/applications/{id}/forward`  
 **Method:** POST  
 **Headers:** Authorization: Bearer {token}  
 **Payload:**
@@ -245,7 +245,7 @@ This document outlines the API requirements to replace the mock data in the ALMS
 ## Document Management APIs
 
 ### 9. Upload Document
-**Endpoint:** `/api/applications/{id}/documents`  
+**Endpoint:** `/applications/{id}/documents`  
 **Method:** POST  
 **Headers:** Authorization: Bearer {token}  
 **Content-Type:** multipart/form-data  
@@ -268,7 +268,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ```
 
 ### 10. Get Documents
-**Endpoint:** `/api/applications/{id}/documents`  
+**Endpoint:** `/applications/{id}/documents`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -288,7 +288,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ```
 
 ### 11. Delete Document
-**Endpoint:** `/api/applications/{id}/documents/{documentId}`  
+**Endpoint:** `/applications/{id}/documents/{documentId}`  
 **Method:** DELETE  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -302,7 +302,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ## Report APIs
 
 ### 12. Get Application Statistics
-**Endpoint:** `/api/reports/statistics`  
+**Endpoint:** `/reports/statistics`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Query Parameters:**
@@ -341,7 +341,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ```
 
 ### 13. Get Applications by Status
-**Endpoint:** `/api/reports/applications-by-status`  
+**Endpoint:** `/reports/applications-by-status`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Query Parameters:**
@@ -376,7 +376,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ```
 
 ### 14. Generate Application PDF
-**Endpoint:** `/api/applications/{id}/pdf`  
+**Endpoint:** `/applications/{id}/pdf`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -385,7 +385,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ## User Management APIs
 
 ### 15. Get Users by Role
-**Endpoint:** `/api/users`  
+**Endpoint:** `/users`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Query Parameters:**
@@ -410,7 +410,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ## Role-Based Action APIs
 
 ### 16. Get Available Actions by Role
-**Endpoint:** `/api/roles/actions`  
+**Endpoint:** `/roles/actions`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -430,7 +430,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ```
 
 ### 17. Get Role Hierarchy
-**Endpoint:** `/api/roles/hierarchy`  
+**Endpoint:** `/roles/hierarchy`  
 **Method:** GET  
 **Headers:** Authorization: Bearer {token}  
 **Response:**
@@ -457,7 +457,7 @@ documentType: string (idProof, addressProof, photo, characterCertificate, etc.)
 ## Batch Action APIs
 
 ### 18. Batch Process Applications
-**Endpoint:** `/api/applications/batch`  
+**Endpoint:** `/applications/batch`  
 **Method:** POST  
 **Headers:** Authorization: Bearer {token}  
 **Payload:**

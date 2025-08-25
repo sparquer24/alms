@@ -258,7 +258,7 @@ This document outlines the comprehensive improvements needed for the ALMS fronte
 - [x] Authentication flow fixes
   - [x] Fixed login response handling for different API structures
   - [x] Added JWT token decoding for user information extraction
-  - [x] Implemented fallback mechanism for /api/auth/me endpoint
+  - [x] Implemented fallback mechanism for /auth/me endpoint
   - [x] Enhanced error handling for authentication failures
   - [x] Improved token and user data management
 - [x] UI/UX improvements

@@ -60,14 +60,36 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
   async getProfile(@Request() req: any): Promise<UserProfileResponse> {
-    const user = req.user;
-    
+    const tokenUser = req.user;
+
+  // Fetch full user via AuthService (includes role and location relations)
+  const user = await this.authService.getUserWithLocation(Number(tokenUser.sub));
+
+    if (!user) {
+      // Fallback to token data if DB lookup fails
+      return {
+        id: tokenUser.sub,
+        username: tokenUser.username,
+        email: tokenUser.email,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+
     return {
-      id: user.sub,
+      id: String(user.id),
       username: user.username,
-      email: user.email,
-      createdAt: new Date(), // TODO: Get from database
-      updatedAt: new Date()  // TODO: Get from database
+      email: user.email ?? undefined,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role ? { id: String(user.role.id), name: user.role.name, code: user.role.code } : undefined,
+      location: {
+        state: user.state ? { id: String(user.state.id), name: user.state.name } : undefined,
+        district: user.district ? { id: String(user.district.id), name: user.district.name } : undefined,
+        division: user.division ? { id: String(user.division.id), name: user.division.name } : undefined,
+        zone: user.zone ? { id: String(user.zone.id), name: user.zone.name } : undefined,
+        policeStation: user.policeStation ? { id: String(user.policeStation.id), name: user.policeStation.name } : undefined,
+      },
     };
   }
 

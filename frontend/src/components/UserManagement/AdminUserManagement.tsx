@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { fetchData } from '../../api/axiosConfig';
 import { Sidebar } from '../Sidebar';
 import './AdminUserManagement.module.css'; // Assuming a CSS module for styling
 
@@ -22,14 +23,9 @@ const AdminUserManagement = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/users`);
-        const data = await response.json();
-
-        if (data.success) {
-          setUsers(data.data);
-        } else {
-          setError(data.message || 'Failed to fetch users');
-        }
+        const data = await fetchData('/users');
+        const usersList = data.data || data.users || data;
+        setUsers(usersList);
       } catch (err) {
         setError('An error occurred while fetching users');
       } finally {

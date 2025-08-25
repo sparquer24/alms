@@ -1,11 +1,12 @@
 import axios from 'axios';
 import jsCookie from 'js-cookie';
-
+  
 const axiosInstance = axios.create({
-  baseURL: 'https://alms-api-dev.sparquer.com',
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json' 
+    'Content-Type': 'application/json' ,
+    "Authorization": `Bearer ${jsCookie.get('token')}`
   },
 });
 

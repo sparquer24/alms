@@ -9,7 +9,8 @@ import DashboardSummary from "../components/DashboardSummary";
 import { useAuthSync } from "../hooks/useAuthSync";
 import { shouldRedirectOnStartup } from "../config/roleRedirections";
 import { useLayout } from "../config/layoutContext";
-import { mockApplications, filterApplications, ApplicationData } from "../config/mockData";
+import { filterApplications, ApplicationData } from "../config/mockData";
+import { ApplicationApi } from '../config/APIClient';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,12 +40,24 @@ export default function Home() {
   }, [isAuthenticated, isLoading, userRole, router]);
   
   useEffect(() => {
-    // Initialize applications data
-    setApplications(mockApplications);
-    
     // Show header and sidebar on the Application Table page
     setShowHeader(true);
     setShowSidebar(true);
+
+    // Load applications from API
+    const load = async () => {
+      try {
+        const res = await ApplicationApi.getAll();
+        // APIClient returns ApiResponse<T> shape (statusCode, body, success, message)
+        // Prefer `body` if present, otherwise fall back to any direct array/data returned by the client
+        const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
+        setApplications(apps as ApplicationData[]);
+      } catch (err) {
+        console.error('Failed to load applications:', err);
+        setApplications([]);
+      }
+    };
+    load();
   }, [setShowHeader, setShowSidebar]);
 
   const handleSearch = (query: string) => {
@@ -114,9 +127,9 @@ export default function Home() {
             <DashboardSummary />
           </div>
 
-          <h2 className="text-xl font-bold mb-4">Recent Users</h2>
+          <h2 className="text-xl font-bold mb-4">Recent Applications</h2>
           <ApplicationTable 
-            users={applications} // Replace `users` with the actual user data fetched from your API or state
+            applications={applications}
           />
         </div>
       </main>

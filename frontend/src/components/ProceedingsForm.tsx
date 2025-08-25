@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
 import { fetchNextUsers } from '../utils/apiUtils'; // Centralized API utility
+import { postData } from '../api/axiosConfig';
 
 interface UserOption {
   value: string;
@@ -186,18 +187,7 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`/api/applications/${applicationId}/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to process application');
-      }
-
-      const result = await res.json();
+  const result = await postData(`/applications/${applicationId}/process`, body);
       setSuccess(result.message || 'Action completed successfully.');
       
       // Reset form

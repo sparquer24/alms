@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { selectAuthLoading, selectAuthError, selectIsAuthenticated, selectCurrentUser } from '../store/slices/authSlice';
+import { postData } from '../api/axiosConfig'; // centralized axios helper
 
 interface DebugPanelProps {
   formData?: any;
@@ -87,20 +88,11 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ formData, isFormValid })
               <h4 className="font-semibold text-cyan-400">🌐 API Endpoints:</h4>
               <div className="pl-2 text-xs">
                 <div>Login: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/login</div>
-                <div>Current User: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/auth/me</div>
+                <div>Current User: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/me</div>
               </div>
             </div>
 
-            {/* Test Credentials */}
-            <div>
-              <h4 className="font-semibold text-yellow-400">🔑 Test Credentials:</h4>
-              <div className="pl-2 text-xs">
-                <div>Username: <span className="text-green-300">ADMIN_USER</span></div>
-                <div>Password: <span className="text-green-300">password</span></div>
-                <div className="mt-1 text-gray-400">Other users: CP_HYD, ACP_NORTH, DCP_CENTRAL</div>
-                <div className="text-gray-400">All passwords: password</div>
-              </div>
-            </div>
+            {/* Test Credentials removed for production/security */}
 
             {/* Browser Info */}
             <div>
@@ -112,103 +104,44 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ formData, isFormValid })
             </div>
           </div>
           
-          <button
-            onClick={() => {
-              console.log('🐛 Full Debug State:', {
-                environment: {
-                  NODE_ENV: process.env.NODE_ENV,
-                  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-                },
-                redux: { isLoading, isAuthenticated, error, currentUser },
-                form: formData,
-                cookies: document.cookie,
-                url: typeof window !== 'undefined' ? window.location.href : 'SSR'
-              });
-            }}
-            className="mt-3 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
-          >
-            📋 Log Full State to Console
-          </button>
-          
-          <button
-            onClick={async () => {
-              const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-              const endpoint = `${baseUrl}/auth/login`;
-              console.log('🧪 Testing connectivity to:', endpoint);
-              
-              try {
-                const response = await fetch(endpoint, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => {
+                console.log('🐛 Full Debug State:', {
+                  environment: {
+                    NODE_ENV: process.env.NODE_ENV,
+                    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
                   },
-                  body: JSON.stringify({
-                    username: 'ADMIN_USER',
-                    password: 'password'
-                  }),
+                  redux: { isLoading, isAuthenticated, error, currentUser },
+                  form: formData,
+                  cookies: document.cookie,
+                  url: typeof window !== 'undefined' ? window.location.href : 'SSR'
                 });
-                
-                console.log('🧪 Response status:', response.status);
-                console.log('🧪 Response headers:', Object.fromEntries(response.headers.entries()));
-                
-                const data = await response.json();
-                console.log('🧪 Response data:', data);
-                
-                alert(`API Test: ${response.status} - Check console for details`);
-              } catch (error) {
-                console.error('🧪 API Test failed:', error);
-                alert(`API Test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-              }
-            }}
-            className="mt-2 bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700"
-          >
-            🧪 Test API with Valid Credentials
-          </button>
-          
-          <button
-            onClick={async () => {
-              const endpoint = 'http://localhost:3000/auth/login';
-              console.log('🔥 Testing EXACT Postman payload:', endpoint);
-              
-              const payload = {
-                username: 'CADO_HYD',
-                password: 'password'
-              };
-              
-              console.log('🔥 Payload being sent:', payload);
-              
-              try {
-                const response = await fetch(endpoint, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(payload),
-                });
-                
-                console.log('🔥 Response status:', response.status);
-                console.log('🔥 Response headers:', Object.fromEntries(response.headers.entries()));
-                
-                const responseText = await response.text();
-                console.log('🔥 Raw response text:', responseText);
-                
+              }}
+              className="mt-3 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700"
+            >
+              📋 Log Full State to Console
+            </button>
+
+            <button
+              onClick={async () => {
+                console.log('🔧 Running diagnostics (no credentials will be sent)');
                 try {
-                  const data = JSON.parse(responseText);
-                  console.log('🔥 Parsed response data:', data);
-                  alert(`Postman Test: ${response.status} - ${data.success ? 'SUCCESS' : 'FAILED'} - Check console`);
-                } catch (parseError) {
-                  console.error('🔥 Failed to parse JSON:', parseError);
-                  alert(`Postman Test: ${response.status} - Parse Error - Check console`);
+                  // Simple health check to base URL
+                  const endpoint = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+                  const res = await postData(`${endpoint}/health-check`, {});
+                  console.log('� Health check response:', res);
+                  alert('Diagnostics complete - check console for details');
+                } catch (err) {
+                  console.error('� Diagnostics failed:', err);
+                  alert(`Diagnostics failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
                 }
-              } catch (error) {
-                console.error('🔥 Postman test failed:', error);
-                alert(`Postman test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-              }
-            }}
-            className="mt-2 bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
-          >
-            🔥 Test Exact Postman Payload
-          </button>
+              }}
+              className="mt-2 bg-gray-600 text-white px-2 py-1 rounded text-xs hover:bg-gray-700"
+            >
+              � Run diagnostics
+            </button>
+          </div>
         </div>
       )}
     </div>

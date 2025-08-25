@@ -17,7 +17,7 @@ export default function AddLocationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
-    const res = await fetch("/api/admin/locations", {
+    const res = await fetch("/admin/locations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ location }),

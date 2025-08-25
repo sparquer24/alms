@@ -34,8 +34,8 @@ export default function AdminDashboard() {
         setError(null);
 
         const [userStatsRes, appStatsRes] = await Promise.all([
-          fetch('/api/admin/user-stats', { headers: { Authorization: `Bearer ${token}` } }),
-          fetch('/api/admin/application-stats', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/admin/user-stats', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/admin/application-stats', { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
         if (!userStatsRes.ok || !appStatsRes.ok) {

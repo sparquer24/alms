@@ -42,6 +42,22 @@ export class UserProfileResponse {
 
   @ApiProperty({ description: 'Account last update date', example: '2025-08-20T12:00:00.000Z' })
   updatedAt!: Date;
+
+  @ApiProperty({ description: 'User role information', required: false, example: { id: '1', name: 'DCP', code: 'DCP' } })
+  role?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
+
+  @ApiProperty({ description: 'User location hierarchy (state, district, division, zone, policeStation)', required: false, example: { state: { id: '1', name: 'State A' }, district: { id: '2', name: 'District B' } } })
+  location?: {
+    state?: { id: string; name: string };
+    district?: { id: string; name: string };
+    division?: { id: string; name: string };
+    zone?: { id: string; name: string };
+    policeStation?: { id: string; name?: string };
+  };
 }
 
 export class ErrorResponse {

@@ -6,7 +6,8 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useAuthSync } from '../../hooks/useAuthSync';
 import { useLayout } from '../../config/layoutContext';
-import { mockApplications } from '../../config/mockData';
+import {  ApplicationData } from '../../config/mockData';
+import { ApplicationApi } from '../../config/APIClient';
 import { ReportApi } from '../../config/APIClient';
 import { useAuth } from '../../config/auth';
 import { getRoleConfig } from '../../config/roles';
@@ -41,10 +42,19 @@ export default function ReportsPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    // Load initial data
+    const load = async () => {
+      try {
+        const res = await ApplicationApi.getAll();
+        const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
+        setApplications(apps as any[]);
+      } catch (err) {
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
   }, []);
   
   useEffect(() => {
@@ -64,7 +74,7 @@ export default function ReportsPage() {
       const statusIds = STATUS_MAPPING[selectedStatusKey];
       if (!userId || !statusIds) return;
       setAppsLoading(true);
-      fetch(`/api/application/?user_id=${userId}&status_id=${statusIds.join(',')}`)
+      fetch(`/application/?user_id=${userId}&status_id=${statusIds.join(',')}`)
         .then(res => res.json())
         .then(data => setApplications(data || []))
         .catch(() => setApplications([]))
@@ -76,16 +86,15 @@ export default function ReportsPage() {
   const handleDateFilter = () => {};
   const handleReset = () => {};
 
-  // Get statistics for the report
-  const getStats = () => {
-    const total = mockApplications.length;
-    const pending = mockApplications.filter(app => app.status === 'pending').length;
-    const approved = mockApplications.filter(app => app.status === 'approved').length;
-    const rejected = mockApplications.filter(app => app.status === 'rejected').length;
-    const returned = mockApplications.filter(app => app.status === 'returned').length;
-    const flagged = mockApplications.filter(app => app.status === 'red-flagged').length;
-    const disposed = mockApplications.filter(app => app.status === 'disposed').length;
-    
+  // Get statistics for the report from fetched applications
+  const stats = (() => {
+    const total = applications.length || 0;
+    const pending = applications.filter(app => app.status === 'pending').length;
+    const approved = applications.filter(app => app.status === 'approved').length;
+    const rejected = applications.filter(app => app.status === 'rejected').length;
+    const returned = applications.filter(app => app.status === 'returned').length;
+    const flagged = applications.filter(app => app.status === 'red-flagged').length;
+    const disposed = applications.filter(app => app.status === 'disposed').length;
     return {
       total,
       pending,
@@ -94,11 +103,9 @@ export default function ReportsPage() {
       returned,
       flagged,
       disposed,
-      approvalRate: Math.round((approved / total) * 100)
+      approvalRate: total > 0 ? Math.round((approved / total) * 100) : 0
     };
-  };
-
-  const stats = getStats();
+  })();
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar onStatusSelect={setSelectedStatusKey} />

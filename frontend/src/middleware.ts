@@ -79,6 +79,7 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
     return { isAuthenticated: false };
   }
 
+  console.log('Parsing auth cookie:', authCookie);
   try {
     const authData = JSON.parse(authCookie);
     console.log('Parsed auth data:', authData);

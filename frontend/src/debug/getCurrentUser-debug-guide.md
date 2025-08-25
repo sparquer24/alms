@@ -9,7 +9,7 @@ The `getCurrentUser` API call might be failing due to several possible reasons. 
 Open your browser's Developer Tools (F12) and look for these logs when `getCurrentUser` is called:
 
 ```
-Console → Network Tab → Look for the /api/auth/me request
+Console → Network Tab → Look for the /auth/me request
 ```
 
 ### 2. Common Issues & Solutions
@@ -35,7 +35,7 @@ if (!token) {
 #### **Issue 3: API Endpoint Issues**
 **Symptoms:** 404 Not Found or CORS errors
 **Check:** Network tab shows the exact URL being called
-**Expected URL:** `http://localhost:3001/api/auth/me`
+**Expected URL:** `http://localhost:3001/auth/me`
 
 #### **Issue 4: Server Not Running**
 **Symptoms:** Network error, ERR_CONNECTION_REFUSED
@@ -73,8 +73,8 @@ getCurrentUser: async (): Promise<ApiResponse<any>> => {
       }
     }
     
-    console.log('Making API call to /api/auth/me...');
-    const result = await apiClient.get('/api/auth/me');
+    console.log('Making API call to /auth/me...');
+    const result = await apiClient.get('/auth/me');
     console.log('getCurrentUser success:', result);
     console.log('=== getCurrentUser Debug End ===');
     
@@ -94,7 +94,7 @@ getCurrentUser: async (): Promise<ApiResponse<any>> => {
 In the Network tab, when getCurrentUser is called, you should see:
 
 ```
-Request URL: http://localhost:3001/api/auth/me
+Request URL: http://localhost:3001/auth/me
 Request Method: GET
 Status Code: 200 (if successful)
 
@@ -118,7 +118,7 @@ Response (if successful):
 
 Ensure your backend server:
 1. Is running on port 3001
-2. Has the `/api/auth/me` endpoint implemented
+2. Has the `/auth/me` endpoint implemented
 3. Accepts Bearer token authentication
 4. Returns the expected response format
 
@@ -141,7 +141,7 @@ Try this in your browser console when logged in:
 document.cookie.includes('auth')
 
 // Manual API test
-fetch('http://localhost:3001/api/auth/me', {
+fetch('http://localhost:3001/auth/me', {
   headers: {
     'Authorization': 'Bearer ' + JSON.parse(getCookie('auth')).token,
     'Content-Type': 'application/json'

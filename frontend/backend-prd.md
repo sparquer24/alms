@@ -13,7 +13,7 @@ This section outlines the core APIs required for the Arms License Management Sys
 ### 2.1 Authentication APIs
 
 #### Login
-- **Endpoint:** `/api/auth/login`
+- **Endpoint:** `/auth/login`
 - **Method:** POST
 - **Purpose:** Authenticate users and provide JWT token
 - **Business Logic:**
@@ -24,7 +24,7 @@ This section outlines the core APIs required for the Arms License Management Sys
 
 ```javascript
 // Express route handler
-router.post('/api/auth/login', async (req, res) => {
+router.post('/auth/login', async (req, res) => {
     try {
       const { username, password } = req.body;
       
@@ -115,7 +115,7 @@ router.post('/api/auth/login', async (req, res) => {
 ```
 
 #### Logout
-- **Endpoint:** `/api/auth/logout`
+- **Endpoint:** `/auth/logout`
 - **Method:** POST
 - **Purpose:** Invalidate user session
 - **Business Logic:**
@@ -124,7 +124,7 @@ router.post('/api/auth/login', async (req, res) => {
 - **Implementation Example:**
 
 ```javascript
-router.post('/api/auth/logout', authMiddleware, async (req, res) => {
+router.post('/auth/logout', authMiddleware, async (req, res) => {
     try {
       // Get token from authorization header
       const token = req.headers.authorization?.split(' ')[1];
@@ -156,7 +156,7 @@ router.post('/api/auth/logout', authMiddleware, async (req, res) => {
 ```
 
 #### Get Current User
-- **Endpoint:** `/api/auth/me`
+- **Endpoint:** `/auth/me`
 - **Method:** GET
 - **Purpose:** Get authenticated user details
 - **Business Logic:**
@@ -165,7 +165,7 @@ router.post('/api/auth/logout', authMiddleware, async (req, res) => {
 - **Implementation Example:**
 
 ```javascript
-router.get('/api/auth/me', authMiddleware, async (req, res) => {
+router.get('/auth/me', authMiddleware, async (req, res) => {
   try {
     // req.user is populated by the authMiddleware with JWT payload data
     const userId = req.user.userId;
@@ -197,7 +197,7 @@ router.get('/api/auth/me', authMiddleware, async (req, res) => {
       user_id: userId,
       ip_address: req.ip,
       details: JSON.stringify({
-        endpoint: '/api/auth/me',
+        endpoint: '/auth/me',
                 method: 'GET'
       })
     });
@@ -229,7 +229,7 @@ router.get('/api/auth/me', authMiddleware, async (req, res) => {
 ### 2.2 Application Management APIs
 
 #### Get All Applications
-- **Endpoint:** `/api/applications`
+- **Endpoint:** `/applications`
 - **Method:** GET
 - **Purpose:** List applications with filtering and pagination
 - **Business Logic:**
@@ -238,7 +238,7 @@ router.get('/api/auth/me', authMiddleware, async (req, res) => {
   - Return paginated results
 
 #### Get Application by ID
-- **Endpoint:** `/api/applications/{id}`
+- **Endpoint:** `/applications/{id}`
 - **Method:** GET
 - **Purpose:** Get detailed application information
 - **Business Logic:**
@@ -247,7 +247,7 @@ router.get('/api/auth/me', authMiddleware, async (req, res) => {
   - Include available actions based on role
 
 #### Create Application
-- **Endpoint:** `/api/applications`
+- **Endpoint:** `/applications`
 - **Method:** POST
 - **Purpose:** Submit new license application
 - **Business Logic:**
@@ -258,7 +258,7 @@ router.get('/api/auth/me', authMiddleware, async (req, res) => {
 - **Implementation Example:**
 
 ```javascript
-router.post('/api/applications', authMiddleware, async (req, res) => {
+router.post('/applications', authMiddleware, async (req, res) => {
   try {
     // Start a database transaction
     const transaction = await sequelize.transaction();
@@ -460,7 +460,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 ```
 
 #### Update Application Status
-- **Endpoint:** `/api/applications/{id}/status`
+- **Endpoint:** `/applications/{id}/status`
 - **Method:** PATCH
 - **Purpose:** Update application status
 - **Business Logic:**
@@ -470,7 +470,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
   - Notify relevant parties
 
 #### Forward Application
-- **Endpoint:** `/api/applications/{id}/forward`
+- **Endpoint:** `/applications/{id}/forward`
 - **Method:** POST
 - **Purpose:** Forward application to next authority
 - **Business Logic:**
@@ -482,7 +482,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 ### 2.3 Document Management APIs
 
 #### Upload Document
-- **Endpoint:** `/api/applications/{id}/documents`
+- **Endpoint:** `/applications/{id}/documents`
 - **Method:** POST
 - **Purpose:** Upload application documents
 - **Business Logic:**
@@ -492,7 +492,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
   - Generate document URL
 
 #### Get Documents
-- **Endpoint:** `/api/applications/{id}/documents`
+- **Endpoint:** `/applications/{id}/documents`
 - **Method:** GET
 - **Purpose:** List application documents
 - **Business Logic:**
@@ -501,7 +501,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
   - Generate secure URLs
 
 #### Delete Document
-- **Endpoint:** `/api/applications/{id}/documents/{documentId}`
+- **Endpoint:** `/applications/{id}/documents/{documentId}`
 - **Method:** DELETE
 - **Purpose:** Remove application document
 - **Business Logic:**
@@ -512,7 +512,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 ### 2.4 Report APIs
 
 #### Get Application Statistics
-- **Endpoint:** `/api/reports/statistics`
+- **Endpoint:** `/reports/statistics`
 - **Method:** GET
 - **Purpose:** Get application statistics
 - **Business Logic:**
@@ -522,7 +522,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
   - Return formatted statistics
 
 #### Get Applications by Status
-- **Endpoint:** `/api/reports/applications-by-status`
+- **Endpoint:** `/reports/applications-by-status`
 - **Method:** GET
 - **Purpose:** List applications by status
 - **Business Logic:**
@@ -531,7 +531,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
   - Return formatted results
 
 #### Generate Application PDF
-- **Endpoint:** `/api/applications/{id}/pdf`
+- **Endpoint:** `/applications/{id}/pdf`
 - **Method:** GET
 - **Purpose:** Generate application PDF
 - **Business Logic:**
@@ -542,7 +542,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 ### 2.5 User Management APIs
 
 #### Get Users by Role
-- **Endpoint:** `/api/users`
+- **Endpoint:** `/users`
 - **Method:** GET
 - **Purpose:** List users by role
 - **Business Logic:**
@@ -553,7 +553,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 ### 2.6 Role-Based Action APIs
 
 #### Get Available Actions
-- **Endpoint:** `/api/roles/actions`
+- **Endpoint:** `/roles/actions`
 - **Method:** GET
 - **Purpose:** Get available actions for role
 - **Business Logic:**
@@ -562,7 +562,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
   - Include permissions
 
 #### Get Role Hierarchy
-- **Endpoint:** `/api/roles/hierarchy`
+- **Endpoint:** `/roles/hierarchy`
 - **Method:** GET
 - **Purpose:** Get role hierarchy
 - **Business Logic:**
@@ -572,7 +572,7 @@ async function uploadFile(buffer, fileName, originalName, fileExt) {
 ### 2.7 Batch Action APIs
 
 #### Batch Process Applications
-- **Endpoint:** `/api/applications/batch`
+- **Endpoint:** `/applications/batch`
 - **Method:** POST
 - **Purpose:** Process multiple applications
 - **Business Logic:**

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ApplicationTable from '../../components/ApplicationTable';
-import axios from 'axios';
+import { fetchData } from '../../api/axiosConfig';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -9,8 +9,8 @@ const UserManagement = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get('/api/users'); // Replace with the actual API endpoint
-        setUsers(response.data);
+        const data = await fetchData('/users');
+        setUsers(data);
       } catch (error) {
         console.error('Error fetching users:', error);
       } finally {

@@ -18,7 +18,7 @@ This document describes the main API endpoints for the Arms License Management S
 ## Authentication APIs
 
 ### 1. Login
-**Endpoint**: `POST /api/auth/login`
+**Endpoint**: `POST /auth/login`
 
 **Payload Example**:
 ```json
@@ -46,7 +46,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 2. Logout
-**Endpoint**: `POST /api/auth/logout`
+**Endpoint**: `POST /auth/logout`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -59,7 +59,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 3. Get Current User
-**Endpoint**: `GET /api/auth/me`
+**Endpoint**: `GET /auth/me`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -84,14 +84,14 @@ This document describes the main API endpoints for the Arms License Management S
 ## User APIs
 
 ### 4. Get Users
-**Endpoint**: `GET /api/users`
+**Endpoint**: `GET /users`
 
 **Headers**: `Authorization: Bearer <token>`
 
 **Query Parameters**:
 - `role` (optional): Filter users by role name (e.g., SHO, ACP)
 
-**Example**: `/api/users?role=SHO`
+**Example**: `/users?role=SHO`
 
 **Response Example**:
 ```json
@@ -117,7 +117,7 @@ This document describes the main API endpoints for the Arms License Management S
 ## Application APIs
 
 ### 5. Get Applications
-**Endpoint**: `GET /api/applications`
+**Endpoint**: `GET /applications`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -129,7 +129,7 @@ This document describes the main API endpoints for the Arms License Management S
 - `page` (optional): Page number (default: 1)
 - `pageSize` (optional): Number of results per page (default: 10)
 
-**Example**: `/api/applications?status=FRESH&page=1&pageSize=5`
+**Example**: `/applications?status=FRESH&page=1&pageSize=5`
 
 **Response Example**:
 ```json
@@ -167,7 +167,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 6. Get Application by ID
-**Endpoint**: `GET /api/applications/{id}`
+**Endpoint**: `GET /applications/{id}`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -229,7 +229,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 7. Create Application
-**Endpoint**: `POST /api/applications`
+**Endpoint**: `POST /applications`
 
 **Headers**: `Authorization: Bearer <token>` (optional for applicants)
 
@@ -266,7 +266,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 8. Update Application Status
-**Endpoint**: `PATCH /api/applications/{id}/status`
+**Endpoint**: `PATCH /applications/{id}/status`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -296,7 +296,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 9. Forward Application
-**Endpoint**: `POST /api/applications/{id}/forward`
+**Endpoint**: `POST /applications/{id}/forward`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -327,7 +327,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 10. Batch Process Applications
-**Endpoint**: `POST /api/applications/batch`
+**Endpoint**: `POST /applications/batch`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -360,7 +360,7 @@ This document describes the main API endpoints for the Arms License Management S
 ## Document APIs
 
 ### 11. Upload Document
-**Endpoint**: `POST /api/applications/{id}/documents`
+**Endpoint**: `POST /applications/{id}/documents`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -386,7 +386,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 12. Get Documents for Application
-**Endpoint**: `GET /api/applications/{id}/documents`
+**Endpoint**: `GET /applications/{id}/documents`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -417,7 +417,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 13. Delete Document
-**Endpoint**: `DELETE /api/applications/{id}/documents/{documentId}`
+**Endpoint**: `DELETE /applications/{id}/documents/{documentId}`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -436,7 +436,7 @@ This document describes the main API endpoints for the Arms License Management S
 ## Report APIs
 
 ### 14. Get Statistics
-**Endpoint**: `GET /api/reports/statistics`
+**Endpoint**: `GET /reports/statistics`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -468,7 +468,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 15. Get Applications by Status
-**Endpoint**: `GET /api/reports/applications-by-status`
+**Endpoint**: `GET /reports/applications-by-status`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -514,7 +514,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 16. Generate Application PDF
-**Endpoint**: `GET /api/applications/{id}/pdf`
+**Endpoint**: `GET /applications/{id}/pdf`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -526,14 +526,14 @@ This document describes the main API endpoints for the Arms License Management S
 ## Role APIs
 
 ### 17. Get Role Actions
-**Endpoint**: `GET /api/roles/actions`
+**Endpoint**: `GET /roles/actions`
 
 **Headers**: `Authorization: Bearer <token>`
 
 **Query Parameter**:
 - `roleId`: Role ID
 
-**Example**: `/api/roles/actions?roleId=3`
+**Example**: `/roles/actions?roleId=3`
 
 **Response Example**:
 ```json
@@ -555,7 +555,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 18. Get Role Hierarchy
-**Endpoint**: `GET /api/roles/hierarchy`
+**Endpoint**: `GET /roles/hierarchy`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -598,7 +598,7 @@ This document describes the main API endpoints for the Arms License Management S
 ## Additional Required APIs
 
 ### 19. Change Password
-**Endpoint**: `POST /api/auth/change-password`
+**Endpoint**: `POST /auth/change-password`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -619,7 +619,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 20. Reset Password
-**Endpoint**: `POST /api/auth/reset-password`
+**Endpoint**: `POST /auth/reset-password`
 
 **Payload Example**:
 ```json
@@ -637,7 +637,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 21. Get Notifications
-**Endpoint**: `GET /api/notifications`
+**Endpoint**: `GET /notifications`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -680,7 +680,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 22. Mark Notification as Read
-**Endpoint**: `PATCH /api/notifications/{id}/read`
+**Endpoint**: `PATCH /notifications/{id}/read`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -696,7 +696,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 23. Mark All Notifications as Read
-**Endpoint**: `PATCH /api/notifications/read-all`
+**Endpoint**: `PATCH /notifications/read-all`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -710,7 +710,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 24. Get User Preferences
-**Endpoint**: `GET /api/users/preferences`
+**Endpoint**: `GET /users/preferences`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -734,7 +734,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 25. Update User Preferences
-**Endpoint**: `PATCH /api/users/preferences`
+**Endpoint**: `PATCH /users/preferences`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -759,7 +759,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 26. Get Dashboard Summary
-**Endpoint**: `GET /api/dashboard/summary`
+**Endpoint**: `GET /dashboard/summary`
 
 **Headers**: `Authorization: Bearer <token>`
 
@@ -794,7 +794,7 @@ This document describes the main API endpoints for the Arms License Management S
 ```
 
 ### 27. Refresh Token
-**Endpoint**: `POST /api/auth/refresh-token`
+**Endpoint**: `POST /auth/refresh-token`
 
 **Payload Example**:
 ```json

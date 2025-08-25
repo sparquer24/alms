@@ -6,13 +6,15 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../config/mockData';
+import { filterApplications, ApplicationData } from '../../config/mockData';
+import { ApplicationApi } from '../../config/APIClient';
 
 export default function SentPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
 
@@ -23,10 +25,25 @@ export default function SentPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    // Load applications from API and filter to "sent"
+    const load = async () => {
+      try {
+        const res = await ApplicationApi.getAll();
+  const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
+  // Filter to sent status and store
+  const sentApps = (apps as any[]).filter(a => a.status === 'sent');
+  setApplications(sentApps as ApplicationData[]);
+  setIsLoading(false);
+        // Put sent apps into local state by setting a variable used by render
+        // We'll reuse filteredApplications computation below by temporarily assigning to mock source
+        // For now, store sentApps on a ref-like variable via closure
+        // Simpler: set a local global-level variable via window (temporary) - but instead we'll use a state
+      } catch (err) {
+        console.error('Failed to load sent applications:', err);
+        setIsLoading(false);
+      }
+    };
+    load();
   }, []);
 
   const handleSearch = (query: string) => {
@@ -46,7 +63,8 @@ export default function SentPage() {
 
   // Filter applications based on sent status and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'sent'),
+    // Use fetched applications (already filtered to 'sent')
+    applications,
     searchQuery,
     startDate,
     endDate

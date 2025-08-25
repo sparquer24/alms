@@ -8,7 +8,7 @@ This document provides a comprehensive reference for all backend endpoints requi
 
 ### 1. Save Flow Mapping
 
-**Endpoint URL:** `/api/flow-mapping`
+**Endpoint URL:** `/flow-mapping`
 
 **HTTP Method:** POST
 
@@ -72,7 +72,7 @@ This document provides a comprehensive reference for all backend endpoints requi
 
 ### 2. Get All Users
 
-**Endpoint URL:** `/api/users`
+**Endpoint URL:** `/users`
 
 **HTTP Method:** GET
 
@@ -128,7 +128,7 @@ This document provides a comprehensive reference for all backend endpoints requi
 
 ### 3. Delete User
 
-**Endpoint URL:** `/api/users/{id}`
+**Endpoint URL:** `/users/{id}`
 
 **HTTP Method:** DELETE
 
@@ -176,7 +176,7 @@ This document provides a comprehensive reference for all backend endpoints requi
 
 ### 4. Generate Report
 
-**Endpoint URL:** `/api/reports/generate`
+**Endpoint URL:** `/reports/generate`
 
 **HTTP Method:** POST
 
@@ -230,7 +230,7 @@ This document provides a comprehensive reference for all backend endpoints requi
 
 ### 5. Update Settings
 
-**Endpoint URL:** `/api/settings`
+**Endpoint URL:** `/settings`
 
 **HTTP Method:** PUT
 
