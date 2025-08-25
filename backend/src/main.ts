@@ -1,9 +1,13 @@
 import { config } from 'dotenv';
+import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './modules/app.module';
 
-// Load environment variables before anything else
+// Load environment variables before anything else (prefer root .env)
+const rootEnvPath = resolve(__dirname, '../../.env');
+config({ path: rootEnvPath });
+// Fallback to default if root .env not found
 config();
 
 async function bootstrap() {
