@@ -10,10 +10,11 @@
     "start": "ts-node src/main.ts",
     "start:dev": "ts-node-dev --respawn src/main.ts",
     "seed": "ts-node prisma/seed.ts",
+    "generate": "prisma generate",
     "dev": "nest start --watch",
-    "up": "npx prisma migrate deploy",
-    "down": "npx prisma migrate reset --force",
-    "studio": "npx prisma studio",
+    "up": "prisma migrate deploy",
+    "down": "prisma migrate reset --force",
+    "studio": "prisma studio",
     "postinstall": "prisma generate"
   },
   "prisma": {
