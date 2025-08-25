@@ -6,12 +6,6 @@
 // Base API URL
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-console.log('🌐 API Configuration:', {
-  BASE_URL,
-  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-  NODE_ENV: process.env.NODE_ENV
-});
-
 // Authentication APIs
 export const AUTH_APIS = {
   LOGIN: `${BASE_URL}/auth/login`,
@@ -195,6 +189,7 @@ export const appendQueryParams = (url: string, params: Record<string, any>): str
  * Common headers for API requests
  */
 export const getHeaders = (token?: string): HeadersInit => {
+  console.log('test 192 : ', token)
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };

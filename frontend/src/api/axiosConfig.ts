@@ -6,20 +6,39 @@ const axiosInstance = axios.create({
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json' ,
-    "Authorization": `Bearer ${jsCookie.get('token')}`
   },
 });
 
 
 // Function to update Authorization header
 export const setAuthToken = (token: any) => {
-  if (token) {
-    axiosInstance.defaults.headers['Authorization'] = `${token}`;
+  // Accept either a raw token string or an object that contains a token property
+  let raw: any = token;
+  try {
+    if (token && typeof token === 'object') {
+      raw = token.token ?? token.accessToken ?? token;
+    }
+  } catch (e) {
+    raw = token;
   }
-  else {
-    delete axiosInstance.defaults.headers['Authorization']; // Remove token if not provided
+
+  if (raw) {
+    axiosInstance.defaults.headers['Authorization'] = `Bearer ${raw}`;
+  } else {
+    // Remove header when no token provided
+    delete axiosInstance.defaults.headers['Authorization'];
   }
 };
+
+// Initialize axios instance Authorization header from cookie (if present)
+try {
+  const existing = jsCookie.get('auth');
+  if (existing) {
+    setAuthToken(existing);
+  }
+} catch (e) {
+  // ignore cookie read errors
+}
 
 
 // GET request function

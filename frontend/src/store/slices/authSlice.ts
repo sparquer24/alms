@@ -61,23 +61,25 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
-      if (typeof window !== 'undefined') {
-        try {
-          const authCookie = document.cookie
-            .split('; ')
-            .find(row => row.startsWith('auth='));
-          
-          if (authCookie) {
-            const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
-            if (authData.token && authData.user && authData.isAuthenticated) {
-              state.user = authData.user;
-              state.token = authData.token;
-              state.isAuthenticated = true;
-            }
+      console.log('Restoring auth state from cookies...');
+      console.log('Document cookies:', document.cookie);
+      console.log('Auth cookie:',);
+      try {
+        const authCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('auth='));
+        console.log('Auth cookie:', authCookie);
+        if (authCookie) {
+          const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
+          console.log('Parsed auth data from cookie:', authData);
+          if (authData.token && authData.user && authData.isAuthenticated) {
+            state.user = authData.user;
+            state.token = authData.token;
+            state.isAuthenticated = true;
           }
-        } catch (error) {
-          console.error('Failed to restore auth state:', error);
         }
+      } catch (error) {
+        console.error('Failed to restore auth state:', error);
       }
     },
   },

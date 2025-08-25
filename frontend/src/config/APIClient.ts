@@ -64,6 +64,14 @@ export const AuthApi = {
   // Note: getCurrentUser is the only auth endpoint that requires authorization (for getting current user info)
   getCurrentUser: async (token: string): Promise<ApiResponse<any>> => {
     try {
+      // If a token was passed (e.g. immediately after login), ensure axios has it set
+      if (token) {
+        try {
+          setAuthToken(token);
+        } catch (e) {
+          // ignore
+        }
+      }
       return await apiClient.get('/auth/me');
     } catch (error) {
       console.error('Error getting current user:', error);

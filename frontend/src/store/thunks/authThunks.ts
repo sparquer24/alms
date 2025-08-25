@@ -15,12 +15,70 @@ async function fetchCurrentUser(token: string) {
   return ongoingFetchCurrentUser;
 }
 
+// Helpers for cookie snapshotting (detect changes across page refreshes)
+const COOKIE_SNAPSHOT_KEY = 'auth_cookie_snapshot_v1';
+
+function readCookieSnapshot(): Record<string, any> | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(COOKIE_SNAPSHOT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.warn('Failed to read cookie snapshot', e);
+    return null;
+  }
+}
+
+function saveCookieSnapshot(snapshot: Record<string, any>) {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(COOKIE_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch (e) {
+    console.warn('Failed to save cookie snapshot', e);
+  }
+}
+
+function removeCookieSnapshot() {
+  try {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(COOKIE_SNAPSHOT_KEY);
+  } catch (e) {
+    console.warn('Failed to remove cookie snapshot', e);
+  }
+}
+
+function clearAllAuthCookies() {
+  try {
+    // cookies-next delete helpers aren't used here to avoid SSR issues
+    setCookie('auth', '', { maxAge: 0, path: '/' });
+    setCookie('user', '', { maxAge: 0, path: '/' });
+    setCookie('role', '', { maxAge: 0, path: '/' });
+  } catch (e) {
+    console.warn('Failed to clear auth cookies', e);
+  }
+}
+
 export const initializeAuth = createAsyncThunk(
   'auth/initialize',
   async (_, { dispatch }) => {
     try {
       // Check cookies for auth data (be defensive about parsing)
       const cookieAuth = getCookie('auth');
+      // Detect cookie changes across refreshes: compare with saved snapshot
+      const savedSnapshot = readCookieSnapshot();
+      const currentSnapshot = {
+        auth: cookieAuth ?? null,
+        user: getCookie('user') ?? null,
+        role: getCookie('role') ?? null,
+      };
+      if (savedSnapshot && JSON.stringify(savedSnapshot) !== JSON.stringify(currentSnapshot)) {
+        // Cookies changed externally — clear stale auth state and cookies
+        console.warn('Auth cookies changed since last snapshot; clearing local auth state');
+        clearAllAuthCookies();
+        removeCookieSnapshot();
+        dispatch(logout());
+        return;
+      }
       if (cookieAuth) {
         // Try to JSON-parse first (legacy), otherwise treat cookieAuth as a raw token string
         let token: string | null = null;
@@ -43,6 +101,8 @@ export const initializeAuth = createAsyncThunk(
               maxAge: 60 * 60 * 24, // 1 day
               path: '/',
             });
+            // Save snapshot for future refresh checks
+            saveCookieSnapshot({ auth: token, user: getCookie('user') ?? null, role: getCookie('role') ?? null });
             return { user, token };
           } else {
             dispatch(logout());
@@ -170,6 +230,15 @@ export const login = createAsyncThunk(
           maxAge: 60 * 60 * 24, // 1 day
           path: '/',
         });
+        // Persist the user and role minimally in cookies for middleware/SSR use
+        try {
+          setCookie('user', JSON.stringify(user), { maxAge: 60 * 60 * 24, path: '/' });
+        } catch (e) {
+          // ignore
+        }
+        if (user?.role) setCookie('role', user.role?.code ?? user.role ?? '', { maxAge: 60 * 60 * 24, path: '/' });
+        // Save snapshot for refresh-time detection
+        saveCookieSnapshot({ auth: token, user: JSON.stringify(user), role: user?.role?.code ?? user?.role ?? null });
       
       console.log('🎉 Login process completed successfully');
       return { token, user };
@@ -228,19 +297,21 @@ export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { dispatch }) => {
     try {
-      dispatch(setLoading(true));
-      await AuthApi.logout();
-      dispatch(logout());
+  dispatch(setLoading(true));
+  await AuthApi.logout();
+  dispatch(logout());
       
       // Clear auth data from cookies
-      // setCookie('auth', '', { maxAge: 0, path: '/' });
+  removeCookieSnapshot();
+  clearAllAuthCookies();
     } catch (error) {
       console.error('Logout error:', error);
       // Still logout locally even if API call fails
       dispatch(logout());
       
       // Clear auth data from cookies even if API call fails
-      // setCookie('auth', '', { maxAge: 0, path: '/' });
+  removeCookieSnapshot();
+  clearAllAuthCookies();
     } finally {
       dispatch(setLoading(false));
     }
