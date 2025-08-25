@@ -1,8 +1,7 @@
-import { FC, JSX, Suspense, lazy } from 'react';
+import { FC, Suspense, lazy } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
-import { getAuthToken } from './config/authenticatedApiClient';
-import { setAuthToken } from './api/axiosConfig';
-import { getUserFromCookie, getAuthTokenFromCookie } from './utils/authCookies';
+import jsCookie from 'js-cookie';
+import { setAuthToken } from './axiosConfig';
 import DashboardPage from './Pages/dashboard.page';
 import Login from './Pages/login.page';
 import NotFound from './Pages/NotFound';
@@ -13,9 +12,9 @@ import Header from './components/Header';
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   // const dispatch = useAppDispatch();
 
-  const token = getAuthTokenFromCookie();
-  const user = getUserFromCookie();
-  const userGroup = user ? user['cognito:groups']?.[0] : null;
+  const token = jsCookie.get('token');
+  const user = token ? JSON.parse(jsCookie.get('user') as string) : null;
+  const userGroup = user ? user["cognito:groups"]?.[0] : null;
 
   if (!token) {
     return <Navigate to="/login" />
@@ -68,7 +67,10 @@ const AppRoutes: FC = () => {
       }
     />
     {/* Redirect from root to the login or dashboard depending on token */}
-  <Route path="/" element={<Navigate to={getAuthTokenFromCookie() ? "/dashboard" : "/login"} replace />} />
+    <Route
+      path="/"
+      element={<Navigate to={jsCookie.get('token') ? "/dashboard" : "/login"} replace />}
+    />
     {/* This Route catches all unknown URLs and shows the NotFound page */}
     <Route path="*" element={<NotFound />} />
   </Routes>

@@ -10,14 +10,8 @@ const checkAuthentication = (): boolean => {
   const authCookie = getCookie('auth');
   try {
     if (authCookie) {
-      // Support legacy JSON shape or token-only string
-      try {
-        const parsed = JSON.parse(authCookie as string);
-        const token = parsed?.token ?? parsed?.accessToken ?? null;
-        return !!token;
-      } catch (e) {
-        return typeof authCookie === 'string' && authCookie.length > 0;
-      }
+      const { token, user } = JSON.parse(authCookie as string);
+      return !!token && !!user;
     }
   } catch (e) {
     console.error('ProtectedRoute: Failed to parse auth cookie', e);

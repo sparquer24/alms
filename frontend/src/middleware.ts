@@ -73,59 +73,31 @@ const roleBasedAccess: Record<string, string[]> = {
 };
 
 // Helper function to parse and validate auth cookie
-// Accepts both legacy JSON-shaped auth cookie and token-only JWT strings.
-function parseAuthCookie(authCookie: string | undefined, request: NextRequest): { isAuthenticated: boolean; userRole?: string } {
+function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boolean; userRole?: string } {
   if (!authCookie) {
     console.log('No auth cookie found');
     return { isAuthenticated: false };
   }
 
-  const raw = authCookie;
-  let token: string | undefined;
-  let userRole: string | undefined;
-
-  // If it looks like JSON, try to parse it
-  if (raw.trim().startsWith('{') || raw.trim().startsWith('[')) {
-    try {
-      const authData = JSON.parse(raw);
-      console.log('Parsed auth JSON from cookie:', authData);
-      token = authData?.token || authData?.auth?.token;
-      userRole = authData?.role || authData?.user?.role;
-    } catch (e) {
-      console.debug('Auth cookie looked like JSON but failed to parse, falling back to token-only handling');
+  console.log('Parsing auth cookie:', authCookie);
+  try {
+    const authData = JSON.parse(authCookie);
+    console.log('Parsed auth data:', authData);
+    
+    const isAuthenticated = !!(authData.token && authData.isAuthenticated);
+    const userRole = authData.role || authData.user?.role;
+    
+    console.log('Extracted authentication status:', isAuthenticated, 'userRole:', userRole);
+    
+    if (isAuthenticated && !userRole) {
+      console.warn('User is authenticated but no role found in cookie');
     }
-  } else {
-    // token-only case (JWT)
-    token = raw;
+    
+    return { isAuthenticated, userRole };
+  } catch (error) {
+    console.error('Error parsing auth cookie:', error);
+    return { isAuthenticated: false };
   }
-
-  // If no role found yet, try separate role cookie
-  if (!userRole) {
-    const roleCookie = request.cookies.get('role')?.value;
-    if (roleCookie) userRole = roleCookie;
-  }
-
-  // Try user cookie as last resort
-  if (!userRole) {
-    const userCookie = request.cookies.get('user')?.value;
-    if (userCookie) {
-      try {
-        const parsedUser = JSON.parse(userCookie);
-        userRole = parsedUser?.role;
-      } catch (e) {
-        // ignore malformed user cookie
-      }
-    }
-  }
-
-  const isAuthenticated = !!token;
-  console.log('Auth parse result - isAuthenticated:', isAuthenticated, 'userRole:', userRole);
-
-  if (isAuthenticated && !userRole) {
-    console.warn('User is authenticated but no role found in cookies');
-  }
-
-  return { isAuthenticated, userRole };
 }
 
 // Helper function to check if route requires authentication
@@ -157,7 +129,7 @@ export function middleware(request: NextRequest) {
   
   // Get and parse auth cookie
   const authCookie = request.cookies.get('auth')?.value;
-  const { isAuthenticated, userRole } = parseAuthCookie(authCookie, request);
+  const { isAuthenticated, userRole } = parseAuthCookie(authCookie);
   
   // Handle public routes
   if (publicRoutes.some(route => pathname.startsWith(route))) {

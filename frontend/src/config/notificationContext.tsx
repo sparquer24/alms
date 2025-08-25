@@ -2,9 +2,11 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './auth';
+import { NotificationApi } from './APIClient';
 
 export interface Notification {
-  applicationId: string;
+  applicationId: any;
+  applicationId: React.JSX.Element;
   id: string;
   type: string;
   title: string;
@@ -36,31 +38,8 @@ interface NotificationProviderProps {
 }
 
 export const NotificationProvider = ({ children }: NotificationProviderProps) => {
-  // Hard-coded notifications to avoid API calls while backend is unavailable
-  const initialNotifications: Notification[] = [
-    {
-      applicationId: 'APP-1001',
-      id: 'n1',
-      type: 'INFO',
-      title: 'Application Received',
-      message: 'Your application APP-1001 has been received.',
-      isRead: false,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      applicationId: 'APP-1002',
-      id: 'n2',
-      type: 'ALERT',
-      title: 'Inspection Scheduled',
-      message: 'An inspection has been scheduled for APP-1002.',
-      isRead: true,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
-  const [unreadCount, setUnreadCount] = useState(() => initialNotifications.filter(n => !n.isRead).length);
-  const { isAuthenticated, token } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);  const { isAuthenticated, token } = useAuth();
   
   // Listen for mock WebSocket messages (for testing purposes)
   useEffect(() => {
@@ -85,26 +64,62 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     };
   }, []);
   
-  // Fetch initial notifications (hard-coded). Keep behavior consistent when auth changes.
+  // Fetch initial notifications
   const fetchNotifications = async () => {
     if (!isAuthenticated) return;
-    // Simulate fetching by reloading the initial notifications or keeping existing
-    setNotifications(initialNotifications);
-    setUnreadCount(initialNotifications.filter(n => !n.isRead).length);
+    
+    try {
+      const response = await NotificationApi.getAll({ pageSize: 20 });
+      if (response.success && response.body) {
+        setNotifications(response.body.notifications);
+        
+        // Calculate unread count
+        const unread = response.body.notifications.filter(
+          (n: Notification) => !n.isRead
+        ).length;
+        setUnreadCount(unread);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
   };
   
   // Mark notification as read
   const markAsRead = async (id: string) => {
-    // Update local state only (no API call)
-    setNotifications(prev => prev.map(notification => notification.id === id ? { ...notification, isRead: true } : notification));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    try {
+      const response = await NotificationApi.markAsRead(id);
+      
+      if (response.success) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === id ? { ...notification, isRead: true } : notification
+          )
+        );
+        
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
   
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    // Local state only
-    setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })));
-    setUnreadCount(0);
+    try {
+      const response = await NotificationApi.markAllAsRead();
+      
+      if (response.success) {
+        setNotifications(prev =>
+          prev.map(notification => ({ ...notification, isRead: true }))
+        );
+        
+        // Reset unread count
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
   
   // Fetch notifications on initial load and when auth state changes
