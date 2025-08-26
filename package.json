@@ -8,7 +8,8 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.0",
-    "dotenv-cli": "^7.4.2"
+    "dotenv-cli": "^7.4.2",
+    "prisma": "^6.14.0"
   },
   "scripts": {
     "build": "npm -w backend run build || echo no backend build && npm -w frontend run build",
@@ -25,5 +26,8 @@
     "test": "npm -w frontend run test && echo Backend has no tests configured",
     "lint": "npm -w frontend run lint || true",
     "postinstall": "npm -w backend run postinstall || true"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.14.0"
   }
 }
