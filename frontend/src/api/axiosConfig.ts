@@ -47,7 +47,9 @@ export const fetchData = async (url: string, params = {}) => {
     const response = await axiosInstance.get(url, { params });
     return response.data;
   } catch (error) {
-    throw new Error('Could not get data');
+    const err: any = error;
+    const message = err?.response?.data?.message || err?.message || 'Could not get data';
+    throw new Error(message);
   }
 };
 
@@ -57,8 +59,9 @@ export const postData = async (url: string, data: any, options = {}) => {
     const response = await axiosInstance.post(url, data, options);
     return response.data;
   } catch (error) {
-    console.log({error});
-    throw new Error('Could not post data');
+    const err: any = error;
+    const message = err?.response?.data?.message || err?.message || 'Could not post data';
+    throw new Error(message);
   }
 };
 
@@ -68,7 +71,9 @@ export const putData = async (url: string, data: any, options = {}) => {
     const response = await axiosInstance.put(url, data, options);
     return response.data;
   } catch (error) {
-    throw new Error('Could not update data');
+    const err: any = error;
+    const message = err?.response?.data?.message || err?.message || 'Could not update data';
+    throw new Error(message);
   }
 };
 
@@ -78,7 +83,9 @@ export const deleteData = async (url: string, options = {}) => {
     const response = await axiosInstance.delete(url, options);
     return response.data;
   } catch (error) {
-    throw new Error('Could not delete data');
+    const err: any = error;
+    const message = err?.response?.data?.message || err?.message || 'Could not delete data';
+    throw new Error(message);
   }
 };
 

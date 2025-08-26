@@ -84,6 +84,11 @@ model Roles {
   is_active                  Boolean                         @default(true)
   created_at                 DateTime                        @default(now())
   updated_at                 DateTime                        @updatedAt
+  // Role configuration fields stored in DB
+  dashboard_title            String?
+  menu_items                 Json?
+  permissions                Json?
+  can_access_settings       Boolean                         @default(false)
   can_forward                Boolean                         @default(false)
   can_re_enquiry             Boolean                         @default(false)
   can_generate_ground_report Boolean                         @default(false)

@@ -1,10 +1,12 @@
 // This file contains all the role-based configurations for the Arms License Management System Dashboard
 // Roles include Applicant, Zonal Superintendent, DCP, ACP, SHO, etc.
+import jsCookie from "js-cookie";
 
 // New role config structure for dynamic sidebar
 export type MenuItem = {
   name: string;
 };
+
 export type RoleConfig = {
   permissions: string[];
   dashboardTitle: string;
@@ -12,71 +14,75 @@ export type RoleConfig = {
   menuItems: MenuItem[];
 };
 
-export const roleConfigurations: Record<string, RoleConfig> = {
-  ZS: {
-    permissions: ["read", "write", "canViewFreshForm"],
-    dashboardTitle: "ZS Dashboard",
-    canAccessSettings: false,
-    menuItems: [
-      { name: "freshform" },
-      { name: "inbox" },
-      { name: "sent" },
-      { name: "closed" },
-      { name: "finaldisposal" },
-      { name: "reports" },
-    ],
-  },
-  DCP: {
-    permissions: ["read", "write", "approve"],
-    dashboardTitle: "DCP Dashboard",
-    canAccessSettings: true,
-    menuItems: [
-      { name: "inbox" },
-      { name: "sent" },
-      { name: "finaldisposal" },
-      { name: "reports" },
-    ],
-  },
-  ACP: {
-    permissions: ["read", "write"],
-    dashboardTitle: "ACP Dashboard",
-    canAccessSettings: true,
-    menuItems: [
-      { name: "inbox" },
-      { name: "sent" },
-      { name: "finaldisposal" },
-      { name: "reports" },
-      { name: "logout" },
-    ],
-  },
-  SHO: {
-    permissions: ["read"],
-    dashboardTitle: "SHO Dashboard",
-    canAccessSettings: true,
-    menuItems: [
-      { name: "inbox" },
-      { name: "sent" },
-      { name: "finaldisposal" },
-      { name: "reports" },
-      { name: "logout" },
-    ],
-  },
-  ADMIN: {
-    permissions: ["read", "write", "admin"],
-    dashboardTitle: "Admin Dashboard",
-    canAccessSettings: true,
-    menuItems: [
-      { name: "userManagement" },
-      { name: "roleMapping" },
-      { name: "analytics" }, // New tab for analytics or total reports
-    ],
-  },
+// ✅ Reads from cookie and builds RoleConfig
+export const getRoleConfig = (): RoleConfig | undefined => {
+  const token = jsCookie.get("user");
+  if (!token) return undefined;
+
+  let parsedUser: any;
+  try {
+    parsedUser = JSON.parse(token);
+  } catch (err) {
+    console.error("Invalid user cookie:", err);
+    return undefined;
+  }
+
+  // role may be under user.role or user directly
+  const roleData: any = parsedUser?.role ?? parsedUser;
+  if (!roleData || typeof roleData !== "object") return undefined;
+
+  // Normalize keys from backend (snake_case) to frontend (camelCase)
+  const code: string | undefined = roleData.code ?? roleData.role_code ?? roleData.RoleCode;
+  const name: string | undefined = roleData.name ?? roleData.role_name ?? roleData.RoleName;
+  const dashboardTitleRaw: string | undefined = roleData.dashboardTitle ?? roleData.dashboard_title;
+  const canAccessSettingsRaw: boolean | undefined = roleData.canAccessSettings ?? roleData.can_access_settings;
+  let permissionsRaw: string[] | string | undefined = roleData.permissions;
+  if (permissionsRaw === undefined) permissionsRaw = roleData.permission_list ?? roleData.PermissionList;
+  let menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
+
+  // Parse stringified JSON arrays if needed
+  const safeParse = <T,>(v: any): T | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (Array.isArray(v)) return v as unknown as T;
+    if (typeof v === "string") {
+      try {
+        const parsed = JSON.parse(v);
+        return Array.isArray(parsed) ? (parsed as T) : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  };
+
+  const permissionsArr: string[] = Array.isArray(permissionsRaw)
+    ? (permissionsRaw as string[])
+    : safeParse<string[]>(permissionsRaw) ?? [];
+
+  // menu items can be array of strings or objects with name
+  const menuItemsParsed = Array.isArray(menuItemsRaw)
+    ? menuItemsRaw
+    : safeParse<any[]>(menuItemsRaw) ?? [];
+
+  const menuItems: MenuItem[] = (menuItemsParsed as any[]).map((it: any) => {
+    if (typeof it === "string") return { name: it } as MenuItem;
+    if (it && typeof it === "object" && typeof it.name === "string") return { name: it.name } as MenuItem;
+    return { name: String(it) } as MenuItem;
+  });
+
+  if (code || name) {
+    return {
+      permissions: permissionsArr,
+      dashboardTitle: dashboardTitleRaw ?? `${name || code} Dashboard`,
+      canAccessSettings: Boolean(canAccessSettingsRaw),
+      menuItems,
+    };
+  }
+
+  return undefined; // no valid role found
 };
 
-export const getRoleConfig = (role: string): RoleConfig => {
-  return roleConfigurations[role] ?? roleConfigurations["SHO"];
-};
-
+// ✅ Role codes as constants for fallback/reference
 export const RoleTypes = {
   APPLICANT: "APPLICANT",
   ZS: "ZS",

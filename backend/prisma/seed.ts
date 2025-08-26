@@ -63,39 +63,43 @@ async function main() {
 
   console.log('Seeding roles...');
   const roles = [
-    { code: 'APPLICANT', name: 'Citizen Applicant' },
-    { code: 'ZS', name: 'Zonal Superintendent' },
-    { code: 'SHO', name: 'Station House Officer' },
-    { code: 'ACP', name: 'Assistant Commissioner of Police' },
-    { code: 'DCP', name: 'Deputy Commissioner of Police' },
-    { code: 'AS', name: 'Arms Superintendent' },
-    { code: 'ADO', name: 'Administrative Officer' },
-    { code: 'CADO', name: 'Chief Administrative Officer' },
-    { code: 'JTCP', name: 'Joint Commissioner of Police' },
-    { code: 'CP', name: 'Commissioner of Police' },
-    { code: 'ARMS_SUPDT', name: 'Arms Superintendent' },
-    { code: 'ARMS_SEAT', name: 'Arms Seat' },
-    { code: 'ACO', name: 'Assistant Compliance Officer' },
-    { code: 'ADMIN', name: 'System Administrator' },
-    { code: 'STORE', name: 'Store Superintendent' },
-    { code: 'TL', name: 'Traffic License Superintendent' },
+    { code: 'APPLICANT', name: 'Citizen Applicant', dashboardTitle: 'Applicant Dashboard', menuItems: [] , permissions: [], canAccessSettings: false},
+    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['freshform','inbox','sent','closed','finaldisposal','reports'], permissions: ['read','write','canViewFreshForm'], canAccessSettings: false },
+    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox','sent','finaldisposal','reports','logout'], permissions: ['read'], canAccessSettings: true },
+    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox','sent','finaldisposal','reports','logout'], permissions: ['read','write'], canAccessSettings: true },
+    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox','sent','finaldisposal','reports'], permissions: ['read','write','approve'], canAccessSettings: true },
+    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox','sent','finaldisposal','reports','logout'], permissions: ['read','write'], canAccessSettings: true },
+    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ARMS_SEAT', name: 'Arms Seat', dashboardTitle: 'ARMS_SEAT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ACO', name: 'Assistant Compliance Officer', dashboardTitle: 'ACO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement','roleMapping','analytics'], permissions: ['read','write','admin'], canAccessSettings: true },
+      { code: 'STORE', name: 'Store Superintendent', dashboardTitle: 'STORE Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+      { code: 'TL', name: 'Traffic License Superintendent', dashboardTitle: 'TL Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
   ];
   for (const role of roles) {
     // Check if role already exists
     const existingRole = await prisma.roles.findUnique({ where: { code: role.code } });
     if (existingRole) continue;
     
-    await prisma.roles.create({
-      data: {
-        code: role.code,
-        name: role.name,
-        is_active: true,
-        can_forward: false,
-        can_re_enquiry: false,
-        can_generate_ground_report: false,
-        can_FLAF: false,
-      },
-    });
+    const roleData: any = {
+      code: role.code,
+      name: role.name,
+      is_active: true,
+      dashboard_title: role.dashboardTitle || null,
+      menu_items: role.menuItems ? JSON.stringify(role.menuItems) : null,
+      permissions: role.permissions ? JSON.stringify(role.permissions) : null,
+      can_access_settings: role.canAccessSettings || false,
+      can_forward: false,
+      can_re_enquiry: false,
+      can_generate_ground_report: false,
+      can_FLAF: false,
+    };
+
+    await prisma.roles.create({ data: roleData as any });
   }
 
   const roleMap: Record<string, number> = {};
@@ -268,10 +272,8 @@ async function main() {
     });
     console.log('Simple user created successfully');
     
-    // Delete the test user
-    await prisma.users.delete({
-      where: { username: 'test_user' },
-    });
+  // Delete the test user (use deleteMany since username is not a unique field in Prisma schema)
+  await prisma.users.deleteMany({ where: { username: 'test_user' } });
     console.log('Test user deleted');
   } catch (error) {
     console.error('Error creating simple test user:', error);
@@ -398,7 +400,7 @@ async function main() {
     }
     
     // Check if user already exists
-    const existingUser = await prisma.users.findUnique({ where: { username: user.username } });
+    const existingUser = await prisma.users.findFirst({ where: { username: user.username } });
     if (existingUser) {
       console.log(`User '${user.username}' already exists. Skipping.`);
       continue;

@@ -49,7 +49,7 @@ export class UserService {
         id: true,
         username: true,
         email: true,
-        role: { select: { name: true, code: true } },
+        role: true,
       },
     });
   }
