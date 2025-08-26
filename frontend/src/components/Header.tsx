@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
 import { useAuth } from '../config/auth';
 import { useNotifications } from '../config/notificationContext';
@@ -90,10 +91,20 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
     }
   }, [showHeader]);
 
+  const router = useRouter();
   const handleDropdownClick = (type: typeof APPLICATION_TYPES[number]) => {
     setShowDropdown(false);
-    if (type.enabled && onCreateApplication) {
-      onCreateApplication(type.key);
+    if (type.enabled) {
+      // Prefer navigation to fresh form route with type query
+      try {
+        router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
+      } catch (e) {
+        if (onCreateApplication) {
+          onCreateApplication(type.key);
+        } else if (onShowMessage) {
+          onShowMessage('This feature will come soon', 'info');
+        }
+      }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
     }
@@ -139,25 +150,6 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
       {/* Right: All other header items */}
       <div className="flex items-center space-x-4 justify-end w-full">
         <SearchBar value={searchQuery} onChange={setSearchQuery} onSearch={handleSearch} />
-        <div className="flex items-center space-x-2">
-          <DateInput value={startDate} onChange={setStartDate} placeholder="Start Date" />
-          <span className="text-gray-500">to</span>
-          <DateInput value={endDate} onChange={setEndDate} placeholder="End Date" />
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleReset}
-            className="py-2 px-4 border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 transition-colors font-medium"
-          >
-            Reset
-          </button>
-          <button
-            onClick={handleDateFilter}
-            className="py-2 px-4 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] transition-colors font-medium"
-          >
-            Search
-          </button>
-        </div>
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
@@ -12,8 +12,6 @@ import { mockApplications, filterApplications, getApplicationsByStatus, Applicat
 import { generateApplicationPDF, generateBatchReportPDF, getBatchReportHTML } from '../../config/pdfUtils';
 import { getRoleConfig } from '../../config/roles';
 import { isZS, APPLICATION_TYPES } from '../../config/helpers';
-import 'react-toastify/dist/ReactToastify.css';
-
 export default function FreshFormPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -24,6 +22,7 @@ export default function FreshFormPage() {
   const [processingBulkAction, setProcessingBulkAction] = useState(false);  const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
   const { isAuthenticated, userRole, isLoading: authLoading } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
+  const searchParams = useSearchParams();
   const router = useRouter();
   
   // Dropdown state
@@ -48,6 +47,14 @@ export default function FreshFormPage() {
       setIsLoading(false);
     }, 500);
   }, []);
+
+  // Open form immediately if navigated with type query
+  useEffect(() => {
+    const type = searchParams?.get('type');
+    if (type === 'fresh') {
+      setShowNewForm(true);
+    }
+  }, [searchParams]);
   
   useEffect(() => {
     // Hide header and sidebar on the Create Fresh Application page when form is shown
@@ -246,7 +253,6 @@ export default function FreshFormPage() {
   return (
     <div
       className="flex min-h-screen w-screen min-w-0 font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative"
-      style={{ backgroundImage: 'url(/backgroundIMGALMS.jpeg)', backgroundSize: 'cover', backgroundPosition: 'center', width: '100vw', height: '100vh' }}
     >
       <Sidebar />
       <Header

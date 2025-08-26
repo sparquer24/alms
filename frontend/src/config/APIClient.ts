@@ -100,7 +100,8 @@ export const AuthApi = {
   // All other auth endpoints use the authenticated client
   logout: async (): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.post('/auth/logout');
+      // No-op logout: server endpoint removed. Client will clear auth state/cookies.
+      return { statusCode: 200, success: true, body: { message: 'Logged out locally' } } as any;
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;
@@ -131,7 +132,7 @@ export const AuthApi = {
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.get('/applications', params);
+      return await apiClient.get('/application-form', params);
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;
@@ -341,7 +342,17 @@ export const RoleApi = {
 export const NotificationApi = {
   getAll: async (params: NotificationQueryParams = {}): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.get('/notifications', params);
+      // Endpoint removed. Return stubbed notifications list.
+      const pageSize = (params as any)?.pageSize ?? 20;
+      const notifications = Array.from({ length: Math.min(5, Number(pageSize) || 5) }).map((_, i) => ({
+        id: `local-${i + 1}`,
+        type: 'INFO',
+        title: 'No server notifications',
+        message: 'Notifications API disabled; showing local placeholder.',
+        isRead: i > 0,
+        createdAt: new Date(Date.now() - i * 3600_000).toISOString(),
+      }));
+      return { statusCode: 200, success: true, body: { notifications } } as any;
     } catch (error) {
       console.error('Error getting notifications:', error);
       throw error;
@@ -350,7 +361,8 @@ export const NotificationApi = {
   
   markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.put(`/notifications/${notificationId}/read`);
+      // No-op locally, reflect success
+      return { statusCode: 200, success: true, body: { id: notificationId } } as any;
     } catch (error) {
       console.error('Error marking notification as read:', error);
       throw error;
@@ -359,7 +371,8 @@ export const NotificationApi = {
   
   markAllAsRead: async (): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.put('/notifications/read-all');
+      // No-op locally
+      return { statusCode: 200, success: true } as any;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       throw error;
@@ -373,7 +386,23 @@ export const NotificationApi = {
 export const DashboardApi = {
   getSummary: async (): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.get('/dashboard/summary');
+      // Endpoint removed. Return stubbed summary to keep UI functional.
+      return {
+        statusCode: 200,
+        success: true,
+        body: {
+          pendingApplications: 0,
+          approvedApplications: 0,
+          rejectedApplications: 0,
+          returnedApplications: 0,
+          verifiedApplications: 0,
+          unreadNotifications: 0,
+          applicationTrends: { dates: [], pending: [], approved: [], rejected: [] },
+          processingTimes: { licenseTypes: [], averageDays: [] },
+          recentActivities: [],
+          userStats: { totalProcessed: 0, approvalRate: 0, averageProcessTime: '0d' },
+        },
+      } as any;
     } catch (error) {
       console.error('Error getting dashboard summary:', error);
       throw error;

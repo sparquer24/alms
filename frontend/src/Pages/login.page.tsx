@@ -4,7 +4,7 @@ import { setCookie, getCookie } from 'cookies-next';
 import { getAuthToken } from '../config/authenticatedApiClient';
 import armsLogo from '/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg';
 import policeLogo from '/assets/ps_logo.png';
-import { ToastContainer, toast } from 'react-toastify';
+// import { ToastContainer, toast } from 'react-toastify';
 import { setAuthToken, postData } from '../api/axiosConfig';
 import { isAuthCookieValid } from '../utils/authCookies';
 
@@ -68,7 +68,7 @@ const Login = () => {
             });
 
             if (!response.isSuccess) {
-                toast.error('Invalid credentials!');
+                console.error('Invalid credentials!');
                 return;
             }
 
@@ -93,18 +93,18 @@ const Login = () => {
                             // Save snapshot for refresh-time detection
                             saveCookieSnapshot({ auth: 
                                 getCookie('auth') ?? null, user: getCookie('user') ?? null, role: getCookie('role') ?? null });
-                            toast.success('Successfully logged in!');
+                            console.log('Successfully logged in!');
                             navigate('/dashboard');
                         } else {
                             // Clear any partial/invalid cookies and snapshot, keep user on login page and show guidance
                             clearAllAuthCookies();
                             removeCookieSnapshot();
-                            toast.error('Login did not produce required auth cookies. Please try again or contact admin.');
+                            console.error('Login did not produce required auth cookies. Please try again or contact admin.');
                         }
         } catch (err) {
             console.error(err);
             setError('An unexpected error occurred');
-            toast.error('An unexpected error occurred');
+            console.error('An unexpected error occurred');
         } finally {
             setLoading(false);
         }

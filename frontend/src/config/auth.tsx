@@ -165,11 +165,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const logout = async () => {
     try {
-      try {
-        await postData('/auth/logout', {});
-      } catch (e) {
-        // ignore server errors
-      }
+      // Server logout endpoint removed; perform client-side cleanup only
     } catch (err) {
       console.error('Error during logout:', err);
     } finally {
