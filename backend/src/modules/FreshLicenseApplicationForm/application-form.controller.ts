@@ -2,8 +2,11 @@ import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuard
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationFormService, CreateFreshLicenseApplicationsFormsInput } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
-import { RequirePermissions } from '../../decorators/permissions.decorator';
 import prisma from '../../db/prismaClient';
+// DTO is required for validation & Swagger
+import { GetApplicationsDto } from './dto/get-applications.dto';
+
+// import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Application Form')
 @Controller('application-form')
@@ -135,10 +138,17 @@ export class ApplicationFormController {
   })
   @ApiQuery({ 
     name: 'statusId', 
-    required: false, 
+    required: true,   // ✅ Now required
     description: 'Filter applications by status ID',
     example: '1'
   })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'searchField', required: false, type: String, example: 'name' })
+  @ApiQuery({ name: 'search', required: false, type: String, example: 'John' })
+  @ApiQuery({ name: 'orderBy', required: false, type: String, example: 'createdAt' })
+  @ApiQuery({ name: 'order', required: false, enum: ['ASC', 'DESC'], example: 'DESC' })
+  @ApiQuery({ name: 'statusId', required: false, type: String, example: '1,2,3' })
   @ApiResponse({ 
     status: 200, 
     description: 'Applications retrieved successfully',
@@ -160,111 +170,114 @@ export class ApplicationFormController {
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   // @RequirePermissions('VIEW_APPLICATIONS')
-  async getAllApplications(
-    @Request() req: any,
-    @Query('statusId') statusId?: string,
-    @Query('statusIds') statusIds?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('searchField') searchField?: string,
-    @Query('search') search?: string,
-    @Query('orderBy') orderBy?: string,
-    @Query('order') order?: string,
-  ) {
-    try {
-      // If user is not admin/officer, only show their own applications
-      const userRole = req.user.roleCode;
-      const userId = req.user.sub;
-      // Parse pagination params
-      const pageNum = page ? Math.max(Number(page), 1) : 1;
-      const limitNum = limit ? Math.max(Number(limit), 1) : 10;
+ async getAllApplications(
+  @Request() req: any,
+  @Query('statusId') statusId?: string,  // ✅ optional
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
+  @Query('searchField') searchField?: string,
+  @Query('search') search?: string,
+  @Query('orderBy') orderBy?: string,
+  @Query('order') order?: string,
+) {
+  try {
+    const userId = req.user.sub;
 
-      // Parse status IDs: support ?statusId=1 or ?statusId=1,2 or ?statusIds=1,2
-      let parsedStatusIds: number[] | undefined = undefined;
-      const raw = statusIds ?? statusId ?? req.query?.statusId;
-      if (raw) {
-        parsedStatusIds = String(raw)
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean)
-          .map(Number)
-          .filter(n => !isNaN(n));
-        if (parsedStatusIds.length === 0) parsedStatusIds = undefined;
+    // Parse pagination
+    const pageNum = page ? Math.max(Number(page), 1) : 1;
+    const limitNum = limit ? Math.max(Number(limit), 1) : 10;
+
+    // ✅ Parse multiple status IDs (optional)
+    let parsedStatusIds: number[] | undefined = undefined;
+    if (statusId) {
+      parsedStatusIds = String(statusId)
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(Number)
+        .filter(n => !isNaN(n));
+
+      if (parsedStatusIds.length === 0) {
+        throw new HttpException(
+          { success: false, message: 'Invalid statusId provided' },
+          HttpStatus.BAD_REQUEST
+        );
       }
+    }
 
-      // Parse search and searchField
-      const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
-      const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
-      const parsedSearchValue = search ?? undefined;
+    // Parse search + field
+    const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
+    const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
+    const parsedSearchValue = search ?? undefined;
 
-      // Parse ordering
-      const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
-      const parsedOrderBy = orderBy && allowedOrderFields.includes(orderBy) ? orderBy : 'createdAt';
-      const parsedOrder = order && order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    // Parse ordering
+    const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
+    const parsedOrderBy = orderBy && allowedOrderFields.includes(orderBy) ? orderBy : 'createdAt';
+    const parsedOrder = order && order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-      const result = await this.applicationFormService.getFilteredApplications({
-        statusIds: parsedStatusIds,
-        currentUserId: userId,
+    const result = await this.applicationFormService.getFilteredApplications({
+      statusIds: parsedStatusIds,   // ✅ can be undefined (fetch all)
+      currentUserId: userId,
+      page: pageNum,
+      limit: limitNum,
+      searchField: parsedSearchField,
+      search: parsedSearchValue,
+      orderBy: parsedOrderBy,
+      order: parsedOrder as 'asc' | 'desc',
+    });
+
+    const applications = result.data;
+    const total = result.total;
+
+    // Add relation names dynamically
+    const applicationsWithRelations = applications.map((app: any) => {
+      const relationNames: string[] = [];
+      for (const key in app) {
+        if (!Object.prototype.hasOwnProperty.call(app, key)) continue;
+        const value = app[key];
+        if (
+          value &&
+          (typeof value === 'object') &&
+          !(value instanceof Date) &&
+          !Array.isArray(value) &&
+          Object.keys(value).length > 0
+        ) {
+          relationNames.push(key);
+        }
+        if (Array.isArray(value) && value.length > 0) {
+          relationNames.push(key);
+        }
+      }
+      return {
+        ...app,
+        relations: relationNames,
+      };
+    });
+
+    const totalPages = Math.ceil(total / (limitNum || 10));
+
+    return {
+      success: true,
+      message: 'Applications retrieved successfully',
+      data: applicationsWithRelations,
+      pagination: {
+        total,
         page: pageNum,
         limit: limitNum,
-        searchField: parsedSearchField,
-        search: parsedSearchValue,
-        orderBy: parsedOrderBy,
-        order: parsedOrder as 'asc' | 'desc',
-      });
-      const applications = result.data;
-      const total = result.total;
-
-      // For each application, collect the relation table names (keys with object/array values)
-  const applicationsWithRelations = applications.map((app: any) => {
-        const relationNames: string[] = [];
-        for (const key in app) {
-          if (!Object.prototype.hasOwnProperty.call(app, key)) continue;
-          // Exclude primitive fields and id fields
-          const value = app[key];
-          if (
-            value &&
-            (typeof value === 'object') &&
-            !(value instanceof Date) &&
-            !Array.isArray(value) &&
-            Object.keys(value).length > 0
-          ) {
-            relationNames.push(key);
-          }
-          if (Array.isArray(value) && value.length > 0) {
-            relationNames.push(key);
-          }
-        }
-        return {
-          ...app,
-          relations: relationNames,
-        };
-      });
-
-      const totalPages = Math.ceil(total / (limitNum || 10));
-
-      return {
-        success: true,
-        message: 'Applications retrieved successfully',
-        data: applicationsWithRelations,
-        pagination: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          totalPages,
-        }
-      };
-    } catch (error: any) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to fetch applications',
-          error: error.message,
-        },
-        HttpStatus.BAD_REQUEST
-      );
-    }
+        totalPages,
+      }
+    };
+  } catch (error: any) {
+    throw new HttpException(
+      {
+        success: false,
+        message: error.message || 'Failed to fetch applications',
+        error: error.message,
+      },
+      HttpStatus.BAD_REQUEST
+    );
   }
+}
 
   @Get(':id')
   @ApiOperation({ 
