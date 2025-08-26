@@ -11,15 +11,14 @@
     "start:dev": "ts-node-dev --respawn src/main.ts",
     "seed": "ts-node prisma/seed.ts",
     "generate": "prisma generate",
+    "update-roles": "ts-node prisma/update-roles.ts",
     "dev": "nest start --watch",
     "up": "prisma migrate deploy",
     "down": "prisma migrate reset --force",
     "studio": "prisma studio",
     "postinstall": "prisma generate"
   },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
-  },
+
   "author": "",
   "license": "ISC",
   "devDependencies": {

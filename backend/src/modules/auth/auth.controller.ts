@@ -82,7 +82,7 @@ export class AuthController {
       email: user.email ?? undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      role: user.role ? { id: String(user.role.id), name: user.role.name, code: user.role.code } : undefined,
+      role: user.role,
       location: {
         state: user.state ? { id: String(user.state.id), name: user.state.name } : undefined,
         district: user.district ? { id: String(user.district.id), name: user.district.name } : undefined,

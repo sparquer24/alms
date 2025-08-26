@@ -359,18 +359,40 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     };
   }, [documentFiles]);
 
-  // Fetch Telangana districts for address selection
+  // Fetch Telangana districts for address selection (via internal API, with fallback)
   React.useEffect(() => {
     const fetchDistricts = async () => {
       try {
-        // Using the public API for Indian states and districts
-        const response = await fetch('https://api.covid19india.org/state_district_wise.json');
-        const data = await response.json();
-        // Get Telangana districts
-        const telanganaDistricts = data['Telangana'] ? Object.keys(data['Telangana'].districtData) : [];
-        setDistricts(telanganaDistricts.sort());
+        const { apiClient } = await import('../config/authenticatedApiClient');
+        // 1) Fetch states and find Telangana id
+        const statesRes: any = await apiClient.get('/locations/states');
+        const states = Array.isArray(statesRes?.data) ? statesRes.data : statesRes?.body || statesRes;
+        const telangana = (states || []).find((s: any) => (s?.name || '').toLowerCase() === 'telangana');
+
+        if (telangana?.id) {
+          // 2) Fetch districts for Telangana
+          const districtsRes: any = await apiClient.get('/locations/districts', { stateId: telangana.id });
+          const districtsList = Array.isArray(districtsRes?.data) ? districtsRes.data : districtsRes?.body || districtsRes;
+          const names = (districtsList || []).map((d: any) => d?.name).filter(Boolean);
+          if (names?.length) {
+            setDistricts([...names].sort());
+            return;
+          }
+        }
+
+        // Fallback if Telangana not found or districts empty
+        const fallbackDistricts = [
+          'Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon',
+          'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar',
+          'Khammam', 'Komaram Bheem Asifabad', 'Mahabubabad', 'Mahabubnagar',
+          'Mancherial', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool',
+          'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla',
+          'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy',
+          'Warangal Rural', 'Warangal Urban', 'Yadadri Bhuvanagiri'
+        ];
+        setDistricts(fallbackDistricts.sort());
       } catch (err) {
-        console.error('Error fetching districts:', err);
+        console.error('Error fetching districts from internal API:', err);
         // Fallback districts in case API fails
         const fallbackDistricts = [
           'Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon',

@@ -6,16 +6,9 @@
 // Base API URL
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-console.log('🌐 API Configuration:', {
-  BASE_URL,
-  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-  NODE_ENV: process.env.NODE_ENV
-});
-
 // Authentication APIs
 export const AUTH_APIS = {
   LOGIN: `${BASE_URL}/auth/login`,
-  LOGOUT: `${BASE_URL}/auth/logout`,
   GET_CURRENT_USER: `${BASE_URL}/auth/me`,
   CHANGE_PASSWORD: `${BASE_URL}/auth/change-password`,
   RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
@@ -56,14 +49,10 @@ export const USER_APIS = {
 
 // Notification APIs
 export const NOTIFICATION_APIS = {
-  GET_ALL: `${BASE_URL}/notifications`,
-  MARK_READ: (id: string) => `${BASE_URL}/notifications/${id}/read`,
-  MARK_ALL_READ: `${BASE_URL}/notifications/read-all`,
 };
 
 // Dashboard APIs
 export const DASHBOARD_APIS = {
-  GET_SUMMARY: `${BASE_URL}/dashboard/summary`,
 };
 
 // Role-Based Action APIs
@@ -172,6 +161,7 @@ export type BatchProcessParams = {
  * Generic API response type
  */
 export interface ApiResponse<T> {
+  data: boolean;
   statusCode: number;
   body?: any;
   success: boolean;
@@ -195,6 +185,7 @@ export const appendQueryParams = (url: string, params: Record<string, any>): str
  * Common headers for API requests
  */
 export const getHeaders = (token?: string): HeadersInit => {
+  console.log('test 192 : ', token)
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };

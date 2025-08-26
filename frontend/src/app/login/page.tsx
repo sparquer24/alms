@@ -35,7 +35,7 @@ const ERROR_MESSAGES: ErrorMapping = {
   default: 'Authentication error. Please try logging in again.'
 } as const;
 
-const BACKGROUND_IMAGE = '/backgroundIMGALMS.jpeg';
+// const BACKGROUND_IMAGE = '/backgroundIMGALMS.jpeg';
 const LOGO_IMAGE = '/icon-alms.svg';
 
 // Custom hooks
@@ -258,7 +258,6 @@ export default function Login() {
   return (
     <div 
       className="min-h-screen flex items-center justify-center bg-cover bg-center py-12 px-4 sm:px-6 lg:px-8" 
-      style={{ backgroundImage: `url("${BACKGROUND_IMAGE}")` }}
       role="main"
     >
       <div className="max-w-md w-full space-y-6 bg-white/95 p-10 rounded-lg shadow-xl backdrop-blur-sm">

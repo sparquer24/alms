@@ -61,23 +61,44 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
-      if (typeof window !== 'undefined') {
-        try {
-          const authCookie = document.cookie
-            .split('; ')
-            .find(row => row.startsWith('auth='));
+      console.log('Restoring auth state from cookies...');
+      console.log('Document cookies:', document.cookie);
+      try {
+        const authCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('auth='));
+        console.log('Auth cookie:', authCookie);
+        if (authCookie) {
+          const cookieValue = decodeURIComponent(authCookie.split('=')[1]);
+          let authData: any = null;
           
-          if (authCookie) {
-            const authData = JSON.parse(decodeURIComponent(authCookie.split('=')[1]));
-            if (authData.token && authData.user && authData.isAuthenticated) {
-              state.user = authData.user;
-              state.token = authData.token;
-              state.isAuthenticated = true;
+          try {
+            // First try to parse as JSON
+            authData = JSON.parse(cookieValue);
+          } catch (e) {
+            // If parsing fails, check if it's a JWT token
+            if (cookieValue.startsWith('eyJhbGciOi')) {
+              // It's a JWT token, create minimal auth data
+              authData = { token: cookieValue, isAuthenticated: true };
+              console.log('Detected JWT token in cookie, created minimal auth data:', authData);
+            } else {
+              console.error('Cookie value is neither valid JSON nor JWT token:', cookieValue);
+              return;
             }
           }
-        } catch (error) {
-          console.error('Failed to restore auth state:', error);
+          
+          console.log('Parsed auth data from cookie:', authData);
+          if (authData.token && authData.isAuthenticated) {
+            state.token = authData.token;
+            state.isAuthenticated = true;
+            // Only set user if it exists in the auth data
+            if (authData.user) {
+              state.user = authData.user;
+            }
+          }
         }
+      } catch (error) {
+        console.error('Failed to restore auth state:', error);
       }
     },
   },

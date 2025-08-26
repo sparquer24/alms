@@ -6,7 +6,7 @@ function getRoleBasedRedirectPath(userRole: string): string {
   console.log('getRoleBasedRedirectPath called with userRole:', userRole);
   
   // Define valid roles
-  const validRoles = ['ADMIN', 'DCP', 'ACP', 'CP', 'ARMS_SUPDT', 'SHO', 'ZS', 'APPLICANT', 'ADO', 'CADO', 'AS', 'ARMS_SEAT', 'JTCP'];
+  const validRoles = ['ADMIN', 'DCP', 'ACP', 'CP', 'ARMS_SUPDT', 'SHO', 'ZS', 'APPLICANT', 'ADO', 'CADO'];
   
   if (!userRole || !validRoles.includes(userRole)) {
     console.warn('Invalid or undefined role detected:', userRole);
@@ -16,27 +16,29 @@ function getRoleBasedRedirectPath(userRole: string): string {
   switch (userRole) {
     case 'ADMIN':
       return '/';
+      
     case 'DCP':
     case 'ACP': 
     case 'CP':
       return '/reports';
+      
     case 'ARMS_SUPDT':
       return '/final';
+      
     case 'SHO':
-    case 'ZS':
       return '/inbox/forwarded';
+    case 'ZS':
+      return '/freshform';
+      
     case 'APPLICANT':
       return '/sent';
+      
     case 'ADO':
     case 'CADO':
       return '/';
-    case 'AS':
-    case 'ARMS_SEAT':
-    case 'JTCP':
-      return '/';
+      
     default:
-      console.warn('Unhandled role:', userRole);
-      return '/login?error=unhandled_role';
+      return '/';
   }
 }
 
@@ -81,18 +83,71 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 
   console.log('Parsing auth cookie:', authCookie);
   try {
-    const authData = JSON.parse(authCookie);
-    console.log('Parsed auth data:', authData);
-    
-    const isAuthenticated = !!(authData.token && authData.isAuthenticated);
-    const userRole = authData.role || authData.user?.role;
-    
+    let authData: any = null;
+
+    const trimmed = authCookie.trim();
+
+    // If cookie looks like JSON, parse it
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      authData = JSON.parse(trimmed);
+    } else if (trimmed.split('.').length === 3) {
+      // Looks like a JWT token - decode payload safely (base64url)
+      try {
+        const parts = trimmed.split('.');
+        const payload = parts[1];
+        // base64url -> base64
+        const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const json = Buffer.from(b64, 'base64').toString('utf8');
+        const parsedPayload = JSON.parse(json);
+        authData = {
+          token: trimmed,
+          user: parsedPayload,
+          role: parsedPayload.role || parsedPayload.roleCode || parsedPayload.role_id || parsedPayload.roleId,
+          isAuthenticated: true,
+          exp: parsedPayload.exp,
+        };
+      } catch (jwtErr) {
+        // Not a parseable JWT payload, but token exists
+        authData = { token: trimmed, isAuthenticated: true };
+      }
+    } else {
+      // Try parsing generically, otherwise treat as token string
+      try {
+        authData = JSON.parse(trimmed);
+      } catch (e) {
+        authData = { token: trimmed, isAuthenticated: true };
+      }
+    }
+
+    // If token came from parsed object (legacy), try to extract
+    const token = authData?.token ?? null;
+    let isAuthenticated = false;
+    let userRole = authData?.role || authData?.user?.role;
+
+    if (token) {
+      // If we decoded JWT payload earlier, check expiry if present
+      const exp = authData?.exp ?? authData?.user?.exp ?? null;
+      if (typeof exp === 'number') {
+        const now = Math.floor(Date.now() / 1000);
+        isAuthenticated = exp > now;
+      } else {
+        isAuthenticated = true; // presence of token is enough if no exp available
+      }
+    } else {
+      // If token field absent, rely on explicit flags
+      isAuthenticated = !!(authData?.isAuthenticated);
+    }
+
+    // If role missing, try other keys
+    if (!userRole) {
+      userRole = authData?.roleCode ?? authData?.role_id ?? authData?.user?.roleCode ?? undefined;
+    }
+
     console.log('Extracted authentication status:', isAuthenticated, 'userRole:', userRole);
-    
     if (isAuthenticated && !userRole) {
       console.warn('User is authenticated but no role found in cookie');
     }
-    
+
     return { isAuthenticated, userRole };
   } catch (error) {
     console.error('Error parsing auth cookie:', error);
@@ -224,6 +279,6 @@ export const config = {
      * - api routes (handled separately)
      * - static assets
      */
-    '/((?!_next/static|_next/image|favicon.ico|public|api|.*\\.).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|api|.*\.).*)',
   ],
 };

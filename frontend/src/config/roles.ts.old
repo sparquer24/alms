@@ -15,7 +15,7 @@ export type RoleConfig = {
 };
 
 // ✅ Reads from cookie and builds RoleConfig
-export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
+export const getRoleConfig = (): RoleConfig | undefined => {
   const token = jsCookie.get("user");
   if (!token) return undefined;
 

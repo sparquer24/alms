@@ -86,7 +86,8 @@ export class AuthService {
   private async validateUser(username: string, password: string): Promise<any> {
     try {
       // Check user credentials against the database
-      const user = await prisma.users.findFirst({
+      // cast prisma to any to allow selecting newly added role configuration fields
+      const user = await (prisma as any).users.findFirst({
         where: { username },
         select: {
           id: true,
@@ -96,11 +97,16 @@ export class AuthService {
           role: {
             select: {
               id: true,
-              name: true // Add other role fields if needed
+              name: true,
+              code: true,
+              dashboard_title: true,
+              menu_items: true,
+              permissions: true,
+              can_access_settings: true,
             }
-          }, // Include role details if needed
+          },
         }
-      });
+      } as any);
 
       // If user not found, return null
       if (!user) {
@@ -166,7 +172,7 @@ export class AuthService {
    * @returns user with role, state, district, division, zone and policeStation
    */
   async getUserWithLocation(userId: number) {
-    return await prisma.users.findUnique({
+    return await (prisma as any).users.findUnique({
       where: { id: Number(userId) },
       select: {
         id: true,
@@ -174,13 +180,23 @@ export class AuthService {
         email: true,
         createdAt: true,
         updatedAt: true,
-        role: { select: { id: true, name: true, code: true } },
+        role: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            dashboard_title: true,
+            menu_items: true,
+            permissions: true,
+            can_access_settings: true,
+          }
+        },
         state: { select: { id: true, name: true } },
         district: { select: { id: true, name: true } },
         division: { select: { id: true, name: true } },
         zone: { select: { id: true, name: true } },
         policeStation: { select: { id: true, name: true } },
       },
-    });
+    } as any);
   }
 }

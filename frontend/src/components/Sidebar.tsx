@@ -7,6 +7,8 @@ import { useAuthSync } from "../hooks/useAuthSync";
 import { useLayout } from "../config/layoutContext";
 import { menuMeta, MenuMetaKey } from "../config/menuMeta";
 import { getRoleConfig } from "../config/roles";
+import { statusIdMap } from "../config/statusMap";
+import { ApplicationApi } from "../config/APIClient";
 import { HamburgerButton } from "./HamburgerButton";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
@@ -137,9 +139,52 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const dispatch = useDispatch();
   const { userRole, token } = useAuthSync();
-  const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole || "SHO"));
+  const [roleConfig, setRoleConfig] = useState(getRoleConfig());
   const router = useRouter();
   const { user } = useUserContext();
+  // Role derived from the `user` cookie (if present) will override or supplement auth state.
+  const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
+
+const getUserRoleFromCookie = () => {
+  if (typeof window === "undefined" || !document?.cookie) return undefined;
+  try {
+    // 1. Find "user" cookie from document.cookie
+    const raw = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('user='));
+    if (!raw) return undefined;
+
+    // 2. Remove "user=" prefix
+    let value = raw.substring('user='.length);
+
+    // 3. Decode if URI encoded (sometimes cookies are saved encoded)
+    let decoded = decodeURIComponent(value);
+
+    // 4. Sometimes cookies are prefixed with "j:" or wrapped in quotes → clean it
+    if (decoded.startsWith('j:')) decoded = decoded.slice(2);
+    if ((decoded.startsWith('"') && decoded.endsWith('"')) || (decoded.startsWith("'") && decoded.endsWith("'"))) {
+      decoded = decoded.slice(1, -1);
+    }
+
+    // 5. Parse string → object
+    const parsed = JSON.parse(decoded);
+
+    // 6. Get role object
+    const roleObj = parsed?.role ?? parsed;
+    if (!roleObj) return undefined;
+
+    // 7. If role is a string → return directly
+    if (typeof roleObj === 'string') return roleObj.toUpperCase();
+
+    // 8. If role is object → prefer "code", fallback to "name"
+    if (typeof roleObj === 'object') {
+      if (roleObj.code) return String(roleObj.code).toUpperCase();
+      if (roleObj.name) return String(roleObj.name).toUpperCase();
+    }
+  } catch (err) {
+    // ignore parse errors
+  }
+  return undefined;
+};
+
   // Define RootState type or import it from your store typings
   interface RootState {
     ui: {
@@ -150,15 +195,26 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
   const isInboxOpen = useSelector((state: RootState) => state.ui.isInboxOpen); // Get inbox state from Redux
 
   useEffect(() => {
-    setRoleConfig(getRoleConfig(userRole || "SHO"));
-  }, [userRole]);
+    // prefer cookie-derived role when available (role code or name), fallback to auth sync role
+    const effective = cookieRole || userRole || "SHO";
+    // roleConfig is derived from cookie; function no longer takes a parameter
+    setRoleConfig(getRoleConfig());
+  }, [userRole, cookieRole]);
+
+  useEffect(() => {
+    // read cookie role once on mount (client-side only)
+    if (typeof window !== 'undefined') {
+      const r = getUserRoleFromCookie();
+      if (r) setCookieRole(r);
+    }
+  }, []);
 
   useEffect(() => {
     if (showSidebar) setVisible(true);
     else setTimeout(() => setVisible(false), 400);
   }, [showSidebar]);
 
-  const handleMenuClick = useCallback((item: { name: string; childs?: { name: string }[] }) => {
+  const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[] }) => {
     if (item.name.toLowerCase() !== "inbox") {
       dispatch(closeInbox()); // Close the inbox if another menu item is clicked
     }
@@ -169,6 +225,15 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
       localStorage.setItem("activeNavItem", item.name);
       // Robust special-case routing for freshform, finaldisposal, myreports, closed, and sent
       const normalizedName = item.name.replace(/\s+/g, '').toLowerCase();
+
+      // Kick off fetch to /application-form using mapped status IDs when available
+      try {
+        const statusIds = statusIdMap[normalizedName as keyof typeof statusIdMap];
+        if (statusIds && statusIds.length) {
+          // Fire and forget; consumers can switch to a page that reads from a store later.
+          ApplicationApi.getByStatuses(statusIds).catch(() => {});
+        }
+      } catch {}
       if (normalizedName === "freshform") {
         router.replace("/freshform");
       } else if (normalizedName === "finaldisposal") {
@@ -189,11 +254,18 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch]);
 
-  const handleInboxSubItemClick = useCallback((subItem: string) => {
+  const handleInboxSubItemClick = useCallback(async (subItem: string) => {
     setActiveItem(`inbox-${subItem}`);
     localStorage.setItem("activeNavItem", `inbox-${subItem}`);
     router.replace(`/inbox/${subItem}`); // Use replace to avoid full page refresh
     dispatch(openInbox()); // Ensure the inbox menu remains open
+    // Fetch by statuses for inbox subitems
+    try {
+      const statusIds = statusIdMap[subItem as keyof typeof statusIdMap];
+      if (statusIds && statusIds.length) {
+        ApplicationApi.getByStatuses(statusIds).catch(() => {});
+      }
+    } catch {}
   }, [router, dispatch]);
 
   const handleLogout = useCallback(async () => {
@@ -204,10 +276,11 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
     router.push("/login");
   }, [dispatch, router, token]);
 
-  // Update menuItems logic with type casting
+  // Update menuItems logic with type casting and guards
   const menuItems = useMemo(() => {
-    return (roleConfig.menuItems || []).map((item) => {
-      const key = item.name as MenuMetaKey; // Cast to MenuMetaKey
+    const items = roleConfig?.menuItems ?? [];
+    return items.map((item) => {
+      const key = item.name as MenuMetaKey;
       return {
         name: item.name,
         label: menuMeta[key]?.label || item.name,
@@ -226,7 +299,9 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
 
   if (!visible && !showSidebar) return null;
   // Only render sidebar if allowed role
-  if (!userRole) return null;
+  // determine effective role used for rendering checks
+  const effectiveRole = cookieRole || userRole;
+  if (!effectiveRole) return null;
 
   return (
     <>
@@ -249,12 +324,12 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
               <circle cx="12" cy="7" r="4" />
             </svg>
           </span>
-          <span className="font-bold">{roleConfig.dashboardTitle}</span>
+          <span className="font-bold">{roleConfig?.dashboardTitle ?? "Dashboard"}</span>
         </div>
         <nav className="flex-1 overflow-y-auto py-2 px-2">
           <ul className="space-y-1">
             {/* Collapsible Inbox Section */}
-            {userRole !== 'ADMIN' && (
+            {effectiveRole !== 'ADMIN' && (
               <li>
                 <button
                   type="button"
@@ -302,7 +377,7 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
                 ))}
             </ul>
             {/* Add Flow Mapping menu item for ADMIN users */}
-            {user.role === "ADMIN" && (
+            {effectiveRole === "ADMIN" && (
               <li>
                 <a href="/admin/flow-mapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
                   <ChartBarIcon className="w-5 h-5" />

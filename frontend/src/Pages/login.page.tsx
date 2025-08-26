@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { setCookie } from 'cookies-next';
+import { setCookie, getCookie } from 'cookies-next';
 import { getAuthToken } from '../config/authenticatedApiClient';
 import armsLogo from '/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg';
 import policeLogo from '/assets/ps_logo.png';
-import { ToastContainer, toast } from 'react-toastify';
+// import { ToastContainer, toast } from 'react-toastify';
 import { setAuthToken, postData } from '../api/axiosConfig';
 import { isAuthCookieValid } from '../utils/authCookies';
 
@@ -23,6 +23,37 @@ const Login = () => {
         if (token && location.pathname.startsWith('/login')) navigate('/dashboard');
     }, []);
 
+    // Cookie snapshot helpers (used to detect external cookie changes on refresh)
+    const COOKIE_SNAPSHOT_KEY = 'auth_cookie_snapshot_v1';
+
+    function saveCookieSnapshot(snapshot: Record<string, any>) {
+        try {
+            if (typeof window === 'undefined') return;
+            window.localStorage.setItem(COOKIE_SNAPSHOT_KEY, JSON.stringify(snapshot));
+        } catch (e) {
+            console.warn('Failed to save cookie snapshot', e);
+        }
+    }
+
+    function removeCookieSnapshot() {
+        try {
+            if (typeof window === 'undefined') return;
+            window.localStorage.removeItem(COOKIE_SNAPSHOT_KEY);
+        } catch (e) {
+            console.warn('Failed to remove cookie snapshot', e);
+        }
+    }
+
+    function clearAllAuthCookies() {
+        try {
+            setCookie('auth', '', { maxAge: 0, path: '/' });
+            setCookie('user', '', { maxAge: 0, path: '/' });
+            setCookie('role', '', { maxAge: 0, path: '/' });
+        } catch (e) {
+            console.warn('Failed to clear auth cookies', e);
+        }
+    }
+
     // All API calls are centralized through src/api/axiosConfig.ts
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +68,7 @@ const Login = () => {
             });
 
             if (!response.isSuccess) {
-                toast.error('Invalid credentials!');
+                console.error('Invalid credentials!');
                 return;
             }
 
@@ -59,16 +90,21 @@ const Login = () => {
                         // Validate cookies (auth, user, role) before redirecting.
                         const ok = isAuthCookieValid();
                         if (ok) {
-                            toast.success('Successfully logged in!');
+                            // Save snapshot for refresh-time detection
+                            saveCookieSnapshot({ auth: 
+                                getCookie('auth') ?? null, user: getCookie('user') ?? null, role: getCookie('role') ?? null });
+                            console.log('Successfully logged in!');
                             navigate('/dashboard');
                         } else {
-                            // Keep user on login page and show an actionable message
-                            toast.error('Login did not produce required auth cookies. Please try again or contact admin.');
+                            // Clear any partial/invalid cookies and snapshot, keep user on login page and show guidance
+                            clearAllAuthCookies();
+                            removeCookieSnapshot();
+                            console.error('Login did not produce required auth cookies. Please try again or contact admin.');
                         }
         } catch (err) {
             console.error(err);
             setError('An unexpected error occurred');
-            toast.error('An unexpected error occurred');
+            console.error('An unexpected error occurred');
         } finally {
             setLoading(false);
         }

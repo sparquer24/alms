@@ -1,7 +1,7 @@
-import { FC, Suspense, lazy } from 'react';
+import { FC, JSX, Suspense, lazy } from 'react';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import jsCookie from 'js-cookie';
-import { setAuthToken } from './axiosConfig';
+import { setAuthToken } from './api/axiosConfig';
 import DashboardPage from './Pages/dashboard.page';
 import Login from './Pages/login.page';
 import NotFound from './Pages/NotFound';
@@ -12,7 +12,7 @@ import Header from './components/Header';
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   // const dispatch = useAppDispatch();
 
-  const token = jsCookie.get('token');
+  const token = jsCookie.get('auth');
   const user = token ? JSON.parse(jsCookie.get('user') as string) : null;
   const userGroup = user ? user["cognito:groups"]?.[0] : null;
 

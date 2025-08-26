@@ -1,9 +1,8 @@
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
 import { Provider } from 'react-redux';
-import { ToastContainer } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'react-toastify/dist/ReactToastify.css'; // Import the CSS
 import AppRoutes from './routes';
+import { JSX } from 'react';
 
 // Create a wrapper component for conditional rendering of Header and Footer
 const Layout = ({ children }: { children: JSX.Element }) => {

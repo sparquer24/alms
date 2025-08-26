@@ -13,10 +13,17 @@ function getAuthFromCookie() {
     let authData: any = null;
 
     try {
+      // First try to parse as JSON
       authData = JSON.parse(raw);
     } catch (e) {
-      // Not JSON — treat as token-only
-      authData = { token: raw, isAuthenticated: true };
+      // If parsing fails, check if it's a JWT token
+      if (raw.startsWith('eyJhbGciOi')) {
+        // It's a JWT token, create minimal auth data
+        authData = { token: raw, isAuthenticated: true };
+      } else {
+        // Not JSON or JWT — treat as token-only
+        authData = { token: raw, isAuthenticated: true };
+      }
     }
 
     // Accept partial auth cookie (token + user info) and mark as valid if token exists

@@ -5,8 +5,6 @@ import "./globals.css";
 import { AuthProvider } from "../config/auth";
 import { LayoutProvider } from "../config/layoutContext";
 import { NotificationProvider } from "../config/notificationContext";
-import MockNotificationService from "../config/mockWebSocketService";
-import ProductionWebSocketService from "../config/productionWebSocketService";
 import { useState, useEffect } from "react";
 import { Provider } from 'react-redux';
 import { store } from '../store/store';
@@ -52,11 +50,7 @@ export default function RootLayout({
             <AuthProvider>
               <LayoutProvider>
                 <NotificationProvider>
-                  {isDev ? (
-                    <MockNotificationService />
-                  ) : (
-                    <ProductionWebSocketService />
-                  )}
+                  {/* WebSocket services removed */}
                   <AdminAuthProvider>
                     <UserProvider>
                       {children}
