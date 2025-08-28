@@ -16,18 +16,18 @@ export default function FreshFormPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isLoading, setIsLoading] = useState(true);  const [showNewForm, setShowNewForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); const [showNewForm, setShowNewForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [processingBulkAction, setProcessingBulkAction] = useState(false);  const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
+  const [processingBulkAction, setProcessingBulkAction] = useState(false); const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
   const { isAuthenticated, userRole, isLoading: authLoading } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   // Dropdown state
   const [showDropdown, setShowDropdown] = useState(false);
-  
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login');
@@ -55,7 +55,7 @@ export default function FreshFormPage() {
       setShowNewForm(true);
     }
   }, [searchParams]);
-  
+
   useEffect(() => {
     // Hide header and sidebar on the Create Fresh Application page when form is shown
     if (showNewForm) {
@@ -65,7 +65,7 @@ export default function FreshFormPage() {
       setShowHeader(true);
       setShowSidebar(true);
     }
-    
+
     return () => {
       // Reset visibility when unmounting
       setShowHeader(true);
@@ -106,16 +106,16 @@ export default function FreshFormPage() {
   const handleSubmitApplication = (newApplication: ApplicationData) => {
     // In a real app, this would be an API call to save the application
     console.log('New application submitted:', newApplication);
-    
+
     // Add new application to the mockApplications array
     mockApplications.unshift(newApplication);
-    
+
     // Show success message
     setSuccessMessage(`Application ${newApplication.id} has been successfully submitted`);
-    
+
     // Hide the form
     setShowNewForm(false);
-    
+
     // Clear success message after 5 seconds
     setTimeout(() => {
       setSuccessMessage(null);
@@ -131,13 +131,13 @@ export default function FreshFormPage() {
     }
 
     setProcessingBulkAction(true);
-    
+
     try {
       if (exportType === 'individual') {
         // Generate individual PDFs
         let successCount = 0;
         let errorCount = 0;
-        
+
         // Generate PDFs sequentially to avoid browser performance issues
         for (const app of filteredApplications) {
           try {
@@ -148,7 +148,7 @@ export default function FreshFormPage() {
             errorCount++;
           }
         }
-        
+
         // Show appropriate message
         if (errorCount === 0) {
           setSuccessMessage(`Successfully generated ${successCount} individual PDF files`);
@@ -168,7 +168,7 @@ export default function FreshFormPage() {
       setErrorMessage("Failed to generate PDF(s)");
     } finally {
       setProcessingBulkAction(false);
-      
+
       // Clear message after 5 seconds
       setTimeout(() => {
         setSuccessMessage(null);
@@ -188,19 +188,19 @@ export default function FreshFormPage() {
     try {
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
-      
+
       if (!printWindow) {
         setErrorMessage("Pop-up blocked. Please allow pop-ups to print the report.");
         setTimeout(() => setErrorMessage(null), 5000);
         return;
       }
-      
+
       // Get the HTML content for the report
       const reportHTML = getBatchReportHTML(
         filteredApplications,
         `Fresh Applications Report (${filteredApplications.length} applications)`
       );
-      
+
       // Write the HTML content to the new window
       printWindow.document.open();
       printWindow.document.write(`
@@ -222,7 +222,7 @@ export default function FreshFormPage() {
         </html>
       `);
       printWindow.document.close();
-      
+
       setSuccessMessage('Print dialog opened in a new window');
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (error) {
@@ -252,7 +252,7 @@ export default function FreshFormPage() {
 
   return (
     <div
-      className="flex min-h-screen w-screen min-w-0 font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative"
+      className="flex font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative "
     >
       <Sidebar />
       <Header
@@ -264,17 +264,20 @@ export default function FreshFormPage() {
         onShowMessage={handleShowMessage}
       />
 
-      <main className={`flex-1 min-w-0 p-8 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-10 overflow-y-auto`}> 
-        <div className="rounded-xl shadow-lg w-full min-w-0 p-0 md:p-6">
-          <div className="flex justify-between items-center mb-6">
-            {/* Search bar and filters will be here (already present) */}
-          </div>
+      <main className={`flex-1 min-w-0 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-10 overflow-y-auto `}>
+        <div className="rounded-xl shadow-lg ">
+          {/* <div className="flex justify-between items-center">
+            Search bar and filters will be here (already present)
+          </div> */}
+          <h1 className="text-blue-900 text-center font-bold text-2xl rounded-lg mt-4 ">
+            Fresh Application Form
+          </h1>
           <div className="flex space-x-2">
             {!showNewForm && filteredApplications.length > 0 && (
               <div className="flex items-center space-x-2">
                 {/* Export options */}
                 <div className="relative inline-block">
-                  <select 
+                  <select
                     className="px-3 py-2 bg-gray-100 text-gray-800 rounded-md border border-gray-300 appearance-none pr-8"
                     value={reportType}
                     onChange={(e) => setReportType(e.target.value as 'individual' | 'batch')}
@@ -289,7 +292,7 @@ export default function FreshFormPage() {
                     </svg>
                   </div>
                 </div>
-                
+
                 {/* PDF Export Button */}
                 <button
                   className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
@@ -313,7 +316,7 @@ export default function FreshFormPage() {
                     </>
                   )}
                 </button>
-                
+
                 {/* Print Button */}
                 <button
                   className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
@@ -352,7 +355,7 @@ export default function FreshFormPage() {
               </div>
             </div>
           )}
-          
+
           {showNewForm ? (
             // Display the form for creating a new application
             <FreshApplicationForm
