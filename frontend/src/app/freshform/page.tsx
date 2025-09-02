@@ -35,7 +35,7 @@ export default function FreshFormPage() {
     }
     // Check if the user has permission to view fresh forms
     const roleConfig = getRoleConfig(userRole);
-    if (!roleConfig.permissions.includes('canViewFreshForm')) {
+    if (!roleConfig || !roleConfig.permissions.includes('canViewFreshForm')) {
       // Redirect to dashboard or show access denied
       router.push('/');
       return;
@@ -390,12 +390,14 @@ export default function FreshFormPage() {
                 <p className="text-gray-600">
                   Showing {filteredApplications.length} fresh application form(s)
                 </p>
+             
               </div>
 
               {/* Display the application table */}
               <ApplicationTable
+                // applications={filteredApplications}
+                // isLoading={isLoading}
                 applications={filteredApplications}
-                isLoading={isLoading}
               />
             </>
           )}

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApplicationData } from '../config/mockData';
 import styles from './ApplicationTable.module.css';
+import { useApplications } from '../context/ApplicationContext';
 import { generateApplicationPDF } from '../config/pdfUtils';
 import BatchProcessingModal from './BatchProcessingModal';
 import { useAuth } from '../config/auth';
@@ -17,10 +18,21 @@ interface UserData {
 
 interface ApplicationTableProps {
   users?: UserData[];
-  applications?: ApplicationData[];
   isLoading?: boolean;
   statusIdFilter?: string;
+  applications?: ApplicationData[]; // Applications prop for backward compatibility
+  filteredApplications?: ApplicationData[]; // Optional filtered applications list
 }
+
+const getStatusValue = (status: any): string => {
+  if (typeof status === 'string') {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+  if (status && typeof status === 'object' && status.name) {
+    return status.name.charAt(0).toUpperCase() + status.name.slice(1);
+  }
+  return 'Unknown';
+};
 
 const getStatusPillClass = (status: string) => {
   const statusClasses: Record<string, string> = {
@@ -30,12 +42,19 @@ const getStatusPillClass = (status: string) => {
     rejected: 'bg-[#EF4444] text-white',
     'red-flagged': 'bg-[#DC2626] text-white',
     returned: 'bg-orange-400 text-white',
-    disposed: 'bg-gray-400 text-white',
+    disposed: 'bg-gray-400 text-gray-800',
+    unknown: 'bg-gray-200 text-gray-800',
   };
-  return statusClasses[status] || 'bg-gray-200 text-gray-800';
+  return statusClasses[status.toLowerCase()] || 'bg-gray-200 text-gray-800';
 };
 
-const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, isLoading = false, statusIdFilter }) => {
+const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, filteredApplications, isLoading = false, statusIdFilter }) => {
+  // Get applications from context
+  const { applications: contextApplications } = useApplications();
+  
+  // Use applications in this order: filtered -> prop -> context -> empty array
+  const effectiveApplications = filteredApplications || applications || contextApplications || [];
+
   const router = useRouter();
   const [generatingPDF, setGeneratingPDF] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -84,13 +103,13 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
 
   const toggleSelectAll = useCallback(() => {
     setSelectedItems(prev => {
-      if (prev.size === (applications?.length || 0)) {
+      if (prev.size === effectiveApplications.length) {
         return new Set();
       } else {
-        return new Set(applications?.map(app => app.id));
+        return new Set(effectiveApplications.map(app => app.id));
       }
     });
-  }, [applications]);
+  }, [effectiveApplications]);
 
   const handleOpenBatchModal = useCallback(() => {
     if (selectedItems.size === 0) {
@@ -100,6 +119,10 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
     }
     setIsBatchModalOpen(true);
   }, [selectedItems]);
+
+  const selectedApps = useMemo(() => {
+    return effectiveApplications.filter(app => selectedItems.has(app.id));
+  }, [effectiveApplications, selectedItems]);
 
   const handleProcessBatch = useCallback(async (action: string, selectedApps: ApplicationData[], comment: string) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -113,16 +136,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
     return date.toLocaleString();
   }, []);
 
-  const filteredApplications = useMemo(() => {
-    return statusIdFilter && applications
-      ? applications.filter(app => String(app.status_id) === statusIdFilter)
-      : applications;
-  }, [applications, statusIdFilter]);
-
-  const selectedApps = useMemo(() => {
-    return filteredApplications?.filter(app => selectedItems.has(app.id)) || [];
-  }, [filteredApplications, selectedItems]);
-
   if (isLoading) {
     return (
       <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
@@ -133,14 +146,14 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
     );
   }
 
-  if (!filteredApplications || filteredApplications.length === 0) {
+  if (!effectiveApplications || effectiveApplications.length === 0) {
     return (
       <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
         <div className={styles.emptyState}>No applications found matching your criteria.</div>
       </div>
     );
   }
-
+  
   return (
     <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
       {/* Display messages */}
@@ -163,15 +176,17 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
 
       <div className="w-full overflow-x-auto min-w-0">
         <table className="w-full table-auto">
+
+
           <thead className="bg-gray-50 sticky top-0 z-10">
             <TableHeader
-              applications={applications}
+              applications={effectiveApplications}
               selectedItems={selectedItems}
               toggleSelectAll={toggleSelectAll}
             />
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredApplications.map((app, index) => (
+            {effectiveApplications.map((app, index) => (
               <TableRow
                 key={app.id}
                 app={app}
@@ -241,7 +256,7 @@ const BatchOperationsBar: React.FC<{ selectedCount: number; onClearSelection: ()
   </div>
 );
 
-const TableHeader: React.FC<{ applications?: ApplicationData[]; selectedItems: Set<string>; toggleSelectAll: () => void }> = ({ applications, selectedItems, toggleSelectAll }) => (
+const TableHeader: React.FC<{ applications: ApplicationData[]; selectedItems: Set<string>; toggleSelectAll: () => void }> = ({ applications, selectedItems, toggleSelectAll }) => (
   <tr>
     <th scope="col" className="px-4 py-3 text-center">
       <input 
@@ -337,11 +352,11 @@ const TableRow: React.FC<{
     <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{formatDateTime(app.applicationDate)}</td>
     <td className="px-6 py-4 whitespace-nowrap">
       <span
-        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusPillClass(app.status)}`}
-        title={`Status: ${app.status.charAt(0).toUpperCase() + app.status.slice(1)}`}
-        aria-label={`Status: ${app.status}`}
+        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusPillClass(getStatusValue(app.status))}`}
+        title={`Status: ${getStatusValue(app.status)}`}
+        aria-label={`Status: ${getStatusValue(app.status)}`}
       >
-        {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+        {getStatusValue(app.status)}
       </span>
     </td>
     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>

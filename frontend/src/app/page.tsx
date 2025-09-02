@@ -10,16 +10,24 @@ import { useAuthSync } from "../hooks/useAuthSync";
 import { shouldRedirectOnStartup } from "../config/roleRedirections";
 import { useLayout } from "../config/layoutContext";
 import { filterApplications, ApplicationData } from "../config/mockData";
+import { useApplications } from "../context/ApplicationContext";
 import { ApplicationApi } from '../config/APIClient';
+import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [applications, setApplications] = useState<ApplicationData[]>([]);
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
+  const { applications, setApplications } = useApplications();
   const { isAuthenticated, isLoading, userRole } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
+  
+  // Debug logging
+  console.log('Home page - applications from context:', applications);
+  console.log('Home page - applications length:', applications?.length);
+  console.log('Home page - applications type:', typeof applications);
 
   useEffect(() => {
     // Only redirect if we're done loading and user is not authenticated
@@ -43,22 +51,50 @@ export default function Home() {
     // Show header and sidebar on the Application Table page
     setShowHeader(true);
     setShowSidebar(true);
-
-    // Load applications from API
-    const load = async () => {
-      try {
-        const res = await ApplicationApi.getAll();
-        // APIClient returns ApiResponse<T> shape (statusCode, body, success, message)
-        // Prefer `body` if present, otherwise fall back to any direct array/data returned by the client
-        const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
-        setApplications(apps as ApplicationData[]);
-      } catch (err) {
-        console.error('Failed to load applications:', err);
-        setApplications([]);
-      }
-    };
-    load();
   }, [setShowHeader, setShowSidebar]);
+
+  // Fetch initial data if context is empty and we haven't loaded data yet
+  useEffect(() => {
+    if (isAuthenticated && !hasLoadedInitialData) {
+      const loadInitialData = async () => {
+        try {
+          console.log('Loading initial data for home page...');
+          console.log('Current applications length:', applications.length);
+          console.log('Current isAuthenticated:', isAuthenticated);
+          
+          // Use ApplicationApi.getAll() without parameters to get all applications
+          // This matches the API structure that the Sidebar uses
+          const response = await ApplicationApi.getAll();
+          console.log('Initial API Response:', response);
+          console.log('Initial API Response type:', typeof response);
+          console.log('Initial API Response keys:', response ? Object.keys(response) : 'No response');
+          
+          // Extract the data array from the response
+          const apiApplications = response?.data || [];
+          console.log('Initial extracted apiApplications:', apiApplications);
+          console.log('Initial extracted apiApplications type:', typeof apiApplications);
+          console.log('Initial extracted apiApplications isArray:', Array.isArray(apiApplications));
+          
+          if (apiApplications && Array.isArray(apiApplications)) {
+            console.log('Initial API applications:', apiApplications);
+            
+            // Convert API applications to table format using the same mapper as Sidebar
+            const tableData = apiApplications.map(app => mapAPIApplicationToTableData(app));
+            console.log('Initial converted table data:', tableData);
+            
+            if (tableData.length > 0) {
+              setApplications(tableData);
+              setHasLoadedInitialData(true);
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load initial applications:', err);
+        }
+      };
+      
+      loadInitialData();
+    }
+  }, [isAuthenticated, setApplications, hasLoadedInitialData]); // Added hasLoadedInitialData to prevent multiple API calls
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -93,6 +129,10 @@ export default function Home() {
     );
   }
 
+  // Debug logging before render
+  console.log('Home page: About to render with applications:', applications);
+  console.log('Home page: About to render with applications length:', applications?.length);
+  
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />

@@ -29,11 +29,26 @@ export default function SentPage() {
     const load = async () => {
       try {
         const res = await ApplicationApi.getAll();
-  const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
-  // Filter to sent status and store
-  const sentApps = (apps as any[]).filter(a => a.status === 'sent');
-  setApplications(sentApps as ApplicationData[]);
-  setIsLoading(false);
+        console.log('API Response (sent page):', res);
+        
+        // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
+        // We need to access the 'data' property
+        let apps: any[] = [];
+        if (res && typeof res === 'object') {
+          if (res.data && Array.isArray(res.data)) {
+            apps = res.data;
+          } else if (res.body && Array.isArray(res.body)) {
+            apps = res.body;
+          } else if (Array.isArray(res)) {
+            apps = res;
+          }
+        }
+        
+        // Filter to sent status and store
+        const sentApps = apps.filter(a => a.status === 'sent');
+        console.log('Extracted sent applications:', sentApps);
+        setApplications(sentApps as ApplicationData[]);
+        setIsLoading(false);
         // Put sent apps into local state by setting a variable used by render
         // We'll reuse filteredApplications computation below by temporarily assigning to mock source
         // For now, store sentApps on a ref-like variable via closure

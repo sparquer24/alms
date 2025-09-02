@@ -11,6 +11,7 @@ import { store } from '../store/store';
 import { AdminAuthProvider } from "../context/AdminAuthContext";
 import { AuthInitializer } from "../components/AuthInitializer";
 import { UserProvider } from "../context/UserContext";
+import { ApplicationProvider } from "../context/ApplicationContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,7 +54,9 @@ export default function RootLayout({
                   {/* WebSocket services removed */}
                   <AdminAuthProvider>
                     <UserProvider>
-                      {children}
+                      <ApplicationProvider>
+                        {children}
+                      </ApplicationProvider>
                     </UserProvider>
                   </AdminAuthProvider>
                 </NotificationProvider>

@@ -129,28 +129,30 @@ export const AuthApi = {
 /**
  * Application API client - All endpoints require authentication
  */
+import { Application } from '../types/application';
+
 export const ApplicationApi = {
-  getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<any>> => {
+  getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
     try {
-      return await apiClient.get('/application-form', params);
+      return await apiClient.get('/application-form', { params });
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;
     }
   },
 
-  getById: async (id: string): Promise<ApiResponse<any>> => {
+  getById: async (id: string): Promise<ApiResponse<Application>> => {
     try {
-      return await apiClient.get(`/applications/${id}`);
+      return await apiClient.get(`/application-form/${id}`);
     } catch (error) {
       console.error('Error getting application by ID:', error);
       throw error;
     }
   },
 
-  create: async (params: CreateApplicationParams): Promise<ApiResponse<any>> => {
+  create: async (params: CreateApplicationParams): Promise<ApiResponse<Application>> => {
     try {
-      return await apiClient.post('/applications', params);
+      return await apiClient.post('/application-form', params);
     } catch (error) {
       console.error('Error creating application:', error);
       throw error;
