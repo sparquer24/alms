@@ -6,7 +6,9 @@ import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import { useAuthSync } from '../../../hooks/useAuthSync';
 import { useLayout } from '../../../config/layoutContext';
-import { mockApplications, ApplicationData } from '../../../config/mockData';
+import { ApplicationData } from '../../../config/mockData';
+import { getApplicationById } from '../../../services/applicationFormService';
+import { mapAPIApplicationToTableData } from '../../../utils/applicationMapper';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
@@ -78,18 +80,20 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [setShowHeader, setShowSidebar]);
   
   useEffect(() => {
-    // In a real application, this would be an API call
-    const fetchApplication = () => {
+    const fetchApplication = async () => {
       setLoading(true);
-      setTimeout(() => {
-        // Access the id directly from params
-        const id = applicationId;
-        const app = mockApplications.find(app => app.id === id);
-        setApplication(app || null);
+      try {
+        const apiApp = await getApplicationById(applicationId);
+        // mapAPIApplicationToTableData expects API shape; if already mapped, guard minimal fields
+        const mapped: ApplicationData = mapAPIApplicationToTableData(apiApp as any);
+        setApplication(mapped);
+      } catch (e) {
+        console.error('Failed to load application', e);
+        setApplication(null);
+      } finally {
         setLoading(false);
-      }, 500); // Simulate network delay
+      }
     };
-
     fetchApplication();
   }, [applicationId]);
   

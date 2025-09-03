@@ -56,7 +56,19 @@ export interface ApplicationData {
 }
 
 // Remove mock applications for production usage. Export an empty list.
-export const mockApplications: ApplicationData[] = [];
+export const mockApplications: ApplicationData[] = [
+  {
+    id: "1",
+    applicantName: "John Doe",
+    applicantMobile: "1234567890",
+    applicationType: "New",
+    applicationDate: "2023-01-01",
+    status: "pending",
+    status_id: 1,
+    assignedTo: "user1",
+    lastUpdated: "2023-01-01",
+  }
+];
 
 // Helper function to filter applications based on search query and date range
 export const filterApplications = (

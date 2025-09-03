@@ -6,13 +6,17 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../config/mockData';
+import { filterApplications, ApplicationData } from '../../config/mockData';
+import { fetchMappedApplications } from '../../services/fetchAndMapApplications';
+import { normalizeRouteStatus } from '../../utils/statusNormalize';
 
 export default function FinalDisposalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
 
@@ -23,10 +27,19 @@ export default function FinalDisposalPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
+    const load = async () => {
+      try {
+        const canonical = normalizeRouteStatus('finaldisposal') || 'final_disposal';
+        // Include approved in case backend uses that
+        const data = await fetchMappedApplications([canonical, 'approved']);
+        setApplications(data);
+      } catch (e) {
+        setError('Failed to load final disposal applications');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
   }, []);
 
   const handleSearch = (query: string) => {
@@ -46,7 +59,7 @@ export default function FinalDisposalPage() {
 
   // Filter applications based on final disposal status and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'final'),
+    applications,
     searchQuery,
     startDate,
     endDate
@@ -79,16 +92,16 @@ export default function FinalDisposalPage() {
           )}
 
           {/* Show application count */}
-          <div className="mb-6">
-            <p className="text-gray-600">
-              Showing {filteredApplications.length} finalized application(s)
-            </p>
+          <div className="mb-6 flex items-center justify-between text-sm text-gray-600">
+            <p>Showing {filteredApplications.length} finalized application(s)</p>
+            {error && <span className="text-red-600">{error}</span>}
           </div>
 
           {/* Display the application table */}
           <ApplicationTable
             applications={filteredApplications}
             isLoading={isLoading}
+            error={error}
           />
         </div>
       </main>

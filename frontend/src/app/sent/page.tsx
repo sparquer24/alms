@@ -7,7 +7,8 @@ import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
 import { filterApplications, ApplicationData } from '../../config/mockData';
-import { ApplicationApi } from '../../config/APIClient';
+import { fetchMappedApplications } from '../../services/fetchAndMapApplications';
+import { normalizeRouteStatus, toDisplayStatus } from '../../utils/statusNormalize';
 
 export default function SentPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,36 +26,14 @@ export default function SentPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Load applications from API and filter to "sent"
     const load = async () => {
       try {
-        const res = await ApplicationApi.getAll();
-        console.log('API Response (sent page):', res);
-        
-        // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
-        // We need to access the 'data' property
-        let apps: any[] = [];
-        if (res && typeof res === 'object') {
-          if (res.data && Array.isArray(res.data)) {
-            apps = res.data;
-          } else if (res.body && Array.isArray(res.body)) {
-            apps = res.body;
-          } else if (Array.isArray(res)) {
-            apps = res;
-          }
-        }
-        
-        // Filter to sent status and store
-        const sentApps = apps.filter(a => a.status === 'sent');
-        console.log('Extracted sent applications:', sentApps);
-        setApplications(sentApps as ApplicationData[]);
-        setIsLoading(false);
-        // Put sent apps into local state by setting a variable used by render
-        // We'll reuse filteredApplications computation below by temporarily assigning to mock source
-        // For now, store sentApps on a ref-like variable via closure
-        // Simpler: set a local global-level variable via window (temporary) - but instead we'll use a state
+        const canonical = normalizeRouteStatus('sent') || 'sent';
+        const mapped = await fetchMappedApplications(canonical);
+        setApplications(mapped as ApplicationData[]);
       } catch (err) {
         console.error('Failed to load sent applications:', err);
+      } finally {
         setIsLoading(false);
       }
     };
@@ -96,7 +75,7 @@ export default function SentPage() {
 
       <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">
-          <h1 className="text-2xl font-bold mb-6">Sent Applications</h1>
+          <h1 className="text-2xl font-bold mb-6">{toDisplayStatus('sent')} Applications</h1>
           
           {/* Display search and filter information if applied */}
           {(searchQuery || startDate || endDate) && (

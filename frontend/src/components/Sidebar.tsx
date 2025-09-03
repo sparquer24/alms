@@ -7,15 +7,14 @@ import { useAuthSync } from "../hooks/useAuthSync";
 import { useLayout } from "../config/layoutContext";
 import { menuMeta, MenuMetaKey } from "../config/menuMeta";
 import { getRoleConfig } from "../config/roles";
-import { statusIdMap } from "../config/statusMap";
+import { statusIdMap, resolveStatusParam } from "../config/statusMap";
+import { normalizeRouteStatus } from "../utils/statusNormalize";
 import { HamburgerButton } from "./HamburgerButton";
-import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
-import { APIApplication } from "../types/api";
 import { useApplications } from "../context/ApplicationContext";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
-import { getApplicationsByStatus } from "../services/applicationFormService";
+import { getApplicationsByStatuses } from "../services/applicationFormService";
 
 // Mock implementation for useUserContext if unavailable
 const useUserContext = () => ({ user: { role: "USER" } });
@@ -216,32 +215,33 @@ const getUserRoleFromCookie = () => {
     setRoleConfig(getRoleConfig(effective));
   }, [userRole, cookieRole]);
 
+  const [countsLoaded, setCountsLoaded] = useState(false);
   useEffect(() => {
-    // Fetch applications for each status when the sidebar is visible
-    const fetchApplicationCounts = async () => {
+    if (!visible || countsLoaded || cookieRole?.includes('ADMIN')) return;
+    let cancelled = false;
+    (async () => {
       try {
-        const [forwarded, returned, redFlagged, disposed] = await Promise.all([
-          getApplicationsByStatus(statusIdMap.forwarded?.[0] || 'FORWARDED'),
-          getApplicationsByStatus(statusIdMap.returned?.[0] || 'RETURNED'),
-          getApplicationsByStatus(statusIdMap.redFlagged?.[0] || 'RED_FLAGGED'),
-          getApplicationsByStatus(statusIdMap.disposed?.[0] || 'DISPOSED'),
-        ]);
+        // Fetch all four statuses in one request (comma-separated) to reduce round trips
+        const multi = await getApplicationsByStatuses([
+          resolveStatusParam('forwarded'),
+          resolveStatusParam('returned'),
+          resolveStatusParam('redFlagged'),
+          resolveStatusParam('disposed'),
+        ].filter(Boolean) as string[]);
 
-        setApplicationCounts({
-          forwardedCount: forwarded.length,
-          returnedCount: returned.length,
-          redFlaggedCount: redFlagged.length,
-          disposedCount: disposed.length,
-        });
-      } catch (error) {
-        console.error('Error fetching application counts:', error);
-      }
-    };
-
-    if (visible && !cookieRole?.includes('ADMIN')) {
-      fetchApplicationCounts();
-    }
-  }, [visible, cookieRole]);
+        // Derive counts client-side (fallback; if backend later supports grouped counts endpoint replace this logic)
+        const lc = (v: any) => String(v?.status?.code || v?.status || '').toLowerCase();
+        const forwardedCount = multi.filter(a => ['forward','forwarded'].includes(lc(a))).length;
+        const returnedCount = multi.filter(a => lc(a) === 'returned').length;
+        const redFlaggedCount = multi.filter(a => ['red_flagged','flagged'].includes(lc(a))).length;
+        const disposedCount = multi.filter(a => lc(a) === 'disposed').length;
+        if (cancelled) return;
+        setApplicationCounts({ forwardedCount, returnedCount, redFlaggedCount, disposedCount });
+        setCountsLoaded(true);
+      } catch (e) { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [visible, countsLoaded, cookieRole]);
 
   useEffect(() => {
     // read cookie role once on mount (client-side only)
@@ -269,15 +269,7 @@ const getUserRoleFromCookie = () => {
       const normalizedName = item.name.replace(/\s+/g, '').toLowerCase();
 
       // Kick off fetch to /application-form using mapped status
-      try {
-        const statusIds = statusIdMap[normalizedName as keyof typeof statusIdMap];
-        if (statusIds?.[0]) {
-          // Fire and forget; consumers can switch to a page that reads from a store later.
-          await getApplicationsByStatus(statusIds[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
+  // (Removed eager fetch; page-level fetch handles data loading now)
 
       if (normalizedName === "freshform") {
         router.replace("/freshform");
@@ -299,100 +291,17 @@ const getUserRoleFromCookie = () => {
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch]);
 
-  const { setApplications } = useApplications();
+  const { /* setApplications intentionally unused now to avoid duplicate fetch */ } = useApplications();
 
-  const handleInboxSubItemClick = useCallback(async (subItem: string) => {
-    console.log('🔍 handleInboxSubItemClick - Started:', {
-      subItem,
-      newActiveItem: `inbox-${subItem}`
-    });
-    
+  const handleInboxSubItemClick = useCallback((subItem: string) => {
     setActiveItem(`inbox-${subItem}`);
     localStorage.setItem("activeNavItem", `inbox-${subItem}`);
-    
-    try {
-      // Get status ID from map
-      const statusId = statusIdMap[subItem as keyof typeof statusIdMap]?.[0];
-      console.log('📍 Status mapping:', {
-        subItem,
-        statusId,
-        allStatusMappings: statusIdMap
-      });
-      
-      if (statusId) {
-        console.log('🔄 Fetching applications for status:', statusId);
-        
-        // Fetch applications
-        const response = await getApplicationsByStatus(statusId);
-        console.log('📥 Raw API response:', response);
-        
-        // Validate response data
-        const apiApplications = Array.isArray(response) ? response : [];
-        console.log('✅ Validated applications:', {
-          isArray: Array.isArray(response),
-          length: apiApplications.length,
-          firstApplication: apiApplications[0]
-        });
-        
-        // Map to table format with type guard
-        const tableData = apiApplications
-          .filter((app) =>
-            app && typeof app === 'object' &&
-            'acknowledgementNo' in app &&
-            'firstName' in app &&
-            'lastName' in app
-          )
-          .map(app => {
-            // Convert id to number if it's a string
-            const appWithNumericId = {
-              ...app,
-              id: typeof app.id === 'string' ? Number(app.id.replace(/^\D+/g, '')) || 0 : app.id,
-              acknowledgementNo: String(app.acknowledgementNo ?? ''),
-              firstName: String(app.firstName ?? ''),
-              lastName: String(app.lastName ?? '')
-            };
-            const mapped = mapAPIApplicationToTableData(appWithNumericId);
-            console.log('🔄 Mapping single application:', {
-              before: app,
-              after: mapped
-            });
-            return mapped;
-          });
-        
-        console.log('📊 Final table data:', {
-          length: tableData.length,
-          sample: tableData[0],
-          allData: tableData
-        });
-        
-        // Set applications in context
-        console.log('⚡ Setting applications in context:', {
-          count: tableData.length
-        });
-        setApplications(tableData);
-        
-        // Handle callbacks and navigation
-        if (onStatusSelect) {
-          console.log('🎯 Calling onStatusSelect with:', statusId);
-          onStatusSelect(String(statusId));
-        }
-
-        console.log('🚀 Navigating to:', `/inbox/${subItem}`);
-        router.replace(`/inbox/${subItem}`);
-        dispatch(openInbox());
-        
-        console.log('✅ handleInboxSubItemClick completed');
-      } else {
-        console.error('❌ No status ID found for subItem:', subItem);
-      }
-    } catch (error) {
-      console.error('❌ Error in handleInboxSubItemClick:', {
-        error,
-        subItem,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }, [router, dispatch, onStatusSelect, setApplications]);
+    // Just navigate; page handles fetch & caching
+    router.replace(`/inbox/${subItem}`);
+    dispatch(openInbox());
+    const canonical = normalizeRouteStatus(subItem) || resolveStatusParam(subItem);
+    if (onStatusSelect && canonical) onStatusSelect(String(canonical));
+  }, [router, dispatch, onStatusSelect]);
 
   const handleLogout = useCallback(async () => {
     if (token) {

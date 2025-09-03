@@ -2,6 +2,9 @@ import { APIApplication } from '../types/api';
 import { ApplicationData } from '../config/mockData';
 
 const statusMap: Record<string, ApplicationData['status']> = {
+  // Forward synonyms
+  'forward': 'pending',
+  'FORWARD': 'pending',
   // Support both uppercase and lowercase status values from API
   'forwarded': 'pending',
   'FORWARDED': 'pending',
@@ -29,19 +32,24 @@ const statusMap: Record<string, ApplicationData['status']> = {
   'IN_PROGRESS': 'pending'
 };
 
-export const mapAPIApplicationToTableData = (apiApplication: APIApplication): ApplicationData => {
+// Accept broader shape because backend sends nested structures
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const mapAPIApplicationToTableData = (apiApplication: any): ApplicationData => {
+  const rawStatus = apiApplication?.status?.code || apiApplication?.status?.name || apiApplication?.status || 'pending';
+  const normalizedStatus = String(rawStatus);
+
   return {
-    id: apiApplication.acknowledgementNo,
-    applicantName: `${apiApplication.firstName} ${apiApplication.middleName || ''} ${apiApplication.lastName}`.trim(),
+    id: String(apiApplication.acknowledgementNo || apiApplication.id || ''),
+    applicantName: `${apiApplication.firstName || ''} ${apiApplication.middleName || ''} ${apiApplication.lastName || ''}`.trim() || 'N/A',
     applicationType: apiApplication.applicationType || apiApplication.licenseType || 'N/A',
-    applicationDate: apiApplication.createdAt,
-    status: statusMap[apiApplication.status] || 'pending',
-    status_id: apiApplication.status,
+    applicationDate: apiApplication.createdAt || new Date().toISOString(),
+    status: (statusMap[normalizedStatus] || 'pending') as ApplicationData['status'],
+    status_id: normalizedStatus,
     documents: [],
     assignedTo: '',
     forwardedTo: '',
-    lastUpdated: apiApplication.createdAt,
+    lastUpdated: apiApplication.updatedAt || apiApplication.createdAt || new Date().toISOString(),
     isViewed: true,
-    applicantMobile: ''
+    applicantMobile: apiApplication?.contactInfo?.mobileNumber || '',
   };
 };

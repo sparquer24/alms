@@ -134,7 +134,10 @@ import { Application } from '../types/application';
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
     try {
-      return await apiClient.get('/application-form', { params });
+  // Pass params directly so ApiClient wraps them once (prevents params[params[...]] nesting)
+  let data:any =  await apiClient.get('/application-form', params as any);
+  console.log({data});
+  return data;
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;
@@ -190,9 +193,8 @@ export const ApplicationApi = {
   getByStatuses: async (statusIds: Array<string | number>, params: Record<string, any> = {}): Promise<ApiResponse<any>> => {
     try {
       const ids = (statusIds || []).map(String).join(',');
-      const query = { ...params, statusIds: ids };
-      // apiClient.get accepts params object; pass constructed query
-      return await apiClient.get(`/application-form`, query as any);
+  const query = { ...params, statusIds: ids };
+  return await apiClient.get('/application-form', query as any);
     } catch (error) {
       console.error('Error getting applications by statuses:', error);
       throw error;

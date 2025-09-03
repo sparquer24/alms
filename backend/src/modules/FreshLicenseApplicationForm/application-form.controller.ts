@@ -40,6 +40,12 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'orderBy', required: false, type: String })
   @ApiQuery({ name: 'order', required: false, type: String })
+  @ApiQuery({ 
+    name: 'statusIds', 
+    required: false, 
+    type: String, 
+    description: 'Comma separated list of status IDs or codes (e.g. "1,2" or "FORWARD,returned,red_flagged")' 
+  })
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -48,7 +54,8 @@ export class ApplicationFormController {
     @Query('searchField') searchField?: string,
     @Query('search') search?: string,
     @Query('orderBy') orderBy?: string,
-    @Query('order') order?: string
+    @Query('order') order?: string,
+    @Query('statusIds') statusIds?: string
   ) {
     try {
       // Parse pagination
@@ -65,7 +72,33 @@ export class ApplicationFormController {
       const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
       const parsedSearchValue = search ?? undefined;
 
-      // Call service method (you may need to adjust this to match your service signature)
+      // Resolve status identifiers (codes or numeric IDs) if provided
+      let resolvedStatusIds: number[] | undefined = undefined;
+      if (statusIds) {
+        const rawIdentifiers = statusIds
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
+        if (rawIdentifiers.length > 0) {
+          resolvedStatusIds = await this.applicationFormService.resolveStatusIdentifiers(rawIdentifiers);
+          // If user passed only invalid identifiers, return empty result fast
+          if (resolvedStatusIds && resolvedStatusIds.length === 0) {
+            return {
+              success: true,
+              message: 'Applications retrieved successfully',
+              data: [],
+              pagination: {
+                total: 0,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: 0,
+              }
+            };
+          }
+        }
+      }
+
+      // Call service method with filtering
       const result = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
         limit: limitNum,
@@ -73,7 +106,8 @@ export class ApplicationFormController {
         search: parsedSearchValue,
         orderBy: parsedOrderBy,
         order: parsedOrder as 'asc' | 'desc',
-        currentUserId: req.user?.sub // If you need user context
+        currentUserId: req.user?.sub,
+        statusIds: resolvedStatusIds
       });
 
       return {

@@ -193,6 +193,38 @@ export class ApplicationFormService {
     });
   }
 
+  /**
+   * Resolve a mixed list of status identifiers (numeric IDs or status codes/names)
+   * to an array of numeric status IDs present in the statuses table.
+   * Accepts case-insensitive codes/names. Invalid entries are ignored.
+   */
+  async resolveStatusIdentifiers(identifiers: string[]): Promise<number[]> {
+    if (!identifiers || identifiers.length === 0) return [];
+    // Separate numeric IDs and textual codes/names
+    const numericIds = identifiers
+      .map(id => Number(id))
+      .filter(n => !isNaN(n));
+    const textIdentifiers = identifiers
+      .filter(id => isNaN(Number(id)))
+      .map(s => s.toUpperCase());
+
+    const statuses = await prisma.statuses.findMany({
+      where: {
+        OR: [
+          ...(numericIds.length ? [{ id: { in: numericIds } }] : []),
+          ...(textIdentifiers.length ? [
+            { code: { in: textIdentifiers } },
+            { name: { in: textIdentifiers } }
+          ] : [])
+        ]
+      },
+      select: { id: true, code: true, name: true }
+    });
+
+    const resolved = Array.from(new Set(statuses.map(s => s.id)));
+    return resolved;
+  }
+
   async getDistrictsByState(stateId: number) {
     return await prisma.districts.findMany({
       where: { stateId },
