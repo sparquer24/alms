@@ -139,7 +139,7 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const dispatch = useDispatch();
   const { userRole, token } = useAuthSync();
-  const [roleConfig, setRoleConfig] = useState(getRoleConfig());
+  const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
   const router = useRouter();
   const { user } = useUserContext();
   // Role derived from the `user` cookie (if present) will override or supplement auth state.
@@ -197,8 +197,7 @@ const getUserRoleFromCookie = () => {
   useEffect(() => {
     // prefer cookie-derived role when available (role code or name), fallback to auth sync role
     const effective = cookieRole || userRole || "SHO";
-    // roleConfig is derived from cookie; function no longer takes a parameter
-    setRoleConfig(getRoleConfig());
+    setRoleConfig(getRoleConfig(effective));
   }, [userRole, cookieRole]);
 
   useEffect(() => {
@@ -257,9 +256,8 @@ const getUserRoleFromCookie = () => {
   const handleInboxSubItemClick = useCallback(async (subItem: string) => {
     setActiveItem(`inbox-${subItem}`);
     localStorage.setItem("activeNavItem", `inbox-${subItem}`);
-    router.replace(`/inbox/${subItem}`); // Use replace to avoid full page refresh
-    dispatch(openInbox()); // Ensure the inbox menu remains open
-    // Fetch by statuses for inbox subitems
+    router.replace(`/inbox/${subItem}`); 
+    dispatch(openInbox()); 
     try {
       const statusIds = statusIdMap[subItem as keyof typeof statusIdMap];
       if (statusIds && statusIds.length) {

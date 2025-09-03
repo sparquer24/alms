@@ -6,6 +6,8 @@ import DashboardPage from './Pages/dashboard.page';
 import Login from './Pages/login.page';
 import NotFound from './Pages/NotFound';
 import FormComponent from './Pages/Form.page';
+// Forwarded inbox page
+import ForwardedInboxPage from './Pages/inboxForwarded.page';
 import Navbar from './components/common/Navbar';
 import Header from './components/Header';
 
@@ -34,19 +36,23 @@ const AppRoutes: FC = () => {
         <PrivateRoute>
           <>
             <Navbar />
-            <Header
-              title="Zonal Superintendent Dashboard"
-              subtitle="Requests Insights"
-              buttonLabel="New Application Form"
-              enableButton={true}
-              enableNavigation={true}
-              navigationPath="/form"
-            />
+            <Header onSearch={()=>{}} onDateFilter={()=>{}} onReset={()=>{}} />
             <DashboardPage />
           </>
         </PrivateRoute>
       }
-      children
+    />
+    <Route
+      path="/inbox/forwarded"
+      element={
+        <PrivateRoute>
+          <>
+            <Navbar />
+            <Header onSearch={()=>{}} onDateFilter={()=>{}} onReset={()=>{}} />
+            <ForwardedInboxPage />
+          </>
+        </PrivateRoute>
+      }
     />
     <Route
       path="/form"
@@ -69,7 +75,7 @@ const AppRoutes: FC = () => {
     {/* Redirect from root to the login or dashboard depending on token */}
     <Route
       path="/"
-      element={<Navigate to={jsCookie.get('token') ? "/dashboard" : "/login"} replace />}
+      element={<Navigate to={jsCookie.get('auth') ? "/inbox/forwarded" : "/login"} replace />}
     />
     {/* This Route catches all unknown URLs and shows the NotFound page */}
     <Route path="*" element={<NotFound />} />

@@ -106,18 +106,18 @@ export function getRoleNavigationConfig(userRole: string) {
  * Check if user should be redirected on app startup based on role
  */
 export function shouldRedirectOnStartup(userRole: string, currentPath: string): string | null {
-  // Don't redirect if already on a specific page (unless it's root)
-  if (currentPath !== '/' && currentPath !== '/login') {
+  // Only allow role-based redirect from the login page. Never redirect away from '/' dashboard.
+  if (currentPath !== '/login') {
     return null;
   }
-  
+
   const roleBasedPath = getRoleBasedRedirectPath(userRole);
-  
-  // Only redirect if the role-based path is different from current path
+
+  // If role-based path is different from current (login), redirect to it
   if (roleBasedPath !== currentPath) {
     return roleBasedPath;
   }
-  
+
   return null;
 }
 

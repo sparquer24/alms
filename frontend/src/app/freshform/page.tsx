@@ -35,7 +35,7 @@ export default function FreshFormPage() {
     }
     // Check if the user has permission to view fresh forms
     const roleConfig = getRoleConfig(userRole);
-    if (!roleConfig.permissions.includes('canViewFreshForm')) {
+    if (!roleConfig || !roleConfig.permissions.includes('canViewFreshForm')) {
       // Redirect to dashboard or show access denied
       router.push('/');
       return;
@@ -252,7 +252,7 @@ export default function FreshFormPage() {
 
   return (
     <div
-      className="flex font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative "
+      className="flex font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative z-0"
     >
       <Sidebar />
       <Header
@@ -264,7 +264,7 @@ export default function FreshFormPage() {
         onShowMessage={handleShowMessage}
       />
 
-      <main className={`flex-1 min-w-0 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-10 overflow-y-auto `}>
+      <main className={`flex-1 min-w-0 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-0 overflow-y-auto `}>
         <div className="rounded-xl shadow-lg ">
           {/* <div className="flex justify-between items-center">
             Search bar and filters will be here (already present)
