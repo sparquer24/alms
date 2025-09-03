@@ -102,6 +102,44 @@ export interface CreateFreshLicenseApplicationsFormsInput {
   fileUploads?: CreateFileUploadInput[];
 }
 
+let include = {
+    status: {
+      select: {
+        id: true,
+        name: true,
+        code: true
+      }
+    },
+    currentRole: {
+      select: {
+        id: true,
+        name: true,
+        code: true
+      }
+    },
+    previousRole: {
+      select: {
+        id: true,
+        name: true,
+        code: true
+      },
+    },
+    currentUser: {
+      select: {
+        id: true,
+        username: true,
+        email: true
+      }
+    },
+    previousUser: {
+      select: {
+        id: true,
+        username: true,
+        email: true
+      }
+    },
+  }
+
 function validateCreateApplicationInput(data: any): asserts data is Required<CreateFreshLicenseApplicationsFormsInput> {
   const requiredFields = [
     'firstName', 'lastName', 'parentOrSpouseName', 'sex', 'placeOfBirth', 
@@ -191,6 +229,38 @@ export class ApplicationFormService {
         name: true,
       },
     });
+  }
+
+  /**
+   * Resolve a mixed list of status identifiers (numeric IDs or status codes/names)
+   * to an array of numeric status IDs present in the statuses table.
+   * Accepts case-insensitive codes/names. Invalid entries are ignored.
+   */
+  async resolveStatusIdentifiers(identifiers: string[]): Promise<number[]> {
+    if (!identifiers || identifiers.length === 0) return [];
+    // Separate numeric IDs and textual codes/names
+    const numericIds = identifiers
+      .map(id => Number(id))
+      .filter(n => !isNaN(n));
+    const textIdentifiers = identifiers
+      .filter(id => isNaN(Number(id)))
+      .map(s => s.toUpperCase());
+
+    const statuses = await prisma.statuses.findMany({
+      where: {
+        OR: [
+          ...(numericIds.length ? [{ id: { in: numericIds } }] : []),
+          ...(textIdentifiers.length ? [
+            { code: { in: textIdentifiers } },
+            { name: { in: textIdentifiers } }
+          ] : [])
+        ]
+      },
+      select: { id: true, code: true, name: true }
+    });
+
+    const resolved = Array.from(new Set(statuses.map(s => s.id)));
+    return resolved;
   }
 
   async getDistrictsByState(stateId: number) {
@@ -586,28 +656,30 @@ async getApplicationById(id: string | number) {
       skip,
       take: limit,
       orderBy: orderByObj,
-      include: {
-        presentAddress: { include: { state: true, district: true } },
-        permanentAddress: { include: { state: true, district: true } },
-        contactInfo: true,
-        occupationInfo: { include: { state: true, district: true } },
-        biometricData: true,
-        criminalHistory: true,
-        licenseHistory: true,
-        licenseDetails: { include: { requestedWeapons: true } },
-        fileUploads: true,
-        state: true,
-        district: true,
-        status: true,
-        currentRole: true,
-        previousRole: true,
-        currentUser: true,
-        previousUser: true,
-      },
+      include,
     }),
   ]);
 
-  return { total, data };
+  let filteredData  = data.map(item => ({
+    id: item.id,
+    acknowledgementNo: item.acknowledgementNo,
+    applicantFullName: [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" "),
+    currentRole: item.currentRole,
+    previousRole: item.previousRole,
+    currentUser: item.currentUser,
+    previousUser: item.previousUser,
+    isApprovied: item.isApprovied,
+    isFLAFGenerated: item.isFLAFGenerated,
+    isGroundReportGenerated: item.isGroundReportGenerated,
+    isPending: item.isPending,
+    isReEnquiry: item.isReEnquiry,
+    isReEnquiryDone: item.isReEnquiryDone,
+    isRejected: item.isRejected,
+    remarks: item.remarks,
+    status: item.status
+  }));
+
+  return { total, data: filteredData };
 }
 
   async getUserApplications(userId: string) {
@@ -654,91 +726,6 @@ async getApplicationById(id: string | number) {
       },
     });
   }
-
-  // public async getFilteredApplications(filter: { statusId?: number; statusIds?: number[]; currentUserId?: string; page?: number; limit?: number; searchField?: string; search?: string; orderBy?: string; order?: 'asc' | 'desc' }) {
-  //   const where: any = {};
-  //   if (filter.statusIds !== undefined && Array.isArray(filter.statusIds)) {
-  //     where.statusId = { in: filter.statusIds };
-  //   } else if (filter.statusId !== undefined) {
-  //     where.statusId = filter.statusId;
-  //   }
-  //   if (filter.currentUserId !== undefined) {
-  //     where.currentUserId = filter.currentUserId;
-  //   }
-
-  //   const page = filter.page ?? 1;
-  //   const limit = filter.limit ?? 10;
-  //   const skip = (page - 1) * limit;
-
-  //   // Apply search filter if provided
-  //   if (filter.searchField && filter.search) {
-  //     // Only allow specific fields handled at controller level
-  //     if (['id', 'firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
-  //       if (filter.searchField === 'id') {
-  //         const idVal = Number(filter.search);
-  //         if (!isNaN(idVal)) where.id = idVal;
-  //       } else {
-  //         where[filter.searchField] = { contains: filter.search, mode: 'insensitive' } as any;
-  //       }
-  //     }
-  //   }
-
-  //   const orderByObj: any = {};
-  //   if (filter.orderBy) {
-  //     orderByObj[filter.orderBy] = filter.order ?? 'desc';
-  //   } else {
-  //     orderByObj.createdAt = 'desc';
-  //   }
-
-  //   const [total, data] = await Promise.all([
-  //     prisma.freshLicenseApplicationsForms.count({ where }),
-  //     prisma.freshLicenseApplicationsForms.findMany({
-  //       where,
-  //       skip,
-  //       take: limit,
-  //       orderBy: orderByObj,
-  //       include: {
-  //       presentAddress: {
-  //         include: {
-  //           state: true,
-  //           district: true,
-  //         }
-  //       },
-  //       permanentAddress: {
-  //         include: {
-  //           state: true,
-  //           district: true,
-  //         }
-  //       },
-  //       contactInfo: true,
-  //       occupationInfo: {
-  //         include: {
-  //           state: true,
-  //           district: true,
-  //         }
-  //       },
-  //       biometricData: true,
-  //       criminalHistory: true,
-  //       licenseHistory: true,
-  //       licenseDetails: {
-  //         include: {
-  //           requestedWeapons: true,
-  //         }
-  //       },
-  //       fileUploads: true,
-  //       state: true,
-  //       district: true,
-  //       status: true,
-  //       currentRole: true,
-  //       previousRole: true,
-  //       currentUser: true,
-  //       previousUser: true,
-  //       },
-  //     }),
-  //   ]);
-
-  //   return { total, data };
-  // }
 
   /**
    * Updates application user and role information during workflow transitions.
