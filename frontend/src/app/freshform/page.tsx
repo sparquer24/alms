@@ -8,9 +8,7 @@ import ApplicationTable from '../../components/ApplicationTable';
 import FreshApplicationForm from '../../components/FreshApplicationForm';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, ApplicationData } from '../../config/mockData';
-import { fetchMappedApplications } from '../../services/fetchAndMapApplications';
-import { normalizeRouteStatus } from '../../utils/statusNormalize';
+import { mockApplications, filterApplications, getApplicationsByStatus, ApplicationData } from '../../config/mockData';
 import { generateApplicationPDF, generateBatchReportPDF, getBatchReportHTML } from '../../config/pdfUtils';
 import { getRoleConfig } from '../../config/roles';
 import { isZS, APPLICATION_TYPES } from '../../config/helpers';
@@ -89,24 +87,9 @@ export default function FreshFormPage() {
     setStartDate('');
     setEndDate('');
   };
-  const [applications, setApplications] = useState<ApplicationData[]>([]);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const canonical = normalizeRouteStatus('freshform') || 'initiated';
-        const data = await fetchMappedApplications(canonical);
-        setApplications(data);
-      } catch (e) {
-        // swallow; existing error UI can be extended later
-        console.error('Failed to load fresh applications', e);
-      }
-    };
-    load();
-  }, []);
-
+  // Filter applications based on freshform and search/date filters
   const filteredApplications = filterApplications(
-    applications,
+    getApplicationsByStatus(mockApplications, 'freshform'),
     searchQuery,
     startDate,
     endDate
@@ -124,8 +107,8 @@ export default function FreshFormPage() {
     // In a real app, this would be an API call to save the application
     console.log('New application submitted:', newApplication);
 
-  // Update local state (acts as optimistic insert until real API persists)
-  setApplications(prev => [newApplication, ...prev]);
+    // Add new application to the mockApplications array
+    mockApplications.unshift(newApplication);
 
     // Show success message
     setSuccessMessage(`Application ${newApplication.id} has been successfully submitted`);

@@ -3,7 +3,6 @@ import { useRouter } from 'next/navigation';
 import { ApplicationData } from '../config/mockData';
 import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
-import DataState from './DataState';
 import { generateApplicationPDF } from '../config/pdfUtils';
 import BatchProcessingModal from './BatchProcessingModal';
 import { useAuth } from '../config/auth';
@@ -23,7 +22,6 @@ interface ApplicationTableProps {
   statusIdFilter?: string;
   applications?: ApplicationData[]; // Applications prop for backward compatibility
   filteredApplications?: ApplicationData[]; // Optional filtered applications list
-  error?: string | null;
 }
 
 const getStatusValue = (status: any): string => {
@@ -50,7 +48,7 @@ const getStatusPillClass = (status: string) => {
   return statusClasses[status.toLowerCase()] || 'bg-gray-200 text-gray-800';
 };
 
-const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, filteredApplications, isLoading = false, statusIdFilter, error = null }) => {
+const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, filteredApplications, isLoading = false, statusIdFilter }) => {
   // Get applications from context
   const { applications: contextApplications } = useApplications();
   
@@ -138,6 +136,24 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
     return date.toLocaleString();
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner}></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!effectiveApplications || effectiveApplications.length === 0) {
+    return (
+      <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
+        <div className={styles.emptyState}>No applications found matching your criteria.</div>
+      </div>
+    );
+  }
+  
   return (
     <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
       {/* Display messages */}
@@ -158,36 +174,36 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
         />
       )}
 
-      <DataState loading={isLoading} error={error} empty={!isLoading && (!effectiveApplications || effectiveApplications.length === 0)} emptyMessage="No applications found matching your criteria.">
-        <div className="w-full overflow-x-auto min-w-0">
-          <table className="w-full table-auto">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <TableHeader
-                applications={effectiveApplications}
+      <div className="w-full overflow-x-auto min-w-0">
+        <table className="w-full table-auto">
+
+
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <TableHeader
+              applications={effectiveApplications}
+              selectedItems={selectedItems}
+              toggleSelectAll={toggleSelectAll}
+            />
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {effectiveApplications.map((app, index) => (
+              <TableRow
+                key={app.id}
+                app={app}
+                index={index}
                 selectedItems={selectedItems}
-                toggleSelectAll={toggleSelectAll}
+                toggleItemSelection={toggleItemSelection}
+                handleViewApplication={handleViewApplication}
+                handleGeneratePDF={handleGeneratePDF}
+                generatingPDF={generatingPDF}
+                isApplicationUnread={isApplicationUnread}
+                formatDateTime={formatDateTime}
+                getStatusPillClass={getStatusPillClass}
               />
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {effectiveApplications.map((app, index) => (
-                <TableRow
-                  key={app.id}
-                  app={app}
-                  index={index}
-                  selectedItems={selectedItems}
-                  toggleItemSelection={toggleItemSelection}
-                  handleViewApplication={handleViewApplication}
-                  handleGeneratePDF={handleGeneratePDF}
-                  generatingPDF={generatingPDF}
-                  isApplicationUnread={isApplicationUnread}
-                  formatDateTime={formatDateTime}
-                  getStatusPillClass={getStatusPillClass}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </DataState>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Batch processing modal */}
       <BatchProcessingModal 

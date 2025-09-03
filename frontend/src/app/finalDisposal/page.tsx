@@ -6,17 +6,13 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, ApplicationData } from '../../config/mockData';
-import { fetchMappedApplications } from '../../services/fetchAndMapApplications';
-import { normalizeRouteStatus } from '../../utils/statusNormalize';
+import { mockApplications, filterApplications, getApplicationsByStatus } from '../../config/mockData';
 
 export default function FinalDisposalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [applications, setApplications] = useState<ApplicationData[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
   const router = useRouter();
 
@@ -27,18 +23,9 @@ export default function FinalDisposalPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const canonical = normalizeRouteStatus('finaldisposal') || 'final_disposal';
-        const data = await fetchMappedApplications([canonical, 'approved']);
-        setApplications(data);
-      } catch (e) {
-        setError('Failed to load final disposal applications');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
   }, []);
 
   const handleSearch = (query: string) => {
@@ -58,7 +45,7 @@ export default function FinalDisposalPage() {
 
   // Filter applications based on final/approved status and search/date filters
   const filteredApplications = filterApplications(
-    applications,
+    getApplicationsByStatus(mockApplications, 'final'),
     searchQuery,
     startDate,
     endDate
@@ -75,7 +62,7 @@ export default function FinalDisposalPage() {
       />
       <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
         <h1 className="text-2xl font-bold mb-8">Final Disposal Applications</h1>
-  <ApplicationTable applications={filteredApplications} isLoading={isLoading} error={error} />
+        <ApplicationTable applications={filteredApplications} isLoading={isLoading} />
       </main>
     </div>
   );

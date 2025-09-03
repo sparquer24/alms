@@ -6,9 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, ApplicationData } from '../../config/mockData';
-import { fetchMappedApplications } from '../../services/fetchAndMapApplications';
-import { normalizeRouteStatus, toDisplayStatus } from '../../utils/statusNormalize';
+import { mockApplications, filterApplications, getApplicationsByStatus } from '../../config/mockData';
 
 export default function ClosedPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,22 +22,10 @@ export default function ClosedPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  const [applications, setApplications] = useState<ApplicationData[]>([]);
-
   useEffect(() => {
-    const load = async () => {
-      try {
-        const closedCanonical = normalizeRouteStatus('closed') || 'closed';
-        const disposedCanonical = normalizeRouteStatus('disposed') || 'disposed';
-        const mapped = await fetchMappedApplications([closedCanonical, disposedCanonical]);
-        setApplications(mapped as ApplicationData[]);
-      } catch (e) {
-        console.error('Failed to load closed applications', e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
   }, []);
 
   const handleSearch = (query: string) => {
@@ -59,7 +45,7 @@ export default function ClosedPage() {
 
   // Filter applications based on closed/disposed status and search/date filters
   const filteredApplications = filterApplications(
-    applications,
+    getApplicationsByStatus(mockApplications, 'disposed'),
     searchQuery,
     startDate,
     endDate
@@ -74,7 +60,7 @@ export default function ClosedPage() {
         onReset={handleReset}
       />
       <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
-  <h1 className="text-2xl font-bold mb-8">{toDisplayStatus('closed')} Applications</h1>
+        <h1 className="text-2xl font-bold mb-8">Closed Applications</h1>
         <ApplicationTable applications={filteredApplications} isLoading={isLoading} />
       </main>
     </div>
