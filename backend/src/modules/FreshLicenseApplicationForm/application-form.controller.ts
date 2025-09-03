@@ -1,12 +1,7 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, ConflictException, BadRequestException, InternalServerErrorException, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
-import { ApplicationFormService, CreateFreshLicenseApplicationsFormsInput } from './application-form.service';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
-import prisma from '../../db/prismaClient';
-// DTO is required for validation & Swagger
-import { GetApplicationsDto } from './dto/get-applications.dto';
-
-// import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Application Form')
 @Controller('application-form')
@@ -16,396 +11,96 @@ export class ApplicationFormController {
   constructor(private readonly applicationFormService: ApplicationFormService) {}
 
   @Post()
-  @ApiOperation({ 
-    summary: 'Create Fresh License Application', 
-    description: 'Create a new arms license application form' 
-  })
-  @ApiBody({
-    description: 'Application form data',
-  })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Application created successfully',
-    example: {
-      success: true,
-      message: 'Arms License Application created successfully',
-      data: {
-        id: 'app_123',
-        applicationNumber: 'ALMS2025001',
-        status: 'SUBMITTED',
-        createdAt: '2025-08-20T12:00:00.000Z'
-      }
-    }
-  })
-  @ApiResponse({ status: 400, description: 'Bad request - Invalid application data' })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions to create fresh license applications' })
-  @ApiResponse({ status: 409, description: 'Conflict - Duplicate data (e.g., Aadhar already exists)' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
-  // @RequirePermissions('CREATE_APPLICATION')
-  async createApplication(@Body() createApplicationDto: CreateFreshLicenseApplicationsFormsInput, @Request() req: any) {
+  @ApiOperation({ summary: 'Create Application', description: 'Create a new application' })
+  @ApiResponse({ status: 201, description: 'Application created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  async createApplication(@Body() applicationData: any, @Request() req: any) {
     try {
-      // Check if user has permission to create fresh license applications
-      const user = await prisma.users.findUnique({
-        where: { id: req.user.sub },
-        include: { role: true }
-      });
-
-      if (!user?.role?.can_create_freshLicence) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'You do not have permission to create fresh license applications',
-            error: 'Insufficient permissions'
-          },
-          HttpStatus.FORBIDDEN
-        );
+      const [error, result] = await this.applicationFormService.createApplication(applicationData);
+      if (error) {
+        // Provide more details if error is an object
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.BAD_REQUEST);
       }
-      // Add user context to the application using currentUserId as per schema
-      const applicationData = {
-        ...createApplicationDto,
-        currentUserId: req.user.sub // This extracts the user ID from the JWT token
-      };
-      const application = await this.applicationFormService.createApplication(applicationData);
-      return {
-        success: true,
-        message: 'Arms License Application created successfully',
-        data: application,
-      };
-    } catch (error: any) {
-      // Handle specific HTTP exceptions thrown by the service
-      if (error instanceof ConflictException) {
-        throw new HttpException(
-          {
-            success: false,
-            message: error.message,
-            error: 'Conflict - Duplicate data',
-          },
-          HttpStatus.CONFLICT
-        );
-      }
-      
-      if (error instanceof BadRequestException) {
-        throw new HttpException(
-          {
-            success: false,
-            message: error.message,
-            error: 'Bad Request - Invalid data',
-          },
-          HttpStatus.BAD_REQUEST
-        );
-      }
-      
-      if (error instanceof InternalServerErrorException) {
-        throw new HttpException(
-          {
-            success: false,
-            message: error.message,
-            error: 'Internal Server Error',
-          },
-          HttpStatus.INTERNAL_SERVER_ERROR
-        );
-      }
-      
-      // Handle Prisma null constraint violation (e.g., id field)
-      if (error.message && error.message.includes('Null constraint violation') && error.message.includes('id')) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'A required field was missing or invalid when saving the address. Please ensure all address fields are filled correctly.',
-            error: 'Address creation failed due to missing or invalid data (id field)'
-          },
-          HttpStatus.BAD_REQUEST
-        );
-      }
-
-      // Handle any other unexpected errors
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Application creation failed',
-          error: error.message || 'Unknown error',
-        },
-        HttpStatus.BAD_REQUEST
-      );
+      return { success: true, data: result };
+    } catch (err: any) {
+      // Provide more details if err is an object
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @Get()
-  @ApiOperation({ 
-    summary: 'Get All Applications', 
-    description: 'Retrieve all applications accessible to the current user' 
-  })
-  @ApiQuery({ 
-    name: 'statusId', 
-    required: true,   // ✅ Now required
-    description: 'Filter applications by status ID',
-    example: '1'
-  })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
-  @ApiQuery({ name: 'searchField', required: false, type: String, example: 'name' })
-  @ApiQuery({ name: 'search', required: false, type: String, example: 'John' })
-  @ApiQuery({ name: 'orderBy', required: false, type: String, example: 'createdAt' })
-  @ApiQuery({ name: 'order', required: false, enum: ['ASC', 'DESC'], example: 'DESC' })
-  @ApiQuery({ name: 'statusId', required: false, type: String, example: '1,2,3' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Applications retrieved successfully',
-    example: {
-      success: true,
-      message: 'Applications retrieved successfully',
-      data: [
-        {
-          id: 'app_123',
-          applicationNumber: 'ALMS2025001',
-          status: 'SUBMITTED',
-          applicantName: 'John Doe',
-          createdAt: '2025-08-20T12:00:00.000Z',
-          relations: ['personalInfo', 'address', 'documents']
-        }
-      ]
-    }
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
-  // @RequirePermissions('VIEW_APPLICATIONS')
- async getAllApplications(
-  @Request() req: any,
-  @Query('statusId') statusId?: string,  // ✅ optional
-  @Query('page') page?: string,
-  @Query('limit') limit?: string,
-  @Query('searchField') searchField?: string,
-  @Query('search') search?: string,
-  @Query('orderBy') orderBy?: string,
-  @Query('order') order?: string,
-) {
-  try {
-    const userId = req.user.sub;
+  @ApiOperation({ summary: 'Get Applications', description: 'Retrieve applications with filtering, pagination, and search' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'searchField', required: false, type: String })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'orderBy', required: false, type: String })
+  @ApiQuery({ name: 'order', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
+  async getApplications(
+    @Request() req: any,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('searchField') searchField?: string,
+    @Query('search') search?: string,
+    @Query('orderBy') orderBy?: string,
+    @Query('order') order?: string
+  ) {
+    try {
+      // Parse pagination
+      const pageNum = page ? Math.max(Number(page), 1) : 1;
+      const limitNum = limit ? Math.max(Number(limit), 1) : 10;
 
-    // Parse pagination
-    const pageNum = page ? Math.max(Number(page), 1) : 1;
-    const limitNum = limit ? Math.max(Number(limit), 1) : 10;
+      // Parse ordering
+      const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
+      const parsedOrderBy = orderBy && allowedOrderFields.includes(orderBy) ? orderBy : 'createdAt';
+      const parsedOrder = order && order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-    // ✅ Parse multiple status IDs (optional)
-    let parsedStatusIds: number[] | undefined = undefined;
-    if (statusId) {
-      parsedStatusIds = String(statusId)
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean)
-        .map(Number)
-        .filter(n => !isNaN(n));
+      // Parse search + field
+      const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
+      const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
+      const parsedSearchValue = search ?? undefined;
 
-      if (parsedStatusIds.length === 0) {
-        throw new HttpException(
-          { success: false, message: 'Invalid statusId provided' },
-          HttpStatus.BAD_REQUEST
-        );
-      }
-    }
-
-    // Parse search + field
-    const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
-    const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
-    const parsedSearchValue = search ?? undefined;
-
-    // Parse ordering
-    const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
-    const parsedOrderBy = orderBy && allowedOrderFields.includes(orderBy) ? orderBy : 'createdAt';
-    const parsedOrder = order && order.toLowerCase() === 'asc' ? 'asc' : 'desc';
-
-    const result = await this.applicationFormService.getFilteredApplications({
-      statusIds: parsedStatusIds,   // ✅ can be undefined (fetch all)
-      currentUserId: userId,
-      page: pageNum,
-      limit: limitNum,
-      searchField: parsedSearchField,
-      search: parsedSearchValue,
-      orderBy: parsedOrderBy,
-      order: parsedOrder as 'asc' | 'desc',
-    });
-
-    const applications = result.data;
-    const total = result.total;
-
-    // Add relation names dynamically
-    const applicationsWithRelations = applications.map((app: any) => {
-      const relationNames: string[] = [];
-      for (const key in app) {
-        if (!Object.prototype.hasOwnProperty.call(app, key)) continue;
-        const value = app[key];
-        if (
-          value &&
-          (typeof value === 'object') &&
-          !(value instanceof Date) &&
-          !Array.isArray(value) &&
-          Object.keys(value).length > 0
-        ) {
-          relationNames.push(key);
-        }
-        if (Array.isArray(value) && value.length > 0) {
-          relationNames.push(key);
-        }
-      }
-      return {
-        ...app,
-        relations: relationNames,
-      };
-    });
-
-    const totalPages = Math.ceil(total / (limitNum || 10));
-
-    return {
-      success: true,
-      message: 'Applications retrieved successfully',
-      data: applicationsWithRelations,
-      pagination: {
-        total,
+      // Call service method (you may need to adjust this to match your service signature)
+      const result = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
         limit: limitNum,
-        totalPages,
-      }
-    };
-  } catch (error: any) {
-    throw new HttpException(
-      {
-        success: false,
-        message: error.message || 'Failed to fetch applications',
-        error: error.message,
-      },
-      HttpStatus.BAD_REQUEST
-    );
-  }
-}
+        searchField: parsedSearchField,
+        search: parsedSearchValue,
+        orderBy: parsedOrderBy,
+        order: parsedOrder as 'asc' | 'desc',
+        currentUserId: req.user?.sub // If you need user context
+      });
 
-  @Get(':id')
-  @ApiOperation({ 
-    summary: 'Get Application by ID', 
-    description: 'Retrieve a specific application by its ID' 
-  })
-  @ApiParam({ 
-    name: 'id', 
-    description: 'Application ID',
-    example: 'app_123'
-  })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Application retrieved successfully',
-    example: {
-      success: true,
-      message: 'Application retrieved successfully',
-      data: {
-        id: 'app_123',
-        applicationNumber: 'ALMS2025001',
-        status: 'SUBMITTED',
-        personalInfo: {
-          name: 'John Doe',
-          fatherName: 'Robert Doe',
-          dateOfBirth: '1990-01-01'
-        },
-        address: {
-          houseNumber: '123',
-          street: 'Main Street',
-          city: 'Kolkata'
-        },
-        createdAt: '2025-08-20T12:00:00.000Z'
-      }
-    }
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Access denied to this application' })
-  @ApiResponse({ status: 404, description: 'Application not found' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
-  // @RequirePermissions('VIEW_APPLICATION_DETAILS')
-  async getApplicationById(@Param('id') id: string, @Request() req: any) {
-    try {
-      const application = await this.applicationFormService.getApplicationById(id);
-      if (!application) {
-        throw new HttpException(
-          {
-            success: false,
-            message: 'Application not found',
-          },
-          HttpStatus.NOT_FOUND
-        );
-      }
-
-      // Check if user can access this application
-      const userRole = req.user.roleCode;
-      const userId = req.user.sub;
-      
-      // If user is not admin/officer, they can only view their own applications
-      if (!['ADMIN'].includes(userRole)) {
-        // Defensive: check for currentUserId on the application object
-        if (!('currentUserId' in application) || application.currentUserId !== userId) {
-          throw new HttpException(
-            {
-              success: false,
-              message: 'Access denied to this application',
-            },
-            HttpStatus.FORBIDDEN
-          );
-        }
-      }
-      
       return {
         success: true,
-        message: 'Application retrieved successfully',
-        data: application,
+        message: 'Applications retrieved successfully',
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(result.total / (limitNum || 10)),
+        }
       };
     } catch (error: any) {
-      if (error.status === HttpStatus.NOT_FOUND || error.status === HttpStatus.FORBIDDEN) {
-        throw error;
-      }
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to fetch application',
-          error: error.message,
-        },
-        HttpStatus.BAD_REQUEST
-      );
+      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 
-  // Helper endpoints for getting valid IDs (routes under /application-form/helpers/...)
   @Get('helpers/states')
-  @ApiOperation({ 
-    summary: 'Get States for Application Form', 
-    description: 'Get all available states for use in application forms' 
-  })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'States retrieved successfully',
-    example: {
-      success: true,
-      message: 'States retrieved successfully',
-      data: [
-        { id: 1, name: 'West Bengal', code: 'WB' },
-        { id: 2, name: 'Maharashtra', code: 'MH' }
-      ]
-    }
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiOperation({ summary: 'Get States for Application Form', description: 'Get all available states for use in application forms' })
+  @ApiResponse({ status: 200, description: 'States retrieved successfully' })
   async getStates() {
     try {
       const states = await this.applicationFormService.getStates();
-      return {
-        success: true,
-        message: 'States retrieved successfully',
-        data: states,
-      };
+      return { success: true, message: 'States retrieved successfully', data: states };
     } catch (error: any) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to fetch states',
-          error: error.message,
-        },
-        HttpStatus.BAD_REQUEST
-      );
+      throw new HttpException({ success: false, message: error.message || 'Failed to fetch states', error: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 
