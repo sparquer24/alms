@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ApplicationData } from '../config/mockData';
+import { ApplicationData } from '../services/sidebarApiCalls';
 import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
 import { generateApplicationPDF } from '../config/pdfUtils';
-import BatchProcessingModal from './BatchProcessingModal';
 import { useAuth } from '../config/auth';
 
 interface UserData {
@@ -59,8 +58,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
   const [generatingPDF, setGeneratingPDF] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
   const { userRole } = useAuth();
 
   const isApplicationUnread = useCallback((app: ApplicationData): boolean => {
@@ -83,52 +80,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
       setErrorMessage(`Failed to generate PDF for application ${app.id}`);
       setTimeout(() => setErrorMessage(null), 5000);
     }
-  }, []);
-
-  const toggleItemSelection = useCallback((id: string, event?: React.MouseEvent) => {
-    if (event?.defaultPrevented) return;
-    event?.preventDefault();
-    event?.stopPropagation();
-
-    setSelectedItems(prev => {
-      const newSelected = new Set(prev);
-      if (newSelected.has(id)) {
-        newSelected.delete(id);
-      } else {
-        newSelected.add(id);
-      }
-      return newSelected;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedItems(prev => {
-      if (prev.size === effectiveApplications.length) {
-        return new Set();
-      } else {
-        return new Set(effectiveApplications.map(app => app.id));
-      }
-    });
-  }, [effectiveApplications]);
-
-  const handleOpenBatchModal = useCallback(() => {
-    if (selectedItems.size === 0) {
-      setErrorMessage("Please select at least one application");
-      setTimeout(() => setErrorMessage(null), 5000);
-      return;
-    }
-    setIsBatchModalOpen(true);
-  }, [selectedItems]);
-
-  const selectedApps = useMemo(() => {
-    return effectiveApplications.filter(app => selectedItems.has(app.id));
-  }, [effectiveApplications, selectedItems]);
-
-  const handleProcessBatch = useCallback(async (action: string, selectedApps: ApplicationData[], comment: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setSelectedItems(new Set());
-    setSuccessMessage(`Successfully processed ${selectedApps.length} application(s) with action: ${action}`);
-    setTimeout(() => setSuccessMessage(null), 5000);
   }, []);
 
   const formatDateTime = useCallback((dateStr: string) => {
@@ -165,25 +116,12 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
         <Message type="error" message={errorMessage} />
       )}
 
-      {/* Batch operations bar */}
-      {selectedItems.size > 0 && (
-        <BatchOperationsBar
-          selectedCount={selectedItems.size}
-          onClearSelection={() => setSelectedItems(new Set())}
-          onProcessSelected={handleOpenBatchModal}
-        />
-      )}
-
       <div className="w-full overflow-x-auto min-w-0">
         <table className="w-full table-auto">
 
 
           <thead className="bg-gray-50 sticky top-0 z-10">
-            <TableHeader
-              applications={effectiveApplications}
-              selectedItems={selectedItems}
-              toggleSelectAll={toggleSelectAll}
-            />
+            <TableHeader />
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {effectiveApplications.map((app, index) => (
@@ -191,8 +129,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
                 key={app.id}
                 app={app}
                 index={index}
-                selectedItems={selectedItems}
-                toggleItemSelection={toggleItemSelection}
                 handleViewApplication={handleViewApplication}
                 handleGeneratePDF={handleGeneratePDF}
                 generatingPDF={generatingPDF}
@@ -204,14 +140,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
           </tbody>
         </table>
       </div>
-
-      {/* Batch processing modal */}
-      <BatchProcessingModal 
-        isOpen={isBatchModalOpen}
-        onClose={() => setIsBatchModalOpen(false)}
-        applications={selectedApps}
-        onProcessBatch={handleProcessBatch}
-      />
     </div>
   );
 });
@@ -234,44 +162,10 @@ const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ typ
   );
 };
 
-const BatchOperationsBar: React.FC<{ selectedCount: number; onClearSelection: () => void; onProcessSelected: () => void }> = ({ selectedCount, onClearSelection, onProcessSelected }) => (
-  <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
-    <div className="text-blue-800">
-      <span className="font-semibold">{selectedCount}</span> application(s) selected
-    </div>
-    <div className="flex space-x-2">
-      <button 
-        className="px-3 py-1 bg-white border border-gray-300 rounded-md hover:bg-[#EEF2FF] text-sm"
-        onClick={onClearSelection}
-      >
-        Clear Selection
-      </button>
-      <button 
-        className="px-3 py-1 bg-[#6366F1] text-white rounded-md hover:bg-[#3B82F6] text-sm"
-        onClick={onProcessSelected}
-      >
-        Process Selected
-      </button>
-    </div>
-  </div>
-);
-
-const TableHeader: React.FC<{ applications: ApplicationData[]; selectedItems: Set<string>; toggleSelectAll: () => void }> = ({ applications, selectedItems, toggleSelectAll }) => (
+const TableHeader: React.FC = () => (
   <tr>
-    <th scope="col" className="px-4 py-3 text-center">
-      <input 
-        type="checkbox" 
-        className="h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-        checked={selectedItems.size === (applications?.length || 0) && (applications?.length || 0) > 0}
-        onChange={toggleSelectAll}
-        aria-label="Select all applications"
-      />
-    </th>
     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
       S.No
-    </th>
-    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
-      ID
     </th>
     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
       Applicant Name
@@ -294,8 +188,6 @@ const TableHeader: React.FC<{ applications: ApplicationData[]; selectedItems: Se
 const TableRow: React.FC<{
   app: ApplicationData;
   index: number;
-  selectedItems: Set<string>;
-  toggleItemSelection: (id: string, event?: React.MouseEvent) => void;
   handleViewApplication: (id: string) => void;
   handleGeneratePDF: (app: ApplicationData) => void;
   generatingPDF: string | null;
@@ -305,8 +197,6 @@ const TableRow: React.FC<{
 }> = ({
   app,
   index,
-  selectedItems,
-  toggleItemSelection,
   handleViewApplication,
   handleGeneratePDF,
   generatingPDF,
@@ -316,40 +206,24 @@ const TableRow: React.FC<{
 }) => (
   <tr
     key={app.id}
-    className={`${styles.tableRow} ${selectedItems.has(app.id) ? 'bg-[#1e3a8a] text-white' : ''} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
-    onClick={(e) => toggleItemSelection(app.id, e)}
-    style={{ cursor: 'pointer' }}
+    className={`${styles.tableRow} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
     aria-label={`Row for application ${app.id}`}
   >
-    <td className="px-4 py-4 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
-      <input
-        type="checkbox"
-        className="h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-        checked={selectedItems.has(app.id)}
-        onChange={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          toggleItemSelection(app.id);
-        }}
-        aria-label={`Select application ${app.id}`}
-      />
-    </td>
-    <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{index + 1}</td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+    <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
+    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
       <button
         onClick={(e) => {
           e.stopPropagation();
           handleViewApplication(app.id);
         }}
-        className={`${selectedItems.has(app.id) ? 'text-white hover:text-gray-200' : 'text-blue-600 hover:text-blue-800'} hover:underline transition-colors`}
+        className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
         aria-label={`View details for application ${app.id}`}
       >
-        {app.id}
+        {app.applicantName}
       </button>
     </td>
-    <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{app.applicantName}</td>
-    <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{app.applicationType}</td>
-    <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{formatDateTime(app.applicationDate)}</td>
+    <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{app.applicationType}</td>
+    <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{formatDateTime(app.applicationDate)}</td>
     <td className="px-6 py-4 whitespace-nowrap">
       <span
         className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusPillClass(getStatusValue(app.status))}`}
@@ -359,7 +233,7 @@ const TableRow: React.FC<{
         {getStatusValue(app.status)}
       </span>
     </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
+    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
       <button
         onClick={(e) => {
           e.stopPropagation();
