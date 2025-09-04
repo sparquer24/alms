@@ -6,7 +6,7 @@ import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import { useAuthSync } from '../../../hooks/useAuthSync';
 import { useLayout } from '../../../config/layoutContext';
-import { mockApplications, ApplicationData } from '../../../config/mockData';
+import { getApplicationByApplicationId, ApplicationData } from '../../../services/sidebarApiCalls';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
@@ -78,16 +78,20 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [setShowHeader, setShowSidebar]);
   
   useEffect(() => {
-    // In a real application, this would be an API call
-    const fetchApplication = () => {
+    // Fetch application using the new API function
+    const fetchApplication = async () => {
       setLoading(true);
-      setTimeout(() => {
+      try {
         // Access the id directly from params
         const id = applicationId;
-        const app = mockApplications.find(app => app.id === id);
+        const app = await getApplicationByApplicationId(id);
         setApplication(app || null);
+      } catch (error) {
+        console.error('Error fetching application:', error);
+        setApplication(null);
+      } finally {
         setLoading(false);
-      }, 500); // Simulate network delay
+      }
     };
 
     fetchApplication();
@@ -660,7 +664,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   <div className="p-6 lg:p-8 border-t border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                       {/* Action Buttons - Left Side */}
-                      <div className="lg:col-span-1">
+                      <div className="lg:col-span-2">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <div className="w-1 h-5 bg-blue-600 rounded-full mr-3"></div>
@@ -718,7 +722,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       </div>
 
                       {/* Application Timeline/History - Right Side */}
-                      <div className="lg:col-span-3">
+                      <div className="lg:col-span-2">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <div className="w-1 h-5 bg-green-600 rounded-full mr-3"></div>

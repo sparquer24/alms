@@ -15,7 +15,7 @@ import { useApplications } from "../context/ApplicationContext";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
-import { getApplicationsByStatus } from "../services/applicationFormService";
+import { fetchApplicationCounts, fetchApplicationsByStatus } from "../services/sidebarApiCalls";
 
 // Mock implementation for useUserContext if unavailable
 const useUserContext = () => ({ user: { role: "USER" } });
@@ -218,20 +218,15 @@ const getUserRoleFromCookie = () => {
 
   useEffect(() => {
     // Fetch applications for each status when the sidebar is visible
-    const fetchApplicationCounts = async () => {
+    const getApplicationCounts = async () => {
       try {
-        const [forwarded, returned, redFlagged, disposed] = await Promise.all([
-          getApplicationsByStatus(statusIdMap.forwarded?.[0] || 'FORWARDED'),
-          getApplicationsByStatus(statusIdMap.returned?.[0] || 'RETURNED'),
-          getApplicationsByStatus(statusIdMap.redFlagged?.[0] || 'RED_FLAGGED'),
-          getApplicationsByStatus(statusIdMap.disposed?.[0] || 'DISPOSED'),
-        ]);
-
+        const counts = await fetchApplicationCounts();
+        
         setApplicationCounts({
-          forwardedCount: forwarded.length,
-          returnedCount: returned.length,
-          redFlaggedCount: redFlagged.length,
-          disposedCount: disposed.length,
+          forwardedCount: counts.forwardedCount,
+          returnedCount: counts.returnedCount,
+          redFlaggedCount: counts.redFlaggedCount,
+          disposedCount: counts.disposedCount,
         });
       } catch (error) {
         console.error('Error fetching application counts:', error);
@@ -239,7 +234,7 @@ const getUserRoleFromCookie = () => {
     };
 
     if (visible && !cookieRole?.includes('ADMIN')) {
-      fetchApplicationCounts();
+      getApplicationCounts();
     }
   }, [visible, cookieRole]);
 
@@ -273,7 +268,7 @@ const getUserRoleFromCookie = () => {
         const statusIds = statusIdMap[normalizedName as keyof typeof statusIdMap];
         if (statusIds?.[0]) {
           // Fire and forget; consumers can switch to a page that reads from a store later.
-          await getApplicationsByStatus(statusIds[0]);
+          await fetchApplicationsByStatus(statusIds[0]);
         }
       } catch (error) {
         console.error('Error fetching applications:', error);
@@ -323,54 +318,25 @@ const getUserRoleFromCookie = () => {
       if (statusId) {
         console.log('🔄 Fetching applications for status:', statusId);
         
-        // Fetch applications
-        const response = await getApplicationsByStatus(statusId);
-        console.log('📥 Raw API response:', response);
-        
-        // Validate response data
-        const apiApplications = Array.isArray(response) ? response : [];
-        console.log('✅ Validated applications:', {
-          isArray: Array.isArray(response),
-          length: apiApplications.length,
-          firstApplication: apiApplications[0]
+        // Fetch applications - this returns ApplicationData[] directly
+        const applications = await fetchApplicationsByStatus(statusId);
+        console.log('📥 Fetched applications:', {
+          isArray: Array.isArray(applications),
+          length: applications.length,
+          firstApplication: applications[0]
         });
         
-        // Map to table format with type guard
-        const tableData = apiApplications
-          .filter((app) =>
-            app && typeof app === 'object' &&
-            'acknowledgementNo' in app &&
-            'firstName' in app &&
-            'lastName' in app
-          )
-          .map(app => {
-            // Convert id to number if it's a string
-            const appWithNumericId = {
-              ...app,
-              id: typeof app.id === 'string' ? Number(app.id.replace(/^\D+/g, '')) || 0 : app.id,
-              acknowledgementNo: String(app.acknowledgementNo ?? ''),
-              firstName: String(app.firstName ?? ''),
-              lastName: String(app.lastName ?? '')
-            };
-            const mapped = mapAPIApplicationToTableData(appWithNumericId);
-            console.log('🔄 Mapping single application:', {
-              before: app,
-              after: mapped
-            });
-            return mapped;
-          });
-        
-        console.log('📊 Final table data:', {
-          length: tableData.length,
-          sample: tableData[0],
-          allData: tableData
+        console.log('📊 Final applications data:', {
+          length: applications.length,
+          sample: applications[0],
+          allData: applications
         });
         
-        // Set applications in context
+        // Set applications in context - they're already in the correct format
         console.log('⚡ Setting applications in context:', {
-          count: tableData.length
+          count: applications.length
         });
-        setApplications(tableData);
+        setApplications(applications);
         
         // Handle callbacks and navigation
         if (onStatusSelect) {

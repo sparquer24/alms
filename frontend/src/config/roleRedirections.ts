@@ -10,121 +10,53 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'ADMIN' | 'ARMS_SUPDT' | 'SHO' | '
 export function getRoleBasedRedirectPath(userRole: string): string {
   switch (userRole) {
     case 'ADMIN':
-      // Admin users can start at the main dashboard or admin area
-      return '/';
+      return '/admin';
       
+      
+    case 'ARMS_SUPDT':
+    case 'SHO':
+    case 'ZS':
+    case 'ADO':
+    case 'CADO':
     case 'DCP':
     case 'ACP': 
     case 'CP':
-      // Higher officials start at reports/dashboard for overview
-      return '/reports';
-      
-    case 'ARMS_SUPDT':
-      // Arms superintendent focuses on final disposals
-      return '/final';
-      
-    case 'SHO':
-      // SHO starts at inbox to handle applications
       return '/inbox/forwarded';
-    case 'ZS':
-      // ZS starts at freshform
-      return '/freshform';
-      
-    case 'APPLICANT':
-      // Applicants start at their sent applications or fresh form
-      return '/sent';
-      
-    case 'ADO':
-    case 'CADO':
-      // Administrative officers start at dashboard
-      return '/';
-      
+
     default:
-      // Default to main dashboard
       return '/';
   }
 }
 
 /**
- * Get role-specific navigation preferences
- */
-export function getRoleNavigationConfig(userRole: string) {
-  switch (userRole) {
-    case 'ADMIN':
-      return {
-        defaultRoute: '/',
-        preferredSections: ['dashboard', 'admin', 'reports'],
-        hasAdminAccess: true
-      };
-      
-    case 'DCP':
-    case 'ACP':
-    case 'CP':
-      return {
-        defaultRoute: '/reports',
-        preferredSections: ['reports', 'final', 'dashboard'],
-        hasAdminAccess: false
-      };
-      
-    case 'ARMS_SUPDT':
-      return {
-        defaultRoute: '/final',
-        preferredSections: ['final', 'reports', 'dashboard'],
-        hasAdminAccess: false
-      };
-      
-    case 'SHO':
-      return {
-        defaultRoute: '/inbox/forwarded',
-        preferredSections: ['inbox', 'sent', 'dashboard'],
-        hasAdminAccess: false
-      };
-    case 'ZS':
-      return {
-        defaultRoute: '/freshform',
-        preferredSections: ['sent', 'freshform', 'notifications'],
-        hasAdminAccess: false
-      };
-      
-    case 'APPLICANT':
-      return {
-        defaultRoute: '/sent',
-        preferredSections: ['sent', 'freshform', 'notifications'],
-        hasAdminAccess: false
-      };
-      
-    default:
-      return {
-        defaultRoute: '/',
-        preferredSections: ['dashboard'],
-        hasAdminAccess: false
-      };
-  }
-}
-
-/**
- * Check if user should be redirected on app startup based on role
+ * Determine if a user should be redirected on startup based on their role and current path
+ * Returns the path to redirect to, or null if no redirection is needed
  */
 export function shouldRedirectOnStartup(userRole: string, currentPath: string): string | null {
-  // Only allow role-based redirect from the login page. Never redirect away from '/' dashboard.
-  if (currentPath !== '/login') {
+  // Don't redirect if user is already on login page or auth-related pages
+  if (currentPath === '/login' || currentPath.startsWith('/auth')) {
     return null;
   }
-
-  const roleBasedPath = getRoleBasedRedirectPath(userRole);
-
-  // If role-based path is different from current (login), redirect to it
-  if (roleBasedPath !== currentPath) {
-    return roleBasedPath;
+  
+  // Get the default redirect path for the user's role
+  const defaultPath = getRoleBasedRedirectPath(userRole);
+  
+  // If user is on the root path ('/') and has a specific role-based default, redirect them
+  if (currentPath === '/' && defaultPath !== '/') {
+    return defaultPath;
   }
-
+  
+  // For admin users, always redirect from root to admin dashboard
+  if (userRole === 'ADMIN' && currentPath === '/') {
+    return '/admin';
+  }
+  
+  // For officer roles, redirect from root to their inbox
+  const officerRoles = ['ARMS_SUPDT', 'SHO', 'ZS', 'ADO', 'CADO', 'DCP', 'ACP', 'CP'];
+  if (officerRoles.includes(userRole) && currentPath === '/') {
+    return '/inbox/forwarded';
+  }
+  
+  // No redirection needed
   return null;
 }
-
-export const roleRedirections: Record<string, { default: string; preferredSections?: string[] }> = {
-  ZS: {
-    default: '/freshform',
-    preferredSections: ['sent', 'freshform', 'notifications'],
-  },
-  // ... other roles ...
-};

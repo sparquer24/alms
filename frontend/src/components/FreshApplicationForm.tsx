@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
 import { useAuth } from '../config/auth';
-import { mockApplications } from '../config/mockData';
+import { mockApplications } from '../services/sidebarApiCalls';
 import { isZS, hasPermission } from '../config/helpers';
 
 // Create a proper interface for the form data

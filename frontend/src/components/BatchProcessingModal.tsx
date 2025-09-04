@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ApplicationData } from '../config/mockData';
+import { ApplicationData } from '../services/sidebarApiCalls';
 import styles from './BatchProcessingModal.module.css';
 import { useAuth } from '../config/auth';
 import { RoleTypes } from '../config/roles';

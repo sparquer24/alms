@@ -1,7 +1,20 @@
 import React, { useMemo } from 'react';
-import { ApplicationData } from '../config/mockData';
-import { formatDate, getFutureDate } from '../utils/dateUtils';
+import { ApplicationData } from '../services/sidebarApiCalls';
 import { CheckIcon, ForwardIcon, RejectIcon, ReturnIcon, FlagIcon, DisposeIcon, ReviewIcon, PendingIcon } from '../utils/icons';
+
+// Local date helpers to replace missing '../utils/dateUtils'
+function formatDate(input: string | number | Date): string {
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return 'Invalid date';
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+}
+
+function getFutureDate(base: string | number | Date, daysAhead: number): string {
+  const d = new Date(base);
+  if (Number.isNaN(d.getTime())) return 'Invalid date';
+  d.setDate(d.getDate() + daysAhead);
+  return formatDate(d);
+}
 
 interface EnhancedApplicationTimelineProps {
   application: ApplicationData;

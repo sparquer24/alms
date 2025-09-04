@@ -141,9 +141,9 @@ export const ApplicationApi = {
     }
   },
 
-  getById: async (id: string): Promise<ApiResponse<Application>> => {
+  getById: async (id: Number): Promise<ApiResponse<Application>> => {
     try {
-      return await apiClient.get(`/application-form/${id}`);
+      return await apiClient.get(`/application-form/?applicationId=${id}`);
     } catch (error) {
       console.error('Error getting application by ID:', error);
       throw error;

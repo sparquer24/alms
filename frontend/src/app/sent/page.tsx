@@ -6,7 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, ApplicationData } from '../../config/mockData';
+import { filterApplications, ApplicationData } from '../../services/sidebarApiCalls';
 import { ApplicationApi } from '../../config/APIClient';
 
 export default function SentPage() {
