@@ -9,8 +9,23 @@ const MyReportsAnalytics: React.FC<{ userId?: string }> = ({ userId }) => {
     const load = async () => {
       try {
         const res = await ApplicationApi.getAll();
-        const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
-        if (mounted) setApplications(apps as any[]);
+        console.log('API Response (MyReportsAnalytics):', res);
+        
+        // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
+        // We need to access the 'data' property
+        let apps: any[] = [];
+        if (res && typeof res === 'object') {
+          if (res.data && Array.isArray(res.data)) {
+            apps = res.data;
+          } else if (res.body && Array.isArray(res.body)) {
+            apps = res.body;
+          } else if (Array.isArray(res)) {
+            apps = res;
+          }
+        }
+        
+        console.log('Extracted applications (MyReportsAnalytics):', apps);
+        if (mounted) setApplications(apps);
       } catch (err) {
         if (mounted) setApplications([]);
       }

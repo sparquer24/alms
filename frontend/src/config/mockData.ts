@@ -22,7 +22,7 @@ export interface ApplicationData {
   applicationDate: string;
   applicationTime?: string;
   status: 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated';
-  status_id: number; // Now required and numeric
+  status_id: string | number; // Can be either string (API) or number (legacy)
   assignedTo: string;
   forwardedFrom?: string;
   forwardedTo?: string;

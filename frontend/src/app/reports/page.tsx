@@ -46,8 +46,23 @@ export default function ReportsPage() {
     const load = async () => {
       try {
         const res = await ApplicationApi.getAll();
-        const apps = (res && ((res as any).body ?? (res as any).data ?? res)) || [];
-        setApplications(apps as any[]);
+        console.log('API Response (reports page):', res);
+        
+        // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
+        // We need to access the 'data' property
+        let apps: any[] = [];
+        if (res && typeof res === 'object') {
+          if (res.data && Array.isArray(res.data)) {
+            apps = res.data;
+          } else if (res.body && Array.isArray(res.body)) {
+            apps = res.body;
+          } else if (Array.isArray(res)) {
+            apps = res;
+          }
+        }
+        
+        console.log('Extracted applications (reports):', apps);
+        setApplications(apps);
       } catch (err) {
         setApplications([]);
       } finally {

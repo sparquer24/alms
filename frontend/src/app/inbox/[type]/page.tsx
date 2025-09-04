@@ -78,12 +78,14 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
     }
   };
 
-  const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, type, userId || undefined),
-    searchQuery,
-    startDate,
-    endDate
-  );
+  const filteredApplications = type
+    ? filterApplications(
+        getApplicationsByStatus(mockApplications, type, userId || undefined),
+        searchQuery,
+        startDate,
+        endDate
+      )
+    : [];
 
   if (!type) {
     // Wait for params to resolve before rendering to avoid hydration mismatch

@@ -15,15 +15,15 @@ export type StatusIdMap = Partial<Record<StatusKey, Array<string | number>>>;
 
 // Fill these arrays with the correct status IDs from your workflow tables
 export const statusIdMap: StatusIdMap = {
-  forwarded: [],
-  returned: [],
-  redFlagged: [],
-  disposed: [],
-  freshform: [],
-  sent: [],
-  closed: [],
-  finaldisposal: [],
-  myreports: [],
+  forwarded: ['forwarded'],     // Changed to lowercase to match API
+  returned: ['returned'],       // Changed to lowercase to match API
+  redFlagged: ['red_flagged'], // Using snake_case to match API
+  disposed: ['disposed'],       // Changed to lowercase to match API
+  freshform: ['initiated'],     // Changed to lowercase to match API
+  sent: ['sent'],              // Changed to lowercase to match API
+  closed: ['closed'],          // Changed to lowercase to match API
+  finaldisposal: ['final_disposal'], // Using snake_case to match API
+  myreports: ['forwarded', 'returned', 'red_flagged', 'disposed'], // All statuses for reports
 };
 
 

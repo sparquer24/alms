@@ -390,12 +390,14 @@ export default function FreshFormPage() {
                 <p className="text-gray-600">
                   Showing {filteredApplications.length} fresh application form(s)
                 </p>
+             
               </div>
 
               {/* Display the application table */}
               <ApplicationTable
+                // applications={filteredApplications}
+                // isLoading={isLoading}
                 applications={filteredApplications}
-                isLoading={isLoading}
               />
             </>
           )}
