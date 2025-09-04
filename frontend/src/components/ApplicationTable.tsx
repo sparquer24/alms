@@ -24,18 +24,8 @@ interface ApplicationTableProps {
   filteredApplications?: ApplicationData[]; // Optional filtered applications list
 }
 
-const getStatusValue = (status: any): string => {
-  if (typeof status === 'string') {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  }
-  if (status && typeof status === 'object' && status.name) {
-    return status.name.charAt(0).toUpperCase() + status.name.slice(1);
-  }
-  return 'Unknown';
-};
-
 const getStatusPillClass = (status: string) => {
-  const normalized = (status || '').toLowerCase().replace(/-/g, '_');
+  const normalized = (status || '').toString().toLowerCase().trim().replace(/[-\s]+/g, '_');
   const statusClasses: Record<string, string> = {
     pending: 'bg-[#FACC15] text-black',
     approved: 'bg-[#10B981] text-white',
@@ -43,9 +33,13 @@ const getStatusPillClass = (status: string) => {
     rejected: 'bg-[#EF4444] text-white',
     red_flagged: 'bg-[#DC2626] text-white',
     returned: 'bg-orange-400 text-white',
+    sent: 'bg-blue-500 text-white',
+    closed: 'bg-gray-500 text-white',
     disposed: 'bg-gray-400 text-white',
+    final_disposal: 'bg-emerald-600 text-white',
+    unknown: 'bg-gray-200 text-gray-800'
   };
-  return statusClasses[status] || 'bg-gray-200 text-gray-800';
+  return statusClasses[normalized] || statusClasses.unknown;
 };
 
 const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, filteredApplications, isLoading = false, statusIdFilter }) => {
@@ -351,13 +345,22 @@ const TableRow: React.FC<{
     <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{app.applicationType}</td>
     <td className={`px-6 py-4 whitespace-nowrap text-sm ${selectedItems.has(app.id) ? 'text-white' : 'text-black'}`}>{formatDateTime(app.applicationDate)}</td>
     <td className="px-6 py-4 whitespace-nowrap">
-      <span
-        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusPillClass(app.status)}`}
-        title={`Status: ${app.status.charAt(0).toUpperCase() + app.status.slice(1)}`}
-        aria-label={`Status: ${app.status}`}
-      >
-        {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-      </span>
+      {(() => {
+        const raw = (app as any).status; // supports flexible status sources
+        const statusStr = typeof raw === 'string' ? raw : (raw && raw.name ? raw.name : 'unknown');
+        const display = statusStr
+          .replace(/[-_]+/g, ' ')
+          .replace(/\b\w/g, (c: string) => c.toUpperCase());
+        return (
+          <span
+            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusPillClass(statusStr)}`}
+            title={`Status: ${display}`}
+            aria-label={`Status: ${display}`}
+          >
+            {display}
+          </span>
+        );
+      })()}
     </td>
     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
       <button

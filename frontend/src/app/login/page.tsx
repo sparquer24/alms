@@ -257,10 +257,12 @@ export default function Login() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center bg-cover bg-center py-12 px-4 sm:px-6 lg:px-8" 
+      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]" 
       role="main"
     >
-      <div className="max-w-md w-full space-y-6 bg-white/95 p-10 rounded-lg shadow-xl backdrop-blur-sm">
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]" aria-hidden="true" />
+      <div className="relative max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40">
         {/* Header */}
         <div className="flex flex-col items-center">
           <div className="mb-6">
