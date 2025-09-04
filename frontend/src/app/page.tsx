@@ -37,11 +37,17 @@ export default function Home() {
     }
     
     // If authenticated, check if user should be redirected based on role
-    if (!isLoading && isAuthenticated && userRole) {
-      const redirectPath = shouldRedirectOnStartup(userRole, '/');
-      if (redirectPath) {
-        console.log(`Redirecting ${userRole} user from dashboard to: ${redirectPath}`);
-        router.replace(redirectPath);
+    if (!isLoading && isAuthenticated) {
+      if (userRole) {
+        const redirectPath = shouldRedirectOnStartup(userRole, '/');
+        if (redirectPath) {
+          console.log(`Redirecting ${userRole} user from dashboard to: ${redirectPath}`);
+          router.replace(redirectPath);
+          return;
+        }
+      } else {
+        // Fallback: if role isn't available yet, send to inbox by default after login
+        router.replace('/inbox/forwarded');
         return;
       }
     }

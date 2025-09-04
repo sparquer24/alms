@@ -20,7 +20,7 @@ const Login = () => {
 
     useEffect(() => {
         const token = getAuthToken();
-        if (token && location.pathname.startsWith('/login')) navigate('/dashboard');
+        if (token && location.pathname.startsWith('/login')) navigate('/inbox/forwarded');
     }, []);
 
     // Cookie snapshot helpers (used to detect external cookie changes on refresh)
@@ -94,7 +94,7 @@ const Login = () => {
                             saveCookieSnapshot({ auth: 
                                 getCookie('auth') ?? null, user: getCookie('user') ?? null, role: getCookie('role') ?? null });
                             console.log('Successfully logged in!');
-                            navigate('/dashboard');
+                            navigate('/inbox/forwarded');
                         } else {
                             // Clear any partial/invalid cookies and snapshot, keep user on login page and show guidance
                             clearAllAuthCookies();

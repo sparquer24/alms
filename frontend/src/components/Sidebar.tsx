@@ -304,7 +304,8 @@ const getUserRoleFromCookie = () => {
     
     setActiveItem(`inbox-${subItem}`);
     localStorage.setItem("activeNavItem", `inbox-${subItem}`);
-    
+    router.replace(`/inbox/${subItem}`); 
+    dispatch(openInbox()); 
     try {
       // Get status ID from map
       const statusId = statusIdMap[subItem as keyof typeof statusIdMap]?.[0];
