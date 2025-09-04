@@ -6,7 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../config/mockData';
+import { mockApplications, filterApplications, getApplicationsByStatus } from '../../services/sidebarApiCalls';
 
 export default function ClosedPage() {
   const [searchQuery, setSearchQuery] = useState('');

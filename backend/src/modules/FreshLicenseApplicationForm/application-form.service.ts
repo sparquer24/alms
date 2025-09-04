@@ -563,47 +563,59 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
 }
 
 
-async getApplicationById(id: string | number) {
-  return await prisma.freshLicenseApplicationsForms.findUnique({
-    where: { id: typeof id === 'string' ? Number(id) : id },
-    include: {
-      presentAddress: {
-        include: {
-          state: true,
-          district: true,
-        }
+async getApplicationById(id: number | undefined, acknowledgementNo: string | undefined): Promise<[any, any]> {
+  try {
+    console.log({ id, acknowledgementNo });
+    let whereCondition: any = {};
+    if (id){
+      whereCondition = { id };
+    }
+    if (acknowledgementNo) {
+      whereCondition = { ...whereCondition, acknowledgementNo };
+    }
+    return [null, await prisma.freshLicenseApplicationsForms.findUnique({
+      where: whereCondition,
+      include: {
+        presentAddress: {
+          include: {
+            state: true,
+            district: true,
+          }
+        },
+        permanentAddress: {
+          include: {
+            state: true,
+            district: true,
+          }
+        },
+        contactInfo: true,
+        occupationInfo: {
+          include: {
+            state: true,
+            district: true,
+          }
+        },
+        biometricData: true,
+        criminalHistory: true,
+        licenseHistory: true,
+        licenseDetails: {
+          include: {
+            requestedWeapons: true,
+          }
+        },
+        fileUploads: true,
+        state: true,
+        district: true,
+        status: true,
+        currentRole: true,
+        previousRole: true,
+        currentUser: true,
+        previousUser: true,
       },
-      permanentAddress: {
-        include: {
-          state: true,
-          district: true,
-        }
-      },
-      contactInfo: true,
-      occupationInfo: {
-        include: {
-          state: true,
-          district: true,
-        }
-      },
-      biometricData: true,
-      criminalHistory: true,
-      licenseHistory: true,
-      licenseDetails: {
-        include: {
-          requestedWeapons: true,
-        }
-      },
-      fileUploads: true,
-      state: true,
-      district: true,
-      status: true,
-      currentRole: true,
-      previousRole: true,
-      currentUser: true,
-      previousUser: true,
-    },
-  });
+    })];
+  } catch (err) {
+    return [err, null];
+  }
 }
 
  public async getFilteredApplications(filter: { 
@@ -616,70 +628,74 @@ async getApplicationById(id: string | number) {
   orderBy?: string; 
   order?: 'asc' | 'desc'; 
 }) {
-  const where: any = {};
+  try {
+    const where: any = {};
 
-  if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
-    where.statusId = { in: filter.statusIds };
-  }
+    if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
+      where.statusId = { in: filter.statusIds };
+    }
 
-  if (filter.currentUserId !== undefined) {
-    where.currentUserId = filter.currentUserId;
-  }
+    if (filter.currentUserId !== undefined) {
+      where.currentUserId = filter.currentUserId;
+    }
 
-  const page = filter.page ?? 1;
-  const limit = filter.limit ?? 10;
-  const skip = (page - 1) * limit;
+    const page = filter.page ?? 1;
+    const limit = filter.limit ?? 10;
+    const skip = (page - 1) * limit;
 
-  // Search filter
-  if (filter.searchField && filter.search) {
-    if (['id', 'firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
-      if (filter.searchField === 'id') {
-        const idVal = Number(filter.search);
-        if (!isNaN(idVal)) where.id = idVal;
-      } else {
-        where[filter.searchField] = { contains: filter.search, mode: 'insensitive' };
+    // Search filter
+    if (filter.searchField && filter.search) {
+      if (['id', 'firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
+        if (filter.searchField === 'id') {
+          const idVal = Number(filter.search);
+          if (!isNaN(idVal)) where.id = idVal;
+        } else {
+          where[filter.searchField] = { contains: filter.search, mode: 'insensitive' };
+        }
       }
     }
+
+    const orderByObj: any = {};
+    if (filter.orderBy) {
+      orderByObj[filter.orderBy] = filter.order ?? 'desc';
+    } else {
+      orderByObj.createdAt = 'desc';
+    }
+
+    const [total, data] = await Promise.all([
+      prisma.freshLicenseApplicationsForms.count({ where }),
+      prisma.freshLicenseApplicationsForms.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByObj,
+        include,
+      }),
+    ]);
+
+    let filteredData  = data.map(item => ({
+      id: item.id,
+      acknowledgementNo: item.acknowledgementNo,
+      applicantFullName: [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" "),
+      currentRole: item.currentRole,
+      previousRole: item.previousRole,
+      currentUser: item.currentUser,
+      previousUser: item.previousUser,
+      isApprovied: item.isApprovied,
+      isFLAFGenerated: item.isFLAFGenerated,
+      isGroundReportGenerated: item.isGroundReportGenerated,
+      isPending: item.isPending,
+      isReEnquiry: item.isReEnquiry,
+      isReEnquiryDone: item.isReEnquiryDone,
+      isRejected: item.isRejected,
+      remarks: item.remarks,
+      status: item.status
+    }));
+
+    return [null, { total, data: filteredData }];
+  }catch (error) {
+    return [error, null];
   }
-
-  const orderByObj: any = {};
-  if (filter.orderBy) {
-    orderByObj[filter.orderBy] = filter.order ?? 'desc';
-  } else {
-    orderByObj.createdAt = 'desc';
-  }
-
-  const [total, data] = await Promise.all([
-    prisma.freshLicenseApplicationsForms.count({ where }),
-    prisma.freshLicenseApplicationsForms.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: orderByObj,
-      include,
-    }),
-  ]);
-
-  let filteredData  = data.map(item => ({
-    id: item.id,
-    acknowledgementNo: item.acknowledgementNo,
-    applicantFullName: [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" "),
-    currentRole: item.currentRole,
-    previousRole: item.previousRole,
-    currentUser: item.currentUser,
-    previousUser: item.previousUser,
-    isApprovied: item.isApprovied,
-    isFLAFGenerated: item.isFLAFGenerated,
-    isGroundReportGenerated: item.isGroundReportGenerated,
-    isPending: item.isPending,
-    isReEnquiry: item.isReEnquiry,
-    isReEnquiryDone: item.isReEnquiryDone,
-    isRejected: item.isRejected,
-    remarks: item.remarks,
-    status: item.status
-  }));
-
-  return { total, data: filteredData };
 }
 
   async getUserApplications(userId: string) {

@@ -40,6 +40,9 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'orderBy', required: false, type: String })
   @ApiQuery({ name: 'order', required: false, type: String })
+  @ApiQuery({ name: 'applicationId', required: false, type: String })
+  @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
+  @ApiQuery({ name: 'statusIds', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -48,7 +51,10 @@ export class ApplicationFormController {
     @Query('searchField') searchField?: string,
     @Query('search') search?: string,
     @Query('orderBy') orderBy?: string,
-    @Query('order') order?: string
+    @Query('order') order?: string,
+    @Query('applicationId') applicationId?: number,
+    @Query('acknowledgementNo') acknowledgementNo?: string,
+    @Query('statusIds') statusIds?: string
   ) {
     try {
       // Parse pagination
@@ -64,17 +70,35 @@ export class ApplicationFormController {
       const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
       const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
       const parsedSearchValue = search ?? undefined;
+      let parsedApplicationId = Number(applicationId) ?? undefined;
+      let parsedAcknowledgementNo = acknowledgementNo ?? undefined;
+      let parsedStatusIds = statusIds ? statusIds.split(',').map(id =>  Number(id.trim())) : undefined;
+      console.log({ parsedApplicationId, parsedAcknowledgementNo, parsedStatusIds });
+      console.log({ allowedOrderFields, parsedOrderBy, parsedOrder });
+      if (parsedApplicationId || parsedAcknowledgementNo) {
+        console.log({parsedApplicationId, parsedAcknowledgementNo})
+        let [errorSings, resultData] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
+        if (errorSings) {
+          throw new HttpException({ success: false, message: errorSings.message || 'Failed to fetch application', error: errorSings.message }, HttpStatus.BAD_REQUEST);
+        }
+        return { success: true, message: 'Application retrieved successfully', data: resultData };
+      }
+
 
       // Call service method (you may need to adjust this to match your service signature)
-      const result = await this.applicationFormService.getFilteredApplications({
+      const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
         limit: limitNum,
         searchField: parsedSearchField,
         search: parsedSearchValue,
         orderBy: parsedOrderBy,
         order: parsedOrder as 'asc' | 'desc',
-        currentUserId: req.user?.sub // If you need user context
-      });
+        currentUserId: req.user?.sub,// If you need user context
+        statusIds: parsedStatusIds,
+      }) as [any, { data: any[]; total: number }];
+      if (error) {
+        throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
+      }
 
       return {
         success: true,

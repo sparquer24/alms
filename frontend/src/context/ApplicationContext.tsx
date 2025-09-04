@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { ApplicationData } from '../config/mockData';
+import { ApplicationData } from '../services/sidebarApiCalls';
 
 interface ApplicationContextType {
   applications: ApplicationData[];

@@ -8,7 +8,7 @@ import ApplicationTable from '../../components/ApplicationTable';
 import FreshApplicationForm from '../../components/FreshApplicationForm';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus, ApplicationData } from '../../config/mockData';
+import { mockApplications, filterApplications, getApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
 import { generateApplicationPDF, generateBatchReportPDF, getBatchReportHTML } from '../../config/pdfUtils';
 import { getRoleConfig } from '../../config/roles';
 import { isZS, APPLICATION_TYPES } from '../../config/helpers';

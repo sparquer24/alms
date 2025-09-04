@@ -6,8 +6,9 @@ import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import ApplicationTable from '../../../components/ApplicationTable';
 import { useAuthSync } from '../../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../../config/mockData';
+import { fetchApplicationsByStatus, filterApplications, ApplicationData } from '../../../services/sidebarApiCalls';
 import { useAuth } from '../../../config/auth';
+import { statusIdMap } from '../../../config/statusMap';
 import { getCookie } from 'cookies-next';
 import React from 'react';
 
@@ -17,6 +18,7 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
   const [type, setType] = useState<string | null>(null);
@@ -40,11 +42,35 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
     }
   }, [isAuthenticated, router, type]);
 
+  // Fetch applications when type changes
   useEffect(() => {
     if (type) {
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 500);
+      const fetchApplications = async () => {
+        try {
+          setIsLoading(true);
+          
+          // Get status ID from statusIdMap for this type
+          const statusIds = statusIdMap[type as keyof typeof statusIdMap];
+          if (statusIds && statusIds.length > 0) {
+            console.log(`🔄 Fetching ${type} applications with status ID:`, statusIds[0]);
+            
+            const apps = await fetchApplicationsByStatus(statusIds[0]);
+            console.log(`✅ Fetched ${apps.length} ${type} applications`);
+            
+            setApplications(apps);
+          } else {
+            console.warn(`⚠️ No status ID mapped for type: ${type}`);
+            setApplications([]);
+          }
+        } catch (error) {
+          console.error(`❌ Error fetching ${type} applications:`, error);
+          setApplications([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchApplications();
     }
   }, [type]);
 
@@ -78,13 +104,8 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
     }
   };
 
-  const filteredApplications = type
-    ? filterApplications(
-        getApplicationsByStatus(mockApplications, type, userId || undefined),
-        searchQuery,
-        startDate,
-        endDate
-      )
+  const filteredApplications = applications.length > 0
+    ? filterApplications(applications, searchQuery, startDate, endDate)
     : [];
 
   if (!type) {
@@ -117,11 +138,18 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
             </div>
           )}
 
-          {/* Show application count */}
+          {/* Show application count and debug info */}
           <div className="mb-6">
             <p className="text-gray-600">
               Showing {filteredApplications.length} {type === 'flagged' ? 'red flagged' : type} application(s)
             </p>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-500">
+                <p><strong>Debug:</strong> Looking for status ID: {statusIdMap[type as keyof typeof statusIdMap]?.[0]}</p>
+                <p>Total applications fetched: {applications.length}</p>
+                <p>After filters: {filteredApplications.length}</p>
+              </div>
+            )}
           </div>
 
           {/* Display the application table */}
