@@ -1,10 +1,22 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ApplicationApi, ReportApi, DocumentApi } from '../config/APIClient';
 import { useAuth } from '../config/auth';
-import { mockApplications } from '../services/sidebarApiCalls';
-import { isZS, hasPermission } from '../config/helpers';
+
+// BackButton component to navigate to previous route
+const BackButton: React.FC = () => {
+  return (
+    <button
+      type="button"
+      onClick={() => window.history.back()}
+      className="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500"
+      style={{ marginBottom: '1rem' }}
+    >
+      Back
+    </button>
+  );
+};
 
 // Create a proper interface for the form data
 interface FormData {
@@ -132,20 +144,52 @@ const formSteps = [
   { title: 'License Details', description: 'Enter details about the license you are applying for' },
   { title: 'Biometric Information', description: 'Upload your biometric information' },
   { title: 'Documents Upload', description: 'Upload required documents' },
+  { title: 'Preview', description: 'Review your application details' },
   { title: 'Declaration', description: 'Review and submit your application' }
 ];
 
 export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplicationFormProps) {
-  const { userRole, userName } = useAuth();
+  const { userId, userRole } = useAuth();
   const [formStep, setFormStep] = useState(0); // Start at 0 to match arrays
   const [districts, setDistricts] = useState<string[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(true);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  // Add effect to monitor form step changes
+  // Simple helpers for preview rendering
+  const YesNo = (v?: any) => (v === true || v === 'yes' || v === 'Yes') ? 'Yes' : (v === false || v === 'no' || v === 'No') ? 'No' : (v ?? '-');
+  const listOrDash = (arr?: any[]) => (Array.isArray(arr) && arr.length > 0 ? arr : ['-']);
+  const Field: React.FC<{ label: string; value: any }> = ({ label, value }) => (
+    <p className="flex"><span className="text-gray-500 min-w-[200px] inline-block">{label}:</span> <span className="ml-1 break-all">{value ?? '-'}</span></p>
+  );
+
+  // Helper to set nested values like `formIVDetails.licenseArea`
+  const setValueByPath = (obj: any, path: string, value: any) => {
+    const keys = path.split('.');
+    const last = keys.pop() as string;
+    const newObj = { ...obj };
+    let curr: any = newObj;
+    for (const k of keys) {
+      curr[k] = { ...(curr[k] ?? {}) };
+      curr = curr[k];
+    }
+    curr[last] = value;
+    return newObj;
+  };
+
+  // Ref for scrollable form content div
+  const formContentRef = React.useRef<HTMLDivElement>(null);
+
+  // Add effect to monitor form step changes and scroll to top of scrollable div
   useEffect(() => {
     console.log("Form step changed to:", formStep);
+    if (formContentRef.current) {
+      formContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [formStep]);
+  
   // Store document files for preview
   const [documentFiles, setDocumentFiles] = useState<Record<string, DocumentFile | null>>({
     idProofUploaded: null,
@@ -156,9 +200,13 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     trainingCertificateUploaded: null,
     panCardUploaded: null,
     otherStateLicenseUploaded: null
-  }); const [formData, setFormData] = useState({
+  });
+  
+  const [formData, setFormData] = useState({
     // Personal Information
     applicantName: '',
+    applicantMiddleName: '',
+    applicantLastName: '',
     applicantMobile: '',
     applicantEmail: '',
     fatherName: '',
@@ -170,10 +218,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     bloodGroup: '',
     voterId: '',
     panNumber: '',
+    aadharNumber: '',
     applicantIdType: 'aadhar',
     applicantIdNumber: '',
     applicantGender: '',
     applicantDateOfBirth: '',
+    dateOfBirthInWords: '',
+    placeOfBirth: '',
+    applicationFilledBy: '',
     // Document Upload fields
     idProofUploaded: false,
     addressProofUploaded: false,
@@ -183,14 +235,41 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     medicalCertificateUploaded: false,
     trainingCertificateUploaded: false,
     otherStateLicenseUploaded: false,
+    // Declaration object for checkboxes
+    declaration: {
+      agreeToTruth: false,
+      understandLegalConsequences: false,
+      agreeToTerms: false,
+    },
 
     // Address Information
     applicantAddress: '',
+    presentState: '',
+    presentDistrict: '',
     presentPincode: '',
     presentPoliceStation: '',
+    jurisdictionPoliceStation: '',
+    permanentAddress: '',
+    permanentState: '',
+    permanentDistrict: '',
     permanentPincode: '',
     permanentPoliceStation: '',
     sameAsPresent: false,
+    residingSince: '',
+    
+    // Contact Information
+    officePhone: '',
+    residencePhone: '',
+    officeMobile: '',
+    alternativeMobile: '',
+
+    // Occupation Information
+    occupation: '',
+    officeBusinessAddress: '',
+    officeBusinessState: '',
+    officeBusinessDistrict: '',
+    cropProtectionLocation: '',
+    cultivatedArea: '',
 
     // License Information
     applicationType: 'New License',
@@ -198,23 +277,41 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     weaponReason: '',
     licenseType: 'Regular',
     licenseValidity: '3',
+    
+    // Legacy fields (now part of arrays)
+    convicted: false,
 
-    // Criminal History
-    isCriminalCasePending: 'No',
-    firNumber: '',
-    policeStation: '',
-    sectionOfLaw: '',
-    dateOfOffence: '',
-    caseStatus: '',
+    // Criminal History (Array)
+    criminalHistory: [
+      {
+        convicted: false,
+        isCriminalCasePending: 'No',
+        firNumber: '',
+        policeStation: '',
+        sectionOfLaw: '',
+        dateOfOffence: '',
+        caseStatus: ''
+      }
+    ],
 
-    // License History
-    hasPreviousLicense: 'no',
-    previousLicenseNumber: '',
-    licenseIssueDate: '', licenseExpiryDate: '',
-    issuingAuthority: '',
-    isLicenseRenewed: 'No',
-    renewalDate: '',
-    renewingAuthority: '',
+    // License History (Array)
+    licenseHistory: [
+      {
+        hasAppliedBefore: false,
+        hasOtherApplications: false,
+        familyMemberHasArmsLicense: false,
+        hasSafePlaceForArms: true,
+        hasUndergoneTraining: false,
+        hasPreviousLicense: 'no',
+        previousLicenseNumber: '',
+        licenseIssueDate: '',
+        licenseExpiryDate: '',
+        issuingAuthority: '',
+        isLicenseRenewed: 'No',
+        renewalDate: '',
+        renewingAuthority: ''
+      }
+    ],
 
     // Declarations
     hasCriminalRecord: 'no',
@@ -223,32 +320,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
     // New fields from freshFormFilde.md
     aliceAcknowledgementNumber: '',
-    applicantMiddleName: '',
-    applicantLastName: '',
-    applicationFilledBy: '',
-    placeOfBirth: '',
-    aadharNumber: '',
-    dateOfBirthInWords: '',
-    presentAddress: '',
-    presentState: '',
-    presentDistrict: '',
-    residingSince: '',
-    jurisdictionPoliceStation: '',
-    permanentAddress: '',
-    permanentState: '',
-    permanentDistrict: '',
-    permanentJurisdictionPoliceStation: '',
-    officePhone: '',
-    residencePhone: '',
-    officeMobile: '',
-    alternativeMobile: '',
-    occupation: '',
-    officeBusinessAddress: '',
-    officeBusinessState: '',
-    officeBusinessDistrict: '',
-    cropProtectionLocation: '',
-    cultivatedArea: '',
-    convicted: false,
     convictionDetails: [],
     previouslyApplied: false,
     previousApplicationDetails: {
@@ -284,10 +355,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     signature: '',
     irisScan: '',
     photograph: '',
+    
+    // Additional fields needed for API
+    weaponIds: [] as string[], // For requestedWeaponIds
   });
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -295,15 +370,16 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       console.log(`Checkbox ${name} changed to:`, checked);
-      setFormData(prev => ({
-        ...prev,
-        [name]: checked
-      }));
+      setFormData(prev => setValueByPath(prev, name, checked));
+    } else if (type === 'radio') {
+      // Radios generally set string values; keep as-is unless we handle booleans separately
+      setFormData(prev => setValueByPath(prev, name, value));
+    } else if (type === 'file') {
+      const files = (e.target as HTMLInputElement).files;
+      const fileName = files && files[0] ? files[0].name : '';
+      setFormData(prev => setValueByPath(prev, name, fileName));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData(prev => setValueByPath(prev, name, value));
     }
 
     // Clear error when field is modified
@@ -316,10 +392,100 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     }
   };
 
+  // Dedicated handler for boolean radios like `convicted`
+  const handleBooleanRadioChange = (field: string, bool: boolean) => {
+    setFormData(prev => setValueByPath(prev, field, bool));
+  };
+
+  // Handle adding new criminal history entry
+  const addCriminalHistoryEntry = () => {
+    setFormData(prev => ({
+      ...prev,
+      criminalHistory: [
+        ...prev.criminalHistory,
+        {
+          convicted: false,
+          isCriminalCasePending: 'No',
+          firNumber: '',
+          policeStation: '',
+          sectionOfLaw: '',
+          dateOfOffence: '',
+          caseStatus: ''
+        }
+      ]
+    }));
+  };
+
+  // Handle removing criminal history entry
+  const removeCriminalHistoryEntry = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      criminalHistory: prev.criminalHistory.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Handle adding new license history entry
+  const addLicenseHistoryEntry = () => {
+    setFormData(prev => ({
+      ...prev,
+      licenseHistory: [
+        ...prev.licenseHistory,
+        {
+          hasAppliedBefore: false,
+          hasOtherApplications: false,
+          familyMemberHasArmsLicense: false,
+          hasSafePlaceForArms: true,
+          hasUndergoneTraining: false,
+          hasPreviousLicense: 'no',
+          previousLicenseNumber: '',
+          licenseIssueDate: '',
+          licenseExpiryDate: '',
+          issuingAuthority: '',
+          isLicenseRenewed: 'No',
+          renewalDate: '',
+          renewingAuthority: ''
+        }
+      ]
+    }));
+  };
+
+  // Handle removing license history entry
+  const removeLicenseHistoryEntry = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      licenseHistory: prev.licenseHistory.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Handle array field changes
+  const handleArrayFieldChange = (arrayName: string, index: number, fieldName: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [arrayName]: Array.isArray(prev[arrayName as keyof typeof prev])
+        ? (prev[arrayName as keyof typeof prev] as any[]).map((item: any, i: number) =>
+            i === index ? { ...item, [fieldName]: value } : item
+          )
+        : []
+    }));
+  };
+
   // Handle document file upload
   const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>, docId: string) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+
+      // Basic validation: size < 5MB and allowed types
+      const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+      const maxBytes = 5 * 1024 * 1024;
+      if (!allowed.includes(file.type)) {
+        setErrors(prev => ({ ...prev, [docId]: 'Invalid file type. Allowed: PDF, JPG, PNG' }));
+        return;
+      }
+      if (file.size > maxBytes) {
+        setErrors(prev => ({ ...prev, [docId]: 'File too large. Max size is 5MB' }));
+        return;
+      }
+
       // Create a file URL for preview
       const filePreview = URL.createObjectURL(file);
 
@@ -345,6 +511,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
     }
   };
+  
   // Clean up file preview URLs when component unmounts
   React.useEffect(() => {
     return () => {
@@ -422,7 +589,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         permanentPoliceStation: prev.presentPoliceStation
       }));
     }
-  }, [formData.sameAsPresent]);  // Validate form fields for current step
+  }, [formData.sameAsPresent]);
+
+  // Validate form fields for current step
   const validateCurrentStep = () => {
     try {
       console.log("Validating step:", formStep);
@@ -473,38 +642,48 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 2) {
-        console.log("Validating weapon details");
-        // Weapon Details Validation
-        if (!formData.weaponType) newErrors.weaponType = 'Weapon type is required';
-        if (!formData.weaponReason) newErrors.weaponReason = 'Reason for weapon is required';
-        if (!formData.licenseType) newErrors.licenseType = 'License type is required';
+        console.log("Validating occupation details");
+        // Occupation & Business Validation
+        if (!formData.occupation) newErrors.occupation = 'Occupation is required';
       }
 
       if (formStep === 3) {
         console.log("Validating criminal history");
         // Criminal History Validation
-        if (formData.isCriminalCasePending === 'Yes') {
-          if (!formData.firNumber) newErrors.firNumber = 'FIR number is required';
-          if (!formData.policeStation) newErrors.policeStation = 'Police station is required';
-          if (!formData.sectionOfLaw) newErrors.sectionOfLaw = 'Section of law is required';
-          if (!formData.dateOfOffence) newErrors.dateOfOffence = 'Date of offence is required';
-          if (!formData.caseStatus) newErrors.caseStatus = 'Case status is required';
+        if (Array.isArray(formData.criminalHistory)) {
+          formData.criminalHistory.forEach((record: any, idx: number) => {
+            if (record.isCriminalCasePending === 'Yes') {
+              if (!record.firNumber) newErrors[`criminalHistory[${idx}].firNumber`] = 'FIR number is required';
+              if (!record.policeStation) newErrors[`criminalHistory[${idx}].policeStation`] = 'Police station is required';
+              if (!record.sectionOfLaw) newErrors[`criminalHistory[${idx}].sectionOfLaw`] = 'Section of law is required';
+              if (!record.dateOfOffence) newErrors[`criminalHistory[${idx}].dateOfOffence`] = 'Date of offence is required';
+              if (!record.caseStatus) newErrors[`criminalHistory[${idx}].caseStatus`] = 'Case status is required';
+            }
+          });
         }
       }
 
       if (formStep === 4) {
-        console.log("Validating license history");
+        console.log("Validating license details and weapon info");
+        // Weapon Details Validation
+        if (!formData.weaponType) newErrors.weaponType = 'Weapon type is required';
+        if (!formData.weaponReason) newErrors.weaponReason = 'Reason for weapon is required';
+        
         // License History Validation
-        if (formData.hasPreviousLicense === 'yes') {
-          if (!formData.previousLicenseNumber) newErrors.previousLicenseNumber = 'Previous license number is required';
-          if (!formData.licenseIssueDate) newErrors.licenseIssueDate = 'License issue date is required';
-          if (!formData.licenseExpiryDate) newErrors.licenseExpiryDate = 'License expiry date is required';
-          if (!formData.issuingAuthority) newErrors.issuingAuthority = 'Issuing authority is required';
+        if (Array.isArray(formData.licenseHistory)) {
+          formData.licenseHistory.forEach((licenseRecord: any, idx: number) => {
+            if (licenseRecord.hasPreviousLicense === 'yes') {
+              if (!licenseRecord.previousLicenseNumber) newErrors[`licenseHistory[${idx}].previousLicenseNumber`] = 'Previous license number is required';
+              if (!licenseRecord.licenseIssueDate) newErrors[`licenseHistory[${idx}].licenseIssueDate`] = 'License issue date is required';
+              if (!licenseRecord.licenseExpiryDate) newErrors[`licenseHistory[${idx}].licenseExpiryDate`] = 'License expiry date is required';
+              if (!licenseRecord.issuingAuthority) newErrors[`licenseHistory[${idx}].issuingAuthority`] = 'Issuing authority is required';
 
-          if (formData.isLicenseRenewed === 'Yes') {
-            if (!formData.renewalDate) newErrors.renewalDate = 'Renewal date is required';
-            if (!formData.renewingAuthority) newErrors.renewingAuthority = 'Renewing authority is required';
-          }
+              if (licenseRecord.isLicenseRenewed === 'Yes') {
+                if (!licenseRecord.renewalDate) newErrors[`licenseHistory[${idx}].renewalDate`] = 'Renewal date is required';
+                if (!licenseRecord.renewingAuthority) newErrors[`licenseHistory[${idx}].renewingAuthority`] = 'Renewing authority is required';
+              }
+            }
+          });
         }
       }
 
@@ -524,6 +703,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 7) {
+        console.log("Validating preview step");
+        // Preview step - no validation needed, just review
+      }
+
+      if (formStep === 8) {
         console.log("Validating final submission");
         if (formData.hasSubmittedTrueInfo !== true) {
           newErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
@@ -540,7 +724,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       console.error("Error during validation:", error);
       return false;
     }
-  };  // Handle next step
+  };
+  
+  // Handle next step
   const handleNextStep = () => {
     console.log("Current form step:", formStep);
 
@@ -562,13 +748,16 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       console.error("Error in handleNextStep:", error);
     }
   };
+  
   // Handle previous step
   const handlePreviousStep = () => {
     console.log("Moving to previous step:", formStep - 1);
     if (formStep > 0) {
       setFormStep(prev => prev - 1);
     }
-  };// Handle saving form as draft
+  };
+  
+  // Handle saving form as draft
   const handleSaveAsDraft = () => {
     try {
       const draftData = {
@@ -594,6 +783,175 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     }
   };
 
+  // Handle filling test data
+  const handleFillTestData = () => {
+    const testData = {
+      // Personal Information
+      applicantName: 'John Doe',
+      applicantMiddleName: 'Kumar',
+      applicantLastName: 'Singh',
+      applicantMobile: '9876543210',
+      applicantEmail: 'john.doe@example.com',
+      fatherName: 'Rajesh Kumar',
+      motherName: 'Priya Kumar',
+      maritalStatus: 'Single',
+      nationality: 'Indian',
+      religion: 'Hindu',
+      category: 'General',
+      bloodGroup: 'O+',
+      voterId: 'ABC1234567',
+      panNumber: 'ABCDE1234F',
+      aadharNumber: '123456789012',
+      applicantIdType: 'aadhar',
+      applicantIdNumber: '123456789012',
+      applicantGender: 'male',
+      applicantDateOfBirth: '1990-01-15',
+      dateOfBirthInWords: 'Fifteenth January Nineteen Ninety',
+      placeOfBirth: 'Hyderabad',
+      applicationFilledBy: 'Self',
+      // Document Upload fields
+      idProofUploaded: true,
+      addressProofUploaded: true,
+      photographUploaded: true,
+      panCardUploaded: true,
+      characterCertificateUploaded: false,
+      medicalCertificateUploaded: false,
+      trainingCertificateUploaded: false,
+      otherStateLicenseUploaded: false,
+      // Declaration object for checkboxes
+      declaration: {
+        agreeToTruth: false,
+        understandLegalConsequences: false,
+        agreeToTerms: false,
+      },
+
+      // Address Information
+      applicantAddress: '123 Main Street, Jubilee Hills',
+      presentState: 'Telangana',
+      presentDistrict: 'Hyderabad',
+      presentPincode: '500033',
+      presentPoliceStation: 'Jubilee Hills Police Station',
+      jurisdictionPoliceStation: 'Jubilee Hills Police Station',
+      permanentAddress: '123 Main Street, Jubilee Hills',
+      permanentState: 'Telangana',
+      permanentDistrict: 'Hyderabad',
+      permanentPincode: '500033',
+      permanentPoliceStation: 'Jubilee Hills Police Station',
+      sameAsPresent: true,
+      residingSince: '2015-06-01',
+
+      // Contact Information
+      officePhone: '040-12345678',
+      residencePhone: '040-87654321',
+      officeMobile: '9876543211',
+      alternativeMobile: '9876543212',
+
+      // Occupation Information
+      occupation: 'Software Engineer',
+      officeBusinessAddress: '456 Tech Park, Hitech City',
+      officeBusinessState: 'Telangana',
+      officeBusinessDistrict: 'Hyderabad',
+      cropProtectionLocation: 'N/A',
+      cultivatedArea: '0',
+
+      // License Information
+      applicationType: 'New License',
+      weaponType: 'Pistol',
+      weaponReason: 'Self Protection',
+      licenseType: 'Regular',
+      licenseValidity: '3',
+
+      // Legacy fields (now part of arrays)
+      convicted: false,
+
+      // Criminal History (Array)
+      criminalHistory: [
+        {
+          convicted: false,
+          isCriminalCasePending: 'No',
+          firNumber: '',
+          policeStation: '',
+          sectionOfLaw: '',
+          dateOfOffence: '',
+          caseStatus: ''
+        }
+      ],
+
+      // License History (Array)
+      licenseHistory: [
+        {
+          hasAppliedBefore: false,
+          hasOtherApplications: false,
+          familyMemberHasArmsLicense: false,
+          hasSafePlaceForArms: true,
+          hasUndergoneTraining: false,
+          hasPreviousLicense: 'no',
+          previousLicenseNumber: '',
+          licenseIssueDate: '',
+          licenseExpiryDate: '',
+          issuingAuthority: '',
+          isLicenseRenewed: 'No',
+          renewalDate: '',
+          renewingAuthority: ''
+        }
+      ],
+
+      // Declarations
+      hasCriminalRecord: 'no',
+      criminalRecordDetails: '',
+      hasSubmittedTrueInfo: false,
+
+      // New fields from freshFormFilde.md
+      aliceAcknowledgementNumber: 'ACK123456789',
+      convictionDetails: [],
+      previouslyApplied: false,
+      previousApplicationDetails: {
+        dateApplied: '',
+        licenseName: '',
+        authority: '',
+        result: '',
+        status: 'pending',
+        rejectedLicenseCopy: ''
+      },
+      licenseSuspended: false,
+      licenseSuspensionDetails: {
+        licenseDetails: ''
+      },
+      licenseNeed: 'Self Protection',
+      armsDescription: '9mm Pistol',
+      armsCategory: 'permissible',
+      carryArea: 'district',
+      specialConsideration: '',
+      specialConsiderationDocuments: {
+        aadharCard: '',
+        panCard: '',
+        trainingCertificate: '',
+        otherStateLicense: '',
+        existingLicense: '',
+        safeCustody: '',
+        medicalReports: ''
+      },
+      formIVDetails: {
+        licenseArea: 'Hyderabad District',
+        wildBeastSpecification: ''
+      },
+      signature: 'https://example.com/signature.jpg',
+      irisScan: 'https://example.com/iris.jpg',
+      photograph: 'https://example.com/photo.jpg',
+
+      // Additional fields needed for API
+      weaponIds: ['1'], // For requestedWeaponIds
+    };
+
+    setFormData(testData);
+    setSaveMessage({ type: 'success', text: 'Test data filled successfully' });
+
+    // Clear message after 3 seconds
+    setTimeout(() => {
+      setSaveMessage(null);
+    }, 3000);
+  };
+
   // Load draft data if exists
   React.useEffect(() => {
     try {
@@ -611,106 +969,390 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       console.error('Error loading draft:', error);
     }
   }, []);
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Attempting to submit form");
 
-    // Final validation check for the current step
-    const isValid = validateCurrentStep();
+  // State to store location data
+  const [statesData, setStatesData] = useState<any[]>([]);
+  const [districtsData, setDistrictsData] = useState<any[]>([]);
 
-    if (isValid) {
-      console.log("Form validation passed, submitting application");
-      // Generate new application ID using timestamp to avoid reliance on mock data
-      const timestamp = Date.now();
-      const newId = `AL-2025-${String(timestamp).slice(-6)}`;
+  // Fetch states and districts data for ID mapping
+  useEffect(() => {
+    const fetchLocationData = async () => {
+      try {
+        const { apiClient } = await import('../config/authenticatedApiClient');
+        
+        // Fetch states
+        const statesRes: any = await apiClient.get('/locations/states');
+        const states = Array.isArray(statesRes?.data) ? statesRes.data : statesRes?.body || statesRes;
+        setStatesData(states || []);
 
-      // Calculate age based on date of birth if provided
-      let age = '';
-      if (formData.applicantDateOfBirth) {
-        const dob = new Date(formData.applicantDateOfBirth);
-        const today = new Date();
-        age = String(today.getFullYear() - dob.getFullYear());
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-          age = String(parseInt(age) - 1);
+        // Fetch districts for all states (or just Telangana if that's your focus)
+        const telangana = (states || []).find((s: any) => (s?.name || '').toLowerCase() === 'telangana');
+        if (telangana?.id) {
+          const districtsRes: any = await apiClient.get('/locations/districts', { stateId: telangana.id });
+          const districtsList = Array.isArray(districtsRes?.data) ? districtsRes.data : districtsRes?.body || districtsRes;
+          setDistrictsData(districtsList || []);
+        }
+      } catch (error) {
+        console.error('Error fetching location data:', error);
+      }
+    };
+
+    fetchLocationData();
+  }, []);
+
+  // Helper function to get state ID from name
+  const getStateId = (stateName: string): number => {
+    const state = statesData.find(s => s?.name?.toLowerCase() === stateName?.toLowerCase());
+    return state?.id || 1; // Default to 1 if not found
+  };
+
+  // Helper function to get district ID from name
+  const getDistrictId = (districtName: string): number => {
+    const district = districtsData.find(d => d?.name?.toLowerCase() === districtName?.toLowerCase());
+    return district?.id || 1; // Default to 1 if not found
+  };
+
+  // Helper function to map weapon types to weapon IDs
+  const getWeaponIds = (weaponType: string): string[] => {
+    // This is a placeholder mapping - you should replace with actual weapon ID mapping
+    const weaponMap: Record<string, string[]> = {
+      'pistol': ['1'],
+      'revolver': ['2'],
+      'rifle': ['3'],
+      'shotgun': ['4'],
+      'air gun': ['5'],
+      'air pistol': ['6'],
+      // Add more weapon types as needed
+    };
+    return weaponMap[weaponType?.toLowerCase()] || ['1']; // Default to weapon ID 1
+  };
+
+  // Helper function to upload files and get URLs
+  const uploadFilesAndGetUrls = async (): Promise<any[]> => {
+    const fileUploads: any[] = [];
+    
+    // Map of document types to their corresponding file type names
+    const fileTypeMap: Record<string, string> = {
+      'idProofUploaded': 'AADHAR_CARD',
+      'panCardUploaded': 'PAN_CARD',
+      'addressProofUploaded': 'ADDRESS_PROOF',
+      'photographUploaded': 'PHOTOGRAPH',
+      'characterCertificateUploaded': 'CHARACTER_CERTIFICATE',
+      'medicalCertificateUploaded': 'MEDICAL_CERTIFICATE',
+      'trainingCertificateUploaded': 'TRAINING_CERTIFICATE',
+      'otherStateLicenseUploaded': 'OTHER_STATE_LICENSE'
+    };
+
+    for (const [docKey, fileType] of Object.entries(fileTypeMap)) {
+      const docFile = documentFiles[docKey];
+      if (docFile && docFile.file) {
+        try {
+          // Upload the file to server
+          const fileUrl = await uploadFileToServer(docFile.file, fileType);
+          
+          fileUploads.push({
+            fileName: docFile.file.name,
+            fileSize: docFile.file.size,
+            fileType: fileType,
+            fileUrl: fileUrl
+          });
+        } catch (error) {
+          console.error(`Failed to upload ${docKey}:`, error);
+          // You might want to handle this error differently
         }
       }
-      // Prepare FormData object as per interface
-      const newFormData: FormData = {
-        applicantName: formData.applicantName,
-        applicantMobile: formData.applicantMobile,
-        applicantEmail: formData.applicantEmail,
-        fatherName: formData.fatherName || '',
-        gender: formData.applicantGender,
-        dateOfBirth: formData.applicantDateOfBirth,
-        age,
-        address: formData.applicantAddress,
-        city: formData.presentDistrict || '',
-        state: formData.presentState || '',
-        pincode: formData.presentPincode || '',
-        licenseType: formData.licenseType,
-        weaponType: formData.weaponType,
-        purposeOfWeapon: formData.weaponReason,
+    }
 
-        // Criminal history
-        hasCriminalRecord: formData.isCriminalCasePending || 'No',
-        criminalRecordDetails: formData.caseStatus || '',
+    return fileUploads;
+  };
 
-        // License history
-        previousLicenseInfo: formData.hasPreviousLicense === 'yes' ?
-          `License #: ${formData.previousLicenseNumber || ''}, Valid: ${formData.licenseIssueDate || ''} to ${formData.licenseExpiryDate || ''}` :
-          'No previous license',
-
-        // Document URLs
-        photoUrl: documentFiles.photographUploaded?.preview,
-        idProofUrl: documentFiles.idProofUploaded?.preview,
-        addressProofUrl: documentFiles.addressProofUploaded?.preview,
-      };
-
-      onSubmit(newFormData);
+  // Function to upload file to server using existing DocumentApi
+  const uploadFileToServer = async (file: File, documentType: string, applicationId?: string): Promise<string> => {
+    try {
+      // If we don't have an applicationId yet, we'll need to create a temporary one
+      // or handle file uploads differently. For now, let's use a placeholder approach
+      const tempApplicationId = applicationId || 'temp-' + Date.now();
+      
+      const response = await DocumentApi.upload(tempApplicationId, file, documentType);
+      
+      // Extract the file URL from the response
+      // Adjust this based on your actual API response structure
+      const fileUrl = (response as any)?.body?.fileUrl || (response as any)?.data?.fileUrl || `https://example.com/${file.name}`;
+      
+      return fileUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // Fallback to a placeholder URL if upload fails
+      return `https://example.com/${file.name}`;
     }
   };
+
+  // Helper function to create the payload
+  const createPayload = (formData: any, userId: string, fileUploads: any[]) => {
+    return {
+      firstName: formData.applicantName || "",
+      middleName: formData.applicantMiddleName || "",
+      lastName: formData.applicantLastName || "",
+      filledBy: formData.applicationFilledBy || `${formData.applicantName}`,
+      parentOrSpouseName: formData.fatherName || "",
+      sex: (formData.applicantGender || "MALE").toUpperCase(),
+      placeOfBirth: formData.placeOfBirth || "",
+      dateOfBirth: formData.applicantDateOfBirth 
+        ? new Date(formData.applicantDateOfBirth).toISOString() 
+        : new Date().toISOString(),
+      panNumber: formData.panNumber || "",
+      aadharNumber: formData.aadharNumber || formData.applicantIdNumber || "",
+      dobInWords: formData.dateOfBirthInWords || "",
+      stateId: getStateId(formData.presentState || ""),
+      districtId: getDistrictId(formData.presentDistrict || ""),
+      currentUserId: parseInt(userId || "13"),
+      currentRoleId: 34, // Default role ID
+      
+      presentAddress: {
+        addressLine: formData.applicantAddress || "",
+        stateId: getStateId(formData.presentState || ""),
+        districtId: getDistrictId(formData.presentDistrict || ""),
+        sinceResiding: formData.residingSince 
+          ? new Date(formData.residingSince).toISOString() 
+          : new Date().toISOString()
+      },
+      
+      permanentAddress: {
+        addressLine: formData.permanentAddress || formData.applicantAddress || "",
+        stateId: getStateId(formData.permanentState || formData.presentState || ""),
+        districtId: getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
+        sinceResiding: formData.residingSince 
+          ? new Date(formData.residingSince).toISOString() 
+          : new Date().toISOString()
+      },
+      
+      contactInfo: {
+        telephoneOffice: formData.officePhone || "",
+        telephoneResidence: formData.residencePhone || "",
+        mobileNumber: formData.applicantMobile || "",
+        officeMobileNumber: formData.officeMobile || "",
+        alternativeMobile: formData.alternativeMobile || ""
+      },
+      
+      occupationInfo: {
+        occupation: formData.occupation || "",
+        officeAddress: formData.officeBusinessAddress || "",
+        stateId: getStateId(formData.officeBusinessState || ""),
+        districtId: getDistrictId(formData.officeBusinessDistrict || ""),
+        cropLocation: formData.cropProtectionLocation || "N/A",
+        areaUnderCultivation: parseInt(formData.cultivatedArea || "0") || 0
+      },
+      
+      biometricData: {
+        signatureImageUrl: formData.signature || "https://example.com/signature.jpg",
+        irisScanImageUrl: formData.irisScan || "https://example.com/iris.jpg",
+        photoImageUrl: formData.photograph || "https://example.com/photo.jpg"
+      },
+      
+      criminalHistory: formData.criminalHistory || [
+        {
+          convicted: false
+        }
+      ],
+      
+      licenseHistory: formData.licenseHistory || [
+        {
+          hasAppliedBefore: false,
+          hasOtherApplications: false,
+          familyMemberHasArmsLicense: false,
+          hasSafePlaceForArms: true,
+          hasUndergoneTraining: false
+        }
+      ],
+      
+      licenseRequestDetails: {
+        needForLicense: formData.licenseNeed || "SELF_PROTECTION",
+        weaponCategory: (formData.armsCategory || "PERMISSIBLE").toUpperCase(),
+        requestedWeaponIds: getWeaponIds(formData.weaponType || ""),
+        areaOfValidity: formData.carryArea === 'district' 
+          ? formData.presentDistrict || "Kolkata" 
+          : formData.carryArea === 'state' 
+            ? formData.presentState || "Telangana" 
+            : "Throughout India"
+      },
+      
+      fileUploads: fileUploads
+    };
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setApiError(null);
+    
+    // Final validation check for the current step
+    const isValid = validateCurrentStep();
+    if (!isValid) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      // Upload files first and get URLs
+      const fileUploads = await uploadFilesAndGetUrls();
+      
+      // Build payload for API
+      const payload = createPayload(formData, userId ?? "", fileUploads);
+      
+      const resp = await ApplicationApi.create(payload as any);
+      // Try to extract application id from various shapes
+      const createdApp: any = (resp as any)?.data && typeof (resp as any).data === 'object' ? (resp as any).data : (resp as any).body || (resp as any);
+      const applicationId = String(createdApp?.id || createdApp?.applicationId || createdApp?.data?.id || '');
+
+      // Attempt server-side PDF download
+      let serverPdfDownloaded = false;
+      if (applicationId) {
+        try {
+          const blob = await ReportApi.generatePdf(applicationId);
+          if (blob && blob.size > 0) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Application_${applicationId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            serverPdfDownloaded = true;
+          }
+        } catch (err) {
+          // fall back
+          serverPdfDownloaded = false;
+        }
+      }
+
+      if (!serverPdfDownloaded) {
+        await downloadPDF();
+      }
+
+      // Also forward the minimal data to parent callback if supplied
+      try {
+        const cbData: FormData = {
+          applicantName: formData.applicantName,
+          applicantMobile: formData.applicantMobile,
+          applicantEmail: formData.applicantEmail,
+          fatherName: formData.fatherName || '',
+          gender: formData.applicantGender,
+          dateOfBirth: formData.applicantDateOfBirth,
+          age: '',
+          address: formData.applicantAddress,
+          city: formData.presentDistrict || '',
+          state: formData.presentState || '',
+          pincode: formData.presentPincode || '',
+          licenseType: formData.licenseType,
+          weaponType: formData.weaponType,
+          purposeOfWeapon: formData.weaponReason,
+        } as any;
+        onSubmit?.(cbData);
+      } catch {}
+
+      setIsSubmitting(false);
+    } catch (error: any) {
+      setIsSubmitting(false);
+      setApiError(error?.message || 'Failed to submit. Please try again.');
+    }
+  };
+
+  // Client-side PDF from Preview panel (html2canvas + jsPDF)
+  const downloadPDF = async () => {
+    const el = previewRef.current;
+    if (!el) return;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { default: jsPDF } = await import('jspdf');
+      const canvas = await html2canvas(el, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // Draw first page
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add extra pages if necessary
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight; // negative offset to shift image upwards
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save(`Application_Preview.pdf`);
+    } catch (err) {
+      console.error('Preview PDF generation failed', err);
+    }
+  };
+
   return (
-       <div className=" rounded-lg px-6 ">
-        <div className="mb-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto">
+        {/* Fixed Header with Messages */}
+        <div className="px-6 pt-4">
           {/* Success/Error messages */}
           {saveMessage && (
-            <div className={`mt-4 p-3 rounded-md ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            <div className={`mb-4 p-3 rounded-md ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {saveMessage.text}
             </div>
           )}
+          {apiError && (
+            <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 border border-red-200">
+              {apiError}
+            </div>
+          )}
         </div>
-        <div className="mb-6 border border-gray-200 rounded-md">
-          <div
-            className="w-full overflow-x-auto whitespace-nowrap bg-[#022258] rounded-md scrollbar-hide"
-          >
-            <style jsx global>{`
-            ::-webkit-scrollbar {
-              width: 2px;
-              height: 2px;
-            }
-          `}</style>
-            <div className="flex space-x-2">
-              {formSteps.map((section, index) => (
-                <button
-                  key={index}
-                  onClick={() => setFormStep(index)}
-                  className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-all duration-200 ${formStep === index
-                      ? "text-white font-semibold border-b-4 border-white"
-                      : "text-blue-300 hover:text-white"
+
+        {/* Fresh Application Form Title - Sticky */}
+        <div className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <BackButton />
+            <h1 className="text-blue-900 font-bold text-3xl flex-1 text-center">
+              Fresh Application Form
+            </h1>
+            <div className="w-20"></div> {/* Spacer for centering */}
+          </div>
+        </div>
+
+        {/* Fixed Tabs Header - Sticky */}
+        <div className="sticky top-16 z-20 bg-white px-6 py-2 shadow-md">
+          <div className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+            <div className="w-full overflow-x-auto bg-gradient-to-r from-[#022258] to-[#1e3a8a] scrollbar-hide">
+              <div className="flex space-x-1 p-2 tab-array">
+                {formSteps.map((section, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setFormStep(index)}
+                    className={`relative px-6 py-4 text-base font-semibold whitespace-nowrap transition-all duration-300 rounded-lg transform hover:scale-105 ${
+                      formStep === index
+                        ? "bg-white text-[#022258] shadow-lg border-2 border-blue-200 font-bold"
+                        : "text-blue-100 hover:text-white hover:bg-blue-600/30 border-2 border-transparent"
                     }`}
-                >
-                  {section.title}
-                </button>
-              ))}
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs opacity-75 mb-1">Step {index + 1}</span>
+                      <span className="text-sm font-bold">{section.title}</span>
+                    </div>
+                    {formStep === index && (
+                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white"></div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-
-        <form onSubmit={handleSubmit}
-        className="px-9 py-3 border border-gray-300 rounded-lg shadow-sm">
+        {/* Scrollable Form Content */}
+        <div className="px-6 py-4">
+          <div ref={formContentRef} className="bg-white rounded-lg shadow-lg border border-gray-200 min-h-[calc(100vh-200px)]">
+            <form onSubmit={handleSubmit} className="p-8">
           {/* Step 0: Personal Information */}
           {formStep === 0 && (
             <div className="space-y-4">
@@ -760,6 +1402,18 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     onChange={handleChange}
                     className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Father's Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="fatherName"
+                    value={formData.fatherName}
+                    onChange={handleChange}
+                    className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                  />
+                  {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                 </div>
 
                 <div>
@@ -837,6 +1491,41 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                   {errors.applicantDateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.applicantDateOfBirth}</p>}
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Father/Spouse Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="fatherName"
+                    value={formData.fatherName}
+                    onChange={handleChange}
+                    className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                  />
+                  {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Place of Birth</label>
+                  <input
+                    type="text"
+                    name="placeOfBirth"
+                    value={formData.placeOfBirth}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Application Filled By</label>
+                  <input
+                    type="text"
+                    name="applicationFilledBy"
+                    value={formData.applicationFilledBy}
+                    onChange={handleChange}
+                    placeholder="Self/Agent/Other"
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                  />
+                </div>
+
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">Residential Address <span className="text-red-500">*</span></label>
                   <textarea
@@ -875,6 +1564,33 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     className={`mt-1 block w-full p-2 border ${errors.applicantIdNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
                   />
                   {errors.applicantIdNumber && <p className="text-red-500 text-xs mt-1">{errors.applicantIdNumber}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Aadhar Number</label>
+                  <input
+                    type="text"
+                    name="aadharNumber"
+                    value={formData.aadharNumber}
+                    onChange={handleChange}
+                    maxLength={12}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    placeholder="12-digit Aadhar number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">PAN Number</label>
+                  <input
+                    type="text"
+                    name="panNumber"
+                    value={formData.panNumber}
+                    onChange={handleChange}
+                    maxLength={10}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    placeholder="10-character PAN number"
+                    style={{ textTransform: 'uppercase' }}
+                  />
                 </div>
               </div>
             </div>
@@ -979,6 +1695,99 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                 </div>
               </div>
 
+              {/* Permanent Address Section */}
+              <div className="border-t border-gray-200 pt-5">
+                <div className="flex items-center mb-3">
+                  <input
+                    type="checkbox"
+                    name="sameAsPresent"
+                    checked={formData.sameAsPresent === true}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-[#6366F1] border-gray-300 rounded"
+                  />
+                  <label className="ml-2 text-sm text-gray-700">Permanent address same as present</label>
+                </div>
+
+                <h3 className="text-lg font-medium text-gray-800 mb-3">Permanent Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Complete Address {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                    <textarea
+                      name="permanentAddress"
+                      value={formData.permanentAddress}
+                      onChange={handleChange}
+                      disabled={formData.sameAsPresent === true}
+                      className={`mt-1 block w-full p-2 border ${errors.permanentAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                      rows={2}
+                    />
+                    {errors.permanentAddress && <p className="text-red-500 text-xs mt-1">{errors.permanentAddress}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">State {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                    <select
+                      name="permanentState"
+                      value={formData.permanentState}
+                      onChange={handleChange}
+                      disabled={formData.sameAsPresent === true}
+                      className={`mt-1 block w-full p-2 border ${errors.permanentState ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                    >
+                      <option value="">Select State</option>
+                      <option value="Telangana">Telangana</option>
+                      <option value="Andhra Pradesh">Andhra Pradesh</option>
+                      <option value="Karnataka">Karnataka</option>
+                      <option value="Tamil Nadu">Tamil Nadu</option>
+                      <option value="Maharashtra">Maharashtra</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {errors.permanentState && <p className="text-red-500 text-xs mt-1">{errors.permanentState}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text sm font-medium text-gray-700">District {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                    <select
+                      name="permanentDistrict"
+                      value={formData.permanentDistrict}
+                      onChange={handleChange}
+                      disabled={formData.sameAsPresent === true || loadingDistricts}
+                      className={`mt-1 block w-full p-2 border ${errors.permanentDistrict ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                    >
+                      <option value="">Select District</option>
+                      {districts.map((district) => (
+                        <option key={district} value={district}>{district}</option>
+                      ))}
+                    </select>
+                    {errors.permanentDistrict && <p className="text-red-500 text-xs mt-1">{errors.permanentDistrict}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Pincode {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                    <input
+                      type="text"
+                      name="permanentPincode"
+                      value={formData.permanentPincode}
+                      onChange={handleChange}
+                      disabled={formData.sameAsPresent === true}
+                      className={`mt-1 block w-full p-2 border ${errors.permanentPincode ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                      maxLength={6}
+                    />
+                    {errors.permanentPincode && <p className="text-red-500 text-xs mt-1">{errors.permanentPincode}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station</label>
+                    <input
+                      type="text"
+                      name="permanentPoliceStation"
+                      value={formData.permanentPoliceStation}
+                      onChange={handleChange}
+                      disabled={formData.sameAsPresent === true}
+                      className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="border-t border-gray-200 pt-5">
                 <h3 className="text-lg font-medium text-gray-800 mb-3">Contact Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1031,202 +1840,248 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           )}        {/* Step 2: Weapon Details */}
           {formStep === 2 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800">Weapon Details</h3>
+              <h3 className="text-lg font-bold text-gray-800">Occupation & Business Details</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Application Type <span className="text-red-500">*</span></label>
-                  <select
-                    name="applicationType"
-                    value={formData.applicationType}
+                  <label className="block text-sm font-medium text-gray-700">Occupation <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="occupation"
+                    value={formData.occupation}
                     onChange={handleChange}
-                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                  >
-                    <option value="New License">New License</option>
-                    <option value="Renewal">Renewal</option>
-                    <option value="Transfer">Transfer</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Weapon Type <span className="text-red-500">*</span></label>
-                  <select
-                    name="weaponType"
-                    value={formData.weaponType}
-                    onChange={handleChange}
-                    className={`mt-1 block w-full p-2 border ${errors.weaponType ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                  >
-                    <option value="">Select Weapon Type</option>
-                    <option value="Rifle">Rifle</option>
-                    <option value="Shotgun">Shotgun</option>
-                    <option value="Handgun">Handgun</option>
-                    <option value="Pistol">Pistol</option>
-                    <option value="Revolver">Revolver</option>
-                  </select>
-                  {errors.weaponType && <p className="text-red-500 text-xs mt-1">{errors.weaponType}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">License Type</label>
-                  <select
-                    name="licenseType"
-                    value={formData.licenseType}
-                    onChange={handleChange}
-                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                  >
-                    <option value="Regular">Regular</option>
-                    <option value="Sports">Sports</option>
-                    <option value="Security">Security</option>
-                    <option value="Agricultural">Agricultural</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">License Validity (Years)</label>
-                  <select
-                    name="licenseValidity"
-                    value={formData.licenseValidity}
-                    onChange={handleChange}
-                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                  >
-                    <option value="3">3 Years</option>
-                    <option value="5">5 Years</option>
-                  </select>
-                </div>
-
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Reason for Weapon <span className="text-red-500">*</span></label>
-                  <textarea
-                    name="weaponReason"
-                    value={formData.weaponReason}
-                    onChange={handleChange}
-                    className={`mt-1 block w-full p-2 border ${errors.weaponReason ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                    rows={3}
-                    placeholder="Please provide a detailed reason why you need this weapon"
+                    className={`mt-1 block w-full p-2 border ${errors.occupation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                    placeholder="e.g., Farmer, Business, Service, etc."
                   />
-                  {errors.weaponReason && <p className="text-red-500 text-xs mt-1">{errors.weaponReason}</p>}
+                  {errors.occupation && <p className="text-red-500 text-xs mt-1">{errors.occupation}</p>}
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Office/Business Address</label>
+                  <textarea
+                    name="officeBusinessAddress"
+                    value={formData.officeBusinessAddress}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    rows={3}
+                    placeholder="Complete office or business address"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Have you previously held an arms license?</label>
-                  <div className="mt-1 flex gap-4">
-                    <label className="inline-flex items-center">                    <input
-                      type="radio"
-                      name="hasPreviousLicense"
-                      value="yes"
-                      checked={formData.hasPreviousLicense === 'yes'}
-                      onChange={handleChange}
-                      className="h-4 w-4 text-[#6366F1]"
-                    />
-                      <span className="ml-2">Yes</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="hasPreviousLicense"
-                        value="no"
-                        checked={formData.hasPreviousLicense === 'no'}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#6366F1]"
-                      />
-                      <span className="ml-2">No</span>
-                    </label>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700">Office/Business State</label>
+                  <select
+                    name="officeBusinessState"
+                    value={formData.officeBusinessState}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                  >
+                    <option value="">Select State</option>
+                    <option value="Telangana">Telangana</option>
+                                        <option value="Andhra Pradesh">Andhra Pradesh</option>
+                    <option value="Karnataka">Karnataka</option>
+                    <option value="Tamil Nadu">Tamil Nadu</option>
+                    <option value="Maharashtra">Maharashtra</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
 
-                {formData.hasPreviousLicense === 'yes' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Previous License Number</label>
-                    <input
-                      type="text"
-                      name="previousLicenseNumber"
-                      value={formData.previousLicenseNumber}
-                      onChange={handleChange}
-                      className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                    />
-                  </div>
-                )}
-
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Do you have any criminal records?</label>
-                  <div className="mt-1 flex gap-4">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="hasCriminalRecord"
-                        value="yes"
-                        checked={formData.hasCriminalRecord === 'yes'}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#6366F1]"
-                      />
-                      <span className="ml-2">Yes</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="hasCriminalRecord"
-                        value="no"
-                        checked={formData.hasCriminalRecord === 'no'}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#6366F1]"
-                      />
-                      <span className="ml-2">No</span>
-                    </label>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Office/Business District</label>
+                  <select
+                    name="officeBusinessDistrict"
+                    value={formData.officeBusinessDistrict}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                  >
+                    <option value="">Select District</option>
+                    {districts.map((district) => (
+                      <option key={district} value={district}>{district}</option>
+                    ))}
+                  </select>
                 </div>
 
-                {formData.hasCriminalRecord === 'yes' && (
-                  <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Criminal Record Details</label>
-                    <textarea
-                      name="criminalRecordDetails"
-                      value={formData.criminalRecordDetails}
-                      onChange={handleChange}
-                      className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      rows={3}
-                      placeholder="Please provide details of your criminal record"
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Crop Protection Location</label>
+                  <input
+                    type="text"
+                    name="cropProtectionLocation"
+                    value={formData.cropProtectionLocation}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    placeholder="Location where crop protection is needed (if applicable)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Area Under Cultivation (in acres)</label>
+                  <input
+                    type="number"
+                    name="cultivatedArea"
+                    value={formData.cultivatedArea}
+                    onChange={handleChange}
+                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
               </div>
             </div>
-          )}        {/* Step 3: Criminal History */}
+          )}
+
+          {/* Step 3: Criminal History */}
           {formStep === 3 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-gray-800">Criminal History</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-gray-800">Criminal History</h3>
+                <button
+                  type="button"
+                  onClick={addCriminalHistoryEntry}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  + Add Criminal Record
+                </button>
+              </div>
 
-              <div className="border-b border-gray-200 pb-4 mb-4">
-                <h4 className="text-md font-medium text-gray-700 mb-3">
-                  Whether the applicant has been convicted?
-                </h4>
+              {formData.criminalHistory.map((criminalRecord, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-md font-medium text-gray-700">
+                      Criminal Record #{index + 1}
+                    </h4>
+                    {formData.criminalHistory.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeCriminalHistoryEntry(index)}
+                        className="text-red-500 hover:text-red-700 focus:outline-none"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
 
-                <div className="mt-2">
-                  <div className="flex gap-4">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="convicted"
-                        value="yes"
-                        checked={formData.convicted === true}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#6366F1]"
-                      />
-                      <span className="ml-2">Yes</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        name="convicted"
-                        value="no"
-                        checked={formData.convicted === false}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#6366F1]"
-                      />
-                      <span className="ml-2">No</span>
-                    </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Whether the applicant has been convicted?
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="inline-flex items-center">
+                          <input
+                            type="radio"
+                            name={`criminalHistory[${index}].convicted`}
+                            value="yes"
+                            checked={criminalRecord.convicted === true}
+                            onChange={() => handleArrayFieldChange('criminalHistory', index, 'convicted', true)}
+                            className="h-4 w-4 text-[#6366F1]"
+                          />
+                          <span className="ml-2">Yes</span>
+                        </label>
+                        <label className="inline-flex items-center">
+                          <input
+                            type="radio"
+                            name={`criminalHistory[${index}].convicted`}
+                            value="no"
+                            checked={criminalRecord.convicted === false}
+                            onChange={() => handleArrayFieldChange('criminalHistory', index, 'convicted', false)}
+                            className="h-4 w-4 text-[#6366F1]"
+                          />
+                          <span className="ml-2">No</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Is any criminal case pending against the applicant?
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="inline-flex items-center">
+                          <input
+                            type="radio"
+                            name={`criminalHistory[${index}].isCriminalCasePending`}
+                            value="Yes"
+                            checked={criminalRecord.isCriminalCasePending === 'Yes'}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'isCriminalCasePending', e.target.value)}
+                            className="h-4 w-4 text-[#6366F1]"
+                          />
+                          <span className="ml-2">Yes</span>
+                        </label>
+                        <label className="inline-flex items-center">
+                          <input
+                            type="radio"
+                            name={`criminalHistory[${index}].isCriminalCasePending`}
+                            value="No"
+                            checked={criminalRecord.isCriminalCasePending === 'No'}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'isCriminalCasePending', e.target.value)}
+                            className="h-4 w-4 text-[#6366F1]"
+                          />
+                          <span className="ml-2">No</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {criminalRecord.isCriminalCasePending === 'Yes' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">FIR Number</label>
+                          <input
+                            type="text"
+                            value={criminalRecord.firNumber}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'firNumber', e.target.value)}
+                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Police Station</label>
+                          <input
+                            type="text"
+                            value={criminalRecord.policeStation}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'policeStation', e.target.value)}
+                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Section of Law</label>
+                          <input
+                            type="text"
+                            value={criminalRecord.sectionOfLaw}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'sectionOfLaw', e.target.value)}
+                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Date of Offence</label>
+                          <input
+                            type="date"
+                            value={criminalRecord.dateOfOffence}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'dateOfOffence', e.target.value)}
+                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Case Status</label>
+                          <select
+                            value={criminalRecord.caseStatus}
+                            onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'caseStatus', e.target.value)}
+                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          >
+                            <option value="">Select Status</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Acquitted">Acquitted</option>
+                            <option value="Convicted">Convicted</option>
+                            <option value="Dismissed">Dismissed</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
           )}
           {/* Step 4: License Details */}
@@ -1268,6 +2123,333 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     <option value="restricted">Restricted</option>
                     <option value="permissible">Permissible</option>
                   </select>
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <h4 className="text-md font-semibold text-gray-800 mb-3">Weapon & Application Details</h4>
+                  <div className="space-y-4 bg-blue-50 p-4 rounded-lg mb-4">
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Application Type <span className="text-red-500">*</span></label>
+                        <select
+                          name="applicationType"
+                          value={formData.applicationType}
+                          onChange={handleChange}
+                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        >
+                          <option value="New License">New License</option>
+                          <option value="Renewal">Renewal</option>
+                          <option value="Transfer">Transfer</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Weapon Type <span className="text-red-500">*</span></label>
+                        <select
+                          name="weaponType"
+                          value={formData.weaponType}
+                          onChange={handleChange}
+                          className={`mt-1 block w-full p-2 border ${errors.weaponType ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                        >
+                          <option value="">Select Weapon Type</option>
+                          <option value="Rifle">Rifle</option>
+                          <option value="Shotgun">Shotgun</option>
+                          <option value="Handgun">Handgun</option>
+                          <option value="Pistol">Pistol</option>
+                          <option value="Revolver">Revolver</option>
+                        </select>
+                        {errors.weaponType && <p className="text-red-500 text-xs mt-1">{errors.weaponType}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">License Type</label>
+                        <select
+                          name="licenseType"
+                          value={formData.licenseType}
+                          onChange={handleChange}
+                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        >
+                          <option value="Regular">Regular</option>
+                          <option value="Sports">Sports</option>
+                          <option value="Security">Security</option>
+                          <option value="Agricultural">Agricultural</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">License Validity (Years)</label>
+                        <select
+                          name="licenseValidity"
+                          value={formData.licenseValidity}
+                          onChange={handleChange}
+                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        >
+                          <option value="3">3 Years</option>
+                          <option value="5">5 Years</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Reason for Weapon <span className="text-red-500">*</span></label>
+                      <textarea
+                        name="weaponReason"
+                        value={formData.weaponReason}
+                        onChange={handleChange}
+                        className={`mt-1 block w-full p-2 border ${errors.weaponReason ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                        rows={3}
+                        placeholder="Please provide a detailed reason why you need this weapon"
+                      />
+                      {errors.weaponReason && <p className="text-red-500 text-xs mt-1">{errors.weaponReason}</p>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-md font-semibold text-gray-800">License History Questions</h4>
+                    <button
+                      type="button"
+                      onClick={addLicenseHistoryEntry}
+                      className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      + Add License History
+                    </button>
+                  </div>
+                  
+                  {formData.licenseHistory.map((licenseRecord, index) => (
+                    <div key={index} className="space-y-4 bg-gray-50 p-4 rounded-lg mb-4 border">
+                      <div className="flex justify-between items-center">
+                        <h5 className="text-sm font-medium text-gray-700">
+                          License History #{index + 1}
+                        </h5>
+                        {formData.licenseHistory.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeLicenseHistoryEntry(index)}
+                            className="text-red-500 hover:text-red-700 focus:outline-none"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Have you applied before?</label>
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasAppliedBefore`}
+                                value="true"
+                                checked={licenseRecord.hasAppliedBefore === true}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasAppliedBefore', true)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">Yes</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasAppliedBefore`}
+                                value="false"
+                                checked={licenseRecord.hasAppliedBefore === false}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasAppliedBefore', false)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">No</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Do you have any other pending applications for arms license?</label>
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasOtherApplications`}
+                                value="true"
+                                checked={licenseRecord.hasOtherApplications === true}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasOtherApplications', true)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">Yes</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasOtherApplications`}
+                                value="false"
+                                checked={licenseRecord.hasOtherApplications === false}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasOtherApplications', false)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">No</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Does any family member have an arms license?</label>
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].familyMemberHasArmsLicense`}
+                                value="true"
+                                checked={licenseRecord.familyMemberHasArmsLicense === true}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'familyMemberHasArmsLicense', true)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">Yes</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].familyMemberHasArmsLicense`}
+                                value="false"
+                                checked={licenseRecord.familyMemberHasArmsLicense === false}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'familyMemberHasArmsLicense', false)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">No</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Do you have a safe place for keeping arms?</label>
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasSafePlaceForArms`}
+                                value="true"
+                                checked={licenseRecord.hasSafePlaceForArms === true}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasSafePlaceForArms', true)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">Yes</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasSafePlaceForArms`}
+                                value="false"
+                                checked={licenseRecord.hasSafePlaceForArms === false}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasSafePlaceForArms', false)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">No</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Have you undergone training in the use of firearms?</label>
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasUndergoneTraining`}
+                                value="true"
+                                checked={licenseRecord.hasUndergoneTraining === true}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasUndergoneTraining', true)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">Yes</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasUndergoneTraining`}
+                                value="false"
+                                checked={licenseRecord.hasUndergoneTraining === false}
+                                onChange={() => handleArrayFieldChange('licenseHistory', index, 'hasUndergoneTraining', false)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">No</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Have you previously held an arms license?</label>
+                          <div className="flex space-x-4">
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasPreviousLicense`}
+                                value="yes"
+                                checked={licenseRecord.hasPreviousLicense === 'yes'}
+                                onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'hasPreviousLicense', e.target.value)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">Yes</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                              <input
+                                type="radio"
+                                name={`licenseHistory[${index}].hasPreviousLicense`}
+                                value="no"
+                                checked={licenseRecord.hasPreviousLicense === 'no'}
+                                onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'hasPreviousLicense', e.target.value)}
+                                className="form-radio text-[#6366F1]"
+                              />
+                              <span className="ml-2">No</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {licenseRecord.hasPreviousLicense === 'yes' && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">Previous License Number</label>
+                              <input
+                                type="text"
+                                value={licenseRecord.previousLicenseNumber}
+                                onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'previousLicenseNumber', e.target.value)}
+                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">License Issue Date</label>
+                              <input
+                                type="date"
+                                value={licenseRecord.licenseIssueDate}
+                                onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'licenseIssueDate', e.target.value)}
+                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">License Expiry Date</label>
+                              <input
+                                type="date"
+                                value={licenseRecord.licenseExpiryDate}
+                                onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'licenseExpiryDate', e.target.value)}
+                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">Issuing Authority</label>
+                              <input
+                                type="text"
+                                value={licenseRecord.issuingAuthority}
+                                onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'issuingAuthority', e.target.value)}
+                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div>
@@ -1479,7 +2661,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5  0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       {formData.panCardUploaded ? 'Replace File' : 'Upload File'}
                     </label>
@@ -1488,6 +2670,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       <div className="mt-3 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                         </svg>
                         <span className="text-sm text-gray-600 truncate max-w-xs">
                           {documentFiles.panCardUploaded.file?.name}
@@ -1551,7 +2734,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       {formData.photographUploaded ? 'Replace File' : 'Upload File'}
                     </label>
@@ -1589,7 +2772,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       {formData.characterCertificateUploaded ? 'Replace File' : 'Upload File'}
                     </label>
@@ -1623,7 +2806,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       {formData.medicalCertificateUploaded ? 'Replace File' : 'Upload File'}
                     </label>
@@ -1657,7 +2840,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       {formData.trainingCertificateUploaded ? 'Replace File' : 'Upload File'}
                     </label>
@@ -1668,41 +2851,28 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                         </svg>
                         <span className="text-sm text-gray-600 truncate max-w-xs">
-                          {documentFiles.trainingCertificateUploaded.file?.name}
+                          {documentFiles.trainingCertificateUploaded?.file.name}
                         </span>
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* Other State License (if applicable) */}
-                <div className="border border-gray-200 rounded-md p-4">
-                  <h4 className="font-medium text-gray-800 mb-2">Other State License (if applicable)</h4>
-                  <div className="mt-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Other State License</label>
                     <input
                       type="file"
-                      id="otherStateLicenseUploaded"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="hidden"
+                      name="otherStateLicenseUploaded"
                       onChange={(e) => handleDocumentUpload(e, 'otherStateLicenseUploaded')}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      accept=".pdf,.jpg,.jpeg,.png"
                     />
-                    <label
-                      htmlFor="otherStateLicenseUploaded"
-                      className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      {formData.otherStateLicenseUploaded ? 'Replace File' : 'Upload File'}
-                    </label>
-
                     {documentFiles.otherStateLicenseUploaded && (
                       <div className="mt-3 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                         </svg>
                         <span className="text-sm text-gray-600 truncate max-w-xs">
-                          {documentFiles.otherStateLicenseUploaded.file?.name}
+                          {documentFiles.otherStateLicenseUploaded?.file.name}
                         </span>
                       </div>
                     )}
@@ -1710,84 +2880,309 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                 </div>
               </div>
             </div>
-          )}        {/* Step 7: Declaration */}
+          )}
+
+          {/* Step 7: Preview */}
           {formStep === 7 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-bold text-gray-800">Declaration</h3>
+              <h3 className="text-lg font-bold text-gray-800">Application Preview</h3>
+              <p className="text-sm text-gray-600">Please review all your information before submitting the application.</p>
 
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-700 mb-3">Declaration Statement</h4>
-                <p className="text-sm text-gray-600 mb-4">
-                  I hereby declare that the information provided above is true and correct to the best of my knowledge and belief. I understand that providing false information may lead to rejection of my application and legal action.
-                </p>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="hasSubmittedTrueInfo"
-                    checked={formData.hasSubmittedTrueInfo === true}
-                    onChange={handleChange}
-                    className={`h-4 w-4 text-[#6366F1] border-gray-300 rounded focus:ring-[#6366F1] ${errors.hasSubmittedTrueInfo ? 'border-red-500' : ''}`}
-                  />
-                  <label className="ml-2 text-sm text-gray-700">
-                    I agree to the above declaration.
-                  </label>
+              <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+                {/* Personal Information Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Personal Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <Field label="Full Name" value={`${formData.applicantName || ''} ${formData.applicantMiddleName || ''} ${formData.applicantLastName || ''}`.trim()} />
+                    <Field label="Mobile" value={formData.applicantMobile} />
+                    <Field label="Email" value={formData.applicantEmail} />
+                    <Field label="Father's Name" value={formData.fatherName} />
+                    <Field label="Gender" value={formData.applicantGender} />
+                    <Field label="Date of Birth" value={formData.applicantDateOfBirth} />
+                    <Field label="ID Type" value={formData.applicantIdType} />
+                    <Field label="ID Number" value={formData.applicantIdNumber} />
+                  </div>
                 </div>
-                {errors.hasSubmittedTrueInfo && <p className="text-red-500 text-xs mt-1">{errors.hasSubmittedTrueInfo}</p>}
+
+                {/* Address Information Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Address Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <Field label="Present Address" value={formData.applicantAddress} />
+                    <Field label="Present State" value={formData.presentState} />
+                    <Field label="Present District" value={formData.presentDistrict} />
+                    <Field label="Present Pincode" value={formData.presentPincode} />
+                    <Field label="Permanent Address" value={formData.permanentAddress || formData.applicantAddress} />
+                    <Field label="Permanent State" value={formData.permanentState || formData.presentState} />
+                    <Field label="Permanent District" value={formData.permanentDistrict || formData.presentDistrict} />
+                    <Field label="Permanent Pincode" value={formData.permanentPincode || formData.presentPincode} />
+                  </div>
+                </div>
+
+                {/* Occupation Information Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Occupation & Business</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <Field label="Occupation" value={formData.occupation} />
+                    <Field label="Office Address" value={formData.officeBusinessAddress} />
+                    <Field label="Office State" value={formData.officeBusinessState} />
+                    <Field label="Office District" value={formData.officeBusinessDistrict} />
+                    <Field label="Crop Protection Location" value={formData.cropProtectionLocation} />
+                    <Field label="Cultivated Area" value={formData.cultivatedArea} />
+                  </div>
+                </div>
+
+                {/* Criminal History Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Criminal History</h4>
+                  {formData.criminalHistory && formData.criminalHistory.length > 0 ? (
+                    formData.criminalHistory.map((record, index) => (
+                      <div key={index} className="mb-3 p-3 bg-white rounded border">
+                        <p className="text-sm font-medium">Record #{index + 1}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mt-2">
+                          <Field label="Convicted" value={YesNo(record.convicted)} />
+                          <Field label="Case Pending" value={record.isCriminalCasePending} />
+                          {record.isCriminalCasePending === 'Yes' && (
+                            <>
+                              <Field label="FIR Number" value={record.firNumber} />
+                              <Field label="Police Station" value={record.policeStation} />
+                              <Field label="Section of Law" value={record.sectionOfLaw} />
+                              <Field label="Date of Offence" value={record.dateOfOffence} />
+                              <Field label="Case Status" value={record.caseStatus} />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-600">No criminal records</p>
+                  )}
+                </div>
+
+                {/* License Details Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">License Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <Field label="Application Type" value={formData.applicationType} />
+                    <Field label="Weapon Type" value={formData.weaponType} />
+                    <Field label="License Type" value={formData.licenseType} />
+                    <Field label="License Validity" value={formData.licenseValidity} />
+                    <Field label="Arms Category" value={formData.armsCategory} />
+                    <Field label="Carry Area" value={formData.carryArea} />
+                    <Field label="Need for License" value={formData.licenseNeed} />
+                    <Field label="Arms Description" value={formData.armsDescription} />
+                  </div>
+                </div>
+
+                {/* License History Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">License History</h4>
+                  {formData.licenseHistory && formData.licenseHistory.length > 0 ? (
+                    formData.licenseHistory.map((record, index) => (
+                      <div key={index} className="mb-3 p-3 bg-white rounded border">
+                        <p className="text-sm font-medium">License History #{index + 1}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mt-2">
+                          <Field label="Applied Before" value={YesNo(record.hasAppliedBefore)} />
+                          <Field label="Other Applications" value={YesNo(record.hasOtherApplications)} />
+                          <Field label="Family Member License" value={YesNo(record.familyMemberHasArmsLicense)} />
+                          <Field label="Safe Place for Arms" value={YesNo(record.hasSafePlaceForArms)} />
+                          <Field label="Undergone Training" value={YesNo(record.hasUndergoneTraining)} />
+                          <Field label="Previous License" value={record.hasPreviousLicense} />
+                          {record.hasPreviousLicense === 'yes' && (
+                            <>
+                              <Field label="License Number" value={record.previousLicenseNumber} />
+                              <Field label="Issue Date" value={record.licenseIssueDate} />
+                              <Field label="Expiry Date" value={record.licenseExpiryDate} />
+                              <Field label="Issuing Authority" value={record.issuingAuthority} />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-600">No license history</p>
+                  )}
+                </div>
+
+                {/* Documents Preview */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Documents Status</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.idProofUploaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span>Aadhaar Card</span>
+                      {documentFiles.idProofUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.idProofUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.addressProofUploaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span>Address Proof</span>
+                      {documentFiles.addressProofUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.addressProofUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.photographUploaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span>Photograph</span>
+                      {documentFiles.photographUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.photographUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.panCardUploaded ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      <span>PAN Card</span>
+                      {documentFiles.panCardUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.panCardUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.characterCertificateUploaded ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                      <span>Character Certificate</span>
+                      {documentFiles.characterCertificateUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.characterCertificateUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.medicalCertificateUploaded ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                      <span>Medical Certificate</span>
+                      {documentFiles.medicalCertificateUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.medicalCertificateUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.trainingCertificateUploaded ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                      <span>Training Certificate</span>
+                      {documentFiles.trainingCertificateUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.trainingCertificateUploaded.file?.name})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`inline-block w-3 h-3 rounded-full mr-2 ${formData.otherStateLicenseUploaded ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                      <span>Other State License</span>
+                      {documentFiles.otherStateLicenseUploaded && (
+                        <span className="ml-2 text-xs text-gray-500">({documentFiles.otherStateLicenseUploaded.file?.name})</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Form Navigation */}
-          <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
-            <div>
-              {formStep > 0 ? (
-                <button
-                  type="button"
-                  onClick={handlePreviousStep}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-[#EEF2FF]"
-                >
-                  Previous
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-[#EEF2FF]"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
+          {/* Step 8: Declaration */}
+          {formStep === 8 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-gray-800">Declaration & Submit</h3>
 
-            <div className="flex gap-4">
-              <button
-                type="button"
-                className="px-4 py-2 border border-[#FFCC00] text-[#FFCC00] rounded-md hover:bg-[#FFF8E6]"
-                onClick={handleSaveAsDraft}
-              >
-                Save as Draft
-              </button>
+              {/* Declaration Checkboxes */}
+              <div className="space-y-4">
+                <h4 className="text-md font-semibold text-gray-800">Declaration</h4>
+                
+                <div className="space-y-3">
+                  <label className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      name="declaration.agreeToTruth"
+                      checked={formData.declaration?.agreeToTruth || false}
+                      onChange={handleChange}
+                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">
+                      I hereby declare that the information provided above is true and correct to the best of my knowledge and belief.
+                    </span>
+                  </label>
 
-              {formStep < formSteps.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#3B82F6]"
-                >
-                  Next
-                </button>
-              ) : (
+                  <label className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      name="declaration.understandLegalConsequences"
+                      checked={formData.declaration?.understandLegalConsequences || false}
+                      onChange={handleChange}
+                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">
+                      I understand that providing false information may result in legal consequences and rejection of my application.
+                    </span>
+                  </label>
+
+                  <label className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      name="declaration.agreeToTerms"
+                      checked={formData.declaration?.agreeToTerms || false}
+                      onChange={handleChange}
+                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">
+                      I agree to abide by all terms and conditions related to the arms license and will use the weapon responsibly.
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="mt-8 flex justify-center">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#3B82F6]"
+                  disabled={isSubmitting || !formData.declaration?.agreeToTruth || !formData.declaration?.understandLegalConsequences || !formData.declaration?.agreeToTerms}
+                  className="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Submit Application
+                  {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
                 </button>
-              )}
+              </div>
             </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setFormStep(Math.max(0, formStep - 1))}
+              className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                formStep === 0 
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                  : 'bg-gray-500 text-white hover:bg-gray-600'
+              }`}
+              disabled={formStep === 0}
+            >
+              ← Previous
+            </button>
+
+            {/* Test Data Button (only show in development) */}
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                type="button"
+                onClick={handleFillTestData}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm"
+              >
+                Fill Test Data
+              </button>
+            )}
+            
+            {formStep < formSteps.length - 1 ? (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSubmitting}
+              >
+                Next →
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                disabled={isSubmitting || !formData.declaration?.agreeToTruth || !formData.declaration?.understandLegalConsequences || !formData.declaration?.agreeToTerms}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Application'}
+              </button>
+            )}
           </div>
         </form>
+          </div>
+        </div>
       </div>
+    </div>
   );
 }

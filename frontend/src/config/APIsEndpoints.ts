@@ -17,27 +17,27 @@ export const AUTH_APIS = {
 
 // Application Management APIs
 export const APPLICATION_APIS = {
-  GET_ALL: `${BASE_URL}/applications`,
-  GET_BY_ID: (id: string) => `${BASE_URL}/applications/${id}`,
-  CREATE: `${BASE_URL}/applications`,
-  UPDATE_STATUS: (id: string) => `${BASE_URL}/applications/${id}/status`,
-  FORWARD: (id: string) => `${BASE_URL}/applications/${id}/forward`,
-  BATCH_PROCESS: `${BASE_URL}/applications/batch`,
+  GET_ALL: `${BASE_URL}/application-form`,
+  GET_BY_ID: (id: string) => `${BASE_URL}/application-form/${id}`,
+  CREATE: `${BASE_URL}/application-form`,
+  UPDATE_STATUS: (id: string) => `${BASE_URL}/application-form/${id}/status`,
+  FORWARD: (id: string) => `${BASE_URL}/application-form/${id}/forward`,
+  BATCH_PROCESS: `${BASE_URL}/application-form/batch`,
 };
 
 // Document Management APIs
 export const DOCUMENT_APIS = {
-  UPLOAD: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
-  GET_ALL: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
-  DELETE: (applicationId: string, documentId: string) => 
-    `${BASE_URL}/applications/${applicationId}/documents/${documentId}`,
+  UPLOAD: (applicationId: string) => `${BASE_URL}/application-form/${applicationId}/documents`,
+  GET_ALL: (applicationId: string) => `${BASE_URL}/application-form/${applicationId}/documents`,
+  DELETE: (applicationId: string, documentId: string) =>
+    `${BASE_URL}/application-form/${applicationId}/documents/${documentId}`,
 };
 
 // Report APIs
 export const REPORT_APIS = {
   STATISTICS: `${BASE_URL}/reports/statistics`,
   APPLICATIONS_BY_STATUS: `${BASE_URL}/reports/applications-by-status`,
-  GENERATE_PDF: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/pdf`,
+  GENERATE_PDF: (applicationId: string) => `${BASE_URL}/application-form/${applicationId}/pdf`,
 };
 
 // User Management APIs

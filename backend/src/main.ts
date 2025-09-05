@@ -54,10 +54,11 @@ async function bootstrap() {
     },
   });
   
-  await app.listen(3000);
-  console.log(`Application is running on: http://localhost:3000`);
-  console.log(`Swagger API Documentation available at: http://localhost:3000/api-docs`);
-  console.log(`CORS enabled for frontend ports`);
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const host = process.env.HOST || 'localhost';
+  await app.listen(port);
+  console.log(`Application is running on: http://${host}:${port}`);
+  console.log(`Swagger API Documentation available at: http://${host}:${port}/api-docs`);
 }
 
 bootstrap();

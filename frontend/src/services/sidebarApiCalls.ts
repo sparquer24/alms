@@ -528,47 +528,48 @@ export const filterApplications = (
  * Filter applications by status (replacement for getApplicationsByStatus from mockData)
  */
 export const getApplicationsByStatus = (
-  applications: ApplicationData[],
+  applications: ApplicationData[] | undefined | null,
   status: string | number,
   userId?: string
 ): ApplicationData[] => {
-  let filtered = [];
+  const apps = Array.isArray(applications) ? applications : [];
+  let filtered: ApplicationData[] = [];
   
   switch (status) {
     case 'forwarded':
     case 'forward':
     case STATUS_MAP.forward:
-      filtered = applications.filter(app => app.forwardedFrom && app.status_id === STATUS_MAP.forward);
+      filtered = apps.filter(app => app.forwardedFrom && app.status_id === STATUS_MAP.forward);
       break;
     case 'sent':
     case STATUS_MAP.sent:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.sent);
+      filtered = apps.filter(app => app.status_id === STATUS_MAP.sent);
       break;
     case 'returned':
     case STATUS_MAP.returned:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.returned);
+      filtered = apps.filter(app => app.status_id === STATUS_MAP.returned);
       break;
     case 'flagged':
     case 'redFlagged':
     case STATUS_MAP.flagged:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.flagged);
+      filtered = apps.filter(app => app.status_id === STATUS_MAP.flagged);
       break;
     case 'disposed':
     case STATUS_MAP.disposed:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.disposed);
+      filtered = apps.filter(app => app.status_id === STATUS_MAP.disposed);
       break;
     case 'freshform':
     case 'pending':
     case STATUS_MAP.pending:
-      filtered = applications.filter(app => !app.forwardedFrom && app.status_id === STATUS_MAP.pending);
+      filtered = apps.filter(app => !app.forwardedFrom && app.status_id === STATUS_MAP.pending);
       break;
     case 'final':
     case 'approved':
     case STATUS_MAP.approved:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.approved);
+      filtered = apps.filter(app => app.status_id === STATUS_MAP.approved);
       break;
     default:
-      filtered = applications;
+      filtered = apps;
   }
   
   // Filter by userId if provided

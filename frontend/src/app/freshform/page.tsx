@@ -269,9 +269,6 @@ export default function FreshFormPage() {
           {/* <div className="flex justify-between items-center">
             Search bar and filters will be here (already present)
           </div> */}
-          <h1 className="text-blue-900 text-center font-bold text-2xl rounded-lg mt-4 ">
-            Fresh Application Form
-          </h1>
           <div className="flex space-x-2">
             {!showNewForm && filteredApplications.length > 0 && (
               <div className="flex items-center space-x-2">
@@ -360,9 +357,8 @@ export default function FreshFormPage() {
             // Display the form for creating a new application
             <FreshApplicationForm
               onSubmit={(formData) => {
-                // Convert FormData to ApplicationData if needed, or just log for now
-                // You may need to map fields if you want to add to mockApplications
-                console.log('New application submitted:', formData);
+                // Handle successful submission from the form component
+                console.log('Application submitted successfully:', formData);
                 setSuccessMessage('Application has been successfully submitted');
                 setShowNewForm(false);
                 setTimeout(() => setSuccessMessage(null), 5000);

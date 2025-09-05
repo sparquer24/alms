@@ -134,7 +134,9 @@ import { Application } from '../types/application';
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
     try {
-      return await apiClient.get('/application-form', { params });
+      const url = APPLICATION_APIS.GET_ALL;
+      const queryUrl = appendQueryParams(url, params);
+      return await apiClient.get(queryUrl);
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;
@@ -143,7 +145,8 @@ export const ApplicationApi = {
 
   getById: async (id: Number): Promise<ApiResponse<Application>> => {
     try {
-      return await apiClient.get(`/application-form/?applicationId=${id}`);
+      const url = APPLICATION_APIS.GET_BY_ID(id.toString());
+      return await apiClient.get(url);
     } catch (error) {
       console.error('Error getting application by ID:', error);
       throw error;
@@ -152,7 +155,7 @@ export const ApplicationApi = {
 
   create: async (params: CreateApplicationParams): Promise<ApiResponse<Application>> => {
     try {
-      return await apiClient.post('/application-form', params);
+      return await apiClient.post(APPLICATION_APIS.CREATE, params);
     } catch (error) {
       console.error('Error creating application:', error);
       throw error;
@@ -161,7 +164,7 @@ export const ApplicationApi = {
 
   updateStatus: async (id: string, params: UpdateStatusParams): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.put(`/applications/${id}/status`, params);
+      return await apiClient.put(APPLICATION_APIS.UPDATE_STATUS(id), params);
     } catch (error) {
       console.error('Error updating application status:', error);
       throw error;
@@ -170,7 +173,7 @@ export const ApplicationApi = {
 
   forward: async (id: string, params: ForwardApplicationParams): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.post(`/applications/${id}/forward`, params);
+      return await apiClient.post(APPLICATION_APIS.FORWARD(id), params);
     } catch (error) {
       console.error('Error forwarding application:', error);
       throw error;
@@ -179,7 +182,7 @@ export const ApplicationApi = {
 
   batchProcess: async (params: BatchProcessParams): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.post('/applications/batch', params);
+      return await apiClient.post(APPLICATION_APIS.BATCH_PROCESS, params);
     } catch (error) {
       console.error('Error batch processing applications:', error);
       throw error;
@@ -191,8 +194,9 @@ export const ApplicationApi = {
     try {
       const ids = (statusIds || []).map(String).join(',');
       const query = { ...params, statusIds: ids };
-      // apiClient.get accepts params object; pass constructed query
-      return await apiClient.get(`/application-form`, query as any);
+      const url = APPLICATION_APIS.GET_ALL;
+      const queryUrl = appendQueryParams(url, query);
+      return await apiClient.get(queryUrl);
     } catch (error) {
       console.error('Error getting applications by statuses:', error);
       throw error;
@@ -209,8 +213,8 @@ export const DocumentApi = {
       const formData = new FormData();
       formData.append('document', file);
       formData.append('documentType', documentType);
-      
-      return await apiClient.uploadFile(`/applications/${applicationId}/documents`, formData);
+
+      return await apiClient.uploadFile(DOCUMENT_APIS.UPLOAD(applicationId), formData);
     } catch (error) {
       console.error('Error uploading document:', error);
       throw error;
@@ -219,7 +223,7 @@ export const DocumentApi = {
 
   getAll: async (applicationId: string): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.get(`/applications/${applicationId}/documents`);
+      return await apiClient.get(DOCUMENT_APIS.GET_ALL(applicationId));
     } catch (error) {
       console.error('Error getting documents:', error);
       throw error;
@@ -228,7 +232,7 @@ export const DocumentApi = {
 
   delete: async (applicationId: string, documentId: string): Promise<ApiResponse<any>> => {
     try {
-      return await apiClient.delete(`/applications/${applicationId}/documents/${documentId}`);
+      return await apiClient.delete(DOCUMENT_APIS.DELETE(applicationId, documentId));
     } catch (error) {
       console.error('Error deleting document:', error);
       throw error;
@@ -268,13 +272,13 @@ export const ReportApi = {
       }
 
   // Use apiClient which ensures auth headers are set
-  const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
+  const blob = await apiClient.get(REPORT_APIS.GENERATE_PDF(applicationId));
   // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
   if (blob instanceof Blob) return blob;
   // If axios returned data as ArrayBuffer or base64, convert accordingly
   // Fallback: try requesting via axiosInstance directly
   const axios = await import('../api/axiosConfig');
-  const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
+  const resp = await axios.default.get(REPORT_APIS.GENERATE_PDF(applicationId), { responseType: 'blob' });
   return resp.data as Blob;
     } catch (error) {
       console.error('Error generating PDF:', error);
