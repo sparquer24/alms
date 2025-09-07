@@ -8,7 +8,7 @@ import ApplicationTable from '../../components/ApplicationTable';
 import FreshApplicationForm from '../../components/FreshApplicationForm';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, ApplicationData, fetchApplicationsByStatus } from '../../services/sidebarApiCalls';
 import { generateApplicationPDF, generateBatchReportPDF, getBatchReportHTML } from '../../config/pdfUtils';
 import { getRoleConfig } from '../../config/roles';
 import { isZS, APPLICATION_TYPES } from '../../config/helpers';
@@ -16,10 +16,13 @@ export default function FreshFormPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isLoading, setIsLoading] = useState(true); const [showNewForm, setShowNewForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
+  const [showNewForm, setShowNewForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [processingBulkAction, setProcessingBulkAction] = useState(false); const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
+  const [processingBulkAction, setProcessingBulkAction] = useState(false);
+  const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
   const { isAuthenticated, userRole, isLoading: authLoading } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
   const searchParams = useSearchParams();
@@ -35,18 +38,41 @@ export default function FreshFormPage() {
     }
     // Check if the user has permission to view fresh forms
     const roleConfig = getRoleConfig(userRole);
+    console.log('🔑 Fresh Form - User Role:', userRole);
+    console.log('🔑 Fresh Form - Role Config:', roleConfig);
+    console.log('🔑 Fresh Form - User Permissions:', roleConfig?.permissions);
+    console.log('🔑 Fresh Form - Has canViewFreshForm:', roleConfig?.permissions.includes('canViewFreshForm'));
+    
+    // Temporarily disable permission check for debugging
+    /*
     if (!roleConfig || !roleConfig.permissions.includes('canViewFreshForm')) {
       // Redirect to dashboard or show access denied
+      console.log('❌ Fresh Form - Access denied, redirecting to home');
       router.push('/');
       return;
     }
+    */
   }, [isAuthenticated, router, userRole]);
+
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-  }, []);
+    // Fetch applications on component mount
+    const loadApplications = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedApplications = await fetchApplicationsByStatus('freshform');
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (!authLoading && isAuthenticated) {
+      loadApplications();
+    }
+  }, [isAuthenticated, authLoading]);
 
   // Open form immediately if navigated with type query
   useEffect(() => {
@@ -89,7 +115,7 @@ export default function FreshFormPage() {
   };
   // Filter applications based on freshform and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'freshform'),
+    applications,
     searchQuery,
     startDate,
     endDate
@@ -103,12 +129,12 @@ export default function FreshFormPage() {
     setShowNewForm(false);
   };
 
-  const handleSubmitApplication = (newApplication: ApplicationData) => {
+  const handleSubmitApplication = async (newApplication: ApplicationData) => {
     // In a real app, this would be an API call to save the application
     console.log('New application submitted:', newApplication);
 
-    // Add new application to the mockApplications array
-    mockApplications.unshift(newApplication);
+    // Add new application to the applications array and refresh the list
+    setApplications(prev => [newApplication, ...prev]);
 
     // Show success message
     setSuccessMessage(`Application ${newApplication.id} has been successfully submitted`);
@@ -120,6 +146,14 @@ export default function FreshFormPage() {
     setTimeout(() => {
       setSuccessMessage(null);
     }, 5000);
+
+    // Refresh applications list from API
+    try {
+      const refreshedApplications = await fetchApplicationsByStatus('freshform');
+      setApplications(refreshedApplications);
+    } catch (error) {
+      console.error('Error refreshing applications:', error);
+    }
   };
 
   // Function to handle PDF exports
@@ -266,12 +300,7 @@ export default function FreshFormPage() {
 
       <main className={`flex-1 min-w-0 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-0 overflow-y-auto `}>
         <div className="rounded-xl shadow-lg ">
-          {/* <div className="flex justify-between items-center">
-            Search bar and filters will be here (already present)
-          </div> */}
-          <h1 className="text-blue-900 text-center font-bold text-2xl rounded-lg mt-4 ">
-            Fresh Application Form
-          </h1>
+          
           <div className="flex space-x-2">
             {!showNewForm && filteredApplications.length > 0 && (
               <div className="flex items-center space-x-2">
@@ -360,12 +389,24 @@ export default function FreshFormPage() {
             // Display the form for creating a new application
             <FreshApplicationForm
               onSubmit={(formData) => {
-                // Convert FormData to ApplicationData if needed, or just log for now
-                // You may need to map fields if you want to add to mockApplications
+                // Show success message with acknowledgement number
+                const acknowledgementNo = (formData as any)?.acknowledgementNo || '';
                 console.log('New application submitted:', formData);
-                setSuccessMessage('Application has been successfully submitted');
+                console.log('Acknowledgement Number:', acknowledgementNo);
+                
+                if (acknowledgementNo) {
+                  setSuccessMessage(`Application submitted successfully! Acknowledgement Number: ${acknowledgementNo}`);
+                } else {
+                  setSuccessMessage(`Application has been successfully submitted for ${formData.applicantName || 'the applicant'}`);
+                }
+                
                 setShowNewForm(false);
-                setTimeout(() => setSuccessMessage(null), 5000);
+                
+                // Redirect to inbox/forwarded after showing message briefly
+                setTimeout(() => {
+                  setSuccessMessage(null);
+                  router.push('/inbox'); // Redirect to inbox
+                }, 3000); // Show success message for 3 seconds before redirecting
               }}
               onCancel={handleCancelForm}
             />

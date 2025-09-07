@@ -6,13 +6,33 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
 
 export default function FinalDisposalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch final disposal applications
+    const loadApplications = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedApplications = await fetchApplicationsByStatus('final');
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadApplications();
+  }, []);
+  
   const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
   const router = useRouter();
 
@@ -45,7 +65,7 @@ export default function FinalDisposalPage() {
 
   // Filter applications based on final/approved status and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'final'),
+    applications,
     searchQuery,
     startDate,
     endDate

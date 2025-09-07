@@ -216,10 +216,20 @@ const getUserRoleFromCookie = () => {
     setRoleConfig(getRoleConfig(effective));
   }, [userRole, cookieRole]);
 
+  const [loadingCounts, setLoadingCounts] = useState(false);
+  const [lastCountsFetch, setLastCountsFetch] = useState<number>(0);
+
   useEffect(() => {
     // Fetch applications for each status when the sidebar is visible
     const getApplicationCounts = async () => {
+      // Prevent duplicate calls within 30 seconds
+      const now = Date.now();
+      if (loadingCounts || (now - lastCountsFetch) < 30000) {
+        return;
+      }
+
       try {
+        setLoadingCounts(true);
         const counts = await fetchApplicationCounts();
         
         setApplicationCounts({
@@ -228,15 +238,19 @@ const getUserRoleFromCookie = () => {
           redFlaggedCount: counts.redFlaggedCount,
           disposedCount: counts.disposedCount,
         });
+        
+        setLastCountsFetch(now);
       } catch (error) {
         console.error('Error fetching application counts:', error);
+      } finally {
+        setLoadingCounts(false);
       }
     };
 
     if (visible && !cookieRole?.includes('ADMIN')) {
       getApplicationCounts();
     }
-  }, [visible, cookieRole]);
+  }, [visible, cookieRole, loadingCounts, lastCountsFetch]);
 
   useEffect(() => {
     // read cookie role once on mount (client-side only)
@@ -304,62 +318,14 @@ const getUserRoleFromCookie = () => {
     
     setActiveItem(`inbox-${subItem}`);
     localStorage.setItem("activeNavItem", `inbox-${subItem}`);
-    router.replace(`/inbox/${subItem}`); 
     dispatch(openInbox()); 
-    try {
-      // Get status ID from map
-      const statusId = statusIdMap[subItem as keyof typeof statusIdMap]?.[0];
-      console.log('📍 Status mapping:', {
-        subItem,
-        statusId,
-        allStatusMappings: statusIdMap
-      });
-      
-      if (statusId) {
-        console.log('🔄 Fetching applications for status:', statusId);
-        
-        // Fetch applications - this returns ApplicationData[] directly
-        const applications = await fetchApplicationsByStatus(statusId);
-        console.log('📥 Fetched applications:', {
-          isArray: Array.isArray(applications),
-          length: applications.length,
-          firstApplication: applications[0]
-        });
-        
-        console.log('📊 Final applications data:', {
-          length: applications.length,
-          sample: applications[0],
-          allData: applications
-        });
-        
-        // Set applications in context - they're already in the correct format
-        console.log('⚡ Setting applications in context:', {
-          count: applications.length
-        });
-        setApplications(applications);
-        
-        // Handle callbacks and navigation
-        if (onStatusSelect) {
-          console.log('🎯 Calling onStatusSelect with:', statusId);
-          onStatusSelect(String(statusId));
-        }
-
-        console.log('🚀 Navigating to:', `/inbox/${subItem}`);
-        router.replace(`/inbox/${subItem}`);
-        dispatch(openInbox());
-        
-        console.log('✅ handleInboxSubItemClick completed');
-      } else {
-        console.error('❌ No status ID found for subItem:', subItem);
-      }
-    } catch (error) {
-      console.error('❌ Error in handleInboxSubItemClick:', {
-        error,
-        subItem,
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }, [router, dispatch, onStatusSelect, setApplications]);
+    
+    // Just navigate to the page and let the page handle its own data fetching
+    console.log('🚀 Navigating to:', `/inbox/${subItem}`);
+    router.push(`/inbox/${subItem}`);
+    
+    console.log('✅ handleInboxSubItemClick completed');
+  }, [router, dispatch]);
 
   const handleLogout = useCallback(async () => {
     if (token) {

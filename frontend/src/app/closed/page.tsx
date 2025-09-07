@@ -6,13 +6,33 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
 
 export default function ClosedPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch closed/disposed applications
+    const loadApplications = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedApplications = await fetchApplicationsByStatus('disposed');
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadApplications();
+  }, []);
+
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
 
@@ -45,7 +65,7 @@ export default function ClosedPage() {
 
   // Filter applications based on closed/disposed status and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'disposed'),
+    applications,
     searchQuery,
     startDate,
     endDate
