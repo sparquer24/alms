@@ -11,7 +11,6 @@ import { statusIdMap } from "../config/statusMap";
 import { HamburgerButton } from "./HamburgerButton";
 import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
 import { APIApplication } from "../types/api";
-import { useApplications } from "../context/ApplicationContext";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
@@ -307,8 +306,6 @@ const getUserRoleFromCookie = () => {
   const handleInboxToggle = useCallback(() => {
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch]);
-
-  const { setApplications } = useApplications();
 
   const handleInboxSubItemClick = useCallback(async (subItem: string) => {
     console.log('🔍 handleInboxSubItemClick - Started:', {

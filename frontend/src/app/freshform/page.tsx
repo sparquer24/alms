@@ -285,26 +285,59 @@ export default function FreshFormPage() {
   };
 
   return (
-    <div
-      className="flex font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative z-0"
-    >
-      <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={handleDateFilter}
-        onReset={handleReset}
-        userRole={userRole}
-        onCreateApplication={handleCreateApplication}
-        onShowMessage={handleShowMessage}
-      />
+    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+      {/* Conditionally render sidebar and header */}
+      {!showNewForm && <Sidebar />}
+      {!showNewForm && (
+        <Header
+          onSearch={handleSearch}
+          onDateFilter={handleDateFilter}
+          onReset={handleReset}
+          userRole={userRole}
+          onCreateApplication={handleCreateApplication}
+          onShowMessage={handleShowMessage}
+        />
+      )}
 
-      <main className={`flex-1 min-w-0 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-0 overflow-y-auto `}>
-        <div className="rounded-xl shadow-lg ">
-          
-          <div className="flex space-x-2">
-            {!showNewForm && filteredApplications.length > 0 && (
+      {/* Main Content */}
+      <main className={`${
+        showNewForm 
+          ? 'w-full p-8' // Full width when showing form
+          : 'flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]' // Normal layout when showing table
+      }`}>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            {!showNewForm && (
+              <button
+                className="px-4 py-2 bg-[#001F54] text-white rounded-md hover:bg-[#003875] flex items-center"
+                onClick={handleNewApplication}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Application
+              </button>
+            )}
+          </div>
+
+          {/* Display search and filter information if applied */}
+          {!showNewForm && (searchQuery || startDate || endDate) && (
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+              <h3 className="font-semibold text-blue-700">Active Filters:</h3>
+              <div className="mt-2 text-sm text-gray-700 space-y-1">
+                {searchQuery && <p>Search: {searchQuery}</p>}
+                {(startDate || endDate) && (
+                  <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Print and Export Options */}
+          {!showNewForm && filteredApplications.length > 0 && (
+            <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="flex items-center space-x-2">
-                {/* Export options */}
+                {/* Export options dropdown */}
                 <div className="relative inline-block">
                   <select
                     className="px-3 py-2 bg-gray-100 text-gray-800 rounded-md border border-gray-300 appearance-none pr-8"
@@ -358,9 +391,8 @@ export default function FreshFormPage() {
                   Print Report
                 </button>
               </div>
-            )}
-          </div>
-
+            </div>
+          )}
           {/* Success message */}
           {successMessage && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
@@ -389,23 +421,30 @@ export default function FreshFormPage() {
             // Display the form for creating a new application
             <FreshApplicationForm
               onSubmit={(formData) => {
-                // Show success message with acknowledgement number
+                // Log the complete response data for debugging
+                
+                // Show success message with acknowledgement number and additional details
                 const acknowledgementNo = (formData as any)?.acknowledgementNo || '';
-                console.log('New application submitted:', formData);
-                console.log('Acknowledgement Number:', acknowledgementNo);
+                const applicationId = (formData as any)?.applicationId || '';
+                const applicantName = formData.applicantName || 'the applicant';
                 
                 if (acknowledgementNo) {
-                  setSuccessMessage(`Application submitted successfully! Acknowledgement Number: ${acknowledgementNo}`);
+                  let successMsg = `Application submitted successfully!\nAcknowledgement Number: ${acknowledgementNo}`;
+                  if (applicationId) {
+                    successMsg += `\nApplication ID: ${applicationId}`;
+                  }
+                  successMsg += `\nApplicant: ${applicantName}`;
+                  setSuccessMessage(successMsg);
                 } else {
-                  setSuccessMessage(`Application has been successfully submitted for ${formData.applicantName || 'the applicant'}`);
+                  setSuccessMessage(`Application has been successfully submitted for ${applicantName}`);
                 }
                 
                 setShowNewForm(false);
                 
-                // Redirect to inbox/forwarded after showing message briefly
+                // Redirect to freshform after showing message briefly
                 setTimeout(() => {
                   setSuccessMessage(null);
-                  router.push('/inbox'); // Redirect to inbox
+                  router.push('/freshform'); // Redirect back to freshform page
                 }, 3000); // Show success message for 3 seconds before redirecting
               }}
               onCancel={handleCancelForm}
@@ -413,32 +452,19 @@ export default function FreshFormPage() {
           ) : (
             // Display the regular list view
             <>
-              {/* Display search and filter information if applied */}
-              {(searchQuery || startDate || endDate) && (
-                <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                  <h3 className="font-semibold text-blue-700">Active Filters:</h3>
-                  <div className="mt-2 text-sm text-gray-700 space-y-1">
-                    {searchQuery && <p>Search: {searchQuery}</p>}
-                    {(startDate || endDate) && (
-                      <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
-                    )}
-                  </div>
+              {/* Show application count */}
+              {!showNewForm && (
+                <div className="mb-6">
+                  <p className="text-gray-600">
+                    Showing {filteredApplications.length} fresh application(s)
+                  </p>
                 </div>
               )}
 
-              {/* Show application count */}
-              <div className="mb-6">
-                <p className="text-gray-600">
-                  Showing {filteredApplications.length} fresh application form(s)
-                </p>
-             
-              </div>
-
               {/* Display the application table */}
               <ApplicationTable
-                // applications={filteredApplications}
-                // isLoading={isLoading}
                 applications={filteredApplications}
+                isLoading={isLoading}
               />
             </>
           )}

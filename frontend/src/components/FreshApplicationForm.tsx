@@ -156,6 +156,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [apiErrorDetails, setApiErrorDetails] = useState<any>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Simple helpers for preview rendering
@@ -1161,7 +1163,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         }
       } else {
         // For test data, create smaller placeholder base64 data
-        if (formData[docKey]) {
+        if ((formData as any)[docKey]) {
           console.log(`📄 Creating small placeholder base64 for ${fileType}...`);
           // Create a very small 1x1 pixel PNG as base64 for test data (minimal size)
           const placeholderBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=';
@@ -1366,6 +1368,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     e.preventDefault();
     console.log('🚀 Form submit triggered');
     setApiError(null);
+    setApiErrorDetails(null);
+    setShowErrorDetails(false);
     
     // Validate all steps before submission
     const isValid = validateAllStepsForSubmission();
@@ -1418,12 +1422,23 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         }
       }
       
+      // Log the complete response for debugging
+      console.log('✅ Complete API response:', JSON.stringify(resp, null, 2));
+      
       // Try to extract application id and acknowledgement number from various shapes
       const createdApp: any = (resp as any)?.data && typeof (resp as any).data === 'object' ? (resp as any).data : (resp as any).body || (resp as any);
       const applicationId = String(createdApp?.id || createdApp?.applicationId || createdApp?.data?.id || '');
       const acknowledgementNo = String(createdApp?.acknowledgementNo || createdApp?.acknowledgmentNo || createdApp?.data?.acknowledgementNo || createdApp?.data?.acknowledgmentNo || '');
       console.log('🆔 Extracted application ID:', applicationId);
       console.log('🎫 Extracted acknowledgement number:', acknowledgementNo);
+      
+      // Log success details for debugging
+      if ((resp as any)?.success !== undefined) {
+        console.log('✅ API Success status:', (resp as any).success);
+      }
+      if ((resp as any)?.message) {
+        console.log('✅ API Success message:', (resp as any).message);
+      }
 
       // Set success message and call parent callback with acknowledgement info
       const cbData: FormData = {
@@ -1445,28 +1460,83 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       
       // Show success message with acknowledgement number
       setApiError(null);
-      console.log('📞 Calling parent onSubmit callback with:', cbData);
-      console.log('🎫 Application created with acknowledgement number:', acknowledgementNo);
-      
-      // Call parent callback which should handle redirect to inbox/forwarded
-      onSubmit?.({
-        ...cbData,
-        acknowledgementNo: acknowledgementNo,
-        applicationId: applicationId
-      } as any);
+      setApiErrorDetails(null);
+      setShowErrorDetails(false);
+      try {
+        onSubmit?.({
+          ...cbData,
+          acknowledgementNo: acknowledgementNo,
+          applicationId: applicationId
+        } as any);
+        setIsSubmitting(false);
+        console.log('🎉 Form submission completed successfully!');
+      } catch (callbackError) {
+        console.error('❌ Error in onSubmit callback:', callbackError);
+      }
 
-      setIsSubmitting(false);
-      console.log('🎉 Form submission completed successfully!');
     } catch (error: any) {
       console.error('❌ Form submission error:', error);
-      console.error('❌ Error details:', {
-        message: error?.message,
-        response: error?.response,
-        status: error?.response?.status,
-        data: error?.response?.data
-      });
       setIsSubmitting(false);
-      setApiError(error?.response?.data?.message || error?.message || 'Failed to submit application. Please try again.');
+      console.log('❌ Full error object:', JSON.stringify(error, null, 2));
+      
+      // Store the full error details for debugging
+      setApiErrorDetails({
+        fullError: error,
+        responseData: error?.response?.data,
+        responseStatus: error?.response?.status,
+        responseHeaders: error?.response?.headers
+      });
+      
+      // Extract detailed error message from nested response structure
+      let errorMessage = 'Failed to submit application. Please try again.';
+      
+      try {
+        // Log the complete response structure for debugging
+        if (error?.response) {
+          console.log('❌ Error response:', JSON.stringify(error.response, null, 2));
+          console.log('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+        }
+
+        if (error?.response?.data) {
+          const errorData = error.response.data;
+          
+          // Check if it's the nested error structure with details.response.error
+          if (errorData.details?.response?.error) {
+            errorMessage = errorData.details.response.error;
+            console.log('❌ Using details.response.error:', errorMessage);
+          }
+          // Check for details.response.message
+          else if (errorData.details?.response?.message) {
+            errorMessage = errorData.details.response.message;
+            console.log('❌ Using details.response.message:', errorMessage);
+          }
+          // Fallback to details.message
+          else if (errorData.details?.message) {
+            errorMessage = errorData.details.message;
+            console.log('❌ Using details.message:', errorMessage);
+          }
+          // Fallback to top-level error message
+          else if (errorData.error) {
+            errorMessage = errorData.error;
+            console.log('❌ Using top-level error:', errorMessage);
+          }
+          // Fallback to message field
+          else if (errorData.message) {
+            errorMessage = errorData.message;
+            console.log('❌ Using message field:', errorMessage);
+          }
+        }
+        // Direct error message
+        else if (error?.message) {
+          errorMessage = error.message;
+          console.log('❌ Using direct error message:', errorMessage);
+        }
+      } catch (parseError) {
+        console.error('❌ Error parsing error response:', parseError);
+        errorMessage = 'An unexpected error occurred. Please try again.';
+      }
+      
+      setApiError(errorMessage);
     }
   };
 
@@ -1505,7 +1575,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className=" bg-gray-50">
       <div className="max-w-7xl mx-auto">
         {/* Fixed Header with Messages */}
         <div className="px-6 pt-4">
@@ -1538,7 +1608,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           <div className="bg-white px-6 py-2">
             <div className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
               <div className="w-full overflow-x-auto bg-gradient-to-r from-[#022258] to-[#1e3a8a] scrollbar-hide">
-                <div className="flex space-x-1 p-1.5 tab-array">
+                <div className="flex space-x-1 p-2 tab-array">
                 {formSteps.map((section, index) => (
                   <button
                     key={index}
@@ -1549,9 +1619,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         : "text-blue-100 hover:text-white hover:bg-blue-600/30 border-2 border-transparent"
                     }`}
                   >
-                    <div className="flex flex-col items-center">
-                      <span className="text-xs opacity-75 mb-0.5">Step {index + 1}</span>
-                      <span className="text-xs font-bold leading-tight text-center">{section.title}</span>
+                    <div className="flex flex-col items-center px-1">
+                      <span className="text-6xs opacity-75 mb-0.5">Step {index + 1}</span>
+                      <span className="text-6xs font-bold leading-tight text-center">{section.title}</span>
                     </div>
                     {formStep === index && (
                       <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white"></div>
@@ -3335,17 +3405,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                   </label>
                 </div>
               </div>
-
-              {/* Submit Button */}
-              <div className="mt-8 flex justify-center">
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !formData.declaration?.agreeToTruth || !formData.declaration?.understandLegalConsequences || !formData.declaration?.agreeToTerms}
-                  className="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
-                </button>
-              </div>
             </div>
           )}
 
@@ -3358,13 +3417,93 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <div className="ml-3">
+                <div className="ml-3 flex-1">
                   <h3 className="text-sm font-medium text-red-800">
                     Submission Error
                   </h3>
                   <p className="mt-1 text-sm text-red-700">
                     {apiError}
                   </p>
+                  
+                  {/* Additional error details from API response */}
+                  {apiErrorDetails?.responseData && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowErrorDetails(!showErrorDetails)}
+                        className="text-xs text-red-600 hover:text-red-800 underline focus:outline-none"
+                      >
+                        {showErrorDetails ? 'Hide Details' : 'Show API Response Details'}
+                      </button>
+                      
+                      {showErrorDetails && (
+                        <div className="mt-2 p-3 bg-red-100 rounded-md border border-red-300">
+                          <h4 className="text-xs font-semibold text-red-800 mb-2">API Response:</h4>
+                          <div className="space-y-2">
+                            {/* HTTP Status */}
+                            {apiErrorDetails.responseStatus && (
+                              <div className="text-xs">
+                                <span className="font-medium text-red-700">Status:</span> {apiErrorDetails.responseStatus}
+                              </div>
+                            )}
+                            
+                            {/* Success flag */}
+                            {apiErrorDetails.responseData.success !== undefined && (
+                              <div className="text-xs">
+                                <span className="font-medium text-red-700">Success:</span> {String(apiErrorDetails.responseData.success)}
+                              </div>
+                            )}
+                            
+                            {/* Main error message */}
+                            {apiErrorDetails.responseData.error && (
+                              <div className="text-xs">
+                                <span className="font-medium text-red-700">Error:</span> {apiErrorDetails.responseData.error}
+                              </div>
+                            )}
+                            
+                            {/* Nested error details */}
+                            {apiErrorDetails.responseData.details && (
+                              <div className="text-xs">
+                                <span className="font-medium text-red-700">Details:</span>
+                                <div className="ml-2 mt-1 space-y-1">
+                                  {apiErrorDetails.responseData.details.response?.error && (
+                                    <div>
+                                      <span className="font-medium text-red-600">Specific Error:</span> {apiErrorDetails.responseData.details.response.error}
+                                    </div>
+                                  )}
+                                  {apiErrorDetails.responseData.details.status && (
+                                    <div>
+                                      <span className="font-medium text-red-600">Status Code:</span> {apiErrorDetails.responseData.details.status}
+                                    </div>
+                                  )}
+                                  {apiErrorDetails.responseData.details.message && (
+                                    <div>
+                                      <span className="font-medium text-red-600">Message:</span> {apiErrorDetails.responseData.details.message}
+                                    </div>
+                                  )}
+                                  {apiErrorDetails.responseData.details.name && (
+                                    <div>
+                                      <span className="font-medium text-red-600">Exception Type:</span> {apiErrorDetails.responseData.details.name}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Raw response for debugging */}
+                            <details className="mt-2">
+                              <summary className="text-xs font-medium text-red-700 cursor-pointer hover:text-red-900">
+                                Raw API Response (for debugging)
+                              </summary>
+                              <pre className="mt-1 text-xs bg-white p-2 rounded border border-red-200 overflow-x-auto max-h-32">
+                                {JSON.stringify(apiErrorDetails.responseData, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
