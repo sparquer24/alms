@@ -611,6 +611,9 @@ async getApplicationById(id: number | undefined, acknowledgementNo: string | und
         previousRole: true,
         currentUser: true,
         previousUser: true,
+        FreshLicenseApplicationsFormWorkflowHistories: {
+          orderBy: { createdAt: 'desc' }
+        }
       },
     })];
   } catch (err) {

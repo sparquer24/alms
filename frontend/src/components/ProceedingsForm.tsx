@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
-import { fetchNextUsers } from '../utils/apiUtils'; // Centralized API utility
 import { postData } from '../api/axiosConfig';
 
 interface UserOption {
@@ -23,12 +22,35 @@ const ACTION_OPTIONS = [
   { value: 'red-flag', label: 'Red Flag' },
 ];
 
+// Map UI actions to backend action IDs expected by /workflow/action
+const ACTION_ID_MAP: Record<string, number> = {
+  'forward': 1,
+  'return': 2,
+  'dispose': 3,
+  'red-flag': 4,
+};
+
+// Dummy users used only as a fallback when API is not available
+const DUMMY_USERS: Array<{ id: string | number; username: string; role?: string | null }> = [
+  { id: 3, username: 'JTCP_ADMIN', role: 'JTCP' },
+  { id: 4, username: 'SUPDT_STORES_HYD', role: 'SUPDT' },
+  { id: 5, username: 'SUPDT_TL_HYD', role: 'SUPDT' },
+  { id: 6, username: 'CP_HYD', role: 'CP' },
+  { id: 7, username: 'ACP_NORTH', role: 'ACP' },
+  { id: 8, username: 'DCP_CENTRAL', role: 'DCP' },
+  { id: 9, username: 'SHO_WEST', role: 'SHO' },
+  { id: 10, username: 'ADMIN_USER', role: 'ADMIN' },
+  { id: 1, username: 'CADO_HYD', role: 'CADO' }, 
+  { id: 13, username: 'ZS_ADMIN', role: 'ZS' },
+];
+
 // Simple TextArea Component as Rich Text Editor Replacement
-function SimpleTextArea({ value, onChange, placeholder, disabled }: {
+function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  dataTestId?: string;
 }) {
   return (
     <textarea
@@ -36,6 +58,7 @@ function SimpleTextArea({ value, onChange, placeholder, disabled }: {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
+      data-testid={dataTestId}
       className="w-full min-h-[120px] p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
       style={{ fontFamily: 'inherit', fontSize: '0.875rem' }}
     />
@@ -120,41 +143,33 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [remarks, setRemarks] = useState('');
+  const [remarksVisible, setRemarksVisible] = useState(true);
   const [loading, setLoading] = useState(false);
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch users when action type changes to 'forward'
+  // Fetch users when action type changes (available for all actions) using dummy data
   useEffect(() => {
-    if (actionType === 'forward') {
-      console.log('Fetching users for forward action...');
+    if (actionType) {
       setFetchingUsers(true);
       setError(null);
-      
-      fetchNextUsers()
-        .then((data) => {
-          console.log('API response data:', data);
-          const formatted = data.map((u: any) => ({
-            value: u.id,
-            label: `${u.name} (${u.designation || u.role})`,
-          }));
-          console.log('Formatted user options:', formatted);
-          setUserOptions(formatted);
-        })
-        .catch((err) => {
-          console.error('Error fetching users:', err);
-          setError('Failed to fetch next users. Please try again.');
-        })
-        .finally(() => {
-          console.log('Finished fetching users');
-          setFetchingUsers(false);
-        });
+
+      const timer = setTimeout(() => {
+        const formatted = DUMMY_USERS.map((u) => ({
+          value: String(u.id),
+          label: `${u.username} (${u.id})`,
+        }));
+        setUserOptions(formatted);
+        setFetchingUsers(false);
+      }, 300);
+
+      return () => clearTimeout(timer);
     } else {
-      console.log('Clearing user options for non-forward action');
       setUserOptions([]);
       setNextUser(null);
+      setFetchingUsers(false);
     }
   }, [actionType]);
 
@@ -179,15 +194,27 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
       return;
     }
 
-    const body: any = { actionType, remarks: remarks.trim() };
-    if (actionType === 'forward') {
-      body.forwardTo = nextUser?.value;
+    // Build payload for /workflow/action
+    const actionId = ACTION_ID_MAP[actionType];
+    if (!actionId) {
+      setError('Unknown action type.');
+      return;
+    }
+
+    const payload: any = {
+      applicationId: Number(applicationId),
+      actionId,
+      remarks: remarks.trim(),
+      attachments: [],
+    };
+    if (nextUser?.value) {
+      payload.nextUserId = Number(nextUser.value);
     }
 
     setIsSubmitting(true);
 
     try {
-  const result = await postData(`/applications/${applicationId}/process`, body);
+  const result = await postData(`/workflow/action`, payload);
       setSuccess(result.message || 'Action completed successfully.');
       
       // Reset form
@@ -260,16 +287,16 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
           </label>
           <div className={styles.selectContainer}>
             <Select
-              options={actionType === 'forward' ? userOptions : []}
+              options={userOptions}
               value={nextUser}
               onChange={setNextUser}
               placeholder={
-                actionType === 'forward' 
-                  ? (fetchingUsers ? "Loading users..." : "Select DCP, ACP, or SHO to forward to")
-                  : "Select 'Forward' action type to see available users"
+                actionType
+                  ? (fetchingUsers ? 'Loading users...' : 'Select user')
+                  : 'Select action first'
               }
               isLoading={fetchingUsers}
-              isDisabled={isSubmitting || fetchingUsers || actionType !== 'forward'}
+              isDisabled={isSubmitting || fetchingUsers || !actionType}
               className="text-sm"
               styles={{
                 control: (provided, state) => ({
@@ -279,23 +306,23 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
                   '&:hover': {
                     borderColor: '#3B82F6'
                   },
-                  backgroundColor: actionType !== 'forward' ? '#f9fafb' : 'white'
+                  backgroundColor: !actionType ? '#f9fafb' : 'white'
                 })
               }}
             />
           </div>
-          {actionType === 'forward' && fetchingUsers && (
+          {actionType && fetchingUsers && (
             <div className={styles.loadingText}>
               <LoadingSpinner size="sm" />
               <span>Loading available users...</span>
             </div>
           )}
-          {actionType === 'forward' && !fetchingUsers && userOptions.length === 0 && (
+          {actionType && !fetchingUsers && userOptions.length === 0 && (
             <p className={styles.helpText}>
               No users available. Please try refreshing the page.
             </p>
           )}
-          {actionType !== 'forward' && (
+          {actionType && actionType !== 'forward' && (
             <p className={styles.helpText}>
               This field is only required when "Forward" action is selected.
             </p>
@@ -304,20 +331,36 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
 
         {/* Remarks/Text Area */}
         <div className={styles.formSection}>
-          <label className={styles.formLabel}>
-            Remarks <span className={styles.required}>*</span>
-          </label>
-          <div className={styles.richTextContainer}>
-            <SimpleTextArea 
-              value={remarks} 
-              onChange={setRemarks}
-              placeholder="Enter your remarks here..."
-              disabled={isSubmitting}
-            />
+          <div className="flex items-center justify-between">
+            <label className={styles.formLabel}>
+              Remarks <span className={styles.required}>*</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setRemarksVisible(v => !v)}
+              className="ml-3 text-blue-600 hover:underline text-sm"
+              aria-pressed={remarksVisible}
+              aria-label={remarksVisible ? 'Hide' : 'Show'}
+            >
+              {remarksVisible ? 'Hide' : 'Show'}
+            </button>
           </div>
-          <p className={styles.helpText}>
-            Enter your detailed remarks about this action. You can use multiple lines for better formatting.
-          </p>
+          {remarksVisible && (
+            <>
+              <div className={styles.richTextContainer}>
+                <SimpleTextArea 
+                  value={remarks} 
+                  onChange={setRemarks}
+                  placeholder="Enter your remarks here..."
+                  disabled={isSubmitting}
+                  dataTestId="rich-text-editor"
+                />
+              </div>
+              <p className={styles.helpText}>
+                Enter your detailed remarks about this action. You can use multiple lines for better formatting.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Submit Button */}
