@@ -110,7 +110,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
         <Message type="error" message={errorMessage} />
       )}
 
-      <div className="w-full overflow-x-auto min-w-0">
+      <div className={`${styles.tableWrapper} w-full min-w-0`}>
         <table className="w-full table-auto">
 
 

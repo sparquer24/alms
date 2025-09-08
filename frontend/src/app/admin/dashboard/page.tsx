@@ -45,7 +45,11 @@ export default function AdminDashboard() {
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header />
+      <Header 
+        onSearch={() => {}} 
+        onDateFilter={() => {}} 
+        onReset={() => {}} 
+      />
       <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
         <h1 className="text-2xl font-bold mb-8">Admin Dashboard</h1>
         {loading ? (

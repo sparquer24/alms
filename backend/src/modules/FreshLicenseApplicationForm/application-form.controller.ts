@@ -1,7 +1,9 @@
 import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
+import { CreateApplicationDto } from './dto/create-application.dto';
+import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
 
 @ApiTags('Application Form')
 @Controller('application-form')
@@ -11,12 +13,126 @@ export class ApplicationFormController {
   constructor(private readonly applicationFormService: ApplicationFormService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create Application', description: 'Create a new application' })
-  @ApiResponse({ status: 201, description: 'Application created successfully' })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  async createApplication(@Body() applicationData: any, @Request() req: any) {
+  @ApiOperation({ 
+    summary: 'Create Application', 
+    description: `Create a new fresh license application.` 
+  })
+  @ApiBody({ type: CreateApplicationDto })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Application created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'number', example: 1 },
+            acknowledgementNo: { type: 'string', example: 'ACK123456789' }
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Bad Request - Invalid input data',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        error: { type: 'string' },
+        details: { type: 'object' }
+      }
+    }
+  })
+  async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
     try {
-      const [error, result] = await this.applicationFormService.createApplication(applicationData);
+      // Convert DTO to service input format
+      const processedData = {
+        firstName: applicationData.firstName,
+        middleName: applicationData.middleName,
+        lastName: applicationData.lastName,
+        filledBy: applicationData.filledBy,
+        parentOrSpouseName: applicationData.parentOrSpouseName,
+        sex: applicationData.sex as Sex,
+        placeOfBirth: applicationData.placeOfBirth,
+        dateOfBirth: new Date(applicationData.dateOfBirth),
+        panNumber: applicationData.panNumber,
+        aadharNumber: applicationData.aadharNumber,
+        dobInWords: applicationData.dobInWords,
+        stateId: applicationData.stateId,
+        districtId: applicationData.districtId,
+        currentUserId: applicationData.currentUserId,
+        currentRoleId: applicationData.currentRoleId,
+        
+        presentAddress: {
+          addressLine: applicationData.presentAddress.addressLine,
+          stateId: applicationData.presentAddress.stateId,
+          districtId: applicationData.presentAddress.districtId,
+          sinceResiding: new Date(applicationData.presentAddress.sinceResiding)
+        },
+        
+        permanentAddress: applicationData.permanentAddress ? {
+          addressLine: applicationData.permanentAddress.addressLine,
+          stateId: applicationData.permanentAddress.stateId,
+          districtId: applicationData.permanentAddress.districtId,
+          sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
+        } : undefined,
+        
+        contactInfo: applicationData.contactInfo,
+        occupationInfo: applicationData.occupationInfo,
+        biometricData: applicationData.biometricData,
+        
+        // Convert criminal history to expected format
+        criminalHistory: applicationData.criminalHistory?.map(ch => ({
+          convicted: ch.convicted,
+          convictionData: {
+            isCriminalCasePending: ch.isCriminalCasePending,
+            firNumber: ch.firNumber,
+            policeStation: ch.policeStation,
+            sectionOfLaw: ch.sectionOfLaw,
+            dateOfOffence: ch.dateOfOffence,
+            caseStatus: ch.caseStatus
+          }
+        })),
+        
+        // Convert license history to expected format
+        licenseHistory: applicationData.licenseHistory?.map(lh => ({
+          hasAppliedBefore: lh.hasAppliedBefore,
+          hasOtherApplications: lh.hasOtherApplications,
+          familyMemberHasArmsLicense: lh.familyMemberHasArmsLicense,
+          hasSafePlaceForArms: lh.hasSafePlaceForArms,
+          hasUndergoneTraining: lh.hasUndergoneTraining,
+          previousApplications: {
+            hasPreviousLicense: lh.hasPreviousLicense,
+            previousLicenseNumber: lh.previousLicenseNumber,
+            licenseIssueDate: lh.licenseIssueDate,
+            licenseExpiryDate: lh.licenseExpiryDate,
+            issuingAuthority: lh.issuingAuthority,
+            isLicenseRenewed: lh.isLicenseRenewed,
+            renewalDate: lh.renewalDate,
+            renewingAuthority: lh.renewingAuthority
+          }
+        })),
+        
+        licenseRequestDetails: {
+          needForLicense: applicationData.licenseRequestDetails.needForLicense as LicensePurpose,
+          weaponCategory: applicationData.licenseRequestDetails.weaponCategory as WeaponCategory,
+          requestedWeaponIds: applicationData.licenseRequestDetails.requestedWeaponIds,
+          areaOfValidity: applicationData.licenseRequestDetails.areaOfValidity
+        },
+        
+        fileUploads: applicationData.fileUploads?.map(fu => ({
+          fileName: fu.fileName,
+          fileSize: fu.fileSize,
+          fileType: fu.fileType as FileType,
+          fileUrl: fu.fileUrl
+        }))
+      };
+      
+      const [error, result] = await this.applicationFormService.createApplication(processedData);
       if (error) {
         // Provide more details if error is an object
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;

@@ -137,21 +137,6 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
               </div>
             </div>
           )}
-
-          {/* Show application count and debug info */}
-          <div className="mb-6">
-            <p className="text-gray-600">
-              Showing {filteredApplications.length} {type === 'flagged' ? 'red flagged' : type} application(s)
-            </p>
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-gray-500">
-                <p><strong>Debug:</strong> Looking for status ID: {statusIdMap[type as keyof typeof statusIdMap]?.[0]}</p>
-                <p>Total applications fetched: {applications.length}</p>
-                <p>After filters: {filteredApplications.length}</p>
-              </div>
-            )}
-          </div>
-
           {/* Display the application table */}
           <ApplicationTable
             applications={filteredApplications}

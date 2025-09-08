@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { setCookie, getCookie } from 'cookies-next';
 import { getAuthToken } from '../config/authenticatedApiClient';
-import armsLogo from '/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg';
-import policeLogo from '/assets/ps_logo.png';
 // import { ToastContainer, toast } from 'react-toastify';
 import { setAuthToken, postData } from '../api/axiosConfig';
 import { isAuthCookieValid } from '../utils/authCookies';
@@ -123,7 +121,7 @@ const Login = () => {
                 <div className="flex flex-col md:flex-row justify-center items-center gap-10">
                     {/* Left Section */}
                     <div className="flex justify-center items-center flex-grow">
-                        <img src={policeLogo.src} alt="Telangana Police Badge" className="h-[400px] w-[400px] md:h-[500px] md:w-[500px]" />
+                        <img src="/assets/ps_logo.png" alt="Telangana Police Badge" className="h-[400px] w-[400px] md:h-[500px] md:w-[500px]" />
                     </div>
 
                     {/* Right Section */}
@@ -133,7 +131,7 @@ const Login = () => {
                         style={{ margin: '10px 0' }}
                     >
                         <div className="flex items-center justify-center bg-gray-50 gap-2 ">
-                            <img src={armsLogo} alt="Telangana Police" className="h-16 mr-4" />
+                            <img src="/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg" alt="Telangana Police" className="h-16 mr-4" />
                             <h3 className="text-4xl text-violet-900 font-bold">Arms License</h3>
                         </div>
                         <h4 className="text-gray-600 text-2xl font-bold">Login</h4>

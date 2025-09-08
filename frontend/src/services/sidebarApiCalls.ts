@@ -7,6 +7,21 @@
 import { ApplicationApi } from '../config/APIClient';
 import { APIApplication, ApiResponse } from '../types/api';
 
+// Simple cache to prevent duplicate API calls
+const apiCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+const getCachedData = (key: string, ttl: number = 30000): any | null => {
+  const cached = apiCache.get(key);
+  if (cached && (Date.now() - cached.timestamp) < cached.ttl) {
+    return cached.data;
+  }
+  return null;
+};
+
+const setCachedData = (key: string, data: any, ttl: number = 30000): void => {
+  apiCache.set(key, { data, timestamp: Date.now(), ttl });
+};
+
 // Status mapping for numeric status_id (updated based on actual API response)
 export const STATUS_MAP = {
   forward: 1,        // Forward (from API response)
@@ -326,6 +341,15 @@ export const fetchAllApplications = async (params: Record<string, any> = {}): Pr
  */
 export const fetchApplicationsByStatus = async (status: string | number): Promise<ApplicationData[]> => {
   try {
+    const cacheKey = `fetchApplicationsByStatus_${status}`;
+    
+    // Check cache first
+    const cachedData = getCachedData(cacheKey, 30000); // 30 second cache
+    if (cachedData) {
+      console.log('📦 fetchApplicationsByStatus: Using cached data for status:', status);
+      return cachedData;
+    }
+    
     console.log('📡 fetchApplicationsByStatus called with status:', status);
     
     const params = { status: String(status) };
@@ -353,6 +377,9 @@ export const fetchApplicationsByStatus = async (status: string | number): Promis
       sample: applications[0]
     });
     
+    // Cache the results
+    setCachedData(cacheKey, applications, 30000);
+    
     return applications;
   } catch (error) {
     console.error('❌ fetchApplicationsByStatus error:', error);
@@ -372,6 +399,15 @@ export const fetchApplicationCounts = async (): Promise<{
   approvedCount: number;
 }> => {
   try {
+    const cacheKey = 'fetchApplicationCounts';
+    
+    // Check cache first
+    const cachedData = getCachedData(cacheKey, 30000); // 30 second cache
+    if (cachedData) {
+      console.log('📦 fetchApplicationCounts: Using cached data');
+      return cachedData;
+    }
+    
     console.log('📊 fetchApplicationCounts called');
     
     // Fetch applications for each status in parallel
@@ -394,6 +430,10 @@ export const fetchApplicationCounts = async (): Promise<{
     };
     
     console.log('📊 fetchApplicationCounts result:', counts);
+    
+    // Cache the results
+    setCachedData(cacheKey, counts, 30000);
+    
     return counts;
   } catch (error) {
     console.error('❌ fetchApplicationCounts error:', error);

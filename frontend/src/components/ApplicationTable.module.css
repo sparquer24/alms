@@ -8,10 +8,13 @@
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  max-height: 600px; /* Set maximum height for the table container */
 }
 
 .tableWrapper {
   overflow-x: auto;
+  overflow-y: auto; /* Enable vertical scrolling */
+  max-height: 550px; /* Set max height for scrollable area */
 }
 
 .table {
@@ -165,4 +168,30 @@
   padding: 2rem;
   text-align: center;
   color: #6b7280;
+}
+
+/* Scrollbar styling for webkit browsers */
+.tableWrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tableWrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* For Firefox */
+.tableWrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
 }

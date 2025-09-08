@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { useLayout } from "@/config/layoutContext";
-import { mockApplications } from "@/config/mockData";
+import { fetchAllApplications, ApplicationData } from "@/services/sidebarApiCalls";
 
 interface Application {
   status: string;
@@ -15,9 +15,36 @@ interface Application {
 
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
   const { isLoggedIn } = useAdminAuth();
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      router.push("/admin/login");
+    }
+  }, [isLoggedIn, router]);
+
+  useEffect(() => {
+    // Fetch applications data
+    const loadApplications = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedApplications = await fetchAllApplications();
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isLoggedIn) {
+      loadApplications();
+    }
+  }, [isLoggedIn]);
   useEffect(() => {
     if (!isLoggedIn) {
       router.push("/admin/login");
@@ -49,18 +76,18 @@ export default function ReportsPage() {
 
   // Get statistics for the report
   const getStats = () => {
-    const total = mockApplications.length;
-    const pending = mockApplications.filter((app: Application) => app.status === "pending")
+    const total = applications.length;
+    const pending = applications.filter((app: ApplicationData) => app.status === "pending")
       .length;
-    const approved = mockApplications.filter((app: Application) => app.status === "approved")
+    const approved = applications.filter((app: ApplicationData) => app.status === "approved")
       .length;
-    const rejected = mockApplications.filter((app: Application) => app.status === "rejected")
+    const rejected = applications.filter((app: ApplicationData) => app.status === "rejected")
       .length;
-    const returned = mockApplications.filter((app: Application) => app.status === "returned")
+    const returned = applications.filter((app: ApplicationData) => app.status === "returned")
       .length;
-    const flagged = mockApplications.filter((app: Application) => app.status === "red-flagged")
+    const flagged = applications.filter((app: ApplicationData) => app.status === "red-flagged")
       .length;
-    const disposed = mockApplications.filter((app: Application) => app.status === "disposed")
+    const disposed = applications.filter((app: ApplicationData) => app.status === "disposed")
       .length;
 
     return {
@@ -71,7 +98,7 @@ export default function ReportsPage() {
       returned,
       flagged,
       disposed,
-      approvalRate: Math.round((approved / total) * 100),
+      approvalRate: total > 0 ? Math.round((approved / total) * 100) : 0,
     };
   };
 

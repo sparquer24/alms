@@ -689,7 +689,9 @@ async getApplicationById(id: number | undefined, acknowledgementNo: string | und
       isReEnquiryDone: item.isReEnquiryDone,
       isRejected: item.isRejected,
       remarks: item.remarks,
-      status: item.status
+      status: item.status,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
     }));
 
     return [null, { total, data: filteredData }];

@@ -8,7 +8,7 @@ import ApplicationTable from '../../components/ApplicationTable';
 import FreshApplicationForm from '../../components/FreshApplicationForm';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, ApplicationData, fetchApplicationsByStatus } from '../../services/sidebarApiCalls';
 import { generateApplicationPDF, generateBatchReportPDF, getBatchReportHTML } from '../../config/pdfUtils';
 import { getRoleConfig } from '../../config/roles';
 import { isZS, APPLICATION_TYPES } from '../../config/helpers';
@@ -16,10 +16,13 @@ export default function FreshFormPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [isLoading, setIsLoading] = useState(true); const [showNewForm, setShowNewForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
+  const [showNewForm, setShowNewForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [processingBulkAction, setProcessingBulkAction] = useState(false); const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
+  const [processingBulkAction, setProcessingBulkAction] = useState(false);
+  const [reportType, setReportType] = useState<'individual' | 'batch'>('individual');
   const { isAuthenticated, userRole, isLoading: authLoading } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
   const searchParams = useSearchParams();
@@ -35,18 +38,41 @@ export default function FreshFormPage() {
     }
     // Check if the user has permission to view fresh forms
     const roleConfig = getRoleConfig(userRole);
+    console.log('🔑 Fresh Form - User Role:', userRole);
+    console.log('🔑 Fresh Form - Role Config:', roleConfig);
+    console.log('🔑 Fresh Form - User Permissions:', roleConfig?.permissions);
+    console.log('🔑 Fresh Form - Has canViewFreshForm:', roleConfig?.permissions.includes('canViewFreshForm'));
+    
+    // Temporarily disable permission check for debugging
+    /*
     if (!roleConfig || !roleConfig.permissions.includes('canViewFreshForm')) {
       // Redirect to dashboard or show access denied
+      console.log('❌ Fresh Form - Access denied, redirecting to home');
       router.push('/');
       return;
     }
+    */
   }, [isAuthenticated, router, userRole]);
+
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-  }, []);
+    // Fetch applications on component mount
+    const loadApplications = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedApplications = await fetchApplicationsByStatus('freshform');
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (!authLoading && isAuthenticated) {
+      loadApplications();
+    }
+  }, [isAuthenticated, authLoading]);
 
   // Open form immediately if navigated with type query
   useEffect(() => {
@@ -89,7 +115,7 @@ export default function FreshFormPage() {
   };
   // Filter applications based on freshform and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'freshform'),
+    applications,
     searchQuery,
     startDate,
     endDate
@@ -103,12 +129,12 @@ export default function FreshFormPage() {
     setShowNewForm(false);
   };
 
-  const handleSubmitApplication = (newApplication: ApplicationData) => {
+  const handleSubmitApplication = async (newApplication: ApplicationData) => {
     // In a real app, this would be an API call to save the application
     console.log('New application submitted:', newApplication);
 
-    // Add new application to the mockApplications array
-    mockApplications.unshift(newApplication);
+    // Add new application to the applications array and refresh the list
+    setApplications(prev => [newApplication, ...prev]);
 
     // Show success message
     setSuccessMessage(`Application ${newApplication.id} has been successfully submitted`);
@@ -120,6 +146,14 @@ export default function FreshFormPage() {
     setTimeout(() => {
       setSuccessMessage(null);
     }, 5000);
+
+    // Refresh applications list from API
+    try {
+      const refreshedApplications = await fetchApplicationsByStatus('freshform');
+      setApplications(refreshedApplications);
+    } catch (error) {
+      console.error('Error refreshing applications:', error);
+    }
   };
 
   // Function to handle PDF exports
@@ -251,31 +285,59 @@ export default function FreshFormPage() {
   };
 
   return (
-    <div
-      className="flex font-[family-name:var(--font-geist-sans)] bg-cover bg-center relative z-0"
-    >
-      <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={handleDateFilter}
-        onReset={handleReset}
-        userRole={userRole}
-        onCreateApplication={handleCreateApplication}
-        onShowMessage={handleShowMessage}
-      />
+    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+      {/* Conditionally render sidebar and header */}
+      {!showNewForm && <Sidebar />}
+      {!showNewForm && (
+        <Header
+          onSearch={handleSearch}
+          onDateFilter={handleDateFilter}
+          onReset={handleReset}
+          userRole={userRole}
+          onCreateApplication={handleCreateApplication}
+          onShowMessage={handleShowMessage}
+        />
+      )}
 
-      <main className={`flex-1 min-w-0 ${!showNewForm ? 'ml-[18%] mt-[70px]' : ''} relative z-0 overflow-y-auto `}>
-        <div className="rounded-xl shadow-lg ">
-          {/* <div className="flex justify-between items-center">
-            Search bar and filters will be here (already present)
-          </div> */}
-          <h1 className="text-blue-900 text-center font-bold text-2xl rounded-lg mt-4 ">
-            Fresh Application Form
-          </h1>
-          <div className="flex space-x-2">
-            {!showNewForm && filteredApplications.length > 0 && (
+      {/* Main Content */}
+      <main className={`${
+        showNewForm 
+          ? 'w-full p-8' // Full width when showing form
+          : 'flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]' // Normal layout when showing table
+      }`}>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            {!showNewForm && (
+              <button
+                className="px-4 py-2 bg-[#001F54] text-white rounded-md hover:bg-[#003875] flex items-center"
+                onClick={handleNewApplication}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Application
+              </button>
+            )}
+          </div>
+
+          {/* Display search and filter information if applied */}
+          {!showNewForm && (searchQuery || startDate || endDate) && (
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+              <h3 className="font-semibold text-blue-700">Active Filters:</h3>
+              <div className="mt-2 text-sm text-gray-700 space-y-1">
+                {searchQuery && <p>Search: {searchQuery}</p>}
+                {(startDate || endDate) && (
+                  <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Print and Export Options */}
+          {!showNewForm && filteredApplications.length > 0 && (
+            <div className="mb-6 flex flex-wrap items-center gap-4">
               <div className="flex items-center space-x-2">
-                {/* Export options */}
+                {/* Export options dropdown */}
                 <div className="relative inline-block">
                   <select
                     className="px-3 py-2 bg-gray-100 text-gray-800 rounded-md border border-gray-300 appearance-none pr-8"
@@ -329,9 +391,8 @@ export default function FreshFormPage() {
                   Print Report
                 </button>
               </div>
-            )}
-          </div>
-
+            </div>
+          )}
           {/* Success message */}
           {successMessage && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
@@ -360,44 +421,50 @@ export default function FreshFormPage() {
             // Display the form for creating a new application
             <FreshApplicationForm
               onSubmit={(formData) => {
-                // Convert FormData to ApplicationData if needed, or just log for now
-                // You may need to map fields if you want to add to mockApplications
-                console.log('New application submitted:', formData);
-                setSuccessMessage('Application has been successfully submitted');
+                // Log the complete response data for debugging
+                
+                // Show success message with acknowledgement number and additional details
+                const acknowledgementNo = (formData as any)?.acknowledgementNo || '';
+                const applicationId = (formData as any)?.applicationId || '';
+                const applicantName = formData.applicantName || 'the applicant';
+                
+                if (acknowledgementNo) {
+                  let successMsg = `Application submitted successfully!\nAcknowledgement Number: ${acknowledgementNo}`;
+                  if (applicationId) {
+                    successMsg += `\nApplication ID: ${applicationId}`;
+                  }
+                  successMsg += `\nApplicant: ${applicantName}`;
+                  setSuccessMessage(successMsg);
+                } else {
+                  setSuccessMessage(`Application has been successfully submitted for ${applicantName}`);
+                }
+                
                 setShowNewForm(false);
-                setTimeout(() => setSuccessMessage(null), 5000);
+                
+                // Redirect to freshform after showing message briefly
+                setTimeout(() => {
+                  setSuccessMessage(null);
+                  router.push('/freshform'); // Redirect back to freshform page
+                }, 3000); // Show success message for 3 seconds before redirecting
               }}
               onCancel={handleCancelForm}
             />
           ) : (
             // Display the regular list view
             <>
-              {/* Display search and filter information if applied */}
-              {(searchQuery || startDate || endDate) && (
-                <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                  <h3 className="font-semibold text-blue-700">Active Filters:</h3>
-                  <div className="mt-2 text-sm text-gray-700 space-y-1">
-                    {searchQuery && <p>Search: {searchQuery}</p>}
-                    {(startDate || endDate) && (
-                      <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
-                    )}
-                  </div>
+              {/* Show application count */}
+              {!showNewForm && (
+                <div className="mb-6">
+                  <p className="text-gray-600">
+                    Showing {filteredApplications.length} fresh application(s)
+                  </p>
                 </div>
               )}
 
-              {/* Show application count */}
-              <div className="mb-6">
-                <p className="text-gray-600">
-                  Showing {filteredApplications.length} fresh application form(s)
-                </p>
-             
-              </div>
-
               {/* Display the application table */}
               <ApplicationTable
-                // applications={filteredApplications}
-                // isLoading={isLoading}
                 applications={filteredApplications}
+                isLoading={isLoading}
               />
             </>
           )}

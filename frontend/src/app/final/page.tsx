@@ -1,17 +1,17 @@
 "use client";
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { mockApplications, filterApplications, getApplicationsByStatus } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
 
 export default function FinalDisposalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
@@ -46,7 +46,7 @@ export default function FinalDisposalPage() {
 
   // Filter applications based on final disposal status and search/date filters
   const filteredApplications = filterApplications(
-    getApplicationsByStatus(mockApplications, 'final'),
+    applications,
     searchQuery,
     startDate,
     endDate
