@@ -7,6 +7,7 @@ import DashboardSummary from "@/components/DashboardSummary";
 import dynamic from 'next/dynamic';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Link from 'next/link';
+import { PageLayoutSkeleton } from '@/components/Skeleton';
 
 // Dynamically import charts to avoid SSR issues
 const LineChart = dynamic(() => import('@/components/charts/LineChart'), { ssr: false });
@@ -83,14 +84,7 @@ export default function AdminDashboard() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admin dashboard...</p>
-        </div>
-      </div>
-    );
+    return <PageLayoutSkeleton />;
   }
 
   if (error) {

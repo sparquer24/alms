@@ -1,23 +1,18 @@
-import React, { memo, useCallback, useMemo, useState, useEffect } from "react";
+import React, { memo, useCallback, useMemo, useState, useEffect, startTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { logoutUser } from "../store/thunks/authThunks";
-import { useAuthSync } from "../hooks/useAuthSync";
-import { useLayout } from "../config/layoutContext";
-import { menuMeta, MenuMetaKey } from "../config/menuMeta";
-import { getRoleConfig } from "../config/roles";
-import { statusIdMap } from "../config/statusMap";
-import { HamburgerButton } from "./HamburgerButton";
-import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
-import { APIApplication } from "../types/api";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
+
+import { logoutUser } from "../store/thunks/authThunks";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
-import { fetchApplicationCounts, fetchApplicationsByStatus } from "../services/sidebarApiCalls";
-import { useUserContext } from "../context/UserContext";
-
-
+import { useAuthSync } from "../hooks/useAuthSync";
+import { useLayout } from "../config/layoutContext";
+import { useSidebarCounts } from "../hooks/useSidebarCounts";
+import { menuMeta, MenuMetaKey } from "../config/menuMeta";
+import { getRoleConfig } from "../config/roles";
+import { HamburgerButton } from "./HamburgerButton";
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -25,10 +20,7 @@ interface MenuItemProps {
   count?: number;
   active?: boolean;
   onClick?: () => void;
-  textColor?: string;
 }
-
-
 
 // Reusable MenuItem component
 const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) => (
@@ -52,18 +44,90 @@ const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) =
   </li>
 ));
 
+// Ultra-optimized InboxSubMenuItem component with advanced flickering prevention
+const InboxSubMenuItem = memo(({ 
+  name, 
+  label, 
+  icon, 
+  count, 
+  active, 
+  onClick 
+}: {
+  name: string;
+  label: string;
+  icon: React.ReactNode;
+  count?: number;
+  active: boolean;
+  onClick: (name: string) => void;
+}) => {
+  // Minimize re-render logging in production
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔄 InboxSubMenuItem render:', name, 'active:', active, 'count:', count);
+  }
+  
+  // Create ultra-stable click handler
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClick(name);
+  }, [onClick, name]);
+
+  // Memoize className to prevent recalculation
+  const buttonClassName = useMemo(() => 
+    `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${
+      active ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"
+    }`, [active]
+  );
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={handleClick}
+        className={buttonClassName}
+        aria-pressed={active}
+      >
+        <span className="inline-flex items-center justify-center w-6 h-6 mr-2 transition-colors" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="flex-grow">{label}</span>
+        {typeof count === 'number' && count > 0 && (
+          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-[#6366F1] rounded-full ml-2">
+            {count}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}, (prevProps, nextProps) => {
+  // Highly efficient comparison - only re-render when essential props change
+  const propsEqual = (
+    prevProps.name === nextProps.name &&
+    prevProps.active === nextProps.active &&
+    prevProps.count === nextProps.count
+    // Deliberately exclude onClick and other stable props
+  );
+  
+  if (process.env.NODE_ENV === 'development' && !propsEqual) {
+    console.log('🔄 InboxSubMenuItem props changed for:', prevProps.name, {
+      activeChanged: prevProps.active !== nextProps.active,
+      countChanged: prevProps.count !== nextProps.count,
+      prevActive: prevProps.active,
+      nextActive: nextProps.active,
+      prevCount: prevProps.count,
+      nextCount: nextProps.count
+    });
+  }
+  
+  return propsEqual;
+});
+
 interface SidebarProps {
   onStatusSelect?: (statusId: string) => void;
+  onTableReload?: (subItem: string) => void;
 }
 
-interface ApplicationCounts {
-  forwardedCount: number;
-  returnedCount: number;
-  redFlaggedCount: number;
-  disposedCount: number;
-}
-
-export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
+export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {}) => {
   const { showSidebar } = useLayout();
   const [visible, setVisible] = useState(false);
   const [activeItem, setActiveItem] = useState(() => {
@@ -72,19 +136,12 @@ export const Sidebar = memo(({ onStatusSelect }: SidebarProps = {}) => {
     }
     return "";
   });
-  const [applicationCounts, setApplicationCounts] = useState<ApplicationCounts>({
-    forwardedCount: 0,
-    returnedCount: 0,
-    redFlaggedCount: 0,
-    disposedCount: 0,
-  });
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const dispatch = useDispatch();
   const { userRole, token } = useAuthSync();
   const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
   const router = useRouter();
-  const { user } = useUserContext();
   // Role derived from the `user` cookie (if present) will override or supplement auth state.
   const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
 
@@ -143,41 +200,26 @@ const getUserRoleFromCookie = () => {
     setRoleConfig(getRoleConfig(effective));
   }, [userRole, cookieRole]);
 
-  const [loadingCounts, setLoadingCounts] = useState(false);
-  const [lastCountsFetch, setLastCountsFetch] = useState<number>(0);
-
-  useEffect(() => {
-    // Fetch applications for each status when the sidebar is visible
-    const getApplicationCounts = async () => {
-      // Prevent duplicate calls within 30 seconds
-      const now = Date.now();
-      if (loadingCounts || (now - lastCountsFetch) < 30000) {
-        return;
-      }
-
-      try {
-        setLoadingCounts(true);
-        const counts = await fetchApplicationCounts();
-        
-        setApplicationCounts({
-          forwardedCount: counts.forwardedCount,
-          returnedCount: counts.returnedCount,
-          redFlaggedCount: counts.redFlaggedCount,
-          disposedCount: counts.disposedCount,
-        });
-        
-        setLastCountsFetch(now);
-      } catch (error) {
-        console.error('Error fetching application counts:', error);
-      } finally {
-        setLoadingCounts(false);
-      }
-    };
-
-    if (visible && !cookieRole?.includes('ADMIN')) {
-      getApplicationCounts();
-    }
-  }, [visible, cookieRole, loadingCounts, lastCountsFetch]);
+  // Use the optimized sidebar counts hook with more stable conditions
+  const shouldFetchCounts = useMemo(() => 
+    visible && !cookieRole?.includes('ADMIN'), 
+    [visible, cookieRole]
+  );
+  
+  const { applicationCounts: rawCounts, loading: loadingCounts, refreshCounts } = useSidebarCounts(shouldFetchCounts);
+  
+  // Create stable reference to counts to prevent unnecessary re-renders
+  const applicationCounts = useMemo(() => ({
+    forwardedCount: rawCounts?.forwardedCount || 0,
+    returnedCount: rawCounts?.returnedCount || 0,
+    redFlaggedCount: rawCounts?.redFlaggedCount || 0,
+    disposedCount: rawCounts?.disposedCount || 0,
+  }), [
+    rawCounts?.forwardedCount,
+    rawCounts?.returnedCount, 
+    rawCounts?.redFlaggedCount,
+    rawCounts?.disposedCount
+  ]);
 
   useEffect(() => {
     // read cookie role once on mount (client-side only)
@@ -204,23 +246,7 @@ const getUserRoleFromCookie = () => {
       // Robust special-case routing for freshform, finaldisposal, myreports, closed, and sent
       const normalizedName = item.name.replace(/\s+/g, '').toLowerCase();
 
-      // Kick off fetch to /application-form using mapped status
-      try {
-        const statusIds = statusIdMap[normalizedName as keyof typeof statusIdMap];
-        if (statusIds?.length) {
-          // Normalize all status IDs to numbers before calling the API (function expects number[])
-          const numericStatusIds = statusIds
-            .map(id => typeof id === 'number' ? id : Number(id))
-            .filter(id => !Number.isNaN(id));
-          if (numericStatusIds.length) {
-            // Fire and forget; consumers can switch to a page that reads from a store later.
-            await fetchApplicationsByStatus(numericStatusIds);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-
+      // Navigation first, then fetch data on the destination page
       if (normalizedName === "freshform") {
         router.replace("/freshform");
       } else if (normalizedName === "finaldisposal") {
@@ -238,15 +264,57 @@ const getUserRoleFromCookie = () => {
   }, [router, dispatch]);
 
   const handleInboxToggle = useCallback(() => {
+    console.log('📂 Inbox toggle clicked, current state:', isInboxOpen);
     dispatch(toggleInbox()); // Dispatch toggle action
-  }, [dispatch]);
+  }, [dispatch, isInboxOpen]);
 
-  const handleInboxSubItemClick = useCallback(async (subItem: string) => {
-    setActiveItem(`inbox-${subItem}`);
-    localStorage.setItem("activeNavItem", `inbox-${subItem}`);
-    dispatch(openInbox()); 
-    router.push(`/inbox/${subItem}`);
-  }, [router, dispatch]);
+  const handleInboxSubItemClick = useCallback((subItem: string) => {
+    console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem); 
+    
+    const activeItemKey = `inbox-${subItem}`;
+    const currentPath = window.location.pathname;
+    const isOnInboxPage = currentPath.startsWith('/inbox/');
+    
+    // Ultra-stable state management to prevent flickering
+    if (activeItem === activeItemKey && isOnInboxPage) {
+      console.log('🚫 Same item already active, updating URL and reloading table');
+      // Update URL without router navigation
+      window.history.replaceState(null, '', `/inbox/${subItem}`);
+      // Trigger application table reload if callback exists
+      if (onTableReload) {
+        onTableReload(subItem);
+      }
+      return;
+    }
+    
+    console.log('✅ Setting new active item:', activeItemKey);
+    
+    // Use React's concurrent features for smooth updates
+    startTransition(() => {
+      // Batch synchronous DOM updates
+      setActiveItem(activeItemKey);
+      localStorage.setItem("activeNavItem", activeItemKey);
+      
+      // Ensure inbox stays open (minimal Redux dispatch)
+      if (!isInboxOpen) {
+        dispatch(openInbox());
+      }
+    });
+    
+    // Navigate appropriately based on current context
+    requestAnimationFrame(() => {
+      if (isOnInboxPage && onTableReload) {
+        // If we're on inbox page with callback, just update URL and reload table
+        console.log('🔄 On inbox page, updating URL and reloading table');
+        window.history.replaceState(null, '', `/inbox/${subItem}`);
+        onTableReload(subItem);
+      } else {
+        // If we're on a different page or no callback, navigate to inbox page
+        console.log('🚀 Navigating to inbox page');
+        router.push(`/inbox/${subItem}`);
+      }
+    });
+  }, [dispatch, isInboxOpen, activeItem, onTableReload, router]);
 
   const handleLogout = useCallback(async () => {
     if (token) {
@@ -269,13 +337,59 @@ const getUserRoleFromCookie = () => {
     });
   }, [roleConfig]);
 
-  // Define inbox sub-items
-  const inboxSubItems = useMemo(() => [
-    { name: "forwarded", label: "Forwarded", icon: <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, count: applicationCounts.forwardedCount },
-    { name: "returned", label: "Returned", icon: <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, count: applicationCounts.returnedCount },
-    { name: "redFlagged", label: "Red Flagged", icon: <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, count: applicationCounts.redFlaggedCount },
-    { name: "disposed", label: "Disposed", icon: <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, count: applicationCounts.disposedCount },
-  ], [applicationCounts]);
+  // Create stable icons outside of memoization to prevent recreating React elements
+  const forwardedIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
+  const returnedIcon = useMemo(() => <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, []);
+  const redFlaggedIcon = useMemo(() => <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
+  const disposedIcon = useMemo(() => <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+
+  // Create highly stable inbox sub-items to prevent flickering
+  const inboxSubItems = useMemo(() => {
+    console.log('📦 inboxSubItems memoization triggered with counts:', {
+      forwarded: applicationCounts?.forwardedCount,
+      returned: applicationCounts?.returnedCount,
+      redFlagged: applicationCounts?.redFlaggedCount,
+      disposed: applicationCounts?.disposedCount
+    });
+    
+    return [
+      { 
+        name: "forwarded", 
+        label: "Forwarded", 
+        icon: forwardedIcon, 
+        count: applicationCounts?.forwardedCount || 0
+      },
+      { 
+        name: "returned", 
+        label: "Returned", 
+        icon: returnedIcon, 
+        count: applicationCounts?.returnedCount || 0
+      },
+      { 
+        name: "redFlagged", 
+        label: "Red Flagged", 
+        icon: redFlaggedIcon, 
+        count: applicationCounts?.redFlaggedCount || 0
+      },
+      { 
+        name: "disposed", 
+        label: "Disposed", 
+        icon: disposedIcon, 
+        count: applicationCounts?.disposedCount || 0
+      },
+    ];
+  }, [
+    // Include stable icon references
+    forwardedIcon,
+    returnedIcon,
+    redFlaggedIcon,
+    disposedIcon,
+    // Only re-create when counts actually change
+    applicationCounts?.forwardedCount, 
+    applicationCounts?.returnedCount, 
+    applicationCounts?.redFlaggedCount, 
+    applicationCounts?.disposedCount
+  ]);
 
   if (!visible && !showSidebar) return null;
   // Only render sidebar if allowed role
@@ -323,21 +437,23 @@ const getUserRoleFromCookie = () => {
                   <span className="ml-2">{isInboxOpen ? '▾' : '▸'}</span>
                 </button>
                 {isInboxOpen && (
-                  <ul className="ml-8 mt-1 space-y-1">
-                    {inboxSubItems.map((sub) => (
-                      <li key={sub.name}>
-                        <button
-                          type="button"
-                          onClick={() => handleInboxSubItemClick(sub.name)}
-                          className={`flex items-center w-full px-2 py-1 rounded-md text-left text-sm ${activeItem === `inbox-${sub.name}` ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"}`}
-                        >
-                          <span className="inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors" aria-hidden="true">
-                            {sub.icon}
-                          </span>
-                          <span className="flex-grow">{sub.label}</span>
-                        </button>
-                      </li>
-                    ))}
+                  <ul className="ml-8 mt-1 space-y-1" role="menu">
+                    {inboxSubItems.map((sub) => {
+                      // Pre-calculate active state to prevent inline computation
+                      const isActive = activeItem === `inbox-${sub.name}`;
+                      
+                      return (
+                        <InboxSubMenuItem
+                          key={`inbox-sub-${sub.name}`} // More specific key
+                          name={sub.name}
+                          label={sub.label}
+                          icon={sub.icon}
+                          count={sub.count}
+                          active={isActive}
+                          onClick={handleInboxSubItemClick}
+                        />
+                      );
+                    })}
                   </ul>
                 )}
               </li>
@@ -386,3 +502,8 @@ const getUserRoleFromCookie = () => {
     </>
   );
 });
+
+// Add display names for debugging
+Sidebar.displayName = 'Sidebar';
+InboxSubMenuItem.displayName = 'InboxSubMenuItem';
+MenuItem.displayName = 'MenuItem';

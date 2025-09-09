@@ -517,6 +517,13 @@ export class CreateApplicationDto {
   @IsNumber()
   districtId!: number;
 
+  @ApiProperty({
+    description: 'status ID',
+    example: 1
+  })
+  @IsNumber()
+  statusId!: number;
+
   @ApiProperty({ 
     description: 'Current user ID',
     example: 13

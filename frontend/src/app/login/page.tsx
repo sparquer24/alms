@@ -15,6 +15,7 @@ import {
 } from '../../store/slices/authSlice';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import type { AppDispatch } from '../../store/store';
+import { LoginSkeleton } from '../../components/Skeleton';
 
 
 // Types
@@ -177,6 +178,7 @@ const FormInput: React.FC<{
 export default function Login() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
   
   // Redux selectors
   const isLoading = useSelector(selectAuthLoading);
@@ -191,6 +193,7 @@ export default function Login() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && currentUser) {
+      setIsRedirecting(true);
       const redirectPath = getRoleBasedRedirectPath(currentUser.role);
       router.replace(redirectPath);
     }
@@ -217,6 +220,9 @@ export default function Login() {
       
       // Get role-based redirect path
       const redirectPath = getRoleBasedRedirectPath(result.user.role);
+      
+      // Show loading state before redirect
+      setIsRedirecting(true);
       
       // Force reload and redirect to role-specific path
       window.location.replace(redirectPath);
@@ -254,6 +260,11 @@ export default function Login() {
       className="rounded-b-md"
     />
   ), [formData.password, isLoading, updateField]);
+
+  // Show skeleton while redirecting
+  if (isRedirecting) {
+    return <LoginSkeleton />;
+  }
 
   return (
     <div 

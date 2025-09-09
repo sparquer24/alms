@@ -6,11 +6,11 @@ import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import ApplicationTable from '../../../components/ApplicationTable';
 import { useAuthSync } from '../../../hooks/useAuthSync';
-import { fetchApplicationsByStatus, filterApplications, ApplicationData } from '../../../services/sidebarApiCalls';
+import { fetchApplicationsByStatusKey, filterApplications, ApplicationData } from '../../../services/sidebarApiCalls';
 import { useAuth } from '../../../config/auth';
-import { statusIdMap } from '../../../config/statusMap';
 import { getCookie } from 'cookies-next';
 import React from 'react';
+import { PageLayoutSkeleton } from '../../../components/Skeleton';
 
 // This will be a generic page for all inbox items (forwarded, returned, flagged, disposed)
 export default function InboxPage({ params }: { params: Promise<{ type: string }> }) {
@@ -49,19 +49,9 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
         try {
           setIsLoading(true);
           
-          // Get status ID from statusIdMap for this type
-          const statusIds = statusIdMap[type as keyof typeof statusIdMap];
-          if (statusIds && statusIds.length > 0) {
-            console.log(`🔄 Fetching ${type} applications with status ID:`, statusIds[0]);
-            
-            const apps = await fetchApplicationsByStatus(statusIds[0]);
-            console.log(`✅ Fetched ${apps.length} ${type} applications`);
-            
-            setApplications(apps);
-          } else {
-            console.warn(`⚠️ No status ID mapped for type: ${type}`);
-            setApplications([]);
-          }
+          // Fetch applications using the utility function
+          const apps = await fetchApplicationsByStatusKey(type);
+          setApplications(apps);
         } catch (error) {
           console.error(`❌ Error fetching ${type} applications:`, error);
           setApplications([]);
@@ -89,6 +79,25 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
     setEndDate('');
   };
 
+  const handleTableReload = async (subItem: string) => {
+    try {
+      console.log('🔄 Reloading table for subItem:', subItem);
+      setIsLoading(true);
+      
+      // Update the current type state to trigger re-fetch
+      setType(subItem);
+      
+      // Fetch applications for the new subItem
+      const apps = await fetchApplicationsByStatusKey(subItem);
+      setApplications(apps);
+    } catch (error) {
+      console.error(`❌ Error reloading ${subItem} applications:`, error);
+      setApplications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getPageTitle = () => {
     switch (type) {
       case 'forwarded':
@@ -110,12 +119,12 @@ export default function InboxPage({ params }: { params: Promise<{ type: string }
 
   if (!type) {
     // Wait for params to resolve before rendering to avoid hydration mismatch
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+    return <PageLayoutSkeleton />;
   }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
-      <Sidebar />
+      <Sidebar onTableReload={handleTableReload} />
       <Header
         onSearch={handleSearch}
         onDateFilter={handleDateFilter}

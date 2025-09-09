@@ -5,6 +5,7 @@ import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
 import { generateApplicationPDF } from '../config/pdfUtils';
 import { useAuth } from '../config/auth';
+import { TableSkeleton } from './Skeleton';
 
 interface UserData {
   id: string;
@@ -82,13 +83,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
   }, []);
 
   if (isLoading) {
-    return (
-      <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
-        <div className={styles.loadingContainer}>
-          <div className={styles.spinner}></div>
-        </div>
-      </div>
-    );
+    return <TableSkeleton rows={8} columns={6} />;
   }
 
   if (!effectiveApplications || effectiveApplications.length === 0) {

@@ -365,6 +365,17 @@ async function main() {
       policeStationId,
       zonalId,
       divisionId,
+    }, {
+      username: 'ZS_ADMIN',
+      email: 'zs-admin@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660505',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      policeStationId,
+      zonalId,
+      divisionId,
     },
     {
       username: 'SHO_WEST',

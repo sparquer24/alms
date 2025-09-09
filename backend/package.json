@@ -16,9 +16,17 @@
     "up": "prisma migrate deploy",
     "down": "prisma migrate reset --force",
     "studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate deploy",
+    "prisma:migrate:dev": "npx prisma migrate dev",
+    "prisma:migrate:reset": "npx prisma migrate reset",
+    "prisma:migrate:status": "npx prisma migrate status",
+    "prisma:db:push": "npx prisma db push",
+    "prisma:db:pull": "npx prisma db pull",
+    "prisma:db:seed": "npx prisma db seed",
+    "prisma:studio": "npx prisma studio"
   },
-
   "author": "",
   "license": "ISC",
   "devDependencies": {

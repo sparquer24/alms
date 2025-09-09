@@ -13,6 +13,7 @@ import { filterApplications, ApplicationData } from "../config/mockData";
 import { useApplications } from "../context/ApplicationContext";
 import { ApplicationApi } from '../config/APIClient';
 import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
+import { PageLayoutSkeleton, DashboardStatsSkeleton } from "../components/Skeleton";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,12 +127,9 @@ export default function Home() {
   // Show loading screen while checking authentication
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
+      <PageLayoutSkeleton>
+        <DashboardStatsSkeleton />
+      </PageLayoutSkeleton>
     );
   }
 

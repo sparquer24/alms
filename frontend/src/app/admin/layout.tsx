@@ -1,6 +1,7 @@
 "use client";
 
-import { useAuthSync } from "@/hooks/useAuthSync";
+import { useAuthSync } from '../../hooks/useAuthSync';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
