@@ -1576,7 +1576,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   return (
     <>
-      <div className="max-w-7xl mx-auto h-full overflow-hidden grid ">
+  {/* Full-height layout so header stays fixed and only content scrolls */}
+  <div className="max-w-7xl mx-auto h-full flex flex-col overflow-hidden">
         {/* Fixed Header with Messages */}
         <div className="">
           {/* Success/Error messages */}
@@ -1592,8 +1593,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           )}
         </div>
 
-        {/* Fresh Application Form Title (static within layout) */}
-        <div className="w-full z-10 shadow-sm border-b">
+  {/* Fresh Application Form Title + Steps (sticky header) */}
+  <div className="w-full z-20 shadow-sm border-b sticky top-0">
           <div className="px-6 py-1">
             <div className="flex items-center justify-between">
               <BackButton />
@@ -1602,7 +1603,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               </h1>
             </div>
           </div>
-          <div className="bg-transparent px-6 pb-1">
+          <div className="bg-transparent px-6 pb-0">
             <div className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
               <div className="bg-gradient-to-r from-[#022258] to-[#1e3a8a]">
                 <div className="flex space-x-1 p-2 tab-array">
@@ -1627,13 +1628,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Step Navigation - Part of sticky header */}
+          </div> {/* Step Navigation - Part of sticky header */}
         </div>
 
-        {/* Content under header; only inner card scrolls */}
-  <div className="px-6 pt-0 pb-2 min-h-0 h-full overflow-hidden">
+  {/* Content under header; only inner card scrolls */}
+  <div className="px-6 pt-0 pb-4 min-h-0 flex-1 overflow-hidden flex flex-col">
           {/* Success/Error messages (below fixed header) */}
           {saveMessage && (
             <div className={`mb-4 p-3 rounded-md ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -1645,7 +1644,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {apiError}
             </div>
           )}
-          <div ref={formContentRef} className="bg-white rounded-lg shadow-lg border border-gray-200 h-full overflow-y-auto">
+          {/* Fixed-height scroll area that fills the remaining viewport */}
+          <div ref={formContentRef} className="bg-white rounded-lg shadow-lg border border-gray-200 flex-1 min-h-0 max-h-[calc(100vh-180px)] overflow-y-auto custom-scrollbar">
             <form onSubmit={handleSubmit} className="p-8">
               {/* Step 0: Personal Information */}
               {formStep === 0 && (
@@ -3180,7 +3180,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                   <h3 className="text-lg font-bold text-gray-800">Application Preview</h3>
                   <p className="text-sm text-gray-600">Please review all your information before submitting the application.</p>
 
-                  <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+                  <div className="space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                     {/* Personal Information Preview */}
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-gray-800 mb-3">Personal Information</h4>
