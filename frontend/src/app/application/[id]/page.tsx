@@ -53,6 +53,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
   const [showActions, setShowActions] = useState(true);
   const [showApplicationHistory, setShowApplicationHistory] = useState(true);
+  const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const printRef = useRef<HTMLDivElement>(null);
   
   // Unwrap params using React.use()
@@ -738,79 +739,49 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                         
                         {showApplicationHistory && application && (
                           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                            <div className="space-y-4">
-                              {/* Timeline Item 1 */}
-                              <div className="border-l-2 border-blue-500 pl-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-gray-900">DCP Rajesh Kumar</p>
-                                    <p className="text-sm text-gray-600">Approved</p>
-                                    <p className="text-xs text-gray-500">2024-01-15 10:30 AM</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setTimelineDetails(prev => ({ ...prev, user1: !prev.user1 }))}
-                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                  >
-                                    {timelineDetails.user1 ? 'Hide Details' : 'View Details'}
-                                  </button>
-                                </div>
-                                {timelineDetails.user1 && (
-                                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-700">
-                                      Application has been reviewed and approved. All documents are in order and requirements have been met.
-                                    </p>
-                                  </div>
-                                )}
+                            {application.history && application.history.length > 0 ? (
+                              <div className="space-y-4">
+                                {application.history.map((h, idx) => {
+                                  const color = h.action.toLowerCase().includes('forward')
+                                    ? 'border-orange-500'
+                                    : h.action.toLowerCase().includes('approve')
+                                    ? 'border-green-500'
+                                    : h.action.toLowerCase().includes('reject') || h.action.toLowerCase().includes('return')
+                                    ? 'border-red-500'
+                                    : 'border-blue-500';
+                                  return (
+                                    <div key={idx} className={`border-l-2 ${color} pl-4`}>
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <p className="font-medium text-gray-900">{h.by || 'Unknown User'}</p>
+                                          <p className="text-sm text-gray-600">{h.action}</p>
+                                          <p className="text-xs text-gray-500">{h.date} {h.time}</p>
+                                        </div>
+                                        {h.comments && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setExpandedHistory(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                                            className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                            aria-expanded={!!expandedHistory[idx]}
+                                            aria-controls={`history-remarks-${idx}`}
+                                            aria-label={expandedHistory[idx] ? 'Hide' : 'Show'}
+                                          >
+                                            {expandedHistory[idx] ? 'Hide' : 'Show'}
+                                          </button>
+                                        )}
+                                      </div>
+                                      {h.comments && expandedHistory[idx] && (
+                                        <div id={`history-remarks-${idx}`} className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                          <p className="text-sm text-gray-700">{h.comments}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-
-                              {/* Timeline Item 2 */}
-                              <div className="border-l-2 border-orange-500 pl-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-gray-900">ACP Priya Sharma</p>
-                                    <p className="text-sm text-gray-600">Forwarded</p>
-                                    <p className="text-xs text-gray-500">2024-01-14 02:15 PM</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setTimelineDetails(prev => ({ ...prev, user2: !prev.user2 }))}
-                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                  >
-                                    {timelineDetails.user2 ? 'Hide Details' : 'View Details'}
-                                  </button>
-                                </div>
-                                {timelineDetails.user2 && (
-                                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-700">
-                                      Application forwarded to DCP for final approval. Additional verification completed.
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Timeline Item 3 */}
-                              <div className="border-l-2 border-green-500 pl-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-gray-900">SHO Ramesh Singh</p>
-                                    <p className="text-sm text-gray-600">Received</p>
-                                    <p className="text-xs text-gray-500">2024-01-13 09:45 AM</p>
-                                  </div>
-                                  <button
-                                    onClick={() => setTimelineDetails(prev => ({ ...prev, user3: !prev.user3 }))}
-                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                  >
-                                    {timelineDetails.user3 ? 'Hide Details' : 'View Details'}
-                                  </button>
-                                </div>
-                                {timelineDetails.user3 && (
-                                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-700">
-                                      Application received and initial review completed. Documents verified and ready for processing.
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                            ) : (
+                              <p className="text-gray-500 text-sm">No history available for this application.</p>
+                            )}
                           </div>
                         )}
                       </div>

@@ -37,6 +37,19 @@ export const STATUS_MAP = {
  * Transform DetailedApplicationData to ApplicationData format for backward compatibility
  */
 const transformDetailedToApplicationData = (detailedApp: any): ApplicationData => {
+  const histories = Array.isArray(detailedApp?.FreshLicenseApplicationsFormWorkflowHistories)
+    ? detailedApp.FreshLicenseApplicationsFormWorkflowHistories
+    : [];
+  const history = histories.map((h: any) => {
+    const created = h.createdAt ? new Date(h.createdAt) : new Date();
+    return {
+      date: created.toISOString().split('T')[0],
+      time: created.toTimeString().slice(0,5),
+      action: h.actionTaken || h.action || '',
+      by: h.previousUser?.username || String(h.previousUserId ?? ''),
+      comments: h.remarks || undefined,
+    };
+  });
   return {
     id: String(detailedApp.id || ''),
     applicantName: `${detailedApp.firstName} ${detailedApp.middleName ? detailedApp.middleName + ' ' : ''}${detailedApp.lastName}`.trim() || 'Unknown',
@@ -60,12 +73,12 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     flagReason: undefined,   // Not directly available in DetailedApplicationData
     disposalReason: undefined, // Not directly available in DetailedApplicationData
     lastUpdated: detailedApp.updatedAt || detailedApp.createdAt || new Date().toISOString(),
-    documents: detailedApp.fileUploads?.map((upload: any) => ({
+  documents: detailedApp.fileUploads?.map((upload: any) => ({
       name: upload.fileName,
       type: upload.fileType,
       url: upload.fileUrl
     })) || [],
-    history: [], // Could be mapped from workflow history if needed
+  history,
     actions: {
       canForward: detailedApp.currentRole?.can_forward || false,
       canReport: true,
