@@ -22,15 +22,22 @@ const setCachedData = (key: string, data: any, ttl: number = 30000): void => {
   apiCache.set(key, { data, timestamp: Date.now(), ttl });
 };
 
-// Status mapping for numeric status_id (updated based on actual API response)
+// Status mapping for numeric status_id (based on actual API status codes)
 export const STATUS_MAP = {
-  forward: 1,        // Forward (from API response)
-  pending: 1,        // Treat pending same as forward for now
-  sent: 2,           // Sent/Forwarded 
-  returned: 3,       // Returned
-  flagged: 4,        // Red-flagged
-  disposed: 5,       // Disposed/Closed/Rejected
-  approved: 6        // Approved/Final Disposal
+  forward: [1, 9],     // FORWARD + INITIATE (keep all ids in forward including freshform)
+  pending: [1, 9],     // Same as forward for now
+  sent: [11, 1, 9 ],          // RECOMMEND
+  returned: [2],       // REJECT (treated as returned)
+  flagged: [8],        // RED_FLAG
+  disposed: [7],       // DISPOSE
+  approved: [11, 3],   // RECOMMEND + APPROVED
+  freshform: [9],      // INITIATE (fresh form applications)
+  final: [7],          // FINAL DISPOSAL (same as disposed)
+  finaldisposal: [7],  // FINAL DISPOSAL
+  closed: [10],        // CLOSE
+  cancelled: [4],      // CANCEL
+  reEnquiry: [5],      // RE_ENQUIRY
+  groundReport: [6]    // GROUND_REPORT
 };
 
 /**
@@ -288,7 +295,7 @@ export interface ApplicationData {
   applicationType: string;
   applicationDate: string;
   applicationTime?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated';
+  status: 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 're-enquiry' | 'ground-report' | 'closed' | 'recommended';
   status_id: string | number;
   assignedTo: string;
   forwardedFrom?: string;
@@ -323,10 +330,45 @@ export interface ApplicationData {
 }
 
 /**
+ * Converts status name strings to their corresponding numeric IDs
+ */
+export const convertStatusNamesToIds = (statusIds: string | string[] | number | number[]): string => {
+  if (!statusIds) return '';
+  
+  const statusArray = Array.isArray(statusIds) ? statusIds : [statusIds];
+  const numericIds: number[] = [];
+  
+  statusArray.forEach(status => {
+    // If already numeric, keep it
+    if (typeof status === 'number' || !isNaN(Number(status))) {
+      numericIds.push(Number(status));
+    } else {
+      // Map status name to numeric IDs
+      const mappedIds = STATUS_MAP[String(status).toLowerCase() as keyof typeof STATUS_MAP];
+      if (mappedIds) {
+        numericIds.push(...mappedIds);
+      } else {
+        console.warn(`⚠️ Unknown status name: ${status}`);
+      }
+    }
+  });
+  
+  return numericIds.join(',');
+};
+
+/**
  * Fetch all applications from the API
  */
 export const fetchAllApplications = async (params: Record<string, any> = {}): Promise<ApplicationData[]> => {
   try {    
+    console.log({params},'>>>>>>>>>>>>>')
+    
+    // Convert status names to numeric IDs if needed
+    if (params.statusIds) {
+      params.statusIds = convertStatusNamesToIds(params.statusIds);
+    }
+    
+    console.log({params},'<<<<<<<<<<<')
     const response = await ApplicationApi.getAll(params);
   
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
@@ -352,7 +394,7 @@ export const fetchAllApplications = async (params: Record<string, any> = {}): Pr
 /**
  * Fetch applications by status from the API
  */
-export const fetchApplicationsByStatus = async (status: string | number): Promise<ApplicationData[]> => {
+export const fetchApplicationsByStatus = async (status: number[] | string[]): Promise<ApplicationData[]> => {
   try {
     const cacheKey = `fetchApplicationsByStatus_${status}`;
     
@@ -365,7 +407,10 @@ export const fetchApplicationsByStatus = async (status: string | number): Promis
     
     console.log('📡 fetchApplicationsByStatus called with status:', status);
     
-    const params = { status: String(status) };
+    // Convert status names to numeric IDs if needed
+    const convertedStatusIds = convertStatusNamesToIds(status);
+    const params = { statusIds: convertedStatusIds };
+    
     const response = await ApplicationApi.getAll(params);
     
     console.log('📡 fetchApplicationsByStatus response:', {
@@ -410,6 +455,10 @@ export const fetchApplicationCounts = async (): Promise<{
   disposedCount: number;
   pendingCount: number;
   approvedCount: number;
+  closedCount: number;
+  cancelledCount: number;
+  reEnquiryCount: number;
+  groundReportCount: number;
 }> => {
   try {
     const cacheKey = 'fetchApplicationCounts';
@@ -424,13 +473,17 @@ export const fetchApplicationCounts = async (): Promise<{
     console.log('📊 fetchApplicationCounts called');
     
     // Fetch applications for each status in parallel
-    const [forwarded, returned, redFlagged, disposed, pending, approved] = await Promise.all([
+    const [forwarded, returned, redFlagged, disposed, pending, approved, closed, cancelled, reEnquiry, groundReport] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward), // Updated to use forward status
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.disposed),
       fetchApplicationsByStatus(STATUS_MAP.pending),
       fetchApplicationsByStatus(STATUS_MAP.approved),
+      fetchApplicationsByStatus(STATUS_MAP.closed),
+      fetchApplicationsByStatus(STATUS_MAP.cancelled),
+      fetchApplicationsByStatus(STATUS_MAP.reEnquiry),
+      fetchApplicationsByStatus(STATUS_MAP.groundReport),
     ]);
     
     const counts = {
@@ -440,6 +493,10 @@ export const fetchApplicationCounts = async (): Promise<{
       disposedCount: disposed.length,
       pendingCount: pending.length,
       approvedCount: approved.length,
+      closedCount: closed.length,
+      cancelledCount: cancelled.length,
+      reEnquiryCount: reEnquiry.length,
+      groundReportCount: groundReport.length,
     };
     
     console.log('📊 fetchApplicationCounts result:', counts);
@@ -457,6 +514,10 @@ export const fetchApplicationCounts = async (): Promise<{
       disposedCount: 0,
       pendingCount: 0,
       approvedCount: 0,
+      closedCount: 0,
+      cancelledCount: 0,
+      reEnquiryCount: 0,
+      groundReportCount: 0,
     };
   }
 };
@@ -479,7 +540,7 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
     status: mapApiStatusToApplicationStatus(apiApp.status),
-    status_id: apiApp.status?.id || STATUS_MAP.pending,
+    status_id: apiApp.status?.id || STATUS_MAP.pending[0],
     assignedTo: String(apiApp.currentUser?.id || ''),
     forwardedFrom: apiApp.previousUser?.id ? String(apiApp.previousUser.id) : undefined,
     forwardedTo: apiApp.currentUser?.id ? String(apiApp.currentUser.id) : undefined,
@@ -528,11 +589,20 @@ const mapApiStatusToApplicationStatus = (apiStatus: any): ApplicationData['statu
     'flag': 'red-flagged',
     'disposed': 'disposed',
     'dispose': 'disposed',
-    'closed': 'disposed',
+    'close': 'closed',
+    'closed': 'closed',
     'initiated': 'initiated',
     'initiate': 'initiated',
     'sent': 'pending',
     'forwarded': 'pending',
+    'cancelled': 'cancelled',
+    'cancel': 'cancelled',
+    're_enquiry': 're-enquiry',
+    're-enquiry': 're-enquiry',
+    'ground_report': 'ground-report',
+    'ground-report': 'ground-report',
+    'recommend': 'recommended',
+    'recommended': 'recommended',
   };
   
   return statusMapping[statusStr] || 'pending';
@@ -590,35 +660,44 @@ export const getApplicationsByStatus = (
   switch (status) {
     case 'forwarded':
     case 'forward':
-    case STATUS_MAP.forward:
-      filtered = applications.filter(app => app.forwardedFrom && app.status_id === STATUS_MAP.forward);
+      filtered = applications.filter(app => app.forwardedFrom && STATUS_MAP.forward.includes(Number(app.status_id)));
       break;
     case 'sent':
-    case STATUS_MAP.sent:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.sent);
+      filtered = applications.filter(app => STATUS_MAP.sent.includes(Number(app.status_id)));
       break;
     case 'returned':
-    case STATUS_MAP.returned:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.returned);
+      filtered = applications.filter(app => STATUS_MAP.returned.includes(Number(app.status_id)));
       break;
     case 'flagged':
     case 'redFlagged':
-    case STATUS_MAP.flagged:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.flagged);
+      filtered = applications.filter(app => STATUS_MAP.flagged.includes(Number(app.status_id)));
       break;
     case 'disposed':
-    case STATUS_MAP.disposed:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.disposed);
+      filtered = applications.filter(app => STATUS_MAP.disposed.includes(Number(app.status_id)));
       break;
     case 'freshform':
+      filtered = applications.filter(app => STATUS_MAP.freshform.includes(Number(app.status_id)));
+      break;
     case 'pending':
-    case STATUS_MAP.pending:
-      filtered = applications.filter(app => !app.forwardedFrom && app.status_id === STATUS_MAP.pending);
+      filtered = applications.filter(app => !app.forwardedFrom && STATUS_MAP.pending.includes(Number(app.status_id)));
       break;
     case 'final':
     case 'approved':
-    case STATUS_MAP.approved:
-      filtered = applications.filter(app => app.status_id === STATUS_MAP.approved);
+      filtered = applications.filter(app => STATUS_MAP.approved.includes(Number(app.status_id)));
+      break;
+    case 'closed':
+      filtered = applications.filter(app => STATUS_MAP.closed.includes(Number(app.status_id)));
+      break;
+    case 'cancelled':
+      filtered = applications.filter(app => STATUS_MAP.cancelled.includes(Number(app.status_id)));
+      break;
+    case 'reEnquiry':
+    case 're-enquiry':
+      filtered = applications.filter(app => STATUS_MAP.reEnquiry.includes(Number(app.status_id)));
+      break;
+    case 'groundReport':
+    case 'ground-report':
+      filtered = applications.filter(app => STATUS_MAP.groundReport.includes(Number(app.status_id)));
       break;
     default:
       filtered = applications;

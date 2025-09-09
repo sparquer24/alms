@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import DashboardSummary from "@/components/DashboardSummary";
 import dynamic from 'next/dynamic';
-import ConfirmationModal from '@/components/modals/ConfirmationModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import Link from 'next/link';
 
 // Dynamically import charts to avoid SSR issues

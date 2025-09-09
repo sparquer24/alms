@@ -134,7 +134,7 @@ import { Application } from '../types/application';
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
     try {
-      return await apiClient.get('/application-form', { params });
+      return await apiClient.get('/application-form',params);
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;

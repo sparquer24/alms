@@ -15,30 +15,9 @@ import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
 import { fetchApplicationCounts, fetchApplicationsByStatus } from "../services/sidebarApiCalls";
+import { useUserContext } from "../context/UserContext";
 
-// Mock implementation for useUserContext if unavailable
-const useUserContext = () => ({ user: { role: "USER" } });
 
-// Add custom styles for scrollbar
-const scrollbarStyles = {
-  scrollbar: `
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 8px;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #888;
-      border-radius: 8px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #555;
-    }
-  `,
-};
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -49,15 +28,7 @@ interface MenuItemProps {
   textColor?: string;
 }
 
-// This interface is used for the CollapsibleSection component which is 
-// kept as a reference for future sidebar enhancements
-/* eslint-disable @typescript-eslint/no-unused-vars */
-interface CollapsibleSectionProps {
-  title: string;
-  items: MenuItemProps[];
-  defaultExpanded?: boolean;
-}
-/* eslint-enable @typescript-eslint/no-unused-vars */
+
 
 // Reusable MenuItem component
 const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) => (
@@ -80,49 +51,6 @@ const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) =
     </button>
   </li>
 ));
-
-// This component is currently not used but kept for future sidebar enhancements
-/* eslint-disable @typescript-eslint/no-unused-vars */
-const CollapsibleSection = ({
-  title,
-  items,
-  defaultExpanded = true,
-}: CollapsibleSectionProps) => {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-
-  return (
-    <div className="mb-3">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full px-4 py-2 text-left font-medium hover:bg-gray-100"
-      >
-        <span>{title} {isExpanded ? "▾" : "▸"}</span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className={`w-4 h-4 transition-transform ${
-            isExpanded ? "transform rotate-90" : ""
-          }`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      </button>
-      {isExpanded && (
-        <ul className="mt-1 pl-2">
-          {items.map((item, index) => (
-            <MenuItem key={index} {...item} />
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-/* eslint-enable @typescript-eslint/no-unused-vars */
 
 interface SidebarProps {
   onStatusSelect?: (statusId: string) => void;
@@ -279,9 +207,15 @@ const getUserRoleFromCookie = () => {
       // Kick off fetch to /application-form using mapped status
       try {
         const statusIds = statusIdMap[normalizedName as keyof typeof statusIdMap];
-        if (statusIds?.[0]) {
-          // Fire and forget; consumers can switch to a page that reads from a store later.
-          await fetchApplicationsByStatus(statusIds[0]);
+        if (statusIds?.length) {
+          // Normalize all status IDs to numbers before calling the API (function expects number[])
+          const numericStatusIds = statusIds
+            .map(id => typeof id === 'number' ? id : Number(id))
+            .filter(id => !Number.isNaN(id));
+          if (numericStatusIds.length) {
+            // Fire and forget; consumers can switch to a page that reads from a store later.
+            await fetchApplicationsByStatus(numericStatusIds);
+          }
         }
       } catch (error) {
         console.error('Error fetching applications:', error);
@@ -308,20 +242,10 @@ const getUserRoleFromCookie = () => {
   }, [dispatch]);
 
   const handleInboxSubItemClick = useCallback(async (subItem: string) => {
-    console.log('🔍 handleInboxSubItemClick - Started:', {
-      subItem,
-      newActiveItem: `inbox-${subItem}`
-    });
-    
     setActiveItem(`inbox-${subItem}`);
     localStorage.setItem("activeNavItem", `inbox-${subItem}`);
     dispatch(openInbox()); 
-    
-    // Just navigate to the page and let the page handle its own data fetching
-    console.log('🚀 Navigating to:', `/inbox/${subItem}`);
     router.push(`/inbox/${subItem}`);
-    
-    console.log('✅ handleInboxSubItemClick completed');
   }, [router, dispatch]);
 
   const handleLogout = useCallback(async () => {

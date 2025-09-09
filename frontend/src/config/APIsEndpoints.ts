@@ -71,7 +71,7 @@ export type ApplicationQueryParams = {
   searchQuery?: string;
   startDate?: string;
   endDate?: string;
-  status?: string;
+  statusIds?: string;
   page?: number;
   limit?: number;
 };
