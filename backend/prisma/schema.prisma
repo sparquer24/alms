@@ -75,6 +75,7 @@ model PoliceStations {
   divisionId            Int
   division              Divisions                               @relation(fields: [divisionId], references: [id])
   users                 Users[]                                 @relation("PoliceStationUsers")
+  addresses             FreshLicenseApplicationsFormAddresses[]
 }
 
 model Roles {
@@ -224,9 +225,11 @@ model FreshLicenseApplicationsFormAddresses {
   addressLine           String
   stateId               Int
   districtId            Int
+  policeStationId       Int
   sinceResiding         DateTime
   district              Districts                       @relation(fields: [districtId], references: [id])
   state                 States                          @relation(fields: [stateId], references: [id])
+  policeStation         PoliceStations                   @relation(fields: [policeStationId], references: [id])
   permanentApplications FreshLicenseApplicationsForms[] @relation("PermanentAddress")
   presentApplications   FreshLicenseApplicationsForms[] @relation("PresentAddress")
 }

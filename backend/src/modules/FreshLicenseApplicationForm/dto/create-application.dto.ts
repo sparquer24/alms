@@ -53,6 +53,13 @@ export class AddressDto {
   @IsNumber()
   districtId!: number;
 
+  @ApiProperty({
+    description: 'Police Station ID',
+    example: 1
+  })
+  @IsNumber()
+  policeStationId!: number;
+
   @ApiProperty({ 
     description: 'Since residing date',
     example: '2015-06-01T00:00:00.000Z'
