@@ -66,25 +66,27 @@ export class ApplicationFormController {
         districtId: applicationData.districtId,
         currentUserId: applicationData.currentUserId,
         currentRoleId: applicationData.currentRoleId,
-        
+
         presentAddress: {
           addressLine: applicationData.presentAddress.addressLine,
           stateId: applicationData.presentAddress.stateId,
           districtId: applicationData.presentAddress.districtId,
+          policeStationId: applicationData.presentAddress.policeStationId,
           sinceResiding: new Date(applicationData.presentAddress.sinceResiding)
         },
-        
+
         permanentAddress: applicationData.permanentAddress ? {
           addressLine: applicationData.permanentAddress.addressLine,
           stateId: applicationData.permanentAddress.stateId,
           districtId: applicationData.permanentAddress.districtId,
+          policeStationId: applicationData.permanentAddress.policeStationId,
           sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
         } : undefined,
         
         contactInfo: applicationData.contactInfo,
         occupationInfo: applicationData.occupationInfo,
         biometricData: applicationData.biometricData,
-        
+
         // Convert criminal history to expected format
         criminalHistory: applicationData.criminalHistory?.map(ch => ({
           convicted: ch.convicted,
@@ -97,7 +99,7 @@ export class ApplicationFormController {
             caseStatus: ch.caseStatus
           }
         })),
-        
+
         // Convert license history to expected format
         licenseHistory: applicationData.licenseHistory?.map(lh => ({
           hasAppliedBefore: lh.hasAppliedBefore,
@@ -116,14 +118,14 @@ export class ApplicationFormController {
             renewingAuthority: lh.renewingAuthority
           }
         })),
-        
+
         licenseRequestDetails: {
           needForLicense: applicationData.licenseRequestDetails.needForLicense as LicensePurpose,
           weaponCategory: applicationData.licenseRequestDetails.weaponCategory as WeaponCategory,
           requestedWeaponIds: applicationData.licenseRequestDetails.requestedWeaponIds,
           areaOfValidity: applicationData.licenseRequestDetails.areaOfValidity
         },
-        
+
         fileUploads: applicationData.fileUploads?.map(fu => ({
           fileName: fu.fileName,
           fileSize: fu.fileSize,
@@ -186,22 +188,11 @@ export class ApplicationFormController {
       const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
       const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
       const parsedSearchValue = search ?? undefined;
-      let parsedApplicationId = Number(applicationId) ?? undefined;
-      let parsedAcknowledgementNo = acknowledgementNo ?? undefined;
-      let parsedStatusIds = statusIds ? statusIds.split(',').map(id =>  Number(id.trim())) : undefined;
-      console.log({ parsedApplicationId, parsedAcknowledgementNo, parsedStatusIds });
-      console.log({ allowedOrderFields, parsedOrderBy, parsedOrder });
-      if (parsedApplicationId || parsedAcknowledgementNo) {
-        console.log({parsedApplicationId, parsedAcknowledgementNo})
-        let [errorSings, resultData] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
-        if (errorSings) {
-          throw new HttpException({ success: false, message: errorSings.message || 'Failed to fetch application', error: errorSings.message }, HttpStatus.BAD_REQUEST);
-        }
-        return { success: true, message: 'Application retrieved successfully', data: resultData };
-      }
+      const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
+      const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
+      const parsedStatusIds = statusIds ? statusIds.split(',').map(id =>  Number(id.trim())) : undefined;
 
-
-      // Call service method (you may need to adjust this to match your service signature)
+      // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
         limit: limitNum,
@@ -209,22 +200,27 @@ export class ApplicationFormController {
         search: parsedSearchValue,
         orderBy: parsedOrderBy,
         order: parsedOrder as 'asc' | 'desc',
-        currentUserId: req.user?.sub,// If you need user context
+        currentUserId: req.user?.sub, // If you need user context
         statusIds: parsedStatusIds,
-      }) as [any, { data: any[]; total: number }];
+        applicationId: parsedApplicationId,
+        // acknowledgementNo: parsedAcknowledgementNo, // Removed to match service type
+      });
       if (error) {
-        throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
+        const errMsg = (error as any)?.message || 'Failed to fetch applications';
+        throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
       }
 
+      const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
       return {
         success: true,
         message: 'Applications retrieved successfully',
-        data: result.data,
+        data: typedResult.data,
+        usersInHierarchy: typedResult.usersInHierarchy ?? [],
         pagination: {
-          total: result.total,
+          total: typedResult.total,
           page: pageNum,
           limit: limitNum,
-          totalPages: Math.ceil(result.total / (limitNum || 10)),
+          totalPages: Math.ceil(typedResult.total / (limitNum || 10)),
         }
       };
     } catch (error: any) {
@@ -257,18 +253,7 @@ export class ApplicationFormController {
   @ApiResponse({ 
     status: 200, 
     description: 'Districts retrieved successfully',
-    example: {
-      success: true,
-      message: 'Districts retrieved successfully',
-      data: [
-        { id: 1, name: 'Kolkata', stateId: 1 },
-        { id: 2, name: 'Howrah', stateId: 1 }
-      ]
-    }
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
-  @ApiResponse({ status: 404, description: 'State not found' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getDistrictsByState(@Param('stateId') stateId: string) {
     try {
       const districts = await this.applicationFormService.getDistrictsByState(Number(stateId));

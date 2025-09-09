@@ -2,10 +2,40 @@ import { Injectable, ConflictException, BadRequestException, InternalServerError
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose, WeaponCategory } from '@prisma/client';
 
+// Define the missing input type (adjust fields as per your requirements)
+export interface CreateFreshLicenseApplicationsFormsInput {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  filledBy?: string;
+  parentOrSpouseName: string;
+  sex: Sex;
+  placeOfBirth: string;
+  dateOfBirth: Date | string;
+  panNumber?: string;
+  aadharNumber: string;
+  dobInWords?: string;
+  stateId: number;
+  districtId: number;
+  presentAddress: CreateAddressInput;
+  permanentAddress?: CreateAddressInput;
+  contactInfo: CreateContactInfoInput;
+  occupationInfo?: CreateOccupationInfoInput;
+  biometricData?: any;
+  criminalHistory?: CreateCriminalHistoryInput[];
+  licenseHistory?: CreateLicenseHistoryInput[];
+  licenseRequestDetails?: CreateLicenseRequestDetailsInput;
+  fileUploads?: CreateFileUploadInput[];
+  currentUserId?: number;
+  previousUserId?: number;
+  previousRoleId?: number;
+}
+
 export interface CreateAddressInput {
   addressLine: string;
   stateId: number;
   districtId: number;
+  policeStationId: number;
   sinceResiding: Date;
 }
 
@@ -62,83 +92,6 @@ export interface CreateFileUploadInput {
   fileType: FileType;
   fileUrl: string;
 }
-
-export interface CreateBiometricDataInput {
-  signatureImageUrl?: string;
-  irisScanImageUrl?: string;
-  photoImageUrl?: string;
-}
-
-export interface CreateFreshLicenseApplicationsFormsInput {
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  filledBy?: string;
-  parentOrSpouseName: string;
-  sex: Sex;
-  placeOfBirth: string;
-  dateOfBirth: Date;
-  panNumber?: string;
-  aadharNumber: string;
-  dobInWords?: string;
-  stateId: number;
-  districtId: number;
-  
-  // User and Role tracking fields (extracted from token)
-  currentUserId?: number;
-  currentRoleId?: number;
-  previousUserId?: number;
-  previousRoleId?: number;
-  
-  // Nested objects
-  presentAddress: CreateAddressInput;
-  permanentAddress?: CreateAddressInput;
-  contactInfo: CreateContactInfoInput;
-  occupationInfo?: CreateOccupationInfoInput;
-  biometricData?: CreateBiometricDataInput;
-  criminalHistory?: CreateCriminalHistoryInput[];
-  licenseHistory?: CreateLicenseHistoryInput[];
-  licenseRequestDetails?: CreateLicenseRequestDetailsInput;
-  fileUploads?: CreateFileUploadInput[];
-}
-
-let include = {
-    status: {
-      select: {
-        id: true,
-        name: true,
-        code: true
-      }
-    },
-    currentRole: {
-      select: {
-        id: true,
-        name: true,
-        code: true
-      }
-    },
-    previousRole: {
-      select: {
-        id: true,
-        name: true,
-        code: true
-      },
-    },
-    currentUser: {
-      select: {
-        id: true,
-        username: true,
-        email: true
-      }
-    },
-    previousUser: {
-      select: {
-        id: true,
-        username: true,
-        email: true
-      }
-    },
-  }
 
 function validateCreateApplicationInput(data: any): asserts data is Required<CreateFreshLicenseApplicationsFormsInput> {
   const requiredFields = [
@@ -460,6 +413,7 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
               sinceResiding: data.presentAddress.sinceResiding ? new Date(data.presentAddress.sinceResiding) : new Date(),
               state: { connect: { id: data.presentAddress.stateId } },
               district: { connect: { id: data.presentAddress.districtId } },
+              policeStation: { connect: { id: data.presentAddress.policeStationId } },
             },
           },
           ...(data.permanentAddress ? {
@@ -469,6 +423,7 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
                 sinceResiding: data.permanentAddress.sinceResiding ? new Date(data.permanentAddress.sinceResiding) : new Date(),
                 state: { connect: { id: data.permanentAddress.stateId } },
                 district: { connect: { id: data.permanentAddress.districtId } },
+                policeStation: { connect: { id: data.permanentAddress.policeStationId } },
               },
             },
           } : {}),
@@ -565,7 +520,6 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
 
 async getApplicationById(id: number | undefined, acknowledgementNo: string | undefined): Promise<[any, any]> {
   try {
-    console.log({ id, acknowledgementNo });
     let whereCondition: any = {};
     if (id){
       whereCondition = { id };
@@ -630,10 +584,12 @@ async getApplicationById(id: number | undefined, acknowledgementNo: string | und
   search?: string; 
   orderBy?: string; 
   order?: 'asc' | 'desc'; 
+  applicationId?: number;
 }) {
+  // Remove top-level usersInHierarchy; will attach per application
+  let orderByObj = {};
   try {
     const where: any = {};
-
     if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
       where.statusId = { in: filter.statusIds };
     }
@@ -652,18 +608,79 @@ async getApplicationById(id: number | undefined, acknowledgementNo: string | und
         if (filter.searchField === 'id') {
           const idVal = Number(filter.search);
           if (!isNaN(idVal)) where.id = idVal;
-        } else {
-          where[filter.searchField] = { contains: filter.search, mode: 'insensitive' };
         }
       }
     }
 
-    const orderByObj: any = {};
-    if (filter.orderBy) {
-      orderByObj[filter.orderBy] = filter.order ?? 'desc';
-    } else {
-      orderByObj.createdAt = 'desc';
-    }
+  // No-op: usersInHierarchy will be attached per application below
+
+    const include = {
+      presentAddress: {
+        include: {
+          state: true,
+          district: true,
+        }
+      },
+      permanentAddress: {
+        include: {
+          state: true,
+          district: true,
+        }
+      },
+      contactInfo: true,
+      occupationInfo: {
+        include: {
+          state: true,
+          district: true,
+        }
+      },
+      biometricData: true,
+      criminalHistory: true,
+      licenseHistory: true,
+      licenseDetails: {
+        include: {
+          requestedWeapons: true,
+        }
+      },
+      fileUploads: true,
+      state: true,
+      district: true,
+      status: {
+        select: {
+          id: true,
+          name: true,
+          code: true
+        }
+      },
+      currentRole: {
+        select: {
+          id: true,
+          name: true,
+          code: true
+        }
+      },
+      previousRole: {
+        select: {
+          id: true,
+          name: true,
+          code: true
+        }
+      },
+      currentUser: {
+        select: {
+          id: true,
+          username: true,
+          email: true
+        }
+      },
+      previousUser: {
+        select: {
+          id: true,
+          username: true,
+          email: true
+        }
+      },
+    };
 
     const [total, data] = await Promise.all([
       prisma.freshLicenseApplicationsForms.count({ where }),
@@ -676,77 +693,138 @@ async getApplicationById(id: number | undefined, acknowledgementNo: string | und
       }),
     ]);
 
-    let filteredData  = data.map(item => ({
-      id: item.id,
-      acknowledgementNo: item.acknowledgementNo,
-      applicantFullName: [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" "),
-      currentRole: item.currentRole,
-      previousRole: item.previousRole,
-      currentUser: item.currentUser,
-      previousUser: item.previousUser,
-      isApprovied: item.isApprovied,
-      isFLAFGenerated: item.isFLAFGenerated,
-      isGroundReportGenerated: item.isGroundReportGenerated,
-      isPending: item.isPending,
-      isReEnquiry: item.isReEnquiry,
-      isReEnquiryDone: item.isReEnquiryDone,
-      isRejected: item.isRejected,
-      remarks: item.remarks,
-      status: item.status,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString(),
+    // For each application, attach usersInHierarchy based on its presentAddress location hierarchy
+    const filteredData = await Promise.all(data.map(async (item) => {
+      let usersInHierarchy: any[] = [];
+      // Defensive: check presentAddress and policeStation
+      if (item.presentAddress && item.presentAddress.policeStationId) {
+        // Fetch the full policeStation hierarchy
+        const policeStation = await prisma.policeStations.findUnique({
+          where: { id: item.presentAddress.policeStationId },
+          include: {
+            division: {
+              include: {
+                zone: {
+                  include: {
+                    district: {
+                      include: { state: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+        if (policeStation) {
+          const division = policeStation.division;
+          const zone = division?.zone;
+          const district = zone?.district;
+          const state = district?.state;
+          const policeStationId = policeStation.id;
+          const divisionId = division?.id;
+          const zoneId = zone?.id;
+          const districtId = district?.id;
+          const stateId = state?.id;
+          usersInHierarchy = await prisma.users.findMany({
+            where: {
+              OR: [
+                ...(policeStationId ? [{ policeStationId }] : []),
+                ...(divisionId ? [{ divisionId }] : []),
+                ...(zoneId ? [{ zoneId }] : []),
+                ...(districtId ? [{ districtId }] : []),
+                ...(stateId ? [{ stateId }] : []),
+              ]
+            },
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              stateId: true,
+              districtId: true,
+              zoneId: true,
+              divisionId: true,
+              policeStationId: true,
+              roleId: true
+            }
+          });
+        }
+      }
+      return {
+        id: item.id,
+        acknowledgementNo: item.acknowledgementNo,
+        applicantFullName: [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" "),
+        currentRole: item.currentRole,
+        previousRole: item.previousRole,
+        currentUser: item.currentUser,
+        previousUser: item.previousUser,
+        isApprovied: item.isApprovied,
+        isFLAFGenerated: item.isFLAFGenerated,
+        isGroundReportGenerated: item.isGroundReportGenerated,
+        isPending: item.isPending,
+        isReEnquiry: item.isReEnquiry,
+        isReEnquiryDone: item.isReEnquiryDone,
+        isRejected: item.isRejected,
+        remarks: item.remarks,
+        status: item.status,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+        usersInHierarchy: Array.isArray(usersInHierarchy) ? usersInHierarchy : []
+      };
     }));
 
-    return [null, { total, data: filteredData }];
-  }catch (error) {
+    return [null, {
+      total,
+      data: filteredData
+    }];
+  } catch (error) {
     return [error, null];
   }
 }
 
-  async getUserApplications(userId: string) {
-    // For now, we'll return all applications
-    // In a proper implementation, you would need to add a userId field to FreshLicenseApplicationsForms
-    // or establish a relationship between User and Application
-    return await prisma.freshLicenseApplicationsForms.findMany({
-      include: {
-        presentAddress: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
-        permanentAddress: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
-        contactInfo: true,
-        occupationInfo: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
-        biometricData: true,
-        criminalHistory: true,
-        licenseHistory: true,
-        licenseDetails: {
-          include: {
-            requestedWeapons: true,
-          }
-        },
-        fileUploads: true,
-        state: true,
-        district: true,
-        status: true,
-        currentRole: true,
-        previousRole: true,
-        currentUser: true,
-        previousUser: true,
+public async getUserApplications(userId: string) {
+  // For now, we'll return all applications
+  // In a proper implementation, you would need to add a userId field to FreshLicenseApplicationsForms
+  // or establish a relationship between User and Application
+  return await prisma.freshLicenseApplicationsForms.findMany({
+    include: {
+      presentAddress: {
+        include: {
+          state: true,
+          district: true,
+        }
       },
-    });
-  }
+      permanentAddress: {
+        include: {
+          state: true,
+          district: true,
+        }
+      },
+      contactInfo: true,
+      occupationInfo: {
+        include: {
+          state: true,
+          district: true,
+        }
+      },
+      biometricData: true,
+      criminalHistory: true,
+      licenseHistory: true,
+      licenseDetails: {
+        include: {
+          requestedWeapons: true,
+        }
+      },
+      fileUploads: true,
+      state: true,
+      district: true,
+      status: true,
+      currentRole: true,
+      previousRole: true,
+      currentUser: true,
+      previousUser: true,
+    },
+  });
+}
 
   /**
    * Updates application user and role information during workflow transitions.
