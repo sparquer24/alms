@@ -596,21 +596,13 @@ export class ApplicationFormService {
     let orderByObj = {};
     try {
       const where: any = {};
-      if (filter.applicationId) {
-        let [errorGettingApplication, application] = await this.getApplicationById(filter.applicationId, null);
-        console.log("Error fetching application by ID:", errorGettingApplication);
-        console.log("Fetched application:", application);
-        if (errorGettingApplication) [errorGettingApplication, null];
-        return [null, application]
-      } else {
 
-        if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
-          where.statusId = { in: filter.statusIds };
-        }
+      if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
+        where.statusId = { in: filter.statusIds };
+      }
 
-        if (filter.currentUserId !== undefined) {
-          where.currentUserId = filter.currentUserId;
-        }
+      if (filter.currentUserId !== undefined) {
+        where.currentUserId = filter.currentUserId;
       }
 
       const page = filter.page ?? 1;

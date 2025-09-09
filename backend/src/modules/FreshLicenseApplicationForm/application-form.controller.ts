@@ -192,13 +192,26 @@ export class ApplicationFormController {
       const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
       const parsedStatusIds = statusIds ? statusIds.split(',').map(id => Number(id.trim())) : undefined;
-      if (!parsedApplicationId || !parsedAcknowledgementNo) {
+      if (parsedApplicationId || parsedAcknowledgementNo) {
         const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
         if (error) {
           const errMsg = (error as any)?.message || 'Failed to fetch applications';
           throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
         }
-        dataApplication.applicantName = `${dataApplication.firstName} ${dataApplication.middleName ? dataApplication.middleName + ' ' : ''}${dataApplication.lastName}`;
+        // dataApplication.applicantName = `${dataApplication?.firstName} ${dataApplication?.middleName ? dataApplication?.middleName + ' ' : ''}${dataApplication?.lastName}`;
+        let applicantName 
+        if (dataApplication) { 
+          if (dataApplication.firstName) applicantName = dataApplication.firstName;
+          if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
+          if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
+          dataApplication.applicantName = applicantName || 'Unknown Applicant';
+        } else {
+          return {
+            success: true,
+            message: "Application not found",
+            data: []
+          }
+        }
         return {
           success: true,
           message: 'Applications retrieved successfully',
