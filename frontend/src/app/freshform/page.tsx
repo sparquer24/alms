@@ -285,7 +285,12 @@ export default function FreshFormPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+    <div
+      className="flex h-screen w-screen overflow-hidden overflow-x-hidden bg-cover bg-center bg-fixed font-[family-name:var(--font-geist-sans)]"
+      style={{
+        backgroundImage: 'url("/backgroundIMGALMS.jpeg")',
+      }}
+    >
       {/* Conditionally render sidebar and header */}
       {!showNewForm && <Sidebar />}
       {!showNewForm && (
@@ -302,11 +307,10 @@ export default function FreshFormPage() {
       {/* Main Content */}
       <main className={`${
         showNewForm 
-          ? 'w-full p-8' // Full width when showing form
+          ? 'w-full h-full overflow-hidden px-4 sm:px-6 pt-2 pb-4' // Tighter padding for more height and no top gap
           : 'flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]' // Normal layout when showing table
-      }`}>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-6">
+      }`}>          
+      <div className="flex justify-between items-center mb-6">
             {!showNewForm && (
               <button
                 className="px-4 py-2 bg-[#001F54] text-white rounded-md hover:bg-[#003875] flex items-center"
@@ -418,7 +422,8 @@ export default function FreshFormPage() {
           )}
 
           {showNewForm ? (
-            // Display the form for creating a new application
+            // Display the form for creating a new application (scroll inside card only)
+            <div className="h-full overflow-hidden">
             <FreshApplicationForm
               onSubmit={(formData) => {
                 // Log the complete response data for debugging
@@ -449,6 +454,7 @@ export default function FreshFormPage() {
               }}
               onCancel={handleCancelForm}
             />
+            </div>
           ) : (
             // Display the regular list view
             <>
@@ -468,7 +474,6 @@ export default function FreshFormPage() {
               />
             </>
           )}
-        </div>
       </main>
     </div>
   );
