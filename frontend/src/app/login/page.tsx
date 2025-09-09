@@ -15,7 +15,7 @@ import {
 } from '../../store/slices/authSlice';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import type { AppDispatch } from '../../store/store';
-import { DebugPanel } from '../../components/DebugPanel';
+
 
 // Types
 interface LoginFormData {
@@ -334,8 +334,7 @@ export default function Login() {
         </form>
       </div>
       
-      {/* Debug Panel - only shows in development */}
-      <DebugPanel formData={formData} isFormValid={isFormValid} />
+
     </div>
   );
 }
