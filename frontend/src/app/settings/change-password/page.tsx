@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthSync } from '../../../hooks/useAuthSync';
+import { PageLayoutSkeleton } from '../../../components/Skeleton';
 
 export default function ChangePassword() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,6 +73,12 @@ export default function ChangePassword() {
       setIsLoading(false);
     }
   };
+
+  // Show skeleton loading while authenticating
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
+
     return (
     <div className="p-6 bg-white rounded-lg shadow-lg">
       <div className="flex items-center mb-6">

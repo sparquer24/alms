@@ -153,6 +153,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   const [formStep, setFormStep] = useState(0); // Start at 0 to match arrays
   const [districts, setDistricts] = useState<string[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(true);
+  const [policeStations, setPoliceStations] = useState<{id: number, name: string}[]>([]);
+  const [loadingPoliceStations, setLoadingPoliceStations] = useState(true);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -579,6 +581,54 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     fetchDistricts();
   }, []);
 
+  // Fetch police stations
+  React.useEffect(() => {
+    const fetchPoliceStations = async () => {
+      try {
+        const { apiClient } = await import('../config/authenticatedApiClient');
+        const response: any = await apiClient.get('/locations/police-stations');
+        const policeStationsList = Array.isArray(response?.data) ? response.data : response?.body || response;
+        
+        if (policeStationsList && policeStationsList.length > 0) {
+          const formattedStations = policeStationsList.map((station: any) => ({
+            id: station.id,
+            name: station.name
+          }));
+          setPoliceStations(formattedStations.sort((a: { name: string; }, b: { name: any; }) => a.name.localeCompare(b.name)));
+        } else {
+          // Fallback police stations
+          const fallbackStations = [
+            { id: 1, name: 'Central Police Station' },
+            { id: 2, name: 'North Police Station' },
+            { id: 3, name: 'South Police Station' },
+            { id: 4, name: 'East Police Station' },
+            { id: 5, name: 'West Police Station' },
+            { id: 6, name: 'Cyber Crime Police Station' },
+            { id: 7, name: 'Traffic Police Station' }
+          ];
+          setPoliceStations(fallbackStations);
+        }
+      } catch (err) {
+        console.error('Error fetching police stations:', err);
+        // Fallback police stations in case API fails
+        const fallbackStations = [
+          { id: 1, name: 'Central Police Station' },
+          { id: 2, name: 'North Police Station' },
+          { id: 3, name: 'South Police Station' },
+          { id: 4, name: 'East Police Station' },
+          { id: 5, name: 'West Police Station' },
+          { id: 6, name: 'Cyber Crime Police Station' },
+          { id: 7, name: 'Traffic Police Station' }
+        ];
+        setPoliceStations(fallbackStations);
+      } finally {
+        setLoadingPoliceStations(false);
+      }
+    };
+
+    fetchPoliceStations();
+  }, []);
+
   // Update permanent address when same as present is toggled
   React.useEffect(() => {
     if (formData.sameAsPresent) {
@@ -635,12 +685,15 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         if (!formData.presentState) newErrors.presentState = 'Present state is required';
         if (!formData.presentDistrict) newErrors.presentDistrict = 'Present district is required';
         if (!formData.presentPincode) newErrors.presentPincode = 'Present pincode is required';
+        if (!formData.presentPoliceStation) newErrors.presentPoliceStation = 'Nearest police station is required';
+        if (!formData.jurisdictionPoliceStation) newErrors.jurisdictionPoliceStation = 'Jurisdiction police station is required';
 
         if (formData.sameAsPresent === false) {
           if (!formData.permanentAddress) newErrors.permanentAddress = 'Permanent address is required';
           if (!formData.permanentState) newErrors.permanentState = 'Permanent state is required';
           if (!formData.permanentDistrict) newErrors.permanentDistrict = 'Permanent district is required';
           if (!formData.permanentPincode) newErrors.permanentPincode = 'Permanent pincode is required';
+          if (!formData.permanentPoliceStation) newErrors.permanentPoliceStation = 'Permanent police station is required';
         }
       }
 
@@ -805,9 +858,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
     const testData = {
       // Personal Information
-      applicantName: 'prem',
-      applicantMiddleName: 'Kumar',
-      applicantLastName: '',
+      applicantName: 'p',
+      applicantMiddleName: 'prem',
+      applicantLastName: 'kumar',
       applicantMobile: '9876543210',
       applicantEmail: 'prem@example.com',
       fatherName: 'Rajesh Kumar',
@@ -848,13 +901,13 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       presentState: 'Telangana',
       presentDistrict: 'Hyderabad',
       presentPincode: '500033',
-      presentPoliceStation: 'Jubilee Hills Police Station',
-      jurisdictionPoliceStation: 'Jubilee Hills Police Station',
+      presentPoliceStation: 'Central Police Station',
+      jurisdictionPoliceStation: 'Central Police Station',
       permanentAddress: '123 Main Street, Jubilee Hills',
       permanentState: 'Telangana',
       permanentDistrict: 'Hyderabad',
       permanentPincode: '500033',
-      permanentPoliceStation: 'Jubilee Hills Police Station',
+      permanentPoliceStation: 'Central Police Station',
       sameAsPresent: true,
       residingSince: '2015-06-01',
 
@@ -1028,6 +1081,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   const getDistrictId = (districtName: string): number => {
     const district = districtsData.find(d => d?.name?.toLowerCase() === districtName?.toLowerCase());
     return district?.id || 1; // Default to 1 if not found
+  };
+
+  // Helper function to get police station ID from name
+  const getPoliceStationId = (policeStationName: string): number => {
+    const station = policeStations.find(ps => ps.name === policeStationName);
+    return station?.id || 1; // Default to 1 if not found
   };
 
   // Helper function to map weapon types to weapon IDs
@@ -1226,6 +1285,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.applicantAddress || "",
         stateId: getStateId(formData.presentState || ""),
         districtId: getDistrictId(formData.presentDistrict || ""),
+        policeStationId: getPoliceStationId(formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
           : new Date().toISOString()
@@ -1235,6 +1295,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.permanentAddress || formData.applicantAddress || "",
         stateId: getStateId(formData.permanentState || formData.presentState || ""),
         districtId: getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
+        policeStationId: getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
           : new Date().toISOString()
@@ -1325,11 +1386,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     if (!formData.presentState) allErrors.presentState = 'Present state is required';
     if (!formData.presentDistrict) allErrors.presentDistrict = 'Present district is required';
     if (!formData.presentPincode) allErrors.presentPincode = 'Present pincode is required';
+    if (!formData.presentPoliceStation) allErrors.presentPoliceStation = 'Nearest police station is required';
+    if (!formData.jurisdictionPoliceStation) allErrors.jurisdictionPoliceStation = 'Jurisdiction police station is required';
     if (formData.sameAsPresent === false) {
       if (!formData.permanentAddress) allErrors.permanentAddress = 'Permanent address is required';
       if (!formData.permanentState) allErrors.permanentState = 'Permanent state is required';
       if (!formData.permanentDistrict) allErrors.permanentDistrict = 'Permanent district is required';
       if (!formData.permanentPincode) allErrors.permanentPincode = 'Permanent pincode is required';
+      if (!formData.permanentPoliceStation) allErrors.permanentPoliceStation = 'Permanent police station is required';
     }
 
     // Step 2: Occupation
@@ -1953,14 +2017,21 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Nearest Police Station</label>
-                        <input
-                          type="text"
+                        <label className="block text-sm font-medium text-gray-700">Nearest Police Station <span className="text-red-500">*</span></label>
+                        <select
                           name="presentPoliceStation"
                           value={formData.presentPoliceStation}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        />
+                          className={`mt-1 block w-full p-2 border ${errors.presentPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          disabled={loadingPoliceStations}
+                        >
+                          <option value="">Select Police Station</option>
+                          {policeStations.map((station) => (
+                            <option key={station.id} value={station.name}>{station.name}</option>
+                          ))}
+                        </select>
+                        {loadingPoliceStations && <p className="text-gray-500 text-xs mt-1">Loading police stations...</p>}
+                        {errors.presentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.presentPoliceStation}</p>}
                       </div>
 
                       <div>
@@ -1975,14 +2046,21 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station</label>
-                        <input
-                          type="text"
+                        <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station <span className="text-red-500">*</span></label>
+                        <select
                           name="jurisdictionPoliceStation"
                           value={formData.jurisdictionPoliceStation}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        />
+                          className={`mt-1 block w-full p-2 border ${errors.jurisdictionPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          disabled={loadingPoliceStations}
+                        >
+                          <option value="">Select Police Station</option>
+                          {policeStations.map((station) => (
+                            <option key={station.id} value={station.name}>{station.name}</option>
+                          ))}
+                        </select>
+                        {loadingPoliceStations && <p className="text-gray-500 text-xs mt-1">Loading police stations...</p>}
+                        {errors.jurisdictionPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.jurisdictionPoliceStation}</p>}
                       </div>
                     </div>
                   </div>
@@ -2067,15 +2145,21 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station</label>
-                        <input
-                          type="text"
+                        <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                        <select
                           name="permanentPoliceStation"
                           value={formData.permanentPoliceStation}
                           onChange={handleChange}
-                          disabled={formData.sameAsPresent === true}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        />
+                          disabled={formData.sameAsPresent === true || loadingPoliceStations}
+                          className={`mt-1 block w-full p-2 border ${errors.permanentPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                        >
+                          <option value="">Select Police Station</option>
+                          {policeStations.map((station) => (
+                            <option key={station.id} value={station.name}>{station.name}</option>
+                          ))}
+                        </select>
+                        {loadingPoliceStations && <p className="text-gray-500 text-xs mt-1">Loading police stations...</p>}
+                        {errors.permanentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.permanentPoliceStation}</p>}
                       </div>
                     </div>
                   </div>

@@ -6,7 +6,8 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey, ApplicationData } from '../../services/sidebarApiCalls';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function FinalDisposalPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,10 +21,12 @@ export default function FinalDisposalPage() {
     const loadApplications = async () => {
       try {
         setIsLoading(true);
-        const fetchedApplications = await fetchApplicationsByStatus('final');
+        
+        // Fetch final disposal applications using the utility function
+        const fetchedApplications = await fetchApplicationsByStatusKey('finaldisposal');
         setApplications(fetchedApplications);
       } catch (error) {
-        console.error('Error fetching applications:', error);
+        console.error('❌ Error fetching final disposal applications:', error);
         setApplications([]);
       } finally {
         setIsLoading(false);
@@ -70,6 +73,11 @@ export default function FinalDisposalPage() {
     startDate,
     endDate
   );
+
+  // Show skeleton loading while authenticating or loading
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">

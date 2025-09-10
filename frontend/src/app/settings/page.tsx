@@ -6,6 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useAuthSync } from '../../hooks/useAuthSync';
 import { getUserFromCookie } from '../../utils/authCookies';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function SettingsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
@@ -61,6 +62,11 @@ export default function SettingsPage() {
   const handleSearch = () => {};
   const handleDateFilter = () => {};
   const handleReset = () => {};
+
+  // Show skeleton loading while authenticating
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">

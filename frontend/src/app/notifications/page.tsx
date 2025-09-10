@@ -8,6 +8,7 @@ import { useLayout } from "../../config/layoutContext";
 import { useNotifications } from "../../config/notificationContext";
 import { NotificationApi } from "../../config/APIClient";
 import { useRouter } from 'next/navigation';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 interface NotificationsViewProps {
   filter?: 'all' | 'unread' | 'read';
@@ -146,6 +147,11 @@ export default function NotificationsPage() {
   };
   
   const filteredNotifications = getFilteredNotifications();
+  
+  // Show skeleton loading while authenticating
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
   
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">

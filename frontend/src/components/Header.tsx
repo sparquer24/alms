@@ -95,9 +95,13 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   const handleDropdownClick = (type: typeof APPLICATION_TYPES[number]) => {
     setShowDropdown(false);
     if (type.enabled) {
-      // Prefer navigation to fresh form route with type query
+      // Navigate directly to the appropriate route
       try {
-        router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
+        if (type.key === 'fresh') {
+          router.push('/create-fresh-application');
+        } else {
+          router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
+        }
       } catch (e) {
         if (onCreateApplication) {
           onCreateApplication(type.key);

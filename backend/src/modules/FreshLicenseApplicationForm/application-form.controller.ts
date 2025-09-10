@@ -10,16 +10,16 @@ import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class ApplicationFormController {
-  constructor(private readonly applicationFormService: ApplicationFormService) {}
+  constructor(private readonly applicationFormService: ApplicationFormService) { }
 
   @Post()
-  @ApiOperation({ 
-    summary: 'Create Application', 
-    description: `Create a new fresh license application.` 
+  @ApiOperation({
+    summary: 'Create Application',
+    description: `Create a new fresh license application.`
   })
   @ApiBody({ type: CreateApplicationDto })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Application created successfully',
     schema: {
       type: 'object',
@@ -35,8 +35,8 @@ export class ApplicationFormController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 400, 
+  @ApiResponse({
+    status: 400,
     description: 'Bad Request - Invalid input data',
     schema: {
       type: 'object',
@@ -51,6 +51,7 @@ export class ApplicationFormController {
     try {
       // Convert DTO to service input format
       const processedData = {
+        statusId: applicationData.statusId,
         firstName: applicationData.firstName,
         middleName: applicationData.middleName,
         lastName: applicationData.lastName,
@@ -82,7 +83,7 @@ export class ApplicationFormController {
           policeStationId: applicationData.permanentAddress.policeStationId,
           sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
         } : undefined,
-        
+
         contactInfo: applicationData.contactInfo,
         occupationInfo: applicationData.occupationInfo,
         biometricData: applicationData.biometricData,
@@ -133,7 +134,7 @@ export class ApplicationFormController {
           fileUrl: fu.fileUrl
         }))
       };
-      
+
       const [error, result] = await this.applicationFormService.createApplication(processedData);
       if (error) {
         // Provide more details if error is an object
@@ -190,8 +191,33 @@ export class ApplicationFormController {
       const parsedSearchValue = search ?? undefined;
       const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
-      const parsedStatusIds = statusIds ? statusIds.split(',').map(id =>  Number(id.trim())) : undefined;
-
+      const parsedStatusIds = statusIds ? statusIds.split(',').map(id => Number(id.trim())) : undefined;
+      if (parsedApplicationId || parsedAcknowledgementNo) {
+        const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
+        if (error) {
+          const errMsg = (error as any)?.message || 'Failed to fetch applications';
+          throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
+        }
+        // dataApplication.applicantName = `${dataApplication?.firstName} ${dataApplication?.middleName ? dataApplication?.middleName + ' ' : ''}${dataApplication?.lastName}`;
+        let applicantName 
+        if (dataApplication) { 
+          if (dataApplication.firstName) applicantName = dataApplication.firstName;
+          if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
+          if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
+          dataApplication.applicantName = applicantName || 'Unknown Applicant';
+        } else {
+          return {
+            success: true,
+            message: "Application not found",
+            data: []
+          }
+        }
+        return {
+          success: true,
+          message: 'Applications retrieved successfully',
+          data: dataApplication,
+        }
+      }
       // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
@@ -241,17 +267,17 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/districts/:stateId')
-  @ApiOperation({ 
-    summary: 'Get Districts by State', 
-    description: 'Get all districts for a specific state' 
+  @ApiOperation({
+    summary: 'Get Districts by State',
+    description: 'Get all districts for a specific state'
   })
-  @ApiParam({ 
-    name: 'stateId', 
+  @ApiParam({
+    name: 'stateId',
     description: 'State ID',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Districts retrieved successfully',
   })
   async getDistrictsByState(@Param('stateId') stateId: string) {
@@ -275,17 +301,17 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/police-stations/:divisionId')
-  @ApiOperation({ 
-    summary: 'Get Police Stations by Division', 
-    description: 'Get all police stations for a specific division' 
+  @ApiOperation({
+    summary: 'Get Police Stations by Division',
+    description: 'Get all police stations for a specific division'
   })
-  @ApiParam({ 
-    name: 'divisionId', 
+  @ApiParam({
+    name: 'divisionId',
     description: 'Division ID',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Police stations retrieved successfully',
     example: {
       success: true,
@@ -320,24 +346,24 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/validate-ids')
-  @ApiOperation({ 
-    summary: 'Validate Reference IDs', 
-    description: 'Validate if the provided state and district IDs are valid and exist' 
+  @ApiOperation({
+    summary: 'Validate Reference IDs',
+    description: 'Validate if the provided state and district IDs are valid and exist'
   })
-  @ApiQuery({ 
-    name: 'stateId', 
-    required: false, 
+  @ApiQuery({
+    name: 'stateId',
+    required: false,
     description: 'State ID to validate',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'districtId', 
-    required: false, 
+  @ApiQuery({
+    name: 'districtId',
+    required: false,
     description: 'District ID to validate',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'ID validation completed',
     example: {
       success: true,
@@ -354,12 +380,12 @@ export class ApplicationFormController {
   async validateIds(@Request() req: any) {
     try {
       const { stateId, districtId } = req.query;
-      
+
       const validation = await this.applicationFormService.validateReferenceIds({
         stateId: stateId ? Number(stateId) : undefined,
         districtId: districtId ? Number(districtId) : undefined,
       });
-      
+
       return {
         success: true,
         message: 'ID validation completed',
@@ -378,17 +404,17 @@ export class ApplicationFormController {
   }
 
   @Get('helpers/check-aadhar/:aadharNumber')
-  @ApiOperation({ 
-    summary: 'Check Aadhar Number Availability', 
-    description: 'Check if an Aadhar number already exists in the system' 
+  @ApiOperation({
+    summary: 'Check Aadhar Number Availability',
+    description: 'Check if an Aadhar number already exists in the system'
   })
-  @ApiParam({ 
-    name: 'aadharNumber', 
+  @ApiParam({
+    name: 'aadharNumber',
     description: 'Aadhar number to check (12 digits)',
     example: '123456789012'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Aadhar check completed',
     example: {
       success: true,
@@ -400,8 +426,8 @@ export class ApplicationFormController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Aadhar already exists',
     example: {
       success: true,
@@ -419,11 +445,11 @@ export class ApplicationFormController {
   async checkAadharExists(@Param('aadharNumber') aadharNumber: string) {
     try {
       const result = await this.applicationFormService.checkAadharExists(aadharNumber);
-      
+
       return {
         success: true,
-        message: result.exists 
-          ? 'Aadhar number already exists in system' 
+        message: result.exists
+          ? 'Aadhar number already exists in system'
           : 'Aadhar number is available',
         data: result,
       };

@@ -97,6 +97,8 @@ model Roles {
   can_create_freshLicence    Boolean                         @default(false)
   currentRoleApplications    FreshLicenseApplicationsForms[] @relation("CurrentRole")
   previousRoleApplications   FreshLicenseApplicationsForms[] @relation("PreviousRole")
+  workflowHistoryPrevious    FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
+  workflowHistoryNext        FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextRole")
   users                      Users[]
 }
 
@@ -182,6 +184,8 @@ model Users {
   nextUserInFlows          FlowNextUsers[]                 @relation("NextUserInFlow")
   currentUserApplications  FreshLicenseApplicationsForms[] @relation("ActionFromUser")
   previousUserApplications FreshLicenseApplicationsForms[] @relation("ActionToUser")
+  workflowHistoryPrevious  FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
+  workflowHistoryNext      FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
   district                 Districts?                      @relation("DistrictUsers", fields: [districtId], references: [id])
   division                 Divisions?                      @relation("DivisionUsers", fields: [divisionId], references: [id])
   policeStation            PoliceStations?                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id])
@@ -336,6 +340,10 @@ model FreshLicenseApplicationsFormWorkflowHistories {
   attachments    Json?
   actiones       Actiones?                     @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id])
   application    FreshLicenseApplicationsForms @relation(fields: [applicationId], references: [id])
+  previousUser   Users                         @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id])
+  nextUser       Users                         @relation("WorkflowNextUser", fields: [nextUserId], references: [id])
+  previousRole   Roles?                        @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id])
+  nextRole       Roles?                        @relation("WorkflowNextRole", fields: [nextRoleId], references: [id])
 }
 
 enum Sex {

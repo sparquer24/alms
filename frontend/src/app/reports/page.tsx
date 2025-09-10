@@ -12,6 +12,7 @@ import { ReportApi } from '../../config/APIClient';
 import { useAuth } from '../../config/auth';
 import { getRoleConfig } from '../../config/roles';
 import MyReportsAnalytics from '../../components/MyReportsAnalytics';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 const STATUS_MAPPING: Record<string, number[]> = {
   Forwarded: [101, 102],
@@ -121,6 +122,12 @@ export default function ReportsPage() {
       approvalRate: total > 0 ? Math.round((approved / total) * 100) : 0
     };
   })();
+
+  // Show skeleton loading while authenticating or loading
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
+
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar onStatusSelect={setSelectedStatusKey} />

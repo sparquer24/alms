@@ -6,8 +6,9 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, ApplicationData } from '../../services/sidebarApiCalls';
+import { filterApplications, ApplicationData, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationApi } from '../../config/APIClient';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function SentPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,40 +26,23 @@ export default function SentPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Load applications from API and filter to "sent"
-    const load = async () => {
+    // Fetch sent applications
+    const loadApplications = async () => {
       try {
-        const res = await ApplicationApi.getAll();
-        console.log('API Response (sent page):', res);
+        setIsLoading(true);
         
-        // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
-        // We need to access the 'data' property
-        let apps: any[] = [];
-        if (res && typeof res === 'object') {
-          if (res.data && Array.isArray(res.data)) {
-            apps = res.data;
-          } else if (res.body && Array.isArray(res.body)) {
-            apps = res.body;
-          } else if (Array.isArray(res)) {
-            apps = res;
-          }
-        }
-        
-        // Filter to sent status and store
-        const sentApps = apps.filter(a => a.status === 'sent');
-        console.log('Extracted sent applications:', sentApps);
-        setApplications(sentApps as ApplicationData[]);
-        setIsLoading(false);
-        // Put sent apps into local state by setting a variable used by render
-        // We'll reuse filteredApplications computation below by temporarily assigning to mock source
-        // For now, store sentApps on a ref-like variable via closure
-        // Simpler: set a local global-level variable via window (temporary) - but instead we'll use a state
-      } catch (err) {
-        console.error('Failed to load sent applications:', err);
+        // Fetch sent applications using the utility function
+        const fetchedApplications = await fetchApplicationsByStatusKey('sent');
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('❌ Error fetching sent applications:', error);
+        setApplications([]);
+      } finally {
         setIsLoading(false);
       }
     };
-    load();
+
+    loadApplications();
   }, []);
 
   const handleSearch = (query: string) => {
@@ -84,6 +68,11 @@ export default function SentPage() {
     startDate,
     endDate
   );
+
+  // Show skeleton loading while authenticating or loading
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">

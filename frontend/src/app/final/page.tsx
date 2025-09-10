@@ -5,7 +5,8 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatus, ApplicationData } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey, ApplicationData } from '../../services/sidebarApiCalls';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function FinalDisposalPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,11 +24,26 @@ export default function FinalDisposalPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-  }, []);
+    // Fetch final disposal applications
+    const loadApplications = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch final applications using the utility function
+        const fetchedApplications = await fetchApplicationsByStatusKey('finaldisposal');
+        setApplications(fetchedApplications);
+      } catch (error) {
+        console.error('❌ Error fetching final applications:', error);
+        setApplications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (!authLoading && isAuthenticated) {
+      loadApplications();
+    }
+  }, [isAuthenticated, authLoading]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -51,6 +67,11 @@ export default function FinalDisposalPage() {
     startDate,
     endDate
   );
+
+  // Show skeleton loading while authenticating or loading
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return <PageLayoutSkeleton />;
+  }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
