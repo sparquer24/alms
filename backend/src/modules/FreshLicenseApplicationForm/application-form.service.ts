@@ -533,7 +533,8 @@ export class ApplicationFormService {
       if (acknowledgementNo) {
         whereCondition = { ...whereCondition, acknowledgementNo };
       }
-      return [null, await prisma.freshLicenseApplicationsForms.findUnique({
+
+      let application:any = await prisma.freshLicenseApplicationsForms.findUnique({
         where: whereCondition,
         include: {
           presentAddress: {
@@ -575,7 +576,63 @@ export class ApplicationFormService {
             orderBy: { createdAt: 'desc' }
           }
         },
-      })];
+      });
+      let usersInHierarchy: any[] = [];
+      // Defensive: check presentAddress and policeStation
+      if (application.presentAddress && application.presentAddress.policeStationId) {
+        // Fetch the full policeStation hierarchy
+        const policeStation = await prisma.policeStations.findUnique({
+          where: { id: application.presentAddress.policeStationId },
+          include: {
+            division: {
+              include: {
+                zone: {
+                  include: {
+                    district: {
+                      include: { state: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+        if (policeStation) {
+          const division = policeStation.division;
+          const zone = division?.zone;
+          const district = zone?.district;
+          const state = district?.state;
+          const policeStationId = policeStation.id;
+          const divisionId = division?.id;
+          const zoneId = zone?.id;
+          const districtId = district?.id;
+          const stateId = state?.id;
+          usersInHierarchy = await prisma.users.findMany({
+            where: {
+              OR: [
+                ...(policeStationId ? [{ policeStationId }] : []),
+                ...(divisionId ? [{ divisionId }] : []),
+                ...(zoneId ? [{ zoneId }] : []),
+                ...(districtId ? [{ districtId }] : []),
+                ...(stateId ? [{ stateId }] : []),
+              ]
+            },
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              stateId: true,
+              districtId: true,
+              zoneId: true,
+              divisionId: true,
+              policeStationId: true,
+              roleId: true
+            }
+          });
+        }
+      }
+      application = { ...application, usersInHierarchy };
+      return [null, application];
     } catch (err) {
       return [err, null];
     }
