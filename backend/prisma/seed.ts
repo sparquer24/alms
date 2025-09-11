@@ -585,6 +585,99 @@ async function main() {
       console.error(`Error creating user ${user.username}:`, error);
     }
   }
+
+  // --- WeaponTypeMaster Seeding ---
+  console.log('Seeding weapon types...');
+
+  const weaponTypes = [
+    {
+      name: "Pistol",
+      description: "A compact handgun designed for one-handed use; commonly used for self-defense and law enforcement.",
+      imageUrl: "https://example.com/images/pistol.png"
+    },
+    {
+      name: "Revolver",
+      description: "A handgun with a rotating cylinder containing multiple chambers; known for simple operation and reliability.",
+      imageUrl: "https://example.com/images/revolver.png"
+    },
+    {
+      name: "Semi-Automatic Pistol",
+      description: "A pistol that fires one round per trigger pull and automatically cycles the next round into the chamber.",
+      imageUrl: "https://example.com/images/semi_automatic_pistol.png"
+    },
+    {
+      name: "Assault Rifle",
+      description: "A lightweight, selective-fire rifle that uses intermediate cartridges; often used by military forces.",
+      imageUrl: "https://example.com/images/assault_rifle.png"
+    },
+    {
+      name: "Battle Rifle",
+      description: "A full-power rifle typically chambered in larger calibers, designed for longer-range combat roles.",
+      imageUrl: "https://example.com/images/battle_rifle.png"
+    },
+    {
+      name: "Carbine",
+      description: "A shorter, lighter version of a rifle that trades some range for improved maneuverability.",
+      imageUrl: "https://example.com/images/carbine.png"
+    },
+    {
+      name: "Shotgun",
+      description: "A smoothbore long gun that fires shot or slugs; commonly used for hunting, sport, and close-range defense.",
+      imageUrl: "https://example.com/images/shotgun.png"
+    },
+    {
+      name: "Sniper Rifle",
+      description: "A precision rifle configured for long-range accuracy; typically used with optics for marksmanship roles.",
+      imageUrl: "https://example.com/images/sniper_rifle.png"
+    },
+    {
+      name: "Submachine Gun (SMG)",
+      description: "A compact, fully- or select-fire weapon that fires pistol-caliber rounds; suited for close-quarters engagements.",
+      imageUrl: "https://example.com/images/smg.png"
+    },
+    {
+      name: "Machine Gun",
+      description: "A fully automatic firearm designed for sustained fire, typically crew-served or vehicle-mounted.",
+      imageUrl: "https://example.com/images/machine_gun.png"
+    },
+    {
+      name: "Bolt-Action Rifle",
+      description: "A manual-action rifle where the shooter cycles the bolt between shots; valued for simplicity and accuracy.",
+      imageUrl: "https://example.com/images/bolt_action_rifle.png"
+    },
+    {
+      name: "Personal Defense Weapon (PDW)",
+      description: "A compact, lightweight firearm intended to provide more capability than a pistol while remaining easy to carry.",
+      imageUrl: "https://example.com/images/pdw.png"
+    }
+  ];
+
+  for (const weaponType of weaponTypes) {
+    // Check if weapon type already exists
+    const existingWeaponType = await prisma.weaponTypeMaster.findFirst({
+      where: { name: weaponType.name }
+    });
+
+    if (existingWeaponType) {
+      console.log(`Weapon type '${weaponType.name}' already exists. Skipping.`);
+      continue;
+    }
+
+    try {
+      await prisma.weaponTypeMaster.create({
+        data: {
+          name: weaponType.name,
+          description: weaponType.description,
+          imageUrl: weaponType.imageUrl,
+        },
+      });
+      console.log(`Created weapon type: ${weaponType.name}`);
+    } catch (error) {
+      console.error(`Error creating weapon type ${weaponType.name}:`, error);
+    }
+  }
+
+  console.log('Seeding completed successfully!');
 }
 
 main()
