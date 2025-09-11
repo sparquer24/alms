@@ -14,6 +14,7 @@ interface UserOption {
 interface ProceedingsFormProps {
   applicationId: string;
   onSuccess?: () => void;
+  userRole?: string;
 }
 
 const ACTION_OPTIONS = [
@@ -139,7 +140,7 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
   );
 }
 
-export default function ProceedingsForm({ applicationId, onSuccess }: ProceedingsFormProps) {
+export default function ProceedingsForm({ applicationId, onSuccess, userRole }: ProceedingsFormProps) {
   const [actionType, setActionType] = useState('');
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
@@ -649,141 +650,143 @@ Yours faithfully,
           )}
             </div>
             
-        {/* Ground Report Section within Proceedings */}
-        <div className="mt-8 border-t pt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-md font-semibold text-gray-800">Ground Report Letter</h4>
-            <button
-              type="button"
-              onClick={() => {
-                if (!showGroundReportInProceedings) {
-                  setDraftLetter(generateDraftLetter());
-                }
-                setShowGroundReportInProceedings(!showGroundReportInProceedings);
-              }}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0V5a2 2 0 00-2 2v6a2 2 0 002 2m14-6V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              {showGroundReportInProceedings ? 'Hide Ground Report' : 'Generate Ground Report'}
-            </button>
-          </div>
+        {/* Ground Report Section within Proceedings - Only for SHO role */}
+        {userRole === 'SHO' && (
+          <div className="mt-8 border-t pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-md font-semibold text-gray-800">Ground Report Letter</h4>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!showGroundReportInProceedings) {
+                    setDraftLetter(generateDraftLetter());
+                  }
+                  setShowGroundReportInProceedings(!showGroundReportInProceedings);
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0V5a2 2 0 00-2 2v6a2 2 0 002 2m14-6V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                {showGroundReportInProceedings ? 'Hide Ground Report' : 'Generate Ground Report'}
+              </button>
+            </div>
 
-          {/* Ground Report Editor within Proceedings */}
-          {showGroundReportInProceedings && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className={styles.formSection}>
-                <label className={styles.formLabel}>
-                  Draft Letter Content
-                </label>
-                <EnhancedTextEditor
-                  content={draftLetter}
-                  onChange={setDraftLetter}
-                  placeholder="Draft letter will appear here..."
-                  className="min-h-[400px]"
-                />
-                <p className={styles.helpText}>
-                  Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
-                </p>
-              </div>
+            {/* Ground Report Editor within Proceedings */}
+            {showGroundReportInProceedings && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className={styles.formSection}>
+                  <label className={styles.formLabel}>
+                    Draft Letter Content
+                  </label>
+                  <EnhancedTextEditor
+                    content={draftLetter}
+                    onChange={setDraftLetter}
+                    placeholder="Draft letter will appear here..."
+                    className="min-h-[400px]"
+                  />
+                  <p className={styles.helpText}>
+                    Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                  </p>
+                </div>
 
-              <div className="flex gap-3 justify-end mt-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(draftLetter);
-                    setSuccess('Draft letter copied to clipboard!');
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy
-                </button>
-                
-                {/* Download Dropdown */}
-                <div className="relative download-dropdown">
+                <div className="flex gap-3 justify-end mt-4 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(draftLetter);
+                      setSuccess('Draft letter copied to clipboard!');
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    Download
-                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    Copy
                   </button>
                   
-                  {/* Dropdown Menu */}
-                  {showDownloadDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                      <div className="py-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownload('pdf');
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                          </svg>
-                          PDF (A4)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownload('word');
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                          </svg>
-                          Word (.doc)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownload('txt');
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                          </svg>
-                          Text (.txt)
-                        </button>
+                  {/* Download Dropdown */}
+                  <div className="relative download-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download
+                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {showDownloadDropdown && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                        <div className="py-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownload('pdf');
+                              setShowDownloadDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            </svg>
+                            PDF (A4)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownload('word');
+                              setShowDownloadDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            </svg>
+                            Word (.doc)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownload('txt');
+                              setShowDownloadDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            </svg>
+                            Text (.txt)
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftLetter(generateDraftLetter());
+                      setSuccess('Template reset to default!');
+                    }}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset
+                  </button>
                 </div>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraftLetter(generateDraftLetter());
-                    setSuccess('Template reset to default!');
-                  }}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reset
-                </button>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </form>
         </div>
 
