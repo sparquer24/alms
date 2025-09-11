@@ -31,6 +31,8 @@ export interface CreateFreshLicenseApplicationsFormsInput {
   previousUserId?: number;
   previousRoleId?: number;
   statusId: number;
+  actionTaken?: string;
+  remarks?: string;
 }
 
 export interface CreateAddressInput {
@@ -357,171 +359,260 @@ export class ApplicationFormService {
    * @param data - Application data including user context from token
    * @returns Created application with all relations
    */
-  async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
-    try {
-      // Validate input
-      validateCreateApplicationInput(data);
+async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
+  try {
+    // ✅ Step 1: Validate input
+    validateCreateApplicationInput(data);
 
-      // Ensure user context
-      if (!data.currentUserId) {
-        throw new BadRequestException("Current user information is required. Please ensure you are properly authenticated.");
-      }
+    if (!data.currentUserId) {
+      throw new BadRequestException(
+        "Current user information is required. Please ensure you are properly authenticated."
+      );
+    }
 
-      // Fetch user and role
-      const currentUser = await this.getUserWithRole(data.currentUserId);
-      if (!currentUser) throw new BadRequestException("Invalid user. User not found in the system.");
-      if (!currentUser.role) throw new BadRequestException("User role information is missing. Please contact administrator.");
+    // ✅ Step 2: Fetch user with role
+    const currentUser = await this.getUserWithRole(data.currentUserId);
+    if (!currentUser)
+      throw new BadRequestException("Invalid user. User not found in the system.");
+    if (!currentUser.role)
+      throw new BadRequestException(
+        "User role information is missing. Please contact administrator."
+      );
 
-      // Check for duplicate Aadhar
-      const existing = await prisma.freshLicenseApplicationsForms.findUnique({
-        where: { aadharNumber: data.aadharNumber },
-        select: { id: true },
-      });
-      if (existing) throw new ConflictException(`An application with Aadhar ${data.aadharNumber} already exists.`);
+    // ✅ Step 3: Prevent duplicate Aadhaar
+    const existing = await prisma.freshLicenseApplicationsForms.findUnique({
+      where: { aadharNumber: data.aadharNumber },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `An application with Aadhar ${data.aadharNumber} already exists.`
+      );
+    }
 
-      // Validate referenced records
-      await this.validateReferencesExist(data);
+    // ✅ Step 4: Validate referenced records (state, district, etc.)
+    await this.validateReferencesExist(data);
 
-      // Get initial status and generate acknowledgement number
-      const initialStatusId = await this.getInitialStatus();
-      const acknowledgementNo = `ALMS${Date.now()}`;
+    // ✅ Step 5: Prepare initial values
+    const initialStatusId = await this.getInitialStatus();
+    const acknowledgementNo = `ALMS${Date.now()}`;
 
-      // Create application in a transaction
-      const application = await prisma.$transaction(async (tx) => {
-        const created = await tx.freshLicenseApplicationsForms.create({
-          data: {
-            acknowledgementNo,
-            firstName: data.firstName,
-            middleName: data.middleName,
-            lastName: data.lastName,
-            filledBy: data.filledBy,
-            parentOrSpouseName: data.parentOrSpouseName,
-            sex: data.sex,
-            placeOfBirth: data.placeOfBirth,
-            dateOfBirth: new Date(data.dateOfBirth),
-            panNumber: data.panNumber,
-            aadharNumber: data.aadharNumber,
-            dobInWords: data.dobInWords,
-            status: { connect: { id: 9 } },
-            state: { connect: { id: data.stateId } },
-            district: { connect: { id: data.districtId } },
-            ...(initialStatusId ? { status: { connect: { id: initialStatusId } } } : {}),
-            currentUser: { connect: { id: currentUser.id } },
-            ...(currentUser.roleId ? { currentRole: { connect: { id: currentUser.roleId } } } : {}),
-            ...(data.previousUserId ? { previousUser: { connect: { id: data.previousUserId } } } : {}),
-            ...(data.previousRoleId ? { previousRole: { connect: { id: data.previousRoleId } } } : {}),
-            presentAddress: {
-              create: {
-                addressLine: data.presentAddress.addressLine,
-                sinceResiding: data.presentAddress.sinceResiding ? new Date(data.presentAddress.sinceResiding) : new Date(),
-                state: { connect: { id: data.presentAddress.stateId } },
-                district: { connect: { id: data.presentAddress.districtId } },
-                policeStation: { connect: { id: data.presentAddress.policeStationId } },
+    // ✅ Step 6: Transaction
+    const application = await prisma.$transaction(async (tx) => {
+      // --- Main Application Create ---
+      const created = await tx.freshLicenseApplicationsForms.create({
+        data: {
+          acknowledgementNo,
+          firstName: data.firstName,
+          middleName: data.middleName,
+          lastName: data.lastName,
+          filledBy: data.filledBy,
+          parentOrSpouseName: data.parentOrSpouseName,
+          sex: data.sex,
+          placeOfBirth: data.placeOfBirth,
+          dateOfBirth: new Date(data.dateOfBirth),
+          panNumber: data.panNumber,
+          aadharNumber: data.aadharNumber,
+          dobInWords: data.dobInWords,
+          status: { connect: { id: 9 } },
+          state: { connect: { id: data.stateId } },
+          district: { connect: { id: data.districtId } },
+          ...(initialStatusId
+            ? { status: { connect: { id: initialStatusId } } }
+            : {}),
+          currentUser: { connect: { id: currentUser.id } },
+          ...(currentUser.roleId
+            ? { currentRole: { connect: { id: currentUser.roleId } } }
+            : {}),
+          ...(data.previousUserId
+            ? { previousUser: { connect: { id: data.previousUserId } } }
+            : {}),
+          ...(data.previousRoleId
+            ? { previousRole: { connect: { id: data.previousRoleId } } }
+            : {}),
+
+          // --- Present Address ---
+          presentAddress: {
+            create: {
+              addressLine: data.presentAddress.addressLine,
+              sinceResiding: data.presentAddress.sinceResiding
+                ? new Date(data.presentAddress.sinceResiding)
+                : new Date(),
+              state: { connect: { id: data.presentAddress.stateId } },
+              district: { connect: { id: data.presentAddress.districtId } },
+              policeStation: {
+                connect: { id: data.presentAddress.policeStationId },
               },
             },
-            ...(data.permanentAddress ? {
-              permanentAddress: {
-                create: {
-                  addressLine: data.permanentAddress.addressLine,
-                  sinceResiding: data.permanentAddress.sinceResiding ? new Date(data.permanentAddress.sinceResiding) : new Date(),
-                  state: { connect: { id: data.permanentAddress.stateId } },
-                  district: { connect: { id: data.permanentAddress.districtId } },
-                  policeStation: { connect: { id: data.permanentAddress.policeStationId } },
-                },
-              },
-            } : {}),
-            contactInfo: {
-              create: {
-                telephoneOffice: data.contactInfo.telephoneOffice,
-                telephoneResidence: data.contactInfo.telephoneResidence,
-                mobileNumber: data.contactInfo.mobileNumber,
-                officeMobileNumber: data.contactInfo.officeMobileNumber,
-                alternativeMobile: data.contactInfo.alternativeMobile,
-              },
-            },
-            ...(data.occupationInfo ? {
-              occupationInfo: {
-                create: {
-                  occupation: data.occupationInfo.occupation,
-                  officeAddress: data.occupationInfo.officeAddress,
-                  cropLocation: data.occupationInfo.cropLocation,
-                  areaUnderCultivation: data.occupationInfo.areaUnderCultivation,
-                  state: { connect: { id: data.occupationInfo.stateId } },
-                  district: { connect: { id: data.occupationInfo.districtId } },
-                }
-              }
-            } : {}),
-            // biometricData will be created separately after application is created
-            ...(data.criminalHistory?.length ? {
-              criminalHistory: {
-                create: data.criminalHistory.map(c => ({
-                  convicted: c.convicted,
-                  convictionData: c.convictionData,
-                  bondExecutionOrdered: c.bondExecutionOrdered,
-                  bondDate: c.bondDate ? new Date(c.bondDate) : null,
-                  periodOfBond: c.periodOfBond,
-                  prohibitedUnderArmsAct: c.prohibitedUnderArmsAct,
-                  prohibitedDate: c.prohibitedDate ? new Date(c.prohibitedDate) : null,
-                }))
-              }
-            } : {}),
-            ...(data.licenseHistory?.length ? {
-              licenseHistory: { create: data.licenseHistory.map(l => ({ ...l })) }
-            } : {}),
-            ...(data.licenseRequestDetails ? {
-              licenseDetails: {
-                create: [
-                  {
-                    needForLicense: data.licenseRequestDetails.needForLicense,
-                    weaponCategory: data.licenseRequestDetails.weaponCategory,
-                    areaOfValidity: data.licenseRequestDetails.areaOfValidity,
-                    ...(data.licenseRequestDetails.requestedWeaponIds?.length ? {
-                      requestedWeapons: { connect: data.licenseRequestDetails.requestedWeaponIds.map((id: any) => ({ id: Number(id) })) }
-                    } : {}),
-                  }
-                ]
-              }
-            } : {}),
-            ...(data.fileUploads?.length ? { fileUploads: { create: data.fileUploads.map(f => ({ fileName: f.fileName, fileSize: f.fileSize, fileType: f.fileType, fileUrl: f.fileUrl })) } } : {}),
           },
-          include: {
-            presentAddress: { include: { state: true, district: true } },
-            permanentAddress: { include: { state: true, district: true } },
-            contactInfo: true,
-            occupationInfo: { include: { state: true, district: true } },
-            criminalHistory: true,
-            licenseHistory: true,
-            licenseDetails: { include: { requestedWeapons: true } },
-            fileUploads: true,
-            state: true,
-            district: true,
-            status: true,
-            currentRole: true,
-            previousRole: true,
-            currentUser: true,
-            previousUser: true,
+
+          // --- Permanent Address ---
+          ...(data.permanentAddress
+            ? {
+                permanentAddress: {
+                  create: {
+                    addressLine: data.permanentAddress.addressLine,
+                    sinceResiding: data.permanentAddress.sinceResiding
+                      ? new Date(data.permanentAddress.sinceResiding)
+                      : new Date(),
+                    state: { connect: { id: data.permanentAddress.stateId } },
+                    district: {
+                      connect: { id: data.permanentAddress.districtId },
+                    },
+                    policeStation: {
+                      connect: { id: data.permanentAddress.policeStationId },
+                    },
+                  },
+                },
+              }
+            : {}),
+
+          // --- Contact Info ---
+          contactInfo: {
+            create: {
+              telephoneOffice: data.contactInfo.telephoneOffice,
+              telephoneResidence: data.contactInfo.telephoneResidence,
+              mobileNumber: data.contactInfo.mobileNumber,
+              officeMobileNumber: data.contactInfo.officeMobileNumber,
+              alternativeMobile: data.contactInfo.alternativeMobile,
+            },
+          },
+
+          // --- Occupation Info ---
+          ...(data.occupationInfo
+            ? {
+                occupationInfo: {
+                  create: {
+                    occupation: data.occupationInfo.occupation,
+                    officeAddress: data.occupationInfo.officeAddress,
+                    cropLocation: data.occupationInfo.cropLocation,
+                    areaUnderCultivation:
+                      data.occupationInfo.areaUnderCultivation,
+                    state: { connect: { id: data.occupationInfo.stateId } },
+                    district: { connect: { id: data.occupationInfo.districtId } },
+                  },
+                },
+              }
+            : {}),
+
+          // --- Criminal History ---
+          ...(data.criminalHistory?.length
+            ? {
+                criminalHistory: {
+                  create: data.criminalHistory.map((c) => ({
+                    convicted: c.convicted,
+                    convictionData: c.convictionData,
+                    bondExecutionOrdered: c.bondExecutionOrdered,
+                    bondDate: c.bondDate ? new Date(c.bondDate) : null,
+                    periodOfBond: c.periodOfBond,
+                    prohibitedUnderArmsAct: c.prohibitedUnderArmsAct,
+                    prohibitedDate: c.prohibitedDate
+                      ? new Date(c.prohibitedDate)
+                      : null,
+                  })),
+                },
+              }
+            : {}),
+
+          // --- License History ---
+          ...(data.licenseHistory?.length
+            ? { licenseHistory: { create: data.licenseHistory.map((l) => ({ ...l })) } }
+            : {}),
+
+          // --- License Request ---
+          ...(data.licenseRequestDetails
+            ? {
+                licenseDetails: {
+                  create: [
+                    {
+                      needForLicense: data.licenseRequestDetails.needForLicense,
+                      weaponCategory:
+                        data.licenseRequestDetails.weaponCategory,
+                      areaOfValidity:
+                        data.licenseRequestDetails.areaOfValidity,
+                      ...(data.licenseRequestDetails.requestedWeaponIds?.length
+                        ? {
+                            requestedWeapons: {
+                              connect: data.licenseRequestDetails.requestedWeaponIds.map(
+                                (id: any) => ({ id: Number(id) })
+                              ),
+                            },
+                          }
+                        : {}),
+                    },
+                  ],
+                },
+              }
+            : {}),
+
+          // --- File Uploads ---
+          ...(data.fileUploads?.length
+            ? {
+                fileUploads: {
+                  create: data.fileUploads.map((f) => ({
+                    fileName: f.fileName,
+                    fileSize: f.fileSize,
+                    fileType: f.fileType,
+                    fileUrl: f.fileUrl,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          presentAddress: { include: { state: true, district: true } },
+          permanentAddress: { include: { state: true, district: true } },
+          contactInfo: true,
+          occupationInfo: { include: { state: true, district: true } },
+          criminalHistory: true,
+          licenseHistory: true,
+          licenseDetails: { include: { requestedWeapons: true } },
+          fileUploads: true,
+          state: true,
+          district: true,
+          status: true,
+          currentRole: true,
+          previousRole: true,
+          currentUser: true,
+          previousUser: true,
+        },
+      });
+
+      // --- Insert Workflow History ---
+      await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+        data: {
+          applicationId: created.id,
+          previousUserId: data.currentUserId,
+          nextUserId: data.currentUserId,
+          previousRoleId: currentUser.roleId,
+          nextRoleId: currentUser.roleId,
+          actionTaken: data.actionTaken || "Application Created",
+          remarks: data.remarks || "Application submitted",
+          createdAt: new Date(),
+        },
+      });
+
+      // --- Biometric Data (if any) ---
+      if (data.biometricData) {
+        await tx.freshLicenseApplicationsFormBiometricDatas.create({
+          data: {
+            ...data.biometricData,
+            applicationId: created.id,
           },
         });
-        // After main application is created, create biometricData if provided
-        if (data.biometricData) {
-          await tx.freshLicenseApplicationsFormBiometricDatas.create({
-            data: {
-              ...data.biometricData,
-              applicationId: created.id,
-            },
-          });
-        }
-        return created;
-      });
+      }
 
-      // Return [error, data] format
-      return [null, application];
-    } catch (error: any) {
-      // Return [error, data] format
-      console.log(error);
-      return [error, null];
-    }
+      return created;
+    });
+
+    // ✅ Final Response
+    return [null, application];
+  } catch (error: any) {
+    console.log(error);
+    return [error, null];
   }
+}
+
 
 
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
