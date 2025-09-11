@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
 import { postData } from '../api/axiosConfig';
+import { EnhancedTextEditor } from './RichTextEditor';
 
 interface UserOption {
   value: string;
@@ -149,6 +150,11 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftLetter, setDraftLetter] = useState('');
+  const [showProceedingsForm, setShowProceedingsForm] = useState(true);
+  const [showGroundReportEditor, setShowGroundReportEditor] = useState(false);
+  const [showGroundReportInProceedings, setShowGroundReportInProceedings] = useState(false);
+  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
 
   // Fetch users when action type changes (available for all actions) using dummy data
   useEffect(() => {
@@ -207,14 +213,30 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
       remarks: remarks.trim(),
       attachments: [],
     };
+    
+    // Add next user if forwarding
     if (nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
+    }
+
+    // Include draft letter if ground report was generated
+    if (showGroundReportInProceedings && draftLetter.trim()) {
+      payload.attachments.push({
+        name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
+        type: "GROUND_REPORT",
+        contentType: "text/plain",
+        url: "", // This could be a URL if you upload the file, or empty if sending content directly
+        content: draftLetter.trim() // Include the actual letter content
+      });
+      
+      // Set ground report generated flag
+      payload.isGroundReportGenerated = true;
     }
 
     setIsSubmitting(true);
 
     try {
-  const result = await postData(`/workflow/action`, payload);
+      const result = await postData(`/workflow/action`, payload);
       setSuccess(result.message || 'Action completed successfully.');
       
       // Reset form
@@ -234,6 +256,264 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
   const handleDismissError = () => setError(null);
   const handleDismissSuccess = () => setSuccess(null);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDownloadDropdown) {
+        const target = event.target as Element;
+        if (!target.closest('.download-dropdown')) {
+          setShowDownloadDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDownloadDropdown]);
+
+  const formatContentForExport = (content: string) => {
+    return content
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/__(.*?)__/g, '<u>$1</u>')
+      .replace(/\n/g, '<br/>');
+  };
+
+  const downloadAsPDF = async (content: string, filename: string) => {
+    try {
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        setError('Please allow popups to download as PDF');
+        return;
+      }
+
+      const formattedContent = formatContentForExport(content);
+
+      // A4 paper CSS styling
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Ground Report</title>
+          <meta charset="utf-8">
+          <style>
+            @page {
+              size: A4;
+              margin: 2.5cm 2cm 2cm 2cm;
+            }
+            body {
+              font-family: 'Times New Roman', serif;
+              font-size: 12pt;
+              line-height: 1.6;
+              color: #000;
+              background: white;
+              margin: 0;
+              padding: 0;
+            }
+            .letterhead {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 15px;
+            }
+            .content {
+              font-family: inherit;
+            }
+            .footer {
+              margin-top: 40px;
+              page-break-inside: avoid;
+            }
+            strong {
+              font-weight: bold;
+            }
+            em {
+              font-style: italic;
+            }
+            u {
+              text-decoration: underline;
+            }
+            @media print {
+              body { 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="content">${formattedContent}</div>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      
+      // Wait for content to load
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+        
+        // Close window after printing
+        setTimeout(() => {
+          printWindow.close();
+        }, 1000);
+      };
+      
+      setSuccess('PDF download initiated - please check your downloads folder');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      setError('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  const downloadAsWord = (content: string, filename: string) => {
+    try {
+      const formattedContent = formatContentForExport(content);
+      
+      // Create HTML content formatted for Word
+      const htmlContent = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+              xmlns:w='urn:schemas-microsoft-com:office:word' 
+              xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>Ground Report</title>
+          <style>
+            @page {
+              size: 8.5in 11in;
+              margin: 1in 0.8in 0.8in 0.8in;
+            }
+            body {
+              font-family: 'Times New Roman', serif;
+              font-size: 12pt;
+              line-height: 1.6;
+              margin: 0;
+            }
+            .content {
+              font-family: inherit;
+            }
+            strong {
+              font-weight: bold;
+            }
+            em {
+              font-style: italic;
+            }
+            u {
+              text-decoration: underline;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="content">${formattedContent}</div>
+        </body>
+        </html>
+      `;
+      
+      const blob = new Blob([htmlContent], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSuccess('Word document downloaded successfully!');
+    } catch (error) {
+      console.error('Word generation error:', error);
+      setError('Failed to generate Word document. Please try again.');
+    }
+  };
+
+  const handleDownload = (format: string) => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const baseFilename = `ground-report-${applicationId}-${timestamp}`;
+    
+    switch (format) {
+      case 'pdf':
+        downloadAsPDF(draftLetter, baseFilename);
+        break;
+      case 'word':
+        downloadAsWord(draftLetter, baseFilename);
+        break;
+      case 'txt':
+        // Strip formatting for plain text
+        const plainText = draftLetter
+          .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold
+          .replace(/\*(.*?)\*/g, '$1')      // Remove italic
+          .replace(/__(.*?)__/g, '$1');     // Remove underline
+        
+        const blob = new Blob([plainText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseFilename}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setSuccess('Text file downloaded successfully!');
+        break;
+      default:
+        setError('Unsupported download format');
+    }
+  };
+
+  const generateDraftLetter = () => {
+    const currentDate = new Date().toLocaleDateString('en-GB');
+    return `**[On Official Letterhead]**
+
+Date: ${currentDate}
+
+To,
+The Station House Officer (SHO)
+[Police Station Name]
+[Full Address]
+
+Subject: Verification of Antecedents and Character for Arms License Application
+
+Respected Sir/Madam,
+
+In compliance with the instructions received from the ARMS Branch, this office has undertaken a detailed verification of the antecedents, character, and background of [Applicant Name], who has applied for issuance/renewal of an arms license.
+
+1. Personal & Residential Verification
+
+The applicant is a permanent resident of the given address. Enquiries confirm continuous residence at the location for the past [X years], along with family members.
+
+2. Criminal Record Verification
+
+A comprehensive check of the police station records, crime registers, and state crime bureau records reveals [findings].
+
+3. Neighborhood & Local Inquiry
+
+A door-to-door inquiry was conducted with neighbors, shopkeepers, and other responsible members of the locality. [findings]
+
+4. Financial & Social Background
+
+The applicant is reported to be financially [status], engaged in [occupation/profession].
+
+5. Risk Assessment
+
+No intelligence input, local report, or community feedback suggests any risk concerns. [additional details]
+
+6. General Character
+
+The applicant enjoys a [reputation] reputation in the society. [character assessment]
+
+Conclusion & Recommendation
+
+On the basis of the above inquiries and verification conducted by this police station, it is concluded that [recommendation].
+
+Thanking you,
+
+Yours faithfully,
+[Signature & Seal]
+[Name & Designation]
+[Police Station/Unit]`;
+  };
+
   return (
     <div className={styles.formContainer}>
       {/* Header */}
@@ -242,10 +522,16 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
           <svg className="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Proceedings Form
+          Application Processing
         </h2>
         <p>Process application #{applicationId}</p>
       </div>
+
+      {/* Proceedings Form */}
+      <div>
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold">Proceedings Form</h3>
+        </div>
 
       <form onSubmit={handleSubmit} className={styles.formContent}>
         {/* Status Messages */}
@@ -282,7 +568,7 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
         {/* Next User Selection */}
         <div className={styles.formSection}>
           <label className={styles.formLabel}>
-            Forward To (Next User/Role) 
+            Forward To (Next User/Role)
             {actionType === 'forward' && <span className={styles.required}>*</span>}
           </label>
           <div className={styles.selectContainer}>
@@ -348,8 +634,8 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
           {remarksVisible && (
             <>
               <div className={styles.richTextContainer}>
-                <SimpleTextArea 
-                  value={remarks} 
+                <SimpleTextArea
+                  value={remarks}
                   onChange={setRemarks}
                   placeholder="Enter your remarks here..."
                   disabled={isSubmitting}
@@ -361,7 +647,276 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
               </p>
             </>
           )}
+            </div>
+            
+        {/* Ground Report Section within Proceedings */}
+        <div className="mt-8 border-t pt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-md font-semibold text-gray-800">Ground Report Letter</h4>
+            <button
+              type="button"
+              onClick={() => {
+                if (!showGroundReportInProceedings) {
+                  setDraftLetter(generateDraftLetter());
+                }
+                setShowGroundReportInProceedings(!showGroundReportInProceedings);
+              }}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0V5a2 2 0 00-2 2v6a2 2 0 002 2m14-6V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              {showGroundReportInProceedings ? 'Hide Ground Report' : 'Generate Ground Report'}
+            </button>
+          </div>
+
+          {/* Ground Report Editor within Proceedings */}
+          {showGroundReportInProceedings && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className={styles.formSection}>
+                <label className={styles.formLabel}>
+                  Draft Letter Content
+                </label>
+                <EnhancedTextEditor
+                  content={draftLetter}
+                  onChange={setDraftLetter}
+                  placeholder="Draft letter will appear here..."
+                  className="min-h-[400px]"
+                />
+                <p className={styles.helpText}>
+                  Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                </p>
+              </div>
+
+              <div className="flex gap-3 justify-end mt-4 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(draftLetter);
+                    setSuccess('Draft letter copied to clipboard!');
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy
+                </button>
+                
+                {/* Download Dropdown */}
+                <div className="relative download-dropdown">
+                  <button
+                    type="button"
+                    onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showDownloadDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                      <div className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownload('pdf');
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                          </svg>
+                          PDF (A4)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownload('word');
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                          </svg>
+                          Word (.doc)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownload('txt');
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                          </svg>
+                          Text (.txt)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftLetter(generateDraftLetter());
+                    setSuccess('Template reset to default!');
+                  }}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+      </form>
+        </div>
+
+      {/* Ground Report Editor */}
+      {showGroundReportEditor && (
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Ground Report Editor</h3>
+            <button
+              type="button"
+              onClick={() => setShowGroundReportEditor(false)}
+              className="text-gray-500 hover:text-gray-700 text-xl"
+            >
+              ← Back
+            </button>
+          </div>
+
+          <div className={styles.formContent}>
+            {/* Status Messages */}
+            {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
+            {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
+
+            <div className={styles.formSection}>
+              <label className={styles.formLabel}>
+                Draft Letter Content
+              </label>
+              <EnhancedTextEditor
+                content={draftLetter}
+                onChange={setDraftLetter}
+                placeholder="Draft letter will appear here..."
+                className="min-h-[600px]"
+              />
+              <p className={styles.helpText}>
+                Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end mt-6 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(draftLetter);
+                  setSuccess('Draft letter copied to clipboard!');
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy
+              </button>
+              
+              {/* Download Dropdown */}
+              <div className="relative download-dropdown">
+                <button
+                  type="button"
+                  onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Dropdown Menu */}
+                {showDownloadDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                    <div className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDownload('pdf');
+                          setShowDownloadDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                        PDF (A4)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDownload('word');
+                          setShowDownloadDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                        Word (.doc)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDownload('txt');
+                          setShowDownloadDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                        Text (.txt)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftLetter(generateDraftLetter());
+                  setSuccess('Template reset to default!');
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
         {/* Submit Button */}
         <div className={styles.submitSection}>
@@ -388,8 +943,7 @@ export default function ProceedingsForm({ applicationId, onSuccess }: Proceeding
               'Submit Action'
             )}
           </button>
-        </div>
-      </form>
+      </div>
     </div>
-  );
+  )
 }

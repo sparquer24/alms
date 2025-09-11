@@ -26,6 +26,13 @@ export class WorkflowService {
     remarks: string;
     currentUserId: number;
     attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
+    isApprovied?: boolean;
+    isFLAFGenerated?: boolean;
+    isGroundReportGenerated?: boolean;
+    isPending?: boolean;
+    isReEnquiry?: boolean;
+    isReEnquiryDone?: boolean;
+    isRejected?: boolean;
   }) {
     // 1. Fetch Application Data
     const application = await this.prisma.freshLicenseApplicationsForms.findUnique({
@@ -80,16 +87,27 @@ export class WorkflowService {
     }
 
     // 4. Save Changes
+    const updateData: any = {
+      statusId: newStatusId,
+      previousUserId: payload.currentUserId, // Use userId from JWT/payload
+      currentUserId: newCurrentUserId,
+      previousRoleId: currentRoleId, // Use roleId fetched from DB
+      currentRoleId: newCurrentRoleId,
+      remarks: payload.remarks,
+    };
+
+    // Add optional boolean fields if provided in payload
+    if (payload.isApprovied !== undefined) updateData.isApprovied = payload.isApprovied;
+    if (payload.isFLAFGenerated !== undefined) updateData.isFLAFGenerated = payload.isFLAFGenerated;
+    if (payload.isGroundReportGenerated !== undefined) updateData.isGroundReportGenerated = payload.isGroundReportGenerated;
+    if (payload.isPending !== undefined) updateData.isPending = payload.isPending;
+    if (payload.isReEnquiry !== undefined) updateData.isReEnquiry = payload.isReEnquiry;
+    if (payload.isReEnquiryDone !== undefined) updateData.isReEnquiryDone = payload.isReEnquiryDone;
+    if (payload.isRejected !== undefined) updateData.isRejected = payload.isRejected;
+
     const updatedApplication = await this.prisma.freshLicenseApplicationsForms.update({
       where: { id: payload.applicationId },
-      data: {
-        statusId: newStatusId,
-        previousUserId: payload.currentUserId, // Use userId from JWT/payload
-        currentUserId: newCurrentUserId,
-        previousRoleId: currentRoleId, // Use roleId fetched from DB
-        currentRoleId: newCurrentRoleId,
-        remarks: payload.remarks,
-      },
+      data: updateData,
     });
 
     // 5. Add workflow history log

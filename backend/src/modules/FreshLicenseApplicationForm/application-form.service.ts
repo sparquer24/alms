@@ -1,7 +1,6 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose, WeaponCategory } from '@prisma/client';
-import { exportAuditLogs } from '../../../../frontend/src/store/thunks/adminThunks';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
