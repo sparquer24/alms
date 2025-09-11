@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ApplicationApi, ReportApi, DocumentApi } from '../config/APIClient';
 import { useAuth } from '../config/auth';
+import CascadingLocationSelect from './CascadingLocationSelect';
+import { WeaponsService } from '../services/weapons';
 
 // BackButton component to navigate to previous route
 const BackButton: React.FC = () => {
@@ -155,6 +157,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   const [loadingDistricts, setLoadingDistricts] = useState(true);
   const [policeStations, setPoliceStations] = useState<{id: number, name: string}[]>([]);
   const [loadingPoliceStations, setLoadingPoliceStations] = useState(true);
+  const [weapons, setWeapons] = useState<{id: number, name: string}[]>([]);
+  const [loadingWeapons, setLoadingWeapons] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -260,6 +264,18 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     permanentPoliceStation: '',
     sameAsPresent: false,
     residingSince: '',
+  // IDs captured from cascading selector for present address
+  presentStateId: undefined as any,
+  presentDistrictId: undefined as any,
+  presentZoneId: undefined as any,
+  presentDivisionId: undefined as any,
+  presentStationId: undefined as any,
+  // Permanent IDs (from cascading selector)
+  permanentStateId: undefined as any,
+  permanentDistrictId: undefined as any,
+  permanentZoneId: undefined as any,
+  permanentDivisionId: undefined as any,
+  permanentStationId: undefined as any,
 
     // Contact Information
     officePhone: '',
@@ -281,6 +297,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     weaponReason: '',
     licenseType: 'Regular',
     licenseValidity: '3',
+  weaponId: undefined as any,
 
     // Legacy fields (now part of arrays)
     convicted: false,
@@ -581,6 +598,45 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     fetchDistricts();
   }, []);
 
+  // Fetch weapons for Step 5 (License Details)
+  React.useEffect(() => {
+    const loadWeapons = async () => {
+      try {
+        setLoadingWeapons(true);
+        const list = await WeaponsService.getAll();
+        const items = (list || []).map(w => ({ id: w.id, name: w.name })) as { id: number, name: string }[];
+        setWeapons(items);
+      } catch (e) {
+        console.error('Error loading weapons list', e);
+        setWeapons([
+          { id: 1, name: 'Pistol' },
+          { id: 2, name: 'Revolver' },
+          { id: 3, name: 'Rifle' },
+          { id: 4, name: 'Shotgun' },
+        ]);
+      } finally {
+        setLoadingWeapons(false);
+      }
+    };
+    loadWeapons();
+  }, []);
+
+  // Map changes from cascading selector to our local form values
+  const handlePresentLocationChange = (sel: any) => {
+    setFormData(prev => ({
+      ...prev,
+      presentState: sel?.state?.name || '',
+      presentDistrict: sel?.district?.name || '',
+      presentPoliceStation: sel?.station?.name || '',
+      jurisdictionPoliceStation: sel?.station?.name || prev.jurisdictionPoliceStation,
+      presentStateId: sel?.state?.id,
+      presentDistrictId: sel?.district?.id,
+      presentZoneId: sel?.zone?.id,
+      presentDivisionId: sel?.division?.id,
+      presentStationId: sel?.station?.id,
+    }));
+  };
+
   // Fetch police stations
   React.useEffect(() => {
     const fetchPoliceStations = async () => {
@@ -638,7 +694,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         permanentState: prev.presentState,
         permanentDistrict: prev.presentDistrict,
         permanentPincode: prev.presentPincode,
-        permanentPoliceStation: prev.presentPoliceStation
+  permanentPoliceStation: prev.presentPoliceStation,
+  permanentStateId: prev.presentStateId,
+  permanentDistrictId: prev.presentDistrictId,
+  permanentZoneId: prev.presentZoneId,
+  permanentDivisionId: prev.presentDivisionId,
+  permanentStationId: prev.presentStationId,
       }));
     }
   }, [formData.sameAsPresent]);
@@ -910,6 +971,17 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       permanentPoliceStation: 'Central Police Station',
       sameAsPresent: true,
       residingSince: '2015-06-01',
+  // IDs for cascading selections (mock values)
+  presentStateId: 1,
+  presentDistrictId: 1,
+  presentZoneId: 1,
+  presentDivisionId: 1,
+  presentStationId: 1,
+  permanentStateId: 1,
+  permanentDistrictId: 1,
+  permanentZoneId: 1,
+  permanentDivisionId: 1,
+  permanentStationId: 1,
 
       // Contact Information
       officePhone: '040-12345678',
@@ -928,6 +1000,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       // License Information
       applicationType: 'New License',
       weaponType: 'Revolver',
+  weaponId: 2,
       weaponReason: 'Self Protection',
       licenseType: 'Regular',
       licenseValidity: '3',
@@ -1091,6 +1164,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Helper function to map weapon types to weapon IDs
   const getWeaponIds = (weaponType: string): string[] => {
+    // Prefer selected weaponId when present
+    if ((formData as any)?.weaponId) {
+      return [String((formData as any).weaponId)];
+    }
     // This is a placeholder mapping - you should replace with actual weapon ID mapping
     const weaponMap: Record<string, string[]> = {
       'pistol': ['1'],
@@ -1276,16 +1353,16 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       panNumber: formData.panNumber || "",
       aadharNumber: formData.aadharNumber || formData.applicantIdNumber || "",
       dobInWords: formData.dateOfBirthInWords || "",
-      stateId: getStateId(formData.presentState || ""),
-      districtId: getDistrictId(formData.presentDistrict || ""),
+  stateId: formData.presentStateId ?? getStateId(formData.presentState || ""),
+  districtId: formData.presentDistrictId ?? getDistrictId(formData.presentDistrict || ""),
       currentUserId: parseInt(userId || "13"),
       currentRoleId: 34, // Default role ID
 
       presentAddress: {
         addressLine: formData.applicantAddress || "",
-        stateId: getStateId(formData.presentState || ""),
-        districtId: getDistrictId(formData.presentDistrict || ""),
-        policeStationId: getPoliceStationId(formData.presentPoliceStation || ""),
+        stateId: formData.presentStateId ?? getStateId(formData.presentState || ""),
+        districtId: formData.presentDistrictId ?? getDistrictId(formData.presentDistrict || ""),
+        policeStationId: formData.presentStationId ?? getPoliceStationId(formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
           : new Date().toISOString()
@@ -1293,9 +1370,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
       permanentAddress: {
         addressLine: formData.permanentAddress || formData.applicantAddress || "",
-        stateId: getStateId(formData.permanentState || formData.presentState || ""),
-        districtId: getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
-        policeStationId: getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
+  stateId: formData.permanentStateId ?? getStateId(formData.permanentState || formData.presentState || ""),
+  districtId: formData.permanentDistrictId ?? getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
+  policeStationId: formData.permanentStationId ?? getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
           : new Date().toISOString()
@@ -1967,40 +2044,15 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         {errors.applicantAddress && <p className="text-red-500 text-xs mt-1">{errors.applicantAddress}</p>}
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">State <span className="text-red-500">*</span></label>
-                        <select
-                          name="presentState"
-                          value={formData.presentState}
-                          onChange={handleChange}
-                          className={`mt-1 block w-full p-2 border ${errors.presentState ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                        >
-                          <option value="">Select State</option>
-                          <option value="Telangana">Telangana</option>
-                          <option value="Andhra Pradesh">Andhra Pradesh</option>
-                          <option value="Karnataka">Karnataka</option>
-                          <option value="Tamil Nadu">Tamil Nadu</option>
-                          <option value="Maharashtra">Maharashtra</option>
-                          <option value="Other">Other</option>
-                        </select>
+                      <div className="col-span-1 md:col-span-2">
+                        <CascadingLocationSelect
+                          onChange={handlePresentLocationChange}
+                          labels={{ state: 'State', district: 'District', zone: 'Zone', division: 'Division', station: 'Nearest Police Station' }}
+                          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        />
                         {errors.presentState && <p className="text-red-500 text-xs mt-1">{errors.presentState}</p>}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">District <span className="text-red-500">*</span></label>
-                        <select
-                          name="presentDistrict"
-                          value={formData.presentDistrict}
-                          onChange={handleChange}
-                          className={`mt-1 block w-full p-2 border ${errors.presentDistrict ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                          disabled={loadingDistricts}
-                        >
-                          <option value="">Select District</option>
-                          {districts.map((district) => (
-                            <option key={district} value={district}>{district}</option>
-                          ))}
-                        </select>
-                        {loadingDistricts && <p className="text-gray-500 text-xs mt-1">Loading districts...</p>}
                         {errors.presentDistrict && <p className="text-red-500 text-xs mt-1">{errors.presentDistrict}</p>}
+                        {errors.presentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.presentPoliceStation}</p>}
                       </div>
 
                       <div>
@@ -2016,23 +2068,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         {errors.presentPincode && <p className="text-red-500 text-xs mt-1">{errors.presentPincode}</p>}
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Nearest Police Station <span className="text-red-500">*</span></label>
-                        <select
-                          name="presentPoliceStation"
-                          value={formData.presentPoliceStation}
-                          onChange={handleChange}
-                          className={`mt-1 block w-full p-2 border ${errors.presentPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                          disabled={loadingPoliceStations}
-                        >
-                          <option value="">Select Police Station</option>
-                          {policeStations.map((station) => (
-                            <option key={station.id} value={station.name}>{station.name}</option>
-                          ))}
-                        </select>
-                        {loadingPoliceStations && <p className="text-gray-500 text-xs mt-1">Loading police stations...</p>}
-                        {errors.presentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.presentPoliceStation}</p>}
-                      </div>
+                      {/* Police station is selected via cascading selector. Keep pincode next to it. */}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Since when residing at present address</label>
@@ -2047,19 +2083,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station <span className="text-red-500">*</span></label>
-                        <select
+                        <input
+                          type="text"
                           name="jurisdictionPoliceStation"
                           value={formData.jurisdictionPoliceStation}
                           onChange={handleChange}
                           className={`mt-1 block w-full p-2 border ${errors.jurisdictionPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                          disabled={loadingPoliceStations}
-                        >
-                          <option value="">Select Police Station</option>
-                          {policeStations.map((station) => (
-                            <option key={station.id} value={station.name}>{station.name}</option>
-                          ))}
-                        </select>
-                        {loadingPoliceStations && <p className="text-gray-500 text-xs mt-1">Loading police stations...</p>}
+                          placeholder="Selected in location above"
+                        />
                         {errors.jurisdictionPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.jurisdictionPoliceStation}</p>}
                       </div>
                     </div>
@@ -2093,41 +2124,30 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         {errors.permanentAddress && <p className="text-red-500 text-xs mt-1">{errors.permanentAddress}</p>}
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">State {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
-                        <select
-                          name="permanentState"
-                          value={formData.permanentState}
-                          onChange={handleChange}
+                      <div className="col-span-1 md:col-span-2">
+                        <CascadingLocationSelect
+                          onChange={(sel) => {
+                            // don't override when sameAsPresent
+                            if (formData.sameAsPresent === true) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              permanentState: sel?.state?.name || '',
+                              permanentDistrict: sel?.district?.name || '',
+                              permanentPoliceStation: sel?.station?.name || '',
+                              permanentStateId: sel?.state?.id,
+                              permanentDistrictId: sel?.district?.id,
+                              permanentZoneId: sel?.zone?.id,
+                              permanentDivisionId: sel?.division?.id,
+                              permanentStationId: sel?.station?.id,
+                            }));
+                          }}
+                          labels={{ state: 'State', district: 'District', zone: 'Zone', division: 'Division', station: 'Jurisdiction Police Station' }}
+                          className="grid grid-cols-1 md:grid-cols-2 gap-4"
                           disabled={formData.sameAsPresent === true}
-                          className={`mt-1 block w-full p-2 border ${errors.permanentState ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                        >
-                          <option value="">Select State</option>
-                          <option value="Telangana">Telangana</option>
-                          <option value="Andhra Pradesh">Andhra Pradesh</option>
-                          <option value="Karnataka">Karnataka</option>
-                          <option value="Tamil Nadu">Tamil Nadu</option>
-                          <option value="Maharashtra">Maharashtra</option>
-                          <option value="Other">Other</option>
-                        </select>
+                        />
                         {errors.permanentState && <p className="text-red-500 text-xs mt-1">{errors.permanentState}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text sm font-medium text-gray-700">District {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
-                        <select
-                          name="permanentDistrict"
-                          value={formData.permanentDistrict}
-                          onChange={handleChange}
-                          disabled={formData.sameAsPresent === true || loadingDistricts}
-                          className={`mt-1 block w-full p-2 border ${errors.permanentDistrict ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                        >
-                          <option value="">Select District</option>
-                          {districts.map((district) => (
-                            <option key={district} value={district}>{district}</option>
-                          ))}
-                        </select>
                         {errors.permanentDistrict && <p className="text-red-500 text-xs mt-1">{errors.permanentDistrict}</p>}
+                        {errors.permanentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.permanentPoliceStation}</p>}
                       </div>
 
                       <div>
@@ -2146,19 +2166,15 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
-                        <select
+                        <input
+                          type="text"
                           name="permanentPoliceStation"
                           value={formData.permanentPoliceStation}
                           onChange={handleChange}
-                          disabled={formData.sameAsPresent === true || loadingPoliceStations}
+                          disabled={formData.sameAsPresent === true}
                           className={`mt-1 block w-full p-2 border ${errors.permanentPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                        >
-                          <option value="">Select Police Station</option>
-                          {policeStations.map((station) => (
-                            <option key={station.id} value={station.name}>{station.name}</option>
-                          ))}
-                        </select>
-                        {loadingPoliceStations && <p className="text-gray-500 text-xs mt-1">Loading police stations...</p>}
+                          placeholder="Selected in location above"
+                        />
                         {errors.permanentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.permanentPoliceStation}</p>}
                       </div>
                     </div>
@@ -2524,16 +2540,23 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             <label className="block text-sm font-medium text-gray-700">Weapon Type <span className="text-red-500">*</span></label>
                             <select
                               name="weaponType"
-                              value={formData.weaponType}
-                              onChange={handleChange}
+                              value={String(formData.weaponId ?? '')}
+                              onChange={(e) => {
+                                const selId = e.target.value ? Number(e.target.value) : undefined;
+                                const sel = weapons.find(w => w.id === selId);
+                                setFormData(prev => ({
+                                  ...prev,
+                                  weaponId: selId,
+                                  weaponType: sel?.name || '',
+                                }));
+                              }}
                               className={`mt-1 block w-full p-2 border ${errors.weaponType ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                              disabled={loadingWeapons}
                             >
-                              <option value="">Select Weapon Type</option>
-                              <option value="Rifle">Rifle</option>
-                              <option value="Shotgun">Shotgun</option>
-                              <option value="Handgun">Handgun</option>
-                              <option value="Pistol">Pistol</option>
-                              <option value="Revolver">Revolver</option>
+                              <option value="">{loadingWeapons ? 'Loading weapons…' : 'Select Weapon Type'}</option>
+                              {weapons.map(w => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
                             </select>
                             {errors.weaponType && <p className="text-red-500 text-xs mt-1">{errors.weaponType}</p>}
                           </div>
