@@ -533,7 +533,7 @@ export class ApplicationFormService {
         whereCondition = { ...whereCondition, acknowledgementNo };
       }
 
-      let application:any = await prisma.freshLicenseApplicationsForms.findUnique({
+      let application: any = await prisma.freshLicenseApplicationsForms.findUnique({
         where: whereCondition,
         include: {
           presentAddress: {
@@ -606,28 +606,133 @@ export class ApplicationFormService {
           const zoneId = zone?.id;
           const districtId = district?.id;
           const stateId = state?.id;
-          usersInHierarchy = await prisma.users.findMany({
-            where: {
-              OR: [
-                ...(policeStationId ? [{ policeStationId }] : []),
-                ...(divisionId ? [{ divisionId }] : []),
-                ...(zoneId ? [{ zoneId }] : []),
-                ...(districtId ? [{ districtId }] : []),
-                ...(stateId ? [{ stateId }] : []),
-              ]
-            },
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              stateId: true,
-              districtId: true,
-              zoneId: true,
-              divisionId: true,
-              policeStationId: true,
-              roleId: true
-            }
-          });
+          console.log({ districtId, zoneId, divisionId, policeStationId, stateId })
+
+          // Execute 5 separate queries for each hierarchical level
+          // Users are only returned for a level if they don't belong to a more specific level
+
+          const queries = [];
+
+          // 1. Police Station level users (most specific)
+          if (policeStationId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  policeStationId: policeStationId
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 2. Division level users (only if policeStationId is null)
+          if (divisionId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  divisionId: divisionId,
+                  policeStationId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 3. Zone level users (only if divisionId is null)
+          if (zoneId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  zoneId: zoneId,
+                  divisionId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 4. District level users (only if zoneId is null)
+          if (districtId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  districtId: districtId,
+                  zoneId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 5. State level users (only if districtId is null)
+          if (stateId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  stateId: stateId,
+                  districtId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // Execute all queries in parallel and combine results
+          if (queries.length > 0) {
+            const results = await Promise.all(queries);
+            // Flatten the array of arrays into a single array
+            usersInHierarchy = results.flat();
+          }
         }
       }
       application = { ...application, usersInHierarchy };
@@ -787,28 +892,132 @@ export class ApplicationFormService {
             const zoneId = zone?.id;
             const districtId = district?.id;
             const stateId = state?.id;
-            usersInHierarchy = await prisma.users.findMany({
-              where: {
-                OR: [
-                  ...(policeStationId ? [{ policeStationId }] : []),
-                  ...(divisionId ? [{ divisionId }] : []),
-                  ...(zoneId ? [{ zoneId }] : []),
-                  ...(districtId ? [{ districtId }] : []),
-                  ...(stateId ? [{ stateId }] : []),
-                ]
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true
-              }
-            });
+
+            // Execute 5 separate queries for each hierarchical level
+            // Users are only returned for a level if they don't belong to a more specific level
+
+            const queries = [];
+
+            // 1. Police Station level users (most specific)
+            if (policeStationId) {
+              queries.push(
+                prisma.users.findMany({
+                  where: {
+                    policeStationId: policeStationId
+                  },
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    stateId: true,
+                    districtId: true,
+                    zoneId: true,
+                    divisionId: true,
+                    policeStationId: true,
+                    roleId: true
+                  }
+                })
+              );
+            }
+
+            // 2. Division level users (only if policeStationId is null)
+            if (divisionId) {
+              queries.push(
+                prisma.users.findMany({
+                  where: {
+                    divisionId: divisionId,
+                    policeStationId: null
+                  },
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    stateId: true,
+                    districtId: true,
+                    zoneId: true,
+                    divisionId: true,
+                    policeStationId: true,
+                    roleId: true
+                  }
+                })
+              );
+            }
+
+            // 3. Zone level users (only if divisionId is null)
+            if (zoneId) {
+              queries.push(
+                prisma.users.findMany({
+                  where: {
+                    zoneId: zoneId,
+                    divisionId: null
+                  },
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    stateId: true,
+                    districtId: true,
+                    zoneId: true,
+                    divisionId: true,
+                    policeStationId: true,
+                    roleId: true
+                  }
+                })
+              );
+            }
+
+            // 4. District level users (only if zoneId is null)
+            if (districtId) {
+              queries.push(
+                prisma.users.findMany({
+                  where: {
+                    districtId: districtId,
+                    zoneId: null
+                  },
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    stateId: true,
+                    districtId: true,
+                    zoneId: true,
+                    divisionId: true,
+                    policeStationId: true,
+                    roleId: true
+                  }
+                })
+              );
+            }
+
+            // 5. State level users (only if districtId is null)
+            if (stateId) {
+              queries.push(
+                prisma.users.findMany({
+                  where: {
+                    stateId: stateId,
+                    districtId: null
+                  },
+                  select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    stateId: true,
+                    districtId: true,
+                    zoneId: true,
+                    divisionId: true,
+                    policeStationId: true,
+                    roleId: true
+                  }
+                })
+              );
+            }
+
+            // Execute all queries in parallel and combine results
+            if (queries.length > 0) {
+              const results = await Promise.all(queries);
+              // Flatten the array of arrays into a single array
+              usersInHierarchy = results.flat();
+            }
           }
         }
         return {
