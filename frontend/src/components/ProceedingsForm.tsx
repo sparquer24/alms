@@ -15,6 +15,19 @@ interface ProceedingsFormProps {
   applicationId: string;
   onSuccess?: () => void;
   userRole?: string;
+  applicationData?: {
+    usersInHierarchy?: Array<{
+      id: number;
+      username: string;
+      email: string;
+      stateId: number;
+      districtId: number;
+      zoneId: number | null;
+      divisionId: number | null;
+      policeStationId: number | null;
+      roleId: number;
+    }>;
+  };
 }
 
 const ACTION_OPTIONS = [
@@ -31,20 +44,6 @@ const ACTION_ID_MAP: Record<string, number> = {
   'dispose': 3,
   'red-flag': 4,
 };
-
-// Dummy users used only as a fallback when API is not available
-const DUMMY_USERS: Array<{ id: string | number; username: string; role?: string | null }> = [
-  { id: 3, username: 'JTCP_ADMIN', role: 'JTCP' },
-  { id: 4, username: 'SUPDT_STORES_HYD', role: 'SUPDT' },
-  { id: 5, username: 'SUPDT_TL_HYD', role: 'SUPDT' },
-  { id: 6, username: 'CP_HYD', role: 'CP' },
-  { id: 7, username: 'ACP_NORTH', role: 'ACP' },
-  { id: 8, username: 'DCP_CENTRAL', role: 'DCP' },
-  { id: 9, username: 'SHO_WEST', role: 'SHO' },
-  { id: 10, username: 'ADMIN_USER', role: 'ADMIN' },
-  { id: 1, username: 'CADO_HYD', role: 'CADO' }, 
-  { id: 13, username: 'ZS_ADMIN', role: 'ZS' },
-];
 
 // Simple TextArea Component as Rich Text Editor Replacement
 function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId }: {
@@ -140,7 +139,7 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
   );
 }
 
-export default function ProceedingsForm({ applicationId, onSuccess, userRole }: ProceedingsFormProps) {
+export default function ProceedingsForm({ applicationId, onSuccess, userRole, applicationData }: ProceedingsFormProps) {
   const [actionType, setActionType] = useState('');
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
@@ -157,14 +156,17 @@ export default function ProceedingsForm({ applicationId, onSuccess, userRole }: 
   const [showGroundReportInProceedings, setShowGroundReportInProceedings] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
 
-  // Fetch users when action type changes (available for all actions) using dummy data
+  // Load users when application data is available (not dependent on action type)
   useEffect(() => {
-    if (actionType) {
+    if (applicationData?.usersInHierarchy) {
       setFetchingUsers(true);
       setError(null);
 
       const timer = setTimeout(() => {
-        const formatted = DUMMY_USERS.map((u) => ({
+        // Use real application data from usersInHierarchy
+        const usersToUse = applicationData.usersInHierarchy || [];
+
+        const formatted = usersToUse.map((u) => ({
           value: String(u.id),
           label: `${u.username} (${u.id})`,
         }));
@@ -175,10 +177,9 @@ export default function ProceedingsForm({ applicationId, onSuccess, userRole }: 
       return () => clearTimeout(timer);
     } else {
       setUserOptions([]);
-      setNextUser(null);
       setFetchingUsers(false);
     }
-  }, [actionType]);
+  }, [applicationData?.usersInHierarchy]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -578,12 +579,10 @@ Yours faithfully,
               value={nextUser}
               onChange={setNextUser}
               placeholder={
-                actionType
-                  ? (fetchingUsers ? 'Loading users...' : 'Select user')
-                  : 'Select action first'
+                fetchingUsers ? 'Loading users...' : 'Select user'
               }
               isLoading={fetchingUsers}
-              isDisabled={isSubmitting || fetchingUsers || !actionType}
+              isDisabled={isSubmitting || fetchingUsers}
               className="text-sm"
               styles={{
                 control: (provided, state) => ({
@@ -593,18 +592,18 @@ Yours faithfully,
                   '&:hover': {
                     borderColor: '#3B82F6'
                   },
-                  backgroundColor: !actionType ? '#f9fafb' : 'white'
+                  backgroundColor: 'white'
                 })
               }}
             />
           </div>
-          {actionType && fetchingUsers && (
+          {fetchingUsers && (
             <div className={styles.loadingText}>
               <LoadingSpinner size="sm" />
               <span>Loading available users...</span>
             </div>
           )}
-          {actionType && !fetchingUsers && userOptions.length === 0 && (
+          {!fetchingUsers && userOptions.length === 0 && (
             <p className={styles.helpText}>
               No users available. Please try refreshing the page.
             </p>
