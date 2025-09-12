@@ -54,6 +54,22 @@ export class AddressDto {
   districtId!: number;
 
   @ApiProperty({
+    description: 'zone ID',
+    example: 1
+  })
+  
+  @IsNumber()
+  zoneId!: number;
+
+  @ApiProperty({
+    description: 'division ID',
+    example: 1
+  })
+
+  @IsNumber()
+  divisionId!: number;
+  
+  @ApiProperty({
     description: 'Police Station ID',
     example: 1
   })

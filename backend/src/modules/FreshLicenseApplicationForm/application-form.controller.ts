@@ -72,6 +72,8 @@ export class ApplicationFormController {
           addressLine: applicationData.presentAddress.addressLine,
           stateId: applicationData.presentAddress.stateId,
           districtId: applicationData.presentAddress.districtId,
+          zoneId: applicationData.permanentAddress.zoneId,
+          divisionId: applicationData.permanentAddress.divisionId,
           policeStationId: applicationData.presentAddress.policeStationId,
           sinceResiding: new Date(applicationData.presentAddress.sinceResiding)
         },
@@ -80,6 +82,8 @@ export class ApplicationFormController {
           addressLine: applicationData.permanentAddress.addressLine,
           stateId: applicationData.permanentAddress.stateId,
           districtId: applicationData.permanentAddress.districtId,
+          zoneId: applicationData.permanentAddress.zoneId,
+          divisionId: applicationData.permanentAddress.divisionId,
           policeStationId: applicationData.permanentAddress.policeStationId,
           sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
         } : undefined,
