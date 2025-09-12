@@ -61,6 +61,17 @@ interface ApplicationData {
     canReturn: boolean;
     canDispose: boolean;
   };
+  usersInHierarchy?: Array<{
+    id: number;
+    username: string;
+    email: string;
+    stateId: number;
+    districtId: number;
+    zoneId: number | null;
+    divisionId: number | null;
+    policeStationId: number | null;
+    roleId: number;
+  }>;
 }
 
 interface ApplicationDetailPageProps {
@@ -175,7 +186,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               canRaiseRedflag: !apiApp.isApproved && !apiApp.isRejected,
               canReturn: !apiApp.isApproved && !apiApp.isRejected,
               canDispose: apiApp.isApproved,
-            }
+            },
+            // Include usersInHierarchy from API response
+            usersInHierarchy: apiApp.usersInHierarchy || []
           };
 
           console.log('✅ ApplicationDetailPage: Transformed application:', transformedApp);
@@ -809,6 +822,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   applicationId={applicationId} 
                                   onSuccess={handleProceedingsSuccess}
                                   userRole={userRole}
+                                  applicationData={application || undefined}
                                 />
                               </div>
                             )}
@@ -1003,6 +1017,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             applicationId={applicationId} 
                             onSuccess={handleProceedingsSuccess}
                             userRole={userRole}
+                            applicationData={application || undefined}
                           />
                         </div>
                       </div>
