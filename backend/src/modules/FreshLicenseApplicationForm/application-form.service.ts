@@ -624,7 +624,7 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
         whereCondition = { ...whereCondition, acknowledgementNo };
       }
 
-      let application:any = await prisma.freshLicenseApplicationsForms.findUnique({
+      let application: any = await prisma.freshLicenseApplicationsForms.findUnique({
         where: whereCondition,
         include: {
           presentAddress: {
@@ -697,28 +697,131 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
           const zoneId = zone?.id;
           const districtId = district?.id;
           const stateId = state?.id;
-          usersInHierarchy = await prisma.users.findMany({
-            where: {
-              OR: [
-                ...(policeStationId ? [{ policeStationId }] : []),
-                ...(divisionId ? [{ divisionId }] : []),
-                ...(zoneId ? [{ zoneId }] : []),
-                ...(districtId ? [{ districtId }] : []),
-                ...(stateId ? [{ stateId }] : []),
-              ]
-            },
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              stateId: true,
-              districtId: true,
-              zoneId: true,
-              divisionId: true,
-              policeStationId: true,
-              roleId: true
-            }
-          });
+          // Execute 5 separate queries for each hierarchical level
+          // Users are only returned for a level if they don't belong to a more specific level
+
+          const queries = [];
+
+          // 1. Police Station level users (most specific)
+          if (policeStationId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  policeStationId: policeStationId
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 2. Division level users (only if policeStationId is null)
+          if (divisionId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  divisionId: divisionId,
+                  policeStationId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 3. Zone level users (only if divisionId is null)
+          if (zoneId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  zoneId: zoneId,
+                  divisionId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 4. District level users (only if zoneId is null)
+          if (districtId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  districtId: districtId,
+                  zoneId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // 5. State level users (only if districtId is null)
+          if (stateId) {
+            queries.push(
+              prisma.users.findMany({
+                where: {
+                  stateId: stateId,
+                  districtId: null
+                },
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true,
+                  roleId: true
+                }
+              })
+            );
+          }
+
+          // Execute all queries in parallel and combine results
+          if (queries.length > 0) {
+            const results = await Promise.all(queries);
+            // Flatten the array of arrays into a single array
+            usersInHierarchy = results.flat();
+          }
         }
       }
       application = { ...application, usersInHierarchy };
@@ -846,88 +949,9 @@ async createApplication(data: CreateFreshLicenseApplicationsFormsInput) {
         }),
       ]);
 
-      // For each application, attach usersInHierarchy based on its presentAddress location hierarchy
-      const filteredData = await Promise.all(data.map(async (item) => {
-        let usersInHierarchy: any[] = [];
-        // Defensive: check presentAddress and policeStation
-        if (item.presentAddress && item.presentAddress.policeStationId) {
-          // Fetch the full policeStation hierarchy
-          const policeStation = await prisma.policeStations.findUnique({
-            where: { id: item.presentAddress.policeStationId },
-            include: {
-              division: {
-                include: {
-                  zone: {
-                    include: {
-                      district: {
-                        include: { state: true }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          });
-          if (policeStation) {
-            const division = policeStation.division;
-            const zone = division?.zone;
-            const district = zone?.district;
-            const state = district?.state;
-            const policeStationId = policeStation.id;
-            const divisionId = division?.id;
-            const zoneId = zone?.id;
-            const districtId = district?.id;
-            const stateId = state?.id;
-            usersInHierarchy = await prisma.users.findMany({
-              where: {
-                OR: [
-                  ...(policeStationId ? [{ policeStationId }] : []),
-                  ...(divisionId ? [{ divisionId }] : []),
-                  ...(zoneId ? [{ zoneId }] : []),
-                  ...(districtId ? [{ districtId }] : []),
-                  ...(stateId ? [{ stateId }] : []),
-                ]
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true
-              }
-            });
-          }
-        }
-        return {
-          id: item.id,
-          acknowledgementNo: item.acknowledgementNo,
-          applicantFullName: [item.firstName, item.middleName, item.lastName].filter(Boolean).join(" "),
-          currentRole: item.currentRole,
-          previousRole: item.previousRole,
-          currentUser: item.currentUser,
-          previousUser: item.previousUser,
-          isApprovied: item.isApprovied,
-          isFLAFGenerated: item.isFLAFGenerated,
-          isGroundReportGenerated: item.isGroundReportGenerated,
-          isPending: item.isPending,
-          isReEnquiry: item.isReEnquiry,
-          isReEnquiryDone: item.isReEnquiryDone,
-          isRejected: item.isRejected,
-          remarks: item.remarks,
-          status: item.status,
-          createdAt: item.createdAt.toISOString(),
-          updatedAt: item.updatedAt.toISOString(),
-          usersInHierarchy: Array.isArray(usersInHierarchy) ? usersInHierarchy : []
-        };
-      }));
-
       return [null, {
         total,
-        data: filteredData
+        data: data
       }];
     } catch (error) {
       return [error, null];

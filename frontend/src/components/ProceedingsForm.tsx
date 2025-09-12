@@ -183,6 +183,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, userRole, ap
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submit button clicked - form submission started');
     setError(null);
     setSuccess(null);
 
@@ -235,10 +236,13 @@ export default function ProceedingsForm({ applicationId, onSuccess, userRole, ap
       payload.isGroundReportGenerated = true;
     }
 
+    console.log('Payload to be sent:', payload);
     setIsSubmitting(true);
 
     try {
+      console.log('Making API call to /workflow/action');
       const result = await postData(`/workflow/action`, payload);
+      console.log('API response:', result);
       setSuccess(result.message || 'Action completed successfully.');
       
       // Reset form
@@ -786,6 +790,33 @@ Yours faithfully,
             )}
           </div>
         )}
+
+        {/* Submit Button */}
+        <div className={styles.submitSection}>
+          <div className={styles.loadingText}>
+            {isSubmitting && (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Processing your request...</span>
+              </>
+            )}
+          </div>
+          
+          <button
+            type="submit"
+            disabled={isSubmitting || loading || fetchingUsers}
+            className={styles.submitButton}
+          >
+            {isSubmitting ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Submitting...</span>
+              </>
+            ) : (
+              'Submit Action'
+            )}
+          </button>
+        </div>
       </form>
         </div>
 
@@ -919,33 +950,6 @@ Yours faithfully,
           </div>
         </div>
       )}
-
-        {/* Submit Button */}
-        <div className={styles.submitSection}>
-          <div className={styles.loadingText}>
-            {isSubmitting && (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Processing your request...</span>
-              </>
-            )}
-          </div>
-          
-          <button
-            type="submit"
-            disabled={isSubmitting || loading || fetchingUsers}
-            className={styles.submitButton}
-          >
-            {isSubmitting ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Submitting...</span>
-              </>
-            ) : (
-              'Submit Action'
-            )}
-          </button>
-      </div>
     </div>
   )
 }
