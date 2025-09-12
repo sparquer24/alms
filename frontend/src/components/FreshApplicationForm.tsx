@@ -685,24 +685,52 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     fetchPoliceStations();
   }, []);
 
-  // Update permanent address when same as present is toggled
+  // Keep permanent address auto-filled and in sync while "same as present" is checked
   React.useEffect(() => {
-    if (formData.sameAsPresent) {
-      setFormData(prev => ({
+    if (!formData.sameAsPresent) return;
+
+    setFormData(prev => {
+      const next = {
         ...prev,
         permanentAddress: prev.applicantAddress,
         permanentState: prev.presentState,
         permanentDistrict: prev.presentDistrict,
         permanentPincode: prev.presentPincode,
-  permanentPoliceStation: prev.presentPoliceStation,
-  permanentStateId: prev.presentStateId,
-  permanentDistrictId: prev.presentDistrictId,
-  permanentZoneId: prev.presentZoneId,
-  permanentDivisionId: prev.presentDivisionId,
-  permanentStationId: prev.presentStationId,
-      }));
-    }
-  }, [formData.sameAsPresent]);
+        permanentPoliceStation: prev.presentPoliceStation,
+        permanentStateId: prev.presentStateId,
+        permanentDistrictId: prev.presentDistrictId,
+        permanentZoneId: prev.presentZoneId,
+        permanentDivisionId: prev.presentDivisionId,
+        permanentStationId: prev.presentStationId,
+      } as typeof prev;
+
+      const unchanged =
+        prev.permanentAddress === next.permanentAddress &&
+        prev.permanentState === next.permanentState &&
+        prev.permanentDistrict === next.permanentDistrict &&
+        prev.permanentPincode === next.permanentPincode &&
+        prev.permanentPoliceStation === next.permanentPoliceStation &&
+        prev.permanentStateId === next.permanentStateId &&
+        prev.permanentDistrictId === next.permanentDistrictId &&
+        prev.permanentZoneId === next.permanentZoneId &&
+        prev.permanentDivisionId === next.permanentDivisionId &&
+        prev.permanentStationId === next.permanentStationId;
+
+      return unchanged ? prev : next;
+    });
+  }, [
+    formData.sameAsPresent,
+    formData.applicantAddress,
+    formData.presentState,
+    formData.presentDistrict,
+    formData.presentPincode,
+    formData.presentPoliceStation,
+    formData.presentStateId,
+    formData.presentDistrictId,
+    formData.presentZoneId,
+    formData.presentDivisionId,
+    formData.presentStationId,
+  ]);
 
   // Validate form fields for current step
   const validateCurrentStep = () => {
@@ -2126,6 +2154,19 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
                       <div className="col-span-1 md:col-span-2">
                         <CascadingLocationSelect
+                          value={formData.sameAsPresent ? {
+                            state: formData.presentStateId ? { id: formData.presentStateId, name: formData.presentState } as any : undefined,
+                            district: formData.presentDistrictId ? { id: formData.presentDistrictId, name: formData.presentDistrict } as any : undefined,
+                            zone: formData.presentZoneId ? { id: formData.presentZoneId, name: '' } as any : undefined,
+                            division: formData.presentDivisionId ? { id: formData.presentDivisionId, name: '' } as any : undefined,
+                            station: formData.presentStationId ? { id: formData.presentStationId, name: formData.presentPoliceStation } as any : undefined,
+                          } : {
+                            state: formData.permanentStateId ? { id: formData.permanentStateId, name: formData.permanentState } as any : undefined,
+                            district: formData.permanentDistrictId ? { id: formData.permanentDistrictId, name: formData.permanentDistrict } as any : undefined,
+                            zone: formData.permanentZoneId ? { id: formData.permanentZoneId, name: '' } as any : undefined,
+                            division: formData.permanentDivisionId ? { id: formData.permanentDivisionId, name: '' } as any : undefined,
+                            station: formData.permanentStationId ? { id: formData.permanentStationId, name: formData.permanentPoliceStation } as any : undefined,
+                          }}
                           onChange={(sel) => {
                             // don't override when sameAsPresent
                             if (formData.sameAsPresent === true) return;

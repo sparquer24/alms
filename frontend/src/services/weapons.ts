@@ -15,7 +15,7 @@ function normalize(res: any): Weapon[] {
 
 export const WeaponsService = {
   async getAll(params?: { id?: number | string }): Promise<Weapon[]> {
-    const res: any = await apiClient.get('/weapons', params);
+    const res: any = await apiClient.get('/Weapons', params);
     return normalize(res);
   },
 };

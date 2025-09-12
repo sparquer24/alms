@@ -10,6 +10,8 @@ type Props = {
   requiredLevels?: Array<'state' | 'district' | 'zone' | 'division' | 'station'>;
   className?: string;
   disabled?: boolean;
+  tooltipMessages?: Partial<Record<'state' | 'district' | 'zone' | 'division' | 'station', string>>;
+  tooltipAutoHideMs?: number;
 };
 
 const defaultLabels = {
@@ -27,6 +29,8 @@ export default function CascadingLocationSelect({
   requiredLevels = ['state', 'district', 'zone', 'division', 'station'],
   className,
   disabled,
+  tooltipMessages,
+  tooltipAutoHideMs = 2200,
 }: Props) {
   const lbl = { ...defaultLabels, ...(labels || {}) };
 
@@ -37,6 +41,57 @@ export default function CascadingLocationSelect({
   const [stations, setStations] = React.useState<BasicItem[]>([]);
 
   const [sel, setSel] = React.useState<LocationSelection>(value || {});
+  type Level = 'state'|'district'|'zone'|'division'|'station';
+  const [tip, setTip] = React.useState<{ level: Level | null; message: string } | null>(null);
+  const tipTimer = React.useRef<number | null>(null);
+
+  const msgFor = (level: Level) => {
+    if (tooltipMessages && tooltipMessages[level]) return tooltipMessages[level] as string;
+    switch (level) {
+      case 'district': return `Please select ${lbl.state} before ${lbl.district}.`;
+      case 'zone': return `Please select ${lbl.district} before ${lbl.zone}.`;
+      case 'division': return `Please select ${lbl.zone} before ${lbl.division}.`;
+      case 'station': return `Please select ${lbl.division} before ${lbl.station}.`;
+      case 'state':
+      default: return `Start by selecting ${lbl.state}.`;
+    }
+  };
+
+  const showTip = (level: Level, persist?: boolean) => {
+    setTip({ level, message: msgFor(level) });
+    if (tipTimer.current) {
+      window.clearTimeout(tipTimer.current);
+      tipTimer.current = null;
+    }
+    if (!persist) {
+      tipTimer.current = window.setTimeout(() => setTip(null), tooltipAutoHideMs);
+    }
+  };
+
+  const hideTip = () => {
+    if (tipTimer.current) {
+      window.clearTimeout(tipTimer.current);
+      tipTimer.current = null;
+    }
+    setTip(null);
+  };
+
+  React.useEffect(() => () => {
+    if (tipTimer.current) window.clearTimeout(tipTimer.current);
+  }, []);
+
+  // Keep internal selection in sync when parent supplies/updates a value
+  React.useEffect(() => {
+    if (!value) return;
+    const same =
+      sel.state?.id === value.state?.id &&
+      sel.district?.id === value.district?.id &&
+      sel.zone?.id === value.zone?.id &&
+      sel.division?.id === value.division?.id &&
+      sel.station?.id === value.station?.id;
+    if (!same) setSel(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value?.state?.id, value?.district?.id, value?.zone?.id, value?.division?.id, value?.station?.id]);
 
   React.useEffect(() => {
     (async () => {
@@ -113,11 +168,11 @@ export default function CascadingLocationSelect({
       </div>
 
       {/* District */}
-      <div className="mb-3">
+      <div className="mb-3 relative">
         <label className="block text-sm font-medium text-gray-700">{lbl.district}{isReq('district') && ' *'}</label>
         <select
           className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-          disabled={disabled || !sel.state}
+          disabled={disabled}
           value={sel.district?.id ?? ''}
           onChange={(e) => {
             const id = Number(e.target.value || 0);
@@ -128,14 +183,27 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.district}</option>
           {opt(districts)}
         </select>
+    {(disabled || !sel.state) && (
+          <div
+            className="absolute inset-0 bg-transparent cursor-default"
+            onMouseEnter={() => showTip('district', true)}
+            onMouseLeave={hideTip}
+            aria-hidden="true"
+          />
+        )}
+        {tip?.level === 'district' && (
+          <div className="absolute top-full left-0 mt-1 z-10 text-xs text-white bg-black/90 px-2 py-1 rounded shadow">
+            {tip.message}
+          </div>
+        )}
       </div>
 
       {/* Zone */}
-      <div className="mb-3">
+      <div className="mb-3 relative">
         <label className="block text-sm font-medium text-gray-700">{lbl.zone}{isReq('zone') && ' *'}</label>
         <select
           className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-          disabled={disabled || !sel.district}
+          disabled={disabled}
           value={sel.zone?.id ?? ''}
           onChange={(e) => {
             const id = Number(e.target.value || 0);
@@ -146,14 +214,27 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.zone}</option>
           {opt(zones)}
         </select>
+    {(disabled || !sel.district) && (
+          <div
+            className="absolute inset-0 bg-transparent cursor-default"
+            onMouseEnter={() => showTip('zone', true)}
+            onMouseLeave={hideTip}
+            aria-hidden="true"
+          />
+        )}
+        {tip?.level === 'zone' && (
+          <div className="absolute top-full left-0 mt-1 z-10 text-xs text-white bg-black/90 px-2 py-1 rounded shadow">
+            {tip.message}
+          </div>
+        )}
       </div>
 
       {/* Division */}
-      <div className="mb-3">
+      <div className="mb-3 relative">
         <label className="block text-sm font-medium text-gray-700">{lbl.division}{isReq('division') && ' *'}</label>
         <select
           className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-          disabled={disabled || !sel.zone}
+          disabled={disabled}
           value={sel.division?.id ?? ''}
           onChange={(e) => {
             const id = Number(e.target.value || 0);
@@ -164,14 +245,27 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.division}</option>
           {opt(divisions)}
         </select>
+    {(disabled || !sel.zone) && (
+          <div
+            className="absolute inset-0 bg-transparent cursor-default"
+            onMouseEnter={() => showTip('division', true)}
+            onMouseLeave={hideTip}
+            aria-hidden="true"
+          />
+        )}
+        {tip?.level === 'division' && (
+          <div className="absolute top-full left-0 mt-1 z-10 text-xs text-white bg-black/90 px-2 py-1 rounded shadow">
+            {tip.message}
+          </div>
+        )}
       </div>
 
       {/* Station */}
-      <div className="mb-1">
+      <div className="mb-1 relative">
         <label className="block text-sm font-medium text-gray-700">{lbl.station}{isReq('station') && ' *'}</label>
         <select
           className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
-          disabled={disabled || !sel.division}
+          disabled={disabled}
           value={sel.station?.id ?? ''}
           onChange={(e) => {
             const id = Number(e.target.value || 0);
@@ -182,6 +276,19 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.station}</option>
           {opt(stations)}
         </select>
+    {(disabled || !sel.division) && (
+          <div
+            className="absolute inset-0 bg-transparent cursor-default"
+            onMouseEnter={() => showTip('station', true)}
+            onMouseLeave={hideTip}
+            aria-hidden="true"
+          />
+        )}
+        {tip?.level === 'station' && (
+          <div className="absolute top-full left-0 mt-1 z-10 text-xs text-white bg-black/90 px-2 py-1 rounded shadow">
+            {tip.message}
+          </div>
+        )}
       </div>
     </div>
   );
