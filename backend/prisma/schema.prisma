@@ -58,6 +58,7 @@ model Zones {
   divisions  Divisions[]
   users      Users[]     @relation("ZoneUsers")
   district   Districts   @relation(fields: [districtId], references: [id])
+  addresses  FreshLicenseApplicationsFormAddresses[]
 }
 
 model Divisions {
@@ -67,6 +68,7 @@ model Divisions {
   zone     Zones            @relation(fields: [zoneId], references: [id])
   stations PoliceStations[]
   users    Users[]          @relation("DivisionUsers")
+  addresses FreshLicenseApplicationsFormAddresses[]
 }
 
 model PoliceStations {
@@ -230,10 +232,14 @@ model FreshLicenseApplicationsFormAddresses {
   stateId               Int
   districtId            Int
   policeStationId       Int
+  zoneId                Int
+  divisionId            Int
   sinceResiding         DateTime
   district              Districts                       @relation(fields: [districtId], references: [id])
   state                 States                          @relation(fields: [stateId], references: [id])
   policeStation         PoliceStations                   @relation(fields: [policeStationId], references: [id])
+  zone                  Zones                           @relation(fields: [zoneId], references: [id])
+  division              Divisions                       @relation(fields: [divisionId], references: [id])
   permanentApplications FreshLicenseApplicationsForms[] @relation("PermanentAddress")
   presentApplications   FreshLicenseApplicationsForms[] @relation("PresentAddress")
 }
