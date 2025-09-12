@@ -808,6 +808,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 <ProceedingsForm 
                                   applicationId={applicationId} 
                                   onSuccess={handleProceedingsSuccess}
+                                  userRole={userRole}
                                 />
                               </div>
                             )}
@@ -1001,6 +1002,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           <ProceedingsForm 
                             applicationId={applicationId} 
                             onSuccess={handleProceedingsSuccess}
+                            userRole={userRole}
                           />
                         </div>
                       </div>
