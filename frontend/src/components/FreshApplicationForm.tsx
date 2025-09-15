@@ -1390,6 +1390,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.applicantAddress || "",
         stateId: formData.presentStateId ?? getStateId(formData.presentState || ""),
         districtId: formData.presentDistrictId ?? getDistrictId(formData.presentDistrict || ""),
+  zoneId: formData.presentZoneId ?? undefined,
+  divisionId: formData.presentDivisionId ?? undefined,
         policeStationId: formData.presentStationId ?? getPoliceStationId(formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
@@ -1400,6 +1402,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.permanentAddress || formData.applicantAddress || "",
   stateId: formData.permanentStateId ?? getStateId(formData.permanentState || formData.presentState || ""),
   districtId: formData.permanentDistrictId ?? getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
+  zoneId: formData.permanentZoneId ?? (formData.sameAsPresent ? formData.presentZoneId : undefined),
+  divisionId: formData.permanentDivisionId ?? (formData.sameAsPresent ? formData.presentDivisionId : undefined),
   policeStationId: formData.permanentStationId ?? getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()

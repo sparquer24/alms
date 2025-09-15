@@ -575,7 +575,7 @@ Yours faithfully,
         <div className={styles.formSection}>
           <label className={styles.formLabel}>
             Forward To (Next User/Role)
-            {actionType === 'forward' && <span className={styles.required}>*</span>}
+            {<span className={styles.required}>*</span>}
           </label>
           <div className={styles.selectContainer}>
             <Select

@@ -58,7 +58,9 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
   // Handle both old and new API response formats
   const histories = Array.isArray(detailedApp?.FreshLicenseApplicationsFormWorkflowHistories)
     ? detailedApp.FreshLicenseApplicationsFormWorkflowHistories
-    : [];
+    : Array.isArray(detailedApp?.workflowHistory)
+      ? detailedApp.workflowHistory
+      : [];
   const history = histories.map((h: any) => {
     const created = h.createdAt ? new Date(h.createdAt) : new Date();
     return {
@@ -116,9 +118,10 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       canRaiseRedflag: !detailedApp.isApprovied && !detailedApp.isRejected,
       canReturn: !detailedApp.isApprovied && !detailedApp.isRejected,
       canDispose: detailedApp.isApprovied,
-    },
-    // Add acknowledgement number for new API format
-    acknowledgementNo: detailedApp.acknowledgementNo || undefined,
+  },
+    usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
+      ? detailedApp.usersInHierarchy
+      : [],
   };
 };
 
@@ -351,6 +354,17 @@ export interface ApplicationData {
     canReturn: boolean;
     canDispose: boolean;
   };
+  usersInHierarchy?: Array<{
+    id: number;
+    username: string;
+    email: string;
+    stateId: number;
+    districtId: number;
+    zoneId: number | null;
+    divisionId: number | null;
+    policeStationId: number | null;
+    roleId: number;
+  }>;
 }
 
 /**
@@ -573,9 +587,14 @@ export const fetchApplicationCounts = async (): Promise<{
  * Maps the actual API response structure to ApplicationData interface
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
+  // Derive applicant name from available fields; some list endpoints may not include applicantFullName
+  const derivedName = (apiApp.applicantFullName 
+    || `${apiApp.firstName || ''} ${apiApp.middleName || ''} ${apiApp.lastName || ''}`.trim()
+  ) || 'Unknown Applicant';
+
   return {
     id: String(apiApp.id || ''),
-    applicantName: apiApp.applicantFullName || 'Unknown',
+    applicantName: derivedName,
     applicantMobile: apiApp.mobileNumber || '', // This might need to be fetched from detailed API
     applicantEmail: apiApp.emailAddress || undefined, // This might need to be fetched from detailed API
     fatherName: apiApp.fatherName || undefined, // This might need to be fetched from detailed API
@@ -607,6 +626,9 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
       canReturn: !apiApp.isApprovied && !apiApp.isRejected,
       canDispose: apiApp.isApprovied,
     },
+    usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
+      ? apiApp.usersInHierarchy
+      : undefined,
   };
 };
 
