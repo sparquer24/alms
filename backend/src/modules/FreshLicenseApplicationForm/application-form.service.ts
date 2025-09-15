@@ -673,6 +673,32 @@ export class ApplicationFormService {
           }
         },
       });
+
+
+      // Add previousUserName and previousRoleName to each workflow history entry
+      if (application?.FreshLicenseApplicationsFormWorkflowHistories?.length) {
+        for (const history of application.FreshLicenseApplicationsFormWorkflowHistories) {
+          let previousUserName: string | null = null;
+          let previousRoleName: string | null = null;
+          if (history.previousUserId) {
+            const prevUser = await prisma.users.findUnique({
+              where: { id: history.previousUserId },
+              select: { username: true }
+            });
+            previousUserName = prevUser?.username || null;
+          }
+          if (history.previousRoleId) {
+            const prevRole = await prisma.roles.findUnique({
+              where: { id: history.previousRoleId },
+              select: { name: true }
+            });
+            previousRoleName = prevRole?.name || null;
+          }
+          history.previousUserName = previousUserName;
+          history.previousRoleName = previousRoleName;
+        }
+      }
+
       let usersInHierarchy: any[] = [];
       // Defensive: check presentAddress and policeStation
       if (application.presentAddress && application.presentAddress.policeStationId) {
@@ -830,7 +856,10 @@ export class ApplicationFormService {
           }
         }
       }
-      application = { ...application, usersInHierarchy };
+      application = { 
+        ...application, 
+        usersInHierarchy
+      };
       return [null, application];
     } catch (err) {
       return [err, null];
