@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -5,6 +6,7 @@ import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
 import { postData } from '../api/axiosConfig';
 import { EnhancedTextEditor } from './RichTextEditor';
+import { getCookie } from 'cookies-next';
 
 interface UserOption {
   value: string;
@@ -139,7 +141,7 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
   );
 }
 
-export default function ProceedingsForm({ applicationId, onSuccess, userRole, applicationData }: ProceedingsFormProps) {
+export default function ProceedingsForm({ applicationId, onSuccess, applicationData }: ProceedingsFormProps) {
   const [actionType, setActionType] = useState('');
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
@@ -155,6 +157,18 @@ export default function ProceedingsForm({ applicationId, onSuccess, userRole, ap
   const [showGroundReportEditor, setShowGroundReportEditor] = useState(false);
   const [showGroundReportInProceedings, setShowGroundReportInProceedings] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+  const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
+
+  // Read role from cookies on mount and normalize
+  useEffect(() => {
+    try {
+      const cookieVal = getCookie('role') as any;
+      const str = cookieVal == null ? null : String(cookieVal).trim().toUpperCase();
+      setRoleFromCookie(str);
+    } catch (e) {
+      // ignore cookie read errors; role remains null
+    }
+  }, []);
 
   // Load users when application data is available (not dependent on action type)
   useEffect(() => {
@@ -216,6 +230,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, userRole, ap
       remarks: remarks.trim(),
       attachments: [],
     };
+
     
     // Add next user if forwarding
     if (nextUser?.value) {
@@ -653,8 +668,10 @@ Yours faithfully,
           )}
             </div>
             
-        {/* Ground Report Section within Proceedings - Only for SHO role */}
-        {userRole === 'SHO' && (
+  {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
+
+  {roleFromCookie === 'SHO' && (
+          
           <div className="mt-8 border-t pt-6">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-md font-semibold text-gray-800">Ground Report Letter</h4>
