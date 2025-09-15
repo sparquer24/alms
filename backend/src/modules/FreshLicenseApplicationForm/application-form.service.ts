@@ -847,6 +847,7 @@ export class ApplicationFormService {
     orderBy?: string;
     order?: 'asc' | 'desc';
     applicationId?: number;
+    isOwned?: boolean| undefined;
   }) {
     // Remove top-level usersInHierarchy; will attach per application
     let orderByObj = {};
@@ -856,8 +857,8 @@ export class ApplicationFormService {
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
         where.statusId = { in: filter.statusIds };
       }
-
-      if (filter.currentUserId !== undefined) {
+      
+      if (filter.currentUserId !== undefined && !filter.isOwned===true) {
         where.currentUserId = filter.currentUserId;
       }
 
