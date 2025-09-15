@@ -15,6 +15,7 @@ import EnhancedApplicationTimeline from '../../../components/EnhancedApplication
 // import { generateApplicationPDF, getApplicationPrintHTML } from '../../../config/pdfUtils';
 import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
+import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 
 // Application interface for the detail page
 interface ApplicationData {
@@ -138,63 +139,17 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [setShowHeader, setShowSidebar]);
   
   useEffect(() => {
-    // Fetch application directly from API
+    // Fetch application using shared service which maps workflow history correctly
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        console.log('🔍 ApplicationDetailPage: Fetching application with ID:', applicationId);
-        const response = await ApplicationApi.getById(Number(applicationId));
-        console.log('🔍 ApplicationDetailPage: API Response:', response);
-
-        if (response?.success && response?.data) {
-          // Transform API response to ApplicationData format
-          const apiApp = response.data as any; // Use any to handle dynamic API response
-          const transformedApp: ApplicationData = {
-            id: String(apiApp.id || applicationId),
-            status_id: apiApp.status?.id || '1', // Default status_id for compatibility
-            acknowledgementNo: apiApp.acknowledgementNo || undefined,
-            applicantName: apiApp.applicantName || 'Unknown Applicant',
-            applicantMobile: apiApp.contactInfo?.mobileNumber || apiApp.mobileNumber || 'N/A',
-            applicantEmail: apiApp.contactInfo?.email || apiApp.email || undefined,
-            fatherName: apiApp.parentOrSpouseName || undefined,
-            gender: (apiApp.sex === 'MALE' ? 'Male' : apiApp.sex === 'FEMALE' ? 'Female' : 'Other') as 'Male' | 'Female' | 'Other',
-            dob: apiApp.dateOfBirth || undefined,
-            address: apiApp.presentAddress?.addressLine || undefined,
-            applicationType: 'Fresh License',
-            applicationDate: apiApp.createdAt || new Date().toISOString(),
-            applicationTime: undefined, // Extract time from createdAt if needed
-            status: (apiApp.status?.name?.toLowerCase() || 'pending') as 'pending' | 'approved' | 'rejected' | 'returned' | 're-enquiry' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 'ground-report' | 'closed' | 'recommended',
-            assignedTo: apiApp.currentUser?.username || 'Unassigned',
-            forwardedFrom: apiApp.previousUser?.username || undefined,
-            forwardedTo: apiApp.currentUser?.username || undefined,
-            forwardComments: apiApp.remarks || undefined,
-            returnReason: undefined, // Will be set based on workflow status
-            flagReason: undefined, // Will be set based on workflow status  
-            disposalReason: undefined, // Will be set based on workflow status
-            lastUpdated: apiApp.updatedAt || apiApp.createdAt || new Date().toISOString(),
-            documents: apiApp.fileUploads?.map((upload: any) => ({
-              name: upload.fileName || 'Document',
-              type: upload.fileType || 'unknown',
-              url: upload.fileUrl || ''
-            })) || [],
-            history: [], // Will be populated if workflow history is available
-            actions: {
-              canForward: apiApp.currentRole?.can_forward || false,
-              canReport: true,
-              canApprove: !apiApp.isApproved && !apiApp.isRejected,
-              canReject: !apiApp.isApproved && !apiApp.isRejected,
-              canRaiseRedflag: !apiApp.isApproved && !apiApp.isRejected,
-              canReturn: !apiApp.isApproved && !apiApp.isRejected,
-              canDispose: apiApp.isApproved,
-            },
-            // Include usersInHierarchy from API response
-            usersInHierarchy: apiApp.usersInHierarchy || []
-          };
-
-          console.log('✅ ApplicationDetailPage: Transformed application:', transformedApp);
-          setApplication(transformedApp);
+        console.log('🔍 ApplicationDetailPage: Fetching application with ID (via service):', applicationId);
+        const result = await getApplicationByApplicationId(applicationId);
+        if (result) {
+          console.log('✅ ApplicationDetailPage: Loaded application (transformed):', result);
+          setApplication(result as ApplicationData);
         } else {
-          console.warn('⚠️ ApplicationDetailPage: Invalid API response');
+          console.warn('⚠️ ApplicationDetailPage: No application found');
           setApplication(null);
         }
       } catch (error) {
