@@ -166,6 +166,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'applicationId', required: false, type: String })
   @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
   @ApiQuery({ name: 'statusIds', required: false, type: String })
+  @ApiQuery({ name: 'isOwned', required: false, type: String, default: false})
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -177,7 +178,8 @@ export class ApplicationFormController {
     @Query('order') order?: string,
     @Query('applicationId') applicationId?: number,
     @Query('acknowledgementNo') acknowledgementNo?: string,
-    @Query('statusIds') statusIds?: string
+    @Query('statusIds') statusIds?: string,
+    @Query('isOwned') isOwned?: String
   ) {
     try {
       // Parse pagination
@@ -222,6 +224,7 @@ export class ApplicationFormController {
           data: dataApplication,
         }
       }
+
       // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
@@ -233,7 +236,7 @@ export class ApplicationFormController {
         currentUserId: req.user?.sub, // If you need user context
         statusIds: parsedStatusIds,
         applicationId: parsedApplicationId,
-        // acknowledgementNo: parsedAcknowledgementNo, // Removed to match service type
+        isOwned : isOwned == 'true' ? true : false,
       });
       if (error) {
         const errMsg = (error as any)?.message || 'Failed to fetch applications';
