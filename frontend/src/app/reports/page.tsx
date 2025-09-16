@@ -6,7 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useAuthSync } from '../../hooks/useAuthSync';
 import { useLayout } from '../../config/layoutContext';
-import { ApplicationData } from '../../services/sidebarApiCalls';
+import { ApplicationData } from '../../types';
 import { ApplicationApi } from '../../config/APIClient';
 import { ReportApi } from '../../config/APIClient';
 import { useAuth } from '../../config/auth';

@@ -6,7 +6,8 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, ApplicationData, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { filterApplications, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { ApplicationData } from '../../types';
 import { ApplicationApi } from '../../config/APIClient';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 

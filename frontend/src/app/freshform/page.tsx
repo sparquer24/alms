@@ -7,7 +7,8 @@ import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, getApplicationsByStatus, ApplicationData, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
 export default function FreshFormPage() {

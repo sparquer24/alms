@@ -1,5 +1,8 @@
 // Common types used throughout the ALMS application
 
+import { ReactNode } from "react";
+import { Key } from "readline";
+
 // User and Authentication Types
 export interface User {
   id: string;
@@ -31,46 +34,136 @@ export interface LoginCredentials {
 }
 
 // Application Types
+export interface WorkflowHistoryAttachment {
+  url: string;
+  name: string;
+  type: string;
+  contentType: string;
+}
+
+export interface WorkflowHistory {
+  id: number;
+  applicationId: number;
+  previousUserId: number;
+  nextUserId: number;
+  actionTaken: string;
+  remarks: string;
+  createdAt: string;
+  previousRoleId: number;
+  nextRoleId: number;
+  actionesId: number | null;
+  attachments: WorkflowHistoryAttachment[] | null;
+  previousUserName: string;
+  previousRoleName: string;
+  nextUserName: string;
+  nextRoleName: string;
+}
+
 export interface ApplicationData {
   id: string;
   applicantName: string;
   applicantMobile: string;
-  applicantEmail: string;
-  fatherName: string;
-  gender: string;
-  dateOfBirth: string;
-  age: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  licenseType: string;
-  weaponType: string;
-  purposeOfWeapon: string;
+  applicantEmail?: string;
+  fatherName?: string;
+  gender?: 'Male' | 'Female' | 'Other';
+  dob?: string; // Date of birth
+  dateOfBirth?: string; // Alternative field name for date of birth
+  age?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  licenseType?: string;
+  weaponType?: string;
+  purposeOfWeapon?: string;
+  applicationType: string;
+  applicationDate: string;
+  applicationTime?: string;
+  acknowledgementNo?: string;
   status: ApplicationStatus;
-  createdAt: string;
-  updatedAt: string;
-  assignedTo?: string;
-  comments?: string[];
-  documents?: DocumentFile[];
+  status_id: string | number; // Numeric status ID for backend compatibility
+  assignedTo: string;
+  forwardedFrom?: string;
+  forwardedTo?: string;
+  forwardComments?: string; // Comments when forwarding an application
+  isViewed?: boolean; // Track if the application has been viewed by the forwarded user
+  returnReason?: string;
+  flagReason?: string;
+  disposalReason?: string;
+  lastUpdated: string;
+  createdAt?: string;
+  updatedAt?: string;
+  comments?: string[]; // Legacy field for comments array
+  documents?: Array<{
+    id?: string;
+    name: string;
+    type: string;
+    url: string;
+    uploadedAt?: string;
+    size?: number;
+  }>;
+  history?: Array<{
+    actionTaken: any;
+    attachments: any;
+    id: Key | null | undefined;
+    by: string;
+    createdAt: string | number | Date;
+    remarks: any;
+    date: string;
+    time: string;
+    action: string;
+    comments?: string;
+  }>;
+  // New workflow history field
+  FreshLicenseApplicationsFormWorkflowHistories?: WorkflowHistory[];
+  actions?: {
+    canForward: boolean;
+    canReport: boolean;
+    canApprove: boolean;
+    canReject: boolean;
+    canRaiseRedflag: boolean;
+    canReturn: boolean;
+    canDispose: boolean;
+  };
+  usersInHierarchy?: Array<{
+    id: number;
+    userName?: string;
+    username?: string; // Alternative field name
+    email: string;
+    stateId: number;
+    districtId: number;
+    zoneId: number | null;
+    divisionId: number | null;
+    policeStationId: number | null;
+    roleId: number;
+    roleName?: string;
+  }>;
 }
 
-export type ApplicationStatus = 
+export type ApplicationStatus =
   | 'pending'
-  | 'under_review'
   | 'approved'
   | 'rejected'
-  | 'forwarded'
+  | 'returned'
+  | 'red-flagged'
+  | 'disposed'
+  | 'initiated'
+  | 'cancelled'
+  | 're-enquiry'
+  | 'ground-report'
   | 'closed'
+  | 'recommended'
+  | 'under_review'
+  | 'forwarded'
   | 'final_disposal';
 
 export interface DocumentFile {
-  id: string;
+  id?: string;
   name: string;
   type: string;
   url: string;
-  uploadedAt: string;
-  size: number;
+  uploadedAt?: string;
+  size?: number;
 }
 
 // Form Types
@@ -143,7 +236,7 @@ export interface TableColumn<T = any> {
 }
 
 // Role and Permission Types
-export type UserRole = 
+export type UserRole =
   | 'ADMIN'
   | 'DCP'
   | 'ACP'

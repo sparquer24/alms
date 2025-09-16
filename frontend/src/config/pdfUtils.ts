@@ -1,12 +1,12 @@
 // This utility file contains functions to generate PDF documents from application data
-import { ApplicationData } from "./mockData";
+import { ApplicationData } from "../types";
 
 // Function to create a PDF from application data
 export const generateApplicationPDF = async (application: ApplicationData): Promise<void> => {  // Dynamically import jspdf to reduce bundle size
   // These will only be loaded when the user wants to generate a PDF
   const { default: jsPDF } = await import('jspdf');
   // Note: html2canvas import removed as it's currently not used
-  
+
   try {
     // Create a new PDF document
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -14,87 +14,87 @@ export const generateApplicationPDF = async (application: ApplicationData): Prom
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let yPosition = margin;
-    
+
     // Add header with emblem
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.text('GOVERNMENT OF INDIA', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
-    
+
     doc.setFontSize(14);
     doc.text('ARMS LICENSE APPLICATION', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
-    
+
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(`Application ID: ${application.id}`, pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
-    
+
     // Add horizontal line
     doc.setDrawColor(0);
     doc.setLineWidth(0.5);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 10;
-    
+
     // Application Information
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text('APPLICATION DETAILS', margin, yPosition);
     yPosition += 8;
-    
+
     // Application Status
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text(`Status: ${application.status.toUpperCase()}`, margin, yPosition);
     yPosition += 6;
-    
+
     doc.text(`Date of Application: ${formatDate(application.applicationDate)}`, margin, yPosition);
     yPosition += 6;
-    
+
     doc.text(`Last Updated: ${formatDate(application.lastUpdated)}`, margin, yPosition);
     yPosition += 10;
-    
+
     // Applicant Information
     doc.setFont('helvetica', 'bold');
     doc.text('APPLICANT INFORMATION', margin, yPosition);
     yPosition += 8;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.text(`Name: ${application.applicantName}`, margin, yPosition);
     yPosition += 6;
-    
+
     doc.text(`Mobile: ${application.applicantMobile}`, margin, yPosition);
     yPosition += 6;
-    
+
     // Application Type and Processing Details
     doc.setFont('helvetica', 'bold');
     yPosition += 4;
     doc.text('LICENSE INFORMATION', margin, yPosition);
     yPosition += 8;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.text(`Application Type: ${application.applicationType}`, margin, yPosition);
     yPosition += 6;
-    
+
     doc.text(`Assigned To: ${application.assignedTo}`, margin, yPosition);
     yPosition += 6;
-    
+
     if (application.forwardedFrom) {
       doc.text(`Forwarded From: ${application.forwardedFrom}`, margin, yPosition);
       yPosition += 6;
     }
-    
+
     if (application.forwardedTo) {
       doc.text(`Forwarded To: ${application.forwardedTo}`, margin, yPosition);
       yPosition += 6;
     }
-    
+
     // Process-specific details
     yPosition += 4;
     doc.setFont('helvetica', 'bold');
     doc.text('PROCESS DETAILS', margin, yPosition);
     yPosition += 8;
-    
+
     doc.setFont('helvetica', 'normal');
     switch (application.status) {
       case 'approved':
@@ -124,17 +124,17 @@ export const generateApplicationPDF = async (application: ApplicationData): Prom
       default:
         doc.text('This application is PENDING and awaiting review.', margin, yPosition);
     }
-    
+
     // Footer
     yPosition = pageHeight - 20;
     doc.setFontSize(8);
     doc.text('This document was generated from Arms License Management System.', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 4;
     doc.text(`Generated on ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
-    
+
     // Save the PDF
     doc.save(`Application_${application.id}.pdf`);
-    
+
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw new Error('Could not generate PDF');
@@ -144,7 +144,7 @@ export const generateApplicationPDF = async (application: ApplicationData): Prom
 // Function to create a batch report PDF from multiple application data
 export const generateBatchReportPDF = async (applications: ApplicationData[], reportTitle: string = "Applications Report"): Promise<void> => {
   const { default: jsPDF } = await import('jspdf');
-  
+
   try {
     // Create a new PDF document
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -152,66 +152,66 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     let yPosition = margin;
-    
+
     // Add header
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.text('GOVERNMENT OF INDIA', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
-    
+
     doc.setFontSize(14);
     doc.text(reportTitle.toUpperCase(), pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
-    
+
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(`Total Applications: ${applications.length}`, pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 6;
     doc.text(`Report Date: ${formatDate(new Date().toISOString())}`, pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 10;
-    
+
     // Add horizontal line
     doc.setDrawColor(0);
     doc.setLineWidth(0.5);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 10;
-    
+
     // Create a summary of applications by status
     const statusCounts: Record<string, number> = applications.reduce((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
+
     // Display summary
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text('SUMMARY BY STATUS', margin, yPosition);
     yPosition += 8;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    
+
     for (const [status, count] of Object.entries(statusCounts)) {
       doc.text(
-        `${status.charAt(0).toUpperCase() + status.slice(1)}: ${count} application(s)`, 
-        margin, 
+        `${status.charAt(0).toUpperCase() + status.slice(1)}: ${count} application(s)`,
+        margin,
         yPosition
       );
       yPosition += 6;
     }
-    
+
     yPosition += 6;
-    
+
     // Applications table header
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text('APPLICATIONS LIST', margin, yPosition);
     yPosition += 8;
-    
+
     // Table headers
     doc.setFillColor(240, 240, 240);
     doc.rect(margin, yPosition, pageWidth - (margin * 2), 8, 'F');
-    
+
     doc.setFontSize(9);
     doc.text("ID", margin + 2, yPosition + 5);
     doc.text("Applicant", margin + 25, yPosition + 5);
@@ -220,24 +220,24 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
     doc.text("Status", margin + 130, yPosition + 5);
     doc.text("Assigned To", margin + 155, yPosition + 5);
     yPosition += 8;
-    
+
     // Table rows
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    
+
     // Loop through applications and add rows to table
     for (const app of applications) {
       // Check if we need a new page
       if (yPosition > pageHeight - 30) {
         doc.addPage();
         yPosition = margin;
-        
+
         // Table headers on new page
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setFillColor(240, 240, 240);
         doc.rect(margin, yPosition, pageWidth - (margin * 2), 8, 'F');
-        
+
         doc.text("ID", margin + 2, yPosition + 5);
         doc.text("Applicant", margin + 25, yPosition + 5);
         doc.text("Type", margin + 70, yPosition + 5);
@@ -245,23 +245,23 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
         doc.text("Status", margin + 130, yPosition + 5);
         doc.text("Assigned To", margin + 155, yPosition + 5);
         yPosition += 8;
-        
+
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
       }
-      
+
       // Add alternating row background
       if ((applications.indexOf(app) % 2) === 0) {
         doc.setFillColor(250, 250, 250);
         doc.rect(margin, yPosition, pageWidth - (margin * 2), 6, 'F');
       }
-      
+
       doc.text(app.id, margin + 2, yPosition + 4);
       doc.text(
-        app.applicantName.length > 25 
+        app.applicantName.length > 25
           ? app.applicantName.substring(0, 25) + '...'
-          : app.applicantName, 
-        margin + 25, 
+          : app.applicantName,
+        margin + 25,
         yPosition + 4
       );
       doc.text(
@@ -280,21 +280,21 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
         margin + 155,
         yPosition + 4
       );
-      
+
       yPosition += 6;
     }
-    
+
     // Footer
     yPosition = pageHeight - 20;
     doc.setFontSize(8);
     doc.text('This report was generated from Arms License Management System.', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 4;
     doc.text(`Generated on ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
-    
+
     // Save the PDF
     const fileName = `Applications_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
     doc.save(fileName);
-    
+
     return;
   } catch (error) {
     console.error('Error generating batch report PDF:', error);
@@ -387,7 +387,7 @@ export const getBatchReportHTML = (applications: ApplicationData[], reportTitle:
       </div>
     `)
     .join('');
-    
+
   const applicationsHTML = applications.map((app, index) => `
     <tr class="${index % 2 === 0 ? 'even-row' : 'odd-row'}">
       <td>${app.id}</td>

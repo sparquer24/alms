@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ApplicationData } from '../services/sidebarApiCalls';
+import { ApplicationData } from '../types';
 import { CheckIcon, ForwardIcon, RejectIcon, ReturnIcon, FlagIcon, DisposeIcon, ReviewIcon, PendingIcon } from '../utils/icons';
 
 // Local date helpers to replace missing '../utils/dateUtils'
