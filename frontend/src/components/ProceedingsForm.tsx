@@ -9,6 +9,8 @@ import { EnhancedTextEditor } from './RichTextEditor';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
+import { ApplicationData } from '../types';
+
 interface UserOption {
   value: string;
   label: string;
@@ -18,19 +20,7 @@ interface ProceedingsFormProps {
   applicationId: string;
   onSuccess?: () => void;
   userRole?: string;
-  applicationData?: {
-    usersInHierarchy?: Array<{
-      id: number;
-      username: string;
-      email: string;
-      stateId: number;
-      districtId: number;
-      zoneId: number | null;
-      divisionId: number | null;
-      policeStationId: number | null;
-      roleId: number;
-    }>;
-  };
+  applicationData?: ApplicationData;
 }
 
 const ACTION_OPTIONS = [
@@ -189,7 +179,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
 
         const formatted = usersToUse.map((u) => ({
           value: String(u.id),
-          label: `${u.username} (${u.id})`,
+          label: `${u.username || u.userName || 'Unknown User'} (${u.id})`,
         }));
         setUserOptions(formatted);
         setFetchingUsers(false);

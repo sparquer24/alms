@@ -1,5 +1,5 @@
 import { APIApplication } from '../types/api';
-import { ApplicationData } from '../config/mockData';
+import { ApplicationData } from '../types';
 
 const statusMap: Record<string, ApplicationData['status']> = {
   // Support both uppercase and lowercase status values from API

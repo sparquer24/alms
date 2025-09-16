@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ApplicationData } from '../services/sidebarApiCalls';
+import { ApplicationData } from '../types';
 import { useAuth } from '../config/auth';
 import { getRoleHierarchy } from '../utils/roleUtils';
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ApplicationData } from '../services/sidebarApiCalls';
+import { ApplicationData } from '../types';
 import { useAuth } from '../config/auth';
 import { getRoleBasedActions } from '../utils/roleUtils';
 

@@ -6,6 +6,7 @@
 
 import { ApplicationApi } from '../config/APIClient';
 import { APIApplication, ApiResponse } from '../types/api';
+import { ApplicationData } from '../types';
 import { statusIdMap } from '../config/statusMap';
 
 // Simple cache to prevent duplicate API calls
@@ -118,7 +119,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       canRaiseRedflag: !detailedApp.isApprovied && !detailedApp.isRejected,
       canReturn: !detailedApp.isApprovied && !detailedApp.isRejected,
       canDispose: detailedApp.isApprovied,
-  },
+    },
     usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
       ? detailedApp.usersInHierarchy
       : [],
@@ -307,64 +308,6 @@ export interface DetailedApplicationData {
     divisionId?: number | null;
   };
   previousUser?: any | null;
-}
-
-// Application interface (matches your existing structure)
-export interface ApplicationData {
-  id: string;
-  applicantName: string;
-  applicantMobile: string;
-  applicantEmail?: string;
-  fatherName?: string;
-  gender?: 'Male' | 'Female' | 'Other';
-  dob?: string;
-  address?: string;
-  applicationType: string;
-  applicationDate: string;
-  applicationTime?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 're-enquiry' | 'ground-report' | 'closed' | 'recommended';
-  status_id: string | number;
-  assignedTo: string;
-  forwardedFrom?: string;
-  forwardedTo?: string;
-  forwardComments?: string;
-  isViewed?: boolean;
-  returnReason?: string;
-  flagReason?: string;
-  disposalReason?: string;
-  lastUpdated: string;
-  documents?: Array<{
-    name: string;
-    type: string;
-    url: string;
-  }>;
-  history?: Array<{
-    date: string;
-    time: string;
-    action: string;
-    by: string;
-    comments?: string;
-  }>;
-  actions?: {
-    canForward: boolean;
-    canReport: boolean;
-    canApprove: boolean;
-    canReject: boolean;
-    canRaiseRedflag: boolean;
-    canReturn: boolean;
-    canDispose: boolean;
-  };
-  usersInHierarchy?: Array<{
-    id: number;
-    username: string;
-    email: string;
-    stateId: number;
-    districtId: number;
-    zoneId: number | null;
-    divisionId: number | null;
-    policeStationId: number | null;
-    roleId: number;
-  }>;
 }
 
 /**
@@ -588,7 +531,7 @@ export const fetchApplicationCounts = async (): Promise<{
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
   // Derive applicant name from available fields; some list endpoints may not include applicantFullName
-  const derivedName = (apiApp.applicantFullName 
+  const derivedName = (apiApp.applicantFullName
     || `${apiApp.firstName || ''} ${apiApp.middleName || ''} ${apiApp.lastName || ''}`.trim()
   ) || 'Unknown Applicant';
 

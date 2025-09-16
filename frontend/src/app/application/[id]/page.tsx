@@ -7,6 +7,7 @@ import Header from '../../../components/Header';
 import { useAuthSync } from '../../../hooks/useAuthSync';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
+import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
@@ -16,64 +17,6 @@ import EnhancedApplicationTimeline from '../../../components/EnhancedApplication
 import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
-
-// Application interface for the detail page
-interface ApplicationData {
-  id: string;
-  status_id: string | number; // Add for compatibility with modals
-  acknowledgementNo?: string;
-  applicantName: string;
-  applicantMobile: string;
-  applicantEmail?: string;
-  fatherName?: string;
-  gender?: 'Male' | 'Female' | 'Other';
-  dob?: string;
-  address?: string;
-  applicationType: string;
-  applicationDate: string;
-  applicationTime?: string;
-  status: 're-enquiry' | 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 'ground-report' | 'closed' | 'recommended';
-  assignedTo: string;
-  forwardedFrom?: string;
-  forwardedTo?: string;
-  forwardComments?: string;
-  returnReason?: string;
-  flagReason?: string;
-  disposalReason?: string;
-  lastUpdated: string;
-  documents?: Array<{
-    name: string;
-    type: string;
-    url: string;
-  }>;
-  history?: Array<{
-    date: string;
-    time: string;
-    action: string;
-    by: string;
-    comments?: string;
-  }>;
-  actions?: {
-    canForward: boolean;
-    canReport: boolean;
-    canApprove: boolean;
-    canReject: boolean;
-    canRaiseRedflag: boolean;
-    canReturn: boolean;
-    canDispose: boolean;
-  };
-  usersInHierarchy?: Array<{
-    id: number;
-    username: string;
-    email: string;
-    stateId: number;
-    districtId: number;
-    zoneId: number | null;
-    divisionId: number | null;
-    policeStationId: number | null;
-    roleId: number;
-  }>;
-}
 
 interface ApplicationDetailPageProps {
   params: Promise<{

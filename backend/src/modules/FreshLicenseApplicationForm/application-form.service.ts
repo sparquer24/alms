@@ -669,7 +669,13 @@ export class ApplicationFormService {
           currentUser: true,
           previousUser: true,
           FreshLicenseApplicationsFormWorkflowHistories: {
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            include: {
+              previousRole: true,
+              previousUser: true,
+              nextRole: true,
+              nextUser: true
+            }
           }
         },
       });
@@ -680,22 +686,30 @@ export class ApplicationFormService {
         for (const history of application.FreshLicenseApplicationsFormWorkflowHistories) {
           let previousUserName: string | null = null;
           let previousRoleName: string | null = null;
-          if (history.previousUserId) {
-            const prevUser = await prisma.users.findUnique({
-              where: { id: history.previousUserId },
-              select: { username: true }
-            });
-            previousUserName = prevUser?.username || null;
+          if (history.previousUser) {
+            previousUserName = history.previousUser.username;
           }
-          if (history.previousRoleId) {
-            const prevRole = await prisma.roles.findUnique({
-              where: { id: history.previousRoleId },
-              select: { name: true }
-            });
-            previousRoleName = prevRole?.name || null;
+          if (history.previousRole) {
+            previousRoleName = history.previousRole.name;
           }
           history.previousUserName = previousUserName;
           history.previousRoleName = previousRoleName;
+          delete history.previousUser;
+          delete history.previousRole;
+
+          let nextUserName: string | null = null;
+          let nextRoleName: string | null = null;
+          if (history.nextUser) {
+            nextUserName = history.nextUser.username;
+          }
+          if (history.nextRole) {
+            nextRoleName = history.nextRole.name;
+          }
+          history.nextUserName = nextUserName;
+          history.nextRoleName = nextRoleName;
+          delete history.nextUser;
+          delete history.nextRole;
+
         }
       }
 

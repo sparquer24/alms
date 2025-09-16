@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ApplicationData } from '../services/sidebarApiCalls';
+import { ApplicationData } from '../types';
 
 interface ApplicationTimelineProps {
   application: ApplicationData;

@@ -1,3 +1,5 @@
+import { ApplicationData } from '../types';
+
 // Status mapping for numeric status_id
 export const STATUS_MAP = {
   pending: 1,        // Pending (fresh, not forwarded)
@@ -7,53 +9,6 @@ export const STATUS_MAP = {
   disposed: 5,       // Disposed/Closed/Rejected
   approved: 6        // Approved/Final Disposal
 };
-
-// Mock data for arms license applications
-export interface ApplicationData {
-  id: string;
-  applicantName: string;
-  applicantMobile: string;
-  applicantEmail?: string;
-  fatherName?: string;
-  gender?: 'Male' | 'Female' | 'Other';
-  dob?: string;
-  address?: string;
-  applicationType: string;
-  applicationDate: string;
-  applicationTime?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated';
-  status_id: string | number; // Can be either string (API) or number (legacy)
-  assignedTo: string;
-  forwardedFrom?: string;
-  forwardedTo?: string;
-  forwardComments?: string; // Comments when forwarding an application
-  isViewed?: boolean;  // Track if the application has been viewed by the forwarded user
-  returnReason?: string;
-  flagReason?: string;
-  disposalReason?: string;
-  lastUpdated: string;
-  documents?: Array<{
-    name: string;
-    type: string;
-    url: string;
-  }>;
-  history?: Array<{
-    date: string;
-    time: string;
-    action: string;
-    by: string;
-    comments?: string;
-  }>;
-  actions?: {
-    canForward: boolean;
-    canReport: boolean;
-    canApprove: boolean;
-    canReject: boolean;
-    canRaiseRedflag: boolean;
-    canReturn: boolean;
-    canDispose: boolean;
-  };
-}
 
 // Remove mock applications for production usage. Export an empty list.
 export const mockApplications: ApplicationData[] = [];

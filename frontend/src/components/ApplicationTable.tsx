@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ApplicationData } from '../services/sidebarApiCalls';
+import { ApplicationData } from '../types';
 import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
 import { generateApplicationPDF } from '../config/pdfUtils';
