@@ -600,276 +600,272 @@ Yours faithfully,
 
       {/* Proceedings Form */}
       <div>
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold">Proceedings Form</h3>
-        </div>
+        <form onSubmit={handleSubmit} className={styles.formContent}>
+          {/* Status Messages */}
+          {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
+          {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
-      <form onSubmit={handleSubmit} className={styles.formContent}>
-        {/* Status Messages */}
-        {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
-        {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
-
-        {/* Action Type Selection */}
-        <div className={styles.formSection}>
-          <label className={styles.formLabel}>
-            Action Type <span className={styles.required}>*</span>
-          </label>
-          <div className={styles.selectContainer}>
-            <Select
-              options={ACTION_OPTIONS}
-              value={ACTION_OPTIONS.find(opt => opt.value === actionType) || null}
-              onChange={opt => setActionType(opt?.value || '')}
-              placeholder="Select action type"
-              isDisabled={isSubmitting}
-              className="text-sm"
-              styles={{
-                control: (provided, state) => ({
-                  ...provided,
-                  borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-                  boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-                  '&:hover': {
-                    borderColor: '#3B82F6'
-                  }
-                })
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Next User Selection */}
-        <div className={styles.formSection}>
-          <label className={styles.formLabel}>
-            Forward To (Next User/Role)
-            {<span className={styles.required}>*</span>}
-          </label>
-          <div className={styles.selectContainer}>
-            <Select
-              options={userOptions}
-              value={nextUser}
-              onChange={setNextUser}
-              placeholder={
-                fetchingUsers ? 'Loading users...' : 'Select user'
-              }
-              isLoading={fetchingUsers}
-              isDisabled={isSubmitting || fetchingUsers}
-              className="text-sm"
-              styles={{
-                control: (provided, state) => ({
-                  ...provided,
-                  borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-                  boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-                  '&:hover': {
-                    borderColor: '#3B82F6'
-                  },
-                  backgroundColor: 'white'
-                })
-              }}
-            />
-          </div>
-          {fetchingUsers && (
-            <div className={styles.loadingText}>
-              <LoadingSpinner size="sm" />
-              <span>Loading available users...</span>
-            </div>
-          )}
-          {!fetchingUsers && userOptions.length === 0 && (
-            <p className={styles.helpText}>
-              No users available. Please try refreshing the page.
-            </p>
-          )}
-          {actionType && actionType !== 'forward' && (
-            <p className={styles.helpText}>
-              This field is only required when "Forward" action is selected.
-            </p>
-          )}
-        </div>
-
-        {/* Remarks/Text Area */}
-        <div className={styles.formSection}>
-          <div className="flex items-center justify-between">
+          {/* Action Type Selection */}
+          <div className={styles.formSection}>
             <label className={styles.formLabel}>
-              Remarks <span className={styles.required}>*</span>
+              Action Type <span className={styles.required}>*</span>
             </label>
-            <button
-              type="button"
-              onClick={() => setRemarksVisible(v => !v)}
-              className="ml-3 text-blue-600 hover:underline text-sm"
-              aria-pressed={remarksVisible}
-              aria-label={remarksVisible ? 'Hide' : 'Show'}
-            >
-              {remarksVisible ? 'Hide' : 'Show'}
-            </button>
+            <div className={styles.selectContainer}>
+              <Select
+                options={ACTION_OPTIONS}
+                value={ACTION_OPTIONS.find(opt => opt.value === actionType) || null}
+                onChange={opt => setActionType(opt?.value || '')}
+                placeholder="Select action type"
+                isDisabled={isSubmitting}
+                className="text-sm"
+                styles={{
+                  control: (provided, state) => ({
+                    ...provided,
+                    borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+                    boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+                    '&:hover': {
+                      borderColor: '#3B82F6'
+                    }
+                  })
+                }}
+              />
+            </div>
           </div>
-          {remarksVisible && (
-            <>
-              <div className={styles.richTextContainer}>
-                <SimpleTextArea
-                  value={remarks}
-                  onChange={setRemarks}
-                  placeholder="Enter your remarks here..."
-                  disabled={isSubmitting}
-                  dataTestId="rich-text-editor"
-                />
+
+          {/* Next User Selection */}
+          <div className={styles.formSection}>
+            <label className={styles.formLabel}>
+              Forward To (Next User/Role)
+              {<span className={styles.required}>*</span>}
+            </label>
+            <div className={styles.selectContainer}>
+              <Select
+                options={userOptions}
+                value={nextUser}
+                onChange={setNextUser}
+                placeholder={
+                  fetchingUsers ? 'Loading users...' : 'Select user'
+                }
+                isLoading={fetchingUsers}
+                isDisabled={isSubmitting || fetchingUsers}
+                className="text-sm"
+                styles={{
+                  control: (provided, state) => ({
+                    ...provided,
+                    borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+                    boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+                    '&:hover': {
+                      borderColor: '#3B82F6'
+                    },
+                    backgroundColor: 'white'
+                  })
+                }}
+              />
+            </div>
+            {fetchingUsers && (
+              <div className={styles.loadingText}>
+                <LoadingSpinner size="sm" />
+                <span>Loading available users...</span>
               </div>
+            )}
+            {!fetchingUsers && userOptions.length === 0 && (
               <p className={styles.helpText}>
-                Enter your detailed remarks about this action. You can use multiple lines for better formatting.
+                No users available. Please try refreshing the page.
               </p>
-            </>
-          )}
-            </div>
-            
-  {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
+            )}
+            {actionType && actionType !== 'forward' && (
+              <p className={styles.helpText}>
+                This field is only required when "Forward" action is selected.
+              </p>
+            )}
+          </div>
 
-  {roleFromCookie === 'SHO' && (
-          <div className="mt-8 border-t pt-6">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-md font-semibold text-gray-800">
-                Ground Report Letter <span className={styles.required}>*</span>
-              </h4>
+          {/* Remarks/Text Area */}
+          <div className={styles.formSection}>
+            <div className="flex items-center justify-between">
+              <label className={styles.formLabel}>
+                Remarks <span className={styles.required}>*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setRemarksVisible(v => !v)}
+                className="ml-3 text-blue-600 hover:underline text-sm"
+                aria-pressed={remarksVisible}
+                aria-label={remarksVisible ? 'Hide' : 'Show'}
+              >
+                {remarksVisible ? 'Hide' : 'Show'}
+              </button>
             </div>
-
-            {/* Ground Report Editor within Proceedings - always visible for SHO */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className={styles.formSection}>
-                <label className={styles.formLabel}>
-                  Draft Letter Content <span className={styles.required}>*</span>
-                </label>
-                <EnhancedTextEditor
-                  content={draftLetter}
-                  onChange={setDraftLetter}
-                  placeholder="Draft letter will appear here..."
-                  className="min-h-[400px]"
-                />
+            {remarksVisible && (
+              <>
+                <div className={styles.richTextContainer}>
+                  <SimpleTextArea
+                    value={remarks}
+                    onChange={setRemarks}
+                    placeholder="Enter your remarks here..."
+                    disabled={isSubmitting}
+                    dataTestId="rich-text-editor"
+                  />
+                </div>
                 <p className={styles.helpText}>
-                  This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                  Enter your detailed remarks about this action. You can use multiple lines for better formatting.
                 </p>
+              </>
+            )}
+              </div>
+              
+    {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
+
+    {roleFromCookie === 'SHO' && (
+            <div className="mt-8 border-t pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-md font-semibold text-gray-800">
+                  Ground Report Letter <span className={styles.required}>*</span>
+                </h4>
               </div>
 
-              <div className="flex gap-3 justify-end mt-4 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(draftLetter);
-                    setSuccess('Draft letter copied to clipboard!');
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy
-                </button>
-                
-                {/* Download Dropdown */}
-                <div className="relative download-dropdown">
+              {/* Ground Report Editor within Proceedings - always visible for SHO */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className={styles.formSection}>
+                  <label className={styles.formLabel}>
+                    Draft Letter Content <span className={styles.required}>*</span>
+                  </label>
+                  <EnhancedTextEditor
+                    content={draftLetter}
+                    onChange={setDraftLetter}
+                    placeholder="Draft letter will appear here..."
+                    className="min-h-[400px]"
+                  />
+                  <p className={styles.helpText}>
+                    This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 justify-end mt-4 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(draftLetter);
+                      setSuccess('Draft letter copied to clipboard!');
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    Download
-                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    Copy
                   </button>
                   
-                  {/* Dropdown Menu */}
-                  {showDownloadDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                      <div className="py-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownload('pdf');
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                          </svg>
-                          PDF (A4)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownload('word');
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                          </svg>
-                          Word (.doc)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownload('txt');
-                            setShowDownloadDropdown(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                          </svg>
-                          Text (.txt)
-                        </button>
+                  {/* Download Dropdown */}
+                  <div className="relative download-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download
+                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    {showDownloadDropdown && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                        <div className="py-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownload('pdf');
+                              setShowDownloadDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            </svg>
+                            PDF (A4)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownload('word');
+                              setShowDownloadDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            </svg>
+                            Word (.doc)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleDownload('txt');
+                              setShowDownloadDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          >
+                            <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            </svg>
+                            Text (.txt)
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftLetter(generateDraftLetter());
+                      setSuccess('Template reset to default!');
+                    }}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset
+                  </button>
                 </div>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraftLetter(generateDraftLetter());
-                    setSuccess('Template reset to default!');
-                  }}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reset
-                </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Submit Button */}
-        <div className={styles.submitSection}>
-          <div className={styles.loadingText}>
-            {isSubmitting && (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Processing your request...</span>
-              </>
-            )}
+          {/* Submit Button */}
+          <div className={styles.submitSection}>
+            <div className={styles.loadingText}>
+              {isSubmitting && (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Processing your request...</span>
+                </>
+              )}
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting || loading || fetchingUsers}
+              className={styles.submitButton}
+            >
+              {isSubmitting ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Submitting...</span>
+                </>
+              ) : (
+                'Submit Action'
+              )}
+            </button>
           </div>
-          
-          <button
-            type="submit"
-            disabled={isSubmitting || loading || fetchingUsers}
-            className={styles.submitButton}
-          >
-            {isSubmitting ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Submitting...</span>
-              </>
-            ) : (
-              'Submit Action'
-            )}
-          </button>
-        </div>
-      </form>
-        </div>
+        </form>
+      </div>
 
       {/* Ground Report Editor */}
       {showGroundReportEditor && (

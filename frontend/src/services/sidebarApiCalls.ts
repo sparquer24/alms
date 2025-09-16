@@ -68,7 +68,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       date: created.toISOString().split('T')[0],
       time: created.toTimeString().slice(0, 5),
       action: h.actionTaken || h.action || '',
-      by: h.previousUser?.username || String(h.previousUserId ?? ''),
+      by: h.previousUserName + ' (' + h.previousRoleName + ')' || 'Unknown User',
       comments: h.remarks || undefined,
     };
   });

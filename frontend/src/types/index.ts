@@ -1,5 +1,8 @@
 // Common types used throughout the ALMS application
 
+import { ReactNode } from "react";
+import { Key } from "readline";
+
 // User and Authentication Types
 export interface User {
   id: string;
@@ -103,16 +106,12 @@ export interface ApplicationData {
     actionTaken: any;
     attachments: any;
     id: Key | null | undefined;
-    previousUserName: string;
-    previousRoleName: string;
-    nextUserName: any;
-    nextRoleName: ReactNode;
+    by: string;
     createdAt: string | number | Date;
     remarks: any;
     date: string;
     time: string;
     action: string;
-    by: string;
     comments?: string;
   }>;
   // New workflow history field
