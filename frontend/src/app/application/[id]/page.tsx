@@ -804,7 +804,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                             {application.history && application.history.length > 0 ? (
                               <div className="space-y-4">
+
                                 {application.history.map((h, idx) => {
+                                  console.log('🔍 History item:================0101', h, idx);
                                   const color = h.action.toLowerCase().includes('forward')
                                     ? 'border-orange-500'
                                     : h.action.toLowerCase().includes('approve')
