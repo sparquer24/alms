@@ -7,6 +7,7 @@ import styles from './ProceedingsForm.module.css';
 import { postData } from '../api/axiosConfig';
 import { EnhancedTextEditor } from './RichTextEditor';
 import { getCookie } from 'cookies-next';
+import jsPDF from 'jspdf';
 
 interface UserOption {
   value: string;
@@ -155,7 +156,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const [draftLetter, setDraftLetter] = useState('');
   const [showProceedingsForm, setShowProceedingsForm] = useState(true);
   const [showGroundReportEditor, setShowGroundReportEditor] = useState(false);
-  const [showGroundReportInProceedings, setShowGroundReportInProceedings] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
 
@@ -169,6 +169,13 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       // ignore cookie read errors; role remains null
     }
   }, []);
+
+  // If user is SHO, ensure a default draft letter is available
+  useEffect(() => {
+    if (roleFromCookie === 'SHO' && !draftLetter.trim()) {
+      setDraftLetter(generateDraftLetter());
+    }
+  }, [roleFromCookie]);
 
   // Load users when application data is available (not dependent on action type)
   useEffect(() => {
@@ -217,6 +224,12 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       return;
     }
 
+    // Ground report letter is mandatory for SHO
+    if (roleFromCookie === 'SHO' && !draftLetter.trim()) {
+      setError('Ground Report Letter is required for submission.');
+      return;
+    }
+
     // Build payload for /workflow/action
     const actionId = ACTION_ID_MAP[actionType];
     if (!actionId) {
@@ -237,18 +250,28 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       payload.nextUserId = Number(nextUser.value);
     }
 
-    // Include draft letter if ground report was generated
-    if (showGroundReportInProceedings && draftLetter.trim()) {
-      payload.attachments.push({
-        name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
-        type: "GROUND_REPORT",
-        contentType: "text/plain",
-        url: "", // This could be a URL if you upload the file, or empty if sending content directly
-        content: draftLetter.trim() // Include the actual letter content
-      });
-      
-      // Set ground report generated flag
-      payload.isGroundReportGenerated = true;
+  // Include ground report as PDF (Base64) for SHO
+  if (roleFromCookie === 'SHO' && draftLetter.trim()) {
+      try {
+        const base64Pdf = generatePdfBase64(draftLetter.trim());
+        const today = new Date().toISOString().split('T')[0];
+        payload.attachments.push({
+          name: `ground_report_${applicationId}_${today}.pdf`,
+          type: 'GROUND_REPORT',
+          contentType: 'application/pdf',
+          url: `data:application/pdf;base64,${base64Pdf}`,
+        });
+        payload.isGroundReportGenerated = true;
+      } catch (err) {
+        console.error('Failed to generate PDF, falling back to text:', err);
+        payload.attachments.push({
+          name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
+          type: 'GROUND_REPORT',
+          contentType: 'text/plain',
+          url: `data:text/plain;base64,${btoa(unescape(encodeURIComponent(draftLetter.trim())))}`,
+        });
+        payload.isGroundReportGenerated = true;
+      }
     }
 
     console.log('Payload to be sent:', payload);
@@ -448,6 +471,43 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       console.error('Word generation error:', error);
       setError('Failed to generate Word document. Please try again.');
     }
+  };
+
+  // Helper: Generate an A4 PDF from the draft letter and return Base64 (without prefix)
+  const generatePdfBase64 = (content: string): string => {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margin = 56; // ~0.78in margins
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const usableWidth = pageWidth - margin * 2;
+
+    const normalized = (content || '').replace(/\r/g, '').replace(/\t/g, '    ');
+    const paragraphs = normalized.split('\n');
+
+    doc.setFont('Times', 'Normal');
+    doc.setFontSize(12);
+    const lineHeight = 18;
+    let y = margin;
+
+    const addPageIfNeeded = () => {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    paragraphs.forEach((p, idx) => {
+      const lines = doc.splitTextToSize(p || ' ', usableWidth);
+      lines.forEach((ln: string) => {
+        addPageIfNeeded();
+        doc.text(ln, margin, y);
+        y += lineHeight;
+      });
+      if (idx < paragraphs.length - 1) y += 6;
+    });
+
+    const dataUrl = doc.output('datauristring'); // data:application/pdf;base64,....
+    return dataUrl.split(',')[1] || '';
   };
 
   const handleDownload = (format: string) => {
@@ -671,140 +731,124 @@ Yours faithfully,
   {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
 
   {roleFromCookie === 'SHO' && (
-          
           <div className="mt-8 border-t pt-6">
             <div className="flex justify-between items-center mb-4">
-              <h4 className="text-md font-semibold text-gray-800">Ground Report Letter</h4>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!showGroundReportInProceedings) {
-                    setDraftLetter(generateDraftLetter());
-                  }
-                  setShowGroundReportInProceedings(!showGroundReportInProceedings);
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0V5a2 2 0 00-2 2v6a2 2 0 002 2m14-6V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                {showGroundReportInProceedings ? 'Hide Ground Report' : 'Generate Ground Report'}
-              </button>
+              <h4 className="text-md font-semibold text-gray-800">
+                Ground Report Letter <span className={styles.required}>*</span>
+              </h4>
             </div>
 
-            {/* Ground Report Editor within Proceedings */}
-            {showGroundReportInProceedings && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className={styles.formSection}>
-                  <label className={styles.formLabel}>
-                    Draft Letter Content
-                  </label>
-                  <EnhancedTextEditor
-                    content={draftLetter}
-                    onChange={setDraftLetter}
-                    placeholder="Draft letter will appear here..."
-                    className="min-h-[400px]"
-                  />
-                  <p className={styles.helpText}>
-                    Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
-                  </p>
-                </div>
-
-                <div className="flex gap-3 justify-end mt-4 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(draftLetter);
-                      setSuccess('Draft letter copied to clipboard!');
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Copy
-                  </button>
-                  
-                  {/* Download Dropdown */}
-                  <div className="relative download-dropdown">
-                    <button
-                      type="button"
-                      onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Download
-                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    {/* Dropdown Menu */}
-                    {showDownloadDropdown && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                        <div className="py-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleDownload('pdf');
-                              setShowDownloadDropdown(false);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                          >
-                            <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                            </svg>
-                            PDF (A4)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleDownload('word');
-                              setShowDownloadDropdown(false);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                          >
-                            <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                            </svg>
-                            Word (.doc)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleDownload('txt');
-                              setShowDownloadDropdown(false);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                          >
-                            <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                            </svg>
-                            Text (.txt)
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftLetter(generateDraftLetter());
-                      setSuccess('Template reset to default!');
-                    }}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Reset
-                  </button>
-                </div>
+            {/* Ground Report Editor within Proceedings - always visible for SHO */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className={styles.formSection}>
+                <label className={styles.formLabel}>
+                  Draft Letter Content <span className={styles.required}>*</span>
+                </label>
+                <EnhancedTextEditor
+                  content={draftLetter}
+                  onChange={setDraftLetter}
+                  placeholder="Draft letter will appear here..."
+                  className="min-h-[400px]"
+                />
+                <p className={styles.helpText}>
+                  This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                </p>
               </div>
-            )}
+
+              <div className="flex gap-3 justify-end mt-4 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(draftLetter);
+                    setSuccess('Draft letter copied to clipboard!');
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy
+                </button>
+                
+                {/* Download Dropdown */}
+                <div className="relative download-dropdown">
+                  <button
+                    type="button"
+                    onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download
+                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showDownloadDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                      <div className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownload('pdf');
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                          </svg>
+                          PDF (A4)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownload('word');
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                          </svg>
+                          Word (.doc)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDownload('txt');
+                            setShowDownloadDropdown(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        >
+                          <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                          </svg>
+                          Text (.txt)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftLetter(generateDraftLetter());
+                    setSuccess('Template reset to default!');
+                  }}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
