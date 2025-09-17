@@ -17,6 +17,7 @@ import EnhancedApplicationTimeline from '../../../components/EnhancedApplication
 import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
+import { truncateFilename } from '../../../utils/string';
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -58,6 +59,123 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Open attachments from history with a robust viewer (PDF/image) in a new tab
+  const openAttachment = (att: any) => {
+    try {
+      const rawUrl = typeof att?.url === 'string' ? att.url : '';
+      const fileName = att?.name || 'attachment';
+      if (!rawUrl) return;
+
+      const isHttpUrl = /^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('/');
+      const isDataUrl = rawUrl.startsWith('data:');
+
+      // Helper: open a blob/content in a simple viewer HTML
+      const openInViewer = (objectUrl: string, contentType: string) => {
+        const viewer = window.open('', '_blank');
+        if (!viewer) {
+          // Popup blocked -> download
+          const a = document.createElement('a');
+          a.href = objectUrl;
+          a.download = fileName;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return;
+        }
+        const isPdf = /pdf/i.test(contentType);
+        const isImage = /^image\//i.test(contentType);
+        const safeTitle = fileName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const body = isPdf
+          ? `<object data="${objectUrl}" type="application/pdf" style="width:100%;height:100vh;">` +
+            `<p>PDF preview unavailable. <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a></p>` +
+            `</object>`
+          : isImage
+          ? `<img src="${objectUrl}" alt="${safeTitle}" style="max-width:100%;height:auto;display:block;margin:0 auto;padding:16px;" />`
+          : `<div style="padding:16px;font-family:system-ui,Segoe UI,Arial;">
+               <p>Preview not supported for this file type (${contentType}).</p>
+               <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a>
+             </div>`;
+        viewer.document.open();
+        viewer.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${safeTitle}</title></head><body style="margin:0;">${body}</body></html>`);
+        viewer.document.close();
+      };
+
+      if (isHttpUrl) {
+        // Let browser handle http(s) directly (respecting Content-Disposition)
+        const win = window.open(rawUrl, '_blank', 'noopener');
+        if (!win) {
+          const a = document.createElement('a');
+          a.href = rawUrl;
+          a.download = fileName;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        return;
+      }
+
+      // Build Blob from data URL or bare base64
+      let base64Data = '';
+      // Infer content type from name if not provided
+      let contentType = att?.contentType || (() => {
+        const lower = (fileName || '').toLowerCase();
+        if (lower.endsWith('.pdf')) return 'application/pdf';
+        if (lower.endsWith('.png')) return 'image/png';
+        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+        if (lower.endsWith('.gif')) return 'image/gif';
+        if (lower.endsWith('.svg')) return 'image/svg+xml';
+        if (lower.endsWith('.txt')) return 'text/plain';
+        return 'application/octet-stream';
+      })();
+      if (isDataUrl) {
+        const match = rawUrl.match(/^data:([^;]+);base64,(.*)$/i);
+        if (match) {
+          contentType = match[1] || contentType;
+          base64Data = match[2] || '';
+        } else {
+          // Non-base64 data URL; open as-is
+          const win = window.open(rawUrl, '_blank', 'noopener');
+          if (!win) {
+            const a = document.createElement('a');
+            a.href = rawUrl;
+            a.download = fileName;
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }
+          return;
+        }
+      } else {
+        // Bare base64 string; normalize URL-safe base64 and pad
+        base64Data = rawUrl;
+      }
+
+      // Normalize base64 (URL-safe -> standard) and remove whitespace
+      let normalized = (base64Data || '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+      const padding = normalized.length % 4;
+      if (padding) normalized += '='.repeat(4 - padding);
+
+      // Decode base64 to Blob
+      const byteChars = atob(normalized);
+      const len = byteChars.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        u8[i] = byteChars.charCodeAt(i);
+      }
+      const blob = new Blob([u8.buffer], { type: contentType });
+      const blobUrl = URL.createObjectURL(blob);
+      openInViewer(blobUrl, contentType);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (e) {
+      console.error('Failed to open attachment:', e);
+      // Last-resort message
+      alert('Unable to preview file. It may still be downloadable from the history.');
+    }
+  };
   
   // Unwrap params using React.use()
   const resolvedParams = React.use(params);
@@ -720,7 +838,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       {/* Application Timeline/History - Right Side with Scroll */}
                       <div className="flex flex-col">
-                        <div className="flex items-center mb-4">
+                        <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <div className="w-1 h-5 bg-green-600 rounded-full mr-3"></div>
                             Application History
@@ -748,6 +866,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                     : h.action.toLowerCase().includes('reject') || h.action.toLowerCase().includes('return')
                                     ? 'bg-red-50'
                                     : 'bg-blue-50';
+                                  const attachmentsArr = (h as any).attachments;
+                                  const hasAttachments = Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
+                                  const hasRemarks = !!h.comments;
+                                  const hasDetails = hasAttachments || hasRemarks;
+                                  const isExpanded = !!expandedHistory[idx];
                                     
                                   return (
                                     <div key={idx} className={`border-l-4 ${color} ${bgColor} pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm`}>
@@ -761,30 +884,76 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                             </svg>
                                             {h.date} {h.time}
                                           </p>
+                                          {/* Attachments are now rendered below the header row to match remarks width */}
                                         </div>
-                                        {h.comments && (
+                    {hasDetails && (
                                           <button
                                             type="button"
                                             onClick={() => setExpandedHistory(prev => ({ ...prev, [idx]: !prev[idx] }))}
                                             className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium px-2 py-1 rounded-md hover:bg-blue-100 transition-colors duration-200 flex items-center"
-                                            aria-expanded={!!expandedHistory[idx]}
+                      aria-expanded={isExpanded}
                                             aria-controls={`history-remarks-${idx}`}
-                                            aria-label={expandedHistory[idx] ? 'Hide comments' : 'Show comments'}
+                      aria-label={isExpanded ? 'Hide details' : 'Show details'}
                                           >
-                                            <svg className={`w-4 h-4 mr-1 transform transition-transform duration-200 ${expandedHistory[idx] ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 mr-1 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                             </svg>
-                                            {expandedHistory[idx] ? 'Hide' : 'Show'}
+                      {isExpanded ? 'Hide' : 'Show more'}
                                           </button>
                                         )}
                                       </div>
-                                      {h.comments && expandedHistory[idx] && (
+                                      {hasRemarks && isExpanded && (
                                         <div id={`history-remarks-${idx}`} className="mt-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                          <div className="text-base font-semibold text-gray-800 mb-2">Remarks</div>
                                           <div className="flex items-start">
-                                            <svg className="w-4 h-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-5 h-5 mr-2 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                                             </svg>
                                             <p className="text-sm text-gray-700 leading-relaxed">{h.comments}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {hasAttachments && isExpanded && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                          <div className="text-base font-semibold text-gray-800 mb-2">Attachments</div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {attachmentsArr.map((att: any, aidx: number) => {
+                                              const isGroundReport = String(att?.type || '').toUpperCase().includes('GROUND');
+                                              const displayName = isGroundReport ? truncateFilename(att?.name || '', 10) : (att?.name || 'Attachment');
+                                              const contentType = String(att?.contentType || '').toLowerCase();
+                                              const fileLower = String(att?.name || '').toLowerCase();
+                                              const isPdf = contentType.includes('pdf') || fileLower.endsWith('.pdf');
+                                              const isImage = contentType.startsWith('image/') || /\.(png|jpe?g|gif|svg|webp)$/.test(fileLower);
+                                              const iconColor = isPdf
+                                                ? 'text-red-500'
+                                                : isImage
+                                                ? 'text-emerald-500'
+                                                : 'text-blue-500';
+                                              return (
+                                                <div key={aidx} className="flex items-center text-xs text-blue-700 min-w-0">
+                                                  <svg className={`w-5 h-5 mr-2 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    {isImage ? (
+                                                      // Image icon
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    ) : (
+                                                      // File/PDF icon
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    )}
+                                                  </svg>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => openAttachment(att)}
+                                                    className="hover:underline truncate text-left text-blue-700"
+                                                    title={att?.name}
+                                                  >
+                                                    {displayName}
+                                                  </button>
+                                                  {att?.contentType && (
+                                                    <span className="ml-2 text-gray-500">({att.contentType})</span>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         </div>
                                       )}

@@ -70,6 +70,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       action: h.actionTaken || h.action || '',
       by: h.previousUserName + ' (' + h.previousRoleName + ')' || 'Unknown User',
       comments: h.remarks || undefined,
+  attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
     };
   });
 
