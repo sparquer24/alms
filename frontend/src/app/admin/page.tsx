@@ -13,16 +13,69 @@ import { PageLayoutSkeleton } from '@/components/Skeleton';
 const LineChart = dynamic(() => import('@/components/charts/LineChart'), { ssr: false });
 const PieChart = dynamic(() => import('@/components/charts/PieChart'), { ssr: false });
 
+// Chart data shapes expected by chart components
+type LineDataset = {
+  label: string;
+  data: number[];
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+};
+
+type PieDataset = {
+  label: string;
+  data: number[];
+  backgroundColor: string[];
+  borderColor?: string[];
+  borderWidth?: number;
+};
+
+type LineChartData = { labels: string[]; datasets: LineDataset[] };
+
+type PieChartData = { labels: string[]; datasets: PieDataset[] };
+
+type RecentActivity = { description: string; user: string; date: string };
+
+const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#14B8A6'];
+
+// Coerce API responses into chart-ready shapes
+const toLineChartData = (src: any): LineChartData => {
+  if (src && typeof src === 'object' && Array.isArray(src.labels) && Array.isArray(src.datasets)) {
+    return src as LineChartData;
+  }
+  const arr = Array.isArray(src) ? src : [];
+  const labels = arr.map((i: any, idx: number) => i?.label ?? i?.date ?? i?.name ?? `Item ${idx + 1}`);
+  const data = arr.map((i: any) => Number(i?.value ?? i?.count ?? i?.total ?? 0));
+  return { labels, datasets: [{ label: 'Applications', data }] };
+};
+
+const toPieChartData = (src: any): PieChartData => {
+  if (src && typeof src === 'object' && Array.isArray(src.labels) && Array.isArray(src.datasets)) {
+    return src as PieChartData;
+  }
+  const arr = Array.isArray(src) ? src : [];
+  const labels = arr.map((i: any, idx: number) => i?.label ?? i?.role ?? i?.name ?? `Item ${idx + 1}`);
+  const data = arr.map((i: any) => Number(i?.value ?? i?.count ?? i?.total ?? 0));
+  const backgroundColor = labels.map((_: any, idx: number) => PIE_COLORS[idx % PIE_COLORS.length]);
+  return { labels, datasets: [{ label: 'Roles', data, backgroundColor }] };
+};
+
 export default function AdminDashboard() {
   const { userRole, token } = useAuthSync();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, setDashboardData] = useState<{
+    totalUsers: number;
+    totalApplications: number;
+    applicationsOverTime: LineChartData;
+    roleWiseApplications: PieChartData;
+    recentActivities: RecentActivity[];
+  }>({
     totalUsers: 0,
     totalApplications: 0,
-    applicationsOverTime: [],
-    roleWiseApplications: [],
+    applicationsOverTime: { labels: [], datasets: [{ label: 'Applications', data: [] }] },
+    roleWiseApplications: { labels: [], datasets: [{ label: 'Roles', data: [], backgroundColor: [] }] },
     recentActivities: [],
   });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -47,14 +100,21 @@ export default function AdminDashboard() {
         const appStats = await appStatsRes.json();
 
         setDashboardData({
-          totalUsers: userStats.totalUsers,
-          totalApplications: appStats.totalApplications,
-          applicationsOverTime: appStats.applicationsOverTime,
-          roleWiseApplications: appStats.roleWiseApplications,
-          recentActivities: appStats.recentActivities,
+          totalUsers: Number(userStats.totalUsers ?? 0),
+          totalApplications: Number(appStats.totalApplications ?? 0),
+          applicationsOverTime: toLineChartData(appStats.applicationsOverTime),
+          roleWiseApplications: toPieChartData(appStats.roleWiseApplications),
+          recentActivities: Array.isArray(appStats.recentActivities)
+            ? appStats.recentActivities.map((a: any) => ({
+                description: String(a?.description ?? a?.activity ?? ''),
+                user: String(a?.user ?? a?.by ?? a?.username ?? ''),
+                date: String(a?.date ?? a?.createdAt ?? a?.time ?? ''),
+              }))
+            : [],
         });
-      } catch (err) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+        setError(message);
       } finally {
         setIsLoading(false);
       }
@@ -206,7 +266,6 @@ export default function AdminDashboard() {
         onConfirm={confirmDeleteUser}
         title="Confirm Deletion"
         message={`Are you sure you want to delete ${selectedUser}? This action cannot be undone.`}
-        variant="danger"
       />
     </div>
   );

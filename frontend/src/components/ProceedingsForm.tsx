@@ -148,6 +148,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const [showGroundReportEditor, setShowGroundReportEditor] = useState(false);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
 
   // Read role from cookies on mount and normalize
   useEffect(() => {
@@ -227,7 +228,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       return;
     }
 
-    const payload: any = {
+  const payload: any = {
       applicationId: Number(applicationId),
       actionId,
       remarks: remarks.trim(),
@@ -264,6 +265,37 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       }
     }
 
+    // Include selected attachment files (as data URLs) into payload
+    if (attachmentFiles.length > 0) {
+      // Helper to read file as data URL
+      const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+      try {
+        const fileUrls = await Promise.all(attachmentFiles.map(f => readFileAsDataUrl(f)));
+        fileUrls.forEach((dataUrl, idx) => {
+          const file = attachmentFiles[idx];
+          // Best-effort content type from data URL or file.type
+          const mimeMatch = /^data:([^;]+);base64,/.exec(dataUrl || '');
+          const contentType = mimeMatch?.[1] || file.type || 'application/octet-stream';
+          payload.attachments.push({
+            name: file.name,
+            type: 'OTHER',
+            contentType,
+            url: dataUrl,
+          });
+        });
+      } catch (err) {
+        console.error('Failed to attach selected files:', err);
+        setError('Failed to process selected attachments. Please try again.');
+        return;
+      }
+    }
+
     console.log('Payload to be sent:', payload);
     setIsSubmitting(true);
 
@@ -289,6 +321,46 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
 
   const handleDismissError = () => setError(null);
   const handleDismissSuccess = () => setSuccess(null);
+
+  // Attachment handlers
+  const onAttachmentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    // Basic validation: 10 files max, each <= 10MB
+    const MAX_FILES = 10;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+    const valid: File[] = [];
+    for (const f of files) {
+      if (f.size > MAX_SIZE) {
+        setError(`File too large: ${f.name} (max 10MB)`);
+        continue;
+      }
+      valid.push(f);
+    }
+
+    const merged = [...attachmentFiles, ...valid].slice(0, MAX_FILES);
+  setAttachmentFiles(merged);
+    // reset input value to allow re-selecting same file later
+    e.target.value = '' as any;
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openAttachmentInNewTab = (file: File) => {
+    try {
+      const url = URL.createObjectURL(file);
+      window.open(url, '_blank', 'noopener');
+      // Revoke after a short delay to allow the new tab to load
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+      console.error('Failed to open file preview', e);
+      setError('Unable to open file preview.');
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -837,6 +909,64 @@ Yours faithfully,
               </div>
             </div>
           )}
+
+          {/* Attachment Section */}
+          <div id="attachments-section" className="mt-8 border-t pt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-md font-semibold text-gray-800">Attachment</h4>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Upload documents</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt,.csv,.xlsx,.xls,image/*,application/pdf"
+                    onChange={onAttachmentSelect}
+                    disabled={isSubmitting}
+                    className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <p className={styles.helpText}>Max 10 files, each up to 10MB. Allowed: PDF, images, Word.</p>
+                </div>
+
+                {attachmentFiles.length > 0 ? (
+                  <ul className="divide-y divide-gray-200 bg-white rounded-md border border-gray-200">
+                    {attachmentFiles.map((file, idx) => (
+                      <li key={idx} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <div className="flex items-center min-w-0">
+                          <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 11h10M7 15h10" />
+                          </svg>
+                          <button
+                            type="button"
+                            onClick={() => openAttachmentInNewTab(file)}
+                            className="truncate text-blue-600 hover:underline text-left"
+                            title={file.name}
+                          >
+                            {file.name}
+                          </button>
+                          <span className="ml-2 text-gray-500">({Math.round(file.size / 1024)} KB)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(idx)}
+                          className="text-red-600 hover:text-red-700"
+                          disabled={isSubmitting}
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-gray-500">No files selected.</p>
+                )}
+
+                {/* No separate upload button — attachments will be included when you Submit Action */}
+              </div>
+            </div>
+          </div>
 
           {/* Submit Button */}
           <div className={styles.submitSection}>
