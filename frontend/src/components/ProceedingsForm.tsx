@@ -1,10 +1,10 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
-import { postData } from '../api/axiosConfig';
+import { fetchData, postData } from '../api/axiosConfig';
 import { EnhancedTextEditor } from './RichTextEditor';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
@@ -23,20 +23,25 @@ interface ProceedingsFormProps {
   applicationData?: ApplicationData;
 }
 
-const ACTION_OPTIONS = [
-  { value: 'forward', label: 'Forward' },
-  { value: 'return', label: 'Return' },
-  { value: 'dispose', label: 'Dispose' },
-  { value: 'red-flag', label: 'Red Flag' },
-];
-
-// Map UI actions to backend action IDs expected by /workflow/action
-const ACTION_ID_MAP: Record<string, number> = {
-  'forward': 1,
-  'return': 2,
-  'dispose': 3,
-  'red-flag': 4,
+// Type representing actions fetched from backend Actiones table
+type BackendAction = {
+  id: number;
+  code: string; // e.g., FORWARD, REJECT, DISPOSE, RED_FLAG, etc.
+  name?: string;
+  description?: string;
+  isActive?: boolean;
 };
+
+// Option used by react-select for Action Type
+type ActionOption = { value: number; label: string; code: string };
+
+// Fallback list used only if API is unreachable
+const FALLBACK_ACTIONS: ActionOption[] = [
+  { value: 1, label: 'Forward', code: 'FORWARD' },
+  { value: 2, label: 'Return', code: 'REJECT' },
+  { value: 3, label: 'Dispose', code: 'DISPOSE' },
+  { value: 4, label: 'Red Flag', code: 'RED_FLAG' },
+];
 
 // Simple TextArea Component as Rich Text Editor Replacement
 function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId }: {
@@ -133,7 +138,14 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
 }
 
 export default function ProceedingsForm({ applicationId, onSuccess, applicationData }: ProceedingsFormProps) {
-  const [actionType, setActionType] = useState('');
+  // Dynamic actions state
+  const [actionOptions, setActionOptions] = useState<ActionOption[]>([]);
+  const [actionsLoading, setActionsLoading] = useState<boolean>(true);
+  const [actionsError, setActionsError] = useState<string | null>(null);
+  const [selectedAction, setSelectedAction] = useState<ActionOption | null>(null);
+  // Legacy derived string (for conditional UI messages)
+  const actionType = selectedAction?.code?.toLowerCase() || '';
+  
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [remarks, setRemarks] = useState('');
@@ -149,6 +161,53 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+
+  // Fetch actions from backend on mount
+  useEffect(() => {
+    let mounted = true;
+    setActionsLoading(true);
+    setActionsError(null);
+    (async () => {
+      try {
+        const data = await fetchData(`/actiones`);
+        // data is expected to be an array of BackendAction
+        const options: ActionOption[] = (Array.isArray(data) ? data : [])
+          .filter((a: BackendAction) => a?.isActive !== false) // prefer active ones
+          .map((a: BackendAction) => {
+            const code = String(a.code || '').toUpperCase();
+            // Prefer provided name; else friendly-case the code
+            const friendly = a?.name ||
+              (code === 'FORWARD' ? 'Forward' :
+               code === 'REJECT' ? 'Return' :
+               code === 'DISPOSE' ? 'Dispose' :
+               code === 'RED_FLAG' ? 'Red Flag' :
+               code === 'RE_ENQUIRY' ? 'Re-Enquiry' :
+               code === 'GROUND_REPORT' ? 'Ground Report' : code.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase()));
+            return { value: Number(a.id), label: String(friendly), code };
+          });
+        if (mounted) {
+          // Prefer to show common actions first
+          const order = ['FORWARD', 'REJECT', 'DISPOSE', 'RED_FLAG'];
+          options.sort((x, y) => order.indexOf(x.code) - order.indexOf(y.code));
+          setActionOptions(options.length ? options : FALLBACK_ACTIONS);
+        }
+      } catch (e: any) {
+        if (!mounted) return;
+        setActionsError(e?.message || 'Failed to load actions');
+        setActionOptions(FALLBACK_ACTIONS);
+      } finally {
+        if (mounted) setActionsLoading(false);
+      }
+    })();
+    return () => { mounted = false };
+  }, []);
+
+  // Reset next user when switching away from FORWARD
+  useEffect(() => {
+    if (selectedAction && selectedAction.code !== 'FORWARD') {
+      setNextUser(null);
+    }
+  }, [selectedAction]);
 
   // Read role from cookies on mount and normalize
   useEffect(() => {
@@ -200,12 +259,12 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     setSuccess(null);
 
     // Validation
-    if (!actionType) {
+    if (!selectedAction) {
       setError('Please select an action type.');
       return;
     }
 
-    if (actionType === 'forward' && !nextUser) {
+    if (selectedAction.code === 'FORWARD' && !nextUser) {
       setError('Please select a user to forward to.');
       return;
     }
@@ -222,11 +281,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     }
 
     // Build payload for /workflow/action
-    const actionId = ACTION_ID_MAP[actionType];
-    if (!actionId) {
-      setError('Unknown action type.');
-      return;
-    }
+    const actionId = selectedAction.value;
 
   const payload: any = {
       applicationId: Number(applicationId),
@@ -237,7 +292,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
 
     
     // Add next user if forwarding
-    if (nextUser?.value) {
+    if (selectedAction.code === 'FORWARD' && nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
     }
 
@@ -306,7 +361,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       setSuccess(result.message || 'Action completed successfully.');
       
       // Reset form
-      setActionType('');
+      setSelectedAction(null);
       setNextUser(null);
       setRemarks('');
       
@@ -684,11 +739,12 @@ Yours faithfully,
             </label>
             <div className={styles.selectContainer}>
               <Select
-                options={ACTION_OPTIONS}
-                value={ACTION_OPTIONS.find(opt => opt.value === actionType) || null}
-                onChange={opt => setActionType(opt?.value || '')}
-                placeholder="Select action type"
-                isDisabled={isSubmitting}
+                options={actionOptions}
+                value={selectedAction}
+                onChange={(opt) => setSelectedAction(opt as ActionOption || null)}
+                placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
+                isLoading={actionsLoading}
+                isDisabled={isSubmitting || actionsLoading}
                 className="text-sm"
                 styles={{
                   control: (provided, state) => ({
@@ -702,13 +758,18 @@ Yours faithfully,
                 }}
               />
             </div>
+            {actionsError && (
+              <p className={styles.helpText}>
+                Failed to load actions from server. Using defaults. Error: {actionsError}
+              </p>
+            )}
           </div>
 
           {/* Next User Selection */}
           <div className={styles.formSection}>
             <label className={styles.formLabel}>
               Forward To (Next User/Role)
-              {<span className={styles.required}>*</span>}
+              {selectedAction?.code === 'FORWARD' && <span className={styles.required}>*</span>}
             </label>
             <div className={styles.selectContainer}>
               <Select
@@ -719,7 +780,7 @@ Yours faithfully,
                   fetchingUsers ? 'Loading users...' : 'Select user'
                 }
                 isLoading={fetchingUsers}
-                isDisabled={isSubmitting || fetchingUsers}
+                isDisabled={isSubmitting || fetchingUsers || selectedAction?.code !== 'FORWARD'}
                 className="text-sm"
                 styles={{
                   control: (provided, state) => ({
@@ -745,7 +806,7 @@ Yours faithfully,
                 No users available. Please try refreshing the page.
               </p>
             )}
-            {actionType && actionType !== 'forward' && (
+            {selectedAction && selectedAction.code !== 'FORWARD' && (
               <p className={styles.helpText}>
                 This field is only required when "Forward" action is selected.
               </p>
