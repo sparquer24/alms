@@ -463,7 +463,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         onReset={handleReset}
       />
       <main className="flex-1 p-6 lg:p-8">
-  <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {successMessage && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm">
                 <div className="flex items-center">
@@ -820,8 +820,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       <div className="flex flex-col gap-4">
                           {/* Proceedings Form - Always Open */}
                           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                                <div className="p-4 bg-gray-50">
-                              <div className="max-h-[700px] md:max-h-[600px] overflow-y-auto bg-white rounded-lg border border-gray-200 shadow-sm custom-scrollbar-blue">
+                            <div className="p-4 bg-gray-50">
                                 <div className="p-4">
                                   <ProceedingsForm 
                                     applicationId={applicationId} 
@@ -830,7 +829,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                     applicationData={application || undefined}
                                   />
                                 </div>
-                              </div>
                             </div>
                           </div>
                         </div>

@@ -66,34 +66,6 @@ a {
   background: #60A5FA;
 }
 
-/* Thin scrollbar utility (global) */
-.thin-scrollbar,
-body,
-.thin-scrollbar * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0,0,0,0.35) transparent;
-}
-
-.thin-scrollbar::-webkit-scrollbar,
-body::-webkit-scrollbar,
-.thin-scrollbar *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.thin-scrollbar::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track,
-.thin-scrollbar *::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.thin-scrollbar::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb,
-.thin-scrollbar *::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.35);
-  border-radius: 999px;
-}
-
 /* Utility classes for consistent spacing */
 .container {
   max-width: 1200px;

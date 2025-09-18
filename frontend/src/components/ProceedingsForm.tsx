@@ -383,13 +383,13 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     if (!files.length) return;
 
     // Basic validation: 10 files max, each <= 10MB
-    const MAX_FILES = 10;
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_FILES = 1;
+    const MAX_SIZE = 1 * 1024 * 1024; // 10MB
 
     const valid: File[] = [];
     for (const f of files) {
       if (f.size > MAX_SIZE) {
-        setError(`File too large: ${f.name} (max 10MB)`);
+        setError(`File too large: ${f.name} (max 1MB)`);
         continue;
       }
       valid.push(f);
@@ -713,38 +713,7 @@ Yours faithfully,
   };
 
   return (
-    <div className={`${styles.formContainer} thin-scrollbar`}>
-      <style>{`
-        /* Thin scrollbar for WebKit browsers */
-        .thin-scrollbar textarea::-webkit-scrollbar,
-        .thin-scrollbar .prose::-webkit-scrollbar,
-        .thin-scrollbar [contenteditable]::-webkit-scrollbar,
-        .thin-scrollbar .download-dropdown::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        .thin-scrollbar textarea::-webkit-scrollbar-thumb,
-        .thin-scrollbar .prose::-webkit-scrollbar-thumb,
-        .thin-scrollbar [contenteditable]::-webkit-scrollbar-thumb,
-        .thin-scrollbar .download-dropdown::-webkit-scrollbar-thumb {
-          background: rgba(0,0,0,0.35);
-          border-radius: 999px;
-        }
-        .thin-scrollbar textarea::-webkit-scrollbar-track,
-        .thin-scrollbar .prose::-webkit-scrollbar-track,
-        .thin-scrollbar [contenteditable]::-webkit-scrollbar-track,
-        .thin-scrollbar .download-dropdown::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        /* Firefox */
-        .thin-scrollbar textarea,
-        .thin-scrollbar .prose,
-        .thin-scrollbar [contenteditable],
-        .thin-scrollbar .download-dropdown {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(0,0,0,0.35) transparent;
-        }
-      `}</style>
+  <div className={`${styles.formContainer} thin-scrollbar`}>
       {/* Header */}
       <div className={styles.formHeader}>
         <h2>
@@ -757,7 +726,7 @@ Yours faithfully,
       </div>
 
       {/* Proceedings Form */}
-      <div>
+      <div className={styles.scrollPanel}>
         <form onSubmit={handleSubmit} className={styles.formContent}>
           {/* Status Messages */}
           {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
