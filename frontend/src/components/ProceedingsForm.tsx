@@ -713,7 +713,38 @@ Yours faithfully,
   };
 
   return (
-    <div className={styles.formContainer}>
+    <div className={`${styles.formContainer} thin-scrollbar`}>
+      <style>{`
+        /* Thin scrollbar for WebKit browsers */
+        .thin-scrollbar textarea::-webkit-scrollbar,
+        .thin-scrollbar .prose::-webkit-scrollbar,
+        .thin-scrollbar [contenteditable]::-webkit-scrollbar,
+        .thin-scrollbar .download-dropdown::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .thin-scrollbar textarea::-webkit-scrollbar-thumb,
+        .thin-scrollbar .prose::-webkit-scrollbar-thumb,
+        .thin-scrollbar [contenteditable]::-webkit-scrollbar-thumb,
+        .thin-scrollbar .download-dropdown::-webkit-scrollbar-thumb {
+          background: rgba(0,0,0,0.35);
+          border-radius: 999px;
+        }
+        .thin-scrollbar textarea::-webkit-scrollbar-track,
+        .thin-scrollbar .prose::-webkit-scrollbar-track,
+        .thin-scrollbar [contenteditable]::-webkit-scrollbar-track,
+        .thin-scrollbar .download-dropdown::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        /* Firefox */
+        .thin-scrollbar textarea,
+        .thin-scrollbar .prose,
+        .thin-scrollbar [contenteditable],
+        .thin-scrollbar .download-dropdown {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(0,0,0,0.35) transparent;
+        }
+      `}</style>
       {/* Header */}
       <div className={styles.formHeader}>
         <h2>
@@ -988,7 +1019,7 @@ Yours faithfully,
                     disabled={isSubmitting}
                     className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  <p className={styles.helpText}>Max 10 files, each up to 10MB. Allowed: PDF, images, Word.</p>
+                  <p className={styles.helpText}>Max 4 files, each up to 1MB. Allowed: PDF, images, Word.</p>
                 </div>
 
                 {attachmentFiles.length > 0 ? (
@@ -1078,9 +1109,6 @@ Yours faithfully,
             {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
             <div className={styles.formSection}>
-              <label className={styles.formLabel}>
-                Draft Letter Content
-              </label>
               <EnhancedTextEditor
                 content={draftLetter}
                 onChange={setDraftLetter}

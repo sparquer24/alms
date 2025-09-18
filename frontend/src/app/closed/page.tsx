@@ -17,12 +17,15 @@ export default function ClosedPage() {
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { isAuthenticated, isLoading: authLoading } = useAuthSync();
+  const router = useRouter();
+
   useEffect(() => {
-    // Fetch closed applications
+    // Fetch closed applications only after auth finishes and user is authenticated
     const loadApplications = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch closed applications using the utility function
         const fetchedApplications = await fetchApplicationsByStatusKey('closed');
         setApplications(fetchedApplications);
@@ -34,11 +37,12 @@ export default function ClosedPage() {
       }
     };
 
-    loadApplications();
-  }, []);
-
-  const { isAuthenticated, isLoading: authLoading } = useAuthSync();
-  const router = useRouter();
+    if (!authLoading && isAuthenticated) {
+      loadApplications();
+    } else if (!authLoading && !isAuthenticated) {
+      setIsLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -88,7 +92,7 @@ export default function ClosedPage() {
         onDateFilter={handleDateFilter}
         onReset={handleReset}
       />
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">Closed Applications</h1>
           

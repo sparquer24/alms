@@ -26,7 +26,7 @@ function getRoleBasedRedirectPath(userRole: string): string {
       return '/final';
       
     case 'SHO':
-      return '/inbox/forwarded';
+      return '/home/forwarded';
     case 'ZS':
       return '/freshform';
       
@@ -47,7 +47,7 @@ const protectedRoutes = [
   '/freshform',
   '/application',
   '/sent',
-  '/inbox',
+    '/home',
   '/reports',
   '/settings',
   '/final',

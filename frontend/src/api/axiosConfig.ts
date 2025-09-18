@@ -44,11 +44,36 @@ try {
 // GET request function
 export const fetchData = async (url: string, params = {}) => {
   try {
+    // Ensure Authorization header exists (support code paths that call fetchData directly)
+    try {
+      if (!axiosInstance.defaults.headers['Authorization']) {
+        const existing = jsCookie.get('auth');
+        if (existing) {
+          setAuthToken(existing);
+        }
+      }
+    } catch (e) {
+      // ignore cookie read errors
+    }
     const response = await axiosInstance.get(url, { params });
     return response.data;
   } catch (error) {
     const err: any = error;
     const message = err?.response?.data?.message || err?.message || 'Could not get data';
+    // If unauthorized, redirect to login in client contexts to re-authenticate
+    const status = err?.response?.status || err?.status;
+    const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
+    if (isAuthError && typeof window !== 'undefined') {
+      try {
+        // Clear potential invalid auth cookie and redirect
+        jsCookie.remove('auth');
+      } catch (e) {
+        // ignore
+      }
+      window.location.href = '/login';
+      // throw a specific error to stop execution; caller may catch it
+      throw new Error('Authentication required');
+    }
     throw new Error(message);
   }
 };
@@ -61,6 +86,13 @@ export const postData = async (url: string, data: any, options = {}) => {
   } catch (error) {
     const err: any = error;
     const message = err?.response?.data?.message || err?.message || 'Could not post data';
+    const status = err?.response?.status || err?.status;
+    const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
+    if (isAuthError && typeof window !== 'undefined') {
+      try { jsCookie.remove('auth'); } catch (e) {}
+      window.location.href = '/login';
+      throw new Error('Authentication required');
+    }
     throw new Error(message);
   }
 };
@@ -73,6 +105,13 @@ export const putData = async (url: string, data: any, options = {}) => {
   } catch (error) {
     const err: any = error;
     const message = err?.response?.data?.message || err?.message || 'Could not update data';
+    const status = err?.response?.status || err?.status;
+    const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
+    if (isAuthError && typeof window !== 'undefined') {
+      try { jsCookie.remove('auth'); } catch (e) {}
+      window.location.href = '/login';
+      throw new Error('Authentication required');
+    }
     throw new Error(message);
   }
 };
@@ -85,6 +124,13 @@ export const deleteData = async (url: string, options = {}) => {
   } catch (error) {
     const err: any = error;
     const message = err?.response?.data?.message || err?.message || 'Could not delete data';
+    const status = err?.response?.status || err?.status;
+    const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
+    if (isAuthError && typeof window !== 'undefined') {
+      try { jsCookie.remove('auth'); } catch (e) {}
+      window.location.href = '/login';
+      throw new Error('Authentication required');
+    }
     throw new Error(message);
   }
 };

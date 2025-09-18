@@ -44,6 +44,10 @@
   @apply text-sm text-gray-500 mt-2;
 }
 
+.fieldError {
+  @apply text-sm text-red-600 mt-2;
+}
+
 .submitSection {
   @apply flex flex-col items-center space-y-4 pt-6 border-t border-gray-100;
 }

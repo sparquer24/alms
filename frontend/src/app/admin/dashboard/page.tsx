@@ -50,7 +50,7 @@ export default function AdminDashboard() {
         onDateFilter={() => {}} 
         onReset={() => {}} 
       />
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <h1 className="text-2xl font-bold mb-8">Admin Dashboard</h1>
         {loading ? (
           <div>Loading...</div>

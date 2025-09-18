@@ -137,7 +137,7 @@ export default function ReportsPage() {
         onReset={handleReset}
       />
 
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">My Reports</h1>
 

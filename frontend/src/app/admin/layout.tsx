@@ -50,7 +50,7 @@ export default function AdminLayout({
     <LayoutProvider>
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 ml-[18%] min-w-0 overflow-auto">
+        <main className="flex-1 ml-[80px] md:ml-[18%] min-w-0 overflow-auto">
           {children}
         </main>
       </div>

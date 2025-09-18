@@ -53,3 +53,31 @@ body {
   z-index: 5;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
 }
+
+/* Thin scrollbar utility (global for app) */
+.thin-scrollbar,
+body,
+.thin-scrollbar * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.35) transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.thin-scrollbar *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.thin-scrollbar *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.thin-scrollbar *::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.35);
+  border-radius: 999px;
+}

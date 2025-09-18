@@ -3,8 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Compatibility wrapper: redirect to /inbox?type=... to use the new query-based inbox page
-export default function InboxTypeRedirect({ params }: { params: Promise<{ type: string }> }) {
+export default function HomeTypeRedirect({ params }: { params: Promise<{ type: string }> }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -12,9 +11,9 @@ export default function InboxTypeRedirect({ params }: { params: Promise<{ type: 
     (async () => {
       const resolved = await params;
       if (!mounted) return;
-      const t = resolved.type;
-      // Use replace so history is clean
-      router.replace(`/home/${encodeURIComponent(t)}`);
+      const resolvedType = String(resolved.type).toLowerCase();
+      // Replace with query-based URL to centralize rendering
+      router.replace(`/home?type=${encodeURIComponent(resolvedType)}`);
     })();
     return () => { mounted = false; };
   }, [params, router]);

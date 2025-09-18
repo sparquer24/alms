@@ -67,7 +67,7 @@ export default function RoleMappingPage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 w-full max-w-5xl md:max-w-6xl">
+          <div className="bg-white rounded-lg shadow p-6 w-full max-w-8xl md:max-w-8xl">
             <table className="w-full text-base mb-4 border-separate border-spacing-y-3">
               <thead>
                 <tr className="bg-gray-100 text-gray-800 rounded-2xl">
