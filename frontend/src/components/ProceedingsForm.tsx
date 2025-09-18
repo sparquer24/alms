@@ -850,24 +850,21 @@ Yours faithfully,
     {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
 
     {roleFromCookie === 'SHO' && (
-            <div className="mt-8 border-t pt-6">
-              <div className="flex justify-between items-center mb-4">
+            <div className="border-t pt-2">
+              <div className="flex justify-between items-center mb-2">
                 <h4 className="text-md font-semibold text-gray-800">
-                  Ground Report Letter <span className={styles.required}>*</span>
+                  Ground Report Letter (Draft Letter Content)<span className={styles.required}>*</span>
                 </h4>
               </div>
 
               {/* Ground Report Editor within Proceedings - always visible for SHO */}
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="bg-gray-50 p-1 rounded-lg">
                 <div className={styles.formSection}>
-                  <label className={styles.formLabel}>
-                    Draft Letter Content <span className={styles.required}>*</span>
-                  </label>
                   <EnhancedTextEditor
                     content={draftLetter}
                     onChange={setDraftLetter}
                     placeholder="Draft letter will appear here..."
-                    className="min-h-[400px]"
+                    className="min-h-[400px] w-full max-w-[900px]"
                   />
                   <p className={styles.helpText}>
                     This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
@@ -1082,7 +1079,7 @@ Yours faithfully,
                 content={draftLetter}
                 onChange={setDraftLetter}
                 placeholder="Draft letter will appear here..."
-                className="min-h-[600px]"
+                className="min-h-[600px] w-full max-w-[900px]"
               />
               <p className={styles.helpText}>
                 Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.

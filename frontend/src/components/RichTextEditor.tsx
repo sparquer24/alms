@@ -179,7 +179,7 @@ export function EnhancedTextEditor({
           scrollbar-color: rgba(0,0,0,0.35) transparent;
         }
       `}</style>
-      <div className="p-2 flex flex-wrap gap-1 items-center bg-gray-50 border-b">
+  <div className="sticky top-0 z-10 bg-white p-2 flex flex-wrap gap-1 items-center border-b">
         <button type="button" onClick={() => toggleWrap('**')} className="px-2 py-1 border rounded text-sm">B</button>
         <button type="button" onClick={() => toggleWrap('*')} className="px-2 py-1 border rounded text-sm italic">I</button>
         <button type="button" onClick={() => toggleWrap('__')} className="px-2 py-1 border rounded text-sm underline">U</button>
