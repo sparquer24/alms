@@ -61,7 +61,20 @@ function redirectToLogin(): void {
 
 async function ensureAuthHeader() {
   const token = getAuthToken();
-  if (token) setAuthToken(token);
+  if (token) {
+    setAuthToken(token);
+    return;
+  }
+
+  // No token available: if running in browser, redirect to login so user can re-authenticate
+  if (typeof window !== 'undefined') {
+    console.warn('No auth token found - redirecting to login');
+    redirectToLogin();
+    return;
+  }
+
+  // In non-browser environments, throw so callers can handle it appropriately
+  throw new Error('Missing authentication token');
 }
 
 /**
@@ -80,41 +93,87 @@ export class ApiClient {
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
-    await ensureAuthHeader();
-    const url = this.buildUrl(endpoint);
-    const data = await fetchData(url, params || {});
-    return data as T;
+    try {
+      await ensureAuthHeader();
+      const url = this.buildUrl(endpoint);
+      const data = await fetchData(url, params || {});
+      return data as T;
+    } catch (error: any) {
+      // If the error is an authorization issue, redirect to login (client-side only)
+      const msg = error?.message || '';
+      const isAuthError = msg.toLowerCase().includes('authorization') || msg.toLowerCase().includes('auth') || (error?.status === 401) || (error?.response?.status === 401);
+      if (isAuthError && typeof window !== 'undefined') {
+        redirectToLogin();
+      }
+      throw error;
+    }
   }
 
   async post<T>(endpoint: string, data?: any): Promise<T> {
-    await ensureAuthHeader();
-    const url = this.buildUrl(endpoint);
-    const res = await postData(url, data);
-    return res as T;
+    try {
+      await ensureAuthHeader();
+      const url = this.buildUrl(endpoint);
+      const res = await postData(url, data);
+      return res as T;
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const isAuthError = msg.toLowerCase().includes('authorization') || msg.toLowerCase().includes('auth') || (error?.status === 401) || (error?.response?.status === 401);
+      if (isAuthError && typeof window !== 'undefined') {
+        redirectToLogin();
+      }
+      throw error;
+    }
   }
 
   async put<T>(endpoint: string, data?: any): Promise<T> {
-    await ensureAuthHeader();
-    const url = this.buildUrl(endpoint);
-    const res = await putData(url, data);
-    return res as T;
+    try {
+      await ensureAuthHeader();
+      const url = this.buildUrl(endpoint);
+      const res = await putData(url, data);
+      return res as T;
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const isAuthError = msg.toLowerCase().includes('authorization') || msg.toLowerCase().includes('auth') || (error?.status === 401) || (error?.response?.status === 401);
+      if (isAuthError && typeof window !== 'undefined') {
+        redirectToLogin();
+      }
+      throw error;
+    }
   }
 
   async delete<T>(endpoint: string): Promise<T> {
-    await ensureAuthHeader();
-    const url = this.buildUrl(endpoint);
-    const res = await deleteData(url);
-    return res as T;
+    try {
+      await ensureAuthHeader();
+      const url = this.buildUrl(endpoint);
+      const res = await deleteData(url);
+      return res as T;
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const isAuthError = msg.toLowerCase().includes('authorization') || msg.toLowerCase().includes('auth') || (error?.status === 401) || (error?.response?.status === 401);
+      if (isAuthError && typeof window !== 'undefined') {
+        redirectToLogin();
+      }
+      throw error;
+    }
   }
 
   async uploadFile<T>(endpoint: string, formData: FormData): Promise<T> {
-    await ensureAuthHeader();
-    const url = this.buildUrl(endpoint);
-    // use axiosInstance directly for multipart
-    const response = await axiosInstance.post(url, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data as T;
+    try {
+      await ensureAuthHeader();
+      const url = this.buildUrl(endpoint);
+      // use axiosInstance directly for multipart
+      const response = await axiosInstance.post(url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data as T;
+    } catch (error: any) {
+      const msg = error?.message || '';
+      const isAuthError = msg.toLowerCase().includes('authorization') || msg.toLowerCase().includes('auth') || (error?.status === 401) || (error?.response?.status === 401);
+      if (isAuthError && typeof window !== 'undefined') {
+        redirectToLogin();
+      }
+      throw error;
+    }
   }
 }
 

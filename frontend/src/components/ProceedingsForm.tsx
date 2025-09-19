@@ -383,13 +383,13 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     if (!files.length) return;
 
     // Basic validation: 10 files max, each <= 10MB
-    const MAX_FILES = 10;
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_FILES = 1;
+    const MAX_SIZE = 1 * 1024 * 1024; // 10MB
 
     const valid: File[] = [];
     for (const f of files) {
       if (f.size > MAX_SIZE) {
-        setError(`File too large: ${f.name} (max 10MB)`);
+        setError(`File too large: ${f.name} (max 1MB)`);
         continue;
       }
       valid.push(f);
@@ -713,7 +713,7 @@ Yours faithfully,
   };
 
   return (
-    <div className={styles.formContainer}>
+  <div className={`${styles.formContainer} thin-scrollbar`}>
       {/* Header */}
       <div className={styles.formHeader}>
         <h2>
@@ -726,7 +726,7 @@ Yours faithfully,
       </div>
 
       {/* Proceedings Form */}
-      <div>
+      <div className={styles.scrollPanel}>
         <form onSubmit={handleSubmit} className={styles.formContent}>
           {/* Status Messages */}
           {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
@@ -850,24 +850,21 @@ Yours faithfully,
     {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
 
     {roleFromCookie === 'SHO' && (
-            <div className="mt-8 border-t pt-6">
-              <div className="flex justify-between items-center mb-4">
+            <div className="border-t pt-2">
+              <div className="flex justify-between items-center mb-2">
                 <h4 className="text-md font-semibold text-gray-800">
-                  Ground Report Letter <span className={styles.required}>*</span>
+                  Ground Report Letter (Draft Letter Content)<span className={styles.required}>*</span>
                 </h4>
               </div>
 
               {/* Ground Report Editor within Proceedings - always visible for SHO */}
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="bg-gray-50 p-1 rounded-lg">
                 <div className={styles.formSection}>
-                  <label className={styles.formLabel}>
-                    Draft Letter Content <span className={styles.required}>*</span>
-                  </label>
                   <EnhancedTextEditor
                     content={draftLetter}
                     onChange={setDraftLetter}
                     placeholder="Draft letter will appear here..."
-                    className="min-h-[400px]"
+                    className="min-h-[400px] w-full max-w-[900px]"
                   />
                   <p className={styles.helpText}>
                     This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
@@ -988,7 +985,7 @@ Yours faithfully,
                     disabled={isSubmitting}
                     className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  <p className={styles.helpText}>Max 10 files, each up to 10MB. Allowed: PDF, images, Word.</p>
+                  <p className={styles.helpText}>Max 4 files, each up to 1MB. Allowed: PDF, images, Word.</p>
                 </div>
 
                 {attachmentFiles.length > 0 ? (
@@ -1078,14 +1075,11 @@ Yours faithfully,
             {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
             <div className={styles.formSection}>
-              <label className={styles.formLabel}>
-                Draft Letter Content
-              </label>
               <EnhancedTextEditor
                 content={draftLetter}
                 onChange={setDraftLetter}
                 placeholder="Draft letter will appear here..."
-                className="min-h-[600px]"
+                className="min-h-[600px] w-full max-w-[900px]"
               />
               <p className={styles.helpText}>
                 Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.

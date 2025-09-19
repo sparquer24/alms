@@ -83,7 +83,7 @@ export default function FlowMappingPage() {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">
-          <div className="bg-white rounded-lg shadow p-6 w-full max-w-5xl md:max-w-6xl">
+          <div className="bg-white rounded-lg shadow p-6 w-full max-w-8xl md:max-w-8xl">
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Current User

@@ -25,7 +25,7 @@ export default function Home() {
   const { isAuthenticated, isLoading, userRole } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
-  
+
   // Debug logging
   console.log('Home page - applications from context:', applications);
   console.log('Home page - applications length:', applications?.length);
@@ -37,7 +37,7 @@ export default function Home() {
       router.push('/login');
       return;
     }
-    
+
     // If authenticated, check if user should be redirected based on role
     if (!isLoading && isAuthenticated) {
       if (userRole) {
@@ -54,7 +54,7 @@ export default function Home() {
       }
     }
   }, [isAuthenticated, isLoading, userRole, router]);
-  
+
   useEffect(() => {
     // Show header and sidebar on the Application Table page
     setShowHeader(true);
@@ -69,27 +69,27 @@ export default function Home() {
           console.log('Loading initial data for home page...');
           console.log('Current applications length:', applications.length);
           console.log('Current isAuthenticated:', isAuthenticated);
-          
+
           // Use ApplicationApi.getAll() without parameters to get all applications
           // This matches the API structure that the Sidebar uses
           const response = await ApplicationApi.getAll();
           console.log('Initial API Response:', response);
           console.log('Initial API Response type:', typeof response);
           console.log('Initial API Response keys:', response ? Object.keys(response) : 'No response');
-          
+
           // Extract the data array from the response
           const apiApplications = response?.data || [];
           console.log('Initial extracted apiApplications:', apiApplications);
           console.log('Initial extracted apiApplications type:', typeof apiApplications);
           console.log('Initial extracted apiApplications isArray:', Array.isArray(apiApplications));
-          
+
           if (apiApplications && Array.isArray(apiApplications)) {
             console.log('Initial API applications:', apiApplications);
-            
+
             // Convert API applications to table format using the same mapper as Sidebar
             const tableData = apiApplications.map(app => mapAPIApplicationToTableData(app));
             console.log('Initial converted table data:', tableData);
-            
+
             if (tableData.length > 0) {
               setApplications(tableData);
               setHasLoadedInitialData(true);
@@ -99,7 +99,7 @@ export default function Home() {
           console.error('Failed to load initial applications:', err);
         }
       };
-      
+
       loadInitialData();
     }
   }, [isAuthenticated, setApplications, hasLoadedInitialData]); // Added hasLoadedInitialData to prevent multiple API calls
@@ -137,45 +137,55 @@ export default function Home() {
   // Debug logging before render
   console.log('Home page: About to render with applications:', applications);
   console.log('Home page: About to render with applications length:', applications?.length);
-  
+
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header 
-        onSearch={handleSearch} 
-        onDateFilter={handleDateFilter} 
-        onReset={handleReset} 
+      <Header
+        onSearch={handleSearch}
+        onDateFilter={handleDateFilter}
+        onReset={handleReset}
       />
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h1 className="text-2xl font-bold text-black mb-6">Welcome to Arms License Dashboard</h1>
-          <p className="text-gray-600 mb-4">
-            This dashboard provides access to all arms license applications and their statuses.
-            Use the sidebar navigation to access different sections.
-          </p>
-          
-          {/* Display search and filter information if applied */}
-          {(searchQuery || startDate || endDate) && (
-            <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-              <h3 className="font-semibold text-blue-700">Active Filters:</h3>
-              <div className="mt-2 text-sm text-gray-700 space-y-1">
-                {searchQuery && <p>Search: {searchQuery}</p>}
-                {(startDate || endDate) && (
-                  <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
-                )}
+  <main className="flex-1 p-8 overflow-y-auto w-full mt-[64px] md:ml-[18%] md:mt-[70px]">
+        <div className="max-w-8xl w-full mx-auto">
+          <div className="bg-white rounded-lg shadow p-6 flex flex-col flex-1 min-h-[420px]">
+            <h1 className="text-2xl font-bold text-black mb-6">Welcome to Arms License Dashboard</h1>
+            <p className="text-gray-600 mb-4">
+              This dashboard provides access to all arms license applications and their statuses.
+              Use the sidebar navigation to access different sections.
+            </p>
+
+            {/* Display search and filter information if applied */}
+            {(searchQuery || startDate || endDate) && (
+              <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <h3 className="font-semibold text-blue-700">Active Filters:</h3>
+                <div className="mt-2 text-sm text-gray-700 space-y-1">
+                  {searchQuery && <p>Search: {searchQuery}</p>}
+                  {(startDate || endDate) && (
+                    <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Dashboard area: responsive grid (summary left, table right) */}
+            <div className="mb-8 flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+                <div className="md:col-span-1">
+                  <DashboardSummary />
+                </div>
+
+                <div className="md:col-span-2 flex flex-col">
+                  <h2 className="text-xl font-bold mb-4">Recent Applications</h2>
+                  <div className="flex-1 overflow-hidden">
+                    <ApplicationTable
+                      applications={applications}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-          
-          {/* Dashboard Summary Component */}
-          <div className="mb-8">
-            <DashboardSummary />
           </div>
-
-          <h2 className="text-xl font-bold mb-4">Recent Applications</h2>
-          <ApplicationTable 
-            applications={applications}
-          />
         </div>
       </main>
     </div>

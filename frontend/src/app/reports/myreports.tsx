@@ -57,7 +57,7 @@ const MyReportsPage = () => {
       <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
         <Sidebar />
         <Header userRole={userRole} />
-        <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
           <h1 className="text-2xl font-bold mb-8">My Reports</h1>
           <div className="bg-white rounded-lg shadow p-8 text-center text-xl text-gray-700">
             Zonal Superintendent (ZS) does not have any reports to display here.
@@ -71,7 +71,7 @@ const MyReportsPage = () => {
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
       <Header userRole={userRole} />
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <h1 className="text-2xl font-bold mb-8">My Reports</h1>
         <div className="space-y-6">
           {STATUS_TYPES.map(({ key, label }) => (

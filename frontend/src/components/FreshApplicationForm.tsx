@@ -1749,7 +1749,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   return (
     <>
-      <div className="max-w-7xl mx-auto h-full overflow-hidden grid ">
+  <div className="max-w-8xl mx-auto h-full overflow-hidden grid ">
         {/* Fixed Header with Messages */}
         <div className="">
           {/* Success/Error messages */}

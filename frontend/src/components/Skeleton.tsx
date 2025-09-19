@@ -108,7 +108,7 @@ export const ApplicationCardSkeleton: React.FC = () => (
 
 // Sidebar Skeleton
 export const SidebarSkeleton: React.FC = () => (
-  <div className="fixed left-0 top-0 h-full w-[18%] bg-white shadow-lg border-r border-gray-200 z-40">
+  <div className="fixed left-0 top-0 h-full w-[80vw] max-w-xs md:w-[18%] bg-white shadow-lg border-r border-gray-200 z-40">
     <div className="p-4">
       {/* Logo Area */}
       <div className="flex items-center space-x-3 mb-8">
@@ -131,8 +131,8 @@ export const SidebarSkeleton: React.FC = () => (
 
 // Header Skeleton
 export const HeaderSkeleton: React.FC = () => (
-  <div className="fixed top-0 left-[18%] right-0 h-[70px] bg-white shadow-sm border-b border-gray-200 z-30">
-    <div className="flex items-center justify-between h-full px-6">
+  <div className="fixed top-0 left-[80px] md:left-[18%] right-0 h-[64px] md:h-[70px] bg-white shadow-sm border-b border-gray-200 z-30">
+    <div className="flex items-center justify-between h-full px-4 md:px-6">
       {/* Search Area */}
       <div className="flex items-center space-x-4 flex-1">
         <Skeleton className="h-8 w-64" />
@@ -154,7 +154,7 @@ export const PageLayoutSkeleton: React.FC<{ children?: React.ReactNode }> = ({ c
   <div className="flex h-screen w-full bg-gray-50">
     <SidebarSkeleton />
     <HeaderSkeleton />
-    <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
       {children || (
         <div className="bg-white rounded-lg shadow p-6">
           <Skeleton className="h-8 w-48 mb-6" />

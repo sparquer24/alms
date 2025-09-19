@@ -1,20 +1,31 @@
 /* ApplicationTable.module.css */
 .tableContainer {
   width: 100%;
-  max-width: 100%; /* Use full available width */
-  min-width: 900px;  /* Ensure table is not too small */
-  margin: 0; /* Remove auto margin to eliminate right-side spacing */
+  box-sizing: border-box;
+  /* allow the table to fill the parent card fully */
+  max-width: 100%;
+  margin: 0; /* let parent control alignment */
+  padding-right: 0;
   background-color: white;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  max-height: 600px; /* Set maximum height for the table container */
 }
 
 .tableWrapper {
   overflow-x: auto;
   overflow-y: auto; /* Enable vertical scrolling */
-  max-height: 550px; /* Set max height for scrollable area */
+  max-height: none; /* allow parent to control height */
+}
+
+/* Responsive: on small screens use full width (no offset) */
+@media (max-width: 768px) {
+  .tableContainer {
+    max-width: 100%;
+    margin-left: 0;
+    padding-right: 0.5rem;
+    border-radius: 0.5rem;
+  }
 }
 
 .table {
@@ -33,7 +44,7 @@
 .tableHeaderCell {
   padding: 0.75rem 1.5rem;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   font-weight: 600;
   text-transform: uppercase;
   color: #000000;
@@ -46,7 +57,7 @@
 }
 
 .tableRow:hover {
-  background-color: #4F46E5; /* Bright indigo color */
+  background-color: #092da487; /* App primary color */
   color: #ffffff; /* Light font color */
 }
 
@@ -150,7 +161,7 @@
 
 .spinner {
   border: 2px solid rgba(99, 102, 241, 0.1);
-  border-left-color: #6366F1;
+  border-left-color: #7300ff9c; /* spinner accent uses app primary */
   border-radius: 50%;
   width: 3rem;
   height: 3rem;

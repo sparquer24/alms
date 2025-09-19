@@ -145,7 +145,7 @@ export default function FreshFormPage() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">          
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">          
 
           {/* Success message */}
           {successMessage && (

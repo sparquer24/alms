@@ -12,6 +12,7 @@ import { AdminAuthProvider } from "../context/AdminAuthContext";
 import { AuthInitializer } from "../components/AuthInitializer";
 import { UserProvider } from "../context/UserContext";
 import { ApplicationProvider } from "../context/ApplicationContext";
+import { InboxProvider } from "../context/InboxContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,7 +46,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <div className="container">
+        <div className="w-full">
           <Provider store={store}>
             <AuthInitializer />
             <AuthProvider>
@@ -55,7 +56,9 @@ export default function RootLayout({
                   <AdminAuthProvider>
                     <UserProvider>
                       <ApplicationProvider>
-                        {children}
+                        <InboxProvider>
+                          {children}
+                        </InboxProvider>
                       </ApplicationProvider>
                     </UserProvider>
                   </AdminAuthProvider>

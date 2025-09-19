@@ -21,7 +21,7 @@ export function getRoleBasedRedirectPath(userRole: string): string {
     case 'DCP':
     case 'ACP': 
     case 'CP':
-      return '/inbox/forwarded';
+      return '/home/forwarded';
 
     default:
       return '/';
@@ -54,7 +54,7 @@ export function shouldRedirectOnStartup(userRole: string, currentPath: string): 
   // For officer roles, redirect from root to their inbox
   const officerRoles = ['ARMS_SUPDT', 'SHO', 'ZS', 'ADO', 'CADO', 'DCP', 'ACP', 'CP'];
   if (officerRoles.includes(userRole) && currentPath === '/') {
-    return '/inbox/forwarded';
+    return '/home/forwarded';
   }
   
   // No redirection needed

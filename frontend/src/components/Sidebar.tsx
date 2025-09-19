@@ -9,6 +9,7 @@ import { logoutUser } from "../store/thunks/authThunks";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
 import { useAuthSync } from "../hooks/useAuthSync";
 import { useLayout } from "../config/layoutContext";
+import { useInbox } from "../context/InboxContext";
 import { useSidebarCounts } from "../hooks/useSidebarCounts";
 import { menuMeta, MenuMetaKey } from "../config/menuMeta";
 import { getRoleConfig } from "../config/roles";
@@ -250,15 +251,15 @@ const getUserRoleFromCookie = () => {
       if (normalizedName === "freshform") {
         router.replace("/freshform");
       } else if (normalizedName === "finaldisposal") {
-        router.replace("/finalDisposal");
+        router.replace("/home?type=finaldisposal");
       } else if (normalizedName === "myreports" || normalizedName === "reports") {
         router.replace("/reports/myreports");
       } else if (normalizedName === "closed") {
-        router.replace("/closed");
+        router.replace("/home?type=closed");
       } else if (normalizedName === "sent") {
-        router.replace("/sent");
+        router.replace("/home?type=sent");
       } else {
-        router.replace(`/${normalizedName}`);
+        router.replace(`/home?type=${encodeURIComponent(normalizedName)}`);
       }
     }
   }, [router, dispatch]);
@@ -268,52 +269,38 @@ const getUserRoleFromCookie = () => {
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch, isInboxOpen]);
 
+  const { loadType } = useInbox();
+
   const handleInboxSubItemClick = useCallback((subItem: string) => {
-    console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem); 
-    
+    console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem);
+
     const activeItemKey = `inbox-${subItem}`;
-    const currentPath = window.location.pathname;
-    const isOnInboxPage = currentPath.startsWith('/inbox/');
-    
-    // Ultra-stable state management to prevent flickering
-    if (activeItem === activeItemKey && isOnInboxPage) {
-      console.log('🚫 Same item already active, updating URL and reloading table');
-      // Update URL without router navigation
-      window.history.replaceState(null, '', `/inbox/${subItem}`);
-      // Trigger application table reload if callback exists
-      if (onTableReload) {
-        onTableReload(subItem);
-      }
-      return;
-    }
-    
-    console.log('✅ Setting new active item:', activeItemKey);
-    
-    // Use React's concurrent features for smooth updates
+  const currentPath = window.location.pathname;
+  const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox') || currentPath === '/home' || currentPath.startsWith('/home');
+
+    // Delegate loading to InboxContext which ensures a single fetch per type
+    const normalized = String(subItem).toLowerCase();
     startTransition(() => {
-      // Batch synchronous DOM updates
       setActiveItem(activeItemKey);
-      localStorage.setItem("activeNavItem", activeItemKey);
-      
-      // Ensure inbox stays open (minimal Redux dispatch)
+      localStorage.setItem('activeNavItem', activeItemKey);
+
       if (!isInboxOpen) {
         dispatch(openInbox());
       }
     });
-    
-    // Navigate appropriately based on current context
-    requestAnimationFrame(() => {
-      if (isOnInboxPage && onTableReload) {
-        // If we're on inbox page with callback, just update URL and reload table
-        console.log('🔄 On inbox page, updating URL and reloading table');
-        window.history.replaceState(null, '', `/inbox/${subItem}`);
-        onTableReload(subItem);
-      } else {
-        // If we're on a different page or no callback, navigate to inbox page
-        console.log('🚀 Navigating to inbox page');
-        router.push(`/inbox/${subItem}`);
-      }
-    });
+
+    // Update context (single fetch) and update URL without forcing a full remount
+    loadType(normalized).catch((e) => console.error('loadType error', e));
+    // If user is currently on an /inbox base, prefer updating /inbox?type=..., otherwise use /home?type=...
+    const targetBase = currentPath.startsWith('/inbox') ? '/inbox' : '/home';
+    const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
+    if (isOnInboxBase) {
+      // replace state to avoid adding history entries when already under inbox/home
+      window.history.replaceState(null, '', targetUrl);
+      if (onTableReload) onTableReload(normalized);
+    } else {
+      router.push(targetUrl);
+    }
   }, [dispatch, isInboxOpen, activeItem, onTableReload, router]);
 
   const handleLogout = useCallback(async () => {

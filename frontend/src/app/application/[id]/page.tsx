@@ -462,8 +462,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         onDateFilter={handleDateFilter}
         onReset={handleReset}
       />
-      <main className="flex-1 p-6 lg:p-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 p-2 lg:p-6">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             {successMessage && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm">
                 <div className="flex items-center">
@@ -496,9 +496,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           </div>
 
             {/* Header Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-2 overflow-hidden">
               {/* New Header with #001F54 background */}
-              <div className="bg-[#001F54] p-6 lg:p-8 flex items-center justify-between">
+              <div className="bg-[#001F54] p-2 lg:p-8 flex items-center justify-between">
                 <div className="flex items-center">
                   <button
                     onClick={() => router.back()}
@@ -808,7 +808,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                   {/* Action Buttons and Timeline Section - Top of Screen */}
                   <div className="p-6 lg:p-8 border-t border-gray-100 bg-white">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[600px]">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[600px]">
                       {/* Action Buttons - Left Side with Scroll */}
                       <div className="flex flex-col">
                         <div className="flex items-center mb-4">
@@ -821,7 +821,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           {/* Proceedings Form - Always Open */}
                           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                             <div className="p-4 bg-gray-50">
-                              <div className="max-h-[500px] overflow-y-auto bg-white rounded-lg border border-gray-200 shadow-sm custom-scrollbar-blue">
                                 <div className="p-4">
                                   <ProceedingsForm 
                                     applicationId={applicationId} 
@@ -830,7 +829,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                     applicationData={application || undefined}
                                   />
                                 </div>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -846,7 +844,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                         </div>
                         
                         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                          <div className="h-full max-h-[550px] overflow-y-auto p-6 custom-scrollbar">
+                          <div className="h-full max-h-[700px] md:max-h-[600px] overflow-y-auto p-6 custom-scrollbar">
                             {application && application.history && application.history.length > 0 ? (
                               <div className="space-y-4">
                                 {application.history.map((h, idx) => {
@@ -1118,7 +1116,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </div>
               )}
             </div>
-          </main>
+      </main>
           
           {/* Loading Overlay */}
           {(isProcessing || isForwarding) && (
