@@ -22,7 +22,7 @@ export default function FinalRedirect() {
       return;
     }
 
-  router.replace('/home?type=final');
+  router.push('/home?type=final');
   }, [authLoading, isAuthenticated, userRole, router]);
 
   return null;

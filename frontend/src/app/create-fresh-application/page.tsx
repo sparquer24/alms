@@ -153,10 +153,6 @@ export default function CreateFreshApplicationPage() {
             </div>
           )}
           
-          <FreshApplicationForm
-            onSubmit={handleNewApplication}
-            onCancel={handleCancelForm}
-          />
         </div>
       </main>
     </div>

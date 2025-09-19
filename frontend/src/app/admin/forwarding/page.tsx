@@ -19,7 +19,7 @@ export default function ForwardingPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!isLoggedIn) router.replace("/admin/login");
+    if (!isLoggedIn) router.push("/admin/login");
     setLocations(mockLocations);
   }, [isLoggedIn, router]);
 

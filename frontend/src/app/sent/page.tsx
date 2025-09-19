@@ -23,7 +23,7 @@ export default function SentRedirect() {
       return;
     }
 
-  router.replace('/home?type=sent');
+  router.push('/home?type=sent');
   }, [authLoading, isAuthenticated, userRole, router]);
 
   return null;

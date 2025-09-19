@@ -35,7 +35,7 @@ export const AuthInitializer: React.FC = () => {
           const redirectPath = shouldRedirectOnStartup(currentUser.role, pathname);
           if (redirectPath) {
             logDebug(`AuthInitializer: Redirecting ${currentUser.role} user to: ${redirectPath}`);
-            await router.replace(redirectPath);
+            await router.push(redirectPath);
           }
         } catch (error) {
           logError('AuthInitializer: Error during role-based redirection', error);

@@ -13,7 +13,7 @@ export default function HomeTypeRedirect({ params }: { params: Promise<{ type: s
       if (!mounted) return;
       const resolvedType = String(resolved.type).toLowerCase();
       // Replace with query-based URL to centralize rendering
-      router.replace(`/home?type=${encodeURIComponent(resolvedType)}`);
+      router.push(`/home?type=${encodeURIComponent(resolvedType)}`);
     })();
     return () => { mounted = false; };
   }, [params, router]);

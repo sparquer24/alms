@@ -8,7 +8,7 @@ export default function FinalDisposalRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-  router.replace('/home?type=finaldisposal');
+  router.push('/home?type=finaldisposal');
   }, [router]);
 
   return null;
