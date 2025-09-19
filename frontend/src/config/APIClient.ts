@@ -4,7 +4,9 @@
  */
 
 import { apiClient, getAuthToken, redirectToLogin } from './authenticatedApiClient';
-import { setAuthToken } from '../api/axiosConfig';
+// Import the underlying axios instance so we can make public (no-token) calls
+// without triggering the authenticated client's ensureAuthHeader() guard.
+import axiosInstance, { setAuthToken } from '../api/axiosConfig';
 import {
   BASE_URL,
   AUTH_APIS,
@@ -52,8 +54,18 @@ export const AuthApi = {
     console.log('  Method: POST');
     
     try {
-      const data = await apiClient.post(url, params as any);
-      console.log('🌐 Parsed response data:', data);
+      // IMPORTANT: Do NOT use apiClient.post here because it enforces an auth token
+      // via ensureAuthHeader(). During login we have no token yet, so using apiClient
+      // causes an immediate redirect back to /login and the real network call never happens.
+      // We call the raw axios instance directly so a 401 (invalid credentials) can be surfaced
+      // normally to the thunk instead of forcing a navigation.
+      // Convert HeadersInit to a plain object acceptable by axios (in case getHeaders returns a Headers instance)
+      const axiosHeaders: Record<string, string> = Array.isArray(headers)
+        ? headers.reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {} as Record<string, string>)
+        : (headers as Record<string, string>);
+      const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
+      const data = response.data;
+      console.log('🌐 Login response (unauthenticated request) received:', data);
       return data as any;
     } catch (error) {
       console.error('🌐 APIClient login error:', error);
