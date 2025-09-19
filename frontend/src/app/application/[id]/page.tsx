@@ -204,10 +204,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        console.log('🔍 ApplicationDetailPage: Fetching application with ID (via service):', applicationId);
         const result = await getApplicationByApplicationId(applicationId);
         if (result) {
-          console.log('✅ ApplicationDetailPage: Loaded application (transformed):', result);
           setApplication(result as ApplicationData);
         } else {
           console.warn('⚠️ ApplicationDetailPage: No application found');
@@ -544,10 +542,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               </div>
 
               {(() => {
-                console.log('🔍 Render check - application state:', application);
-                console.log('🔍 Render check - application is truthy?', !!application);
-                console.log('🔍 Render check - loading state:', loading);
-                console.log('🔍 Render check - applicationId:', applicationId);
                 return application;
               })() ? (
                 <>
@@ -848,7 +842,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             {application && application.history && application.history.length > 0 ? (
                               <div className="space-y-4">
                                 {application.history.map((h, idx) => {
-                                  console.log('🔍 History item:================0101', h, idx);
                                   const color = h.action.toLowerCase().includes('forward')
                                     ? 'border-orange-500'
                                     : h.action.toLowerCase().includes('approve')

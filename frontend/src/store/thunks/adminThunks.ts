@@ -2,33 +2,33 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AdminUserService, CreateUserParams, UpdateUserParams, UserQueryParams } from '../../services/admin/users';
 import { AdminRoleService, CreateRoleParams, UpdateRoleParams, RoleQueryParams } from '../../services/admin/roles';
 import { AdminAuditService, AuditQueryParams } from '../../services/admin/audit';
-import { 
-  setUsers, 
-  setLoading, 
-  setError, 
-  addUser, 
-  updateUser, 
+import {
+  setUsers,
+  setLoading,
+  setError,
+  addUser,
+  updateUser,
   removeUser,
   setPagination,
-  setFilters 
+  setFilters
 } from '../slices/adminUserSlice';
-import { 
-  setRoles, 
-  setLoading as setRolesLoading, 
-  setError as setRolesError, 
-  addRole, 
-  updateRole, 
+import {
+  setRoles,
+  setLoading as setRolesLoading,
+  setError as setRolesError,
+  addRole,
+  updateRole,
   removeRole,
   updateRolePermissions,
   setPagination as setRolesPagination,
-  setFilters as setRolesFilters 
+  setFilters as setRolesFilters
 } from '../slices/adminRoleSlice';
-import { 
-  setLogs, 
-  setLoading as setAuditLoading, 
+import {
+  setLogs,
+  setLoading as setAuditLoading,
   setError as setAuditError,
   setPagination as setAuditPagination,
-  setFilters as setAuditFilters 
+  setFilters as setAuditFilters
 } from '../slices/adminAuditSlice';
 
 // User Management Thunks
@@ -38,9 +38,9 @@ export const fetchUsers = createAsyncThunk(
     try {
       dispatch(setLoading(true));
       dispatch(setError(null));
-      
-      const response = await AdminUserService.getUsers(params);
-      
+
+      const response: any = await AdminUserService.getUsers(params);
+
       if (response.success) {
         dispatch(setUsers(response.body.users || []));
         dispatch(setPagination({
@@ -69,9 +69,9 @@ export const createUser = createAsyncThunk(
     try {
       dispatch(setLoading(true));
       dispatch(setError(null));
-      
-      const response = await AdminUserService.createUser(userData);
-      
+
+      const response: any = await AdminUserService.createUser(userData);
+
       if (response.success) {
         dispatch(addUser(response.body));
         return response.body;
@@ -94,9 +94,9 @@ export const updateUserAction = createAsyncThunk(
     try {
       dispatch(setLoading(true));
       dispatch(setError(null));
-      
-      const response = await AdminUserService.updateUser(id, userData);
-      
+
+      const response: any = await AdminUserService.updateUser(id, userData);
+
       if (response.success) {
         dispatch(updateUser(response.body));
         return response.body;
@@ -119,9 +119,9 @@ export const deleteUser = createAsyncThunk(
     try {
       dispatch(setLoading(true));
       dispatch(setError(null));
-      
-      const response = await AdminUserService.deleteUser(id);
-      
+
+      const response: any = await AdminUserService.deleteUser(id);
+
       if (response.success) {
         dispatch(removeUser(id));
         return response.body;
@@ -145,9 +145,9 @@ export const fetchRoles = createAsyncThunk(
     try {
       dispatch(setRolesLoading(true));
       dispatch(setRolesError(null));
-      
-      const response = await AdminRoleService.getRoles(params);
-      
+
+      const response: any = await AdminRoleService.getRoles(params);
+
       if (response.success) {
         dispatch(setRoles(response.body.roles || []));
         dispatch(setRolesPagination({
@@ -176,9 +176,9 @@ export const createRole = createAsyncThunk(
     try {
       dispatch(setRolesLoading(true));
       dispatch(setRolesError(null));
-      
-      const response = await AdminRoleService.createRole(roleData);
-      
+
+      const response: any = await AdminRoleService.createRole(roleData);
+
       if (response.success) {
         dispatch(addRole(response.body));
         return response.body;
@@ -201,9 +201,9 @@ export const updateRoleAction = createAsyncThunk(
     try {
       dispatch(setRolesLoading(true));
       dispatch(setRolesError(null));
-      
-      const response = await AdminRoleService.updateRole(id, roleData);
-      
+
+      const response: any = await AdminRoleService.updateRole(id, roleData);
+
       if (response.success) {
         dispatch(updateRole(response.body));
         return response.body;
@@ -226,9 +226,9 @@ export const updateRolePermissionsAction = createAsyncThunk(
     try {
       dispatch(setRolesLoading(true));
       dispatch(setRolesError(null));
-      
-      const response = await AdminRoleService.updateRolePermissions(id, permissions);
-      
+
+      const response: any = await AdminRoleService.updateRolePermissions(id, permissions);
+
       if (response.success) {
         dispatch(updateRolePermissions({ roleId: id, permissions }));
         return response.body;
@@ -251,9 +251,9 @@ export const deleteRole = createAsyncThunk(
     try {
       dispatch(setRolesLoading(true));
       dispatch(setRolesError(null));
-      
-      const response = await AdminRoleService.deleteRole(id);
-      
+
+      const response: any = await AdminRoleService.deleteRole(id);
+
       if (response.success) {
         dispatch(removeRole(id));
         return response.body;
@@ -277,9 +277,9 @@ export const fetchAuditLogs = createAsyncThunk(
     try {
       dispatch(setAuditLoading(true));
       dispatch(setAuditError(null));
-      
-      const response = await AdminAuditService.getAuditLogs(params);
-      
+
+      const response: any = await AdminAuditService.getAuditLogs(params);
+
       if (response.success) {
         dispatch(setLogs(response.body.logs || []));
         dispatch(setAuditPagination({
@@ -308,9 +308,9 @@ export const exportAuditLogs = createAsyncThunk(
     try {
       dispatch(setAuditLoading(true));
       dispatch(setAuditError(null));
-      
-      const response = await AdminAuditService.exportAuditLogs(params);
-      
+
+      const response: any = await AdminAuditService.exportAuditLogs(params);
+
       if (response.success) {
         // Create download link for the blob
         const blob = new Blob([response.body], { type: 'text/csv' });
@@ -322,7 +322,7 @@ export const exportAuditLogs = createAsyncThunk(
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         return response.body;
       } else {
         throw new Error(response.message || 'Failed to export audit logs');

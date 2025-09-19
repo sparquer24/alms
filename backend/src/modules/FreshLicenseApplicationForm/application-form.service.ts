@@ -613,7 +613,6 @@ export class ApplicationFormService {
       // ✅ Final Response
       return [null, application];
     } catch (error: any) {
-      console.log(error);
       return [error, null];
     }
   }

@@ -6,6 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
+import { getRoleConfig } from '../../config/roles';
 import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
@@ -17,8 +18,24 @@ export default function ClosedPage() {
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const { isAuthenticated, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
+    // Permission gate: allow users who can view disposed/final disposal/closed
+  const roleConfig = getRoleConfig(userRole);
+    const perms = roleConfig?.permissions || [];
+    const allowed = perms.includes('canViewDisposed') || perms.includes('canViewFinalDisposal') || perms.includes('canViewClosed');
+    if (!authLoading && isAuthenticated && !allowed) {
+      router.push('/');
+      return;
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     // Fetch closed applications only after auth finishes and user is authenticated

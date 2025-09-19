@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "../components/Sidebar";
 import Header from "../components/Header";
+import Link from 'next/link';
 import ApplicationTable from "../components/ApplicationTable";
 import DashboardSummary from "../components/DashboardSummary";
 import { useAuthSync } from "../hooks/useAuthSync";
 import { shouldRedirectOnStartup } from "../config/roleRedirections";
 import { useLayout } from "../config/layoutContext";
-import { filterApplications } from "../config/mockData";
 import { ApplicationData } from "../types";
 import { useApplications } from "../context/ApplicationContext";
 import { ApplicationApi } from '../config/APIClient';
@@ -90,13 +90,14 @@ export default function Home() {
             const tableData = apiApplications.map(app => mapAPIApplicationToTableData(app));
             console.log('Initial converted table data:', tableData);
 
-            if (tableData.length > 0) {
-              setApplications(tableData);
-              setHasLoadedInitialData(true);
-            }
+            // Always update context with fetched data (may be empty)
+            setApplications(tableData);
           }
         } catch (err) {
           console.error('Failed to load initial applications:', err);
+        } finally {
+          // Mark initial load as completed regardless of result so UI can show empty state
+          setHasLoadedInitialData(true);
         }
       };
 
@@ -127,6 +128,15 @@ export default function Home() {
 
   // Show loading screen while checking authentication
   if (isLoading) {
+    return (
+      <PageLayoutSkeleton>
+        <DashboardStatsSkeleton />
+      </PageLayoutSkeleton>
+    );
+  }
+
+  // Show skeleton while initial data for the page is being loaded
+  if (isAuthenticated && !hasLoadedInitialData) {
     return (
       <PageLayoutSkeleton>
         <DashboardStatsSkeleton />
@@ -178,9 +188,24 @@ export default function Home() {
                 <div className="md:col-span-2 flex flex-col">
                   <h2 className="text-xl font-bold mb-4">Recent Applications</h2>
                   <div className="flex-1 overflow-hidden">
-                    <ApplicationTable
-                      applications={applications}
-                    />
+                    {(!applications || applications.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6M9 16h6M9 8h6M5 6h14M5 18h14" />
+                        </svg>
+                        <h3 className="text-lg font-semibold text-gray-800">No applications found</h3>
+                        <p className="text-sm text-gray-500 mt-2">There are no applications to display right now.</p>
+                        <div className="mt-4">
+                          <Link href="/create-fresh-application" className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500">
+                            Create new application
+                          </Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <ApplicationTable
+                        applications={applications}
+                      />
+                    )}
                   </div>
                 </div>
               </div>

@@ -249,7 +249,8 @@ const getUserRoleFromCookie = () => {
 
       // Navigation first, then fetch data on the destination page
       if (normalizedName === "freshform") {
-        router.replace("/freshform");
+        // Use old query-based style to centralize rendering
+        router.replace(`/home?type=${encodeURIComponent('freshform')}`);
       } else if (normalizedName === "finaldisposal") {
         router.replace("/home?type=finaldisposal");
       } else if (normalizedName === "myreports" || normalizedName === "reports") {

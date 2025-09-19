@@ -4,39 +4,39 @@ import type { NextRequest } from 'next/server';
 // Import role-based redirection logic
 function getRoleBasedRedirectPath(userRole: string): string {
   console.log('getRoleBasedRedirectPath called with userRole:', userRole);
-  
+
   // Define valid roles
   const validRoles = ['ADMIN', 'DCP', 'ACP', 'CP', 'ARMS_SUPDT', 'SHO', 'ZS', 'APPLICANT', 'ADO', 'CADO'];
-  
+
   if (!userRole || !validRoles.includes(userRole)) {
     console.warn('Invalid or undefined role detected:', userRole);
     return '/login?error=invalid_role';
   }
-  
+
   switch (userRole) {
     case 'ADMIN':
       return '/';
-      
+
     case 'DCP':
-    case 'ACP': 
+    case 'ACP':
     case 'CP':
       return '/reports';
-      
+
     case 'ARMS_SUPDT':
-      return '/final';
-      
+      return '/home?type=final';
+
     case 'SHO':
-      return '/home/forwarded';
+      return '/home?type=forwarded';
     case 'ZS':
-      return '/freshform';
-      
+      return '/home?type=freshform';
+
     case 'APPLICANT':
-      return '/sent';
-      
+      return '/home?type=sent';
+
     case 'ADO':
     case 'CADO':
       return '/';
-      
+
     default:
       return '/';
   }
@@ -47,7 +47,7 @@ const protectedRoutes = [
   '/freshform',
   '/application',
   '/sent',
-    '/home',
+  '/home',
   '/reports',
   '/settings',
   '/final',
@@ -64,7 +64,7 @@ const publicRoutes = [
 const adminRoutes = [
   '/admin/users',
   '/admin/locations',
-  '/admin/forwarding', 
+  '/admin/forwarding',
   '/admin/reports',
 ];
 
@@ -158,7 +158,7 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 // Helper function to check if route requires authentication
 function isRouteProtected(pathname: string): boolean {
   return protectedRoutes.some(route => pathname.startsWith(route)) ||
-         adminRoutes.some(route => pathname.startsWith(route));
+    adminRoutes.some(route => pathname.startsWith(route));
 }
 
 // Helper function to check if user has role-based access
@@ -173,19 +173,19 @@ function hasRoleAccess(pathname: string, userRole: string | undefined): boolean 
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
+
   // Skip middleware for static files and API routes
-  if (pathname.startsWith('/_next') || 
-      pathname.startsWith('/api') || 
-      pathname.includes('.') ||
-      pathname === '/favicon.ico') {
+  if (pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.includes('.') ||
+    pathname === '/favicon.ico') {
     return NextResponse.next();
   }
-  
+
   // Get and parse auth cookie
   const authCookie = request.cookies.get('auth')?.value;
   const { isAuthenticated, userRole } = parseAuthCookie(authCookie);
-  
+
   // Handle public routes
   if (publicRoutes.some(route => pathname.startsWith(route))) {
     // If authenticated user tries to access login page, redirect to role-based path
@@ -202,7 +202,7 @@ export function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
-  
+
   // Handle admin routes (separate admin authentication - for future implementation)
   if (adminRoutes.some(route => pathname.startsWith(route))) {
     if (!isAuthenticated) {
@@ -213,13 +213,13 @@ export function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
-  
+
   // Handle admin login route
   if (pathname === '/admin/login') {
     // Always allow access to admin login page (separate from regular login)
     return NextResponse.next();
   }
-  
+
   // Handle protected routes
   if (isRouteProtected(pathname)) {
     // Check authentication
@@ -227,7 +227,7 @@ export function middleware(request: NextRequest) {
       console.log('User not authenticated, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    
+
     // Check if user has a valid role
     if (!userRole) {
       console.warn('User authenticated but no role found, redirecting to login for re-authentication');
@@ -235,23 +235,23 @@ export function middleware(request: NextRequest) {
       loginUrl.searchParams.set('error', 'no_role');
       return NextResponse.redirect(loginUrl);
     }
-    
+
     // Check role-based access
     if (!hasRoleAccess(pathname, userRole)) {
       console.log('User does not have access to this route, redirecting to home');
       return NextResponse.redirect(new URL('/', request.url));
     }
-    
+
     return NextResponse.next();
   }
-  
+
   // For root path, check authentication and redirect accordingly
   if (pathname === '/') {
     if (!isAuthenticated) {
       console.log('Root path accessed by unauthenticated user, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    
+
     // Check if user has a valid role
     if (!userRole) {
       console.warn('Root path accessed by authenticated user with no role, redirecting to login');
@@ -259,11 +259,11 @@ export function middleware(request: NextRequest) {
       loginUrl.searchParams.set('error', 'no_role');
       return NextResponse.redirect(loginUrl);
     }
-    
+
     // Allow root path access - role-based redirection will be handled by the component
     return NextResponse.next();
   }
-  
+
   return NextResponse.next();
 }
 

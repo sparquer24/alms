@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { setCookie, getCookie, deleteCookie } from 'cookies-next';
 import { postData, fetchData, setAuthToken } from '../api/axiosConfig';
