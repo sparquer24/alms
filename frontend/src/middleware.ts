@@ -16,27 +16,22 @@ function getRoleBasedRedirectPath(userRole: string): string {
   switch (userRole) {
     case 'ADMIN':
       return '/';
-
     case 'DCP':
     case 'ACP':
     case 'CP':
-      return '/reports';
-
     case 'ARMS_SUPDT':
       return '/home?type=final';
-
+    
+    case 'ADO':
+    case 'CADO':
     case 'SHO':
       return '/home?type=forwarded';
+    
     case 'ZS':
       return '/home?type=freshform';
 
     case 'APPLICANT':
       return '/home?type=sent';
-
-    case 'ADO':
-    case 'CADO':
-      return '/';
-
     default:
       return '/';
   }
