@@ -356,16 +356,33 @@ export const RoleApi = {
 export const NotificationApi = {
   getAll: async (params: NotificationQueryParams = {}): Promise<ApiResponse<any>> => {
     try {
-      // Endpoint removed. Return stubbed notifications list.
-      const pageSize = (params as any)?.pageSize ?? 20;
-      const notifications = Array.from({ length: Math.min(5, Number(pageSize) || 5) }).map((_, i) => ({
-        id: `local-${i + 1}`,
-        type: 'INFO',
-        title: 'No server notifications',
-        message: 'Notifications API disabled; showing local placeholder.',
-        isRead: i > 0,
-        createdAt: new Date(Date.now() - i * 3600_000).toISOString(),
-      }));
+      // Endpoint removed. Return exactly 3 simple placeholder notifications to keep UI concise.
+      const notifications = [
+        {
+          id: 'local-1',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Notifications API disabled',
+          isRead: false,
+          createdAt: new Date(Date.now() - 1 * 60_000).toISOString(),
+        },
+        {
+          id: 'local-2',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Showing local placeholder',
+          isRead: false,
+          createdAt: new Date(Date.now() - 30 * 60_000).toISOString(),
+        },
+        {
+          id: 'local-3',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Check back later',
+          isRead: false,
+          createdAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+        },
+      ];
       return { statusCode: 200, success: true, body: { notifications } } as any;
     } catch (error) {
       console.error('Error getting notifications:', error);

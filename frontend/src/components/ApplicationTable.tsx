@@ -109,7 +109,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
         <table className="w-full table-auto">
 
 
-          <thead className="bg-gray-50 sticky top-0 z-10">
+          <thead className="bg-gray-50 sticky top-0">
             <TableHeader />
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">

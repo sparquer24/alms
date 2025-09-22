@@ -11,17 +11,25 @@ export function getRoleBasedRedirectPath(userRole: string): string {
   switch (userRole) {
     case 'ADMIN':
       return '/admin';
-      
-      
+
     case 'ARMS_SUPDT':
     case 'SHO':
+      // Officers forwarded to a special inbox view
+      return '/home?type=forwarded';
+
     case 'ZS':
+      // ZS users create fresh forms by default
+      return '/home?type=freshform';
+
+    case 'APPLICANT':
+      return '/home?type=sent';
+
+    case 'DCP':
+    case 'ACP':
+    case 'CP':
     case 'ADO':
     case 'CADO':
-    case 'DCP':
-    case 'ACP': 
-    case 'CP':
-      return '/home/forwarded';
+      return '/home?type=forwarded';
 
     default:
       return '/';
@@ -37,26 +45,25 @@ export function shouldRedirectOnStartup(userRole: string, currentPath: string): 
   if (currentPath === '/login' || currentPath.startsWith('/auth')) {
     return null;
   }
-  
-  // Get the default redirect path for the user's role
+
   const defaultPath = getRoleBasedRedirectPath(userRole);
-  
+
   // If user is on the root path ('/') and has a specific role-based default, redirect them
   if (currentPath === '/' && defaultPath !== '/') {
     return defaultPath;
   }
-  
+
   // For admin users, always redirect from root to admin dashboard
   if (userRole === 'ADMIN' && currentPath === '/') {
     return '/admin';
   }
-  
+
   // For officer roles, redirect from root to their inbox
   const officerRoles = ['ARMS_SUPDT', 'SHO', 'ZS', 'ADO', 'CADO', 'DCP', 'ACP', 'CP'];
   if (officerRoles.includes(userRole) && currentPath === '/') {
-    return '/home/forwarded';
+    return getRoleBasedRedirectPath(userRole);
   }
-  
+
   // No redirection needed
   return null;
 }

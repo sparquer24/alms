@@ -32,12 +32,13 @@ export default function HomePage() {
   if (!type) return <PageLayoutSkeleton />;
 
   const filtered = (applications?.length > 0 ? filterApplications(applications as ApplicationData[], searchQuery, startDate, endDate) : []) as ApplicationData[];
-
+  // for the type i want to make first letter uppercase and rest lowercase
+  const displayType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
   return (
     // full width parent so we can push the card to the far right using `ml-auto` on the card
     <div className="w-full">
       <div className="bg-white rounded-lg shadow p-6 ml-auto w-full max-w-[1400px]">
-        <h1 className="text-2xl font-bold mb-6">{type} Applications</h1>
+        <h1 className="text-2xl font-bold mb-6">{displayType} Applications</h1>
         <ApplicationTable applications={filtered} isLoading={isLoading} />
       </div>
     </div>

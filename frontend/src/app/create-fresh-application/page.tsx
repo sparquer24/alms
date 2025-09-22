@@ -52,7 +52,7 @@ export default function CreateFreshApplicationPage() {
         
         // Add slight delay for redirect loading state
         setTimeout(() => {
-          router.push('/freshform'); // Redirect back to fresh form list
+          router.push('/home?type=freshform'); // Redirect back to fresh form list (query-based)
         }, 500);
       }, 3000);
       
@@ -68,7 +68,7 @@ export default function CreateFreshApplicationPage() {
   const handleCancelForm = () => {
     setIsRedirecting(true);
     setTimeout(() => {
-      router.push('/freshform'); // Redirect back to fresh form list
+      router.push('/home?type=freshform'); // Redirect back to fresh form list (query-based)
     }, 300);
   };
 
@@ -153,10 +153,6 @@ export default function CreateFreshApplicationPage() {
             </div>
           )}
           
-          <FreshApplicationForm
-            onSubmit={handleNewApplication}
-            onCancel={handleCancelForm}
-          />
         </div>
       </main>
     </div>

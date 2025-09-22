@@ -613,7 +613,6 @@ export class ApplicationFormService {
       // ✅ Final Response
       return [null, application];
     } catch (error: any) {
-      console.log(error);
       return [error, null];
     }
   }
@@ -921,13 +920,15 @@ export class ApplicationFormService {
 
       // No-op: usersInHierarchy will be attached per application below
       const include = {
+        contactInfo: true,
+        state: true,
+        district: true,
         status: {
           select: {
             id: true,
             name: true,
             code: true
           }
-        },
       };
 
       const [total, data] = await Promise.all([

@@ -249,17 +249,18 @@ const getUserRoleFromCookie = () => {
 
       // Navigation first, then fetch data on the destination page
       if (normalizedName === "freshform") {
-        router.replace("/freshform");
+        // Use old query-based style to centralize rendering
+        router.push(`/home?type=${encodeURIComponent('freshform')}`);
       } else if (normalizedName === "finaldisposal") {
-        router.replace("/home?type=finaldisposal");
+        router.push("/home?type=finaldisposal");
       } else if (normalizedName === "myreports" || normalizedName === "reports") {
-        router.replace("/reports/myreports");
+        router.push("/reports/myreports");
       } else if (normalizedName === "closed") {
-        router.replace("/home?type=closed");
+        router.push("/home?type=closed");
       } else if (normalizedName === "sent") {
-        router.replace("/home?type=sent");
+        router.push("/home?type=sent");
       } else {
-        router.replace(`/home?type=${encodeURIComponent(normalizedName)}`);
+        router.push(`/home?type=${encodeURIComponent(normalizedName)}`);
       }
     }
   }, [router, dispatch]);

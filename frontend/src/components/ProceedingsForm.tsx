@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
 import { fetchData, postData } from '../api/axiosConfig';
@@ -44,15 +44,17 @@ const FALLBACK_ACTIONS: ActionOption[] = [
 ];
 
 // Simple TextArea Component as Rich Text Editor Replacement
-function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId }: {
+function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId, inputRef }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
   dataTestId?: string;
+  inputRef?: React.Ref<HTMLTextAreaElement>;
 }) {
   return (
     <textarea
+      ref={inputRef}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -161,6 +163,37 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  // Refs for scrolling to invalid fields
+  const actionRef = useRef<HTMLDivElement | null>(null);
+  const remarksRef = useRef<HTMLDivElement | null>(null);
+  const draftRef = useRef<HTMLDivElement | null>(null);
+  const nextUserRef = useRef<HTMLDivElement | null>(null);
+  const formContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Track missing fields to show inline messages
+  const [missingFields, setMissingFields] = useState<Record<string, string>>({});
+
+  const scrollToFirstError = (errors: Record<string, any>) => {
+    // Priority: action -> remarks -> draftLetter
+    if (errors.action && actionRef.current) {
+      actionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = actionRef.current.querySelector('input,select,button');
+      (el as HTMLElement | null)?.focus?.();
+      return;
+    }
+    if (errors.remarks && remarksRef.current) {
+      remarksRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const ta = remarksRef.current.querySelector('textarea');
+      (ta as HTMLTextAreaElement | null)?.focus?.();
+      return;
+    }
+    if (errors.draftLetter && draftRef.current) {
+      draftRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = draftRef.current.querySelector('textarea, [contenteditable]');
+      (el as HTMLElement | null)?.focus?.();
+      return;
+    }
+  };
 
   // Fetch actions from backend on mount
   useEffect(() => {
@@ -202,12 +235,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     return () => { mounted = false };
   }, []);
 
-  // Reset next user when switching away from FORWARD
-  useEffect(() => {
-    if (selectedAction && selectedAction.code !== 'FORWARD') {
-      setNextUser(null);
-    }
-  }, [selectedAction]);
+  // Note: nextUser should be selectable for any action (represents next proceeding officer)
 
   // Read role from cookies on mount and normalize
   useEffect(() => {
@@ -258,30 +286,25 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     setError(null);
     setSuccess(null);
 
-    // Validation
-    if (!selectedAction) {
-      setError('Please select an action type.');
+    // Clear previous missing fields
+    setMissingFields({});
+
+    // Validation: collect missing fields and show inline messages
+    const errors: Record<string, string> = {};
+    if (!selectedAction) errors.action = 'Please select an action type.';
+  if (!remarks.trim()) errors.remarks = 'Please add remarks before submitting.';
+  if (!nextUser) errors.nextUser = 'Please select the next proceeding officer.';
+  if (roleFromCookie === 'SHO' && !draftLetter.trim()) errors.draftLetter = 'Ground Report Letter is required for submission.';
+
+    if (Object.keys(errors).length > 0) {
+      setMissingFields(errors);
+      // scroll to the first invalid field
+      setTimeout(() => scrollToFirstError(errors), 50);
       return;
     }
 
-    if (selectedAction.code === 'FORWARD' && !nextUser) {
-      setError('Please select a user to forward to.');
-      return;
-    }
-
-    if (!remarks.trim()) {
-      setError('Please add remarks before submitting.');
-      return;
-    }
-
-    // Ground report letter is mandatory for SHO
-    if (roleFromCookie === 'SHO' && !draftLetter.trim()) {
-      setError('Ground Report Letter is required for submission.');
-      return;
-    }
-
-    // Build payload for /workflow/action
-    const actionId = selectedAction.value;
+  // Build payload for /workflow/action
+  const actionId = Number(selectedAction?.value);
 
   const payload: any = {
       applicationId: Number(applicationId),
@@ -291,8 +314,8 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     };
 
     
-    // Add next user if forwarding
-    if (selectedAction.code === 'FORWARD' && nextUser?.value) {
+    // Add next user as next proceeding officer (if provided)
+    if (nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
     }
 
@@ -727,13 +750,27 @@ Yours faithfully,
 
       {/* Proceedings Form */}
       <div className={styles.scrollPanel}>
-        <form onSubmit={handleSubmit} className={styles.formContent}>
+        <div className={styles.proceedingsPanel}>
+          <form onSubmit={handleSubmit} className={styles.formContent}>
+          {/* Top validation banner when there are missing fields */}
+          {Object.keys(missingFields).length > 0 && (
+            <div className={`${styles.statusMessage} ${styles.errorMessage}`} role="alert">
+              <div className={styles.statusIcon}>
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className={styles.statusContent}>
+                <p>Please fix the highlighted fields and try again.</p>
+              </div>
+            </div>
+          )}
           {/* Status Messages */}
           {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
           {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
           {/* Action Type Selection */}
-          <div className={styles.formSection}>
+          <div className={`${styles.formSection} ${missingFields.action ? styles.invalidField : ''}`} ref={actionRef}>
             <label className={styles.formLabel}>
               Action Type <span className={styles.required}>*</span>
             </label>
@@ -763,24 +800,27 @@ Yours faithfully,
                 Failed to load actions from server. Using defaults. Error: {actionsError}
               </p>
             )}
+            {missingFields.action && (
+              <p className={styles.fieldError}>{missingFields.action}</p>
+            )}
           </div>
 
           {/* Next User Selection */}
-          <div className={styles.formSection}>
+          <div className={`${styles.formSection} ${missingFields.nextUser ? styles.invalidField : ''}`}>
             <label className={styles.formLabel}>
               Forward To (Next User/Role)
-              {selectedAction?.code === 'FORWARD' && <span className={styles.required}>*</span>}
+              <span className={styles.required}>*</span>
             </label>
-            <div className={styles.selectContainer}>
+            <div className={styles.selectContainer} ref={nextUserRef}>
               <Select
                 options={userOptions}
                 value={nextUser}
                 onChange={setNextUser}
                 placeholder={
-                  fetchingUsers ? 'Loading users...' : 'Select user'
+                  fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
                 }
                 isLoading={fetchingUsers}
-                isDisabled={isSubmitting || fetchingUsers || selectedAction?.code !== 'FORWARD'}
+                isDisabled={isSubmitting || fetchingUsers}
                 className="text-sm"
                 styles={{
                   control: (provided, state) => ({
@@ -806,15 +846,13 @@ Yours faithfully,
                 No users available. Please try refreshing the page.
               </p>
             )}
-            {selectedAction && selectedAction.code !== 'FORWARD' && (
-              <p className={styles.helpText}>
-                This field is only required when "Forward" action is selected.
-              </p>
+            {missingFields.nextUser && (
+              <p className={styles.fieldError}>{missingFields.nextUser}</p>
             )}
           </div>
 
           {/* Remarks/Text Area */}
-          <div className={styles.formSection}>
+          <div className={`${styles.formSection} ${missingFields.remarks ? styles.invalidField : ''}`}>
             <div className="flex items-center justify-between">
               <label className={styles.formLabel}>
                 Remarks <span className={styles.required}>*</span>
@@ -843,6 +881,9 @@ Yours faithfully,
                 <p className={styles.helpText}>
                   Enter your detailed remarks about this action. You can use multiple lines for better formatting.
                 </p>
+                {missingFields.remarks && (
+                  <p className={styles.fieldError}>{missingFields.remarks}</p>
+                )}
               </>
             )}
               </div>
@@ -858,8 +899,7 @@ Yours faithfully,
               </div>
 
               {/* Ground Report Editor within Proceedings - always visible for SHO */}
-              <div className="bg-gray-50 p-1 rounded-lg">
-                <div className={styles.formSection}>
+                <div className={`${styles.formSection} ${missingFields.draftLetter ? styles.invalidField : ''}`} ref={draftRef}>
                   <EnhancedTextEditor
                     content={draftLetter}
                     onChange={setDraftLetter}
@@ -870,6 +910,9 @@ Yours faithfully,
                     This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
                   </p>
                 </div>
+                {missingFields.draftLetter && (
+                  <p className={styles.fieldError}>{missingFields.draftLetter}</p>
+                )}
 
                 <div className="flex gap-3 justify-end mt-4 flex-wrap">
                   <button
@@ -964,7 +1007,6 @@ Yours faithfully,
                     Reset
                   </button>
                 </div>
-              </div>
             </div>
           )}
 
@@ -1052,7 +1094,8 @@ Yours faithfully,
               )}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
 
       {/* Ground Report Editor */}
@@ -1069,7 +1112,7 @@ Yours faithfully,
             </button>
           </div>
 
-          <div className={styles.formContent}>
+          <div className={`${styles.formContent} ${styles.groundReportPanel}`}>
             {/* Status Messages */}
             {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
             {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}

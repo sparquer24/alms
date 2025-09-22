@@ -1,4 +1,4 @@
-import { APIClient } from '../../config/APIClient';
+import { apiClient } from '../../config/authenticatedApiClient';
 import { AdminUser } from '../../store/slices/adminUserSlice';
 
 export interface CreateUserParams {
@@ -38,49 +38,49 @@ export const AdminUserService = {
       }
     });
 
-    const response = await APIClient.get(`/admin/users?${queryString}`);
+    const response = await apiClient.get(`/admin/users?${queryString}`);
     return response;
   },
 
   // Get user by ID
   getUserById: async (id: string) => {
-    const response = await APIClient.get(`/admin/users/${id}`);
+    const response = await apiClient.get(`/admin/users/${id}`);
     return response;
   },
 
   // Create new user
   createUser: async (userData: CreateUserParams) => {
-    const response = await APIClient.post('/admin/users', userData);
+    const response = await apiClient.post('/admin/users', userData);
     return response;
   },
 
   // Update user
   updateUser: async (id: string, userData: UpdateUserParams) => {
-    const response = await APIClient.put(`/admin/users/${id}`, userData);
+    const response = await apiClient.put(`/admin/users/${id}`, userData);
     return response;
   },
 
   // Delete user
   deleteUser: async (id: string) => {
-    const response = await APIClient.delete(`/admin/users/${id}`);
+    const response = await apiClient.delete(`/admin/users/${id}`);
     return response;
   },
 
   // Bulk delete users
   bulkDeleteUsers: async (userIds: string[]) => {
-    const response = await APIClient.post('/admin/users/bulk-delete', { userIds });
+    const response = await apiClient.post('/admin/users/bulk-delete', { userIds });
     return response;
   },
 
   // Activate/deactivate user
   toggleUserStatus: async (id: string, isActive: boolean) => {
-    const response = await APIClient.patch(`/admin/users/${id}/status`, { isActive });
+    const response = await apiClient.put(`/admin/users/${id}/status`, { isActive });
     return response;
   },
 
   // Reset user password
   resetUserPassword: async (id: string, newPassword: string) => {
-    const response = await APIClient.patch(`/admin/users/${id}/password`, { newPassword });
+    const response = await apiClient.put(`/admin/users/${id}/password`, { newPassword });
     return response;
   },
 
@@ -93,7 +93,7 @@ export const AdminUserService = {
       }
     });
 
-    const response = await APIClient.get(`/admin/users/${id}/activity?${queryString}`);
+    const response = await apiClient.get(`/admin/users/${id}/activity?${queryString}`);
     return response;
   },
 }; 

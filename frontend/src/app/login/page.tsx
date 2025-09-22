@@ -195,7 +195,7 @@ export default function Login() {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
       const redirectPath = getRoleBasedRedirectPath(currentUser.role);
-      router.replace(redirectPath);
+      router.push(redirectPath);
     }
   }, [isAuthenticated, currentUser, router]);
 
