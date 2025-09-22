@@ -34,20 +34,12 @@ export default function FreshFormPage() {
     }
     // Check if the user has permission to view fresh forms
     const roleConfig = getRoleConfig(userRole);
-    console.log('🔑 Fresh Form - User Role:', userRole);
-    console.log('🔑 Fresh Form - Role Config:', roleConfig);
-    console.log('🔑 Fresh Form - User Permissions:', roleConfig?.permissions);
-    console.log('🔑 Fresh Form - Has canViewFreshForm:', roleConfig?.permissions.includes('canViewFreshForm'));
-    
-    // Temporarily disable permission check for debugging
-    /*
+    // Enforce permission check
     if (!roleConfig || !roleConfig.permissions.includes('canViewFreshForm')) {
       // Redirect to dashboard or show access denied
-      console.log('❌ Fresh Form - Access denied, redirecting to home');
       router.push('/');
       return;
     }
-    */
   }, [isAuthenticated, router, userRole]);
 
   useEffect(() => {

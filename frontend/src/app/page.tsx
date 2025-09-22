@@ -2,15 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "../components/Sidebar";
-import Header from "../components/Header";
-import ApplicationTable from "../components/ApplicationTable";
-import DashboardSummary from "../components/DashboardSummary";
 import { useAuthSync } from "../hooks/useAuthSync";
 import { shouldRedirectOnStartup } from "../config/roleRedirections";
 import { useLayout } from "../config/layoutContext";
-import { filterApplications } from "../config/mockData";
-import { ApplicationData } from "../types";
 import { useApplications } from "../context/ApplicationContext";
 import { ApplicationApi } from '../config/APIClient';
 import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
@@ -26,11 +20,6 @@ export default function Home() {
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
 
-  // Debug logging
-  console.log('Home page - applications from context:', applications);
-  console.log('Home page - applications length:', applications?.length);
-  console.log('Home page - applications type:', typeof applications);
-
   useEffect(() => {
     // Only redirect if we're done loading and user is not authenticated
     if (!isLoading && !isAuthenticated) {
@@ -44,12 +33,12 @@ export default function Home() {
         const redirectPath = shouldRedirectOnStartup(userRole, '/');
         if (redirectPath) {
           console.log(`Redirecting ${userRole} user from dashboard to: ${redirectPath}`);
-          router.replace(redirectPath);
+          router.push(redirectPath);
           return;
         }
       } else {
         // Fallback: if role isn't available yet, send to inbox by default after login
-        router.replace('/inbox/forwarded');
+        router.push('/inbox/forwarded');
         return;
       }
     }
@@ -66,37 +55,21 @@ export default function Home() {
     if (isAuthenticated && !hasLoadedInitialData) {
       const loadInitialData = async () => {
         try {
-          console.log('Loading initial data for home page...');
-          console.log('Current applications length:', applications.length);
-          console.log('Current isAuthenticated:', isAuthenticated);
-
-          // Use ApplicationApi.getAll() without parameters to get all applications
           // This matches the API structure that the Sidebar uses
           const response = await ApplicationApi.getAll();
-          console.log('Initial API Response:', response);
-          console.log('Initial API Response type:', typeof response);
-          console.log('Initial API Response keys:', response ? Object.keys(response) : 'No response');
-
           // Extract the data array from the response
           const apiApplications = response?.data || [];
-          console.log('Initial extracted apiApplications:', apiApplications);
-          console.log('Initial extracted apiApplications type:', typeof apiApplications);
-          console.log('Initial extracted apiApplications isArray:', Array.isArray(apiApplications));
-
           if (apiApplications && Array.isArray(apiApplications)) {
-            console.log('Initial API applications:', apiApplications);
-
             // Convert API applications to table format using the same mapper as Sidebar
             const tableData = apiApplications.map(app => mapAPIApplicationToTableData(app));
-            console.log('Initial converted table data:', tableData);
-
-            if (tableData.length > 0) {
-              setApplications(tableData);
-              setHasLoadedInitialData(true);
-            }
+            // Always update context with fetched data (may be empty)
+            setApplications(tableData);
           }
         } catch (err) {
           console.error('Failed to load initial applications:', err);
+        } finally {
+          // Mark initial load as completed regardless of result so UI can show empty state
+          setHasLoadedInitialData(true);
         }
       };
 
@@ -108,13 +81,6 @@ export default function Home() {
     setSearchQuery(query);
     console.log("Searching for:", query);
     // Here you would typically fetch data based on the search query
-  };
-
-  const handleDateFilter = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
-    console.log("Filtering by date range:", start, "to", end);
-    // Here you would typically fetch data based on the date range
   };
 
   const handleReset = () => {
@@ -134,60 +100,21 @@ export default function Home() {
     );
   }
 
-  // Debug logging before render
-  console.log('Home page: About to render with applications:', applications);
-  console.log('Home page: About to render with applications length:', applications?.length);
+  // Show skeleton while initial data for the page is being loaded
+  if (isAuthenticated && !hasLoadedInitialData) {
+    return (
+      <PageLayoutSkeleton>
+        <DashboardStatsSkeleton />
+      </PageLayoutSkeleton>
+    );
+  }
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
-      <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={handleDateFilter}
-        onReset={handleReset}
-      />
-  <main className="flex-1 p-8 overflow-y-auto w-full mt-[64px] md:ml-[18%] md:mt-[70px]">
-        <div className="max-w-8xl w-full mx-auto">
-          <div className="bg-white rounded-lg shadow p-6 flex flex-col flex-1 min-h-[420px]">
-            <h1 className="text-2xl font-bold text-black mb-6">Welcome to Arms License Dashboard</h1>
-            <p className="text-gray-600 mb-4">
-              This dashboard provides access to all arms license applications and their statuses.
-              Use the sidebar navigation to access different sections.
-            </p>
-
-            {/* Display search and filter information if applied */}
-            {(searchQuery || startDate || endDate) && (
-              <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                <h3 className="font-semibold text-blue-700">Active Filters:</h3>
-                <div className="mt-2 text-sm text-gray-700 space-y-1">
-                  {searchQuery && <p>Search: {searchQuery}</p>}
-                  {(startDate || endDate) && (
-                    <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Dashboard area: responsive grid (summary left, table right) */}
-            <div className="mb-8 flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
-                <div className="md:col-span-1">
-                  <DashboardSummary />
-                </div>
-
-                <div className="md:col-span-2 flex flex-col">
-                  <h2 className="text-xl font-bold mb-4">Recent Applications</h2>
-                  <div className="flex-1 overflow-hidden">
-                    <ApplicationTable
-                      applications={applications}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+    <div className="flex items-center justify-center h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+      <div className="text-center p-6">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Welcome to Arms License Management System</h1>
+        <p className="mt-4 text-gray-600">Manage applications, track statuses, and process requests from a single dashboard.</p>
+      </div>
     </div>
   );
 }

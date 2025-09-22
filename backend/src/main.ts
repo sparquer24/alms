@@ -55,9 +55,6 @@ async function bootstrap() {
   });
   
   await app.listen(3000);
-  console.log(`Application is running on: http://localhost:3000`);
-  console.log(`Swagger API Documentation available at: http://localhost:3000/api-docs`);
-  console.log(`CORS enabled for frontend ports`);
 }
 
 bootstrap();

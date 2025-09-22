@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
@@ -28,7 +30,13 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const role = getCookie('role');
+  const [role, setRole] = useState<string | undefined>(undefined);
+
+  // Read cookie on the client only to avoid server/client markup mismatch.
+  useEffect(() => {
+    const r = getCookie('role');
+    setRole(typeof r === 'string' ? r : undefined);
+  }, []);
 
   // Removed handlers: search, date filter, reset
 
@@ -64,36 +72,38 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
       <div className="max-w-8xl w-full mx-auto flex items-center justify-between">
         {/* Left: Create Application Button (ZS only) */}
         <div className="flex items-center">
-          {(role == 'ZS') && (
-            <div className="relative">
-              <button
-                className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center z-50"
-                onClick={() => setShowDropdown((v) => !v)}
-              >
-                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Forms
-                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showDropdown && (
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50">
-                  {APPLICATION_TYPES.map((type) => (
-                    <button
-                      key={type.key}
-                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${!type.enabled ? 'text-gray-400 cursor-not-allowed' : ''}`}
-                      onClick={() => handleDropdownClick(type)}
-                      disabled={!type.enabled}
-                    >
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <div className="relative">
+            {role == 'ZS' && (
+              <>
+                <button
+                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center z-50"
+                  onClick={() => setShowDropdown((v) => !v)}
+                >
+                  <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Forms
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showDropdown && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50">
+                    {APPLICATION_TYPES.map((type) => (
+                      <button
+                        key={type.key}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${!type.enabled ? 'text-gray-400 cursor-not-allowed' : ''}`}
+                        onClick={() => handleDropdownClick(type)}
+                        disabled={!type.enabled}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Right: All other header items */}

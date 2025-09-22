@@ -613,7 +613,6 @@ export class ApplicationFormService {
       // ✅ Final Response
       return [null, application];
     } catch (error: any) {
-      console.log(error);
       return [error, null];
     }
   }
@@ -891,7 +890,7 @@ export class ApplicationFormService {
     order?: 'asc' | 'desc';
     applicationId?: number;
     isOwned?: boolean| undefined;
-  }) {
+  })  {
     // Remove top-level usersInHierarchy; will attach per application
     let orderByObj = {};
     try {
@@ -921,14 +920,17 @@ export class ApplicationFormService {
 
       // No-op: usersInHierarchy will be attached per application below
       const include = {
+        contactInfo: true,
+        state: true,
+        district: true,
         status: {
           select: {
             id: true,
             name: true,
             code: true
           }
-        },
-      };
+        }
+      }
 
       const [total, data] = await Promise.all([
         prisma.freshLicenseApplicationsForms.count({ where }),
@@ -945,6 +947,7 @@ export class ApplicationFormService {
         total,
         data: data
       }];
+
     } catch (error) {
       return [error, null];
     }

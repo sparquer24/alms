@@ -1,8 +1,28 @@
-// Server-rendered 404 page: keep markup static so prerendering doesn't
-// attempt to execute client-only hooks. Interactive countdown is kept
-// in `src/components/NotFoundClient.tsx` if client-side behavior is later
-// desired.
-export default function NotFoundPage() {
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
+export default function NotFoundClient() {
+  const router = useRouter();
+  const [count, setCount] = useState(8);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setCount((prev) => {
+        if (prev === 1) {
+          clearInterval(t);
+          router.push('/');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(t);
+  }, [router]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-pink-500 text-white p-6">
       <div className="max-w-2xl w-full bg-white bg-opacity-10 backdrop-blur-md rounded-2xl p-8 border border-white border-opacity-10 text-center">
@@ -11,19 +31,19 @@ export default function NotFoundPage() {
         <p className="mb-6">Don&apos;t worry — we&apos;ll get you back on track.</p>
 
         <div className="flex items-center justify-center gap-4">
-          <a
+          <Link
             href="/"
             className="px-4 py-2 rounded-lg bg-white text-purple-700 font-semibold hover:scale-105 transform transition"
           >
             Go back home
-          </a>
+          </Link>
 
-          <a
+          <Link
             href="/"
             className="px-4 py-2 rounded-lg border border-white border-opacity-30 hover:bg-white hover:bg-opacity-10 transition"
           >
             Try previous
-          </a>
+          </Link>
         </div>
 
         <div className="mt-6 text-sm text-white text-opacity-80">

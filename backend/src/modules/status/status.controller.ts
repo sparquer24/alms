@@ -53,7 +53,6 @@ export class StatusController {
     
   })
   async getStatus(@Query('code') code?: string) {
-    console.log("code", code);
     return this.statusService.getStatus(code);
   }
 

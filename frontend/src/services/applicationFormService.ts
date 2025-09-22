@@ -10,25 +10,25 @@ export const getApplicationsByStatus = async (status: string | number): Promise<
       stringStatus: String(status),
       type: typeof status
     });
-    
-    // Make the API call with explicit params object
-    const params = { status: String(status) };
+
+    // Make the API call with explicit params object (statusIds expected)
+    const params = { statusIds: String(status) };
     console.log('getApplicationsByStatus - API params:', params);
-    
+
     const response = await ApplicationApi.getAll(params);
     console.log('getApplicationsByStatus - API Response:', {
       success: response?.success,
       data: response?.data,
       dataLength: Array.isArray(response?.data) ? response.data.length : 'not an array'
     });
-    
+
     // Extract and validate data
     const applications = (response as unknown as ApiResponse<Application[]>).data;
     console.log('getApplicationsByStatus - Extracted applications:', {
       count: Array.isArray(applications) ? applications.length : 'not an array',
       firstItem: applications?.[0]
     });
-    
+
     return applications;
   } catch (error) {
     console.error('getApplicationsByStatus - Error:', {
@@ -42,7 +42,7 @@ export const getApplicationsByStatus = async (status: string | number): Promise<
 
 export const getApplicationById = async (id: string): Promise<Application> => {
   try {
-    const response = await ApplicationApi.getById(id);
+    const response = await ApplicationApi.getById(Number(id));
     // Check if response.data is of type Application, otherwise throw an error
     if (typeof (response as any).data === 'boolean') {
       throw new Error('Invalid response: data is boolean, expected Application object');

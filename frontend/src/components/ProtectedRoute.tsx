@@ -27,7 +27,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const authStatus = checkAuthentication();
     setIsAuthenticated(authStatus);
     if (!authStatus) {
-      router.replace('/login');
+      router.push('/login');
     }
   }, [router]);
 

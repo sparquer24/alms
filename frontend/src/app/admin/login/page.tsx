@@ -13,7 +13,7 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      router.replace("/admin/reports");
+      router.push("/admin/reports");
     }
   }, [isLoggedIn, router]);
 

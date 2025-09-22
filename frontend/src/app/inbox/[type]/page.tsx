@@ -12,9 +12,9 @@ export default function InboxTypeRedirect({ params }: { params: Promise<{ type: 
     (async () => {
       const resolved = await params;
       if (!mounted) return;
-      const t = resolved.type;
-      // Use replace so history is clean
-      router.replace(`/home/${encodeURIComponent(t)}`);
+  const t = String(resolved.type).toLowerCase();
+  // Use replace so history is clean and use query-based URL
+  router.push(`/home?type=${encodeURIComponent(t)}`);
     })();
     return () => { mounted = false; };
   }, [params, router]);

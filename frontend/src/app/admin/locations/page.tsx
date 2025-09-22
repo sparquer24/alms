@@ -10,7 +10,7 @@ export default function AddLocationPage() {
   const [message, setMessage] = useState("");
 
   if (!isLoggedIn) {
-    router.replace("/admin/login");
+    router.push("/admin/login");
     return null;
   }
 

@@ -76,8 +76,6 @@ export class WorkflowController {
     @Req() req: Request
   ) {
     // Log the incoming body at the very start for debugging
-    console.log('Incoming body:', body);
-
     // Extract user info from JWT
     const user = (req as any).user;
     const roleId = user?.role_id;

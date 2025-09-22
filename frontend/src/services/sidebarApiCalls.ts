@@ -358,9 +358,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<A
     return [];
   }
 
-  console.log(`🔄 Fetching ${statusKey} applications with status IDs:`, statusIds);
   const applications = await fetchApplicationsByStatus(statusIds);
-  console.log(`✅ Fetched ${applications.length} ${statusKey} applications`);
 
   return applications;
 };
