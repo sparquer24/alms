@@ -890,7 +890,7 @@ export class ApplicationFormService {
     order?: 'asc' | 'desc';
     applicationId?: number;
     isOwned?: boolean| undefined;
-  }) {
+  })  {
     // Remove top-level usersInHierarchy; will attach per application
     let orderByObj = {};
     try {
@@ -929,7 +929,8 @@ export class ApplicationFormService {
             name: true,
             code: true
           }
-      };
+        }
+      }
 
       const [total, data] = await Promise.all([
         prisma.freshLicenseApplicationsForms.count({ where }),
@@ -946,6 +947,7 @@ export class ApplicationFormService {
         total,
         data: data
       }];
+
     } catch (error) {
       return [error, null];
     }
