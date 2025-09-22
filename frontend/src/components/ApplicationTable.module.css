@@ -53,12 +53,38 @@
 }
 
 .tableRow {
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  position: relative;
+}
+
+/* Zebra striping for readability */
+.tableRow:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* Unread emphasis: keep existing bold from tailwind, add subtle left indicator when bold present */
+tr.font-bold::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #6366f1;
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
 }
 
 .tableRow:hover {
-  background-color: #092da487; /* App primary color */
-  color: #ffffff; /* Light font color */
+  color: #ffffff; 
+    background-color: #092da487; /* App primary color */
+/* Light font color */
+}
+
+/* Keyboard accessibility */
+.tableRow:focus-within {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
 }
 
 .tableCell {
@@ -71,6 +97,37 @@
 
 .tableRow:hover .tableCell {
   color: #ffffff; /* Ensure text changes to white on hover */
+}
+
+/* Override Tailwind text color utilities inside hovered row to force white text EXCEPT status pill */
+.tableRow:hover td { /* base cell text */
+  color: #ffffff;
+}
+.tableRow:hover td *:not(.statusPill) {
+  color: #ffffff !important;
+}
+
+/* Slightly adjust buttons on hover for better contrast while keeping white text */
+.tableRow:hover td button {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #ffffff !important;
+}
+.tableRow:hover td button:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Status pill refinement */
+.statusPill {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  letter-spacing: .25px;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Keep status pill text readable (override global white enforcement) */
+.tableRow:hover .statusPill {
+  color: inherit;
+  mix-blend-mode: normal;
 }
 
 .idLink {
@@ -121,24 +178,25 @@
 }
 
 /* Maintain status pill colors on hover */
+/* Darker tone on row hover */
 .tableRow:hover .initiated {
-  background-color: #A7F3D0;
-  color: #065f46;
+  background-color: #34D399; /* darker than #A7F3D0 */
+  color: #064e3b !important; /* retain readable green text */
 }
 
 .tableRow:hover .approved {
-  background-color: #10B981;
-  color: white;
+  background-color: #059669; /* darker emerald */
+  color: #ffffff !important; /* keep white */
 }
 
 .tableRow:hover .pending {
-  background-color: #FACC15;
-  color: black;
+  background-color: #d4af0a; /* slightly darker gold */
+  color: #111827 !important; /* keep dark text */
 }
 
 .tableRow:hover .rejected {
-  background-color: #EF4444;
-  color: white;
+  background-color: #dc2626; /* darker red */
+  color: #ffffff !important; /* keep white */
 }
 
 .redFlagged {
@@ -147,8 +205,8 @@
 }
 
 .tableRow:hover .redFlagged {
-  background-color: #DC2626;
-  color: white;
+  background-color: #b91c1c; /* deeper red */
+  color: #ffffff !important; /* keep white */
 }
 
 /* Loading state */
