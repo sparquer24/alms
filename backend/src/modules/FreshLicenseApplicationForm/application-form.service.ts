@@ -920,34 +920,7 @@ export class ApplicationFormService {
 
       // No-op: usersInHierarchy will be attached per application below
       const include = {
-        presentAddress: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
-        permanentAddress: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
         contactInfo: true,
-        occupationInfo: {
-          include: {
-            state: true,
-            district: true,
-          }
-        },
-        biometricData: true,
-        criminalHistory: true,
-        licenseHistory: true,
-        licenseDetails: {
-          include: {
-            requestedWeapons: true,
-          }
-        },
-        fileUploads: true,
         state: true,
         district: true,
         status: {
@@ -956,35 +929,7 @@ export class ApplicationFormService {
             name: true,
             code: true
           }
-        },
-        currentRole: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        },
-        previousRole: {
-          select: {
-            id: true,
-            name: true,
-            code: true
-          }
-        },
-        currentUser: {
-          select: {
-            id: true,
-            username: true,
-            email: true
-          }
-        },
-        previousUser: {
-          select: {
-            id: true,
-            username: true,
-            email: true
-          }
-        },
+        }
       };
 
       const [total, data] = await Promise.all([

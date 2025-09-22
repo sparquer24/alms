@@ -2,15 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "../components/Sidebar";
-import Header from "../components/Header";
-import Link from 'next/link';
-import ApplicationTable from "../components/ApplicationTable";
-import DashboardSummary from "../components/DashboardSummary";
 import { useAuthSync } from "../hooks/useAuthSync";
 import { shouldRedirectOnStartup } from "../config/roleRedirections";
 import { useLayout } from "../config/layoutContext";
-import { ApplicationData } from "../types";
 import { useApplications } from "../context/ApplicationContext";
 import { ApplicationApi } from '../config/APIClient';
 import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
@@ -25,11 +19,6 @@ export default function Home() {
   const { isAuthenticated, isLoading, userRole } = useAuthSync();
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
-
-  // Debug logging
-  console.log('Home page - applications from context:', applications);
-  console.log('Home page - applications length:', applications?.length);
-  console.log('Home page - applications type:', typeof applications);
 
   useEffect(() => {
     // Only redirect if we're done loading and user is not authenticated
@@ -66,30 +55,13 @@ export default function Home() {
     if (isAuthenticated && !hasLoadedInitialData) {
       const loadInitialData = async () => {
         try {
-          console.log('Loading initial data for home page...');
-          console.log('Current applications length:', applications.length);
-          console.log('Current isAuthenticated:', isAuthenticated);
-
-          // Use ApplicationApi.getAll() without parameters to get all applications
           // This matches the API structure that the Sidebar uses
           const response = await ApplicationApi.getAll();
-          console.log('Initial API Response:', response);
-          console.log('Initial API Response type:', typeof response);
-          console.log('Initial API Response keys:', response ? Object.keys(response) : 'No response');
-
           // Extract the data array from the response
           const apiApplications = response?.data || [];
-          console.log('Initial extracted apiApplications:', apiApplications);
-          console.log('Initial extracted apiApplications type:', typeof apiApplications);
-          console.log('Initial extracted apiApplications isArray:', Array.isArray(apiApplications));
-
           if (apiApplications && Array.isArray(apiApplications)) {
-            console.log('Initial API applications:', apiApplications);
-
             // Convert API applications to table format using the same mapper as Sidebar
             const tableData = apiApplications.map(app => mapAPIApplicationToTableData(app));
-            console.log('Initial converted table data:', tableData);
-
             // Always update context with fetched data (may be empty)
             setApplications(tableData);
           }
@@ -109,13 +81,6 @@ export default function Home() {
     setSearchQuery(query);
     console.log("Searching for:", query);
     // Here you would typically fetch data based on the search query
-  };
-
-  const handleDateFilter = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
-    console.log("Filtering by date range:", start, "to", end);
-    // Here you would typically fetch data based on the date range
   };
 
   const handleReset = () => {
@@ -143,10 +108,6 @@ export default function Home() {
       </PageLayoutSkeleton>
     );
   }
-
-  // Debug logging before render
-  console.log('Home page: About to render with applications:', applications);
-  console.log('Home page: About to render with applications length:', applications?.length);
 
   return (
     <div className="flex items-center justify-center h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
