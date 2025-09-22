@@ -32,21 +32,21 @@ export class ActionesService {
         return [];
       }
 
-      // Find all active RolesActionsMapping entries for this role and include the action
-      const mappings = await prisma.rolesActionsMapping.findMany({
-        where: { roleId: user.roleId, isActive: true },
-        include: { action: true },
+      // Fetch actions directly via the relation to RolesActionsMapping.
+      // This performs the join in the database and avoids a client-side loop/dedup.
+      const actions = await prisma.actiones.findMany({
+        where: {
+          isActive: true,
+          rolesActionsMapping: {
+            some: {
+              roleId: user.roleId,
+              isActive: true,
+            },
+          },
+        },
       });
 
-      // Extract actions, filter out inactive or null ones, and ensure uniqueness
-      const actionsMap = new Map<number, Actiones>();
-      for (const m of mappings) {
-        if (m.action && m.action.isActive) {
-          actionsMap.set(m.action.id, m.action);
-        }
-      }
-
-      return Array.from(actionsMap.values());
+      return actions;
     } catch (error) {
       console.error('Error fetching actions:', error);
       throw error;
