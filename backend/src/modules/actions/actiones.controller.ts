@@ -1,32 +1,26 @@
-import { Controller, Get, Query, ParseIntPipe } from "@nestjs/common";
-import { ApiOperation, ApiTags, ApiQuery, ApiResponse } from "@nestjs/swagger";
+import { Controller, Get, Request, UseGuards } from "@nestjs/common";
+import { ApiOperation, ApiTags, ApiQuery, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
 import { Actiones } from "@prisma/client";
+import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 
 @ApiTags("Actiones")
+@ApiBearerAuth('JWT-auth')
 @Controller("actiones")
 export class ActionesController {
   constructor(private readonly actionesService: ActionesService) {}
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Get actions",
-    description: "Retrieve actions. If userId is provided, returns only actions allowed for that user's role.",
+    description: "Retrieve actions for the authenticated user (based on token).",
   })
-  @ApiQuery({
-    name: "userId",
-    required: false,
-    description: "Filter actions by user id",
-    example: 1,
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Actions retrieved successfully",
-    // type: [Actiones],
-  })
-  async getActiones(
-    @Query("userId", ParseIntPipe) userId?: number, // 👈 ensures number
-  ): Promise<Actiones[]> {
-    return this.actionesService.getActiones(userId);
+  @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
+  async getActiones(@Request() req: any): Promise<Actiones[]> {
+    // JwtAuthGuard guarantees request.user is set to decoded token if valid
+    const tokenUserId = req.user && (req.user as any).sub ? (req.user as any).sub : undefined;
+
+    return this.actionesService.getActiones(tokenUserId as number | undefined);
   }
 }
