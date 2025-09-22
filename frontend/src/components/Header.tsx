@@ -11,67 +11,23 @@ import { isZS, APPLICATION_TYPES } from '../config/helpers';
 import { getCookie } from 'cookies-next';
 
 interface HeaderProps {
-  onSearch: (query: string) => void;
-  onDateFilter: (startDate: string, endDate: string) => void;
-  onReset: () => void;
+  // Search & filter callbacks are now optional since the search bar was removed
+  onSearch?: (query: string) => void;
+  onDateFilter?: (startDate: string, endDate: string) => void;
+  onReset?: () => void;
   userRole?: string;
   onCreateApplication?: (typeKey: string) => void;
   onShowMessage?: (msg: string, type?: 'info' | 'error' | 'success') => void;
 }
 
-const SearchBar: React.FC<{ value: string; onChange: (value: string) => void; onSearch: () => void }> = ({ value, onChange, onSearch }) => (
-  <div className="w-[50%] relative">
-    <input
-      type="text"
-      placeholder="Search by333 ID, Name, Mobile Number"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyPress={(e) => e.key === 'Enter' && onSearch()}
-      className="w-full py-2 px-4 pr-10 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:border-[#6366F1] transition-colors"
-      aria-label="Search input"
-    />
-    <button
-      onClick={onSearch}
-      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-      aria-label="Search"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
-    </button>
-  </div>
-);
-
-const DateInput: React.FC<{ value: string; onChange: (value: string) => void; placeholder: string }> = ({ value, onChange, placeholder }) => (
-  <div className="relative">
-    <input
-      type="text"
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onClick={(e) => (e.currentTarget.type = 'date')}
-      onBlur={(e) => {
-        if (!e.currentTarget.value) e.currentTarget.type = 'text';
-      }}
-      className="py-2 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:border-[#6366F1] w-[160px]"
-      aria-label={placeholder}
-    />
-    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    </span>
-  </div>
-);
+// Removed SearchBar and DateInput components (header simplified)
 
 const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication, onShowMessage }: HeaderProps) => {
   const { showHeader } = useLayout();
   const { userName } = useAuth();
   const safeUserName = typeof userName === 'string' && userName.length > 0 ? userName : 'U';
   const { unreadCount } = useNotifications();
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [role, setRole] = useState<string | undefined>(undefined);
@@ -82,22 +38,9 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
     setRole(typeof r === 'string' ? r : undefined);
   }, []);
 
-  const handleSearch = useCallback(() => onSearch(searchQuery), [onSearch, searchQuery]);
-  const handleDateFilter = useCallback(() => onDateFilter(startDate, endDate), [onDateFilter, startDate, endDate]);
-  const handleReset = useCallback(() => {
-    setSearchQuery('');
-    setStartDate('');
-    setEndDate('');
-    onReset();
-  }, [onReset]);
+  // Removed handlers: search, date filter, reset
 
-  useEffect(() => {
-    if (!showHeader) {
-      setSearchQuery('');
-      setStartDate('');
-      setEndDate('');
-    }
-  }, [showHeader]);
+  // Effect related to clearing removed states removed
 
   const router = useRouter();
   const handleDropdownClick = (type: typeof APPLICATION_TYPES[number]) => {
@@ -126,7 +69,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
 
   return (
     <header className="fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300">
-  <div className="max-w-8xl w-full mx-auto flex items-center justify-between">
+      <div className="max-w-8xl w-full mx-auto flex items-center justify-between">
         {/* Left: Create Application Button (ZS only) */}
         <div className="flex items-center">
           <div className="relative">
@@ -165,7 +108,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
 
         {/* Right: All other header items */}
         <div className="flex items-center space-x-4 justify-end w-full">
-          <SearchBar value={searchQuery} onChange={setSearchQuery} onSearch={handleSearch} />
+          {/* Search bar removed */}
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
