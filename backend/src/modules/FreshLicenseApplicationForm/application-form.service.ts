@@ -929,7 +929,6 @@ export class ApplicationFormService {
             name: true,
             code: true
           }
-        }
       };
 
       const [total, data] = await Promise.all([
