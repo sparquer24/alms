@@ -1,5 +1,5 @@
-import { Controller, Get, Param,  Query } from "@nestjs/common";
-import { ApiOperation, ApiTags, ApiQuery, ApiResponse }from "@nestjs/swagger";
+import { Controller, Get, Query, ParseIntPipe } from "@nestjs/common";
+import { ApiOperation, ApiTags, ApiQuery, ApiResponse } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
 import { Actiones } from "@prisma/client";
 
@@ -10,27 +10,23 @@ export class ActionesController {
 
   @Get()
   @ApiOperation({
-  summary: "Get all actions", 
-  description: "Retrieve all action entries" })
-
-  @ApiQuery({
-    name: 'id',
-    required: false,
-    description: 'Filter by action id',
-    example: 0
+    summary: "Get actions",
+    description: "Retrieve actions. If userId is provided, returns only actions allowed for that user's role.",
   })
-
+  @ApiQuery({
+    name: "userId",
+    required: false,
+    description: "Filter actions by user id",
+    example: 1,
+  })
   @ApiResponse({
     status: 200,
-    description: "Actions retrieved successfully"
-
+    description: "Actions retrieved successfully",
+    // type: [Actiones],
   })
-  async getActiones(@Query('id') id: number): Promise<Actiones[]> {
-    try{
-        return this.actionesService.getActiones(id);
-    } 
-    catch (error) {
-      throw error;
-    }
+  async getActiones(
+    @Query("userId", ParseIntPipe) userId?: number, // 👈 ensures number
+  ): Promise<Actiones[]> {
+    return this.actionesService.getActiones(userId);
   }
 }
