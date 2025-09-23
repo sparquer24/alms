@@ -47,30 +47,108 @@ export class ApplicationFormController {
       }
     }
   })
-  async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
+async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
     try {
-      // Convert date strings to Date objects expected by the service input
-      const processedData: any = {
-        ...applicationData,
-        dateOfBirth: applicationData.dateOfBirth ? new Date(applicationData.dateOfBirth) : undefined,
-        presentAddress: applicationData.presentAddress ? {
-          ...applicationData.presentAddress,
-          sinceResiding: applicationData.presentAddress.sinceResiding ? new Date(applicationData.presentAddress.sinceResiding) : new Date()
-        } : undefined,
+      // Convert DTO to service input format
+      const processedData = {
+        statusId: applicationData.statusId,
+        firstName: applicationData.firstName,
+        middleName: applicationData.middleName,
+        lastName: applicationData.lastName,
+        filledBy: applicationData.filledBy,
+        parentOrSpouseName: applicationData.parentOrSpouseName,
+        sex: applicationData.sex as Sex,
+        placeOfBirth: applicationData.placeOfBirth,
+        dateOfBirth: new Date(applicationData.dateOfBirth),
+        panNumber: applicationData.panNumber,
+        aadharNumber: applicationData.aadharNumber,
+        dobInWords: applicationData.dobInWords,
+        stateId: applicationData.stateId,
+        districtId: applicationData.districtId,
+        currentUserId: applicationData.currentUserId,
+        currentRoleId: applicationData.currentRoleId,
+
+        presentAddress: {
+          addressLine: applicationData.presentAddress.addressLine,
+          stateId: applicationData.presentAddress.stateId,
+          districtId: applicationData.presentAddress.districtId,
+          zoneId: applicationData.permanentAddress.zoneId,
+          divisionId: applicationData.permanentAddress.divisionId,
+          policeStationId: applicationData.presentAddress.policeStationId,
+          sinceResiding: new Date(applicationData.presentAddress.sinceResiding)
+        },
+
         permanentAddress: applicationData.permanentAddress ? {
-          ...applicationData.permanentAddress,
-          sinceResiding: applicationData.permanentAddress.sinceResiding ? new Date(applicationData.permanentAddress.sinceResiding) : new Date()
+          addressLine: applicationData.permanentAddress.addressLine,
+          stateId: applicationData.permanentAddress.stateId,
+          districtId: applicationData.permanentAddress.districtId,
+          zoneId: applicationData.permanentAddress.zoneId,
+          divisionId: applicationData.permanentAddress.divisionId,
+          policeStationId: applicationData.permanentAddress.policeStationId,
+          sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
         } : undefined,
+
+        contactInfo: applicationData.contactInfo,
+        occupationInfo: applicationData.occupationInfo,
+        biometricData: applicationData.biometricData,
+
+        // Convert criminal history to expected format
+        criminalHistory: applicationData.criminalHistory?.map(ch => ({
+          convicted: ch.convicted,
+          convictionData: {
+            isCriminalCasePending: ch.isCriminalCasePending,
+            firNumber: ch.firNumber,
+            policeStation: ch.policeStation,
+            sectionOfLaw: ch.sectionOfLaw,
+            dateOfOffence: ch.dateOfOffence,
+            caseStatus: ch.caseStatus
+          }
+        })),
+
+        // Convert license history to expected format
+        licenseHistory: applicationData.licenseHistory?.map(lh => ({
+          hasAppliedBefore: lh.hasAppliedBefore,
+          hasOtherApplications: lh.hasOtherApplications,
+          familyMemberHasArmsLicense: lh.familyMemberHasArmsLicense,
+          hasSafePlaceForArms: lh.hasSafePlaceForArms,
+          hasUndergoneTraining: lh.hasUndergoneTraining,
+          previousApplications: {
+            hasPreviousLicense: lh.hasPreviousLicense,
+            previousLicenseNumber: lh.previousLicenseNumber,
+            licenseIssueDate: lh.licenseIssueDate,
+            licenseExpiryDate: lh.licenseExpiryDate,
+            issuingAuthority: lh.issuingAuthority,
+            isLicenseRenewed: lh.isLicenseRenewed,
+            renewalDate: lh.renewalDate,
+            renewingAuthority: lh.renewingAuthority
+          }
+        })),
+
+        licenseRequestDetails: {
+          needForLicense: applicationData.licenseRequestDetails.needForLicense as LicensePurpose,
+          weaponCategory: applicationData.licenseRequestDetails.weaponCategory as WeaponCategory,
+          requestedWeaponIds: applicationData.licenseRequestDetails.requestedWeaponIds,
+          areaOfValidity: applicationData.licenseRequestDetails.areaOfValidity
+        },
+
+        fileUploads: applicationData.fileUploads?.map(fu => ({
+          fileName: fu.fileName,
+          fileSize: fu.fileSize,
+          fileType: fu.fileType as FileType,
+          fileUrl: fu.fileUrl
+        }))
       };
 
-      const [error, result] = await this.applicationFormService.createApplication(processedData as any);
+      const [error, result] = await this.applicationFormService.createApplication(processedData);
       if (error) {
+        // Provide more details if error is an object
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
         const errorDetails = typeof error === 'object' ? error : {};
         throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.BAD_REQUEST);
       }
       return { success: true, data: result };
     } catch (err: any) {
+      // Provide more details if err is an object
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -215,78 +293,11 @@ export class ApplicationFormController {
 
       const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
 
-  // Enrich brief rows by fetching full application details and returning a concise summary
-      const enrichedData = await Promise.all(typedResult.data.map(async (row) => {
-        try {
-          const [errApp, fullApp] = await this.applicationFormService.getApplicationById(row.id);
-          if (errApp || !fullApp) {
-            // Fallback to the brief row but normalize status and user/role fields
-            const applicantName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
-            return {
-              id: row.id,
-              acknowledgementNo: row.acknowledgementNo,
-              applicantName,
-              createdAt: row.createdAt,
-              status: row.status ? (row.status.code ?? row.status.name ?? null) : null,
-              state: row.state ? { id: row.state.id, name: row.state.name } : null,
-              district: row.district ? { id: row.district.id, name: row.district.name } : null,
-              presentAddress: null,
-              permanentAddress: null,
-              currentUser: row.currentUser ? { id: row.currentUser.id, username: row.currentUser.username } : null,
-              previousUser: row.previousUser ? { id: row.previousUser.id, username: row.previousUser.username } : null,
-              currentRole: row.currentRole ? (row.currentRole.code ?? row.currentRole.name ?? null) : null,
-              previousRole: row.previousRole ? (row.previousRole.code ?? row.previousRole.name ?? null) : null,
-            };
-          }
-
-          const applicantName = [fullApp.firstName, fullApp.middleName, fullApp.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
-          return {
-            id: fullApp.id,
-            acknowledgementNo: fullApp.acknowledgementNo,
-            applicantName,
-            createdAt: fullApp.createdAt,
-            status: fullApp.status ? fullApp.status.code : null,
-            state: fullApp.state ? { id: fullApp.state.id, name: fullApp.state.name } : null,
-            district: fullApp.district ? { id: fullApp.district.id, name: fullApp.district.name } : null,
-            presentAddress: buildAddress(fullApp.presentAddress),
-            permanentAddress: buildAddress(fullApp.permanentAddress),
-            currentUser: fullApp.currentUser ? { id: fullApp.currentUser.id, username: fullApp.currentUser.username } : null,
-            previousUser: fullApp.previousUser ? { id: fullApp.previousUser.id, username: fullApp.previousUser.username } : null,
-            currentRole: fullApp.currentRole ? fullApp.currentRole.code : null,
-            previousRole: fullApp.previousRole ? fullApp.previousRole.code : null,
-          };
-        } catch (e) {
-          // On unexpected error, fallback to brief row
-          const applicantName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
-          return {
-            id: row.id,
-            acknowledgementNo: row.acknowledgementNo,
-            applicantName,
-            createdAt: row.createdAt,
-            status: row.status ? (row.status.code ?? row.status.name ?? null) : null,
-            state: row.state ? { id: row.state.id, name: row.state.name } : null,
-            district: row.district ? { id: row.district.id, name: row.district.name } : null,
-            presentAddress: null,
-            permanentAddress: null,
-            currentUser: row.currentUser ? { id: row.currentUser.id, username: row.currentUser.username } : null,
-            previousUser: row.previousUser ? { id: row.previousUser.id, username: row.previousUser.username } : null,
-            currentRole: row.currentRole ? (row.currentRole.code ?? row.currentRole.name ?? null) : null,
-            previousRole: row.previousRole ? (row.previousRole.code ?? row.previousRole.name ?? null) : null,
-          };
-        }
-      }));
-
-      // Map state/district to names only (handles both object and string cases)
-      const finalData = enrichedData.map(item => ({
-        ...item,
-        state: item.state ? (typeof item.state === 'object' ? item.state.name : item.state) : null,
-        district: item.district ? (typeof item.district === 'object' ? item.district.name : item.district) : null,
-      }));
-
+      // The service already returns transformed rows and a combined usersInHierarchy
       return {
         success: true,
         message: 'Applications retrieved successfully',
-        data: finalData,
+        data: typedResult.data,
         usersInHierarchy: typedResult.usersInHierarchy ?? [],
         pagination: {
           total: typedResult.total,
