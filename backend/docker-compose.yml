@@ -17,9 +17,9 @@ services:
     container_name: alms-db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: pg&1234
-      POSTGRES_DB: alms
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-alms}
     ports:
       - "5432:5432"
     volumes:
