@@ -105,6 +105,7 @@ export class UserService {
    * @returns updated user object
    */
 async updateUser(id: number, updateUserDto: UpdateUserDto) {
+  try {
   const existingUser = await prisma.users.findUnique({
     where: { id },
   });
@@ -118,11 +119,13 @@ async updateUser(id: number, updateUserDto: UpdateUserDto) {
   // ✅ Handle scalar fields
   if (updateUserDto.username) data.username = updateUserDto.username;
   if (updateUserDto.email) data.email = updateUserDto.email;
+  if (updateUserDto.phoneNo) data.phoneNo = updateUserDto.phoneNo;
 
   // ✅ Handle relation fields with connect
   if (updateUserDto.policeStationId) {
     data.policeStation = { connect: { id: updateUserDto.policeStationId } };
   }
+  
   if (updateUserDto.districtId) {
     data.district = { connect: { id: updateUserDto.districtId } };
   }
@@ -132,21 +135,22 @@ async updateUser(id: number, updateUserDto: UpdateUserDto) {
   if (updateUserDto.divisionId) {
     data.division = { connect: { id: updateUserDto.divisionId } };
   }
-  if (updateUserDto.stateId) {
-    data.state = { connect: { id: updateUserDto.stateId } };
-  }
-
-  console.log('Data to update: ===', data);
-
   const updatedUser = await prisma.users.update({
     where: { id },
     data,
   });
 
-  console.log('Updated User:.................25', updatedUser);
   return updatedUser;
+
+} catch (error:any) {
+  console.error('Error while updating user:', error);
+
+  throw error;
 }
+}
+
 async deleteUser(id: number) {
+  try {
   const existingUser = await prisma.users.findUnique({
     where: { id },
   });
@@ -156,6 +160,14 @@ async deleteUser(id: number) {
   await prisma.users.delete({
     where: { id },
   });
-  return { message: `User with ID ${id} deleted successfully` };  
+  return { message: `User with ID ${id} deleted successfully` }; 
+
+ } catch (error) {
+    // log the error for debugging
+    console.error('Error while deleting user:', error);
+
+    // rethrow so NestJS global exception filter can handle it
+    throw error;
+  }
 }
 }

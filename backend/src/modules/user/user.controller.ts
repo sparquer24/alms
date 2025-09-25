@@ -50,7 +50,6 @@ export class UserController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async createUser(@Body() createUserDto: any) {
     try {
-      console.log('Creating user with data:====52', createUserDto);
       const user = await this.userService.createUser(createUserDto);
       return user;
     } catch (error: any) {
@@ -114,6 +113,9 @@ export class UserController {
     examples: {
       'Update policeStationId and other location details for the user': {
         value: {
+          username: 'updated_username',
+          email: '@tspolice.gov.in',
+          phoneNo: '9876543210',
           policeStationId: 5,
           districtId: 3,
           zoneId: 1,
@@ -127,6 +129,9 @@ export class UserController {
     status: 200,
     description: 'User updated successfully',
     example: {
+      username: 'updated_username',
+      email: '@tspolice.gov.in',
+      phoneNo: '9876543210',
       policeStationId: 5,
       districtId: 3,
       zoneId: 1,
@@ -138,7 +143,7 @@ export class UserController {
    @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    //  console.log('Updating user ID:===139', id);
+
     return this.userService.updateUser(id, updateUserDto);
 
   }

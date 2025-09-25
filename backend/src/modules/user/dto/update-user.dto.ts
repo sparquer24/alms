@@ -12,13 +12,13 @@ export class UpdateUserDto {
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  policeStationId?: number;
+  phoneNo?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  stateId?: number;
+  policeStationId?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
