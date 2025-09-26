@@ -6,7 +6,12 @@ module.exports = {
     "./src/config/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontSize: {
+        '6xs': '0.625rem', // 10px
+        '7xs': '0.5rem', // 8px
+      },
+    },
   },
   plugins: [],
 }

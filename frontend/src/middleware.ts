@@ -21,12 +21,12 @@ function getRoleBasedRedirectPath(userRole: string): string {
     case 'CP':
     case 'ARMS_SUPDT':
       return '/home?type=final';
-    
+
     case 'ADO':
     case 'CADO':
     case 'SHO':
       return '/home?type=forwarded';
-    
+
     case 'ZS':
       return '/home?type=freshform';
 
@@ -39,7 +39,7 @@ function getRoleBasedRedirectPath(userRole: string): string {
 
 // Define protected routes that require authentication
 const protectedRoutes = [
-  '/freshform',
+  '/createforms/freshform',
   '/application',
   '/sent',
   '/home',

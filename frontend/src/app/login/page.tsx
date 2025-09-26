@@ -165,6 +165,7 @@ const FormInput: React.FC<{
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       aria-describedby={disabled ? `${id}-disabled` : undefined}
+      suppressHydrationWarning={true}
     />
     {disabled && (
       <div id={`${id}-disabled`} className="sr-only">
@@ -302,8 +303,9 @@ export default function Login() {
           className="mt-8 space-y-6" 
           onSubmit={handleSubmit}
           noValidate
+          suppressHydrationWarning={true}
         >
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-sm -space-y-px" suppressHydrationWarning={true}>
             {usernameInput}
             {passwordInput}
           </div>

@@ -68,7 +68,7 @@ export default function FreshFormPage() {
   useEffect(() => {
     const type = searchParams?.get('type');
     if (type === 'fresh') {
-      router.push('/create-fresh-application');
+      router.push('/createforms/freshform');
     }
   }, [searchParams, router]);
 
@@ -103,7 +103,7 @@ export default function FreshFormPage() {
   // Handler for create application dropdown
   const handleCreateApplication = (typeKey: string) => {
     if (typeKey === 'fresh') {
-      router.push('/create-fresh-application');
+      router.push('/createforms/freshform');
     }
   };
 
