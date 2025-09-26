@@ -891,63 +891,286 @@ export class ApplicationFormService {
     applicationId?: number;
     isOwned?: boolean| undefined;
   })  {
-    // Remove top-level usersInHierarchy; will attach per application
-    let orderByObj = {};
+    // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
 
+      // Status filter (accepts numeric IDs)
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
         where.statusId = { in: filter.statusIds };
       }
-      
-      if (filter.currentUserId !== undefined && !filter.isOwned===true) {
-        where.currentUserId = filter.currentUserId;
+
+      // If user asked for only owned applications, restrict to currentUserId
+      if (filter.isOwned === true && filter.currentUserId) {
+        const uid = Number(filter.currentUserId);
+        if (!isNaN(uid)) where.currentUserId = uid;
       }
 
-      const page = filter.page ?? 1;
-      const limit = filter.limit ?? 10;
-      const skip = (page - 1) * limit;
-
-      // Search filter
+      // Search filter (supports id exact match or text contains on allowed fields)
       if (filter.searchField && filter.search) {
-        if (['id', 'firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
+        const allowed = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
+        if (allowed.includes(filter.searchField)) {
           if (filter.searchField === 'id') {
             const idVal = Number(filter.search);
             if (!isNaN(idVal)) where.id = idVal;
+          } else {
+            // case-insensitive partial match for frontend search
+            where[filter.searchField] = { contains: String(filter.search), mode: 'insensitive' };
           }
         }
       }
 
-      // No-op: usersInHierarchy will be attached per application below
-      const include = {
-        contactInfo: true,
-        state: true,
-        district: true,
+      // Pagination
+      const page = Math.max(Number(filter.page ?? 1), 1);
+      const limit = Math.max(Number(filter.limit ?? 10), 1);
+      const skip = (page - 1) * limit;
+
+      // Ordering: allow only a small set of fields for safety
+      const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
+      const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'createdAt';
+      const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+      const orderByObj: any = { [orderByField]: orderDirection };
+
+      // Minimal selects for list view (frontend needs these fields)
+      const select = {
+        id: true,
+        acknowledgementNo: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        createdAt: true,
+        // Include status code/name
         status: {
           select: {
             id: true,
+            code: true,
             name: true,
-            code: true
+          }
+        },
+        // Top-level state/district (names) for quick display
+        state: { select: { id: true, name: true } },
+        district: { select: { id: true, name: true } },
+        // Addresses: include only addressLine and related names
+        presentAddress: {
+          select: {
+            id: true,
+            addressLine: true,
+            sinceResiding: true,
+            state: { select: { id: true, name: true } },
+            district: { select: { id: true, name: true } },
+            zone: { select: { id: true, name: true } },
+            division: { select: { id: true, name: true } },
+            policeStation: { select: { id: true, name: true } },
+          }
+        },
+        permanentAddress: {
+          select: {
+            id: true,
+            addressLine: true,
+            sinceResiding: true,
+            state: { select: { id: true, name: true } },
+            district: { select: { id: true, name: true } },
+            zone: { select: { id: true, name: true } },
+            division: { select: { id: true, name: true } },
+            policeStation: { select: { id: true, name: true } },
+          }
+        },
+        // Users / roles: include only id and username/code for display
+        currentUser: { select: { id: true, username: true } },
+        previousUser: { select: { id: true, username: true } },
+        currentRole: { select: { id: true, code: true, name: true } },
+        previousRole: { select: { id: true, code: true, name: true } },
+        // Include the most recent few workflow history items (lightweight)
+        FreshLicenseApplicationsFormWorkflowHistories: {
+          take: 3,
+          orderBy: { createdAt: 'desc' as const },
+          select: {
+            id: true,
+            actionTaken: true,
+            remarks: true,
+            createdAt: true,
+            attachments: true,
+            actiones: { select: { id: true, code: true, name: true } },
+            nextUser: { select: { id: true, username: true } },
+            previousUser: { select: { id: true, username: true } },
+            nextRole: { select: { id: true, code: true, name: true } },
+            previousRole: { select: { id: true, code: true, name: true } },
           }
         }
-      }
+      };
 
-      const [total, data] = await Promise.all([
+      const [total, rawData] = await Promise.all([
         prisma.freshLicenseApplicationsForms.count({ where }),
         prisma.freshLicenseApplicationsForms.findMany({
           where,
           skip,
           take: limit,
           orderBy: orderByObj,
-          include,
+          select,
         }),
       ]);
 
-      return [null, {
-        total,
-        data: data
-      }];
+      // Transform each application to a frontend-friendly shape and build usersInHierarchy
+      const finalData: any[] = [];
+      const combinedUsersMap: Record<string, any> = {};
 
+      for (const row of rawData) {
+        // Applicant name
+        const applicantName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
+
+        // State / district names
+        const stateName = row.state ? row.state.name : null;
+        const districtName = row.district ? row.district.name : null;
+
+        // Roles / Users names
+        const currentUserName = row.currentUser ? row.currentUser.username : null;
+        const previousUserName = row.previousUser ? row.previousUser.username : null;
+        const currentRoleName = row.currentRole ? (row.currentRole.name ?? row.currentRole.code) : null;
+        const previousRoleName = row.previousRole ? (row.previousRole.name ?? row.previousRole.code) : null;
+
+        // Status as code/name only
+        const status = row.status ? { code: row.status.code, name: row.status.name } : null;
+
+        // Transform addresses
+        const transformAddress = (addr: any) => {
+          if (!addr) return null;
+          return {
+            addressLine: addr.addressLine,
+            sinceResiding: addr.sinceResiding,
+            stateName: addr.state ? addr.state.name : null,
+            districtName: addr.district ? addr.district.name : null,
+            zoneName: addr.zone ? addr.zone.name : null,
+            divisionName: addr.division ? addr.division.name : null,
+            policeStationName: addr.policeStation ? addr.policeStation.name : null,
+          };
+        };
+
+        const presentAddress = transformAddress(row.presentAddress);
+        const permanentAddress = transformAddress(row.permanentAddress);
+
+        // Transform workflow histories
+        const workflowHistories = Array.isArray(row.FreshLicenseApplicationsFormWorkflowHistories)
+          ? row.FreshLicenseApplicationsFormWorkflowHistories.map((h: any) => ({
+              id: h.id,
+              actionTaken: h.actionTaken,
+              remarks: h.remarks,
+              createdAt: h.createdAt,
+              attachments: h.attachments || null,
+              action: h.actiones ? (h.actiones.code ?? h.actiones.name) : null,
+              previousUserName: h.previousUser ? h.previousUser.username : null,
+              previousRoleName: h.previousRole ? (h.previousRole.name ?? h.previousRole.code) : null,
+              nextUserName: h.nextUser ? h.nextUser.username : null,
+              nextRoleName: h.nextRole ? (h.nextRole.name ?? h.nextRole.code) : null,
+            }))
+          : [];
+
+        // Build usersInHierarchy for this application using a single OR query
+        let usersInHierarchy: any[] = [];
+        try {
+          // Determine hierarchy ids from presentAddress
+          const psId = row.presentAddress?.policeStation?.id ?? null;
+          const divisionId = row.presentAddress?.division?.id ?? null;
+          const zoneId = row.presentAddress?.zone?.id ?? null;
+          const districtId = row.presentAddress?.district?.id ?? null;
+          const stateId = row.presentAddress?.state?.id ?? null;
+
+          const orClauses: any[] = [];
+          if (psId) orClauses.push({ policeStationId: psId });
+          if (divisionId) orClauses.push({ divisionId: divisionId, policeStationId: null });
+          if (zoneId) orClauses.push({ zoneId: zoneId, divisionId: null });
+          if (districtId) orClauses.push({ districtId: districtId, zoneId: null });
+          if (stateId) orClauses.push({ stateId: stateId, districtId: null });
+
+          if (orClauses.length > 0) {
+            const users = await prisma.users.findMany({
+              where: { OR: orClauses },
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                role: { select: { id: true, code: true, name: true } },
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+              }
+            });
+
+            // Map users to include roleName and level (to preserve specificity)
+            usersInHierarchy = users.map(u => {
+              let level = null as string | null;
+              let locationName = null as string | null;
+              if (psId && u.policeStationId === psId) {
+                level = 'policeStation';
+                locationName = row.presentAddress?.policeStation?.name ?? null;
+              } else if (divisionId && u.divisionId === divisionId && u.policeStationId == null) {
+                level = 'division';
+                locationName = row.presentAddress?.division?.name ?? null;
+              } else if (zoneId && u.zoneId === zoneId && u.divisionId == null) {
+                level = 'zone';
+                locationName = row.presentAddress?.zone?.name ?? null;
+              } else if (districtId && u.districtId === districtId && u.zoneId == null) {
+                level = 'district';
+                locationName = row.presentAddress?.district?.name ?? null;
+              } else if (stateId && u.stateId === stateId && u.districtId == null) {
+                level = 'state';
+                locationName = row.presentAddress?.state?.name ?? null;
+              }
+
+              const roleName = u.role ? (u.role.name ?? u.role.code) : null;
+
+              // Add to combined map for top-level usersInHierarchy
+              if (!combinedUsersMap[u.username]) {
+                combinedUsersMap[u.username] = {
+                  username: u.username,
+                  email: u.email || null,
+                  roleName,
+                  level,
+                  locationName,
+                };
+              }
+
+              return {
+                username: u.username,
+                email: u.email || null,
+                roleName,
+                level,
+                locationName,
+              };
+            });
+          }
+        } catch (e) {
+          // ignore usersInHierarchy errors per application to avoid breaking whole list
+          usersInHierarchy = [];
+        }
+
+        // Build final transformed object (strip raw id fields)
+        const transformed = {
+          id: row.id,
+          acknowledgementNo: row.acknowledgementNo,
+          applicantName,
+          createdAt: row.createdAt,
+          status,
+          state: stateName,
+          district: districtName,
+          presentAddress,
+          permanentAddress,
+          currentUser: currentUserName,
+          previousUser: previousUserName,
+          currentRole: currentRoleName,
+          previousRole: previousRoleName,
+          workflowHistory: workflowHistories,
+          usersInHierarchy,
+        };
+
+        finalData.push(transformed);
+      }
+
+      // Build combined usersInHierarchy array
+      const usersInHierarchy = Object.values(combinedUsersMap);
+
+      return [null, { total, data: finalData, usersInHierarchy }];
     } catch (error) {
       return [error, null];
     }
