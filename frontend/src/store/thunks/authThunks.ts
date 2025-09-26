@@ -220,25 +220,40 @@ export const login = createAsyncThunk(
       }
       
       console.log('✅ Final user object:', user);
+
+      // Robust role extraction & normalization
+      const extractRoleString = (u: any): string | null => {
+        const candidate = u?.role?.code || u?.roleCode || u?.role_id || u?.roleId || (typeof u?.role === 'string' ? u.role : null) || (Array.isArray(u?.roles) ? u.roles[0] : null);
+        if (!candidate) return null;
+        return String(candidate).toUpperCase();
+      };
+      const roleString = extractRoleString(user);
+      if (roleString && typeof user.role !== 'string') {
+        user = { ...user, role: roleString };
+      }
+
       dispatch(setCredentials({ user, token }));
-      
 
-
-        // Store only token in cookie to reduce cookie size and avoid leakage of user data
-        console.log('🍪 Setting auth cookie with token (first 20 chars):', token.substring(0, 20) + '...');
-        setCookie('auth', token, {
-          maxAge: 60 * 60 * 24, // 1 day
-          path: '/',
-        });
-        // Persist the user and role minimally in cookies for middleware/SSR use
-        try {
-          setCookie('user', JSON.stringify(user), { maxAge: 60 * 60 * 24, path: '/' });
-        } catch (e) {
-          // ignore
-        }
-        if (user?.role) setCookie('role', user.role?.code ?? user.role ?? '', { maxAge: 60 * 60 * 24, path: '/' });
-        // Save snapshot for refresh-time detection
-        saveCookieSnapshot({ auth: token, user: JSON.stringify(user), role: user?.role?.code ?? user?.role ?? null });
+      // Store JSON auth cookie so middleware can parse role without extra requests
+      console.log('🍪 Setting JSON auth cookie (with user + token).');
+      const authCookiePayload = {
+        token,
+        isAuthenticated: true,
+        user: { id: user.id, name: user.name, role: user.role },
+        role: roleString || user.role,
+        ts: Date.now(),
+      };
+      setCookie('auth', JSON.stringify(authCookiePayload), {
+        maxAge: 60 * 60 * 24,
+        path: '/',
+      });
+      // Separate user + role cookies for redundancy
+      try {
+        setCookie('user', JSON.stringify(user), { maxAge: 60 * 60 * 24, path: '/' });
+      } catch {/* ignore */}
+      if (roleString) setCookie('role', roleString, { maxAge: 60 * 60 * 24, path: '/' });
+      // Save snapshot (store token & role only to keep it small)
+      saveCookieSnapshot({ auth: JSON.stringify(authCookiePayload), user: JSON.stringify({ id: user.id, role: user.role }), role: roleString });
       
       console.log('🎉 Login process completed successfully');
       return { token, user };
