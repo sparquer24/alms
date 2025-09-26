@@ -15,7 +15,7 @@ const EditUserPage: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const userId = searchParams.get('id');
+  const userId = searchParams?.get('id');
 
   useEffect(() => {
     const fetchUserDetails = async () => {

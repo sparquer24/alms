@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import Header from '../../components/Header';
-import ApplicationTable from '../../components/ApplicationTable';
-import { useAuthSync } from '../../hooks/useAuthSync';
-import { fetchApplicationsByStatusKey, filterApplications } from '../../services/sidebarApiCalls';
-import { ApplicationData } from '../../types';
-import { PageLayoutSkeleton } from '../../components/Skeleton';
+import Header from '../../../components/Header';
+import ApplicationTable from '../../../components/ApplicationTable';
+import { useAuthSync } from '../../../hooks/useAuthSync';
+import { fetchApplicationsByStatusKey, filterApplications } from '../../../services/sidebarApiCalls';
+import { ApplicationData } from '../../../types';
+import { PageLayoutSkeleton } from '../../../components/Skeleton';
 
-export default function InboxQueryPage() {
+export default function AdminInboxPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const queryType = searchParams?.get('type') || '';

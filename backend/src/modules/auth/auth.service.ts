@@ -97,12 +97,20 @@ export class AuthService {
           role: {
             select: {
               id: true,
-              name: true,
               code: true,
+              name: true,
+              is_active: true,
+              created_at: true,
+              updated_at: true,
               dashboard_title: true,
               menu_items: true,
               permissions: true,
               can_access_settings: true,
+              can_forward: true,
+              can_re_enquiry: true,
+              can_generate_ground_report: true,
+              can_FLAF: true,
+              can_create_freshLicence: true,
             }
           },
         }
@@ -183,12 +191,20 @@ export class AuthService {
         role: {
           select: {
             id: true,
-            name: true,
             code: true,
+            name: true,
+            is_active: true,
+            created_at: true,
+            updated_at: true,
             dashboard_title: true,
             menu_items: true,
             permissions: true,
             can_access_settings: true,
+            can_forward: true,
+            can_re_enquiry: true,
+            can_generate_ground_report: true,
+            can_FLAF: true,
+            can_create_freshLicence: true,
           }
         },
         state: { select: { id: true, name: true } },

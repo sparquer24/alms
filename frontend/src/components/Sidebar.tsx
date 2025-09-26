@@ -244,26 +244,11 @@ const getUserRoleFromCookie = () => {
     } else {
       setActiveItem(item.name);
       localStorage.setItem("activeNavItem", item.name);
-      // Robust special-case routing for freshform, finaldisposal, myreports, closed, and sent
-      const normalizedName = item.name.replace(/\s+/g, '').toLowerCase();
-
-      // Navigation first, then fetch data on the destination page
-      if (normalizedName === "freshform") {
-        // Use old query-based style to centralize rendering
-        router.push(`/home?type=${encodeURIComponent('freshform')}`);
-      } else if (normalizedName === "finaldisposal") {
-        router.push("/home?type=finaldisposal");
-      } else if (normalizedName === "myreports" || normalizedName === "reports") {
-        router.push("/reports/myreports");
-      } else if (normalizedName === "closed") {
-        router.push("/home?type=closed");
-      } else if (normalizedName === "sent") {
-        router.push("/home?type=sent");
-      } else {
-        router.push(`/home?type=${encodeURIComponent(normalizedName)}`);
-      }
+      // Route all sidebar content to /admin/{content-name}
+      const pathSegment = item.name.replace(/\s+/g, '');
+      router.push(`/admin/${encodeURIComponent(pathSegment)}`);
     }
-  }, [router, dispatch]);
+  }, [router, dispatch, cookieRole, userRole]);
 
   const handleInboxToggle = useCallback(() => {
     console.log('📂 Inbox toggle clicked, current state:', isInboxOpen);
@@ -277,7 +262,7 @@ const getUserRoleFromCookie = () => {
 
     const activeItemKey = `inbox-${subItem}`;
   const currentPath = window.location.pathname;
-  const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox') || currentPath === '/home' || currentPath.startsWith('/home');
+  const isOnInboxBase = currentPath === '/admin/inbox' || currentPath.startsWith('/admin/inbox');
 
     // Delegate loading to InboxContext which ensures a single fetch per type
     const normalized = String(subItem).toLowerCase();
@@ -293,8 +278,8 @@ const getUserRoleFromCookie = () => {
     // Update context (single fetch) and update URL without forcing a full remount
     loadType(normalized).catch((e) => console.error('loadType error', e));
     // If user is currently on an /inbox base, prefer updating /inbox?type=..., otherwise use /home?type=...
-    const targetBase = currentPath.startsWith('/inbox') ? '/inbox' : '/home';
-    const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
+  const targetBase = '/admin/inbox';
+  const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
     if (isOnInboxBase) {
       // replace state to avoid adding history entries when already under inbox/home
       window.history.replaceState(null, '', targetUrl);
@@ -463,7 +448,7 @@ const getUserRoleFromCookie = () => {
             {/* Add Flow Mapping menu item for ADMIN users */}
             {effectiveRole === "ADMIN" && (
               <li>
-                <a href="/admin/flow-mapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
+                <a href="/admin/flowMapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
                   <ChartBarIcon className="w-5 h-5" />
                   <span>Flow Mapping</span>
                 </a>
