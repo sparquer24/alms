@@ -1,7 +1,9 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit  } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
+// import { PrismaService } from '../prisma/prisma.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 export interface CreateUserInput {
   username?: string;
@@ -53,6 +55,7 @@ export class UserService {
       },
     });
   }
+  
 
   async createUser(data: CreateUserInput) {
     validateCreateUserInput(data);
@@ -94,5 +97,77 @@ export class UserService {
         updatedAt: true,
       },
     });
+  } 
+  /**
+   * Update a user by ID with provided fields
+   * @param id user ID
+   * @param updateUserDto fields to update
+   * @returns updated user object
+   */
+async updateUser(id: number, updateUserDto: UpdateUserDto) {
+  try {
+  const existingUser = await prisma.users.findUnique({
+    where: { id },
+  });
+
+  if (!existingUser) {
+    throw new NotFoundException(`User with ID ${id} not found`);
   }
+
+  const data: any = {};
+
+  // ✅ Handle scalar fields
+  if (updateUserDto.username) data.username = updateUserDto.username;
+  if (updateUserDto.email) data.email = updateUserDto.email;
+  if (updateUserDto.phoneNo) data.phoneNo = updateUserDto.phoneNo;
+
+  // ✅ Handle relation fields with connect
+  if (updateUserDto.policeStationId) {
+    data.policeStation = { connect: { id: updateUserDto.policeStationId } };
+  }
+  
+  if (updateUserDto.districtId) {
+    data.district = { connect: { id: updateUserDto.districtId } };
+  }
+  if (updateUserDto.zoneId) {
+    data.zone = { connect: { id: updateUserDto.zoneId } };
+  }
+  if (updateUserDto.divisionId) {
+    data.division = { connect: { id: updateUserDto.divisionId } };
+  }
+  const updatedUser = await prisma.users.update({
+    where: { id },
+    data,
+  });
+
+  return updatedUser;
+
+} catch (error:any) {
+  console.error('Error while updating user:', error);
+
+  throw error;
+}
+}
+
+async deleteUser(id: number) {
+  try {
+  const existingUser = await prisma.users.findUnique({
+    where: { id },
+  });
+  if (!existingUser) {
+    throw new NotFoundException(`User with ID ${id} not found`);
+  } 
+  await prisma.users.delete({
+    where: { id },
+  });
+  return { message: `User with ID ${id} deleted successfully` }; 
+
+ } catch (error) {
+    // log the error for debugging
+    console.error('Error while deleting user:', error);
+
+    // rethrow so NestJS global exception filter can handle it
+    throw error;
+  }
+}
 }

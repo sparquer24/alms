@@ -166,7 +166,7 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
   @ApiQuery({ name: 'applicationId', required: false, type: String })
   @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
   @ApiQuery({ name: 'statusIds', required: false, type: String })
-  @ApiQuery({ name: 'isOwned', required: false, type: String, default: false})
+  @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -179,7 +179,7 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
     @Query('applicationId') applicationId?: number,
     @Query('acknowledgementNo') acknowledgementNo?: string,
     @Query('statusIds') statusIds?: string,
-    @Query('isOwned') isOwned?: String
+    @Query('isOwned') isOwned?: Boolean,
   ) {
     try {
       // Parse pagination
@@ -284,7 +284,7 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
           ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
           : undefined,
         applicationId: parsedApplicationId,
-        isOwned : isOwned == 'true' ? true : false,
+        isOwned : isOwned == true ? true : false,
       });
       if (error) {
         const errMsg = (error as any)?.message || 'Failed to fetch applications';
