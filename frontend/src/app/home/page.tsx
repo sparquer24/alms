@@ -10,7 +10,8 @@ import { useInbox } from '../../context/InboxContext';
 
 export default function HomePage() {
   const searchParams = useSearchParams();
-  const queryType = searchParams.get('type') ? String(searchParams.get('type')).toLowerCase() : null;
+  const queryTypeParam = searchParams?.get('type');
+  const queryType = queryTypeParam ? String(queryTypeParam).toLowerCase() : null;
   const [type, setType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');

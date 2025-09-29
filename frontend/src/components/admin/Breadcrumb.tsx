@@ -17,7 +17,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
 
   // Generate breadcrumb items from pathname if not provided
   const generateBreadcrumbs = (): BreadcrumbItem[] => {
-    const paths = pathname.split('/').filter(Boolean);
+  const paths = (pathname || '').split('/').filter(Boolean);
     const breadcrumbs: BreadcrumbItem[] = [
       { label: 'Home', href: '/' }
     ];
@@ -28,7 +28,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       
       // Special handling for admin routes
       if (path === 'admin') {
-        breadcrumbs.push({ label: 'Admin', href: '/admin' });
+  breadcrumbs.push({ label: 'Admin', href: '/admin/userManagement' });
       } else if (paths[index - 1] === 'admin') {
         // Admin sub-routes
         const label = path.charAt(0).toUpperCase() + path.slice(1);

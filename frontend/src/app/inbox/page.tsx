@@ -12,7 +12,7 @@ import { PageLayoutSkeleton } from '../../components/Skeleton';
 export default function InboxQueryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const queryType = searchParams.get('type') || '';
+  const queryType = searchParams?.get('type') || '';
 
   const [type, setType] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationData[]>([]);

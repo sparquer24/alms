@@ -10,7 +10,7 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'ADMIN' | 'ARMS_SUPDT' | 'SHO' | '
 export function getRoleBasedRedirectPath(userRole: string): string {
   switch (userRole) {
     case 'ADMIN':
-      return '/admin';
+      return '/admin/userManagement';
 
     case 'ARMS_SUPDT':
     case 'SHO':
@@ -32,7 +32,7 @@ export function getRoleBasedRedirectPath(userRole: string): string {
       return '/home?type=forwarded';
 
     default:
-      return '/';
+      return '/admin/userManagement';
   }
 }
 
@@ -55,7 +55,7 @@ export function shouldRedirectOnStartup(userRole: string, currentPath: string): 
 
   // For admin users, always redirect from root to admin dashboard
   if (userRole === 'ADMIN' && currentPath === '/') {
-    return '/admin';
+  return '/admin/userManagement';
   }
 
   // For officer roles, redirect from root to their inbox
