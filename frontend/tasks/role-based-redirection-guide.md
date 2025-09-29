@@ -14,7 +14,7 @@ Users are automatically redirected to role-appropriate sections:
 | **ADMIN** | `/` | Main dashboard for system overview |
 | **DCP/ACP/CP** | `/reports` | High-level officials need reports and analytics |
 | **ARMS_SUPDT** | `/final` | Arms Superintendent handles final disposals |
-| **SHO/ZS** | `/inbox/forwarded` | Field officers process forwarded applications |
+| **SHO/ZS** | `/home?type=forwarded` | Field officers process forwarded applications |
 | **APPLICANT** | `/sent` | Applicants check their submitted applications |
 | **ADO/CADO** | `/` | Administrative officers use main dashboard |
 
@@ -100,7 +100,7 @@ The system expects these fields from the authentication APIs:
 
 2. **SHO User Login**:
    - Login with `sho_user` / `1234` 
-   - Should redirect to `/inbox/forwarded`
+   - Should redirect to `/home?type=forwarded`
 
 3. **Applicant Login**:
    - Login with `applicant_user` / `1234`
@@ -119,7 +119,7 @@ The system expects these fields from the authentication APIs:
 | User Action | Current Path | Expected Redirect |
 |-------------|--------------|-------------------|
 | DCP logs in | `/login` | `/reports` |
-| SHO accesses root | `/` | `/inbox/forwarded` |
+| SHO accesses root | `/` | `/home?type=forwarded` |
 | Applicant on login page | `/login` (authenticated) | `/sent` |
 | Admin anywhere | Any public route | `/` (dashboard) |
 
@@ -141,7 +141,7 @@ case 'NEW_ROLE':
 
 // Modify existing role
 case 'SHO':
-  return '/different-path'; // Changed from /inbox/forwarded
+  return '/different-path'; // Changed from /home?type=forwarded
 ```
 
 ---

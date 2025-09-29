@@ -95,7 +95,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     applicationType: 'Fresh License',
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
-    status: mapApiStatusToApplicationStatus(statusCode),
+    status: statusName,
     status_id: detailedApp.status?.id || detailedApp.statusId || 1,
     assignedTo: detailedApp.currentUser?.username || String(detailedApp.currentUserId || ''),
     forwardedFrom: detailedApp.previousUser?.username || undefined,
@@ -530,13 +530,10 @@ export const fetchApplicationCounts = async (): Promise<{
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
   // Derive applicant name from available fields; some list endpoints may not include applicantFullName
-  const derivedName = (apiApp.applicantFullName
-    || `${apiApp.firstName || ''} ${apiApp.middleName || ''} ${apiApp.lastName || ''}`.trim()
-  ) || 'Unknown Applicant';
 
   return {
     id: String(apiApp.id || ''),
-    applicantName: derivedName,
+    applicantName:apiApp.applicantName,
     applicantMobile: apiApp.mobileNumber || '', // This might need to be fetched from detailed API
     applicantEmail: apiApp.emailAddress || undefined, // This might need to be fetched from detailed API
     fatherName: apiApp.fatherName || undefined, // This might need to be fetched from detailed API
