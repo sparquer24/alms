@@ -47,7 +47,7 @@ export class ApplicationFormController {
       }
     }
   })
-  async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
+async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
     try {
       // Convert DTO to service input format
       const processedData = {
@@ -197,31 +197,76 @@ export class ApplicationFormController {
       const parsedSearchValue = search ?? undefined;
       const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
-      const parsedStatusIds = statusIds ? statusIds.split(',').map(id => Number(id.trim())) : undefined;
-      if (parsedApplicationId || parsedAcknowledgementNo) {
+  // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
+  // We'll pass them to the service resolver which will return numeric IDs.
+  const parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
+  // Reusable address builder used for single-item and list-item transforms
+  const buildAddress = (addr: any) => {
+    if (!addr) return null;
+    return {
+      addressLine: addr.addressLine,
+      sinceResiding: addr.sinceResiding,
+      // Return only the name for state/district inside addresses per request
+      state: addr.state ? addr.state.name : null,
+      district: addr.district ? addr.district.name : null,
+      zone: addr.zone ? { id: addr.zone.id, name: addr.zone.name } : null,
+      division: addr.division ? { id: addr.division.id, name: addr.division.name } : null,
+      policeStation: addr.policeStation ? { id: addr.policeStation.id, name: addr.policeStation.name } : null,
+    };
+  };
+
+  if (parsedApplicationId || parsedAcknowledgementNo) {
         const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
         if (error) {
           const errMsg = (error as any)?.message || 'Failed to fetch applications';
           throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
         }
-        // dataApplication.applicantName = `${dataApplication?.firstName} ${dataApplication?.middleName ? dataApplication?.middleName + ' ' : ''}${dataApplication?.lastName}`;
-        let applicantName 
-        if (dataApplication) { 
-          if (dataApplication.firstName) applicantName = dataApplication.firstName;
-          if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
-          if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
-          dataApplication.applicantName = applicantName || 'Unknown Applicant';
-        } else {
-          return {
-            success: true,
-            message: "Application not found",
-            data: []
-          }
+        if (!dataApplication) {
+          return { success: true, message: 'Application not found', data: [] };
         }
+
+        // Build applicant name
+        let applicantName = '';
+        if (dataApplication.firstName) applicantName += dataApplication.firstName;
+        if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
+        if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
+
+        const presentAddress = buildAddress(dataApplication.presentAddress);
+        const permanentAddress = buildAddress(dataApplication.permanentAddress);
+
+  // status -> return code string
+  const status = dataApplication.status ? dataApplication.status.code : null;
+  // Return state/district as name strings per request
+  const state = dataApplication.state ? dataApplication.state.name : null;
+  const district = dataApplication.district ? dataApplication.district.name : null;
+
+        const currentUser = dataApplication.currentUser ? { id: dataApplication.currentUser.id, username: dataApplication.currentUser.username } : null;
+        const previousUser = dataApplication.previousUser ? { id: dataApplication.previousUser.id, username: dataApplication.previousUser.username } : null;
+        const currentRole = dataApplication.currentRole ? dataApplication.currentRole.code : null;
+        const previousRole = dataApplication.previousRole ? dataApplication.previousRole.code : null;
+
+        const transformed: any = {
+          ...dataApplication,
+          applicantName: applicantName.trim() || 'Unknown Applicant',
+          presentAddress,
+          permanentAddress,
+          state,
+          district,
+          status,
+          currentUser,
+          previousUser,
+          currentRole,
+          previousRole,
+        };
+
+        // Remove raw id fields that should not be returned
+        ['presentAddressId','permanentAddressId','contactInfoId','occupationInfoId','biometricDataId','statusId','currentRoleId','previousRoleId','currentUserId','previousUserId','stateId','districtId'].forEach(k => delete transformed[k]);
+
         return {
           success: true,
           message: 'Applications retrieved successfully',
-          data: dataApplication,
+          data: transformed,
         }
       }
 
@@ -234,7 +279,10 @@ export class ApplicationFormController {
         orderBy: parsedOrderBy,
         order: parsedOrder as 'asc' | 'desc',
         currentUserId: req.user?.sub, // If you need user context
-        statusIds: parsedStatusIds,
+        // Resolve textual identifiers to numeric IDs if provided
+        statusIds: parsedStatusIdentifiers && parsedStatusIdentifiers.length > 0
+          ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
+          : undefined,
         applicationId: parsedApplicationId,
         isOwned : isOwned == 'true' ? true : false,
       });
@@ -244,6 +292,8 @@ export class ApplicationFormController {
       }
 
       const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
+
+      // The service already returns transformed rows and a combined usersInHierarchy
       return {
         success: true,
         message: 'Applications retrieved successfully',

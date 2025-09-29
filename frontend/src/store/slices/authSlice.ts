@@ -61,44 +61,53 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
-      console.log('Restoring auth state from cookies...');
-      console.log('Document cookies:', document.cookie);
       try {
-        const authCookie = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('auth='));
-        console.log('Auth cookie:', authCookie);
-        if (authCookie) {
-          const cookieValue = decodeURIComponent(authCookie.split('=')[1]);
-          let authData: any = null;
-          
-          try {
-            // First try to parse as JSON
-            authData = JSON.parse(cookieValue);
-          } catch (e) {
-            // If parsing fails, check if it's a JWT token
-            if (cookieValue.startsWith('eyJhbGciOi')) {
-              // It's a JWT token, create minimal auth data
-              authData = { token: cookieValue, isAuthenticated: true };
-              console.log('Detected JWT token in cookie, created minimal auth data:', authData);
-            } else {
-              console.error('Cookie value is neither valid JSON nor JWT token:', cookieValue);
-              return;
-            }
-          }
-          
-          console.log('Parsed auth data from cookie:', authData);
-          if (authData.token && authData.isAuthenticated) {
-            state.token = authData.token;
-            state.isAuthenticated = true;
-            // Only set user if it exists in the auth data
-            if (authData.user) {
-              state.user = authData.user;
-            }
+        // Defensive cookie parsing
+        const cookies = document.cookie.split('; ').reduce((acc, row) => {
+          const [key, ...rest] = row.split('=');
+          acc[key] = decodeURIComponent(rest.join('='));
+          return acc;
+        }, {} as Record<string, string>);
+
+        const authCookie = cookies['auth'];
+        const userCookie = cookies['user'];
+        const roleCookie = cookies['role'];
+
+        if (!authCookie || !userCookie || !roleCookie) {
+          state.user = null;
+          state.token = null;
+          state.isAuthenticated = false;
+          state.error = null;
+          return;
+        }
+
+        let authData: any = null;
+        try {
+          authData = JSON.parse(authCookie);
+        } catch (e) {
+          if (authCookie.startsWith('eyJhbGciOi')) {
+            authData = { token: authCookie, isAuthenticated: true };
+          } else {
+            return;
           }
         }
+
+        let userData: any = null;
+        try {
+          userData = JSON.parse(userCookie);
+        } catch (e) {
+          userData = null;
+        }
+
+        state.token = authData.token || null;
+        state.isAuthenticated = !!authData.isAuthenticated;
+        state.user = userData || null;
+        state.error = null;
       } catch (error) {
-        console.error('Failed to restore auth state:', error);
+        state.user = null;
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = null;
       }
     },
   },

@@ -165,6 +165,7 @@ const FormInput: React.FC<{
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       aria-describedby={disabled ? `${id}-disabled` : undefined}
+      suppressHydrationWarning={true}
     />
     {disabled && (
       <div id={`${id}-disabled`} className="sr-only">
@@ -213,21 +214,32 @@ export default function Login() {
         username: formData.username.trim(), 
         password: formData.password 
       };
-      
       const result = await dispatch(login(loginPayload)).unwrap();
-      
-      dispatch(setError(''));
-      
-      // Get role-based redirect path
-      const redirectPath = getRoleBasedRedirectPath(result.user.role);
-      
-      // Show loading state before redirect
-      setIsRedirecting(true);
-      
-      // Force reload and redirect to role-specific path
-      window.location.replace(redirectPath);
+      console.log('Login result:', result);
+      if (result && result.user) {
+        console.log('User object:', result.user);
+        console.log('User role:', result.user.role);
+        console.log('User role_id:', result.user.role_id);
+        let role = result.user.role;
+        if (!role && result.user.role_id) {
+          // Example role mapping, adjust as needed
+          const roleMap: { [key: number]: string } = { 1: 'SUPERADMIN', 2: 'ADMIN', 3: 'USER' };
+          const roleId = Number(result.user.role_id);
+          role = roleMap[roleId] || 'USER';
+          console.log('Mapped role from role_id:', role);
+        }
+        const redirectPath = getRoleBasedRedirectPath(role);
+        console.log('Redirect path:', redirectPath);
+        dispatch(setError(''));
+        setIsRedirecting(true);
+        window.location.replace(redirectPath);
+      } else {
+        console.warn('No user found in login result:', result);
+        dispatch(setError('No user found after login.'));
+      }
     } catch (err) {
       // Error is handled by the thunk and stored in Redux state
+      console.error('Login error:', err);
       resetForm();
     }
   }, [dispatch, formData, isFormValid, resetForm]);
@@ -302,8 +314,9 @@ export default function Login() {
           className="mt-8 space-y-6" 
           onSubmit={handleSubmit}
           noValidate
+          suppressHydrationWarning={true}
         >
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="rounded-md shadow-sm -space-y-px" suppressHydrationWarning={true}>
             {usernameInput}
             {passwordInput}
           </div>

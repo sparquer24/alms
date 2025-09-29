@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import FreshApplicationForm from '../../components/FreshApplicationForm';
-import { useAuthSync } from '../../hooks/useAuthSync';
-import { fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
-import { FormSkeleton, PageLayoutSkeleton } from '../../components/Skeleton';
+import FreshApplicationForm from '../../../components/FreshApplicationForm';
+import { useAuthSync } from '../../../hooks/useAuthSync';
+import { fetchApplicationsByStatusKey } from '../../../services/sidebarApiCalls';
+import { FormSkeleton, PageLayoutSkeleton } from '../../../components/Skeleton';
 
 export default function CreateFreshApplicationPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
