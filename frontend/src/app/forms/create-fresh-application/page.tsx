@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import FreshApplicationForm from '../../../components/createFreshApplicationForm/FreshApplicationForm';
+import FreshApplicationForm from '../../../components/FreshApplicationForm';
 import { useAuthSync } from '../../../hooks/useAuthSync';
+import { fetchApplicationsByStatusKey } from '../../../services/sidebarApiCalls';
 import { FormSkeleton, PageLayoutSkeleton } from '../../../components/Skeleton';
 
 export default function CreateFreshApplicationPage() {
@@ -137,10 +138,10 @@ export default function CreateFreshApplicationPage() {
         )}
 
         {/* Fresh Application Form */}
-        <div className="h-full w-full overflow-hidden relative z-10">
+        <div className="h-full w-screen overflow-hidden relative z-10">
           {/* Submission Loading Overlay */}
           {isSubmitting && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-lg p-6 flex flex-col items-center space-y-4 shadow-xl">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
                 <p className="text-gray-700 font-medium">Submitting Application...</p>
@@ -152,10 +153,6 @@ export default function CreateFreshApplicationPage() {
             </div>
           )}
           
-          <FreshApplicationForm
-            onSubmit={handleNewApplication}
-            onCancel={handleCancelForm}
-          />
         </div>
       </main>
     </div>
