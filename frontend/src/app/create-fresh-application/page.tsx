@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import FreshApplicationForm from '../../components/FreshApplicationForm';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { FormSkeleton, PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function CreateFreshApplicationPage() {
@@ -152,7 +151,8 @@ export default function CreateFreshApplicationPage() {
               </div>
             </div>
           )}
-          
+          {/* Render the actual fresh application form */}
+          <FreshApplicationForm onSubmit={handleNewApplication} onCancel={handleCancelForm} />
         </div>
       </main>
     </div>
