@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Sex, FileType, LicensePurpose, WeaponCategory } from '@prisma/client';
+import { Sex, FileType, LicensePurpose, WeaponCategory, ApplicationLifecycleStatus } from '@prisma/client';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -616,8 +616,133 @@ export class ApplicationFormService {
       return [error, null];
     }
   }
+  
 
+  /**
+   * Create personal details in the dedicated personal details table and return applicationId
+   */
+async createPersonalDetails(data: any): Promise<[any, any]> {
+  try {
+    // Pick supported fields from input
+    const {
+      acknowledgementNo,
+      firstName,
+      middleName,
+      lastName,
+      parentOrSpouseName,
+      filledBy,
+      sex,
+      placeOfBirth,
+      dateOfBirth,
+      dobInWords,
+      aadharNumber,
+      panNumber,
+    } = data || {};
 
+    // Basic validation
+    if (!firstName || !lastName) {
+      throw new BadRequestException('firstName and lastName are required');
+    }
+
+    // Normalize Aadhaar (keep as string to preserve leading zeros and match DB type)
+    let aadharNumberStr: string | null = null;
+    if (aadharNumber) {
+      const raw = String(aadharNumber).trim();
+      if (!/^[0-9]{12}$/.test(raw)) {
+        return [new BadRequestException('Aadhar number must be a 12-digit numeric string'), null];
+      }
+      aadharNumberStr = raw;
+    }
+
+    // For this personal-details flow, Aadhar is required by the applications table (string, unique)
+    if (!aadharNumberStr) {
+      return [new BadRequestException('Aadhar number is required for creating personal details'), null];
+    }
+
+    // Normalize PAN (keep as string; PANs are typically alphanumeric)
+    let panNumberStr: string | null = null;
+    if (panNumber) {
+      const rawPan = String(panNumber).trim();
+      // Accept any non-empty trimmed PAN string; further validation can be added if needed
+      panNumberStr = rawPan || null;
+    }
+
+    // Use string variants for personal details model to avoid integer overflow.
+    const aadharNumberForPersonal: string | null = aadharNumberStr;
+    const panNumberForPersonal: string | null = panNumberStr || null;
+
+    // Validate sex if provided
+    if (sex && !Object.values(Sex).includes(sex as Sex)) {
+      return [new BadRequestException('Invalid sex value'), null];
+    }
+
+    // Combined duplicate check against personal details table (reduce to one DB call)
+    const whereOr: any[] = [];
+    if (aadharNumberForPersonal) whereOr.push({ aadharNumber: aadharNumberForPersonal as any });
+    const trimmedAck = acknowledgementNo ? String(acknowledgementNo).trim() : undefined;
+    if (trimmedAck) whereOr.push({ acknowledgementNo: trimmedAck });
+
+    if (whereOr.length > 0) {
+      const existing = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
+        where: { OR: whereOr },
+        select: { id: true, aadharNumber: true, acknowledgementNo: true },
+      });
+      if (existing) {
+        if (aadharNumberForPersonal && existing.aadharNumber === aadharNumberForPersonal) {
+          return [new ConflictException(`An application with Aadhaar ${aadharNumber} already exists.`), null];
+        }
+        if (trimmedAck && existing.acknowledgementNo === trimmedAck) {
+          return [new ConflictException(`An application with acknowledgementNo ${trimmedAck} already exists.`), null];
+        }
+        // Fallback
+        return [new ConflictException('An application with the provided identifier already exists.'), null];
+      }
+    }
+
+    // Transaction: create only the personal-details row (no application)
+    const created = await prisma.$transaction(async (tx) => {
+      // Generate acknowledgementNo once
+      const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
+
+        // Determine lifecycle status: use provided value if valid, otherwise default to DRAFT
+        let lifecycleStatus: ApplicationLifecycleStatus = ApplicationLifecycleStatus.DRAFT;
+        if ((data as any).applicationLifecycleStatus) {
+          const provided = (data as any).applicationLifecycleStatus as string;
+          if (Object.values(ApplicationLifecycleStatus).includes(provided as any)) {
+            lifecycleStatus = provided as ApplicationLifecycleStatus;
+          }
+        }
+
+        const personal = await tx.freshLicenseApplicationPersonalDetails.create({
+          data: ({
+            acknowledgementNo: finalAcknowledgementNo,
+            firstName,
+            middleName,
+            lastName,
+            parentOrSpouseName,
+            filledBy,
+            sex,
+            placeOfBirth,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+            dobInWords,
+            aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
+            panNumber: panNumberForPersonal ?? undefined as any,
+            applicationLifecycleStatus: lifecycleStatus,
+          } as any),
+        });
+
+      return personal;
+    });
+
+    return [null, created.id];
+  } catch (error: any) {
+    if (error?.code === 'P2002') {
+      const target = error?.meta?.target ? error.meta.target.join(',') : 'field';
+      return [new ConflictException(`Duplicate value for unique field(s): ${target}`), null];
+    }
+    return [error, null];
+  }
+}
 
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
