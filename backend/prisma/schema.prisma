@@ -304,7 +304,7 @@ model FreshLicenseApplicationPersonalDetails {
   dobInWords          String?
   panNumber           String?                         @unique
   aadharNumber        String?                         @unique
-  statusId            Int?
+  applicationLifecycleStatus ApplicationLifecycleStatus @default(DRAFT)
   createdAt           DateTime                        @default(now())
   updatedAt           DateTime                        @default(now()) @updatedAt
   @@index([aadharNumber])
@@ -428,4 +428,9 @@ enum LicensePurpose {
 enum WeaponCategory {
   RESTRICTED
   PERMISSIBLE
+}
+
+enum ApplicationLifecycleStatus {
+  DRAFT
+  SUBMITTED
 }

@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Sex, FileType, LicensePurpose, WeaponCategory } from '@prisma/client';
+import { Sex, FileType, LicensePurpose, WeaponCategory, ApplicationLifecycleStatus } from '@prisma/client';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -704,22 +704,32 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
       // Generate acknowledgementNo once
       const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
 
-      const personal = await tx.freshLicenseApplicationPersonalDetails.create({
-        data: ({
-          acknowledgementNo: finalAcknowledgementNo,
-          firstName,
-          middleName,
-          lastName,
-          parentOrSpouseName,
-          filledBy,
-          sex,
-          placeOfBirth,
-          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-          dobInWords,
-          aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
-          panNumber: panNumberForPersonal ?? undefined as any,
-        } as any),
-      });
+        // Determine lifecycle status: use provided value if valid, otherwise default to DRAFT
+        let lifecycleStatus: ApplicationLifecycleStatus = ApplicationLifecycleStatus.DRAFT;
+        if ((data as any).applicationLifecycleStatus) {
+          const provided = (data as any).applicationLifecycleStatus as string;
+          if (Object.values(ApplicationLifecycleStatus).includes(provided as any)) {
+            lifecycleStatus = provided as ApplicationLifecycleStatus;
+          }
+        }
+
+        const personal = await tx.freshLicenseApplicationPersonalDetails.create({
+          data: ({
+            acknowledgementNo: finalAcknowledgementNo,
+            firstName,
+            middleName,
+            lastName,
+            parentOrSpouseName,
+            filledBy,
+            sex,
+            placeOfBirth,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+            dobInWords,
+            aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
+            panNumber: panNumberForPersonal ?? undefined as any,
+            applicationLifecycleStatus: lifecycleStatus,
+          } as any),
+        });
 
       return personal;
     });

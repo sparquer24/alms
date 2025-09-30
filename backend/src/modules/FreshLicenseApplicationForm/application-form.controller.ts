@@ -164,7 +164,6 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
   async createPersonalDetails(@Body() dto: CreatePersonalDetailsDto, @Request() req: any) {
     try {
       // Pass the DTO object directly to the service. The service expects a plain object
-      // with the same field names, and will perform its own validation/normalization.
       const [error, applicationId] = await this.applicationFormService.createPersonalDetails(dto as any);
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
