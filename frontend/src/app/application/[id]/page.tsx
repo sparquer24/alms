@@ -338,7 +338,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       
       // Redirect to inbox/forwarded after successful processing
       setTimeout(() => {
-        router.push('/inbox/forwarded');
+        router.push('/home?type=forwarded');
       }, 2000);
     } catch (error) {
       console.error('Error processing application:', error);
@@ -369,7 +369,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       
       // Redirect to inbox/forwarded after successful forwarding
       setTimeout(() => {
-        router.push('/inbox/forwarded');
+        router.push('/home?type=forwarded');
       }, 2000);
     } catch (error) {
       console.error('Error forwarding application:', error);
@@ -439,7 +439,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     setSuccessMessage('Proceedings action completed successfully');
     // Redirect to inbox/forwarded after successful proceedings action
     setTimeout(() => {
-      router.push('/inbox/forwarded');
+      router.push('/home?type=forwarded');
     }, 2000);
   };
   

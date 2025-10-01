@@ -38,7 +38,7 @@ export default function Home() {
         }
       } else {
         // Fallback: if role isn't available yet, send to inbox by default after login
-        router.push('/inbox/forwarded');
+        router.push('/home?type=forwarded');
         return;
       }
     }
