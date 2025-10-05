@@ -677,6 +677,124 @@ async function main() {
     }
   }
 
+  // --- Role-Action Mappings Seeding ---
+  console.log('Seeding role-action mappings...');
+
+  // Get all roles and actions from database
+  const allRoles = await prisma.roles.findMany();
+  const allActions = await prisma.actiones.findMany();
+
+  // Create mapping of codes to IDs for easier reference
+  const roleCodeToId: Record<string, number> = {};
+  const actionCodeToId: Record<string, number> = {};
+  
+  allRoles.forEach(role => {
+    roleCodeToId[role.code] = role.id;
+  });
+  
+  allActions.forEach(action => {
+    actionCodeToId[action.code] = action.id;
+  });
+
+  // Define role-action mappings based on role hierarchy and permissions
+  const roleActionMappings = [
+    // APPLICANT - Limited actions for citizens
+    { roleCode: 'APPLICANT', actionCodes: ['INITIATE'] },
+    
+    // SHO - Station House Officer can forward, reject, recommend, close
+    { roleCode: 'SHO', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT'] },
+    
+    // ACP - Assistant Commissioner can do all SHO actions plus approve
+    { roleCode: 'ACP', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'APPROVED', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE'] },
+    
+    // DCP - Deputy Commissioner has broader approval powers
+    { roleCode: 'DCP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG'] },
+    
+    // ZS - Zonal Superintendent can handle all workflow actions
+    { roleCode: 'ZS', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'RECOMMEND', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG'] },
+    
+    // CADO - Chief Administrative Officer
+    { roleCode: 'CADO', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CLOSE', 'DISPOSE'] },
+    
+    // AS - Arms Superintendent
+    { roleCode: 'AS', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'RECOMMEND', 'CLOSE', 'GROUND_REPORT', 'DISPOSE'] },
+    
+    // ADO - Administrative Officer
+    { roleCode: 'ADO', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE'] },
+    
+    // JTCP - Joint Commissioner of Police
+    { roleCode: 'JTCP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
+    
+    // CP - Commissioner of Police (highest authority)
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
+    
+    // ARMS_SUPDT - Arms Superintendent
+    { roleCode: 'ARMS_SUPDT', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'RECOMMEND', 'CLOSE', 'GROUND_REPORT', 'DISPOSE'] },
+    
+    // ARMS_SEAT - Arms Seat
+    { roleCode: 'ARMS_SEAT', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE'] },
+    
+    // ACO - Assistant Compliance Officer
+    { roleCode: 'ACO', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE', 'RE_ENQUIRY'] },
+    
+    // ADMIN - System Administrator (can perform all actions for system management)
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND'] },
+    
+    // STORE - Store Superintendent
+    { roleCode: 'STORE', actionCodes: ['FORWARD', 'CLOSE'] },
+    
+    // TL - Traffic License Superintendent  
+    { roleCode: 'TL', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE'] }
+  ];
+
+  // Insert role-action mappings
+  for (const mapping of roleActionMappings) {
+    const roleId = roleCodeToId[mapping.roleCode];
+    
+    if (!roleId) {
+      console.warn(`Role '${mapping.roleCode}' not found. Skipping mappings.`);
+      continue;
+    }
+
+    for (const actionCode of mapping.actionCodes) {
+      const actionId = actionCodeToId[actionCode];
+      
+      if (!actionId) {
+        console.warn(`Action '${actionCode}' not found. Skipping mapping for role '${mapping.roleCode}'.`);
+        continue;
+      }
+
+      // Check if mapping already exists
+      const existingMapping = await prisma.rolesActionsMapping.findUnique({
+        where: {
+          roleId_actionId: {
+            roleId: roleId,
+            actionId: actionId
+          }
+        }
+      });
+
+      if (existingMapping) {
+        console.log(`Role-Action mapping already exists: ${mapping.roleCode} -> ${actionCode}. Skipping.`);
+        continue;
+      }
+
+      try {
+        await prisma.rolesActionsMapping.create({
+          data: {
+            roleId: roleId,
+            actionId: actionId,
+            isActive: true
+          }
+        });
+        console.log(`Created role-action mapping: ${mapping.roleCode} -> ${actionCode}`);
+      } catch (error) {
+        console.error(`Error creating role-action mapping ${mapping.roleCode} -> ${actionCode}:`, error);
+      }
+    }
+  }
+
+  console.log('Role-action mappings seeding completed!');
   console.log('Seeding completed successfully!');
 }
 
