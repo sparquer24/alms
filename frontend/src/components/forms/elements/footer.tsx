@@ -1,0 +1,57 @@
+"use client";
+
+import { FaRegSave } from "react-icons/fa";
+import { FiArrowRight, FiArrowLeft } from "react-icons/fi";
+
+
+interface FormFooterProps {
+  isDeclarationStep?: boolean;
+}
+
+const FormFooter: React.FC<FormFooterProps> = ({ isDeclarationStep }) => (
+  <footer className="w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]">
+    <div className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-[#1A237E]">
+      <span>SCHEDULE–III Part – II</span>
+      <span className="mx-1">|</span>
+      <span>Application Form</span>
+      <span className="mx-1">|</span>
+      <span className="font-bold">Form A-1 <span className="font-normal text-xs text-black">[for individuals]</span></span>
+      <span className="mx-1">|</span>
+      <span>Form of application for an arms license In <span className="font-bold">Form II, III and IV</span></span>
+    </div>
+    <div className="mt-2 w-full">
+      <div className="flex items-center">
+        <span className="text-red-600 font-bold mr-2">NOTE:</span>
+        <span className="text-black">Please review the data before submitting of your Arms License application</span>
+      </div>
+      {isDeclarationStep ? (
+        <div className="flex w-full justify-between mt-4">
+          <button className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition">
+            <FiArrowLeft className="text-lg" />
+            Previous
+          </button>
+          <button className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition">
+            Submit
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-3 justify-end mt-4">
+          <button className="flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition">
+            <FaRegSave className="text-lg" />
+            Save to Draft
+          </button>
+          <button className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition">
+            <FiArrowLeft className="text-lg" />
+            Previous
+          </button>
+          <button className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition">
+            Next
+            <FiArrowRight className="text-lg" />
+          </button>
+        </div>
+      )}
+    </div>
+  </footer>
+);
+
+export default FormFooter;
