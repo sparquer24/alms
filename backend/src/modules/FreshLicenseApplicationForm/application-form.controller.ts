@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, 
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
 import { CreateApplicationDto } from './dto/create-application.dto';
+import { CreatePersonalDetailsDto } from './dto/create-personal-details.dto';
 import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
 
 @ApiTags('Application Form')
@@ -149,6 +150,29 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
       return { success: true, data: result };
     } catch (err: any) {
       // Provide more details if err is an object
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Post('personal-details')
+  @ApiOperation({ summary: 'Create Personal Details (Step 1 separate table)', description: 'Create personal details in a dedicated table and return applicationId' })
+  @ApiBody({
+    type: CreatePersonalDetailsDto,
+  })
+  async createPersonalDetails(@Body() dto: CreatePersonalDetailsDto, @Request() req: any) {
+    try {
+      // Pass the DTO object directly to the service. The service expects a plain object
+      const [error, applicationId] = await this.applicationFormService.createPersonalDetails(dto as any);
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.BAD_REQUEST);
+      }
+
+      return { success: true, applicationId, message: 'Personal details saved' };
+    } catch (err: any) {
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
