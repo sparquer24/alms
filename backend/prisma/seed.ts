@@ -711,7 +711,7 @@ async function main() {
     { roleCode: 'DCP', actionCodes: ['FORWARD'] },
     
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATE'] },
     
     // CADO - Chief Administrative Officer
     { roleCode: 'CADO', actionCodes: ['FORWARD'] },
