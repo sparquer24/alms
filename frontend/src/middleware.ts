@@ -15,7 +15,7 @@ function getRoleBasedRedirectPath(userRole: string): string {
 
   switch (userRole) {
     case 'ADMIN':
-      return '/';
+      return '/admin/userManagement';
     case 'DCP':
     case 'ACP':
     case 'CP':
@@ -33,7 +33,7 @@ function getRoleBasedRedirectPath(userRole: string): string {
     case 'APPLICANT':
       return '/home?type=sent';
     default:
-      return '/';
+  return '/admin/userManagement';
   }
 }
 
@@ -61,6 +61,7 @@ const adminRoutes = [
   '/admin/locations',
   '/admin/forwarding',
   '/admin/reports',
+  'admin/userManagement',
 ];
 
 // Define role-based access for specific routes
@@ -117,7 +118,12 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
     // If token came from parsed object (legacy), try to extract
     const token = authData?.token ?? null;
     let isAuthenticated = false;
-    let userRole = authData?.role || authData?.user?.role;
+    let userRole: any = authData?.role || authData?.user?.role;
+
+    // If role is an object (e.g. { code: 'ADMIN' }), flatten it
+    if (userRole && typeof userRole === 'object') {
+      userRole = userRole.code || userRole.name || userRole.key || null;
+    }
 
     if (token) {
       // If we decoded JWT payload earlier, check expiry if present
@@ -135,7 +141,11 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 
     // If role missing, try other keys
     if (!userRole) {
-      userRole = authData?.roleCode ?? authData?.role_id ?? authData?.user?.roleCode ?? undefined;
+      userRole = authData?.roleCode ?? authData?.role_id ?? authData?.user?.roleCode ?? authData?.user?.role_id ?? undefined;
+    }
+
+    if (typeof userRole === 'string') {
+      userRole = userRole.toUpperCase();
     }
 
     console.log('Extracted authentication status:', isAuthenticated, 'userRole:', userRole);
@@ -179,7 +189,29 @@ export function middleware(request: NextRequest) {
 
   // Get and parse auth cookie
   const authCookie = request.cookies.get('auth')?.value;
-  const { isAuthenticated, userRole } = parseAuthCookie(authCookie);
+  let { isAuthenticated, userRole } = parseAuthCookie(authCookie);
+
+  // Fallback: check standalone role cookie if role still missing
+  if (!userRole) {
+    const roleCookie = request.cookies.get('role')?.value;
+    if (roleCookie) {
+      userRole = roleCookie.toUpperCase();
+    }
+  }
+
+  // Fallback: attempt to parse user cookie if present
+  if (!userRole) {
+    const userCookieRaw = request.cookies.get('user')?.value;
+    if (userCookieRaw) {
+      try {
+        const parsedUser = JSON.parse(userCookieRaw);
+        const flattenedRole = parsedUser?.role?.code || parsedUser?.roleCode || parsedUser?.role_id || parsedUser?.role || null;
+        if (flattenedRole) userRole = String(flattenedRole).toUpperCase();
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   // Handle public routes
   if (publicRoutes.some(route => pathname.startsWith(route))) {
