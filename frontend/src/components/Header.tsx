@@ -49,7 +49,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
       // Navigate directly to the appropriate route
       try {
         if (type.key === 'fresh') {
-          router.push('/forms/createFreshApplication/step1');
+          router.push('/forms/createFreshApplication/personal-information');
         } else {
           router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
         }
