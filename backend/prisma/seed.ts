@@ -702,49 +702,40 @@ async function main() {
     { roleCode: 'APPLICANT', actionCodes: ['INITIATE'] },
     
     // SHO - Station House Officer can forward, reject, recommend, close
-    { roleCode: 'SHO', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT'] },
+    { roleCode: 'SHO', actionCodes: ['FORWARD','RE_ENQUIRY', 'GROUND_REPORT'] },
     
     // ACP - Assistant Commissioner can do all SHO actions plus approve
-    { roleCode: 'ACP', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'APPROVED', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE'] },
+    { roleCode: 'ACP', actionCodes: ['FORWARD'] },
     
     // DCP - Deputy Commissioner has broader approval powers
-    { roleCode: 'DCP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG'] },
+    { roleCode: 'DCP', actionCodes: ['FORWARD'] },
     
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'RECOMMEND', 'CLOSE', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD'] },
     
     // CADO - Chief Administrative Officer
-    { roleCode: 'CADO', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CLOSE', 'DISPOSE'] },
+    { roleCode: 'CADO', actionCodes: ['FORWARD'] },
     
     // AS - Arms Superintendent
-    { roleCode: 'AS', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'RECOMMEND', 'CLOSE', 'GROUND_REPORT', 'DISPOSE'] },
+    { roleCode: 'AS', actionCodes: ['FORWARD'] },
     
     // ADO - Administrative Officer
-    { roleCode: 'ADO', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE'] },
+    { roleCode: 'ADO', actionCodes: ['FORWARD'] },
     
     // JTCP - Joint Commissioner of Police
-    { roleCode: 'JTCP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
+    { roleCode: 'JTCP', actionCodes: ['FORWARD','RE_ENQUIRY'] },
     
     // CP - Commissioner of Police (highest authority)
     { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
     
     // ARMS_SUPDT - Arms Superintendent
-    { roleCode: 'ARMS_SUPDT', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'RECOMMEND', 'CLOSE', 'GROUND_REPORT', 'DISPOSE'] },
+    { roleCode: 'ARMS_SUPDT', actionCodes: ['FORWARD'] },
     
     // ARMS_SEAT - Arms Seat
-    { roleCode: 'ARMS_SEAT', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE'] },
-    
-    // ACO - Assistant Compliance Officer
-    { roleCode: 'ACO', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE', 'RE_ENQUIRY'] },
+    { roleCode: 'ARMS_SEAT', actionCodes: ['FORWARD'] },
     
     // ADMIN - System Administrator (can perform all actions for system management)
     { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND'] },
-    
-    // STORE - Store Superintendent
-    { roleCode: 'STORE', actionCodes: ['FORWARD', 'CLOSE'] },
-    
-    // TL - Traffic License Superintendent  
-    { roleCode: 'TL', actionCodes: ['FORWARD', 'REJECT', 'RECOMMEND', 'CLOSE'] }
   ];
 
   // Insert role-action mappings
