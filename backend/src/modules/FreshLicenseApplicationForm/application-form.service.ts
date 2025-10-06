@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose, ApplicationLifecycleStatus } from '@prisma/client';
+import { UploadFileDto } from './dto/upload-file.dto';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -1342,4 +1343,56 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
     }
   }
     */
+
+  /**
+   * Upload file for application
+   */
+  async uploadFile(applicationId: number, dto: UploadFileDto): Promise<[any, any]> {
+    try {
+      // Validate application exists
+      const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId }
+      });
+
+      if (!application) {
+        return ['Application not found', null];
+      }
+
+      // File size validation (2MB limit)
+      const maxFileSize = 2 * 1024 * 1024; // 2MB in bytes
+      if (dto.fileSize > maxFileSize) {
+        return ['File size too large. Maximum allowed size is 2MB', null];
+      }
+
+      // Save file record to database
+      const fileRecord = await prisma.fLAFFileUploads.create({
+        data: {
+          applicationId: applicationId,
+          fileType: dto.fileType,
+          fileName: dto.fileName,
+          fileUrl: dto.fileUrl,
+          fileSize: dto.fileSize
+        }
+      });
+
+      return [null, {
+        id: fileRecord.id,
+        applicationId: fileRecord.applicationId,
+        fileType: fileRecord.fileType,
+        fileName: fileRecord.fileName,
+        fileUrl: fileRecord.fileUrl,
+        fileSize: fileRecord.fileSize,
+        uploadedAt: fileRecord.uploadedAt
+      }];
+
+    } catch (error: any) {
+      console.error('Error storing file metadata:', error);
+      
+      if (error.code === 'P2002') {
+        return ['File metadata storage failed due to duplicate entry', null];
+      }
+      
+      return [`File metadata storage failed: ${error.message || 'Unknown error'}`, null];
+    }
+  }
 }

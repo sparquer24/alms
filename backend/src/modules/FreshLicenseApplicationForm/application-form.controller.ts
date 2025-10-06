@@ -5,6 +5,7 @@ import { AuthGuard } from '../../middleware/auth.middleware';
 // import { CreateApplicationDto } from './dto/create-application.dto';
 import { CreatePersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchApplicationDetailsDto } from './dto/patch-application-details.dto';
+import { UploadFileDto, UploadFileResponseDto } from './dto/upload-file.dto';
 // import { LicensePurpose, FileType, Sex } from '@prisma/client';
 
 @ApiTags('Application Form')
@@ -161,6 +162,97 @@ export class ApplicationFormController {
         throw err;
       }
       
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException(
+        { success: false, error: errorMessage, details: errorDetails },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':applicationId/upload-file')
+  @ApiOperation({ 
+    summary: 'Store file URL for application', 
+    description: 'Store file URL and metadata for a specific application. The file should already be uploaded to a file storage service.' 
+  })
+  @ApiParam({
+    name: 'applicationId',
+    description: 'Application ID',
+    example: '123'
+  })
+  @ApiBody({
+    type: UploadFileDto,
+    description: 'File metadata including URL, type, name, and size',
+    examples: {
+      'Aadhar Card': {
+        value: {
+          fileType: 'AADHAR_CARD',
+          fileUrl: 'https://example.com/files/aadhar_card.pdf',
+          fileName: 'aadhar_card.pdf',
+          fileSize: 2048576,
+          description: 'Front side of Aadhar card'
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'File uploaded successfully',
+    type: UploadFileResponseDto,
+    example: {
+      success: true,
+      message: 'File uploaded successfully',
+      data: {
+        id: 1,
+        applicationId: 123,
+        fileType: 'AADHAR_CARD',
+        fileName: 'aadhar_card.pdf',
+        fileUrl: 'uploads/application-123/files/AADHAR_CARD_1696507200000_aadhar_card.pdf',
+        fileSize: 2048576,
+        uploadedAt: '2023-10-05T12:00:00.000Z'
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or application ID' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async uploadFile(
+    @Param('applicationId') applicationId: string,
+    @Body() dto: UploadFileDto,
+    @Request() req: any
+  ) {
+    try {
+      const applicationIdNum = parseInt(applicationId, 10);
+      if (isNaN(applicationIdNum)) {
+        throw new HttpException(
+          { success: false, error: 'Invalid application ID format' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      const [error, result] = await this.applicationFormService.uploadFile(applicationIdNum, dto);
+
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException(
+          { success: false, error: errorMessage, details: errorDetails },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      return {
+        success: true,
+        message: 'File uploaded successfully',
+        data: result
+      };
+    } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException(
