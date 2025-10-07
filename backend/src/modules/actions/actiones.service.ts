@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Actiones } from '@prisma/client';
+import { RolesActionsMapping } from '@prisma/client';
 
 @Injectable()
 export class ActionesService {
@@ -51,5 +52,32 @@ export class ActionesService {
       console.error('Error fetching actions:', error);
       throw error;
     }
+  }
+   async createAction(data: RolesActionsMapping): Promise<RolesActionsMapping | { error: boolean; message: string }> {  
+   try{
+    const mappingData = await prisma.rolesActionsMapping.findMany({
+      where: {
+        roleId: data.roleId,
+        actionId: data.actionId 
+      }
+    });
+  if (mappingData.length > 0) {
+    return {
+      error: true,
+      message: 'Mapping with this roleId and actionId already exists'
+    };
+  
+  }
+    return await prisma.rolesActionsMapping.create({
+      data: {
+        roleId: data.roleId,
+        actionId: data.actionId,
+        isActive: data.isActive,
+        createdAt: data.createdAt,
+   }
+  });
+   } catch(error){
+    throw error;
+   }
   }
 }
