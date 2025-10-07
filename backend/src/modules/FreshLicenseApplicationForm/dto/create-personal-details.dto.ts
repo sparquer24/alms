@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsNotEmpty, IsEnum, IsDateString, IsNumberString } from 'class-validator';
-import { Sex, ApplicationLifecycleStatus } from '@prisma/client';
+import { IsOptional, IsString, IsNotEmpty, IsEnum, IsDateString } from 'class-validator';
+import { Sex } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePersonalDetailsDto {
@@ -64,9 +64,4 @@ export class CreatePersonalDetailsDto {
   @IsOptional()
   @IsString()
   panNumber?: string;
-
-  @ApiPropertyOptional({ enum: ApplicationLifecycleStatus, example: ApplicationLifecycleStatus.DRAFT, description: 'Lifecycle status for the personal details (optional, default: DRAFT)' })
-  @IsOptional()
-  @IsEnum(ApplicationLifecycleStatus)
-  applicationLifecycleStatus?: ApplicationLifecycleStatus;
 }
