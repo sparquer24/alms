@@ -15,6 +15,7 @@ model Statuses {
   isActive     Boolean                         @default(true)
   createdAt    DateTime                        @default(now())
   updatedAt    DateTime                        @updatedAt
+  applications FreshLicenseApplicationPersonalDetails[] @relation("ApplicationWorkflowStatus")
 }
 
 model Actiones {
@@ -146,6 +147,8 @@ model Users {
   role                     Roles                                           @relation(fields: [roleId], references: [id])
   state                    States?                                         @relation("StateUsers", fields: [stateId], references: [id])
   zone                     Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id])
+  currentApplications      FreshLicenseApplicationPersonalDetails[] @relation("CurrentApplicationOwner")
+  previousApplications     FreshLicenseApplicationPersonalDetails[] @relation("PreviousApplicationOwner")
 }
 
 model FlowMaps {
@@ -196,10 +199,16 @@ model FreshLicenseApplicationPersonalDetails {
   createdAt           DateTime                        @default(now())
   updatedAt           DateTime                        @default(now()) @updatedAt
   @@index([aadharNumber])
-  applicationLifecycleStatus ApplicationLifecycleStatus @default(DRAFT)
+  workflowStatusId    Int?
+  currentUserId    Int?
+  previousUserId   Int?
   presentAddressId    Int? 
   permanentAddressId  Int?
   occupationAndBusinessId Int?
+   // Relations
+  workflowStatus   Statuses? @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id])
+  currentUser      Users? @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id])
+  previousUser     Users? @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id])
   occupationAndBusiness                         FLAFOccupationAndBusiness?                  @relation(fields: [occupationAndBusinessId], references: [id])
   permanentAddress                              FLAFAddressesAndContactDetails?              @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
   presentAddress                                FLAFAddressesAndContactDetails?              @relation("PresentAddress", fields: [presentAddressId], references: [id])
@@ -399,10 +408,6 @@ enum LicensePurpose {
   SELF_PROTECTION
   SPORTS
   HEIRLOOM_POLICY
-}
-enum ApplicationLifecycleStatus {
-  DRAFT
-  SUBMITTED
 }
 
 enum LicenseResult {

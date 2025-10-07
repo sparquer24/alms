@@ -1,4 +1,4 @@
-import { IsOptional, ValidateNested, IsArray } from 'class-validator';
+import { IsOptional, ValidateNested, IsArray, IsNumber, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PatchAddressDetailsDto } from './patch-address-details.dto';
@@ -8,6 +8,15 @@ import { PatchLicenseHistoryDto } from './patch-license-history.dto';
 import { PatchLicenseDetailsDto } from './patch-license-details.dto';
 
 export class PatchApplicationDetailsDto {
+  @ApiPropertyOptional({
+    description: 'Workflow status ID to update the application status',
+    example: 2,
+    type: Number
+  })
+  @IsOptional()
+  @IsNumber()
+  workflowStatusId?: number;
+
   @ApiPropertyOptional({ 
     type: PatchAddressDetailsDto,
     description: 'Present address details with contact information' 
