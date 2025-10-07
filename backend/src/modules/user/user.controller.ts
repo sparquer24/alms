@@ -1,6 +1,7 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Query, Patch, Param , Delete, ParseIntPipe    } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse,  ApiQuery, ApiBody } from '@nestjs/swagger';
 import { UserService } from './user.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -55,8 +56,7 @@ export class UserController {
       throw new HttpException(error.message || 'User creation failed', HttpStatus.BAD_REQUEST);
     }
   }
-
-  @Get()
+ @Get()
   @ApiOperation({ 
     summary: 'Get Users', 
     description: 'Retrieve all users or filter by role' 
@@ -102,5 +102,55 @@ export class UserController {
       throw new HttpException(error.message || 'Failed to fetch users', HttpStatus.BAD_REQUEST);
     }
   }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update User',
+    description: "Update an existing user's details",
+  })
+  @ApiBody({
+    description: 'User update data',
+    examples: {
+      'Update policeStationId and other location details for the user': {
+        value: {
+          username: 'updated_username',
+          email: '@tspolice.gov.in',
+          phoneNo: '9876543210',
+          policeStationId: 5,
+          districtId: 3,
+          zoneId: 1,
+          divisionId: 4,
+          isActive: true,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User updated successfully',
+    example: {
+      username: 'updated_username',
+      email: '@tspolice.gov.in',
+      phoneNo: '9876543210',
+      policeStationId: 5,
+      districtId: 3,
+      zoneId: 1,
+      divisionId: 4,
+      updatedAt: '2025-08-20T12:00:00.000Z',
+    },
+  })
+  async updateUser(
+   @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+
+    return this.userService.updateUser(id, updateUserDto);
+
+  }
+  @Delete(':id')
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.deleteUser(id);
+  }
 }
+ 
 
