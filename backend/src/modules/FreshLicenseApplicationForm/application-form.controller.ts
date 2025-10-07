@@ -51,10 +51,11 @@ export class ApplicationFormController {
     type: PatchApplicationDetailsDto,
     description: 'Application details to update. All sections are optional - only provide the sections you want to update.',
     examples: {
-      'Update Addresses Only': {
+      'Complete Address Update': {
+        summary: 'Update both present and permanent addresses with full details',
         value: {
           presentAddress: {
-            addressLine: '123 Main Street, Block A',
+            addressLine: '123 Main Street, Block A, Flat 4B',
             stateId: 1,
             districtId: 1,
             policeStationId: 1,
@@ -62,11 +63,97 @@ export class ApplicationFormController {
             divisionId: 1,
             sinceResiding: '2020-01-15T00:00:00.000Z',
             telephoneOffice: '033-12345678',
-            officeMobileNumber: '9876543210'
+            officeMobileNumber: '9876543210',
+            alternativeMobile: '9876543211'
+          },
+          permanentAddress: {
+            addressLine: '456 Village Road, House No. 12',
+            stateId: 1,
+            districtId: 2,
+            policeStationId: 2,
+            zoneId: 2,
+            divisionId: 2,
+            sinceResiding: '1990-05-20T00:00:00.000Z',
+            telephoneOffice: '033-87654321',
+            officeMobileNumber: '9123456789',
+            alternativeMobile: '9123456790'
           }
         }
       },
-      'Update Criminal History Only': {
+      'Occupation and Business Details': {
+        summary: 'Update complete occupation and business information',
+        value: {
+          occupationAndBusiness: {
+            occupation: 'Software Engineer',
+            officeAddress: '456 Corporate Plaza, IT Park, Sector V',
+            stateId: 1,
+            districtId: 1,
+            cropLocation: 'Village ABC, Block XYZ (for farmers only)'
+          }
+        }
+      },
+      'Complete Criminal History': {
+        summary: 'Update criminal history with all possible fields',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: false,
+              offence: 'Theft',
+              sentence: '2 years imprisonment',
+              dateOfSentence: '2018-05-15T00:00:00.000Z',
+              isBondExecuted: false,
+              bondDate: '2019-03-20T00:00:00.000Z',
+              bondPeriod: '6 months',
+              isProhibited: false,
+              prohibitionDate: '2020-07-10T00:00:00.000Z',
+              prohibitionPeriod: '5 years'
+            }
+          ]
+        }
+      },
+      'Complete License History': {
+        summary: 'Update license history with all possible fields',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: true,
+              dateAppliedFor: '2019-06-15T00:00:00.000Z',
+              previousAuthorityName: 'District Magistrate, Kolkata',
+              previousResult: 'REJECTED',
+              hasLicenceSuspended: false,
+              suspensionAuthorityName: 'District Magistrate, Mumbai',
+              suspensionReason: 'Violation of terms and conditions',
+              hasFamilyLicence: true,
+              familyMemberName: 'John Doe (Father)',
+              familyLicenceNumber: 'LIC123456789',
+              familyWeaponsEndorsed: ['Pistol .32', 'Rifle .22'],
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock in bedroom',
+              hasTraining: true,
+              trainingDetails: 'Basic firearms training from XYZ Academy, Certificate No: ABC123'
+            }
+          ]
+        }
+      },
+      'Complete License Details': {
+        summary: 'Update license details with all possible fields',
+        value: {
+          licenseDetails: [
+            {
+              needForLicense: 'SELF_PROTECTION',
+              armsCategory: 'RESTRICTED',
+              requestedWeaponIds: [1, 2, 3],
+              areaOfValidity: 'District-wide',
+              ammunitionDescription: '50 rounds of .32 ammunition',
+              specialConsiderationReason: 'Required for personal protection due to threats',
+              licencePlaceArea: 'Urban areas of Kolkata district',
+              wildBeastsSpecification: 'Wild boars, leopards as per Wildlife Protection Act Schedule'
+            }
+          ]
+        }
+      },
+      'No Criminal Record': {
+        summary: 'Clean criminal history record',
         value: {
           criminalHistories: [
             {
@@ -77,28 +164,82 @@ export class ApplicationFormController {
           ]
         }
       },
-      'Update Multiple Sections': {
+      'First Time Applicant': {
+        summary: 'License history for first-time applicant',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: false,
+              hasLicenceSuspended: false,
+              hasFamilyLicence: false,
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock system',
+              hasTraining: false
+            }
+          ]
+        }
+      },
+      'Complete Application Update': {
+        summary: 'Update all sections with comprehensive data',
         value: {
           presentAddress: {
-            addressLine: '123 Main Street, Block A',
+            addressLine: '123 Main Street, Block A, Flat 4B',
             stateId: 1,
             districtId: 1,
             policeStationId: 1,
             zoneId: 1,
             divisionId: 1,
-            sinceResiding: '2020-01-15T00:00:00.000Z'
+            sinceResiding: '2020-01-15T00:00:00.000Z',
+            telephoneOffice: '033-12345678',
+            officeMobileNumber: '9876543210',
+            alternativeMobile: '9876543211'
+          },
+          permanentAddress: {
+            addressLine: '456 Village Road, House No. 12',
+            stateId: 1,
+            districtId: 2,
+            policeStationId: 2,
+            zoneId: 2,
+            divisionId: 2,
+            sinceResiding: '1990-05-20T00:00:00.000Z',
+            telephoneOffice: '033-87654321',
+            officeMobileNumber: '9123456789'
           },
           occupationAndBusiness: {
-            occupation: 'Software Engineer',
-            officeAddress: '456 Corporate Plaza',
+            occupation: 'Business Owner',
+            officeAddress: '789 Business Complex, Commercial Area',
             stateId: 1,
-            districtId: 1
+            districtId: 1,
+            cropLocation: 'Agricultural land in Block DEF'
           },
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              isProhibited: false
+            }
+          ],
+          licenseHistories: [
+            {
+              hasAppliedBefore: false,
+              hasLicenceSuspended: false,
+              hasFamilyLicence: false,
+              hasSafePlace: true,
+              safePlaceDetails: 'Fire-proof steel safe with digital lock',
+              hasTraining: true,
+              trainingDetails: 'Professional firearms training from ABC Institute'
+            }
+          ],
           licenseDetails: [
             {
-              needForLicense: 'SELF_PROTECTION',
-              armsCategory: 'RESTRICTED',
-              requestedWeaponIds: [1, 2]
+              needForLicense: 'CROP_PROTECTION',
+              armsCategory: 'NON_PROHIBITED',
+              requestedWeaponIds: [4, 5],
+              areaOfValidity: 'Within district boundaries',
+              ammunitionDescription: '100 rounds of .22 caliber ammunition',
+              specialConsiderationReason: 'Crop protection from wild animals',
+              licencePlaceArea: 'Rural agricultural areas of district',
+              wildBeastsSpecification: 'Wild boars, deer, and other crop-damaging animals'
             }
           ]
         }
