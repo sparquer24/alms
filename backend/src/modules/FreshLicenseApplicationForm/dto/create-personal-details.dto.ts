@@ -23,10 +23,10 @@ export class CreatePersonalDetailsDto {
   @IsString()
   lastName!: string;
 
-  @ApiPropertyOptional({ example: 'Ramesh Sharma', description: "Parent or spouse's name" })
-  @IsOptional()
+  @ApiProperty({ example: 'Ramesh Sharma', description: "Parent or spouse's name" })
+  @IsNotEmpty()
   @IsString()
-  parentOrSpouseName?: string;
+  parentOrSpouseName!: string;
 
   // Who filed the application (preferred/correct spelling)
   @ApiPropertyOptional({ example: 'Self', description: 'Who filled the application' })
@@ -34,10 +34,10 @@ export class CreatePersonalDetailsDto {
   @IsString()
   filledBy?: string;
 
-  @ApiPropertyOptional({ enum: Sex, example: Sex.MALE })
-  @IsOptional()
+  @ApiProperty({ enum: Sex, example: Sex.MALE })
+  @IsNotEmpty()
   @IsEnum(Sex)
-  sex?: Sex;
+  sex!: Sex;
 
   @ApiPropertyOptional({ example: 'Kolkata' })
   @IsOptional()

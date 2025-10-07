@@ -127,7 +127,7 @@ export class WorkflowController {
     // ...existing code...
 
     // Call service to process action
-    try {
+    /*try {
       const result = await this.workflowService.handleUserAction({
         ...body,
         applicationId: Number(body.applicationId),
@@ -149,5 +149,6 @@ export class WorkflowController {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('Unexpected error occurred.');
     }
+    */
   }
 }

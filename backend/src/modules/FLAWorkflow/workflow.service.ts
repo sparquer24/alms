@@ -18,7 +18,7 @@ export class WorkflowService {
   private prisma = new PrismaClient();
 
 
-  async handleUserAction(payload: {
+ /* async handleUserAction(payload: {
     applicationId: number;
     actionId: number;
     action: any; // full action object from Actiones table
@@ -129,4 +129,5 @@ export class WorkflowService {
 
     return updatedApplication;
   }
+    */
 }

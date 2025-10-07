@@ -1,10 +1,11 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
-import { CreateApplicationDto } from './dto/create-application.dto';
+// import { CreateApplicationDto } from './dto/create-application.dto';
 import { CreatePersonalDetailsDto } from './dto/create-personal-details.dto';
-import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
+import { PatchApplicationDetailsDto } from './dto/patch-application-details.dto';
+// import { LicensePurpose, FileType, Sex } from '@prisma/client';
 
 @ApiTags('Application Form')
 @Controller('application-form')
@@ -12,150 +13,6 @@ import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
 @ApiBearerAuth('JWT-auth')
 export class ApplicationFormController {
   constructor(private readonly applicationFormService: ApplicationFormService) { }
-
-  @Post()
-  @ApiOperation({
-    summary: 'Create Application',
-    description: `Create a new fresh license application.`
-  })
-  @ApiBody({ type: CreateApplicationDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Application created successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'object',
-          properties: {
-            id: { type: 'number', example: 1 },
-            acknowledgementNo: { type: 'string', example: 'ACK123456789' }
-          }
-        }
-      }
-    }
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad Request - Invalid input data',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: false },
-        error: { type: 'string' },
-        details: { type: 'object' }
-      }
-    }
-  })
-async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
-    try {
-      // Convert DTO to service input format
-      const processedData = {
-        statusId: applicationData.statusId,
-        firstName: applicationData.firstName,
-        middleName: applicationData.middleName,
-        lastName: applicationData.lastName,
-        filledBy: applicationData.filledBy,
-        parentOrSpouseName: applicationData.parentOrSpouseName,
-        sex: applicationData.sex as Sex,
-        placeOfBirth: applicationData.placeOfBirth,
-        dateOfBirth: new Date(applicationData.dateOfBirth),
-        panNumber: applicationData.panNumber,
-        aadharNumber: applicationData.aadharNumber,
-        dobInWords: applicationData.dobInWords,
-        stateId: applicationData.stateId,
-        districtId: applicationData.districtId,
-        currentUserId: applicationData.currentUserId,
-        currentRoleId: applicationData.currentRoleId,
-
-        presentAddress: {
-          addressLine: applicationData.presentAddress.addressLine,
-          stateId: applicationData.presentAddress.stateId,
-          districtId: applicationData.presentAddress.districtId,
-          zoneId: applicationData.permanentAddress.zoneId,
-          divisionId: applicationData.permanentAddress.divisionId,
-          policeStationId: applicationData.presentAddress.policeStationId,
-          sinceResiding: new Date(applicationData.presentAddress.sinceResiding)
-        },
-
-        permanentAddress: applicationData.permanentAddress ? {
-          addressLine: applicationData.permanentAddress.addressLine,
-          stateId: applicationData.permanentAddress.stateId,
-          districtId: applicationData.permanentAddress.districtId,
-          zoneId: applicationData.permanentAddress.zoneId,
-          divisionId: applicationData.permanentAddress.divisionId,
-          policeStationId: applicationData.permanentAddress.policeStationId,
-          sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
-        } : undefined,
-
-        contactInfo: applicationData.contactInfo,
-        occupationInfo: applicationData.occupationInfo,
-        biometricData: applicationData.biometricData,
-
-        // Convert criminal history to expected format
-        criminalHistory: applicationData.criminalHistory?.map(ch => ({
-          convicted: ch.convicted,
-          convictionData: {
-            isCriminalCasePending: ch.isCriminalCasePending,
-            firNumber: ch.firNumber,
-            policeStation: ch.policeStation,
-            sectionOfLaw: ch.sectionOfLaw,
-            dateOfOffence: ch.dateOfOffence,
-            caseStatus: ch.caseStatus
-          }
-        })),
-
-        // Convert license history to expected format
-        licenseHistory: applicationData.licenseHistory?.map(lh => ({
-          hasAppliedBefore: lh.hasAppliedBefore,
-          hasOtherApplications: lh.hasOtherApplications,
-          familyMemberHasArmsLicense: lh.familyMemberHasArmsLicense,
-          hasSafePlaceForArms: lh.hasSafePlaceForArms,
-          hasUndergoneTraining: lh.hasUndergoneTraining,
-          previousApplications: {
-            hasPreviousLicense: lh.hasPreviousLicense,
-            previousLicenseNumber: lh.previousLicenseNumber,
-            licenseIssueDate: lh.licenseIssueDate,
-            licenseExpiryDate: lh.licenseExpiryDate,
-            issuingAuthority: lh.issuingAuthority,
-            isLicenseRenewed: lh.isLicenseRenewed,
-            renewalDate: lh.renewalDate,
-            renewingAuthority: lh.renewingAuthority
-          }
-        })),
-
-        licenseRequestDetails: {
-          needForLicense: applicationData.licenseRequestDetails.needForLicense as LicensePurpose,
-          weaponCategory: applicationData.licenseRequestDetails.weaponCategory as WeaponCategory,
-          requestedWeaponIds: applicationData.licenseRequestDetails.requestedWeaponIds,
-          areaOfValidity: applicationData.licenseRequestDetails.areaOfValidity
-        },
-
-        fileUploads: applicationData.fileUploads?.map(fu => ({
-          fileName: fu.fileName,
-          fileSize: fu.fileSize,
-          fileType: fu.fileType as FileType,
-          fileUrl: fu.fileUrl
-        }))
-      };
-
-      const [error, result] = await this.applicationFormService.createApplication(processedData);
-      if (error) {
-        // Provide more details if error is an object
-        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
-        const errorDetails = typeof error === 'object' ? error : {};
-        throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.BAD_REQUEST);
-      }
-      return { success: true, data: result };
-    } catch (err: any) {
-      // Provide more details if err is an object
-      const errorMessage = err?.message || err;
-      const errorDetails = err;
-      throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
   @Post('personal-details')
   @ApiOperation({ summary: 'Create Personal Details (Step 1 separate table)', description: 'Create personal details in a dedicated table and return applicationId' })
   @ApiBody({
@@ -179,6 +36,141 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
     }
   }
 
+  @Patch(':applicationId')
+  @ApiOperation({ 
+    summary: 'Update Application Details', 
+    description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
+  })
+  @ApiParam({
+    name: 'applicationId',
+    description: 'Application ID',
+    example: '123'
+  })
+  @ApiBody({
+    type: PatchApplicationDetailsDto,
+    description: 'Application details to update. All sections are optional - only provide the sections you want to update.',
+    examples: {
+      'Update Addresses Only': {
+        value: {
+          presentAddress: {
+            addressLine: '123 Main Street, Block A',
+            stateId: 1,
+            districtId: 1,
+            policeStationId: 1,
+            zoneId: 1,
+            divisionId: 1,
+            sinceResiding: '2020-01-15T00:00:00.000Z',
+            telephoneOffice: '033-12345678',
+            officeMobileNumber: '9876543210'
+          }
+        }
+      },
+      'Update Criminal History Only': {
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              isProhibited: false
+            }
+          ]
+        }
+      },
+      'Update Multiple Sections': {
+        value: {
+          presentAddress: {
+            addressLine: '123 Main Street, Block A',
+            stateId: 1,
+            districtId: 1,
+            policeStationId: 1,
+            zoneId: 1,
+            divisionId: 1,
+            sinceResiding: '2020-01-15T00:00:00.000Z'
+          },
+          occupationAndBusiness: {
+            occupation: 'Software Engineer',
+            officeAddress: '456 Corporate Plaza',
+            stateId: 1,
+            districtId: 1
+          },
+          licenseDetails: [
+            {
+              needForLicense: 'SELF_PROTECTION',
+              armsCategory: 'RESTRICTED',
+              requestedWeaponIds: [1, 2]
+            }
+          ]
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Application details updated successfully',
+    example: {
+      success: true,
+      message: 'Application details updated successfully',
+      data: {
+        updatedSections: ['presentAddress', 'criminalHistories'],
+        application: {
+          id: 123,
+          acknowledgementNo: 'ALMS1696050000000',
+          firstName: 'John',
+          lastName: 'Doe',
+          // ... other application data with relations
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or application not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 409, description: 'Conflict - Duplicate values or constraint violations' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async patchApplicationDetails(
+    @Param('applicationId') applicationId: string,
+    @Body() dto: PatchApplicationDetailsDto,
+    @Request() req: any
+  ) {
+    try {
+      const applicationIdNum = parseInt(applicationId, 10);
+      if (isNaN(applicationIdNum)) {
+        throw new HttpException(
+          { success: false, error: 'Invalid application ID format' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, dto);
+      
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException(
+          { success: false, error: errorMessage, details: errorDetails },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      return {
+        success: true,
+        message: 'Application details updated successfully',
+        data: result
+      };
+    } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException(
+        { success: false, error: errorMessage, details: errorDetails },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /*
   @Get()
   @ApiOperation({ summary: 'Get Applications', description: 'Retrieve applications with filtering, pagination, and search' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -482,9 +474,9 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
         HttpStatus.BAD_REQUEST
       );
     }
-  }
+  } */
 
-  @Get('helpers/check-aadhar/:aadharNumber')
+ /* @Get('helpers/check-aadhar/:aadharNumber')
   @ApiOperation({
     summary: 'Check Aadhar Number Availability',
     description: 'Check if an Aadhar number already exists in the system'
@@ -544,5 +536,5 @@ async createApplication(@Body() applicationData: CreateApplicationDto, @Request(
         HttpStatus.BAD_REQUEST
       );
     }
-  }
+  }*/
 }
