@@ -11,7 +11,7 @@ export class ActionesService {
    * - If no userId: return all active actions.
    */
   async getActiones(userId?: number): Promise<Actiones[]> {
-    try {
+   // try {
       // No userId → return all active actions
       if (userId === undefined || userId === null) {
         return prisma.actiones.findMany({ where: { isActive: true } });
@@ -48,13 +48,13 @@ export class ActionesService {
       });
 
       return actions;
-    } catch (error) {
-      console.error('Error fetching actions:', error);
-      throw error;
-    }
+    // } catch (error) {
+    //   console.error('Error fetching actions:', error);
+    //   throw error;
+    // }
   }
    async createAction(data: RolesActionsMapping): Promise<RolesActionsMapping | { error: boolean; message: string }> {  
-   try{
+   //try{
     const mappingData = await prisma.rolesActionsMapping.findMany({
       where: {
         roleId: data.roleId,
@@ -76,8 +76,26 @@ export class ActionesService {
         createdAt: data.createdAt,
    }
   });
-   } catch(error){
-    throw error;
-   }
+  //  } catch(error){
+  //   throw error;
+  //  }
   }
+    async updateAction(id: number, data:  Partial<RolesActionsMapping>): Promise<RolesActionsMapping> {
+    return await prisma.rolesActionsMapping.update({
+      where: {id},
+      data: {
+       roleId: data.roleId,
+        actionId: data.actionId,
+        isActive: data.isActive,
+        updatedAt: new Date(),
+      }
+    });
+  }
+async deleteActionMapping(id: number): Promise<RolesActionsMapping> {
+    return  await prisma.rolesActionsMapping.delete({
+      where: { id },
+    });
+
 }
+}      
+
