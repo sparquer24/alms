@@ -1,14 +1,50 @@
-import { Controller, Get, Request, UseGuards } from "@nestjs/common";
-import { ApiOperation, ApiTags, ApiQuery, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
+import { Controller, Get, Post, Request, UseGuards, Body, Patch } from "@nestjs/common";
+import { ApiOperation, ApiTags, ApiQuery, ApiBody, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
+import { RolesActionsMapping } from "@prisma/client";
 import { Actiones } from "@prisma/client";
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
+import { create } from "domain";
 
 @ApiTags("Actiones")
 @ApiBearerAuth('JWT-auth')
 @Controller("actiones")
 export class ActionesController {
   constructor(private readonly actionesService: ActionesService) {}
+
+  @Post("RolesActionsMapping")
+  @ApiOperation({
+    summary: "Create action",
+    description: "Create a new action entry",
+  })
+  @ApiBody({
+    description: "Action creation data",
+    examples: {
+      "New Action": {
+        summary: "A new action entry",
+        value: {
+          roleId: 1,
+          actionId: 1,
+          isActive: true,
+          createdAt: new Date(),
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Action created successfully",
+  })
+  async createAction(@Body() mappingData: RolesActionsMapping) {
+    try{
+      return this.actionesService.createAction(mappingData);
+    }
+    catch(error){
+      throw error;
+    } 
+  }
+ 
+
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -23,4 +59,6 @@ export class ActionesController {
 
     return this.actionesService.getActiones(tokenUserId as number | undefined);
   }
+
 }
+
