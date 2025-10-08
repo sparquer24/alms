@@ -122,24 +122,24 @@ export const login = createAsyncThunk(
     try {
       console.log('🔐 Auth thunk - login started');
       console.log('📝 Login credentials:', { username, passwordLength: password.length });
-      
+
       dispatch(setLoading(true));
-      
+
       console.log('📡 Making API call to AuthApi.login...');
       const response = await AuthApi.login({ username, password });
       console.log('📡 Login API response received:', response);
-      
+
       // Handle different response structures
       let token: string;
       let user: any = null;
-      
+
       console.log('🔍 Checking response structure:', {
         hasBody: !!response.body,
         hasSuccess: !!response.success,
         hasStatusCode: response.statusCode,
         response: response
       });
-      
+
       // Backend returns { success: true, token: "...", user: {...} } directly (not wrapped in body)
       if (response.success && (response as any).token) {
         // Direct response from backend
@@ -158,9 +158,9 @@ export const login = createAsyncThunk(
         }
         throw new Error('Login succeeded but no token was returned.');
       }
-      
+
       console.log('🔍 Token received (first 20 chars):', token.substring(0, 20) + '...');
-      
+
       // After obtaining the token, prefer calling /auth/getMe to fetch canonical user info
       try {
         console.log('📡 Calling /auth/getMe to fetch canonical user data');
@@ -218,7 +218,7 @@ export const login = createAsyncThunk(
           throw new Error('Invalid token received from server');
         }
       }
-      
+
       console.log('✅ Final user object:', user);
 
       // Robust role extraction & normalization
@@ -228,40 +228,55 @@ export const login = createAsyncThunk(
         return String(candidate).toUpperCase();
       };
       const roleString = extractRoleString(user);
-      if (roleString && typeof user.role !== 'string') {
+      // Always normalize and set the role on the user object when possible
+      if (roleString) {
         user = { ...user, role: roleString };
+      } else if (typeof user.role === 'string') {
+        // Ensure existing role strings are normalized to uppercase
+        user = { ...user, role: String(user.role).toUpperCase() };
       }
 
       dispatch(setCredentials({ user, token }));
 
-      // Store JSON auth cookie so middleware can parse role without extra requests
-      console.log('🍪 Setting JSON auth cookie (with user + token).');
-      const authCookiePayload = {
-        token,
-        isAuthenticated: true,
-        user: { id: user.id, name: user.name, role: user.role },
-        role: roleString || user.role,
-        ts: Date.now(),
-      };
-      setCookie('auth', JSON.stringify(authCookiePayload), {
-        maxAge: 60 * 60 * 24,
+      // Persist token-only semantics in cookies per spec
+      console.log('🍪 Persisting auth token and role into cookies (token-only auth).');
+      const normalizedRole = roleString || (typeof user.role === 'string' ? String(user.role).toUpperCase() : undefined);
+
+      // Store only token in `auth` cookie
+      setCookie('auth', token, {
+        maxAge: 60 * 60 * 24, // 1 day
         path: '/',
       });
-      // Separate user + role cookies for redundancy
+
+      // Store role code (normalized) separately
+      if (normalizedRole) {
+        setCookie('role', normalizedRole, { maxAge: 60 * 60 * 24, path: '/' });
+      }
+
+      // Store the full /auth/getMe user payload in `user` cookie
       try {
         setCookie('user', JSON.stringify(user), { maxAge: 60 * 60 * 24, path: '/' });
-      } catch {/* ignore */}
-      if (roleString) setCookie('role', roleString, { maxAge: 60 * 60 * 24, path: '/' });
+      } catch (e) {
+        console.warn('Failed to persist user cookie:', e);
+      }
+
       // Save snapshot (store token & role only to keep it small)
-      saveCookieSnapshot({ auth: JSON.stringify(authCookiePayload), user: JSON.stringify({ id: user.id, role: user.role }), role: roleString });
-      
-      console.log('🎉 Login process completed successfully');
+      saveCookieSnapshot({ auth: token, user: JSON.stringify({ id: user.id, role: user.role }), role: normalizedRole });
+
+      console.log('🎉 Login process completed successfully — refreshing to apply auth state');
+
+      // Refresh the page so middleware/SSR picks up the token and role from cookies
+      if (typeof window !== 'undefined') {
+        // Give the browser a bit more time to flush cookies before reload
+        setTimeout(() => window.location.reload(), 500);
+      }
+
       return { token, user };
     } catch (error) {
       console.error('❌ Login thunk error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       console.error('❌ Error message:', errorMessage);
-      
+
       dispatch(setError(errorMessage));
       throw error;
     } finally {
@@ -275,7 +290,7 @@ export const getCurrentUser = createAsyncThunk(
   async (_, { dispatch }) => {
     try {
       dispatch(setLoading(true));
-      
+
       // Get token from cookies (support token-only and legacy JSON)
       const authCookie = getCookie('auth');
       let token: string | null = null;
@@ -291,7 +306,7 @@ export const getCurrentUser = createAsyncThunk(
       if (!token) throw new Error('No authentication token found');
 
       const response = await AuthApi.getCurrentUser(token);
-      
+
       if (response.success && response.body) {
         const user = response.body;
         dispatch(setCredentials({ user, token }));
@@ -312,21 +327,36 @@ export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { dispatch }) => {
     try {
-  dispatch(setLoading(true));
-  await AuthApi.logout();
-  dispatch(logout());
-      
-      // Clear auth data from cookies
-  removeCookieSnapshot();
-  clearAllAuthCookies();
+      dispatch(setLoading(true));
+      // Call backend logout if available (best-effort)
+      try {
+        await AuthApi.logout();
+        console.log('AuthApi.logout succeeded');
+      } catch (apiErr) {
+        console.warn('AuthApi.logout failed or not available:', apiErr);
+      }
+
+      // Reset Redux auth state
+      dispatch(logout());
+
+      // Clear auth cookies and local snapshot
+      console.log('Clearing auth cookies and snapshots');
+      removeCookieSnapshot();
+      clearAllAuthCookies();
+
+      // Give browser a short moment to clear cookies before redirect/login attempts
+      await new Promise((res) => setTimeout(res, 200));
     } catch (error) {
       console.error('Logout error:', error);
       // Still logout locally even if API call fails
       dispatch(logout());
-      
+
       // Clear auth data from cookies even if API call fails
-  removeCookieSnapshot();
-  clearAllAuthCookies();
+      removeCookieSnapshot();
+      clearAllAuthCookies();
+
+      // Short wait to let browser clear cookies
+      await new Promise((res) => setTimeout(res, 200));
     } finally {
       dispatch(setLoading(false));
     }

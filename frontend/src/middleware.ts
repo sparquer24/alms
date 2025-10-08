@@ -1,41 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-// Import role-based redirection logic
-function getRoleBasedRedirectPath(userRole: string): string {
-  console.log('getRoleBasedRedirectPath called with userRole:', userRole);
-
-  // Define valid roles
-  const validRoles = ['ADMIN', 'DCP', 'ACP', 'CP', 'ARMS_SUPDT', 'SHO', 'ZS', 'APPLICANT', 'ADO', 'CADO'];
-
-  if (!userRole || !validRoles.includes(userRole)) {
-    console.warn('Invalid or undefined role detected:', userRole);
-    return '/login?error=invalid_role';
-  }
-
-  switch (userRole) {
-    case 'ADMIN':
-      return '/admin/userManagement';
-    case 'DCP':
-    case 'ACP':
-    case 'CP':
-    case 'ARMS_SUPDT':
-      return '/home?type=final';
-    
-    case 'ADO':
-    case 'CADO':
-    case 'SHO':
-      return '/home?type=forwarded';
-    
-    case 'ZS':
-      return '/home?type=freshform';
-
-    case 'APPLICANT':
-      return '/home?type=sent';
-    default:
-  return '/admin/userManagement';
-  }
-}
+import { getRoleBasedRedirectPath } from './config/roleRedirections';
 
 // Define protected routes that require authentication
 const protectedRoutes = [
@@ -61,7 +26,7 @@ const adminRoutes = [
   '/admin/locations',
   '/admin/forwarding',
   '/admin/reports',
-  'admin/userManagement',
+  '/admin/userManagement',
 ];
 
 // Define role-based access for specific routes

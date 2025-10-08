@@ -163,6 +163,8 @@ const FormInput: React.FC<{
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      // Prevent hydration mismatch warnings caused by browser extensions injecting attributes client-side
+      suppressHydrationWarning
       disabled={disabled}
       aria-describedby={disabled ? `${id}-disabled` : undefined}
     />
@@ -213,21 +215,33 @@ export default function Login() {
         username: formData.username.trim(), 
         password: formData.password 
       };
-      
+      console.log('Login payload:', loginPayload);
       const result = await dispatch(login(loginPayload)).unwrap();
-      
-      dispatch(setError(''));
-      
-      // Get role-based redirect path
-      const redirectPath = getRoleBasedRedirectPath(result.user.role);
-      
-      // Show loading state before redirect
-      setIsRedirecting(true);
-      
-      // Force reload and redirect to role-specific path
-      window.location.replace(redirectPath);
+      console.log('Login API response:', result);
+      if (result && result.user) {
+        console.log('User object:', result.user);
+        // Normalize role to uppercase string for consistent redirects
+        const rawRole = result.user.role ?? result.user.role_id ?? result.user.roleCode;
+        const normalizedRole = rawRole ? String(rawRole).toUpperCase() : undefined;
+        console.log('Normalized role:', normalizedRole);
+        if (!normalizedRole) {
+          console.warn('Login returned no role; redirect may loop.');
+          dispatch(setError('No role assigned to your account.'));
+          setIsRedirecting(false);
+        } else {
+          const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+          console.log('Redirect path:', redirectPath);
+          dispatch(setError(''));
+          setIsRedirecting(true);
+          router.push(redirectPath);
+        }
+      } else {
+        console.warn('No user found in login result:', result);
+        dispatch(setError('No user found after login.'));
+      }
     } catch (err) {
       // Error is handled by the thunk and stored in Redux state
+      console.error('Login error:', err);
       resetForm();
     }
   }, [dispatch, formData, isFormValid, resetForm]);
@@ -261,8 +275,8 @@ export default function Login() {
     />
   ), [formData.password, isLoading, updateField]);
 
-  // Show skeleton while redirecting
-  if (isRedirecting) {
+  // Show LoginSkeleton while loading or redirecting
+  if (isLoading || isRedirecting) {
     return <LoginSkeleton />;
   }
 
@@ -282,7 +296,8 @@ export default function Login() {
               alt="ALMS Logo"
               width={120}
               height={120}
-              className="drop-shadow-md"
+              // Ensure aspect ratio is preserved if CSS changes one dimension
+              className="drop-shadow-md h-auto"
               priority
             />
           </div>

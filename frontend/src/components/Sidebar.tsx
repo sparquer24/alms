@@ -13,6 +13,7 @@ import { useInbox } from "../context/InboxContext";
 import { useSidebarCounts } from "../hooks/useSidebarCounts";
 import { menuMeta, MenuMetaKey } from "../config/menuMeta";
 import { getRoleConfig } from "../config/roles";
+import { getRoleBasedRedirectPath } from "../config/roleRedirections";
 import { HamburgerButton } from "./HamburgerButton";
 
 interface MenuItemProps {
@@ -244,9 +245,24 @@ const getUserRoleFromCookie = () => {
     } else {
       setActiveItem(item.name);
       localStorage.setItem("activeNavItem", item.name);
-      // Route all sidebar content to /admin/{content-name}
-      const pathSegment = item.name.replace(/\s+/g, '');
-      router.push(`/admin/${encodeURIComponent(pathSegment)}`);
+      const effectiveRole = cookieRole || userRole;
+      // Only ADMIN can access /admin/*
+      if (effectiveRole === 'ADMIN') {
+        const pathSegment = item.name.replace(/\s+/g, '');
+        router.push(`/admin/${encodeURIComponent(pathSegment)}`);
+      } else {
+        // For non-admins, use role-based redirect logic
+        // Special case: if menu is "dashboard" or similar, use getRoleBasedRedirectPath
+        if (item.name.toLowerCase().includes('dashboard')) {
+          const redirectPath = getRoleBasedRedirectPath(effectiveRole);
+          router.push(redirectPath);
+        } else {
+          // For other menu items, try to route to /home?type={item}
+          // You may want to map item names to types as needed
+          const type = item.name.replace(/\s+/g, '').toLowerCase();
+          router.push(`/home?type=${encodeURIComponent(type)}`);
+        }
+      }
     }
   }, [router, dispatch, cookieRole, userRole]);
 
@@ -261,8 +277,13 @@ const getUserRoleFromCookie = () => {
     console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem);
 
     const activeItemKey = `inbox-${subItem}`;
-  const currentPath = window.location.pathname;
-  const isOnInboxBase = currentPath === '/admin/inbox' || currentPath.startsWith('/admin/inbox');
+    const currentPath = window.location.pathname;
+    const effectiveRole = cookieRole || userRole;
+    // For admin, use /admin/inbox, for others use /home
+    const isAdmin = effectiveRole === 'ADMIN';
+    const isOnInboxBase = isAdmin
+      ? currentPath === '/admin/inbox' || currentPath.startsWith('/admin/inbox')
+      : currentPath === '/home' || currentPath.startsWith('/home');
 
     // Delegate loading to InboxContext which ensures a single fetch per type
     const normalized = String(subItem).toLowerCase();
@@ -277,9 +298,8 @@ const getUserRoleFromCookie = () => {
 
     // Update context (single fetch) and update URL without forcing a full remount
     loadType(normalized).catch((e) => console.error('loadType error', e));
-    // If user is currently on an /inbox base, prefer updating /inbox?type=..., otherwise use /home?type=...
-  const targetBase = '/admin/inbox';
-  const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
+    const targetBase = isAdmin ? '/admin/inbox' : '/home';
+    const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
     if (isOnInboxBase) {
       // replace state to avoid adding history entries when already under inbox/home
       window.history.replaceState(null, '', targetUrl);
@@ -287,12 +307,13 @@ const getUserRoleFromCookie = () => {
     } else {
       router.push(targetUrl);
     }
-  }, [dispatch, isInboxOpen, activeItem, onTableReload, router]);
+  }, [dispatch, isInboxOpen, activeItem, onTableReload, router, cookieRole, userRole]);
 
   const handleLogout = useCallback(async () => {
     if (token) {
       await dispatch(logoutUser() as any);
-      document.cookie = 'auth=; Max-Age=0; path=/'; // Remove the auth cookie
+      // Small delay to ensure cookies are removed and Redux reset has propagated
+      await new Promise((res) => setTimeout(res, 250));
     }
     router.push("/login");
   }, [dispatch, router, token]);

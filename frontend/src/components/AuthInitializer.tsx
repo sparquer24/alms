@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter, usePathname } from 'next/navigation';
 import { restoreAuthState, selectIsAuthenticated, selectCurrentUser } from '../store/slices/authSlice';
+import { getCookie } from 'cookies-next';
 import { shouldRedirectOnStartup } from '../config/roleRedirections';
 import { logError, logDebug } from '@/utils/loggingUtils';
 
@@ -30,18 +31,28 @@ export const AuthInitializer: React.FC = () => {
   useEffect(() => {
     // Handle role-based redirection after auth state is restored
     const handleRedirection = async () => {
-      if (isAuthenticated && currentUser?.role && pathname) {
-        try {
-          const redirectPath = shouldRedirectOnStartup(currentUser.role, pathname);
+      try {
+        if (!pathname) {
+          logError('AuthInitializer: Missing pathname for redirection');
+          return;
+        }
+
+        // Prefer role from Redux-hydrated user, fallback to role cookie
+        const roleFromState = currentUser?.role;
+        const roleFromCookie = getCookie('role') as string | undefined;
+        const effectiveRole = roleFromState || (roleFromCookie ? String(roleFromCookie).toUpperCase() : undefined);
+
+  logDebug(`AuthInitializer: isAuthenticated=${isAuthenticated} roleFromState=${roleFromState} roleFromCookie=${roleFromCookie} pathname=${pathname}`);
+
+        if (isAuthenticated && effectiveRole) {
+          const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname);
           if (redirectPath) {
-            logDebug(`AuthInitializer: Redirecting ${currentUser.role} user to: ${redirectPath}`);
+            logDebug(`AuthInitializer: Redirecting ${effectiveRole} user to: ${redirectPath}`);
             await router.push(redirectPath);
           }
-        } catch (error) {
-          logError('AuthInitializer: Error during role-based redirection', error);
         }
-      } else if (!pathname) {
-        logError('AuthInitializer: Missing pathname for redirection');
+      } catch (error) {
+        logError('AuthInitializer: Error during role-based redirection', error);
       }
     };
 
