@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Select from 'react-select';
 import styles from './ProceedingsForm.module.css';
-import { fetchData, postData } from '../api/axiosConfig';
+import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { EnhancedTextEditor } from './RichTextEditor';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
@@ -35,13 +35,15 @@ type BackendAction = {
 // Option used by react-select for Action Type
 type ActionOption = { value: number; label: string; code: string };
 
-// Fallback list used only if API is unreachable
+// Fallback actions used when backend fetch fails or in dev without auth
 const FALLBACK_ACTIONS: ActionOption[] = [
-  { value: 1, label: 'Forward', code: 'FORWARD' },
-  { value: 2, label: 'Return', code: 'REJECT' },
-  { value: 3, label: 'Dispose', code: 'DISPOSE' },
-  { value: 4, label: 'Red Flag', code: 'RED_FLAG' },
+  { value: -1, label: 'Forward', code: 'FORWARD' },
+  { value: -2, label: 'Reject', code: 'REJECT' },
+  { value: -3, label: 'Dispose', code: 'DISPOSE' },
+  { value: -4, label: 'Red Flag', code: 'RED_FLAG' },
+  { value: -5, label: 'Request More Info', code: 'REQUEST_MORE_INFO' },
 ];
+
 
 // Simple TextArea Component as Rich Text Editor Replacement
 function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId, inputRef }: {
@@ -201,32 +203,70 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     setActionsLoading(true);
     setActionsError(null);
     (async () => {
-      try {
+        try {
+        // request would otherwise be unauthenticated (server returns all actions).
+        try {
+          const cookieAuth = getCookie('auth');
+          if (cookieAuth) setAuthToken(cookieAuth);
+          if (process.env.NODE_ENV !== 'production') {
+            try {
+              const t = String(cookieAuth || '');
+              const masked = t.length > 8 ? `${t.slice(0,4)}...${t.slice(-4)}` : t;
+              // eslint-disable-next-line no-console
+              console.debug('[ProceedingsForm] auth cookie read, masked:', masked);
+            } catch (e) {}
+          }
+        } catch (e) {
+          console.error('Failed to read auth cookie', e);
+        }
+
         const data = await fetchData(`/actiones`);
         // data is expected to be an array of BackendAction
+        const humanizeCode = (c: string) =>
+          String(c || '')
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .replace(/\b\w/g, (m) => m.toUpperCase());
+
         const options: ActionOption[] = (Array.isArray(data) ? data : [])
           .filter((a: BackendAction) => a?.isActive !== false) // prefer active ones
           .map((a: BackendAction) => {
             const code = String(a.code || '').toUpperCase();
-            // Prefer provided name; else friendly-case the code
-            const friendly = a?.name ||
-              (code === 'FORWARD' ? 'Forward' :
-               code === 'REJECT' ? 'Return' :
-               code === 'DISPOSE' ? 'Dispose' :
-               code === 'RED_FLAG' ? 'Red Flag' :
-               code === 'RE_ENQUIRY' ? 'Re-Enquiry' :
-               code === 'GROUND_REPORT' ? 'Ground Report' : code.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase()));
-            return { value: Number(a.id), label: String(friendly), code };
+            // Use backend-provided name when available; otherwise humanize the code
+            const label = a?.name && String(a.name).trim() ? String(a.name) : humanizeCode(code);
+            return { value: Number(a.id), label, code };
           });
         if (mounted) {
-          // Prefer to show common actions first
-          const order = ['FORWARD', 'REJECT', 'DISPOSE', 'RED_FLAG'];
-          options.sort((x, y) => order.indexOf(x.code) - order.indexOf(y.code));
-          setActionOptions(options.length ? options : FALLBACK_ACTIONS);
+          // Build a priority map from the raw `data` array; if none found, preserve server order.
+          const priorityMap = new Map<string, number>();
+          (Array.isArray(data) ? data : []).forEach((a: any, idx: number) => {
+            const code = String(a?.code || '').toUpperCase();
+            if (typeof a?.priority === 'number') priorityMap.set(code, a.priority);
+            else if (typeof a?.order === 'number') priorityMap.set(code, a.order);
+            else if (!priorityMap.has(code)) {
+              // If backend didn't provide an explicit priority, use the server index to preserve order
+              priorityMap.set(code, 100000 + idx);
+            }
+          });
+
+          // If any real priorities were provided (values < 100000), sort by them; otherwise this keeps server order
+          const hasRealPriorities = Array.from(priorityMap.values()).some(v => v < 100000);
+
+          if (hasRealPriorities) {
+            options.sort((x, y) => {
+              const ix = priorityMap.get(x.code) ?? Number.MAX_SAFE_INTEGER;
+              const iy = priorityMap.get(y.code) ?? Number.MAX_SAFE_INTEGER;
+              return ix - iy;
+            });
+          }
+
+          setActionOptions(options.length ? options : []);
         }
       } catch (e: any) {
         if (!mounted) return;
         setActionsError(e?.message || 'Failed to load actions');
+        // Provide a client-side fallback so the form remains usable when the
+        // actions endpoint cannot be reached (e.g., network/auth issues).
         setActionOptions(FALLBACK_ACTIONS);
       } finally {
         if (mounted) setActionsLoading(false);
