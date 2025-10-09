@@ -81,6 +81,17 @@ export const fetchData = async (url: string, params = {}) => {
 // POST request function
 export const postData = async (url: string, data: any, options = {}) => {
   try {
+    // Ensure Authorization header exists (support code paths that call postData directly)
+    try {
+      if (!axiosInstance.defaults.headers['Authorization']) {
+        const existing = jsCookie.get('auth');
+        if (existing) {
+          setAuthToken(existing);
+        }
+      }
+    } catch (e) {
+      // ignore cookie read errors
+    }
     const response = await axiosInstance.post(url, data, options);
     return response.data;
   } catch (error) {
@@ -104,6 +115,46 @@ export const putData = async (url: string, data: any, options = {}) => {
     return response.data;
   } catch (error) {
     const err: any = error;
+    const message = err?.response?.data?.message || err?.message || 'Could not update data';
+    const status = err?.response?.status || err?.status;
+    const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
+    if (isAuthError && typeof window !== 'undefined') {
+      try { jsCookie.remove('auth'); } catch (e) {}
+      window.location.href = '/login';
+      throw new Error('Authentication required');
+    }
+    throw new Error(message);
+  }
+};
+
+// PATCH request function
+export const patchData = async (url: string, data: any, options = {}) => {
+  try {
+    // Ensure Authorization header exists (support code paths that call patchData directly)
+    console.log('🔥 PATCH REQUEST - URL:', url);
+    console.log('🔥 PATCH REQUEST - Data:', data);
+    console.log('🔥 PATCH REQUEST - Full URL:', process.env.NEXT_PUBLIC_API_URL + url);
+    
+    try {
+      if (!axiosInstance.defaults.headers['Authorization']) {
+        const existing = jsCookie.get('auth');
+        if (existing) {
+          setAuthToken(existing);
+        }
+      }
+    } catch (e) {
+      // ignore cookie read errors
+    }
+    
+    const response = await axiosInstance.patch(url, data, options);
+    console.log('✅ PATCH RESPONSE:', response.data);
+    return response.data;
+  } catch (error) {
+    const err: any = error;
+    console.error('❌ PATCH ERROR:', err);
+    console.error('❌ PATCH ERROR Status:', err?.response?.status);
+    console.error('❌ PATCH ERROR Message:', err?.response?.data?.message);
+    
     const message = err?.response?.data?.message || err?.message || 'Could not update data';
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));

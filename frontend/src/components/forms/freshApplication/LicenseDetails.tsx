@@ -1,13 +1,15 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import FormFooter from '../elements/footer';
+import { WeaponsService, Weapon } from '../../../services/weapons';
 
 const initialState = {
 	needForLicense: '',
 	armsOption: '',
 	armsType: '',
+	weaponId: 0, // Add weapon ID for API integration
 	areaDistrict: false,
 	areaState: false,
 	areaIndia: false,
@@ -15,6 +17,33 @@ const initialState = {
 
 const LicenseDetails = () => {
    const [form, setForm] = useState(initialState);
+   const [weapons, setWeapons] = useState<Weapon[]>([]);
+   const [loadingWeapons, setLoadingWeapons] = useState(false);
+
+   // Fetch weapons on component mount
+   useEffect(() => {
+	   const loadWeapons = async () => {
+		   try {
+			   setLoadingWeapons(true);
+			   const list = await WeaponsService.getAll();
+			   const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
+			   setWeapons(items);
+		   } catch (e) {
+			   console.error('Error loading weapons list', e);
+			   // Fallback weapons if API fails
+			   setWeapons([
+				   { id: 1, name: 'Revolver' },
+				   { id: 2, name: 'Pistol' },
+				   { id: 3, name: 'Rifle' },
+				   { id: 4, name: 'Shotgun' },
+				   { id: 5, name: 'Airgun' },
+			   ]);
+		   } finally {
+			   setLoadingWeapons(false);
+		   }
+	   };
+	   loadWeapons();
+   }, []);
 
    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 	   const { name, value, type } = e.target;
@@ -23,6 +52,16 @@ const LicenseDetails = () => {
 	   } else {
 		   setForm((prev) => ({ ...prev, [name]: value }));
 	   }
+   };
+
+   const handleWeaponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+	   const weaponId = Number(e.target.value);
+	   const selectedWeapon = weapons.find(w => w.id === weaponId);
+	   setForm((prev) => ({ 
+		   ...prev, 
+		   weaponId: weaponId,
+		   armsType: selectedWeapon?.name || ''
+	   }));
    };
 
 	return (
@@ -62,18 +101,16 @@ const LicenseDetails = () => {
 					</div>
 					<div className="mb-2">(b) Select weapon type</div>
 					<select
-						name="armsType"
-						value={form.armsType}
-						onChange={handleChange}
+						name="weaponId"
+						value={form.weaponId}
+						onChange={handleWeaponChange}
 						className="border border-gray-300 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+						disabled={loadingWeapons}
 					>
-						<option value="">Select weapon type</option>
-						<option value="revolver">Revolver</option>
-						<option value="pistol">Pistol</option>
-						<option value="rifle">Rifle</option>
-						<option value="shotgun">Shotgun</option>
-						<option value="airgun">Airgun</option>
-						<option value="other">Other</option>
+						<option value={0}>{loadingWeapons ? 'Loading weapons...' : 'Select weapon type'}</option>
+						{weapons.map(weapon => (
+							<option key={weapon.id} value={weapon.id}>{weapon.name}</option>
+						))}
 					</select>
 				</div>
 			</div>

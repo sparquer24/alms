@@ -3,6 +3,9 @@
 import { ReactNode } from "react";
 import { Key } from "readline";
 
+// Location Types
+export * from './location';
+
 // User and Authentication Types
 export interface User {
   id: string;

@@ -4,8 +4,6 @@ import { Input, TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
-import { useFormContext } from '../../../app/forms/createFreshApplication/[step]/page';
-import { useRouter } from 'next/navigation';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] }; // Use weapon IDs instead of strings
 
@@ -24,17 +22,6 @@ const LicenseHistory = () => {
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
-
-	const router = useRouter();
-	const {
-		applicantId,
-		isSubmitting,
-		submitError,
-		submitSuccess,
-		updateApplicationDetails,
-		navigateToStep,
-		clearMessages
-	} = useFormContext();
 
 	// Fetch weapons on component mount
 	useEffect(() => {
@@ -62,172 +49,32 @@ const LicenseHistory = () => {
 
 	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
-		setAppliedDetails(prev => ({ ...prev, [name]: value }));
+		setAppliedDetails((prev) => ({ ...prev, [name]: value }));
 	};
-
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		setFileError('');
-		if (file && file.size > 5 * 1024 * 1024) {
-			setFileError('File size should not exceed 5MB');
-			return;
-		}
-		setRejectedFile(file || null);
-	};
-
 	const handleSuspendedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		const { name, value } = e.target;
-		setSuspendedDetails(prev => ({ ...prev, [name]: value }));
+		setSuspendedDetails((prev) => ({ ...prev, [name]: value }));
 	};
-
 	const handleFamilyDetails = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
-		setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: value } : fam));
+		setFamilyDetails((prev) => prev.map((f, i) => i === idx ? { ...f, [name]: value } : f));
 	};
-
-	const handleWeaponChange = (famIdx: number, weapIdx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
-		const weaponId = parseInt(e.target.value);
-		setFamilyDetails(prev => prev.map((fam, i) => 
-			i === famIdx ? { ...fam, weapons: fam.weapons.map((w, wi) => wi === weapIdx ? weaponId : w) } : fam
-		));
+	const handleWeaponChange = (idx: number, widx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
+		const weaponId = Number(e.target.value);
+		setFamilyDetails((prev) => prev.map((f, i) => i === idx ? { ...f, weapons: f.weapons.map((w, wi) => wi === widx ? weaponId : w) } : f));
 	};
-
-	const addWeapon = (famIdx: number) => {
-		setFamilyDetails(prev => prev.map((fam, i) => 
-			i === famIdx ? { ...fam, weapons: [...fam.weapons, 0] } : fam
-		));
-	};
-
-	const removeWeapon = (famIdx: number, weapIdx: number) => {
-		setFamilyDetails(prev => prev.map((fam, i) => 
-			i === famIdx ? { ...fam, weapons: fam.weapons.filter((_, wi) => wi !== weapIdx) } : fam
-		));
-	};
-
-	const addFamily = () => setFamilyDetails(prev => [...prev, { ...initialFamily }]);
-	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
-
-	const transformFormData = () => {
-		const licenseHistories = [];
-
-		// Add application history
-		if (appliedBefore === 'yes' && (appliedDetails.date || appliedDetails.authority)) {
-			licenseHistories.push({
-				type: 'APPLICATION',
-				dateAppliedFor: appliedDetails.date ? new Date(appliedDetails.date).toISOString() : undefined,
-				authority: appliedDetails.authority || undefined,
-				result: appliedDetails.result || undefined,
-				status: appliedDetails.status || undefined,
-			});
-		}
-
-		// Add suspension history
-		if (suspended === 'yes' && (suspendedDetails.authority || suspendedDetails.reason)) {
-			licenseHistories.push({
-				type: 'SUSPENSION',
-				authority: suspendedDetails.authority || undefined,
-				reason: suspendedDetails.reason || undefined,
-			});
-		}
-
-		// Add family license records
-		if (family === 'yes') {
-			familyDetails.forEach(fam => {
-				if (fam.name || fam.licenseNumber) {
-					licenseHistories.push({
-						type: 'FAMILY_LICENSE',
-						familyMemberName: fam.name || undefined,
-						licenseNumber: fam.licenseNumber || undefined,
-						weaponIds: fam.weapons.filter(w => w > 0), // Only include selected weapons
-					});
-				}
-			});
-		}
-
-		// Add safe place record
-		if (safePlace === 'yes' && safePlaceDetails) {
-			licenseHistories.push({
-				type: 'SAFE_PLACE',
-				details: safePlaceDetails,
-			});
-		}
-
-		// Add training record
-		if (training === 'yes' && trainingDetails) {
-			licenseHistories.push({
-				type: 'TRAINING',
-				details: trainingDetails,
-			});
-		}
-
-		// If no license history, return empty array or a single "NONE" record
-		if (licenseHistories.length === 0) {
-			licenseHistories.push({
-				type: 'NONE',
-			});
-		}
-
-		return licenseHistories;
-	};
-
-	const handleSaveToDraft = async () => {
-		clearMessages();
-
-		if (!applicantId) {
-			alert('Please complete the personal information step first.');
-			await navigateToStep('personal-information');
-			return;
-		}
-
-		const transformedData = transformFormData();
-		await updateApplicationDetails(transformedData, 'license-history');
-	};
-
-	const handleNext = async () => {
-		if (!applicantId) {
-			alert('Please complete the personal information step first.');
-			await navigateToStep('personal-information');
-			return;
-		}
-
-		const transformedData = transformFormData();
-		const success = await updateApplicationDetails(transformedData, 'license-history');
-		
-		if (success) {
-			await navigateToStep('license-details');
-		}
-	};
-
-	const handlePrevious = async () => {
-		await navigateToStep('criminal-history');
-	};
+	const addFamily = () => setFamilyDetails((prev) => [...prev, { ...initialFamily }]);
+	const removeFamily = (idx: number) => setFamilyDetails((prev) => prev.filter((_, i) => i !== idx));
+	const addWeapon = (idx: number) => setFamilyDetails((prev) => prev.map((f, i) => i === idx ? { ...f, weapons: [...f.weapons, 0] } : f));
+	const removeWeapon = (idx: number, widx: number) => setFamilyDetails((prev) => prev.map((f, i) => i === idx ? { ...f, weapons: f.weapons.filter((_, wi) => wi !== widx) } : f));
 
 	return (
 		<form className="p-6">
-			<h2 className="text-xl font-bold mb-4">License History</h2>
-			
-			{/* Display Applicant ID if available */}
-			{applicantId && (
-				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-					<strong>Application ID: {applicantId}</strong>
-				</div>
-			)}
-			
-			{/* Display success/error messages */}
-			{submitSuccess && (
-				<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-					{submitSuccess}
-				</div>
-			)}
-			{submitError && (
-				<div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-					{submitError}
-				</div>
-			)}
+            			<h2 className="text-xl font-bold mb-4">Lincense History</h2>
 
 			<div className="mb-6">
-				<div className="font-semibold mb-2">14. Whether the applicant has applied for -</div>
-				<div className="mb-2">(a) Arms License before?</div>
+				<div className="font-medium mb-2">14. Whether -</div>
+				<div className="mb-2">(a) The applicant applied for a licence before – if so, when, to whom and with what result</div>
 				<div className="flex gap-6 mb-2">
 					<label className="flex items-center gap-2">
 						<input type="radio" name="appliedBefore" value="yes" checked={appliedBefore === 'yes'} onChange={() => setAppliedBefore('yes')} /> Yes
@@ -237,32 +84,49 @@ const LicenseHistory = () => {
 					</label>
 				</div>
 				{appliedBefore === 'yes' && (
-					<div className="grid grid-cols-2 gap-6 mb-2">
-						<Input label="Date of Application" name="date" type="date" value={appliedDetails.date} onChange={handleAppliedDetails} placeholder="DD/MM/YYYY" />
-						<Input label="To which authority" name="authority" value={appliedDetails.authority} onChange={handleAppliedDetails} placeholder="Enter authority" />
-						<Input label="Result" name="result" value={appliedDetails.result} onChange={handleAppliedDetails} placeholder="Enter result" />
-						<div className="flex flex-col">
-							<label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-							<select name="status" value={appliedDetails.status} onChange={(e) => setAppliedDetails(prev => ({ ...prev, status: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-								<option value="">Select Status</option>
-								<option value="rejected">Rejected</option>
-								<option value="approved">Approved</option>
-								<option value="pending">Pending</option>
-							</select>
-						</div>
-						{appliedDetails.status === 'rejected' && (
-							<div className="col-span-2">
-								<label className="block text-sm font-medium text-gray-700 mb-1">Upload Rejection Document (Optional)</label>
-								<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} className="w-full p-2 border border-gray-300 rounded-md" />
-								{fileError && <div className="text-red-600 text-sm mt-1">{fileError}</div>}
-								{rejectedFile && <div className="text-green-600 text-sm mt-1">File selected: {rejectedFile.name}</div>}
-							</div>
-						)}
+					<div className="grid grid-cols-3 gap-6 mb-2">
+						<Input label="Date of Applied for" name="date" type="date" value={appliedDetails.date} onChange={handleAppliedDetails} placeholder="DD/MM/YYYY" />
+						<Input label="Name of the License Authority" name="authority" value={appliedDetails.authority} onChange={handleAppliedDetails} placeholder="Enter authority" />
+						<Input label="Result (Pl. specify)" name="result" value={appliedDetails.result} onChange={handleAppliedDetails} placeholder="Enter result" />
 					</div>
 				)}
+				<div className="mb-2">Status</div>
+				<div className="flex gap-6 mb-2">
+					<label className="flex items-center gap-2">
+						<input type="radio" name="status" value="approved" checked={appliedDetails.status === 'approved'} onChange={handleAppliedDetails} /> Approved
+					</label>
+					<label className="flex items-center gap-2">
+						<input type="radio" name="status" value="pending" checked={appliedDetails.status === 'pending'} onChange={handleAppliedDetails} /> Pending
+					</label>
+					<label className="flex items-center gap-2">
+						<input type="radio" name="status" value="rejected" checked={appliedDetails.status === 'rejected'} onChange={handleAppliedDetails} /> Rejected
+					</label>
+				</div>
+				   <div className="mb-2">Upload previously Rejected License Copy</div>
+				   <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 flex flex-col items-center mb-2">
+					   <span className="text-blue-500 text-2xl mb-2">📤</span>
+					   <span>Drag your file(s) or <span className="text-blue-700 underline cursor-pointer">browse</span></span>
+					   <span className="text-xs text-gray-500">Max 1 MB file allowed</span>
+					   <input
+						   type="file"
+						   className="hidden"
+						   onChange={e => {
+							   const file = e.target.files?.[0] || null;
+							   if (file && file.size > 1024 * 1024) {
+								   setFileError('File size must be less than 1MB');
+								   setRejectedFile(null);
+							   } else {
+								   setFileError('');
+								   setRejectedFile(file);
+							   }
+						   }}
+					   />
+					   {fileError && <span className="text-xs text-red-500 mt-1">{fileError}</span>}
+				   </div>
+				   <button type="button" className="border border-purple-500 text-purple-700 px-4 py-1 rounded flex items-center gap-1 ml-auto">+ Upload</button>
 			</div>
 			<div className="mb-6">
-				<div className="mb-2">(b) License been revoked or suspended</div>
+				<div className="mb-2">(b) The applicant license ever suspended or cancelled/revoked-</div>
 				<div className="flex gap-6 mb-2">
 					<label className="flex items-center gap-2">
 						<input type="radio" name="suspended" value="yes" checked={suspended === 'yes'} onChange={() => setSuspended('yes')} /> Yes
@@ -272,14 +136,14 @@ const LicenseHistory = () => {
 					</label>
 				</div>
 				{suspended === 'yes' && (
-					<div className="grid grid-cols-2 gap-6 mb-2">
-						<Input label="By which authority" name="authority" value={suspendedDetails.authority} onChange={handleSuspendedDetails} placeholder="Enter authority" />
-						<Input label="Reason" name="reason" value={suspendedDetails.reason} onChange={handleSuspendedDetails} placeholder="Enter reason" />
-					</div>
+					<>
+						<Input label="Name of the Licensing Authority" name="authority" value={suspendedDetails.authority} onChange={handleSuspendedDetails} placeholder="Enter authority" />
+						<TextArea label="Reason" name="reason" value={suspendedDetails.reason} onChange={handleSuspendedDetails} placeholder="Enter reason" />
+					</>
 				)}
 			</div>
 			<div className="mb-6">
-				<div className="mb-2">(c) Any member of the family holds a license</div>
+				<div className="mb-2">(c) Any other member of the applicant’s family is in possession of any arms license, if so, particulars thereof</div>
 				<div className="flex gap-6 mb-2">
 					<label className="flex items-center gap-2">
 						<input type="radio" name="family" value="yes" checked={family === 'yes'} onChange={() => setFamily('yes')} /> Yes
@@ -348,13 +212,7 @@ const LicenseHistory = () => {
 					<TextArea label="If Yes details thereof" name="trainingDetails" value={trainingDetails} onChange={e => setTrainingDetails(e.target.value)} placeholder="Enter details" />
 				)}
 			</div>
-			
-			<FormFooter
-				onSaveToDraft={handleSaveToDraft}
-				onNext={handleNext}
-				onPrevious={handlePrevious}
-				isLoading={isSubmitting}
-			/>
+			<FormFooter />
 		</form>
 	);
 };

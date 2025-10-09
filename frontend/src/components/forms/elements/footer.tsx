@@ -6,9 +6,21 @@ import { FiArrowRight, FiArrowLeft } from "react-icons/fi";
 
 interface FormFooterProps {
   isDeclarationStep?: boolean;
+  onSaveToDraft?: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onSubmit?: () => void;
+  isLoading?: boolean;
 }
 
-const FormFooter: React.FC<FormFooterProps> = ({ isDeclarationStep }) => (
+const FormFooter: React.FC<FormFooterProps> = ({ 
+  isDeclarationStep, 
+  onSaveToDraft, 
+  onNext, 
+  onPrevious, 
+  onSubmit,
+  isLoading = false 
+}) => (
   <footer className="w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]">
     <div className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-[#1A237E]">
       <span>SCHEDULE–III Part – II</span>
@@ -26,26 +38,46 @@ const FormFooter: React.FC<FormFooterProps> = ({ isDeclarationStep }) => (
       </div>
       {isDeclarationStep ? (
         <div className="flex w-full justify-between mt-4">
-          <button className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition">
+          <button 
+            onClick={onPrevious}
+            disabled={isLoading}
+            className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <FiArrowLeft className="text-lg" />
             Previous
           </button>
-          <button className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition">
-            Submit
+          <button 
+            onClick={onSubmit}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Submitting...' : 'Submit'}
           </button>
         </div>
       ) : (
         <div className="flex gap-3 justify-end mt-4">
-          <button className="flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition">
+          <button 
+            onClick={onSaveToDraft}
+            disabled={isLoading}
+            className="flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <FaRegSave className="text-lg" />
-            Save to Draft
+            {isLoading ? 'Saving...' : 'Save to Draft'}
           </button>
-          <button className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition">
+          <button 
+            onClick={onPrevious}
+            disabled={isLoading}
+            className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <FiArrowLeft className="text-lg" />
             Previous
           </button>
-          <button className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition">
-            Next
+          <button 
+            onClick={onNext}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Saving...' : 'Next'}
             <FiArrowRight className="text-lg" />
           </button>
         </div>
