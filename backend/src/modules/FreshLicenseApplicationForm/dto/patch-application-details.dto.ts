@@ -6,6 +6,7 @@ import { PatchOccupationBusinessDto } from './patch-occupation-business.dto';
 import { PatchCriminalHistoryDto } from './patch-criminal-history.dto';
 import { PatchLicenseHistoryDto } from './patch-license-history.dto';
 import { PatchLicenseDetailsDto } from './patch-license-details.dto';
+import { PatchPersonalDetailsDto } from './patch-personal-details.dto';
 
 export class PatchApplicationDetailsDto {
   @ApiPropertyOptional({
@@ -25,6 +26,15 @@ export class PatchApplicationDetailsDto {
   @ValidateNested()
   @Type(() => PatchAddressDetailsDto)
   presentAddress?: PatchAddressDetailsDto;
+
+  @ApiPropertyOptional({
+    type: PatchPersonalDetailsDto,
+    description: 'Personal details (first name, last name, aadhar, etc.) to update'
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PatchPersonalDetailsDto)
+  personalDetails?: PatchPersonalDetailsDto;
 
   @ApiPropertyOptional({ 
     type: PatchAddressDetailsDto,

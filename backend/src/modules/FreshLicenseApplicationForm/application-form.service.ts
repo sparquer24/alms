@@ -525,6 +525,93 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           updatedSections.push('occupationAndBusiness');
         }
 
+        // 3.a Handle Personal Details (first name, last name, aadhar, pan, dob, sex, etc.)
+        if (data.personalDetails) {
+          const pd = data.personalDetails;
+          const updateData: any = {};
+
+          if (pd.firstName !== undefined) updateData.firstName = pd.firstName;
+          if (pd.middleName !== undefined) updateData.middleName = pd.middleName;
+          if (pd.lastName !== undefined) updateData.lastName = pd.lastName;
+          if (pd.parentOrSpouseName !== undefined) updateData.parentOrSpouseName = pd.parentOrSpouseName;
+          if (pd.filledBy !== undefined) updateData.filledBy = pd.filledBy;
+          if (pd.placeOfBirth !== undefined) updateData.placeOfBirth = pd.placeOfBirth;
+          if (pd.dobInWords !== undefined) updateData.dobInWords = pd.dobInWords;
+
+          if (pd.sex !== undefined) {
+            // Validate sex enum
+            if (!Object.values(Sex).includes(pd.sex as Sex)) {
+              throw new Error('Invalid sex value');
+            }
+            updateData.sex = pd.sex;
+          }
+
+          if (pd.dateOfBirth !== undefined) {
+            const dob = pd.dateOfBirth ? new Date(pd.dateOfBirth) : null;
+            if (dob && isNaN(dob.getTime())) {
+              throw new Error('Invalid dateOfBirth');
+            }
+            updateData.dateOfBirth = dob ?? undefined;
+          }
+
+          // Aadhaar validation and uniqueness
+          if (pd.aadharNumber !== undefined) {
+            const raw = pd.aadharNumber ? String(pd.aadharNumber).trim() : '';
+            if (raw && !/^[0-9]{12}$/.test(raw)) {
+              throw new BadRequestException('Aadhar number must be a 12-digit numeric string');
+            }
+
+            if (raw) {
+              const existingAadhar = await tx.freshLicenseApplicationPersonalDetails.findFirst({
+                where: {
+                  aadharNumber: raw,
+                  NOT: { id: applicationId }
+                },
+                select: { id: true }
+              });
+              if (existingAadhar) {
+                throw new ConflictException(`An application with Aadhaar ${raw} already exists.`);
+              }
+              updateData.aadharNumber = raw;
+            } else {
+              // Allow clearing the aadhar by setting null if empty string provided
+              updateData.aadharNumber = undefined;
+            }
+          }
+
+          // PAN validation and uniqueness (basic trimming)
+          if (pd.panNumber !== undefined) {
+            const pan = pd.panNumber ? String(pd.panNumber).trim() : '';
+            if (pan) {
+              const existingPan = await tx.freshLicenseApplicationPersonalDetails.findFirst({
+                where: {
+                  panNumber: pan,
+                  NOT: { id: applicationId }
+                },
+                select: { id: true }
+              });
+              if (existingPan) {
+                throw new ConflictException(`An application with PAN ${pan} already exists.`);
+              }
+              updateData.panNumber = pan;
+            } else {
+              updateData.panNumber = undefined;
+            }
+          }
+
+          // If there is something to update, perform the update
+          if (Object.keys(updateData).length > 0) {
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: {
+                ...updateData,
+                updatedAt: new Date()
+              }
+            });
+            updatedSections.push('personalDetails');
+          }
+        }
+
         // 4. Handle Criminal Histories (Replace all existing)
         if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
           // Delete existing criminal histories
