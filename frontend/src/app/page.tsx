@@ -37,8 +37,8 @@ export default function Home() {
           return;
         }
       } else {
-        // Fallback: if role isn't available yet, send to inbox by default after login
-        router.push('/inbox/forwarded');
+        // Role not available yet (still hydrating). Don't perform a fallback navigation
+        // which can create redirect loops; wait until `userRole` is populated.
         return;
       }
     }

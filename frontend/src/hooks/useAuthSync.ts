@@ -58,7 +58,22 @@ function extractRoleFromJwt(token?: string | null): string | undefined {
       payload.user?.role?.code ||
       payload.user?.role ||
       payload.user?.roleCode;
-    if (candidate && typeof candidate === 'string') return candidate.toUpperCase();
+    // If backend returned a numeric role id, map it to known role codes
+    const numericRoleMap: Record<string, string> = {
+      '14': 'ADMIN',
+      '7': 'ZS',
+      '2': 'ZS',
+    };
+    if (candidate !== undefined && candidate !== null) {
+      const asString = String(candidate);
+      if (/^[0-9]+$/.test(asString)) {
+        const mapped = numericRoleMap[asString];
+        if (mapped) return mapped;
+      }
+      if (typeof candidate === 'string') return candidate.toUpperCase();
+      // fallback to stringified value uppercased
+      return asString.toUpperCase();
+    }
   } catch {
     // ignore decoding issues silently
   }
@@ -128,15 +143,15 @@ export const useAuthSync = () => {
           setUserHydrationFailed(false);
         } else {
           // Try to salvage role from JWT and create minimal user
-            const decodedRole = extractRoleFromJwt(cookieAuth.token);
-            if (decodedRole) {
-              const minimalUser = { id: 'jwt-user', role: decodedRole, name: 'Admin', permissions: [], availableActions: [] };
-              dispatch(setCredentials({ user: minimalUser as any, token: cookieAuth.token }));
-              setCookieAuth((prev: any) => ({ ...(prev || {}), user: minimalUser }));
-              setUserHydrationFailed(false);
-            } else {
-              setUserHydrationFailed(true);
-            }
+          const decodedRole = extractRoleFromJwt(cookieAuth.token);
+          if (decodedRole) {
+            const minimalUser = { id: 'jwt-user', role: decodedRole, name: 'Admin', permissions: [], availableActions: [] };
+            dispatch(setCredentials({ user: minimalUser as any, token: cookieAuth.token }));
+            setCookieAuth((prev: any) => ({ ...(prev || {}), user: minimalUser }));
+            setUserHydrationFailed(false);
+          } else {
+            setUserHydrationFailed(true);
+          }
         }
       } catch (e) {
         // On failure, still attempt JWT role decode

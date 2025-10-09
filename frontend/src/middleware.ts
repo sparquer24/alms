@@ -1,48 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-// Import role-based redirection logic
-function getRoleBasedRedirectPath(userRole: string): string {
-  console.log('getRoleBasedRedirectPath called with userRole:', userRole);
-
-  // Define valid roles
-  const validRoles = ['ADMIN', 'DCP', 'ACP', 'CP', 'ARMS_SUPDT', 'SHO', 'ZS', 'APPLICANT', 'ADO', 'CADO'];
-
-  if (!userRole || !validRoles.includes(userRole)) {
-    console.warn('Invalid or undefined role detected:', userRole);
-    return '/login?error=invalid_role';
-  }
-
-  switch (userRole) {
-    case 'ADMIN':
-      return '/admin/userManagement';
-    case 'DCP':
-    case 'ACP':
-    case 'CP':
-    case 'ARMS_SUPDT':
-      return '/home?type=final';
-    
-    case 'ADO':
-    case 'CADO':
-    case 'SHO':
-      return '/home?type=forwarded';
-    
-    case 'ZS':
-      return '/home?type=freshform';
-
-    case 'APPLICANT':
-      return '/home?type=sent';
-    default:
-  return '/admin/userManagement';
-  }
-}
+import { getRoleBasedRedirectPath } from './config/roleRedirections';
 
 // Define protected routes that require authentication
 const protectedRoutes = [
   '/freshform',
   '/application',
   '/sent',
-  '/home',
+  '/inbox',
   '/reports',
   '/settings',
   '/final',
@@ -61,7 +26,7 @@ const adminRoutes = [
   '/admin/locations',
   '/admin/forwarding',
   '/admin/reports',
-  'admin/userManagement',
+  '/admin/userManagement',
 ];
 
 // Define role-based access for specific routes
@@ -120,9 +85,9 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
     let isAuthenticated = false;
     let userRole: any = authData?.role || authData?.user?.role;
 
-    // If role is an object (e.g. { code: 'ADMIN' }), flatten it
+    // If role is an object (e.g. { code: 'ADMIN' }), flatten it and support different property names
     if (userRole && typeof userRole === 'object') {
-      userRole = userRole.code || userRole.name || userRole.key || null;
+      userRole = userRole.code || userRole.key || userRole.name || null;
     }
 
     if (token) {
@@ -146,6 +111,18 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 
     if (typeof userRole === 'string') {
       userRole = userRole.toUpperCase();
+    }
+
+    // Map known numeric role ids to role codes for robust handling
+    const numericRoleMap: Record<string, string> = {
+      '14': 'ADMIN',
+      '7': 'ZS',
+      '2': 'ZS', // backend sometimes uses 2 for ZS role_id in JWT payloads
+      // add other mappings as needed
+    };
+    if (userRole && /^[0-9]+$/.test(String(userRole))) {
+      const mapped = numericRoleMap[String(userRole)];
+      if (mapped) userRole = mapped;
     }
 
     console.log('Extracted authentication status:', isAuthenticated, 'userRole:', userRole);

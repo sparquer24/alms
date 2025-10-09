@@ -36,10 +36,11 @@ function isSectionFilled(section: Record<string, any>) {
 
 function renderSection(
   title: string,
-  data: Record<string, any>,
+  data: Record<string, any> | null | undefined,
   twoCol = true
 ) {
-  if (!data || Object.keys(data).length === 0) return null;
+  const safeData = data || {};
+  if (Object.keys(safeData).length === 0) return null;
   return (
     <section className="mb-8 bg-gray-50 rounded-xl p-8 shadow-sm">
       <h3 className="font-semibold text-xl mb-6">{title}</h3>
@@ -48,7 +49,7 @@ function renderSection(
           twoCol ? "grid-cols-1 md:grid-cols-2" : ""
         } gap-x-12 gap-y-3`}
       >
-        {Object.entries(data).map(([key, value]) => (
+  {Object.entries(safeData).map(([key, value]) => (
           <div key={key} className="flex gap-2 mb-1">
             <span className="font-medium text-gray-600">
               {key
