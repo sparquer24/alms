@@ -50,12 +50,12 @@ export class ActionesController {
     description: "Action created successfully",
   })
   async createAction(@Body() mappingData: RolesActionsMapping) {
-   // try{
+    try{
       return this.actionesService.createAction(mappingData);
-    // }
-    // catch(error){
-    //   throw error;
-    // } 
+    }
+    catch(error){
+      throw error;
+    } 
   }
 
   @Patch("RolesActionsMapping/:id")
@@ -83,9 +83,11 @@ export class ActionesController {
     description: "Action updated successfully",
   })
   async updateAction(@Param('id') id : number, @Body() mappingData: RolesActionsMapping ) {
-  
+   try {
       return this.actionesService.updateAction(Number(id) ,mappingData);
-   
+    } catch (error) {
+      throw error;
+    }
  }
   @Delete("RolesActionsMapping/:id")
   @ApiOperation({
@@ -110,11 +112,11 @@ export class ActionesController {
     description: "Action mapping deleted successfully (soft delete)",
   })
   async deleteActionMapping(@Param('id') id: number) {
-    //try {
+    try {
       return this.actionesService.deleteActionMapping(Number(id));
-    // } catch (error) {
-    //   throw error;
-    // }
+    } catch (error) {
+      throw error;
+    }
   }
 
 }
