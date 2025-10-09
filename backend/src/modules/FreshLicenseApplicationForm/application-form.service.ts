@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Sex, FileType, LicensePurpose, ApplicationLifecycleStatus } from '@prisma/client';
+import { Sex, FileType, LicensePurpose } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
 
 // Define the missing input type (adjust fields as per your requirements)
@@ -374,14 +374,16 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
       // Generate acknowledgementNo once
       const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
 
-        // Determine lifecycle status: use provided value if valid, otherwise default to DRAFT
-        let lifecycleStatus: ApplicationLifecycleStatus = ApplicationLifecycleStatus.DRAFT;
-        if ((data as any).applicationLifecycleStatus) {
-          const provided = (data as any).applicationLifecycleStatus as string;
-          if (Object.values(ApplicationLifecycleStatus).includes(provided as any)) {
-            lifecycleStatus = provided as ApplicationLifecycleStatus;
-          }
+        // Find DRAFT status ID by code (more reliable than assuming ID)
+        const draftStatus = await prisma.statuses.findFirst({
+          where: { code: 'DRAFT', isActive: true }
+        });
+
+        if (!draftStatus) {
+          throw new Error('DRAFT status not found in Statuses table. Please ensure DRAFT status exists.');
         }
+
+        const draftStatusId = draftStatus.id;
 
         const personal = await tx.freshLicenseApplicationPersonalDetails.create({
           data: ({
@@ -397,7 +399,7 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             dobInWords,
             aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
             panNumber: panNumberForPersonal ?? undefined as any,
-            applicationLifecycleStatus: lifecycleStatus,
+            workflowStatusId: draftStatusId,
           } as any),
         });
 
@@ -523,6 +525,93 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           updatedSections.push('occupationAndBusiness');
         }
 
+        // 3.a Handle Personal Details (first name, last name, aadhar, pan, dob, sex, etc.)
+        if (data.personalDetails) {
+          const pd = data.personalDetails;
+          const updateData: any = {};
+
+          if (pd.firstName !== undefined) updateData.firstName = pd.firstName;
+          if (pd.middleName !== undefined) updateData.middleName = pd.middleName;
+          if (pd.lastName !== undefined) updateData.lastName = pd.lastName;
+          if (pd.parentOrSpouseName !== undefined) updateData.parentOrSpouseName = pd.parentOrSpouseName;
+          if (pd.filledBy !== undefined) updateData.filledBy = pd.filledBy;
+          if (pd.placeOfBirth !== undefined) updateData.placeOfBirth = pd.placeOfBirth;
+          if (pd.dobInWords !== undefined) updateData.dobInWords = pd.dobInWords;
+
+          if (pd.sex !== undefined) {
+            // Validate sex enum
+            if (!Object.values(Sex).includes(pd.sex as Sex)) {
+              throw new Error('Invalid sex value');
+            }
+            updateData.sex = pd.sex;
+          }
+
+          if (pd.dateOfBirth !== undefined) {
+            const dob = pd.dateOfBirth ? new Date(pd.dateOfBirth) : null;
+            if (dob && isNaN(dob.getTime())) {
+              throw new Error('Invalid dateOfBirth');
+            }
+            updateData.dateOfBirth = dob ?? undefined;
+          }
+
+          // Aadhaar validation and uniqueness
+          if (pd.aadharNumber !== undefined) {
+            const raw = pd.aadharNumber ? String(pd.aadharNumber).trim() : '';
+            if (raw && !/^[0-9]{12}$/.test(raw)) {
+              throw new BadRequestException('Aadhar number must be a 12-digit numeric string');
+            }
+
+            if (raw) {
+              const existingAadhar = await tx.freshLicenseApplicationPersonalDetails.findFirst({
+                where: {
+                  aadharNumber: raw,
+                  NOT: { id: applicationId }
+                },
+                select: { id: true }
+              });
+              if (existingAadhar) {
+                throw new ConflictException(`An application with Aadhaar ${raw} already exists.`);
+              }
+              updateData.aadharNumber = raw;
+            } else {
+              // Allow clearing the aadhar by setting null if empty string provided
+              updateData.aadharNumber = undefined;
+            }
+          }
+
+          // PAN validation and uniqueness (basic trimming)
+          if (pd.panNumber !== undefined) {
+            const pan = pd.panNumber ? String(pd.panNumber).trim() : '';
+            if (pan) {
+              const existingPan = await tx.freshLicenseApplicationPersonalDetails.findFirst({
+                where: {
+                  panNumber: pan,
+                  NOT: { id: applicationId }
+                },
+                select: { id: true }
+              });
+              if (existingPan) {
+                throw new ConflictException(`An application with PAN ${pan} already exists.`);
+              }
+              updateData.panNumber = pan;
+            } else {
+              updateData.panNumber = undefined;
+            }
+          }
+
+          // If there is something to update, perform the update
+          if (Object.keys(updateData).length > 0) {
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: {
+                ...updateData,
+                updatedAt: new Date()
+              }
+            });
+            updatedSections.push('personalDetails');
+          }
+        }
+
         // 4. Handle Criminal Histories (Replace all existing)
         if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
           // Delete existing criminal histories
@@ -604,12 +693,41 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           }
           updatedSections.push('licenseDetails');
         }
+
+        // Handle workflow status updates
+        if (data.workflowStatusId !== undefined) {
+          // Validate workflow status exists
+          const workflowStatus = await tx.statuses.findUnique({
+            where: { id: data.workflowStatusId }
+          });
+          if (!workflowStatus) {
+            throw new Error(`Invalid workflow status ID: ${data.workflowStatusId}`);
+          }
+          
+          // Update the application with new workflow status
+          await tx.freshLicenseApplicationPersonalDetails.update({
+            where: { id: applicationId },
+            data: {
+              workflowStatusId: data.workflowStatusId,
+              updatedAt: new Date()
+            }
+          });
+          updatedSections.push('workflowStatus');
+        }
       });
 
       // Fetch updated application with all relations
       const updatedApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
         where: { id: applicationId },
         include: {
+          workflowStatus: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              description: true
+            }
+          },
           presentAddress: {
             include: {
               state: true,
@@ -657,7 +775,7 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
     }
   }
 
- /* async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
+ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
       let whereCondition: any = {};
       if (id) {
@@ -667,244 +785,296 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
         whereCondition = { ...whereCondition, acknowledgementNo };
       }
 
-      let application: any = await prisma.freshLicenseApplicationsForms.findUnique({
+      let application: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
         where: whereCondition,
         include: {
+          // Status and user tracking
+          workflowStatus: {
+            select: {
+              name: true,
+            }
+          },
+          currentUser: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true
+                }
+              }
+            }
+          },
+          previousUser: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true
+                }
+              }
+            }
+          },
+          // Address details
           presentAddress: {
             include: {
               state: true,
               district: true,
+              zone: true,
+              division: true,
+              policeStation: true,
             }
           },
           permanentAddress: {
             include: {
               state: true,
               district: true,
+              zone: true,
+              division: true,
+              policeStation: true,
             }
           },
-          contactInfo: true,
-          occupationInfo: {
+          // Other details
+          occupationAndBusiness: {
             include: {
               state: true,
               district: true,
             }
           },
           biometricData: true,
-          criminalHistory: true,
-          licenseHistory: true,
+          criminalHistories: true,
+          licenseHistories: true,
           licenseDetails: {
             include: {
               requestedWeapons: true,
             }
           },
           fileUploads: true,
-          state: true,
-          district: true,
-          status: true,
-          currentRole: true,
-          previousRole: true,
-          currentUser: true,
-          previousUser: true,
-          FreshLicenseApplicationsFormWorkflowHistories: {
-            orderBy: { createdAt: 'desc' },
-            include: {
-              previousRole: true,
-              previousUser: true,
-              nextRole: true,
-              nextUser: true
-            }
-          }
         },
       });
 
 
+      // Get workflow histories for this application
+      const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+        where: { applicationId: application?.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          previousRole: true,
+          previousUser: true,
+          nextRole: true,
+          nextUser: true,
+          actiones: true,
+        }
+      });
+
       // Add previousUserName and previousRoleName to each workflow history entry
-      if (application?.FreshLicenseApplicationsFormWorkflowHistories?.length) {
-        for (const history of application.FreshLicenseApplicationsFormWorkflowHistories) {
+      if (workflowHistories?.length) {
+        for (const history of workflowHistories) {
+          const transformedHistory = history as any;
           let previousUserName: string | null = null;
           let previousRoleName: string | null = null;
-          if (history.previousUser) {
-            previousUserName = history.previousUser.username;
+          if (transformedHistory.previousUser) {
+            previousUserName = transformedHistory.previousUser.username;
           }
-          if (history.previousRole) {
-            previousRoleName = history.previousRole.name;
+          if (transformedHistory.previousRole) {
+            previousRoleName = transformedHistory.previousRole.name;
           }
-          history.previousUserName = previousUserName;
-          history.previousRoleName = previousRoleName;
-          delete history.previousUser;
-          delete history.previousRole;
+          transformedHistory.previousUserName = previousUserName;
+          transformedHistory.previousRoleName = previousRoleName;
+          delete transformedHistory.previousUser;
+          delete transformedHistory.previousRole;
 
           let nextUserName: string | null = null;
           let nextRoleName: string | null = null;
-          if (history.nextUser) {
-            nextUserName = history.nextUser.username;
+          if (transformedHistory.nextUser) {
+            nextUserName = transformedHistory.nextUser.username;
           }
-          if (history.nextRole) {
-            nextRoleName = history.nextRole.name;
+          if (transformedHistory.nextRole) {
+            nextRoleName = transformedHistory.nextRole.name;
           }
-          history.nextUserName = nextUserName;
-          history.nextRoleName = nextRoleName;
-          delete history.nextUser;
-          delete history.nextRole;
-
+          transformedHistory.nextUserName = nextUserName;
+          transformedHistory.nextRoleName = nextRoleName;
+          delete transformedHistory.nextUser;
+          delete transformedHistory.nextRole;
         }
+        application.workflowHistories = workflowHistories;
       }
 
       let usersInHierarchy: any[] = [];
       // Defensive: check presentAddress and policeStation
-      if (application.presentAddress && application.presentAddress.policeStationId) {
-        // Fetch the full policeStation hierarchy
-        const policeStation = await prisma.policeStations.findUnique({
-          where: { id: application.presentAddress.policeStationId },
-          include: {
-            division: {
-              include: {
-                zone: {
-                  include: {
-                    district: {
-                      include: { state: true }
-                    }
+      if (application?.presentAddress && application.presentAddress.policeStationId) {
+        // Since we already have the hierarchy included in the presentAddress, we can use it directly
+        const policeStationId = application.presentAddress.policeStationId;
+        const divisionId = application.presentAddress.divisionId;
+        const zoneId = application.presentAddress.zoneId;
+        const districtId = application.presentAddress.districtId;
+        const stateId = application.presentAddress.stateId;
+
+        // Execute 5 separate queries for each hierarchical level
+        // Users are only returned for a level if they don't belong to a more specific level
+        const queries = [];
+
+        // 1. Police Station level users (most specific)
+        if (policeStationId) {
+          queries.push(
+            prisma.users.findMany({
+              where: {
+                policeStationId: policeStationId
+              },
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                roleId: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true
                   }
                 }
               }
-            }
-          }
-        });
-        if (policeStation) {
-          const division = policeStation.division;
-          const zone = division?.zone;
-          const district = zone?.district;
-          const state = district?.state;
-          const policeStationId = policeStation.id;
-          const divisionId = division?.id;
-          const zoneId = zone?.id;
-          const districtId = district?.id;
-          const stateId = state?.id;
-          // Execute 5 separate queries for each hierarchical level
-          // Users are only returned for a level if they don't belong to a more specific level
+            })
+          );
+        }
 
-          const queries = [];
-
-          // 1. Police Station level users (most specific)
-          if (policeStationId) {
-            queries.push(
-              prisma.users.findMany({
-                where: {
-                  policeStationId: policeStationId
-                },
-                select: {
-                  id: true,
-                  username: true,
-                  email: true,
-                  stateId: true,
-                  districtId: true,
-                  zoneId: true,
-                  divisionId: true,
-                  policeStationId: true,
-                  roleId: true
+        // 2. Division level users (only if policeStationId is null)
+        if (divisionId) {
+          queries.push(
+            prisma.users.findMany({
+              where: {
+                divisionId: divisionId,
+                policeStationId: null
+              },
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                roleId: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true
+                  }
                 }
-              })
-            );
-          }
+              }
+            })
+          );
+        }
 
-          // 2. Division level users (only if policeStationId is null)
-          if (divisionId) {
-            queries.push(
-              prisma.users.findMany({
-                where: {
-                  divisionId: divisionId,
-                  policeStationId: null
-                },
-                select: {
-                  id: true,
-                  username: true,
-                  email: true,
-                  stateId: true,
-                  districtId: true,
-                  zoneId: true,
-                  divisionId: true,
-                  policeStationId: true,
-                  roleId: true
+        // 3. Zone level users (only if divisionId is null)
+        if (zoneId) {
+          queries.push(
+            prisma.users.findMany({
+              where: {
+                zoneId: zoneId,
+                divisionId: null
+              },
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                roleId: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true
+                  }
                 }
-              })
-            );
-          }
+              }
+            })
+          );
+        }
 
-          // 3. Zone level users (only if divisionId is null)
-          if (zoneId) {
-            queries.push(
-              prisma.users.findMany({
-                where: {
-                  zoneId: zoneId,
-                  divisionId: null
-                },
-                select: {
-                  id: true,
-                  username: true,
-                  email: true,
-                  stateId: true,
-                  districtId: true,
-                  zoneId: true,
-                  divisionId: true,
-                  policeStationId: true,
-                  roleId: true
+        // 4. District level users (only if zoneId is null)
+        if (districtId) {
+          queries.push(
+            prisma.users.findMany({
+              where: {
+                districtId: districtId,
+                zoneId: null
+              },
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                roleId: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true
+                  }
                 }
-              })
-            );
-          }
+              }
+            })
+          );
+        }
 
-          // 4. District level users (only if zoneId is null)
-          if (districtId) {
-            queries.push(
-              prisma.users.findMany({
-                where: {
-                  districtId: districtId,
-                  zoneId: null
-                },
-                select: {
-                  id: true,
-                  username: true,
-                  email: true,
-                  stateId: true,
-                  districtId: true,
-                  zoneId: true,
-                  divisionId: true,
-                  policeStationId: true,
-                  roleId: true
+        // 5. State level users (only if districtId is null)
+        if (stateId) {
+          queries.push(
+            prisma.users.findMany({
+              where: {
+                stateId: stateId,
+                districtId: null
+              },
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                roleId: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true
+                  }
                 }
-              })
-            );
-          }
+              }
+            })
+          );
+        }
 
-          // 5. State level users (only if districtId is null)
-          if (stateId) {
-            queries.push(
-              prisma.users.findMany({
-                where: {
-                  stateId: stateId,
-                  districtId: null
-                },
-                select: {
-                  id: true,
-                  username: true,
-                  email: true,
-                  stateId: true,
-                  districtId: true,
-                  zoneId: true,
-                  divisionId: true,
-                  policeStationId: true,
-                  roleId: true
-                }
-              })
-            );
-          }
-
-          // Execute all queries in parallel and combine results
-          if (queries.length > 0) {
-            const results = await Promise.all(queries);
-            // Flatten the array of arrays into a single array
-            usersInHierarchy = results.flat();
-          }
+        // Execute all queries in parallel and combine results
+        if (queries.length > 0) {
+          const results = await Promise.all(queries);
+          // Flatten the array of arrays into a single array
+          usersInHierarchy = results.flat();
         }
       }
       application = { 
@@ -933,15 +1103,14 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
     try {
       const where: any = {};
 
-      // Status filter (accepts numeric IDs)
+      // Workflow status filter
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
-        where.statusId = { in: filter.statusIds };
+        where.workflowStatusId = { in: filter.statusIds };
       }
 
-      // If user asked for only owned applications, restrict to currentUserId
+      // User ownership filtering (now implemented with direct user tracking)
       if (filter.isOwned === true && filter.currentUserId) {
-        const uid = Number(filter.currentUserId);
-        if (!isNaN(uid)) where.currentUserId = uid;
+        where.currentUserId = filter.currentUserId;
       }
 
       // Search filter (supports id exact match or text contains on allowed fields)
@@ -977,23 +1146,54 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
         middleName: true,
         lastName: true,
         createdAt: true,
-        // Include status code/name
-        status: {
+        // Workflow status
+        workflowStatus: {
           select: {
             id: true,
             code: true,
             name: true,
+            description: true
           }
         },
-        // Top-level state/district (names) for quick display
-        state: { select: { id: true, name: true } },
-        district: { select: { id: true, name: true } },
+        // User and role tracking (role accessed through user.role)
+        currentUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true
+              }
+            }
+          }
+        },
+        previousUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true
+              }
+            }
+          }
+        },
         // Addresses: include only addressLine and related names
         presentAddress: {
           select: {
             id: true,
             addressLine: true,
             sinceResiding: true,
+            telephoneOffice: true,
+            telephoneResidence: true,
+            officeMobileNumber: true,
+            alternativeMobile: true,
             state: { select: { id: true, name: true } },
             district: { select: { id: true, name: true } },
             zone: { select: { id: true, name: true } },
@@ -1006,6 +1206,10 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             id: true,
             addressLine: true,
             sinceResiding: true,
+            telephoneOffice: true,
+            telephoneResidence: true,
+            officeMobileNumber: true,
+            alternativeMobile: true,
             state: { select: { id: true, name: true } },
             district: { select: { id: true, name: true } },
             zone: { select: { id: true, name: true } },
@@ -1013,33 +1217,20 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             policeStation: { select: { id: true, name: true } },
           }
         },
-        // Users / roles: include only id and username/code for display
-        currentUser: { select: { id: true, username: true } },
-        previousUser: { select: { id: true, username: true } },
-        currentRole: { select: { id: true, code: true, name: true } },
-        previousRole: { select: { id: true, code: true, name: true } },
-        // Include the most recent few workflow history items (lightweight)
-        FreshLicenseApplicationsFormWorkflowHistories: {
-          take: 3,
-          orderBy: { createdAt: 'desc' as const },
+        occupationAndBusiness: {
           select: {
             id: true,
-            actionTaken: true,
-            remarks: true,
-            createdAt: true,
-            attachments: true,
-            actiones: { select: { id: true, code: true, name: true } },
-            nextUser: { select: { id: true, username: true } },
-            previousUser: { select: { id: true, username: true } },
-            nextRole: { select: { id: true, code: true, name: true } },
-            previousRole: { select: { id: true, code: true, name: true } },
+            occupation: true,
+            officeAddress: true,
+            state: { select: { id: true, name: true } },
+            district: { select: { id: true, name: true } },
           }
-        }
+        },
       };
 
       const [total, rawData] = await Promise.all([
-        prisma.freshLicenseApplicationsForms.count({ where }),
-        prisma.freshLicenseApplicationsForms.findMany({
+        prisma.freshLicenseApplicationPersonalDetails.count({ where }),
+        prisma.freshLicenseApplicationPersonalDetails.findMany({
           where,
           skip,
           take: limit,
@@ -1056,18 +1247,12 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
         // Applicant name
         const applicantName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
 
-        // State / district names
-        const stateName = row.state ? row.state.name : null;
-        const districtName = row.district ? row.district.name : null;
+        // State / district names from present address (fallback to permanent address)
+        const stateName = row.presentAddress?.state?.name || row.permanentAddress?.state?.name || null;
+        const districtName = row.presentAddress?.district?.name || row.permanentAddress?.district?.name || null;
 
-        // Roles / Users names
-        const currentUserName = row.currentUser ? row.currentUser.username : null;
-        const previousUserName = row.previousUser ? row.previousUser.username : null;
-        const currentRoleName = row.currentRole ? (row.currentRole.name ?? row.currentRole.code) : null;
-        const previousRoleName = row.previousRole ? (row.previousRole.name ?? row.previousRole.code) : null;
-
-        // Status as code/name only
-        const status = row.status ? { code: row.status.code, name: row.status.name } : null;
+        // Application lifecycle status
+        const status = row.workflowStatus ? { code: row.workflowStatus.code, name: row.workflowStatus.name } : null;
 
         // Transform addresses
         const transformAddress = (addr: any) => {
@@ -1075,6 +1260,10 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           return {
             addressLine: addr.addressLine,
             sinceResiding: addr.sinceResiding,
+            telephoneOffice: addr.telephoneOffice || null,
+            telephoneResidence: addr.telephoneResidence || null,
+            officeMobileNumber: addr.officeMobileNumber || null,
+            alternativeMobile: addr.alternativeMobile || null,
             stateName: addr.state ? addr.state.name : null,
             districtName: addr.district ? addr.district.name : null,
             zoneName: addr.zone ? addr.zone.name : null,
@@ -1086,21 +1275,32 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
         const presentAddress = transformAddress(row.presentAddress);
         const permanentAddress = transformAddress(row.permanentAddress);
 
-        // Transform workflow histories
-        const workflowHistories = Array.isArray(row.FreshLicenseApplicationsFormWorkflowHistories)
-          ? row.FreshLicenseApplicationsFormWorkflowHistories.map((h: any) => ({
-              id: h.id,
-              actionTaken: h.actionTaken,
-              remarks: h.remarks,
-              createdAt: h.createdAt,
-              attachments: h.attachments || null,
-              action: h.actiones ? (h.actiones.code ?? h.actiones.name) : null,
-              previousUserName: h.previousUser ? h.previousUser.username : null,
-              previousRoleName: h.previousRole ? (h.previousRole.name ?? h.previousRole.code) : null,
-              nextUserName: h.nextUser ? h.nextUser.username : null,
-              nextRoleName: h.nextRole ? (h.nextRole.name ?? h.nextRole.code) : null,
-            }))
-          : [];
+        // Get workflow histories for this application
+        const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+          where: { applicationId: row.id },
+          take: 3,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            actiones: { select: { id: true, code: true, name: true } },
+            nextUser: { select: { id: true, username: true } },
+            previousUser: { select: { id: true, username: true } },
+            nextRole: { select: { id: true, code: true, name: true } },
+            previousRole: { select: { id: true, code: true, name: true } },
+          }
+        });
+
+        const transformedWorkflowHistories = workflowHistories.map((h: any) => ({
+          id: h.id,
+          actionTaken: h.actionTaken,
+          remarks: h.remarks,
+          createdAt: h.createdAt,
+          attachments: h.attachments || null,
+          action: h.actiones ? (h.actiones.code ?? h.actiones.name) : null,
+          previousUserName: h.previousUser ? h.previousUser.username : null,
+          previousRoleName: h.previousRole ? (h.previousRole.name ?? h.previousRole.code) : null,
+          nextUserName: h.nextUser ? h.nextUser.username : null,
+          nextRoleName: h.nextRole ? (h.nextRole.name ?? h.nextRole.code) : null,
+        }));
 
         // Build usersInHierarchy for this application using a single OR query
         let usersInHierarchy: any[] = [];
@@ -1194,11 +1394,13 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           district: districtName,
           presentAddress,
           permanentAddress,
-          currentUser: currentUserName,
-          previousUser: previousUserName,
-          currentRole: currentRoleName,
-          previousRole: previousRoleName,
-          workflowHistory: workflowHistories,
+          occupationAndBusiness: row.occupationAndBusiness ? {
+            occupation: row.occupationAndBusiness.occupation,
+            officeAddress: row.occupationAndBusiness.officeAddress,
+            stateName: row.occupationAndBusiness.state?.name || null,
+            districtName: row.occupationAndBusiness.district?.name || null,
+          } : null,
+          workflowHistory: transformedWorkflowHistories,
           usersInHierarchy,
         };
 
@@ -1215,46 +1417,76 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
   }
 
   public async getUserApplications(userId: string) {
-    // For now, we'll return all applications
-    // In a proper implementation, you would need to add a userId field to FreshLicenseApplicationsForms
-    // or establish a relationship between User and Application
-    return await prisma.freshLicenseApplicationsForms.findMany({
+    const userIdNum = parseInt(userId);
+    return await prisma.freshLicenseApplicationPersonalDetails.findMany({
+      where: {
+        currentUserId: userIdNum
+      },
       include: {
+        // User and role tracking (role accessed through user.role)
+        currentUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true
+              }
+            }
+          }
+        },
+        previousUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true
+              }
+            }
+          }
+        },
+        // Address details
         presentAddress: {
           include: {
             state: true,
             district: true,
+            zone: true,
+            division: true,
+            policeStation: true,
           }
         },
         permanentAddress: {
           include: {
             state: true,
             district: true,
+            zone: true,
+            division: true,
+            policeStation: true,
           }
         },
-        contactInfo: true,
-        occupationInfo: {
+        // Other details
+        occupationAndBusiness: {
           include: {
             state: true,
             district: true,
           }
         },
         biometricData: true,
-        criminalHistory: true,
-        licenseHistory: true,
+        criminalHistories: true,
+        licenseHistories: true,
         licenseDetails: {
           include: {
             requestedWeapons: true,
           }
         },
         fileUploads: true,
-        state: true,
-        district: true,
-        status: true,
-        currentRole: true,
-        previousRole: true,
-        currentUser: true,
-        previousUser: true,
       },
     });
   }
@@ -1393,6 +1625,73 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
       }
       
       return [`File metadata storage failed: ${error.message || 'Unknown error'}`, null];
+    }
+  }
+
+  /**
+   * Get status ID by status code
+   * This ensures we get the correct ID regardless of insertion order
+   */
+  private async getStatusIdByCode(statusCode: string): Promise<number> {
+    const status = await prisma.statuses.findFirst({
+      where: { 
+        code: statusCode, 
+        isActive: true 
+      },
+      select: { id: true }
+    });
+
+    if (!status) {
+      throw new Error(`Status with code '${statusCode}' not found or inactive`);
+    }
+
+    return status.id;
+  }
+
+  /**
+   * Get standard status IDs from Statuses table
+   * This ensures consistent status IDs across the application
+   */
+  async getStatusIds() {
+    const statusCodes = ['DRAFT', 'INITIATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
+    const statusMap: Record<string, number> = {};
+
+    for (const code of statusCodes) {
+      try {
+        statusMap[code] = await this.getStatusIdByCode(code);
+      } catch (error) {
+        console.warn(`Status '${code}' not found in database`);
+        // Don't throw error, just skip missing statuses
+      }
+    }
+
+    return statusMap;
+  }
+
+  /**
+   * Initialize default statuses if they don't exist
+   * Call this method to ensure required statuses are available
+   */
+  async initializeDefaultStatuses() {
+    const defaultStatuses = [
+      { code: 'DRAFT', name: 'Draft', description: 'Application is being filled out' },
+      { code: 'INITIATED', name: 'Initiated', description: 'Application has been submitted for review' },
+      { code: 'UNDER_REVIEW', name: 'Under Review', description: 'Application is being reviewed by officer' },
+      { code: 'APPROVED', name: 'Approved', description: 'Application has been approved' },
+      { code: 'REJECTED', name: 'Rejected', description: 'Application has been rejected' }
+    ];
+
+    for (const statusData of defaultStatuses) {
+      const existingStatus = await prisma.statuses.findFirst({
+        where: { code: statusData.code }
+      });
+
+      if (!existingStatus) {
+        await prisma.statuses.create({
+          data: statusData
+        });
+        console.log(`Created default status: ${statusData.code}`);
+      }
     }
   }
 }

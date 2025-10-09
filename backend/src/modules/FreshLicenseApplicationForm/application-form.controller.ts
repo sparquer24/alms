@@ -15,21 +15,38 @@ import { UploadFileDto, UploadFileResponseDto } from './dto/upload-file.dto';
 export class ApplicationFormController {
   constructor(private readonly applicationFormService: ApplicationFormService) { }
   @Post('personal-details')
-  @ApiOperation({ summary: 'Create Personal Details (Step 1 separate table)', description: 'Create personal details in a dedicated table and return applicationId' })
+  @ApiOperation({ 
+    summary: 'Create Personal Details (Step 1 separate table)', 
+    description: 'Create personal details in a dedicated table and return applicationId. Application status is automatically set to DRAFT.' 
+  })
   @ApiBody({
     type: CreatePersonalDetailsDto,
   })
+  @ApiResponse({
+    status: 201,
+    description: 'Personal details created successfully with DRAFT status',
+    example: {
+      success: true,
+      applicationId: 123,
+      message: 'Personal details saved with DRAFT status'
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or DRAFT status not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async createPersonalDetails(@Body() dto: CreatePersonalDetailsDto, @Request() req: any) {
     try {
-      // Pass the DTO object directly to the service. The service expects a plain object
-      const [error, applicationId] = await this.applicationFormService.createPersonalDetails(dto as any);
+  // Pass the DTO object directly to the service, and include the authenticated user id so
+  // the service can set currentUserId/currentRoleId on creation when available.
+  const payload = { ...(dto as any), currentUserId: req.user?.sub };
+  const [error, applicationId] = await this.applicationFormService.createPersonalDetails(payload);
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
         const errorDetails = typeof error === 'object' ? error : {};
         throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.BAD_REQUEST);
       }
 
-      return { success: true, applicationId, message: 'Personal details saved' };
+      return { success: true, applicationId, message: 'Personal details saved with DRAFT status' };
     } catch (err: any) {
       const errorMessage = err?.message || err;
       const errorDetails = err;
@@ -78,6 +95,33 @@ export class ApplicationFormController {
             officeMobileNumber: '9123456789',
             alternativeMobile: '9123456790'
           }
+        }
+      },
+      'Status Updates': {
+        summary: 'Update application workflow status',
+        value: {
+          workflowStatusId: 2
+        }
+      },
+      'Personal Details Update': {
+        summary: 'Update applicant personal details (name, aadhar, PAN, DOB, etc.)',
+        value: {
+          personalDetails: {
+            firstName: 'Jane',
+            middleName: 'M',
+            lastName: 'Doe',
+            parentOrSpouseName: 'Janet Doe',
+            sex: 'FEMALE',
+            dateOfBirth: '1992-08-15T00:00:00.000Z',
+            aadharNumber: '123456789012',
+            panNumber: 'ABCDE1234F'
+          }
+        }
+      },
+      'Submit Application': {
+        summary: 'Submit application (change from DRAFT to INITIATED status)',
+        value: {
+          workflowStatusId: 3
         }
       },
       'Occupation and Business Details': {
@@ -403,7 +447,7 @@ export class ApplicationFormController {
     }
   }
 
-  /*
+
   @Get()
   @ApiOperation({ summary: 'Get Applications', description: 'Retrieve applications with filtering, pagination, and search' })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -707,7 +751,7 @@ export class ApplicationFormController {
         HttpStatus.BAD_REQUEST
       );
     }
-  } */
+  } 
 
  /* @Get('helpers/check-aadhar/:aadharNumber')
   @ApiOperation({
