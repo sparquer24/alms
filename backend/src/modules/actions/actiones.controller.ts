@@ -83,21 +83,31 @@ export class ActionesController {
     description: "Action updated successfully",
   })
   async updateAction(@Param('id') id : number, @Body() mappingData: RolesActionsMapping ) {
-     // try{
+  
       return this.actionesService.updateAction(Number(id) ,mappingData);
-    // }
-    // catch(error){
-    //   throw error;
-    // }
+   
  }
   @Delete("RolesActionsMapping/:id")
   @ApiOperation({
     summary: "Delete action mapping", 
     description: "Delete an existing action mapping entry",
   })
+  @ApiBody({
+    description: "Action mapping ID to delete",
+    examples: {
+      "Delete Action Mapping": {
+        summary: "An existing action mapping entry ID",
+        value: {
+          isactive: false,
+          updatedAt: new Date(),
+          deletedAt: new Date(),
+        }
+      }
+    }
+  })
   @ApiResponse({
     status: 200,
-    description: "Action mapping deleted successfully",
+    description: "Action mapping deleted successfully (soft delete)",
   })
   async deleteActionMapping(@Param('id') id: number) {
     //try {
