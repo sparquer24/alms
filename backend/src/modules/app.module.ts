@@ -8,8 +8,9 @@ import { WorkflowModule } from '../modules/FLAWorkflow/workflow.module';
 import { StatusModule } from '../modules/status/status.module';
 import { ActionesModule } from './actions/actiones.module';
 import { WeaponsModule }  from './weapons/weapons.module'
+import { RolesModule } from './roles/roles.module';
 
 @Module({
-  imports: [UserModule, WeaponsModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule],
+  imports: [UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule],
 })
 export class AppModule {}
