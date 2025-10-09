@@ -257,10 +257,10 @@ const getUserRoleFromCookie = () => {
           const redirectPath = getRoleBasedRedirectPath(effectiveRole);
           router.push(redirectPath);
         } else {
-          // For other menu items, try to route to /home?type={item}
+          // For other menu items, try to route to /inbox?type={item}
           // You may want to map item names to types as needed
           const type = item.name.replace(/\s+/g, '').toLowerCase();
-          router.push(`/home?type=${encodeURIComponent(type)}`);
+          router.push(`/inbox?type=${encodeURIComponent(type)}`);
         }
       }
     }
@@ -279,11 +279,11 @@ const getUserRoleFromCookie = () => {
     const activeItemKey = `inbox-${subItem}`;
     const currentPath = window.location.pathname;
     const effectiveRole = cookieRole || userRole;
-    // For admin, use /admin/inbox, for others use /home
+    // For admin, use /admin/inbox, for others use /inbox
     const isAdmin = effectiveRole === 'ADMIN';
     const isOnInboxBase = isAdmin
-      ? currentPath === '/admin/inbox' || currentPath.startsWith('/admin/inbox')
-      : currentPath === '/home' || currentPath.startsWith('/home');
+      ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
+      : currentPath === '/inbox' || currentPath.startsWith('/inbox');
 
     // Delegate loading to InboxContext which ensures a single fetch per type
     const normalized = String(subItem).toLowerCase();
@@ -298,7 +298,7 @@ const getUserRoleFromCookie = () => {
 
     // Update context (single fetch) and update URL without forcing a full remount
     loadType(normalized).catch((e) => console.error('loadType error', e));
-    const targetBase = isAdmin ? '/admin/inbox' : '/home';
+    const targetBase = isAdmin ? '/admin/userManagement' : '/inbox';
     const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
     if (isOnInboxBase) {
       // replace state to avoid adding history entries when already under inbox/home

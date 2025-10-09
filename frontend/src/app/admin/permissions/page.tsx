@@ -319,7 +319,7 @@ export default function PermissionsPage() {
               >
                 All Categories
               </button>
-              {Object.keys(PERMISSION_CATEGORIES).map(category => (
+              {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
                 <button
                   key={category}
                   onClick={() => handleCategoryFilter(category)}

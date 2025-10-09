@@ -7,7 +7,7 @@ const protectedRoutes = [
   '/freshform',
   '/application',
   '/sent',
-  '/home',
+  '/inbox',
   '/reports',
   '/settings',
   '/final',
@@ -111,6 +111,18 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 
     if (typeof userRole === 'string') {
       userRole = userRole.toUpperCase();
+    }
+
+    // Map known numeric role ids to role codes for robust handling
+    const numericRoleMap: Record<string, string> = {
+      '14': 'ADMIN',
+      '7': 'ZS',
+      '2': 'ZS', // backend sometimes uses 2 for ZS role_id in JWT payloads
+      // add other mappings as needed
+    };
+    if (userRole && /^[0-9]+$/.test(String(userRole))) {
+      const mapped = numericRoleMap[String(userRole)];
+      if (mapped) userRole = mapped;
     }
 
     console.log('Extracted authentication status:', isAuthenticated, 'userRole:', userRole);

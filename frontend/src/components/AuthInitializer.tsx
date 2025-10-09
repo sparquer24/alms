@@ -2,8 +2,10 @@
 
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch } from '../store/store';
 import { useRouter, usePathname } from 'next/navigation';
-import { restoreAuthState, selectIsAuthenticated, selectCurrentUser } from '../store/slices/authSlice';
+import { selectIsAuthenticated, selectCurrentUser } from '../store/slices/authSlice';
+import { initializeAuth } from '../store/thunks/authThunks';
 import { getCookie } from 'cookies-next';
 import { shouldRedirectOnStartup } from '../config/roleRedirections';
 import { logError, logDebug } from '@/utils/loggingUtils';
@@ -13,18 +15,19 @@ import { logError, logDebug } from '@/utils/loggingUtils';
  * This should be rendered once at the root level
  */
 export const AuthInitializer: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const currentUser = useSelector(selectCurrentUser);
 
   useEffect(() => {
-    // Restore auth state from cookies/localStorage on app startup
+    // Initialize auth state on startup: validate token via API and persist canonical user.
     try {
-      dispatch(restoreAuthState());
+      // initializeAuth performs getMe, writes cookies if needed, and may redirect.
+      void dispatch(initializeAuth());
     } catch (error) {
-      logError('AuthInitializer: Failed to restore auth state', error);
+      logError('AuthInitializer: Failed to initialize auth state', error);
     }
   }, [dispatch]);
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useDispatch, useSelector } from 'react-redux';
@@ -215,6 +216,28 @@ export default function Login() {
     }
   }, [isAuthenticated, currentUser, router]);
 
+  // On initial mount, if auth, role and user cookies already exist then
+  // redirect to root. This keeps users from seeing the login page when a
+  // valid cookie set exists (server or another tab may have established it).
+  useEffect(() => {
+    try {
+      const cAuth = getCookie('auth');
+      const cRole:any = getCookie('role');
+      const cUser = getCookie('user');
+      if (cAuth && cRole && cUser) {
+        if (cRole.toLowerCase() == "admin") {
+          router.replace('/admin/userManagement');
+        } else {
+          router.replace('/inbox?type=forwarded');
+        }
+        // Redirect to root — use replace to avoid creating history entry
+      }
+    } catch (e) {
+      // best-effort; ignore errors
+      // console.warn('Cookie check failed on login page:', e);
+    }
+  }, [router]);
+
   // Form submission handler
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,14 +278,10 @@ export default function Login() {
           }
           dispatch(setError(''));
           setIsRedirecting(true);
-          const finalPath = redirectPath || '/';
-          if (finalPath.startsWith('/admin')) {
-            // Full navigation to let middleware read cookies reliably. Use a slightly
-            // longer delay to ensure cookies-next has written cookies to document.cookie.
-            setTimeout(() => { window.location.assign(finalPath); }, 200);
-          } else {
-            router.push(finalPath);
-          }
+          // We no longer navigate here. The login thunk will issue a full page
+          // reload after persisting cookies so the server middleware and
+          // initializeAuth flow can validate cookies and redirect.
+          console.log('Login complete — cookies persisted. Waiting for full reload by thunk.');
         }
       } else {
         console.warn('No user found in login result:', result);

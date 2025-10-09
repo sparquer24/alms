@@ -296,7 +296,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   if (!nextUser) errors.nextUser = 'Please select the next proceeding officer.';
   if (roleFromCookie === 'SHO' && !draftLetter.trim()) errors.draftLetter = 'Ground Report Letter is required for submission.';
 
-    if (Object.keys(errors).length > 0) {
+  if (Object.keys(errors || {}).length > 0) {
       setMissingFields(errors);
       // scroll to the first invalid field
       setTimeout(() => scrollToFirstError(errors), 50);
@@ -753,7 +753,7 @@ Yours faithfully,
         <div className={styles.proceedingsPanel}>
           <form onSubmit={handleSubmit} className={styles.formContent}>
           {/* Top validation banner when there are missing fields */}
-          {Object.keys(missingFields).length > 0 && (
+          {Object.keys(missingFields || {}).length > 0 && (
             <div className={`${styles.statusMessage} ${styles.errorMessage}`} role="alert">
               <div className={styles.statusIcon}>
                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">

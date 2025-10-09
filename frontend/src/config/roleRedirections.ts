@@ -19,21 +19,21 @@ export function getRoleBasedRedirectPath(userRole?: string): string {
     case 'ARMS_SUPDT':
     case 'SHO':
       // Officers forwarded to a special inbox view
-      return '/home?type=forwarded';
+      return '/inbox?type=forwarded';
 
     case 'ZS':
       // ZS users create fresh forms by default
-      return '/home?type=freshform';
+      return '/inbox?type=freshform';
 
     case 'APPLICANT':
-      return '/home?type=sent';
+      return '/inbox?type=sent';
 
     case 'DCP':
     case 'ACP':
     case 'CP':
     case 'ADO':
     case 'CADO':
-      return '/home?type=forwarded';
+      return '/inbox?type=forwarded';
 
     default:
       // Fallback: send to root so router.push always receives a string
