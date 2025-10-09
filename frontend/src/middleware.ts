@@ -85,9 +85,9 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
     let isAuthenticated = false;
     let userRole: any = authData?.role || authData?.user?.role;
 
-    // If role is an object (e.g. { code: 'ADMIN' }), flatten it
+    // If role is an object (e.g. { code: 'ADMIN' }), flatten it and support different property names
     if (userRole && typeof userRole === 'object') {
-      userRole = userRole.code || userRole.name || userRole.key || null;
+      userRole = userRole.code || userRole.key || userRole.name || null;
     }
 
     if (token) {

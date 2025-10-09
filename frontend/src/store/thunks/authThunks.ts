@@ -223,9 +223,16 @@ export const login = createAsyncThunk(
 
       // Robust role extraction & normalization
       const extractRoleString = (u: any): string | null => {
-        const candidate = u?.role?.code || u?.roleCode || u?.role_id || u?.roleId || (typeof u?.role === 'string' ? u.role : null) || (Array.isArray(u?.roles) ? u.roles[0] : null);
+        // Support a variety of role shapes: nested objects with code/name/key, flat fields, or arrays
+        const roleObj = u?.role;
+        const candidate =
+          roleObj?.code || roleObj?.key || roleObj?.name ||
+          u?.roleCode || u?.role_id || u?.roleId ||
+          (typeof roleObj === 'string' ? roleObj : null) ||
+          (Array.isArray(u?.roles) ? u.roles[0] : null) ||
+          null;
         if (!candidate) return null;
-        return String(candidate).toUpperCase();
+        return String(candidate).trim().toUpperCase();
       };
       const roleString = extractRoleString(user);
       // Always normalize and set the role on the user object when possible
@@ -263,13 +270,11 @@ export const login = createAsyncThunk(
       // Save snapshot (store token & role only to keep it small)
       saveCookieSnapshot({ auth: token, user: JSON.stringify({ id: user.id, role: user.role }), role: normalizedRole });
 
-      console.log('🎉 Login process completed successfully — refreshing to apply auth state');
-
-      // Refresh the page so middleware/SSR picks up the token and role from cookies
-      if (typeof window !== 'undefined') {
-        // Give the browser a bit more time to flush cookies before reload
-        setTimeout(() => window.location.reload(), 500);
-      }
+      console.log('🎉 Login process completed successfully — auth state set in store and cookies');
+      // NOTE: Previously this thunk forced a window.location.reload() here which
+      // could race with client-side navigation and middleware. We intentionally
+      // do not reload here and instead let the UI perform the navigation so
+      // redirects (including admin routes) work reliably.
 
       return { token, user };
     } catch (error) {

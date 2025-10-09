@@ -196,8 +196,22 @@ export default function Login() {
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
-      const redirectPath = getRoleBasedRedirectPath(currentUser.role);
-      router.push(redirectPath);
+      const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
+      if (redirectPath && typeof redirectPath === 'string') {
+        // If redirecting to an admin area, perform a full navigation so the
+        // server middleware sees the newly-set cookies. For non-admin routes,
+        // client-side navigation is fine.
+        if (redirectPath.startsWith('/admin')) {
+          // small delay to ensure cookies set by the thunk are flushed
+          setTimeout(() => { window.location.assign(redirectPath); }, 50);
+        } else {
+          router.push(redirectPath);
+        }
+      } else {
+        console.warn('No redirect path determined for user:', currentUser);
+        // Fallback to root
+        router.push('/');
+      }
     }
   }, [isAuthenticated, currentUser, router]);
 
@@ -221,8 +235,13 @@ export default function Login() {
       if (result && result.user) {
         console.log('User object:', result.user);
         // Normalize role to uppercase string for consistent redirects
-        const rawRole = result.user.role ?? result.user.role_id ?? result.user.roleCode;
-        const normalizedRole = rawRole ? String(rawRole).toUpperCase() : undefined;
+        const extractRole = (u: any): string | undefined => {
+          if (!u) return undefined;
+          const roleObj = u.role ?? u;
+          const candidate = roleObj?.code || roleObj?.key || roleObj?.name || u?.roleCode || u?.role_id || u?.roleId || (typeof roleObj === 'string' ? roleObj : null) || (Array.isArray(u?.roles) ? u.roles[0] : null);
+          return candidate ? String(candidate).trim().toUpperCase() : undefined;
+        };
+        const normalizedRole = extractRole(result.user);
         console.log('Normalized role:', normalizedRole);
         if (!normalizedRole) {
           console.warn('Login returned no role; redirect may loop.');
@@ -231,9 +250,19 @@ export default function Login() {
         } else {
           const redirectPath = getRoleBasedRedirectPath(normalizedRole);
           console.log('Redirect path:', redirectPath);
+          if (!redirectPath || typeof redirectPath !== 'string') {
+            console.warn('Invalid redirectPath, falling back to root:', redirectPath);
+          }
           dispatch(setError(''));
           setIsRedirecting(true);
-          router.push(redirectPath);
+          const finalPath = redirectPath || '/';
+          if (finalPath.startsWith('/admin')) {
+            // Full navigation to let middleware read cookies reliably. Use a slightly
+            // longer delay to ensure cookies-next has written cookies to document.cookie.
+            setTimeout(() => { window.location.assign(finalPath); }, 200);
+          } else {
+            router.push(finalPath);
+          }
         }
       } else {
         console.warn('No user found in login result:', result);
