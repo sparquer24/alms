@@ -36,8 +36,10 @@ export class ApplicationFormController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async createPersonalDetails(@Body() dto: CreatePersonalDetailsDto, @Request() req: any) {
     try {
-      // Pass the DTO object directly to the service. The service expects a plain object
-      const [error, applicationId] = await this.applicationFormService.createPersonalDetails(dto as any);
+  // Pass the DTO object directly to the service, and include the authenticated user id so
+  // the service can set currentUserId/currentRoleId on creation when available.
+  const payload = { ...(dto as any), currentUserId: req.user?.sub };
+  const [error, applicationId] = await this.applicationFormService.createPersonalDetails(payload);
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
         const errorDetails = typeof error === 'object' ? error : {};
@@ -99,6 +101,21 @@ export class ApplicationFormController {
         summary: 'Update application workflow status',
         value: {
           workflowStatusId: 2
+        }
+      },
+      'Personal Details Update': {
+        summary: 'Update applicant personal details (name, aadhar, PAN, DOB, etc.)',
+        value: {
+          personalDetails: {
+            firstName: 'Jane',
+            middleName: 'M',
+            lastName: 'Doe',
+            parentOrSpouseName: 'Janet Doe',
+            sex: 'FEMALE',
+            dateOfBirth: '1992-08-15T00:00:00.000Z',
+            aadharNumber: '123456789012',
+            panNumber: 'ABCDE1234F'
+          }
         }
       },
       'Submit Application': {
