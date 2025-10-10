@@ -459,7 +459,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'applicationId', required: false, type: String })
   @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
   @ApiQuery({ name: 'statusIds', required: false, type: String })
-  @ApiQuery({ name: 'isOwned', required: false, type: String, default: false})
+  @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -472,7 +472,7 @@ export class ApplicationFormController {
     @Query('applicationId') applicationId?: number,
     @Query('acknowledgementNo') acknowledgementNo?: string,
     @Query('statusIds') statusIds?: string,
-    @Query('isOwned') isOwned?: String
+    @Query('isOwned') isOwned?: Boolean
   ) {
     try {
       // Parse pagination
@@ -492,7 +492,8 @@ export class ApplicationFormController {
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
   // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
   // We'll pass them to the service resolver which will return numeric IDs.
-  const parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+  const 
+  parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
   // Reusable address builder used for single-item and list-item transforms
   const buildAddress = (addr: any) => {
@@ -512,7 +513,7 @@ export class ApplicationFormController {
   if (parsedApplicationId || parsedAcknowledgementNo) {
         const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
         if (error) {
-          const errMsg = (error as any)?.message || 'Failed to fetch applications';
+          const errMsg = (error as any)?.message || 'Failed to fetch applications-------------------516';
           throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
         }
         if (!dataApplication) {
@@ -576,14 +577,13 @@ export class ApplicationFormController {
         statusIds: parsedStatusIdentifiers && parsedStatusIdentifiers.length > 0
           ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
           : undefined,
-        applicationId: parsedApplicationId,
-        isOwned : isOwned == 'true' ? true : false,
+        // applicationId: parsedApplicationId,
+        isOwned : isOwned == true? true : false,
       });
       if (error) {
-        const errMsg = (error as any)?.message || 'Failed to fetch applications';
+        const errMsg = (error as any)?.message || 'Failed to fetch applications--------------584';
         throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
       }
-
       const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
 
       // The service already returns transformed rows and a combined usersInHierarchy
@@ -600,7 +600,7 @@ export class ApplicationFormController {
         }
       };
     } catch (error: any) {
-      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
+      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications------------------605', error: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 
