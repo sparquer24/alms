@@ -860,10 +860,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       // Set errors and return validation result
-      setErrors(newErrors);
-      const isValid = Object.keys(newErrors).length === 0;
-      console.log("🔍 Validation errors found:", newErrors);
-      console.log("🔍 Validation errors count:", Object.keys(newErrors).length);
+  setErrors(newErrors);
+  const isValid = Object.keys(newErrors || {}).length === 0;
+  console.log("🔍 Validation errors found:", newErrors);
+  console.log("🔍 Validation errors count:", Object.keys(newErrors || {}).length);
       console.log("🔍 Validation result (is valid):", isValid);
 
       if (!isValid) {
@@ -1525,10 +1525,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       allErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
     }
 
-    console.log('🔍 All validation errors:', allErrors);
-    console.log('🔍 Total errors count:', Object.keys(allErrors).length);
+  console.log('🔍 All validation errors:', allErrors);
+  console.log('🔍 Total errors count:', Object.keys(allErrors || {}).length);
 
-    const isValid = Object.keys(allErrors).length === 0;
+  const isValid = Object.keys(allErrors || {}).length === 0;
     if (!isValid) {
       setErrors(allErrors);
     }

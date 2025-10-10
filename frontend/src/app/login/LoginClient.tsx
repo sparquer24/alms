@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useDispatch, useSelector } from 'react-redux';
@@ -178,7 +177,7 @@ const FormInput: React.FC<{
 );
 
 // Main component
-export default function Login() {
+export default function LoginClient() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -193,7 +192,7 @@ export default function Login() {
   const { formData, updateField, resetForm, isFormValid } = useLoginForm();
   useUrlErrorHandler(dispatch);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (client-side fallback)
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
@@ -215,28 +214,6 @@ export default function Login() {
       }
     }
   }, [isAuthenticated, currentUser, router]);
-
-  // On initial mount, if auth, role and user cookies already exist then
-  // redirect to root. This keeps users from seeing the login page when a
-  // valid cookie set exists (server or another tab may have established it).
-  useEffect(() => {
-    try {
-      const cAuth = getCookie('auth');
-      const cRole:any = getCookie('role');
-      const cUser = getCookie('user');
-      if (cAuth && cRole && cUser) {
-        if (cRole.toLowerCase() == "admin") {
-          router.replace('/admin/userManagement');
-        } else {
-          router.replace('/inbox?type=forwarded');
-        }
-        // Redirect to root — use replace to avoid creating history entry
-      }
-    } catch (e) {
-      // best-effort; ignore errors
-      // console.warn('Cookie check failed on login page:', e);
-    }
-  }, [router]);
 
   // Form submission handler
   const handleSubmit = useCallback(async (e: React.FormEvent) => {

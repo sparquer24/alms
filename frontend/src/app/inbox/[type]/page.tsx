@@ -14,7 +14,7 @@ export default function InboxTypeRedirect({ params }: { params: Promise<{ type: 
       if (!mounted) return;
   const t = String(resolved.type).toLowerCase();
   // Use replace so history is clean and use query-based URL
-  router.push(`/home?type=${encodeURIComponent(t)}`);
+  router.push(`/inbox?type=${encodeURIComponent(t)}`);
     })();
     return () => { mounted = false; };
   }, [params, router]);
