@@ -1,8 +1,9 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import FormFooter from '../elements/footer';
+import { WeaponsService, Weapon } from '../../../services/weapons';
 
 const initialState = {
 	needForLicense: '',
@@ -15,6 +16,29 @@ const initialState = {
 
 const LicenseDetails = () => {
    const [form, setForm] = useState(initialState);
+   const [weapons, setWeapons] = useState<Weapon[]>([]);
+   const [loadingWeapons, setLoadingWeapons] = useState(false);
+   const [weaponsError, setWeaponsError] = useState<string>('');
+
+   // Fetch weapons on component mount
+   useEffect(() => {
+       const fetchWeapons = async () => {
+           try {
+               setLoadingWeapons(true);
+               setWeaponsError('');
+               const weaponsData = await WeaponsService.getAll();
+               console.log('Fetched weapons for LicenseDetails:', weaponsData);
+               setWeapons(weaponsData);
+           } catch (error) {
+               console.error('Error fetching weapons:', error);
+               setWeaponsError('Failed to load weapons. Please refresh the page.');
+           } finally {
+               setLoadingWeapons(false);
+           }
+       };
+
+       fetchWeapons();
+   }, []);
 
    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
 	   const { name, value, type } = e.target;
@@ -27,7 +51,9 @@ const LicenseDetails = () => {
 
 	return (
 		<form className="p-6">
-        <h2 className="text-xl font-bold mb-4">License Details</h2>
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+			License Details
+		</h2>
 		<div className="grid grid-cols-2 gap-8">
 			{/* Left column: 15 above 16 */}
 			<div className="flex flex-col gap-8">
@@ -61,19 +87,39 @@ const LicenseDetails = () => {
 						</label>
 					</div>
 					<div className="mb-2">(b) Select weapon type</div>
+					{loadingWeapons && (
+						<div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+							<div className="flex items-center">
+								<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+								<span className="text-blue-600 text-sm">Loading weapons...</span>
+							</div>
+						</div>
+					)}
+					{weaponsError && (
+						<div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-md">
+							<div className="flex items-center">
+								<span className="text-red-600 text-sm">⚠️ {weaponsError}</span>
+							</div>
+						</div>
+					)}
 					<select
 						name="armsType"
 						value={form.armsType}
 						onChange={handleChange}
-						className="border border-gray-300 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+						disabled={loadingWeapons}
+						className="border border-gray-300 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
 					>
-						<option value="">Select weapon type</option>
-						<option value="revolver">Revolver</option>
-						<option value="pistol">Pistol</option>
-						<option value="rifle">Rifle</option>
-						<option value="shotgun">Shotgun</option>
-						<option value="airgun">Airgun</option>
-						<option value="other">Other</option>
+						<option value="">
+							{loadingWeapons ? "Loading weapons..." : weaponsError ? "Please refresh to load weapons" : "Select weapon type"}
+						</option>
+						{!weaponsError && weapons.map(weapon => (
+							<option key={weapon.id} value={weapon.name.toLowerCase()}>
+								{weapon.name}
+							</option>
+						))}
+						{weaponsError && (
+							<option value="" disabled>Unable to load weapons</option>
+						)}
 					</select>
 				</div>
 			</div>
