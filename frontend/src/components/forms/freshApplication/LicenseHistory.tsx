@@ -1,8 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input, TextArea } from '../elements/Input';
+import { Select } from '../elements/Select';
 import { Checkbox } from '../elements/Checkbox';
 import FormFooter from '../elements/footer';
+import { WeaponsService, Weapon } from '../../../services/weapons';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [''] };
 
@@ -19,6 +21,26 @@ const LicenseHistory = () => {
 	const [safePlaceDetails, setSafePlaceDetails] = useState('');
 	const [training, setTraining] = useState('no');
 	const [trainingDetails, setTrainingDetails] = useState('');
+	const [weapons, setWeapons] = useState<Weapon[]>([]);
+	const [loadingWeapons, setLoadingWeapons] = useState(false);
+
+	// Fetch weapons on component mount
+	useEffect(() => {
+		const fetchWeapons = async () => {
+			try {
+				setLoadingWeapons(true);
+				const weaponsData = await WeaponsService.getAll();
+				console.log('Fetched weapons:', weaponsData);
+				setWeapons(weaponsData);
+			} catch (error) {
+				console.error('Error fetching weapons:', error);
+			} finally {
+				setLoadingWeapons(false);
+			}
+		};
+
+		fetchWeapons();
+	}, []);
 
 	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
@@ -32,7 +54,7 @@ const LicenseHistory = () => {
 		const { name, value } = e.target;
 		setFamilyDetails((prev) => prev.map((f, i) => i === idx ? { ...f, [name]: value } : f));
 	};
-	const handleWeaponChange = (idx: number, widx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleWeaponChange = (idx: number, widx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
 		const { value } = e.target;
 		setFamilyDetails((prev) => prev.map((f, i) => i === idx ? { ...f, weapons: f.weapons.map((w, wi) => wi === widx ? value : w) } : f));
 	};
@@ -43,7 +65,7 @@ const LicenseHistory = () => {
 
 	return (
 		<form className="p-6">
-            			<h2 className="text-xl font-bold mb-4">Lincense History</h2>
+            			<h2 className="text-xl font-bold mb-4">License History</h2>
 
 			<div className="mb-6">
 				<div className="font-medium mb-2">14. Whether -</div>
@@ -125,24 +147,91 @@ const LicenseHistory = () => {
 						<input type="radio" name="family" value="no" checked={family === 'no'} onChange={() => setFamily('no')} /> No
 					</label>
 				</div>
-				{family === 'yes' && familyDetails.map((fam, idx) => (
-					<div key={idx} className="mb-4 border-b pb-2">
-						<div className="grid grid-cols-2 gap-6 mb-2">
+				{family === 'yes' && (
+					<>
+						{loadingWeapons && (
+							<div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+								<div className="flex items-center">
+									<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+									<span className="text-blue-600">Loading weapons...</span>
+								</div>
+							</div>
+						)}
+						{familyDetails.map((fam, idx) => (
+					<div key={idx} className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+						<h4 className="text-md font-semibold mb-3 text-gray-700">Family Member {idx + 1}</h4>
+						<div className="grid grid-cols-2 gap-6 mb-4">
 							<Input label="Name" name="name" value={fam.name} onChange={e => handleFamilyDetails(idx, e)} placeholder="Enter name" />
 							<Input label="License Number" name="licenseNumber" value={fam.licenseNumber} onChange={e => handleFamilyDetails(idx, e)} placeholder="Enter license number" />
 						</div>
-						<div className="mb-2">Weapons Endorsed</div>
-						{fam.weapons.map((w, widx) => (
-							<div key={widx} className="flex items-center gap-2 mb-1">
-								<Input label={`Weapon ${widx + 1}`} name={`weapon${widx}`} value={w} onChange={e => handleWeaponChange(idx, widx, e)} placeholder={`Weapon ${widx + 1}`} />
-								<button type="button" className="bg-blue-900 text-white px-2 py-1 rounded" onClick={() => addWeapon(idx)}>+</button>
-								{fam.weapons.length > 1 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
+						<div className="mb-3">
+							<h5 className="text-sm font-medium text-gray-700 mb-2">Weapons Endorsed</h5>
+						</div>
+						{fam.weapons.map((w, widx) => {
+							console.log(`Rendering Family ${idx + 1}, Weapon ${widx + 1}:`, w);
+							return (
+							<div key={`family-${idx}-weapon-${widx}`} className="flex items-end gap-2 mb-3">
+								<div className="flex-1">
+									<Select 
+										label={`Weapon ${widx + 1}`} 
+										name={`family-${idx}-weapon-${widx}`} 
+										value={w} 
+										onChange={e => handleWeaponChange(idx, widx, e)} 
+										placeholder={`Select Weapon ${widx + 1}`}
+										options={weapons.map(weapon => ({ 
+											value: weapon.name, 
+											label: weapon.name 
+										}))}
+										disabled={loadingWeapons}
+									/>
+								</div>
+								<div className="flex gap-1">
+									<button 
+										type="button" 
+										className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-1" 
+										onClick={() => addWeapon(idx)}
+										title="Add weapon"
+									>
+										<span className="text-lg">➕</span>
+									</button>
+									{fam.weapons.length > 1 && (
+										<button 
+											type="button" 
+											className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors flex items-center gap-1" 
+											onClick={() => removeWeapon(idx, widx)}
+											title="Remove weapon"
+										>
+											<span className="text-lg">🗑️</span>
+										</button>
+									)}
+								</div>
 							</div>
-						))}
-						<button type="button" className="bg-blue-900 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={addFamily}>+ Add</button>
-						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2 ml-2" onClick={() => removeFamily(idx)}>- Remove</button>}
+							);
+						})}
+						<div className="flex gap-2 mt-4 pt-3 border-t border-gray-200">
+							<button 
+								type="button" 
+								className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors" 
+								onClick={addFamily}
+							>
+								<span className="text-lg">👥</span>
+								Add Family Member
+							</button>
+							{familyDetails.length > 1 && (
+								<button 
+									type="button" 
+									className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium flex items-center gap-2 transition-colors" 
+									onClick={() => removeFamily(idx)}
+								>
+									<span className="text-lg">❌</span>
+									Remove Family Member
+								</button>
+							)}
+						</div>
 					</div>
 				))}
+					</>
+				)}
 			</div>
 			<div className="mb-6">
 				<div className="mb-2">(d) The applicant has a safe place to keep the arms and ammunition</div>
