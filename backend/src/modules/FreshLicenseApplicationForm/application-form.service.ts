@@ -1087,8 +1087,16 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
     }
   }
 
+
+    // page: pageNum,
+    // limit: limitNum,
+    // searchField: parsedSearchField,
+    // search: parsedSearchValue,
+    // orderBy: parsedOrderBy,
+    // order: parsedOrder as 'asc' | 'desc',
+    // currentUserId: req.user?.sub, 
   public async getFilteredApplications(filter: {
-    statusIds?: number[];
+    statusIds?: Array<number | string>;
     currentUserId?: string;
     page?: number;
     limit?: number;
@@ -1096,21 +1104,46 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
     search?: string;
     orderBy?: string;
     order?: 'asc' | 'desc';
-    applicationId?: number;
-    isOwned?: boolean| undefined;
+    isOwned?: boolean;
   })  {
     // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
 
-      // Workflow status filter
+      // Pagination (move earlier so we can early-return when resolved status filter is empty)
+      const page = Math.max(Number(filter.page ?? 1), 1);
+      const limit = Math.max(Number(filter.limit ?? 10), 1);
+      const skip = (page - 1) * limit;
+
+      // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
-        where.workflowStatusId = { in: filter.statusIds };
+        // Split numeric-like entries and non-numeric entries
+        const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
+        const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
+
+        let resolvedIds: number[] = [...numericCandidates];
+
+        if (nonNumeric.length > 0) {
+          // Use existing helper to resolve textual identifiers (codes/names) to numeric IDs
+          const fromResolver = await this.resolveStatusIdentifiers(nonNumeric);
+          if (fromResolver && fromResolver.length > 0) {
+            resolvedIds = Array.from(new Set([...resolvedIds, ...fromResolver]));
+          }
+        }
+
+        // If we didn't resolve any numeric IDs, return empty result set early (no statuses match)
+        if (!resolvedIds || resolvedIds.length === 0) {
+          return [null, { total: 0, page, limit, data: [] }];
+        }
+
+        where.workflowStatusId = { in: resolvedIds };
       }
 
-      // User ownership filtering (now implemented with direct user tracking)
+      // Specific application ID filter (ownership)
       if (filter.isOwned === true && filter.currentUserId) {
-        where.currentUserId = filter.currentUserId;
+        // currentUserId might be string; convert if numeric
+        const parsed = Number(filter.currentUserId);
+        where.currentUserId = !isNaN(parsed) ? parsed : filter.currentUserId;
       }
 
       // Search filter (supports id exact match or text contains on allowed fields)
@@ -1126,11 +1159,6 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           }
         }
       }
-
-      // Pagination
-      const page = Math.max(Number(filter.page ?? 1), 1);
-      const limit = Math.max(Number(filter.limit ?? 10), 1);
-      const skip = (page - 1) * limit;
 
       // Ordering: allow only a small set of fields for safety
       const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
@@ -1152,7 +1180,6 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             id: true,
             code: true,
             name: true,
-            description: true
           }
         },
         // User and role tracking (role accessed through user.role)
@@ -1163,9 +1190,7 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             email: true,
             role: {
               select: {
-                id: true,
                 code: true,
-                name: true
               }
             }
           }
@@ -1179,55 +1204,11 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
               select: {
                 id: true,
                 code: true,
-                name: true
               }
             }
           }
         },
-        // Addresses: include only addressLine and related names
-        presentAddress: {
-          select: {
-            id: true,
-            addressLine: true,
-            sinceResiding: true,
-            telephoneOffice: true,
-            telephoneResidence: true,
-            officeMobileNumber: true,
-            alternativeMobile: true,
-            state: { select: { id: true, name: true } },
-            district: { select: { id: true, name: true } },
-            zone: { select: { id: true, name: true } },
-            division: { select: { id: true, name: true } },
-            policeStation: { select: { id: true, name: true } },
-          }
-        },
-        permanentAddress: {
-          select: {
-            id: true,
-            addressLine: true,
-            sinceResiding: true,
-            telephoneOffice: true,
-            telephoneResidence: true,
-            officeMobileNumber: true,
-            alternativeMobile: true,
-            state: { select: { id: true, name: true } },
-            district: { select: { id: true, name: true } },
-            zone: { select: { id: true, name: true } },
-            division: { select: { id: true, name: true } },
-            policeStation: { select: { id: true, name: true } },
-          }
-        },
-        occupationAndBusiness: {
-          select: {
-            id: true,
-            occupation: true,
-            officeAddress: true,
-            state: { select: { id: true, name: true } },
-            district: { select: { id: true, name: true } },
-          }
-        },
       };
-
       const [total, rawData] = await Promise.all([
         prisma.freshLicenseApplicationPersonalDetails.count({ where }),
         prisma.freshLicenseApplicationPersonalDetails.findMany({
@@ -1238,179 +1219,16 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           select,
         }),
       ]);
-
-      // Transform each application to a frontend-friendly shape and build usersInHierarchy
-      const finalData: any[] = [];
-      const combinedUsersMap: Record<string, any> = {};
-
-      for (const row of rawData) {
-        // Applicant name
-        const applicantName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
-
-        // State / district names from present address (fallback to permanent address)
-        const stateName = row.presentAddress?.state?.name || row.permanentAddress?.state?.name || null;
-        const districtName = row.presentAddress?.district?.name || row.permanentAddress?.district?.name || null;
-
-        // Application lifecycle status
-        const status = row.workflowStatus ? { code: row.workflowStatus.code, name: row.workflowStatus.name } : null;
-
-        // Transform addresses
-        const transformAddress = (addr: any) => {
-          if (!addr) return null;
-          return {
-            addressLine: addr.addressLine,
-            sinceResiding: addr.sinceResiding,
-            telephoneOffice: addr.telephoneOffice || null,
-            telephoneResidence: addr.telephoneResidence || null,
-            officeMobileNumber: addr.officeMobileNumber || null,
-            alternativeMobile: addr.alternativeMobile || null,
-            stateName: addr.state ? addr.state.name : null,
-            districtName: addr.district ? addr.district.name : null,
-            zoneName: addr.zone ? addr.zone.name : null,
-            divisionName: addr.division ? addr.division.name : null,
-            policeStationName: addr.policeStation ? addr.policeStation.name : null,
-          };
+      // Build 'applicatenName' by joining first/middle/last for each record
+      const transformedData = (rawData || []).map((row: any) => {
+        const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+        return {
+          ...row,
         };
+      });
 
-        const presentAddress = transformAddress(row.presentAddress);
-        const permanentAddress = transformAddress(row.permanentAddress);
-
-        // Get workflow histories for this application
-        const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-          where: { applicationId: row.id },
-          take: 3,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            actiones: { select: { id: true, code: true, name: true } },
-            nextUser: { select: { id: true, username: true } },
-            previousUser: { select: { id: true, username: true } },
-            nextRole: { select: { id: true, code: true, name: true } },
-            previousRole: { select: { id: true, code: true, name: true } },
-          }
-        });
-
-        const transformedWorkflowHistories = workflowHistories.map((h: any) => ({
-          id: h.id,
-          actionTaken: h.actionTaken,
-          remarks: h.remarks,
-          createdAt: h.createdAt,
-          attachments: h.attachments || null,
-          action: h.actiones ? (h.actiones.code ?? h.actiones.name) : null,
-          previousUserName: h.previousUser ? h.previousUser.username : null,
-          previousRoleName: h.previousRole ? (h.previousRole.name ?? h.previousRole.code) : null,
-          nextUserName: h.nextUser ? h.nextUser.username : null,
-          nextRoleName: h.nextRole ? (h.nextRole.name ?? h.nextRole.code) : null,
-        }));
-
-        // Build usersInHierarchy for this application using a single OR query
-        let usersInHierarchy: any[] = [];
-        try {
-          // Determine hierarchy ids from presentAddress
-          const psId = row.presentAddress?.policeStation?.id ?? null;
-          const divisionId = row.presentAddress?.division?.id ?? null;
-          const zoneId = row.presentAddress?.zone?.id ?? null;
-          const districtId = row.presentAddress?.district?.id ?? null;
-          const stateId = row.presentAddress?.state?.id ?? null;
-
-          const orClauses: any[] = [];
-          if (psId) orClauses.push({ policeStationId: psId });
-          if (divisionId) orClauses.push({ divisionId: divisionId, policeStationId: null });
-          if (zoneId) orClauses.push({ zoneId: zoneId, divisionId: null });
-          if (districtId) orClauses.push({ districtId: districtId, zoneId: null });
-          if (stateId) orClauses.push({ stateId: stateId, districtId: null });
-
-          if (orClauses.length > 0) {
-            const users = await prisma.users.findMany({
-              where: { OR: orClauses },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                role: { select: { id: true, code: true, name: true } },
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-              }
-            });
-
-            // Map users to include roleName and level (to preserve specificity)
-            usersInHierarchy = users.map(u => {
-              let level = null as string | null;
-              let locationName = null as string | null;
-              if (psId && u.policeStationId === psId) {
-                level = 'policeStation';
-                locationName = row.presentAddress?.policeStation?.name ?? null;
-              } else if (divisionId && u.divisionId === divisionId && u.policeStationId == null) {
-                level = 'division';
-                locationName = row.presentAddress?.division?.name ?? null;
-              } else if (zoneId && u.zoneId === zoneId && u.divisionId == null) {
-                level = 'zone';
-                locationName = row.presentAddress?.zone?.name ?? null;
-              } else if (districtId && u.districtId === districtId && u.zoneId == null) {
-                level = 'district';
-                locationName = row.presentAddress?.district?.name ?? null;
-              } else if (stateId && u.stateId === stateId && u.districtId == null) {
-                level = 'state';
-                locationName = row.presentAddress?.state?.name ?? null;
-              }
-
-              const roleName = u.role ? (u.role.name ?? u.role.code) : null;
-
-              // Add to combined map for top-level usersInHierarchy
-              if (!combinedUsersMap[u.username]) {
-                combinedUsersMap[u.username] = {
-                  username: u.username,
-                  email: u.email || null,
-                  roleName,
-                  level,
-                  locationName,
-                };
-              }
-
-              return {
-                username: u.username,
-                email: u.email || null,
-                roleName,
-                level,
-                locationName,
-              };
-            });
-          }
-        } catch (e) {
-          // ignore usersInHierarchy errors per application to avoid breaking whole list
-          usersInHierarchy = [];
-        }
-
-        // Build final transformed object (strip raw id fields)
-        const transformed = {
-          id: row.id,
-          acknowledgementNo: row.acknowledgementNo,
-          applicantName,
-          createdAt: row.createdAt,
-          status,
-          state: stateName,
-          district: districtName,
-          presentAddress,
-          permanentAddress,
-          occupationAndBusiness: row.occupationAndBusiness ? {
-            occupation: row.occupationAndBusiness.occupation,
-            officeAddress: row.occupationAndBusiness.officeAddress,
-            stateName: row.occupationAndBusiness.state?.name || null,
-            districtName: row.occupationAndBusiness.district?.name || null,
-          } : null,
-          workflowHistory: transformedWorkflowHistories,
-          usersInHierarchy,
-        };
-
-        finalData.push(transformed);
-      }
-
-      // Build combined usersInHierarchy array
-      const usersInHierarchy = Object.values(combinedUsersMap);
-
-      return [null, { total, data: finalData, usersInHierarchy }];
+      // Return in the [error, result] tuple format used across the service methods
+      return [null, { total, page, limit, data: transformedData }];
     } catch (error) {
       return [error, null];
     }
