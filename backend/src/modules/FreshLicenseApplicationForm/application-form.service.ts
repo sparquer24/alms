@@ -791,6 +791,7 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           // Status and user tracking
           workflowStatus: {
             select: {
+              id: true,
               name: true,
             }
           },
@@ -805,7 +806,7 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
                   code: true,
                   name: true
                 }
-              }
+              },
             }
           },
           previousUser: {
@@ -823,39 +824,14 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             }
           },
           // Address details
-          presentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true,
-            }
-          },
-          permanentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true,
-            }
-          },
+          presentAddress:true,
+          permanentAddress:true,
           // Other details
-          occupationAndBusiness: {
-            include: {
-              state: true,
-              district: true,
-            }
-          },
+          occupationAndBusiness: true,
           biometricData: true,
           criminalHistories: true,
           licenseHistories: true,
-          licenseDetails: {
-            include: {
-              requestedWeapons: true,
-            }
-          },
+          licenseDetails: true,
           fileUploads: true,
         },
       });
