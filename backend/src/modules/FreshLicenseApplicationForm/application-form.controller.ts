@@ -513,7 +513,7 @@ export class ApplicationFormController {
   if (parsedApplicationId || parsedAcknowledgementNo) {
         const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
         if (error) {
-          const errMsg = (error as any)?.message || 'Failed to fetch applications-------------------516';
+          const errMsg = (error as any)?.message || 'Failed to fetch applications';
           throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
         }
         if (!dataApplication) {
