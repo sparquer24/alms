@@ -9,10 +9,10 @@ interface UseApplicationFormProps {
   validationRules?: (formData: any) => string[];
 }
 
-export const useApplicationForm = ({ 
-  initialState, 
-  formSection, 
-  validationRules 
+export const useApplicationForm = ({
+  initialState,
+  formSection,
+  validationRules
 }: UseApplicationFormProps) => {
   const [form, setForm] = useState(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,7 +20,7 @@ export const useApplicationForm = ({
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [applicantId, setApplicantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, token } = useAuth();
@@ -31,7 +31,7 @@ export const useApplicationForm = ({
     if (urlApplicantId) {
       console.log('🔍 Found applicantId in URL:', urlApplicantId);
       setApplicantId(urlApplicantId);
-      
+
       // Only try to load existing data for non-personal forms OR existing personal forms
       // Skip loading for fresh personal information forms
       if (formSection !== 'personal') {
@@ -44,35 +44,43 @@ export const useApplicationForm = ({
   }, [searchParams, formSection]);
 
   // Load existing application data
-  const loadExistingData = async (appId: string) => {
+  const loadExistingData = useCallback(async (appId: string) => {
     try {
-      console.log('🟢 Loading existing data (GET) for applicantId:', appId);
+      console.log('🟢 Loading existing data (GET) for applicantId:', appId, 'section:', formSection);
       setIsLoading(true);
       const response = await ApplicationService.getApplication(appId);
-      console.log('📄 Existing data response:', response);
-      
+      console.log('📄 Full application response:', response);
+
       if (response.success && response.data) {
-        // Merge existing data with initial state, prioritizing existing data
-        setForm((prev: any) => ({ ...prev, ...response.data }));
-        console.log('✅ Existing data loaded and merged');
+        // Extract section-specific data using the new method
+        const sectionData = ApplicationService.extractSectionData(response.data, formSection);
+        console.log('📋 Extracted section data for', formSection, ':', sectionData);
+
+        if (sectionData) {
+          // Merge section data with initial state, prioritizing section data
+          setForm((prev: any) => ({ ...prev, ...sectionData }));
+          console.log('✅ Section data loaded and merged');
+        } else {
+          console.log('⚠️ No data found for section:', formSection);
+        }
       } else {
         console.log('⚠️ No existing data found or response unsuccessful');
       }
     } catch (error: any) {
       console.log('⚠️ Could not load existing data (this might be OK for new applications):', error.message);
-      
+
       // If it's a 404 error, that's expected for new applications
       if (error.message.includes('404') || error.message.includes('Cannot GET')) {
         console.log('💡 Application not found - this is normal for new applications');
       } else {
         console.error('❌ Unexpected error loading existing data:', error);
       }
-      
+
       // Don't show error to user - continue with initial state
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [formSection]);
 
   // Handle form field changes
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,7 +161,7 @@ export const useApplicationForm = ({
       }
     } catch (error: any) {
       console.error('❌ Error saving form data:', error);
-      
+
       if (error.message === 'Authentication required' || error.message.includes('log in')) {
         setSubmitError('Authentication expired. Please log in again.');
         setTimeout(() => {
@@ -161,7 +169,7 @@ export const useApplicationForm = ({
         }, 2000);
         return null;
       }
-      
+
       setSubmitError(error.message || 'An error occurred while saving data.');
       return null;
     } finally {
@@ -192,6 +200,7 @@ export const useApplicationForm = ({
     handleNestedChange,
     saveFormData,
     navigateToNext,
+    loadExistingData,
     setSubmitError,
     setSubmitSuccess,
   };

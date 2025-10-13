@@ -4,10 +4,15 @@ import { Input, TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
-import { useFormContext } from '../../../app/forms/createFreshApplication/[step]/page';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useApplicationForm } from '../../../hooks/useApplicationForm';
+import { FORM_ROUTES } from '../../../config/formRoutes';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] }; // Use weapon IDs instead of strings
+
+const initialState = {
+	licenseHistories: [] as any[],
+};
 
 const LicenseHistory = () => {
 	const [appliedBefore, setAppliedBefore] = useState('no');
@@ -26,15 +31,34 @@ const LicenseHistory = () => {
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
 
 	const router = useRouter();
+	
 	const {
+		form,
+		setForm,
 		applicantId,
 		isSubmitting,
 		submitError,
 		submitSuccess,
-		updateApplicationDetails,
-		navigateToStep,
-		clearMessages
-	} = useFormContext();
+		isLoading,
+		saveFormData,
+		navigateToNext,
+		loadExistingData,
+		setSubmitError,
+		setSubmitSuccess,
+	} = useApplicationForm({
+		initialState,
+		formSection: 'license-history',
+	});
+
+	// Load existing data into local state when form data changes
+	useEffect(() => {
+		if (form.licenseHistories && form.licenseHistories.length > 0) {
+			// Parse license histories from backend format
+			const histories = form.licenseHistories;
+			console.log('Loaded license histories:', histories);
+			// TODO: Map backend data to local state format
+		}
+	}, [form.licenseHistories]);
 
 	// Fetch weapons on component mount
 	useEffect(() => {
@@ -107,99 +131,67 @@ const LicenseHistory = () => {
 	const addFamily = () => setFamilyDetails(prev => [...prev, { ...initialFamily }]);
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
 
+	// Show loading state if data is being loaded
+	if (isLoading) {
+		return (
+			<div className="p-6">
+				<h2 className="text-xl font-bold mb-4">License History</h2>
+				<div className="flex justify-center items-center py-8">
+					<div className="text-gray-500">Loading existing data...</div>
+				</div>
+			</div>
+		);
+	}
+
 	const transformFormData = () => {
-		const licenseHistories = [];
-
-		// Add application history
-		if (appliedBefore === 'yes' && (appliedDetails.date || appliedDetails.authority)) {
-			licenseHistories.push({
-				type: 'APPLICATION',
-				dateAppliedFor: appliedDetails.date ? new Date(appliedDetails.date).toISOString() : undefined,
-				authority: appliedDetails.authority || undefined,
-				result: appliedDetails.result || undefined,
-				status: appliedDetails.status || undefined,
-			});
-		}
-
-		// Add suspension history
-		if (suspended === 'yes' && (suspendedDetails.authority || suspendedDetails.reason)) {
-			licenseHistories.push({
-				type: 'SUSPENSION',
-				authority: suspendedDetails.authority || undefined,
-				reason: suspendedDetails.reason || undefined,
-			});
-		}
-
-		// Add family license records
-		if (family === 'yes') {
-			familyDetails.forEach(fam => {
-				if (fam.name || fam.licenseNumber) {
-					licenseHistories.push({
-						type: 'FAMILY_LICENSE',
-						familyMemberName: fam.name || undefined,
-						licenseNumber: fam.licenseNumber || undefined,
-						weaponIds: fam.weapons.filter(w => w > 0), // Only include selected weapons
-					});
-				}
-			});
-		}
-
-		// Add safe place record
-		if (safePlace === 'yes' && safePlaceDetails) {
-			licenseHistories.push({
-				type: 'SAFE_PLACE',
-				details: safePlaceDetails,
-			});
-		}
-
-		// Add training record
-		if (training === 'yes' && trainingDetails) {
-			licenseHistories.push({
-				type: 'TRAINING',
-				details: trainingDetails,
-			});
-		}
-
-		// If no license history, return empty array or a single "NONE" record
-		if (licenseHistories.length === 0) {
-			licenseHistories.push({
-				type: 'NONE',
-			});
-		}
-
-		return licenseHistories;
+		// Transform to new API format matching the payload structure
+		return [{
+			hasAppliedBefore: appliedBefore === 'yes',
+			applicationDetails: appliedBefore === 'yes' ? JSON.stringify(appliedDetails) : undefined,
+			hasLicenceSuspended: suspended === 'yes',
+			suspensionDetails: suspended === 'yes' ? JSON.stringify(suspendedDetails) : undefined,
+			hasFamilyLicence: family === 'yes',
+			familyLicenceDetails: family === 'yes' ? JSON.stringify(familyDetails) : undefined,
+			hasSafePlace: safePlace === 'yes',
+			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails : undefined,
+			hasTraining: training === 'yes',
+			trainingDetails: training === 'yes' ? trainingDetails : undefined,
+		}];
 	};
 
 	const handleSaveToDraft = async () => {
-		clearMessages();
-
-		if (!applicantId) {
-			alert('Please complete the personal information step first.');
-			await navigateToStep('personal-information');
-			return;
-		}
-
-		const transformedData = transformFormData();
-		await updateApplicationDetails(transformedData, 'license-history');
+		// Transform local state to API format before saving
+		const licenseHistories = transformFormData();
+		setForm((prev: any) => ({ ...prev, licenseHistories }));
+		
+		// Log the payload being sent
+		console.log('🟡 License History Payload:', licenseHistories);
+		
+		await saveFormData();
 	};
 
 	const handleNext = async () => {
-		if (!applicantId) {
-			alert('Please complete the personal information step first.');
-			await navigateToStep('personal-information');
-			return;
-		}
-
-		const transformedData = transformFormData();
-		const success = await updateApplicationDetails(transformedData, 'license-history');
+		// Transform local state to API format before saving
+		const licenseHistories = transformFormData();
+		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
-		if (success) {
-			await navigateToStep('license-details');
+		// Log the payload being sent
+		console.log('🟡 License History Payload:', licenseHistories);
+		
+		const savedApplicantId = await saveFormData();
+		
+		if (savedApplicantId) {
+			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, savedApplicantId);
 		}
 	};
 
 	const handlePrevious = async () => {
-		await navigateToStep('criminal-history');
+		if (applicantId) {
+			await loadExistingData(applicantId);
+			navigateToNext(FORM_ROUTES.CRIMINAL_HISTORY, applicantId);
+		} else {
+			router.back();
+		}
 	};
 
 	return (
@@ -229,11 +221,25 @@ const LicenseHistory = () => {
 				<div className="font-semibold mb-2">14. Whether the applicant has applied for -</div>
 				<div className="mb-2">(a) Arms License before?</div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="appliedBefore" value="yes" checked={appliedBefore === 'yes'} onChange={() => setAppliedBefore('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="appliedBefore" 
+							value="yes" 
+							checked={appliedBefore === 'yes'} 
+							onChange={() => setAppliedBefore('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="appliedBefore" value="no" checked={appliedBefore === 'no'} onChange={() => setAppliedBefore('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="appliedBefore" 
+							value="no" 
+							checked={appliedBefore === 'no'} 
+							onChange={() => setAppliedBefore('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{appliedBefore === 'yes' && (
@@ -264,11 +270,25 @@ const LicenseHistory = () => {
 			<div className="mb-6">
 				<div className="mb-2">(b) License been revoked or suspended</div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="suspended" value="yes" checked={suspended === 'yes'} onChange={() => setSuspended('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="suspended" 
+							value="yes" 
+							checked={suspended === 'yes'} 
+							onChange={() => setSuspended('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="suspended" value="no" checked={suspended === 'no'} onChange={() => setSuspended('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="suspended" 
+							value="no" 
+							checked={suspended === 'no'} 
+							onChange={() => setSuspended('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{suspended === 'yes' && (
@@ -281,11 +301,25 @@ const LicenseHistory = () => {
 			<div className="mb-6">
 				<div className="mb-2">(c) Any member of the family holds a license</div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="family" value="yes" checked={family === 'yes'} onChange={() => setFamily('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="family" 
+							value="yes" 
+							checked={family === 'yes'} 
+							onChange={() => setFamily('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="family" value="no" checked={family === 'no'} onChange={() => setFamily('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="family" 
+							value="no" 
+							checked={family === 'no'} 
+							onChange={() => setFamily('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{family === 'yes' && familyDetails.map((fam, idx) => (
@@ -323,11 +357,25 @@ const LicenseHistory = () => {
 			<div className="mb-6">
 				<div className="mb-2">(d) The applicant has a safe place to keep the arms and ammunition</div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="safePlace" value="yes" checked={safePlace === 'yes'} onChange={() => setSafePlace('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="safePlace" 
+							value="yes" 
+							checked={safePlace === 'yes'} 
+							onChange={() => setSafePlace('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="safePlace" value="no" checked={safePlace === 'no'} onChange={() => setSafePlace('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="safePlace" 
+							value="no" 
+							checked={safePlace === 'no'} 
+							onChange={() => setSafePlace('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{safePlace === 'yes' && (
@@ -337,11 +385,25 @@ const LicenseHistory = () => {
 			<div className="mb-6">
 				<div className="mb-2">(e) The applicant has undergone training as specified under rule 10 <span className="italic text-xs">(whenever made applicable by the Central Government)</span></div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="training" value="yes" checked={training === 'yes'} onChange={() => setTraining('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="training" 
+							value="yes" 
+							checked={training === 'yes'} 
+							onChange={() => setTraining('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="training" value="no" checked={training === 'no'} onChange={() => setTraining('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="training" 
+							value="no" 
+							checked={training === 'no'} 
+							onChange={() => setTraining('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{training === 'yes' && (

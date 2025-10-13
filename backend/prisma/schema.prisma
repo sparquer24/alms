@@ -184,7 +184,7 @@ model ActionHistories {
 // start new changes based on the page segregation for fresh license application form
 model FreshLicenseApplicationPersonalDetails {
   id                  Int                             @id @default(autoincrement())
-  acknowledgementNo   String?                         @unique
+  acknowledgementNo   String?                         
   firstName           String
   middleName          String?
   lastName            String
@@ -194,8 +194,8 @@ model FreshLicenseApplicationPersonalDetails {
   placeOfBirth        String?
   dateOfBirth         DateTime?
   dobInWords          String?
-  panNumber           String?                         @unique
-  aadharNumber        String?                         @unique
+  panNumber           String?                         
+  aadharNumber        String?                         
   createdAt           DateTime                        @default(now())
   updatedAt           DateTime                        @default(now()) @updatedAt
   @@index([aadharNumber])
@@ -239,6 +239,7 @@ model FLAFAddressesAndContactDetails {
   officeMobileNumber    String?
   alternativeMobile     String?
 }
+
 model FLAFOccupationAndBusiness {
   id                   Int                             @id @default(autoincrement())
   occupation           String
@@ -247,6 +248,12 @@ model FLAFOccupationAndBusiness {
   districtId           Int
   cropLocation         String?
   areaUnderCultivation Float?
+  // Additional fields from frontend form
+  employerName         String?
+  businessDetails      String?
+  annualIncome         String?
+  workExperience       String?
+  businessType         String?
   district             Districts                       @relation(fields: [districtId], references: [id])
   state                States                          @relation(fields: [stateId], references: [id])
   applications         FreshLicenseApplicationPersonalDetails[]

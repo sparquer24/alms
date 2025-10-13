@@ -31,4 +31,29 @@ export class PatchOccupationBusinessDto {
   @IsOptional()
   @IsNumber()
   areaUnderCultivation?: number;
+
+  @ApiPropertyOptional({ example: 'Tech Corporation Ltd', description: 'Employer name' })
+  @IsOptional()
+  @IsString()
+  employerName?: string;
+
+  @ApiPropertyOptional({ example: 'Software development and consulting', description: 'Business details' })
+  @IsOptional()
+  @IsString()
+  businessDetails?: string;
+
+  @ApiPropertyOptional({ example: '500000', description: 'Annual income' })
+  @IsOptional()
+  @IsString()
+  annualIncome?: string;
+
+  @ApiPropertyOptional({ example: '5', description: 'Work experience in years' })
+  @IsOptional()
+  @IsString()
+  workExperience?: string;
+
+  @ApiPropertyOptional({ example: 'IT Services', description: 'Business type' })
+  @IsOptional()
+  @IsString()
+  businessType?: string;
 }

@@ -65,6 +65,7 @@ const AddressDetails: React.FC = () => {
 		handleChange: baseHandleChange,
 		saveFormData,
 		navigateToNext,
+		loadExistingData,
 	} = useApplicationForm({
 		initialState,
 		formSection: 'address',
@@ -89,8 +90,10 @@ const AddressDetails: React.FC = () => {
 		}
 	};
 
-	const handlePrevious = () => {
+	const handlePrevious = async () => {
+		// Refresh data from backend before navigating back
 		if (applicantId) {
+			await loadExistingData(applicantId);
 			navigateToNext(FORM_ROUTES.PERSONAL_INFO, applicantId);
 		} else {
 			router.back();

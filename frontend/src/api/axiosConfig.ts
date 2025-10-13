@@ -1,13 +1,35 @@
 import axios from 'axios';
 import jsCookie from 'js-cookie';
-  
+
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json' ,
+    'Content-Type': 'application/json',
   },
 });
+
+// Helper function to extract error message from nested error structure
+const extractErrorMessage = (error: any): string => {
+  // Try to extract from nested structure: details.response.error or details.response.message
+  if (error?.response?.data?.details?.response?.error) {
+    return error.response.data.details.response.error;
+  }
+  if (error?.response?.data?.details?.response?.message) {
+    return error.response.data.details.response.message;
+  }
+  // Try standard error paths
+  if (error?.response?.data?.error) {
+    return error.response.data.error;
+  }
+  if (error?.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error?.message) {
+    return error.message;
+  }
+  return 'An unexpected error occurred';
+};
 
 
 // Function to update Authorization header
@@ -59,7 +81,10 @@ export const fetchData = async (url: string, params = {}) => {
     return response.data;
   } catch (error) {
     const err: any = error;
-    const message = err?.response?.data?.message || err?.message || 'Could not get data';
+    console.error('❌ GET ERROR:', err);
+    console.error('❌ GET ERROR Response:', err?.response?.data);
+
+    const message = extractErrorMessage(err) || 'Could not get data';
     // If unauthorized, redirect to login in client contexts to re-authenticate
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
@@ -96,11 +121,14 @@ export const postData = async (url: string, data: any, options = {}) => {
     return response.data;
   } catch (error) {
     const err: any = error;
-    const message = err?.response?.data?.message || err?.message || 'Could not post data';
+    console.error('❌ POST ERROR:', err);
+    console.error('❌ POST ERROR Response:', err?.response?.data);
+
+    const message = extractErrorMessage(err) || 'Could not post data';
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) {}
+      try { jsCookie.remove('auth'); } catch (e) { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -115,11 +143,14 @@ export const putData = async (url: string, data: any, options = {}) => {
     return response.data;
   } catch (error) {
     const err: any = error;
-    const message = err?.response?.data?.message || err?.message || 'Could not update data';
+    console.error('❌ PUT ERROR:', err);
+    console.error('❌ PUT ERROR Response:', err?.response?.data);
+
+    const message = extractErrorMessage(err) || 'Could not update data';
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) {}
+      try { jsCookie.remove('auth'); } catch (e) { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -134,7 +165,7 @@ export const patchData = async (url: string, data: any, options = {}) => {
     console.log('🔥 PATCH REQUEST - URL:', url);
     console.log('🔥 PATCH REQUEST - Data:', data);
     console.log('🔥 PATCH REQUEST - Full URL:', process.env.NEXT_PUBLIC_API_URL + url);
-    
+
     try {
       if (!axiosInstance.defaults.headers['Authorization']) {
         const existing = jsCookie.get('auth');
@@ -145,7 +176,7 @@ export const patchData = async (url: string, data: any, options = {}) => {
     } catch (e) {
       // ignore cookie read errors
     }
-    
+
     const response = await axiosInstance.patch(url, data, options);
     console.log('✅ PATCH RESPONSE:', response.data);
     return response.data;
@@ -153,13 +184,13 @@ export const patchData = async (url: string, data: any, options = {}) => {
     const err: any = error;
     console.error('❌ PATCH ERROR:', err);
     console.error('❌ PATCH ERROR Status:', err?.response?.status);
-    console.error('❌ PATCH ERROR Message:', err?.response?.data?.message);
-    
-    const message = err?.response?.data?.message || err?.message || 'Could not update data';
+    console.error('❌ PATCH ERROR Response:', err?.response?.data);
+
+    const message = extractErrorMessage(err) || 'Could not update data';
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) {}
+      try { jsCookie.remove('auth'); } catch (e) { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
@@ -174,11 +205,14 @@ export const deleteData = async (url: string, options = {}) => {
     return response.data;
   } catch (error) {
     const err: any = error;
-    const message = err?.response?.data?.message || err?.message || 'Could not delete data';
+    console.error('❌ DELETE ERROR:', err);
+    console.error('❌ DELETE ERROR Response:', err?.response?.data);
+
+    const message = extractErrorMessage(err) || 'Could not delete data';
     const status = err?.response?.status || err?.status;
     const isAuthError = status === 401 || /authoriz/i.test(String(message || ''));
     if (isAuthError && typeof window !== 'undefined') {
-      try { jsCookie.remove('auth'); } catch (e) {}
+      try { jsCookie.remove('auth'); } catch (e) { }
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
