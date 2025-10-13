@@ -6,6 +6,7 @@ import { FiArrowRight, FiArrowLeft } from "react-icons/fi";
 
 interface FormFooterProps {
   isDeclarationStep?: boolean;
+  hidePrevious?: boolean;
   onSaveToDraft?: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
@@ -15,6 +16,7 @@ interface FormFooterProps {
 
 const FormFooter: React.FC<FormFooterProps> = ({ 
   isDeclarationStep, 
+  hidePrevious = false,
   onSaveToDraft, 
   onNext, 
   onPrevious, 
@@ -38,14 +40,16 @@ const FormFooter: React.FC<FormFooterProps> = ({
       </div>
       {isDeclarationStep ? (
         <div className="flex w-full justify-between mt-4">
-          <button 
-            onClick={onPrevious}
-            disabled={isLoading}
-            className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FiArrowLeft className="text-lg" />
-            Previous
-          </button>
+          {!hidePrevious && (
+            <button 
+              onClick={onPrevious}
+              disabled={isLoading}
+              className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FiArrowLeft className="text-lg" />
+              Previous
+            </button>
+          )}
           <button 
             onClick={onSubmit}
             disabled={isLoading}
@@ -64,14 +68,16 @@ const FormFooter: React.FC<FormFooterProps> = ({
             <FaRegSave className="text-lg" />
             {isLoading ? 'Saving...' : 'Save to Draft'}
           </button>
-          <button 
-            onClick={onPrevious}
-            disabled={isLoading}
-            className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FiArrowLeft className="text-lg" />
-            Previous
-          </button>
+          {!hidePrevious && (
+            <button 
+              onClick={onPrevious}
+              disabled={isLoading}
+              className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FiArrowLeft className="text-lg" />
+              Previous
+            </button>
+          )}
           <button 
             onClick={onNext}
             disabled={isLoading}

@@ -236,6 +236,7 @@ const PersonalInformation: React.FC = () => {
 				onSaveToDraft={handleSaveToDraft}
 				onNext={handleNext}
 				onPrevious={handlePrevious}
+				hidePrevious={true}
 				isLoading={isSubmitting}
 			/>
 		</div>
