@@ -16,6 +16,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
     <div className="w-full flex justify-center ">
          <h1 className="text-2xl font-bold text-blue-900 tracking-wide uppercase">FRESH APPLICATION FORM</h1>
     </div>
+    
     <div className="max-w-7xl  rounded-sm shadow px-2 py-1 mt-2 mx-auto" style={{ background: 'linear-gradient(90deg, #0d2977 0%, #23408e 100%)' }}>
       <div className="flex space-x-2  overflow-x-auto  scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-100 px-2 py-1 justify-center">
         {steps.map((stepName, idx) => (

@@ -16,7 +16,7 @@ const initialState = {
 
 const LicenseHistory = () => {
 	const [appliedBefore, setAppliedBefore] = useState('no');
-	const [appliedDetails, setAppliedDetails] = useState({ date: '', authority: '', result: '', status: '' });
+	const [appliedDetails, setAppliedDetails] = useState({ date: '', authority: '', result: '' });
 	const [rejectedFile, setRejectedFile] = useState<File | null>(null);
 	const [fileError, setFileError] = useState<string>('');
 	const [suspended, setSuspended] = useState('no');
@@ -246,17 +246,16 @@ const LicenseHistory = () => {
 					<div className="grid grid-cols-2 gap-6 mb-2">
 						<Input label="Date of Application" name="date" type="date" value={appliedDetails.date} onChange={handleAppliedDetails} placeholder="DD/MM/YYYY" />
 						<Input label="To which authority" name="authority" value={appliedDetails.authority} onChange={handleAppliedDetails} placeholder="Enter authority" />
-						<Input label="Result" name="result" value={appliedDetails.result} onChange={handleAppliedDetails} placeholder="Enter result" />
 						<div className="flex flex-col">
-							<label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-							<select name="status" value={appliedDetails.status} onChange={(e) => setAppliedDetails(prev => ({ ...prev, status: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-								<option value="">Select Status</option>
-								<option value="rejected">Rejected</option>
+							<label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
+							<select name="result" value={appliedDetails.result} onChange={(e) => setAppliedDetails(prev => ({ ...prev, result: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+								<option value="">Select Result</option>
 								<option value="approved">Approved</option>
+								<option value="rejected">Rejected</option>
 								<option value="pending">Pending</option>
 							</select>
 						</div>
-						{appliedDetails.status === 'rejected' && (
+						{appliedDetails.result === 'rejected' && (
 							<div className="col-span-2">
 								<label className="block text-sm font-medium text-gray-700 mb-1">Upload Rejection Document (Optional)</label>
 								<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} className="w-full p-2 border border-gray-300 rounded-md" />
