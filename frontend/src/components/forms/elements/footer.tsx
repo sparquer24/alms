@@ -40,19 +40,22 @@ const FormFooter: React.FC<FormFooterProps> = ({
       </div>
       {isDeclarationStep ? (
         <div className="flex w-full justify-between mt-4">
-          {!hidePrevious && (
-            <button 
-              onClick={onPrevious}
-              disabled={isLoading}
-              className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FiArrowLeft className="text-lg" />
-              Previous
-            </button>
+          
+        {!hidePrevious && (
+          <button 
+            onClick={onPrevious}
+            disabled={isLoading}
+            suppressHydrationWarning
+            className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FiArrowLeft className="text-lg" />
+            Previous
+          </button>
           )}
           <button 
             onClick={onSubmit}
             disabled={isLoading}
+            suppressHydrationWarning
             className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Submitting...' : 'Submit'}
@@ -63,12 +66,13 @@ const FormFooter: React.FC<FormFooterProps> = ({
           <button 
             onClick={onSaveToDraft}
             disabled={isLoading}
+            suppressHydrationWarning
             className="flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FaRegSave className="text-lg" />
             {isLoading ? 'Saving...' : 'Save to Draft'}
           </button>
-          {!hidePrevious && (
+          
             <button 
               onClick={onPrevious}
               disabled={isLoading}
@@ -77,10 +81,22 @@ const FormFooter: React.FC<FormFooterProps> = ({
               <FiArrowLeft className="text-lg" />
               Previous
             </button>
+   
+        {!hidePrevious && (
+          <button 
+            onClick={onPrevious}
+            disabled={isLoading}
+            suppressHydrationWarning
+            className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FiArrowLeft className="text-lg" />
+            Previous
+          </button>
           )}
           <button 
             onClick={onNext}
             disabled={isLoading}
+            suppressHydrationWarning
             className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Saving...' : 'Next'}
