@@ -68,6 +68,7 @@ export class ApplicationFormController {
     name: 'isSubmit',
     description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
     example: true,
+    required: false,
   })
   @ApiBody({
     type: PatchApplicationDetailsDto,
