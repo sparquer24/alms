@@ -114,6 +114,17 @@ export class ApplicationFormService {
     });
   }
 
+  // Helper to extract acceptance flags from payload or personalDetails object
+  private extractAcceptanceFlagsFromPayload(payload: any) {
+    // payload may be either the whole DTO or the personalDetails object itself
+    const source = (payload && payload.personalDetails && typeof payload.personalDetails === 'object') ? payload.personalDetails : payload;
+    const result: any = {};
+    if (source?.isDeclarationAccepted !== undefined) result.isDeclarationAccepted = source.isDeclarationAccepted;
+    if (source?.isAwareOfLegalConsequences !== undefined) result.isAwareOfLegalConsequences = source.isAwareOfLegalConsequences;
+    if (source?.isTermsAccepted !== undefined) result.isTermsAccepted = source.isTermsAccepted;
+    return result;
+  }
+
   // Helper method to determine initial status for new applications
   private async getInitialStatus() {
     // Get the initial status (e.g., "SUBMITTED" or "PENDING")
@@ -607,7 +618,13 @@ export class ApplicationFormService {
           // }
 
           // If there is something to update, perform the update
+          // Also include acceptance flags here if provided (ensure these are
+          // updated when personalDetails is present, even if this is called
+          // outside of isSubmit flow)
+          Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(pd));
+
           if (Object.keys(updateData).length > 0) {
+            console.debug('Updating personalDetails for application', applicationId, updateData);
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
               data: {
@@ -702,37 +719,44 @@ export class ApplicationFormService {
         }
 
         // Handle workflow status updates
-        if (isSubmit  === true) {
+        if (isSubmit === true) {
           // get the Status ID for INITIATED from the Status table
           const initiatedStatus = await tx.statuses.findFirst({
             where: { code: 'INITIATED', isActive: true }
           });
 
-          // change the status as INITIATED
-          await tx.freshLicenseApplicationPersonalDetails.update({
-            where: { id: applicationId },
-            data: {
-              workflowStatusId: initiatedStatus?.id,
-              updatedAt: new Date()
-            }
+          // workflowStatus and acceptance flags are saved together.
+          const updateData: any = {
+            updatedAt: new Date()
+          };
+          // mark submitted flag so it's written as part of the same update
+          updateData.isSubmit = true;
+
+          if (initiatedStatus && initiatedStatus.id) {
+            updateData.workflowStatusId = initiatedStatus.id;
           }
-          );
-          const updateData: any = {};
-          if(data.personalDetails.isDeclarationAccepted !== undefined) updateData.isDeclarationAccepted = data.personalDetails.isDeclarationAccepted;
-          if(data.personalDetails.isAwareOfLegalConsequences !== undefined) updateData.isAwareOfLegalConsequences = data.personalDetails.isAwareOfLegalConsequences;
-          if(data.personalDetails.isTermsAccepted !== undefined) updateData.isTermsAccepted = data.personalDetails.isTermsAccepted;
-           // If there is something to update, perform the update
-          if (Object.keys(updateData).length > 0) {
+
+          // Defensive: accept flags from either personalDetails or top-level payload.
+          Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(data));
+
+          // If there's something other than updatedAt to save, perform the update
+          const hasUpdatableKeys = Object.keys(updateData).some(k => k !== 'updatedAt');
+          if (hasUpdatableKeys) {
+            // small debug to help trace why an update may not happen in future
+            console.debug('Updating workflow/personal acceptance fields for application', applicationId, updateData);
+
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
-              data: {
-                ...updateData,
-                updatedAt: new Date()
-              }
+              data: updateData
             });
-            updatedSections.push('personalDetails');
+
+            // Push appropriate section markers
+            if (updateData.workflowStatusId) updatedSections.push('workflowStatus');
+            if (updateData.isDeclarationAccepted !== undefined || updateData.isAwareOfLegalConsequences !== undefined || updateData.isTermsAccepted !== undefined) {
+              updatedSections.push('personalDetails');
+            }
+            if (updateData.isSubmit) updatedSections.push('isSubmit');
           }
-          updatedSections.push('workflowStatus');
         }
       });
 
@@ -876,7 +900,6 @@ export class ApplicationFormService {
           fileUploads: true,
         },
       });
-      console.log('Fetched application:', application);
 
       // Get workflow histories for this application
       const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
@@ -1526,7 +1549,6 @@ export class ApplicationFormService {
         await prisma.statuses.create({
           data: statusData
         });
-        console.log(`Created default status: ${statusData.code}`);
       }
     }
   }

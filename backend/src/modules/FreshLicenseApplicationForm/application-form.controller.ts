@@ -67,7 +67,7 @@ export class ApplicationFormController {
     @ApiQuery({
     name: 'isSubmit',
     description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
-    example: true,
+    example: false,
     required: false,
   })
   @ApiBody({
@@ -329,7 +329,10 @@ export class ApplicationFormController {
         );
       }
 
-      const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum,isSubmit, dto);
+  // Coerce isSubmit query param into boolean 
+  const isSubmitBool = Boolean(isSubmit);
+
+  const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmitBool, dto);
       
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;

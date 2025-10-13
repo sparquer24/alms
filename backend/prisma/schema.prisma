@@ -201,7 +201,7 @@ model FreshLicenseApplicationPersonalDetails {
   isDeclarationAccepted   Boolean?                        @default(false)
   isAwareOfLegalConsequences Boolean?                   @default(false)
   isTermsAccepted       Boolean?                         @default(false)
-  isSubmitted           Boolean?                          @default(false)
+  isSubmit           Boolean?                          @default(false)
   occupationAndBusinessId Int?
   permanentAddressId      Int?
   presentAddressId        Int?
