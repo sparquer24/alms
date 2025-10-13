@@ -54,7 +54,7 @@ export class ApplicationFormController {
     }
   }
 
-  @Patch(':applicationId')
+  @Patch()
   @ApiOperation({ 
     summary: 'Update Application Details', 
     description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
