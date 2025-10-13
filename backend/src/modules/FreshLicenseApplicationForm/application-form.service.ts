@@ -424,7 +424,7 @@ export class ApplicationFormService {
   /**
    * Patch application details - update related tables (addresses, occupation, histories, license details)
    */
-  async patchApplicationDetails(applicationId: number, data: any): Promise<[any, any]> {
+  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any): Promise<[any, any]> {
     try {
       // First validate that the application exists
       const existingApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -565,8 +565,10 @@ export class ApplicationFormService {
             if (raw && !/^[0-9]{12}$/.test(raw)) {
               throw new BadRequestException('Aadhar number must be a 12-digit numeric string');
             }
+            updateData.aadharNumber = raw || undefined; // allow clearing by setting undefined if empty string
+            updateData.panNumber = pd.panNumber ? String(pd.panNumber).trim() : undefined;
 
-            if (raw) {
+            /*if (raw) {
               const existingAadhar = await tx.freshLicenseApplicationPersonalDetails.findFirst({
                 where: {
                   aadharNumber: raw,
@@ -581,28 +583,28 @@ export class ApplicationFormService {
             } else {
               // Allow clearing the aadhar by setting null if empty string provided
               updateData.aadharNumber = undefined;
-            }
+            }*/
           }
 
           // PAN validation and uniqueness (basic trimming)
-          if (pd.panNumber !== undefined) {
-            const pan = pd.panNumber ? String(pd.panNumber).trim() : '';
-            if (pan) {
-              const existingPan = await tx.freshLicenseApplicationPersonalDetails.findFirst({
-                where: {
-                  panNumber: pan,
-                  NOT: { id: applicationId }
-                },
-                select: { id: true }
-              });
-              if (existingPan) {
-                throw new ConflictException(`An application with PAN ${pan} already exists.`);
-              }
-              updateData.panNumber = pan;
-            } else {
-              updateData.panNumber = undefined;
-            }
-          }
+          // if (pd.panNumber !== undefined) {
+          //   const pan = pd.panNumber ? String(pd.panNumber).trim() : '';
+          //   if (pan) {
+          //     const existingPan = await tx.freshLicenseApplicationPersonalDetails.findFirst({
+          //       where: {
+          //         panNumber: pan,
+          //         NOT: { id: applicationId }
+          //       },
+          //       select: { id: true }
+          //     });
+          //     if (existingPan) {
+          //       throw new ConflictException(`An application with PAN ${pan} already exists.`);
+          //     }
+          //     updateData.panNumber = pan;
+          //   } else {
+          //     updateData.panNumber = undefined;
+          //   }
+          // }
 
           // If there is something to update, perform the update
           if (Object.keys(updateData).length > 0) {
@@ -700,23 +702,36 @@ export class ApplicationFormService {
         }
 
         // Handle workflow status updates
-        if (data.workflowStatusId !== undefined) {
-          // Validate workflow status exists
-          const workflowStatus = await tx.statuses.findUnique({
-            where: { id: data.workflowStatusId }
+        if (isSubmit  === true) {
+          // get the Status ID for INITIATED from the Status table
+          const initiatedStatus = await tx.statuses.findFirst({
+            where: { code: 'INITIATED', isActive: true }
           });
-          if (!workflowStatus) {
-            throw new Error(`Invalid workflow status ID: ${data.workflowStatusId}`);
-          }
 
-          // Update the application with new workflow status
+          // change the status as INITIATED
           await tx.freshLicenseApplicationPersonalDetails.update({
             where: { id: applicationId },
             data: {
-              workflowStatusId: data.workflowStatusId,
+              workflowStatusId: initiatedStatus?.id,
               updatedAt: new Date()
             }
-          });
+          }
+          );
+          const updateData: any = {};
+          if(data.personalDetails.isDeclarationAccepted !== undefined) updateData.isDeclarationAccepted = data.personalDetails.isDeclarationAccepted;
+          if(data.personalDetails.isAwareOfLegalConsequences !== undefined) updateData.isAwareOfLegalConsequences = data.personalDetails.isAwareOfLegalConsequences;
+          if(data.personalDetails.isTermsAccepted !== undefined) updateData.isTermsAccepted = data.personalDetails.isTermsAccepted;
+           // If there is something to update, perform the update
+          if (Object.keys(updateData).length > 0) {
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: {
+                ...updateData,
+                updatedAt: new Date()
+              }
+            });
+            updatedSections.push('personalDetails');
+          }
           updatedSections.push('workflowStatus');
         }
       });

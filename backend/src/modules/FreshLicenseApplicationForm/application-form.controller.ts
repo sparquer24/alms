@@ -59,10 +59,15 @@ export class ApplicationFormController {
     summary: 'Update Application Details', 
     description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
   })
-  @ApiParam({
+  @ApiQuery({
     name: 'applicationId',
     description: 'Application ID',
     example: '123'
+  })
+    @ApiQuery({
+    name: 'isSubmit',
+    description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
+    example: true,
   })
   @ApiBody({
     type: PatchApplicationDetailsDto,
@@ -97,10 +102,12 @@ export class ApplicationFormController {
           }
         }
       },
-      'Status Updates': {
-        summary: 'Update application workflow status',
+      'Submit the application': {
+        summary: '',
         value: {
-          workflowStatusId: 2
+          isDeclarationAccepted: true,
+          isAwareOfLegalConsequences: true,
+          isTermsAccepted: true
         }
       },
       'Personal Details Update': {
@@ -114,14 +121,8 @@ export class ApplicationFormController {
             sex: 'FEMALE',
             dateOfBirth: '1992-08-15T00:00:00.000Z',
             aadharNumber: '123456789012',
-            panNumber: 'ABCDE1234F'
+            panNumber: 'ABCDE1234F',
           }
-        }
-      },
-      'Submit Application': {
-        summary: 'Submit application (change from DRAFT to INITIATED status)',
-        value: {
-          workflowStatusId: 3
         }
       },
       'Occupation and Business Details': {
@@ -313,7 +314,8 @@ export class ApplicationFormController {
   @ApiResponse({ status: 409, description: 'Conflict - Duplicate values or constraint violations' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async patchApplicationDetails(
-    @Param('applicationId') applicationId: string,
+    @Query('applicationId') applicationId: string,
+    @Query('isSubmit') isSubmit: boolean,
     @Body() dto: PatchApplicationDetailsDto,
     @Request() req: any
   ) {
@@ -326,7 +328,7 @@ export class ApplicationFormController {
         );
       }
 
-      const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, dto);
+      const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum,isSubmit, dto);
       
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
