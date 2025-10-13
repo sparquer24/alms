@@ -48,13 +48,22 @@ import { use } from 'react';
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	const router = useRouter();
 	// Unwrap params with React.use() for Next.js app router compliance
-	const { step } = use(params);
+	const { step } = params;
 	let StepComponent;
 	let currentStep = 0;
 
 	   // Find the index of the current step by slug
-	   const stepIndex = steps.findIndex(s => stepToSlug(s) === step);
+	   // Special handling for preview and declaration which use different slug patterns
+	   let stepIndex;
+	   if (step === 'preview') {
+		   stepIndex = 8; // Preview is at index 8
+	   } else if (step === 'declaration') {
+		   stepIndex = 9; // Declaration & Submit is at index 9
+	   } else {
+		   stepIndex = steps.findIndex(s => stepToSlug(s) === step);
+	   }
 	   currentStep = stepIndex >= 0 ? stepIndex : 0;
+	   
 	   switch (step) {
 		   case stepToSlug('Personal Information'):
 			   StepComponent = <PersonalInformation />;

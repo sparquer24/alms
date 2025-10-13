@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Checkbox } from '../elements/Checkbox';
 import { Frown } from 'lucide-react';
 import FormFooter from '../elements/footer';
+import { useSearchParams } from 'next/navigation';
+import { patchData } from '../../../api/axiosConfig';
 
 const initialState = {
 	declareTrue: false,
@@ -12,15 +14,93 @@ const initialState = {
 
 const Declaration = () => {
 	const [form, setForm] = useState(initialState);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const searchParams = useSearchParams();
+	const applicantId = searchParams.get('applicantId');
 
 	const handleCheck = (name: string, checked: boolean) => {
 		setForm((prev) => ({ ...prev, [name]: checked }));
+		// Clear error when user interacts
+		if (error) setError(null);
+	};
+
+	const validateForm = (): boolean => {
+		// All checkboxes must be checked to proceed
+		if (!form.declareTrue || !form.declareFalseInfo || !form.declareTerms) {
+			setError('Please accept all declarations to proceed with submission.');
+			return false;
+		}
+		return true;
+	};
+
+	const handleSubmit = async () => {
+		if (!validateForm()) {
+			return;
+		}
+
+		if (!applicantId) {
+			setError('Application ID not found. Please complete previous steps first.');
+			return;
+		}
+
+		setIsSubmitting(true);
+		setError(null);
+
+		try {
+			// Prepare PATCH payload with declaration fields
+			const payload = {
+				isDeclarationAccepted: form.declareTrue,
+				isAwareOfLegalConsequences: form.declareFalseInfo,
+				isTermsAccepted: form.declareTerms,
+				isSubmitted: true, // Mark application as submitted
+			};
+
+			console.log('🔄 Submitting declaration with payload:', payload);
+
+			// Make PATCH request to update application
+			const response = await patchData(
+				`/application-form/${applicantId}`,
+				payload
+			);
+
+			console.log('✅ Declaration submitted successfully:', response);
+
+			// Handle successful submission
+			// You might want to navigate to a success page or show a success message
+			alert('Application submitted successfully!');
+			
+		} catch (err: any) {
+			console.error('❌ Error submitting declaration:', err);
+			setError(
+				err?.message || 
+				err?.response?.data?.error || 
+				'Failed to submit application. Please try again.'
+			);
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handlePrevious = () => {
+		// Navigate to previous step
+		window.history.back();
 	};
 
 	return (
-		<form className="p-6 mx-full">
+		<form className="p-6 mx-full" onSubmit={(e) => e.preventDefault()}>
 			<h2 className="text-xl font-bold mb-4">Declaration & Submit</h2>
 			<div className="font-semibold mb-2">Declaration</div>
+			
+			{error && (
+				<div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+					<div className="flex items-start">
+						<Frown className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+						<p className="text-sm text-red-800">{error}</p>
+					</div>
+				</div>
+			)}
+
 			<div className="flex flex-col gap-2 mb-6">
 				<Checkbox
 					label="I hereby declare that the information provided above is true and correct to the best of my knowledge and belief."
@@ -42,7 +122,12 @@ const Declaration = () => {
 				/>
 			</div>
 			<hr className="my-6" />
-			   <FormFooter isDeclarationStep />
+			<FormFooter 
+				isDeclarationStep 
+				onSubmit={handleSubmit}
+				onPrevious={handlePrevious}
+				isLoading={isSubmitting}
+			/>
 		</form>
 	);
 };
