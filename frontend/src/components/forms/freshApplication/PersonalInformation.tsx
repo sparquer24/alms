@@ -44,6 +44,7 @@ const validatePersonalInfo = (formData: any) => {
 
 const PersonalInformation: React.FC = () => {
 	const router = useRouter();
+	const [isMounted, setIsMounted] = React.useState(false);
 	
 	const {
 		form,
@@ -59,6 +60,10 @@ const PersonalInformation: React.FC = () => {
 		formSection: 'personal',
 		validationRules: validatePersonalInfo,
 	});
+
+	React.useEffect(() => {
+		setIsMounted(true);
+	}, []);
 
 	const handleSaveToDraft = async () => {
 		console.log('💾 Save to Draft clicked - Current applicantId:', applicantId);
@@ -85,20 +90,20 @@ const PersonalInformation: React.FC = () => {
 		<div className="p-6">
 			<h2 className="text-xl font-bold mb-4">Personal Information</h2>
 			
-			{/* Display Applicant ID if available */}
-			{applicantId && (
+			{/* Display Applicant ID if available - only after mount to avoid hydration mismatch */}
+			{isMounted && applicantId && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
 					<strong>Application ID: {applicantId}</strong>
 				</div>
 			)}
 			
-			{/* Display success/error messages */}
-			{submitSuccess && (
+			{/* Display success/error messages - only after mount to avoid hydration mismatch */}
+			{isMounted && submitSuccess && (
 				<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
 					{submitSuccess}
 				</div>
 			)}
-			{submitError && (
+			{isMounted && submitError && (
 				<div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
 					{submitError}
 				</div>
@@ -140,8 +145,7 @@ const PersonalInformation: React.FC = () => {
 			/>
 			   <div className="flex flex-col">
 				   <label htmlFor="filledBy" className="block text-sm font-medium text-gray-700 mb-1">
-					   Application filled by<br/>
-					   <span className="text-xs text-gray-400 ml-1">(Zonal Superintendent name)</span>
+					   Application filled by (ZS name)<br/>
 				   </label>
 				   <Input
 					   label=""
@@ -169,6 +173,7 @@ const PersonalInformation: React.FC = () => {
 								value="Male"
 								checked={form.sex === 'Male'}
 								onChange={handleChange}
+								suppressHydrationWarning
 							/>
 							Male
 							<IoMdMale className="text-xl" /> 
@@ -180,6 +185,7 @@ const PersonalInformation: React.FC = () => {
 								value="Female"
 								checked={form.sex === 'Female'}
 								onChange={handleChange}
+								suppressHydrationWarning
 							/>
 							 Female
 							<IoMdFemale className="text-xl" />
@@ -194,9 +200,12 @@ const PersonalInformation: React.FC = () => {
 					//placeholder="Enter place of birth"
 				/>
 				   <div className="flex flex-col">
-					   <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1">
-						   5. Date of birth in Christian era<br/>
-						   <span className="text-xs text-gray-400 ml-1">(Must be 21 years old on the date of application)</span>
+					   <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1 relative group">
+						   5. Date of birth in Christian era
+						   <span className="ml-1 text-blue-500 cursor-help">ⓘ</span>
+						   <span className="invisible group-hover:visible absolute left-0 top-full mt-1 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+							   Must be 21 years old on the date of application
+						   </span>
 					   </label>
 					   <Input
 						   label=""
