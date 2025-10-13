@@ -1157,7 +1157,7 @@ export class ApplicationFormService {
       }
 
       // Specific application ID filter (ownership)
-      if (filter.isOwned === true && filter.currentUserId) {
+      if (filter.isOwned == true && filter.currentUserId) {
         // currentUserId might be string; convert if numeric
         const parsed = Number(filter.currentUserId);
         where.currentUserId = !isNaN(parsed) ? parsed : filter.currentUserId;
@@ -1226,6 +1226,7 @@ export class ApplicationFormService {
           }
         },
       };
+      
       const [total, rawData] = await Promise.all([
         prisma.freshLicenseApplicationPersonalDetails.count({ where }),
         prisma.freshLicenseApplicationPersonalDetails.findMany({

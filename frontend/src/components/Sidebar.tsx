@@ -199,7 +199,10 @@ const getUserRoleFromCookie = () => {
   useEffect(() => {
     // prefer cookie-derived role when available (role code or name), fallback to auth sync role
     const effective = cookieRole || userRole || "SHO";
-    setRoleConfig(getRoleConfig(effective));
+    console.log('🔄 Role config update:', { cookieRole, userRole, effective });
+    const config = getRoleConfig(effective);
+    console.log('📋 Role config result:', config);
+    setRoleConfig(config);
   }, [userRole, cookieRole]);
 
   // Use the optimized sidebar counts hook with more stable conditions
@@ -321,6 +324,12 @@ const getUserRoleFromCookie = () => {
   // Update menuItems logic with type casting and guards
   const menuItems = useMemo(() => {
     const items = roleConfig?.menuItems ?? [];
+    console.log('🔍 Sidebar menuItems generation:', {
+      roleConfig,
+      items,
+      effectiveRole: cookieRole || userRole,
+      itemCount: items.length
+    });
     return items.map((item) => {
       const key = item.name as MenuMetaKey;
       return {
@@ -329,7 +338,7 @@ const getUserRoleFromCookie = () => {
         icon: menuMeta[key]?.icon,
       };
     });
-  }, [roleConfig]);
+  }, [roleConfig, cookieRole, userRole]);
 
   // Create stable icons outside of memoization to prevent recreating React elements
   const forwardedIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
@@ -389,7 +398,18 @@ const getUserRoleFromCookie = () => {
   // Only render sidebar if allowed role
   // determine effective role used for rendering checks
   const effectiveRole = cookieRole || userRole;
-  if (!effectiveRole) return null;
+  if (!effectiveRole) {
+    console.warn('⚠️ Sidebar: No effective role found, cannot render');
+    return null;
+  }
+
+  console.log('✅ Sidebar rendering with:', {
+    effectiveRole,
+    menuItemsCount: menuItems.length,
+    roleConfig: roleConfig ? 'exists' : 'missing',
+    visible,
+    showSidebar
+  });
 
   return (
     <>
@@ -453,19 +473,17 @@ const getUserRoleFromCookie = () => {
               </li>
             )}
             {/* Render other menu items except inbox, settings, login */}
-            <ul className="space-y-1">
-              {menuItems
-                .filter((item) => item.name !== "inbox")
-                .map((item) => (
-                  <MenuItem
-                    key={item.name}
-                    icon={item.icon}
-                    label={item.label}
-                    active={activeItem === item.name}
-                    onClick={() => handleMenuClick({ name: item.name })}
-                  />
-                ))}
-            </ul>
+            {menuItems
+              .filter((item) => item.name !== "inbox")
+              .map((item) => (
+                <MenuItem
+                  key={item.name}
+                  icon={item.icon}
+                  label={item.label}
+                  active={activeItem === item.name}
+                  onClick={() => handleMenuClick({ name: item.name })}
+                />
+              ))}
             {/* Add Flow Mapping menu item for ADMIN users */}
             {effectiveRole === "ADMIN" && (
               <li>
