@@ -145,9 +145,6 @@ export class ApplicationFormController {
           criminalHistories: [
             {
               isConvicted: false,
-              offence: 'Theft',
-              sentence: '2 years imprisonment',
-              dateOfSentence: '2018-05-15T00:00:00.000Z',
               isBondExecuted: false,
               bondDate: '2019-03-20T00:00:00.000Z',
               bondPeriod: '6 months',

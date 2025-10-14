@@ -604,26 +604,28 @@ export class ApplicationFormService {
         // 4. Handle Criminal Histories (Replace all existing)
         if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
           // Delete existing criminal histories
-          await tx.fLAFCriminalHistories.deleteMany({
-            where: { applicationId }
-          });
+          await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
 
-          // Create new criminal histories
+          // Create new criminal histories one-by-one to surface any validation/constraint errors
           if (data.criminalHistories.length > 0) {
-            const criminalHistoriesData = data.criminalHistories.map((history: any) => ({
-              ...history,
-              applicationId,
-              dateOfSentence: history.dateOfSentence ? new Date(history.dateOfSentence) : null,
-              bondDate: history.bondDate ? new Date(history.bondDate) : null,
-              prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null,
-              // Include FIR details field from DTO if provided
-              firDetails: history.firDetails ?? null,
-            }));
+            for (const history of data.criminalHistories) {
+              const record: any = {
+                applicationId,
+                isConvicted: history.isConvicted ?? false,
+                firDetails: history.firDetails ?? null,
+                isBondExecuted: history.isBondExecuted ?? false,
+                bondDate: history.bondDate ? new Date(history.bondDate) : null,
+                bondPeriod: history.bondPeriod ?? null,
+                isProhibited: history.isProhibited ?? false,
+                prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null,
+                prohibitionPeriod: history.prohibitionPeriod ?? null,
+              };
 
-            await tx.fLAFCriminalHistories.createMany({
-              data: criminalHistoriesData
-            });
+              // Create the record and let any errors bubble to the transaction so they can be handled
+              await tx.fLAFCriminalHistories.create({ data: record });
+            }
           }
+
           updatedSections.push('criminalHistories');
         }
 
