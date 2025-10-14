@@ -384,17 +384,65 @@ export class ApplicationService {
         return occupationPayload;
       case 'criminal':
         console.log('🟠 Preparing criminal payload from form data:', formData);
-        const criminalPayload = {
-          criminalHistories: (formData.criminalHistories || []).map((history: any) => ({
+        console.log('🟠 Raw criminalHistories:', formData.criminalHistories);
+        
+        // The issue: formData.criminalHistories contains backend response data, not form data
+        // We need to check if this is fresh form data or stale backend data
+        
+        const criminalHistories = formData.criminalHistories || [];
+        console.log('🔍 Analyzing criminal histories data:', criminalHistories);
+        
+        // Check if this is backend response data (has database fields like id, createdAt)
+        const isBackendData = criminalHistories.length > 0 && 
+          (criminalHistories[0].hasOwnProperty('id') || 
+           criminalHistories[0].hasOwnProperty('createdAt') || 
+           criminalHistories[0].hasOwnProperty('updatedAt'));
+        
+        console.log('🔍 Is backend data?', isBackendData);
+        
+        if (isBackendData) {
+          console.log('⚠️ WARNING: Received backend response data instead of form data');
+          console.log('💡 This indicates the form state was overwritten by backend response');
+          console.log('🚫 Backend data firDetails:', criminalHistories[0].firDetails);
+          console.log('🚫 Backend data isBondExecuted:', criminalHistories[0].isBondExecuted);
+        } else {
+          console.log('✅ Received fresh form data from CriminalHistory component');
+        }
+        
+        // Create payload with detailed logging for each field
+        const mappedHistories = criminalHistories.map((history: any) => {
+          const mapped = {
             isConvicted: history.isConvicted || false,
-            convictionDetails: history.convictionDetails || undefined,
             isBondExecuted: history.isBondExecuted || false,
-            bondDetails: history.bondDetails || undefined,
+            bondDate: history.bondDate || null,
+            bondPeriod: history.bondPeriod || null,
             isProhibited: history.isProhibited || false,
-            prohibitionDetails: history.prohibitionDetails || undefined,
-          })),
+            prohibitionDate: history.prohibitionDate || null,
+            prohibitionPeriod: history.prohibitionPeriod || null,
+            firDetails: history.firDetails || []
+          };
+          
+          console.log('🔍 Mapped history:', mapped);
+          return mapped;
+        });
+        
+        const criminalPayload = {
+          criminalHistories: mappedHistories
         };
-        console.log('🟢 Final criminal payload:', criminalPayload);
+        
+        // Add validation logging
+        criminalPayload.criminalHistories.forEach((history: any, index: number) => {
+          console.log(`🔍 Criminal History ${index + 1}:`, {
+            isConvicted: history.isConvicted,
+            isBondExecuted: history.isBondExecuted,
+            firDetailsCount: history.firDetails?.length || 0,
+            firDetails: history.firDetails,
+            isBackendData: isBackendData
+          });
+        });
+        
+        console.log('🟢 Final criminal payload (detailed):', JSON.stringify(criminalPayload, null, 2));
+        console.log('🟢 Final criminal payload (compact):', criminalPayload);
         return criminalPayload;
       case 'license-history':
         console.log('🟠 Preparing license history payload from form data:', formData);

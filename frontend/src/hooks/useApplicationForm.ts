@@ -100,17 +100,21 @@ export const useApplicationForm = ({
   }, []);
 
   // Save form data
-  const saveFormData = useCallback(async (customValidation?: () => string[]) => {
+  const saveFormData = useCallback(async (customValidation?: () => string[], overrideFormData?: any) => {
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
 
     try {
+      // Use override data if provided, otherwise use form state
+      const dataToSave = overrideFormData || form;
+      
       console.log('🔍 SaveFormData called with:', {
         applicantId,
         formSection,
         hasForm: !!form,
-        formData: form
+        formData: dataToSave,
+        isUsingOverride: !!overrideFormData
       });
 
       if (!isAuthenticated || !token) {
@@ -120,7 +124,7 @@ export const useApplicationForm = ({
       // Run validation
       const validation = customValidation || validationRules;
       if (validation) {
-        const validationErrors = validation(form);
+        const validationErrors = validation(dataToSave);
         if (validationErrors.length > 0) {
           throw new Error(validationErrors.join(', '));
         }
@@ -132,18 +136,18 @@ export const useApplicationForm = ({
       if (applicantId && formSection !== 'personal') {
         // Update existing application (PATCH) for non-personal forms
         console.log('🟡 Calling updateApplication (PATCH) for non-personal section:', formSection);
-        response = await ApplicationService.updateApplication(applicantId, form, formSection);
+        response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
         newApplicantId = applicantId;
       } else if (formSection === 'personal') {
         if (applicantId) {
           // Update personal information (PATCH)
           console.log('🟡 Calling updateApplication (PATCH) for existing personal info');
-          response = await ApplicationService.updateApplication(applicantId, form, formSection);
+          response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
           newApplicantId = applicantId;
         } else {
           // Create new application (POST)
           console.log('🔵 Calling createApplication (POST) for new personal info');
-          response = await ApplicationService.createApplication(form);
+          response = await ApplicationService.createApplication(dataToSave);
           newApplicantId = response.applicationId;
           setApplicantId(newApplicantId);
         }

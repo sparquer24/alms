@@ -47,14 +47,70 @@ const CriminalHistory = () => {
 	const [bondDetails, setBondDetails] = useState({ dateOfSentence: '', period: '' });
 	const [prohibited, setProhibited] = useState('no');
 	const [prohibitedDetails, setProhibitedDetails] = useState({ dateOfSentence: '', period: '' });
+	
+	// Add flag to prevent backend data from overwriting fresh form data
+	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
 
 	// Load existing data into local state when form data changes
 	useEffect(() => {
+		// Skip loading if we're currently updating the form to prevent overwriting
+		if (isUpdatingForm) {
+			console.log('🚫 Skipping backend data load - form update in progress');
+			return;
+		}
+		
 		if (form.criminalHistories && form.criminalHistories.length > 0) {
-			// Parse criminal histories from backend format
-			const histories = form.criminalHistories;
-			// TODO: Map backend data to local state format
-			console.log('Loaded criminal histories:', histories);
+			const history = form.criminalHistories[0]; // Get the first criminal history record
+			
+			console.log('🔍 Loading criminal history from backend:', history);
+			
+			// Set conviction status
+			setConvicted(history.isConvicted ? 'yes' : 'no');
+			
+			// Set bond execution status and details
+			setBond(history.isBondExecuted ? 'yes' : 'no');
+			if (history.bondDate || history.bondPeriod) {
+				setBondDetails({
+					dateOfSentence: history.bondDate ? history.bondDate.split('T')[0] : '', // Convert ISO date to YYYY-MM-DD
+					period: history.bondPeriod || ''
+				});
+			}
+			
+			// Set prohibition status and details
+			setProhibited(history.isProhibited ? 'yes' : 'no');
+			if (history.prohibitionDate || history.prohibitionPeriod) {
+				setProhibitedDetails({
+					dateOfSentence: history.prohibitionDate ? history.prohibitionDate.split('T')[0] : '', // Convert ISO date to YYYY-MM-DD
+					period: history.prohibitionPeriod || ''
+				});
+			}
+			
+			// Set FIR details/provisions
+			if (history.firDetails && history.firDetails.length > 0) {
+				console.log('🔍 Found firDetails, mapping to provisions:', history.firDetails);
+				const mappedProvisions = history.firDetails.map((fir: any) => ({
+					firNumber: fir.firNumber || '',
+					underSection: fir.underSection || '',
+					policeStation: fir.policeStation || '',
+					unit: fir.unit || '',
+					district: fir.District || '', // Note: API uses 'District' not 'district'
+					state: fir.state || '',
+					offence: fir.offence || '',
+					sentence: fir.sentence || '',
+					dateOfSentence: fir.DateOfSentence ? fir.DateOfSentence.split('T')[0] : '' // Convert ISO date to YYYY-MM-DD
+				}));
+				setProvisions(mappedProvisions);
+				console.log('🔍 Mapped provisions:', mappedProvisions);
+			} else {
+				// If no FIR details, ensure we have at least one empty provision
+				console.log('🔍 No firDetails found, using empty provision');
+				setProvisions([{ ...initialProvision }]);
+			}
+			
+			console.log('✅ Loaded criminal history data:', history);
+		} else {
+			// Reset to initial state if no data
+			console.log('🔄 No criminal history data found, using defaults');
 		}
 	}, [form.criminalHistories]);
 
@@ -67,45 +123,132 @@ const CriminalHistory = () => {
 	const removeProvision = (idx: number) => setProvisions((prev) => prev.filter((_, i) => i !== idx));
 
 	const handleSaveToDraft = async () => {
-		// Transform local state to API format before saving
+		// Debug current state before transformation
+		console.log('🔵 Current form state before transformation:', {
+			convicted,
+			bond,
+			prohibited,
+			provisions,
+			bondDetails,
+			prohibitedDetails
+		});
+
+		// Transform local state to the new API format
 		const criminalHistories = [{
 			isConvicted: convicted === 'yes',
-			convictionDetails: convicted === 'yes' ? JSON.stringify(provisions) : undefined,
 			isBondExecuted: bond === 'yes',
-			bondDetails: bond === 'yes' ? JSON.stringify(bondDetails) : undefined,
+			bondDate: bondDetails.dateOfSentence || null,
+			bondPeriod: bondDetails.period || null,
 			isProhibited: prohibited === 'yes',
-			prohibitionDetails: prohibited === 'yes' ? JSON.stringify(prohibitedDetails) : undefined,
+			prohibitionDate: prohibitedDetails.dateOfSentence || null,
+			prohibitionPeriod: prohibitedDetails.period || null,
+			firDetails: convicted === 'yes' ? provisions.filter(prov => 
+				// Only include provisions that have at least some data
+				prov.firNumber || prov.underSection || prov.policeStation || 
+				prov.unit || prov.district || prov.state || 
+				prov.offence || prov.sentence || prov.dateOfSentence
+			).map(prov => ({
+				firNumber: prov.firNumber || "",
+				underSection: prov.underSection || "",
+				policeStation: prov.policeStation || "",
+				unit: prov.unit || "",
+				District: prov.district || "",
+				state: prov.state || "",
+				offence: prov.offence || "",
+				sentence: prov.sentence || "",
+				DateOfSentence: prov.dateOfSentence || null
+			})) : []
 		}];
-		
+
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 Criminal History Payload:', criminalHistories);
+		console.log('🟡 Criminal History Payload:', JSON.stringify(criminalHistories, null, 2));
+		
+		// Add debugging to see what's in the form state right before save
+		console.log('🔍 Form state right before saveFormData:', {
+			criminalHistories,
+			fullFormState: { criminalHistories }
+		});
 		
 		await saveFormData();
-	};
+		
+		// Reset flag after a delay to allow for data loading
+		setTimeout(() => setIsUpdatingForm(false), 1000);
+	};	const handleNext = async () => {
+		// Debug current state before transformation
+		console.log('🔵 Current form state before transformation:', {
+			convicted,
+			bond,
+			prohibited,
+			provisions,
+			bondDetails,
+			prohibitedDetails
+		});
 
-	const handleNext = async () => {
-		// Transform local state to API format before saving
+		// Transform local state to the new API format
 		const criminalHistories = [{
 			isConvicted: convicted === 'yes',
-			convictionDetails: convicted === 'yes' ? JSON.stringify(provisions) : undefined,
 			isBondExecuted: bond === 'yes',
-			bondDetails: bond === 'yes' ? JSON.stringify(bondDetails) : undefined,
+			bondDate: bondDetails.dateOfSentence || null,
+			bondPeriod: bondDetails.period || null,
 			isProhibited: prohibited === 'yes',
-			prohibitionDetails: prohibited === 'yes' ? JSON.stringify(prohibitedDetails) : undefined,
+			prohibitionDate: prohibitedDetails.dateOfSentence || null,
+			prohibitionPeriod: prohibitedDetails.period || null,
+			firDetails: convicted === 'yes' ? provisions.filter(prov => 
+				// Only include provisions that have at least some data
+				prov.firNumber || prov.underSection || prov.policeStation || 
+				prov.unit || prov.district || prov.state || 
+				prov.offence || prov.sentence || prov.dateOfSentence
+			).map(prov => ({
+				firNumber: prov.firNumber || "",
+				underSection: prov.underSection || "",
+				policeStation: prov.policeStation || "",
+				unit: prov.unit || "",
+				District: prov.district || "",
+				state: prov.state || "",
+				offence: prov.offence || "",
+				sentence: prov.sentence || "",
+				DateOfSentence: prov.dateOfSentence || null
+			})) : []
 		}];
 		
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 Criminal History Payload:', criminalHistories);
+		console.log('🟡 Criminal History Payload:', JSON.stringify(criminalHistories, null, 2));
 		
-		const savedApplicantId = await saveFormData();
+		// Instead of using setForm which might get overridden, pass the data directly
+		console.log('💡 Bypassing form state, saving directly with correct data');
+		
+		// Create the form data structure that includes the criminal histories
+		const formDataToSave = {
+			...form,
+			criminalHistories
+		};
+		
+		// Add debugging to see what's in the form state right before save
+		console.log('🔍 Form state right before saveFormData:', {
+			criminalHistories,
+			fullFormState: formDataToSave
+		});
+		
+		// Also update the form state for UI consistency
+		setForm((prev: any) => ({ ...prev, criminalHistories }));
+		
+		// Pass the correct criminal histories directly to saveFormData to avoid timing issues
+		const savedApplicantId = await saveFormData(undefined, formDataToSave);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.LICENSE_HISTORY, savedApplicantId);
 		}
+		
+		// Reset flag after navigation
+		setTimeout(() => setIsUpdatingForm(false), 1000);
 	};
 
 	const handlePrevious = async () => {
