@@ -278,7 +278,6 @@ export class ApplicationService {
           },
         };
       case 'occupation':
-        console.log('🟠 Preparing occupation payload from form data:', formData);
         const occupationPayload = {
           occupationAndBusiness: {
             occupation: formData.occupation,
@@ -286,7 +285,7 @@ export class ApplicationService {
             stateId: parseInt(formData.officeState || formData.stateId || '0'),
             districtId: parseInt(formData.officeDistrict || formData.districtId || '0'),
             cropLocation: formData.cropLocation || undefined,
-            areaUnderCultivation: (formData.cropArea || formData.areaUnderCultivation) ? parseFloat((formData.cropArea || formData.areaUnderCultivation)!) : undefined,
+            areaUnderCultivation: (formData.cropArea || formData.areaUnderCultivation) ? parseFloat((formData.cropArea || formData.areaUnderCultivation) as string) : undefined,
             employerName: formData.employerName || undefined,
             businessDetails: formData.businessDetails || undefined,
             annualIncome: formData.annualIncome || undefined,

@@ -134,7 +134,8 @@ export class ApplicationFormController {
             officeAddress: '456 Corporate Plaza, IT Park, Sector V',
             stateId: 1,
             districtId: 1,
-            cropLocation: 'Village ABC, Block XYZ (for farmers only)'
+            cropLocation: 'Village ABC, Block XYZ (for farmers only)',
+            areaUnderCultivation: 5.5
           }
         }
       },
@@ -260,7 +261,8 @@ export class ApplicationFormController {
             officeAddress: '789 Business Complex, Commercial Area',
             stateId: 1,
             districtId: 1,
-            cropLocation: 'Agricultural land in Block DEF'
+            cropLocation: 'Agricultural land in Block DEF',
+            areaUnderCultivation: 12.25
           },
           criminalHistories: [
             {

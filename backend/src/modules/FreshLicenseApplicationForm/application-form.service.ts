@@ -492,6 +492,32 @@ export class ApplicationFormService {
 
         // 3. Handle Occupation and Business
         if (data.occupationAndBusiness) {
+          // Sanitize and coerce occupation payload to avoid invalid FK values or wrong types
+          const rawOcc: any = data.occupationAndBusiness || {};
+          // Only pick fields that are declared in the PatchOccupationBusinessDto
+          // DTO fields: occupation, officeAddress, stateId, districtId, cropLocation, areaUnderCultivation
+          const occData: any = {
+            occupation: rawOcc.occupation,
+            officeAddress: rawOcc.officeAddress,
+            cropLocation: rawOcc.cropLocation ?? undefined,
+          };
+
+          // Coerce numeric fields only if valid positive numbers
+          if (rawOcc.areaUnderCultivation !== undefined && rawOcc.areaUnderCultivation !== null) {
+            const a = Number(rawOcc.areaUnderCultivation);
+            if (!isNaN(a)) occData.areaUnderCultivation = a;
+          }
+
+          if (rawOcc.stateId !== undefined && rawOcc.stateId !== null) {
+            const s = Number(rawOcc.stateId);
+            if (!isNaN(s)) occData.stateId = s;
+          }
+
+          if (rawOcc.districtId !== undefined && rawOcc.districtId !== null) {
+            const d = Number(rawOcc.districtId);
+            if (!isNaN(d)) occData.districtId = d;
+          }
+
           // Check if occupation already exists
           const existingOccupation = await tx.freshLicenseApplicationPersonalDetails.findUnique({
             where: { id: applicationId },
@@ -502,12 +528,12 @@ export class ApplicationFormService {
             // Update existing occupation
             await tx.fLAFOccupationAndBusiness.update({
               where: { id: existingOccupation.occupationAndBusinessId },
-              data: data.occupationAndBusiness
+              data: occData
             });
           } else {
             // Create new occupation and link it
             const newOccupation = await tx.fLAFOccupationAndBusiness.create({
-              data: data.occupationAndBusiness
+              data: occData
             });
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
