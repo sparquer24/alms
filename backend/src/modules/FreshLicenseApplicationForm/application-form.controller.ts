@@ -152,7 +152,11 @@ export class ApplicationFormController {
               bondPeriod: '6 months',
               isProhibited: false,
               prohibitionDate: '2020-07-10T00:00:00.000Z',
-              prohibitionPeriod: '5 years'
+              prohibitionPeriod: '5 years',
+              // Example FIR details array
+              firDetails: [
+                { firNumber: '123/2018', underSection: '35', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: '', sentence: '', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ]
             }
           ]
         }
@@ -262,7 +266,8 @@ export class ApplicationFormController {
             {
               isConvicted: false,
               isBondExecuted: false,
-              isProhibited: false
+              isProhibited: false,
+              firDetails: []
             }
           ],
           licenseHistories: [

@@ -262,9 +262,7 @@ model FLAFCriminalHistories {
   id                Int                                    @id @default(autoincrement())
   applicationId     Int
   isConvicted       Boolean                                @default(false)
-  offence           String?
-  sentence          String?
-  dateOfSentence    DateTime?
+  firDetails        Json?
   isBondExecuted    Boolean                                @default(false)
   bondDate          DateTime?
   bondPeriod        String?

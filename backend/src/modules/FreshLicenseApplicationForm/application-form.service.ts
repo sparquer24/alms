@@ -361,30 +361,6 @@ export class ApplicationFormService {
       if (sex && !Object.values(Sex).includes(sex as Sex)) {
         return [new BadRequestException('Invalid sex value'), null];
       }
-
-      // Combined duplicate check against personal details table (reduce to one DB call)
-      const whereOr: any[] = [];
-      if (aadharNumberForPersonal) whereOr.push({ aadharNumber: aadharNumberForPersonal as any });
-      const trimmedAck = acknowledgementNo ? String(acknowledgementNo).trim() : undefined;
-      if (trimmedAck) whereOr.push({ acknowledgementNo: trimmedAck });
-
-      if (whereOr.length > 0) {
-        const existing = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
-          where: { OR: whereOr },
-          select: { id: true, aadharNumber: true, acknowledgementNo: true },
-        });
-        if (existing) {
-          if (aadharNumberForPersonal && existing.aadharNumber === aadharNumberForPersonal) {
-            return [new ConflictException(`An application with Aadhaar ${aadharNumber} already exists.`), null];
-          }
-          if (trimmedAck && existing.acknowledgementNo === trimmedAck) {
-            return [new ConflictException(`An application with acknowledgementNo ${trimmedAck} already exists.`), null];
-          }
-          // Fallback
-          return [new ConflictException('An application with the provided identifier already exists.'), null];
-        }
-      }
-
       // Transaction: create only the personal-details row (no application)
       const created = await prisma.$transaction(async (tx) => {
         // Generate acknowledgementNo once
@@ -570,7 +546,7 @@ export class ApplicationFormService {
             updateData.dateOfBirth = dob ?? undefined;
           }
 
-          // Aadhaar validation and uniqueness
+          // Aadhaar validation (format only). PAN trimming handled alongside when provided.
           if (pd.aadharNumber !== undefined) {
             const raw = pd.aadharNumber ? String(pd.aadharNumber).trim() : '';
             if (raw && !/^[0-9]{12}$/.test(raw)) {
@@ -578,44 +554,7 @@ export class ApplicationFormService {
             }
             updateData.aadharNumber = raw || undefined; // allow clearing by setting undefined if empty string
             updateData.panNumber = pd.panNumber ? String(pd.panNumber).trim() : undefined;
-
-            /*if (raw) {
-              const existingAadhar = await tx.freshLicenseApplicationPersonalDetails.findFirst({
-                where: {
-                  aadharNumber: raw,
-                  NOT: { id: applicationId }
-                },
-                select: { id: true }
-              });
-              if (existingAadhar) {
-                throw new ConflictException(`An application with Aadhaar ${raw} already exists.`);
-              }
-              updateData.aadharNumber = raw;
-            } else {
-              // Allow clearing the aadhar by setting null if empty string provided
-              updateData.aadharNumber = undefined;
-            }*/
           }
-
-          // PAN validation and uniqueness (basic trimming)
-          // if (pd.panNumber !== undefined) {
-          //   const pan = pd.panNumber ? String(pd.panNumber).trim() : '';
-          //   if (pan) {
-          //     const existingPan = await tx.freshLicenseApplicationPersonalDetails.findFirst({
-          //       where: {
-          //         panNumber: pan,
-          //         NOT: { id: applicationId }
-          //       },
-          //       select: { id: true }
-          //     });
-          //     if (existingPan) {
-          //       throw new ConflictException(`An application with PAN ${pan} already exists.`);
-          //     }
-          //     updateData.panNumber = pan;
-          //   } else {
-          //     updateData.panNumber = undefined;
-          //   }
-          // }
 
           // If there is something to update, perform the update
           // Also include acceptance flags here if provided (ensure these are
@@ -650,7 +589,9 @@ export class ApplicationFormService {
               applicationId,
               dateOfSentence: history.dateOfSentence ? new Date(history.dateOfSentence) : null,
               bondDate: history.bondDate ? new Date(history.bondDate) : null,
-              prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null
+              prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null,
+              // Include FIR details field from DTO if provided
+              firDetails: history.firDetails ?? null,
             }));
 
             await tx.fLAFCriminalHistories.createMany({
