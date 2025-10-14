@@ -66,6 +66,8 @@ export default function InboxQueryPage() {
       case 'returned': return 'Returned Applications';
       case 'redFlagged': return 'Red Flagged Applications';
       case 'disposed': return 'Disposed Applications';
+      case 'drafts':
+      case 'draft': return 'Draft Applications';
       default: return 'Applications';
     }
   };
@@ -86,7 +88,7 @@ export default function InboxQueryPage() {
           </div>
         )}
 
-        <ApplicationTable applications={filteredApplications} isLoading={isLoading} />
+        <ApplicationTable applications={filteredApplications} isLoading={isLoading} pageType={type || undefined} />
       </div>
     </div>
   );

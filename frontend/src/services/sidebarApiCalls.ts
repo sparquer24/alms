@@ -42,7 +42,8 @@ export const STATUS_MAP = {
   closed: statusIdMap.closed || [10],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
-  groundReport: statusIdMap.groundReport || [6] // GROUND_REPORT
+  groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
+  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
 };
 
 /**
@@ -70,7 +71,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       action: h.actionTaken || h.action || '',
       by: h.previousUserName + ' (' + h.previousRoleName + ')' || 'Unknown User',
       comments: h.remarks || undefined,
-  attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
+      attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
     };
   });
 
@@ -460,6 +461,7 @@ export const fetchApplicationCounts = async (): Promise<{
   returnedCount: number;
   redFlaggedCount: number;
   disposedCount: number;
+  draftCount: number;
   pendingCount: number;
   approvedCount: number;
   closedCount: number;
@@ -480,11 +482,12 @@ export const fetchApplicationCounts = async (): Promise<{
     console.log('📊 fetchApplicationCounts called - optimized version');
 
     // Only fetch counts for the essential inbox items to reduce API load
-    const [forwarded, returned, redFlagged, disposed] = await Promise.all([
+    const [forwarded, returned, redFlagged, disposed, draft] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.disposed),
+      fetchApplicationsByStatus(STATUS_MAP.draft),
     ]);
 
     const counts = {
@@ -492,6 +495,7 @@ export const fetchApplicationCounts = async (): Promise<{
       returnedCount: returned.length,
       redFlaggedCount: redFlagged.length,
       disposedCount: disposed.length,
+      draftCount: draft.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
@@ -514,6 +518,7 @@ export const fetchApplicationCounts = async (): Promise<{
       returnedCount: 0,
       redFlaggedCount: 0,
       disposedCount: 0,
+      draftCount: 0,
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
