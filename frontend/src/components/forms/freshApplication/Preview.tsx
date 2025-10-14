@@ -36,6 +36,27 @@ const Preview = () => {
   const acknowledgementNo = searchParams?.get('acknowledgementNo') || 
                             localStorage.getItem('acknowledgementNo');
 
+  // Navigation handlers
+  const handleNext = () => {
+    const idToUse = applicationId || acknowledgementNo;
+    if (idToUse) {
+      console.log('✅ Navigating to Declaration with ID:', idToUse);
+      router.push(`${FORM_ROUTES.DECLARATION}?id=${idToUse}`);
+    } else {
+      console.log('❌ No application ID found, navigating to Declaration without ID');
+      router.push(FORM_ROUTES.DECLARATION);
+    }
+  };
+
+  const handlePrevious = () => {
+    const idToUse = applicationId || acknowledgementNo;
+    if (idToUse) {
+      router.push(`${FORM_ROUTES.DOCUMENTS_UPLOAD}?id=${idToUse}`);
+    } else {
+      router.push(FORM_ROUTES.DOCUMENTS_UPLOAD);
+    }
+  };
+
   // Fetch application data on mount and page refresh
   useEffect(() => {
     const fetchApplicationData = async () => {
@@ -459,6 +480,14 @@ const Preview = () => {
     <div className="fixed top-24 left-0 right-0 bottom-24 z-30 flex justify-center items-start overflow-hidden">
       <div className="max-w-6xl w-full h-full bg-white rounded-xl shadow p-10 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-100">
         <h2 className="text-2xl font-bold mb-2">Application Preview</h2>
+        
+        {/* Display Application ID if available */}
+        {(applicationId || acknowledgementNo) && (
+          <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+            <strong>Application ID: {applicationId || acknowledgementNo}</strong>
+          </div>
+        )}
+        
         <p className="mb-8 text-gray-600">
           Please review all your information before submitting the application.
         </p>
@@ -470,7 +499,10 @@ const Preview = () => {
         {renderLicenseHistory()}
         {renderLicenseDetails()}
       </div>
-      <FormFooter/>
+      <FormFooter 
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+      />
     </div>
   );
 };

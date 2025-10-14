@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { Checkbox } from '../elements/Checkbox';
 import { Frown } from 'lucide-react';
 import FormFooter from '../elements/footer';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { patchData } from '../../../api/axiosConfig';
+import { FORM_ROUTES } from '../../../config/formRoutes';
 
 const initialState = {
 	declareTrue: false,
@@ -13,11 +14,18 @@ const initialState = {
 };
 
 const Declaration = () => {
+	const router = useRouter();
 	const [form, setForm] = useState(initialState);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const searchParams = useSearchParams();
-	const applicantId = searchParams.get('applicantId');
+	const applicantId = searchParams?.get('applicantId') || searchParams?.get('id');
+
+	// Debug logging
+	console.log('🔍 Declaration component loaded');
+	console.log('📋 Form state:', form);
+	console.log('🆔 Applicant ID:', applicantId);
+	console.log('📍 Search params:', searchParams?.toString());
 
 	const handleCheck = (name: string, checked: boolean) => {
 		setForm((prev) => ({ ...prev, [name]: checked }));
@@ -83,14 +91,27 @@ const Declaration = () => {
 	};
 
 	const handlePrevious = () => {
-		// Navigate to previous step
-		window.history.back();
+		// Navigate to Preview step
+		if (applicantId) {
+			console.log('🔙 Navigating back to Preview with ID:', applicantId);
+			router.push(`${FORM_ROUTES.PREVIEW}?id=${applicantId}`);
+		} else {
+			console.log('🔙 No applicant ID, using browser back');
+			router.back();
+		}
 	};
 
 	return (
-		<form className="p-6 mx-full" onSubmit={(e) => e.preventDefault()}>
-			<h2 className="text-xl font-bold mb-4">Declaration & Submit</h2>
-			<div className="font-semibold mb-2">Declaration</div>
+		<div className="p-6 mx-auto max-w-4xl">
+			<form onSubmit={(e) => e.preventDefault()}>
+				<h2 className="text-xl font-bold mb-4">Declaration & Submit</h2>
+				
+				{/* Display Application ID if available */}
+				{applicantId && (
+					<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+						<strong>Application ID: {applicantId}</strong>
+					</div>
+				)}
 			
 			{error && (
 				<div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -101,7 +122,8 @@ const Declaration = () => {
 				</div>
 			)}
 
-			<div className="flex flex-col gap-2 mb-6">
+			<div className="flex flex-col gap-4 mb-6 bg-white p-4 border border-gray-200 rounded-lg">
+				<div className="text-lg font-medium text-gray-900 mb-2">Please check all boxes to proceed:</div>
 				<Checkbox
 					label="I hereby declare that the information provided above is true and correct to the best of my knowledge and belief."
 					name="declareTrue"
@@ -121,14 +143,15 @@ const Declaration = () => {
 					onChange={(checked) => handleCheck('declareTerms', checked)}
 				/>
 			</div>
-			<hr className="my-6" />
-			<FormFooter 
-				isDeclarationStep 
-				onSubmit={handleSubmit}
-				onPrevious={handlePrevious}
-				isLoading={isSubmitting}
-			/>
-		</form>
+				<hr className="my-6" />
+				<FormFooter 
+					isDeclarationStep 
+					onSubmit={handleSubmit}
+					onPrevious={handlePrevious}
+					isLoading={isSubmitting}
+				/>
+			</form>
+		</div>
 	);
 };
 
