@@ -198,10 +198,10 @@ model FreshLicenseApplicationPersonalDetails {
   createdAt               DateTime                        @default(now())
   updatedAt               DateTime                        @default(now()) @updatedAt
   filledBy                String?
-  isDeclarationAccepted Boolean                         @default(false)
-  isAwareOfLegalConsequences Boolean                    @default(false)
-  isTermsAccepted      Boolean                          @default(false)
-  isSubmitted         Boolean                           @default(false)
+  isDeclarationAccepted   Boolean?                        @default(false)
+  isAwareOfLegalConsequences Boolean?                   @default(false)
+  isTermsAccepted       Boolean?                         @default(false)
+  isSubmit           Boolean?                          @default(false)
   occupationAndBusinessId Int?
   permanentAddressId      Int?
   presentAddressId        Int?
