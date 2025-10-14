@@ -14,23 +14,34 @@ export default function AdminLayout({
 }) {
   const { userRole, token, isLoading } = useAuthSync();
   const router = useRouter();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [checked, setChecked] = useState(false);
+
+  // Debug log each render (can be removed later)
+  if (typeof window !== 'undefined') {
+    console.debug('[AdminLayout] render', { tokenPresent: !!token, userRole, isLoading, checked });
+  }
 
   useEffect(() => {
     // Only check auth once and don't redirect immediately
-    if (!isLoading) {
-      // Check if user is authenticated and is admin
-      if (!token || userRole !== 'ADMIN') {
-        console.log('User not authenticated as admin, redirecting to login');
-        router.push('/login');
-        return;
-      }
-      setIsCheckingAuth(false);
+    if (checked || isLoading) return;
+    if (!token) {
+      router.replace('/login');
+      return;
     }
-  }, [userRole, token, router, isLoading]);
+    if (!userRole) {
+      // Middleware should have redirected already; perform a defensive redirect.
+      router.replace('/login?error=no_role');
+      return;
+    }
+    if (userRole.toUpperCase() !== 'ADMIN') {
+      router.replace('/');
+      return;
+    }
+    setChecked(true);
+  }, [token, userRole, isLoading, checked, router]);
 
   // Show loading while checking authentication
-  if (isLoading || isCheckingAuth) {
+  if (isLoading || !checked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -42,7 +53,7 @@ export default function AdminLayout({
   }
 
   // Don't render anything if user is not authenticated as admin
-  if (!token || userRole !== 'ADMIN') {
+  if (!token || !userRole || userRole.toUpperCase() !== 'ADMIN') {
     return null; // Don't render anything while redirecting
   }
 
@@ -50,7 +61,7 @@ export default function AdminLayout({
     <LayoutProvider>
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 ml-[18%] min-w-0 overflow-auto">
+        <main className="flex-1 ml-[80px] md:ml-[18%] min-w-0 overflow-auto">
           {children}
         </main>
       </div>

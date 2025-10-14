@@ -1,7 +1,17 @@
 /* ProceedingsForm.module.css */
 
 .formContainer {
-  @apply max-w-4xl mx-auto;
+  /* center and constrain width */
+  max-width: 158rem; /* increased width to allow wider panels */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  /* keep container within viewport minus expected header area so page doesn't scroll */
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .formHeader {
@@ -42,6 +52,10 @@
 
 .helpText {
   @apply text-sm text-gray-500 mt-2;
+}
+
+.fieldError {
+  @apply text-sm text-red-600 mt-2;
 }
 
 .submitSection {
@@ -231,3 +245,71 @@
 .selectContainer :global(.select__indicator:hover) {
   color: #374151;
 } 
+
+/* Scroll panel to contain form content and keep scrollbar inside the panel */
+.scrollPanel {
+  /* fill available vertical space inside .formContainer and scroll internally */
+  height: 100%;
+  overflow: auto;
+  padding-top: 0;
+  padding-bottom: 0;
+  
+}
+
+/* New background variants for visual separation */
+.proceedingsPanel {
+  background: linear-gradient(180deg, #ffffff 0%, #c4d7e9 100%); /* subtle blue tint */
+  padding: 1.25rem; /* give inner content breathing room */
+  border-radius: 0.75rem;
+  border: 1px solid rgba(99,102,241,0.06);
+}
+
+.groundReportPanel {
+  background: linear-gradient(180deg, #c4d7e9 0%, #fff7ed 100%); /* warm paper-like tint */
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(245,158,11,0.06);
+}
+
+/* Invalid field highlight */
+.invalidField {
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.06);
+}
+
+/* Make react-select control show red outline when its container is invalid */
+.invalidField :global(.select__control) {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.16) !important;
+}
+
+.invalidField :global(textarea) {
+  border-color: #ef4444 !important;
+}
+
+/* Make panels extend to container width and allow slightly wider max width */
+.proceedingsPanel,
+.groundReportPanel {
+  width: 100%;
+  max-width: 86rem; /* roughly 1376px */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 1200px) {
+  .formContainer {
+    max-width: 72rem;
+  }
+  .proceedingsPanel,
+  .groundReportPanel {
+    max-width: 70rem;
+  }
+}
+
+/* Ensure editor areas use border-box and have no extra bottom padding so scrollbar is flush */
+.richTextContainer :global(textarea),
+.formContent :global(.prose),
+.scrollPanel :global([contenteditable]) {
+  box-sizing: border-box;
+  padding-bottom: 0 !important;
+}

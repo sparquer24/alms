@@ -31,7 +31,7 @@ export enum FileTypeEnum {
 }
 
 export class AddressDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Address line',
     example: '123 Main Street, Jubilee Hills'
   })
@@ -39,19 +39,35 @@ export class AddressDto {
   @IsNotEmpty()
   addressLine!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'State ID',
     example: 1
   })
   @IsNumber()
   stateId!: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'District ID',
     example: 1
   })
   @IsNumber()
   districtId!: number;
+
+  @ApiProperty({
+    description: 'zone ID',
+    example: 1
+  })
+
+  @IsNumber()
+  zoneId!: number;
+
+  @ApiProperty({
+    description: 'division ID',
+    example: 1
+  })
+
+  @IsNumber()
+  divisionId!: number;
 
   @ApiProperty({
     description: 'Police Station ID',
@@ -60,7 +76,7 @@ export class AddressDto {
   @IsNumber()
   policeStationId!: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Since residing date',
     example: '2015-06-01T00:00:00.000Z'
   })
@@ -69,7 +85,7 @@ export class AddressDto {
 }
 
 export class ContactInfoDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Office telephone number',
     example: '040-12345678'
   })
@@ -77,7 +93,7 @@ export class ContactInfoDto {
   @IsString()
   telephoneOffice?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Residence telephone number',
     example: '040-87654321'
   })
@@ -85,7 +101,7 @@ export class ContactInfoDto {
   @IsString()
   telephoneResidence?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Mobile number',
     example: '9876543210'
   })
@@ -93,7 +109,7 @@ export class ContactInfoDto {
   @IsNotEmpty()
   mobileNumber!: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Office mobile number',
     example: '9876543211'
   })
@@ -101,7 +117,7 @@ export class ContactInfoDto {
   @IsString()
   officeMobileNumber?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Alternative mobile number',
     example: '9876543212'
   })
@@ -111,7 +127,7 @@ export class ContactInfoDto {
 }
 
 export class OccupationInfoDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Occupation',
     example: 'Software Engineer'
   })
@@ -119,7 +135,7 @@ export class OccupationInfoDto {
   @IsNotEmpty()
   occupation!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Office address',
     example: '456 Tech Park, Hitech City'
   })
@@ -127,21 +143,21 @@ export class OccupationInfoDto {
   @IsNotEmpty()
   officeAddress!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'State ID',
     example: 1
   })
   @IsNumber()
   stateId!: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'District ID',
     example: 1
   })
   @IsNumber()
   districtId!: number;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Crop location',
     example: 'N/A'
   })
@@ -149,17 +165,57 @@ export class OccupationInfoDto {
   @IsString()
   cropLocation?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Area under cultivation',
     example: 0
   })
   @IsOptional()
   @IsNumber()
   areaUnderCultivation?: number;
+
+  @ApiPropertyOptional({
+    description: 'Employer name',
+    example: 'Tech Corporation Ltd'
+  })
+  @IsOptional()
+  @IsString()
+  employerName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Business details',
+    example: 'Software development and consulting'
+  })
+  @IsOptional()
+  @IsString()
+  businessDetails?: string;
+
+  @ApiPropertyOptional({
+    description: 'Annual income',
+    example: '500000'
+  })
+  @IsOptional()
+  @IsString()
+  annualIncome?: string;
+
+  @ApiPropertyOptional({
+    description: 'Work experience in years',
+    example: '5'
+  })
+  @IsOptional()
+  @IsString()
+  workExperience?: string;
+
+  @ApiPropertyOptional({
+    description: 'Business type',
+    example: 'IT Services'
+  })
+  @IsOptional()
+  @IsString()
+  businessType?: string;
 }
 
 export class BiometricDataDto {
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Signature image URL (base64)',
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
   })
@@ -167,7 +223,7 @@ export class BiometricDataDto {
   @IsString()
   signatureImageUrl?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Iris scan image URL (base64)',
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
   })
@@ -175,7 +231,7 @@ export class BiometricDataDto {
   @IsString()
   irisScanImageUrl?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Photo image URL (base64)',
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
   })
@@ -185,14 +241,14 @@ export class BiometricDataDto {
 }
 
 export class CriminalHistoryDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Whether convicted',
     example: false
   })
-    @IsBoolean()
-    convicted: boolean = false;
+  @IsBoolean()
+  convicted: boolean = false;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Is criminal case pending',
     example: 'No'
   })
@@ -200,7 +256,7 @@ export class CriminalHistoryDto {
   @IsNotEmpty()
   isCriminalCasePending!: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'FIR number',
     example: ''
   })
@@ -208,7 +264,7 @@ export class CriminalHistoryDto {
   @IsString()
   firNumber?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Police station',
     example: ''
   })
@@ -216,7 +272,7 @@ export class CriminalHistoryDto {
   @IsString()
   policeStation?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Section of law',
     example: ''
   })
@@ -224,7 +280,7 @@ export class CriminalHistoryDto {
   @IsString()
   sectionOfLaw?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Date of offence',
     example: ''
   })
@@ -232,7 +288,7 @@ export class CriminalHistoryDto {
   @IsString()
   dateOfOffence?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Case status',
     example: ''
   })
@@ -242,42 +298,42 @@ export class CriminalHistoryDto {
 }
 
 export class LicenseHistoryDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Has applied before',
     example: false
   })
-    @IsBoolean()
-    hasAppliedBefore: boolean = false;
+  @IsBoolean()
+  hasAppliedBefore: boolean = false;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Has other applications',
     example: false
   })
-    @IsBoolean()
-    hasOtherApplications: boolean = false;
+  @IsBoolean()
+  hasOtherApplications: boolean = false;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Family member has arms license',
     example: false
   })
-    @IsBoolean()
-    familyMemberHasArmsLicense: boolean = false;
+  @IsBoolean()
+  familyMemberHasArmsLicense: boolean = false;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Has safe place for arms',
     example: true
   })
-    @IsBoolean()
-    hasSafePlaceForArms: boolean = false;
+  @IsBoolean()
+  hasSafePlaceForArms: boolean = false;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Has undergone training',
     example: false
   })
-    @IsBoolean()
-    hasUndergoneTraining: boolean = false;
+  @IsBoolean()
+  hasUndergoneTraining: boolean = false;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Has previous license',
     example: 'no'
   })
@@ -285,7 +341,7 @@ export class LicenseHistoryDto {
   @IsNotEmpty()
   hasPreviousLicense!: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Previous license number',
     example: ''
   })
@@ -293,7 +349,7 @@ export class LicenseHistoryDto {
   @IsString()
   previousLicenseNumber?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'License issue date',
     example: ''
   })
@@ -301,7 +357,7 @@ export class LicenseHistoryDto {
   @IsString()
   licenseIssueDate?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'License expiry date',
     example: ''
   })
@@ -309,7 +365,7 @@ export class LicenseHistoryDto {
   @IsString()
   licenseExpiryDate?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Issuing authority',
     example: ''
   })
@@ -317,7 +373,7 @@ export class LicenseHistoryDto {
   @IsString()
   issuingAuthority?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Is license renewed',
     example: 'No'
   })
@@ -325,7 +381,7 @@ export class LicenseHistoryDto {
   @IsNotEmpty()
   isLicenseRenewed!: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Renewal date',
     example: ''
   })
@@ -333,7 +389,7 @@ export class LicenseHistoryDto {
   @IsString()
   renewalDate?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Renewing authority',
     example: ''
   })
@@ -343,7 +399,7 @@ export class LicenseHistoryDto {
 }
 
 export class LicenseRequestDetailsDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Need for license',
     enum: LicensePurposeEnum,
     example: LicensePurposeEnum.SELF_PROTECTION,
@@ -353,8 +409,8 @@ export class LicenseRequestDetailsDto {
   @IsNotEmpty()
   needForLicense!: LicensePurposeEnum;
 
-  @ApiProperty({ 
-    description: 'Weapon category', 
+  @ApiProperty({
+    description: 'Weapon category',
     enum: WeaponCategoryEnum,
     example: WeaponCategoryEnum.PERMISSIBLE,
     enumName: 'WeaponCategoryEnum'
@@ -362,8 +418,8 @@ export class LicenseRequestDetailsDto {
   @IsEnum(WeaponCategoryEnum)
   weaponCategory: WeaponCategoryEnum = WeaponCategoryEnum.PERMISSIBLE;
 
-  @ApiProperty({ 
-    description: 'Requested weapon IDs', 
+  @ApiProperty({
+    description: 'Requested weapon IDs',
     type: [String],
     example: ['1']
   })
@@ -371,7 +427,7 @@ export class LicenseRequestDetailsDto {
   @IsString({ each: true })
   requestedWeaponIds: string[] = [];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Area of validity',
     example: 'Hyderabad'
   })
@@ -381,7 +437,7 @@ export class LicenseRequestDetailsDto {
 }
 
 export class FileUploadDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'File name',
     example: 'pan_card_test.png'
   })
@@ -389,15 +445,15 @@ export class FileUploadDto {
   @IsNotEmpty()
   fileName!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'File size in bytes',
     example: 60
   })
   @IsNumber()
   fileSize!: number;
 
-  @ApiProperty({ 
-    description: 'File type', 
+  @ApiProperty({
+    description: 'File type',
     enum: FileTypeEnum,
     example: FileTypeEnum.PAN_CARD,
     enumName: 'FileTypeEnum'
@@ -405,7 +461,7 @@ export class FileUploadDto {
   @IsEnum(FileTypeEnum)
   fileType: FileTypeEnum = FileTypeEnum.PAN_CARD;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'File URL (base64 encoded)',
     example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII='
   })
@@ -415,7 +471,7 @@ export class FileUploadDto {
 }
 
 export class CreateApplicationDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'First name',
     example: 'John Doe'
   })
@@ -423,7 +479,7 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   firstName!: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Middle name',
     example: 'Kumar'
   })
@@ -431,7 +487,7 @@ export class CreateApplicationDto {
   @IsString()
   middleName?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Last name',
     example: 'Singh'
   })
@@ -439,7 +495,7 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   lastName!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filled by',
     example: 'Self'
   })
@@ -447,7 +503,7 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   filledBy!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Parent or spouse name',
     example: 'Rajesh Kumar'
   })
@@ -455,8 +511,8 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   parentOrSpouseName!: string;
 
-  @ApiProperty({ 
-    description: 'Sex', 
+  @ApiProperty({
+    description: 'Sex',
     enum: SexEnum,
     example: SexEnum.MALE,
     enumName: 'SexEnum'
@@ -464,7 +520,7 @@ export class CreateApplicationDto {
   @IsEnum(SexEnum)
   sex: SexEnum = SexEnum.MALE;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Place of birth',
     example: 'Hyderabad'
   })
@@ -472,14 +528,14 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   placeOfBirth!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Date of birth',
     example: '1990-01-15T00:00:00.000Z'
   })
   @IsDateString()
   dateOfBirth!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'PAN number',
     example: 'ABCDE1234F'
   })
@@ -487,7 +543,7 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   panNumber!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Aadhar number',
     example: '123456789012'
   })
@@ -495,7 +551,7 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   aadharNumber!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Date of birth in words',
     example: 'Fifteenth January Nineteen Ninety'
   })
@@ -503,14 +559,14 @@ export class CreateApplicationDto {
   @IsNotEmpty()
   dobInWords!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'State ID',
     example: 1
   })
   @IsNumber()
   stateId!: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'District ID',
     example: 1
   })
@@ -524,22 +580,22 @@ export class CreateApplicationDto {
   @IsNumber()
   statusId!: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Current user ID',
     example: 13
   })
   @IsNumber()
   currentUserId!: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Current role ID',
     example: 34
   })
   @IsNumber()
   currentRoleId!: number;
 
-  @ApiProperty({ 
-    description: 'Present address', 
+  @ApiProperty({
+    description: 'Present address',
     type: AddressDto,
     example: {
       addressLine: "123 Main Street, Jubilee Hills",
@@ -552,8 +608,8 @@ export class CreateApplicationDto {
   @Type(() => AddressDto)
   presentAddress!: AddressDto;
 
-  @ApiProperty({ 
-    description: 'Permanent address', 
+  @ApiProperty({
+    description: 'Permanent address',
     type: AddressDto,
     example: {
       addressLine: "123 Main Street, Jubilee Hills",
@@ -566,8 +622,8 @@ export class CreateApplicationDto {
   @Type(() => AddressDto)
   permanentAddress!: AddressDto;
 
-  @ApiProperty({ 
-    description: 'Contact information', 
+  @ApiProperty({
+    description: 'Contact information',
     type: ContactInfoDto,
     example: {
       telephoneOffice: "040-12345678",
@@ -581,8 +637,8 @@ export class CreateApplicationDto {
   @Type(() => ContactInfoDto)
   contactInfo!: ContactInfoDto;
 
-  @ApiProperty({ 
-    description: 'Occupation information', 
+  @ApiProperty({
+    description: 'Occupation information',
     type: OccupationInfoDto,
     example: {
       occupation: "Software Engineer",
@@ -597,8 +653,8 @@ export class CreateApplicationDto {
   @Type(() => OccupationInfoDto)
   occupationInfo!: OccupationInfoDto;
 
-  @ApiPropertyOptional({ 
-    description: 'Biometric data', 
+  @ApiPropertyOptional({
+    description: 'Biometric data',
     type: BiometricDataDto,
     example: {
       signatureImageUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -611,8 +667,8 @@ export class CreateApplicationDto {
   @Type(() => BiometricDataDto)
   biometricData?: BiometricDataDto;
 
-  @ApiProperty({ 
-    description: 'Criminal history', 
+  @ApiProperty({
+    description: 'Criminal history',
     type: [CriminalHistoryDto],
     example: [{
       convicted: false,
@@ -629,8 +685,8 @@ export class CreateApplicationDto {
   @Type(() => CriminalHistoryDto)
   criminalHistory!: CriminalHistoryDto[];
 
-  @ApiProperty({ 
-    description: 'License history', 
+  @ApiProperty({
+    description: 'License history',
     type: [LicenseHistoryDto],
     example: [{
       hasAppliedBefore: false,
@@ -653,8 +709,8 @@ export class CreateApplicationDto {
   @Type(() => LicenseHistoryDto)
   licenseHistory!: LicenseHistoryDto[];
 
-  @ApiProperty({ 
-    description: 'License request details', 
+  @ApiProperty({
+    description: 'License request details',
     type: LicenseRequestDetailsDto,
     example: {
       needForLicense: "SELF_PROTECTION",
@@ -667,8 +723,8 @@ export class CreateApplicationDto {
   @Type(() => LicenseRequestDetailsDto)
   licenseRequestDetails!: LicenseRequestDetailsDto;
 
-  @ApiProperty({ 
-    description: 'File uploads', 
+  @ApiProperty({
+    description: 'File uploads',
     type: [FileUploadDto],
     example: [{
       fileName: "pan_card_test.png",

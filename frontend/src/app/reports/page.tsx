@@ -6,7 +6,7 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useAuthSync } from '../../hooks/useAuthSync';
 import { useLayout } from '../../config/layoutContext';
-import { ApplicationData } from '../../services/sidebarApiCalls';
+import { ApplicationData } from '../../types';
 import { ApplicationApi } from '../../config/APIClient';
 import { ReportApi } from '../../config/APIClient';
 import { useAuth } from '../../config/auth';
@@ -47,7 +47,6 @@ export default function ReportsPage() {
     const load = async () => {
       try {
         const res = await ApplicationApi.getAll();
-        console.log('API Response (reports page):', res);
         
         // The API returns {success: true, message: '...', data: Array(1), pagination: {...}}
         // We need to access the 'data' property
@@ -62,7 +61,6 @@ export default function ReportsPage() {
           }
         }
         
-        console.log('Extracted applications (reports):', apps);
         setApplications(apps);
       } catch (err) {
         setApplications([]);
@@ -137,7 +135,7 @@ export default function ReportsPage() {
         onReset={handleReset}
       />
 
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">My Reports</h1>
 
@@ -156,41 +154,44 @@ export default function ReportsPage() {
                 <div className="flex justify-center items-center h-64">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#6366F1]"></div>
                 </div>
-              ) : applications.length === 0 ? (
-                <div className="text-center text-gray-500">No applications found for this status.</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr>
-                        <th className="px-4 py-2">Application ID</th>
-                        <th className="px-4 py-2">Applicant Name</th>
-                        <th className="px-4 py-2">Acknowledgement Number</th>
-                        <th className="px-4 py-2">Created By</th>
-                        <th className="px-4 py-2">Source</th>
-                        <th className="px-4 py-2">Status</th>
-                        <th className="px-4 py-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {applications.map(app => (
-                        <tr key={app.applicationId} className="hover:bg-gray-50">
-                          <td className="px-4 py-2">{app.applicationId}</td>
-                          <td className="px-4 py-2">{app.applicantName}</td>
-                          <td className="px-4 py-2">{app.acknowledgementNumber}</td>
-                          <td className="px-4 py-2">{app.createdBy}</td>
-                          <td className="px-4 py-2">{app.createdFrom}</td>
-                          <td className="px-4 py-2">{app.status}</td>
-                          <td className="px-4 py-2 space-x-2">
-                            <button className="text-blue-600 hover:underline">View</button>
-                            <button className="text-green-600 hover:underline">Download</button>
-                            <button className="text-purple-600 hover:underline">Forward</button>
-                          </td>
-                        </tr>
+                <>
+                  {/* Parameters example panel */}
+                  <div className="mb-4 p-4 bg-gray-50 rounded border">
+                    <h3 className="font-semibold mb-2">Request Parameters (example)</h3>
+                    <div className="text-sm text-gray-700">
+                      <div><strong>Endpoint:</strong> /application/</div>
+                      <div><strong>user_id:</strong> {getUserIdFromCookies() ?? 'example_user_id'}</div>
+                      <div><strong>status_id:</strong> {JSON.stringify(STATUS_MAPPING[selectedStatusKey] ?? [])}</div>
+                      <div className="text-xs text-gray-500 mt-2">Example query: <code>/application/?user_id=123&amp;status_id=101,102</code></div>
+                    </div>
+                  </div>
+
+                  {applications.length === 0 ? (
+                    <div className="text-center text-gray-500">No applications found for this status.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {applications.map((app: any) => (
+                        <div key={app.applicationId || app.id} className="border rounded p-4 flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold">{app.applicantName || app.name || 'Applicant Name'}</div>
+                            <div className="text-sm text-gray-500">{app.applicationId || app.id} • {app.createdAt || app.submittedAt || '2025-09-01'}</div>
+                            <div className="text-sm mt-2 text-gray-600">Acknowledgement: {app.acknowledgementNumber || 'N/A'}</div>
+                            <div className="text-sm mt-1 text-gray-600">Created By: {app.createdBy || 'System'}</div>
+                            <div className="text-sm mt-1 text-gray-600">Source: {app.createdFrom || 'Web'}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500 mb-3">{app.status || selectedStatusKey}</div>
+                            <div className="space-x-2">
+                              <button className="text-blue-600 hover:underline">View</button>
+                              <button className="text-green-600 hover:underline">Download</button>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  )}
+                </>
               )}
             </>
           ) : (

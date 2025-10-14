@@ -1,4 +1,4 @@
-import { ApplicationData } from '../config/mockData';
+import { ApplicationData } from '../types';
 
 type SetState = (fn: (state: ApplicationStore) => Partial<ApplicationStore>) => void;
 
@@ -11,8 +11,8 @@ interface ApplicationStore {
 export const useApplicationStore = ((initialState: Pick<ApplicationStore, 'applications'> = { applications: [] }) => {
   let state: ApplicationStore = {
     applications: initialState.applications,
-    setApplications: () => {},
-    clearApplications: () => {},
+    setApplications: () => { },
+    clearApplications: () => { },
   };
   const listeners = new Set<(state: ApplicationStore) => void>();
 
@@ -29,9 +29,9 @@ export const useApplicationStore = ((initialState: Pick<ApplicationStore, 'appli
       return () => listeners.delete(listener);
     },
     applications: state.applications,
-    setApplications: (applications: ApplicationData[]) => 
+    setApplications: (applications: ApplicationData[]) =>
       setState(state => ({ ...state, applications })),
-    clearApplications: () => 
+    clearApplications: () =>
       setState(state => ({ ...state, applications: [] })),
   };
 })();

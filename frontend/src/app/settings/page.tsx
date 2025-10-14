@@ -77,7 +77,7 @@ export default function SettingsPage() {
         onReset={handleReset}
       />
 
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">User Information</h1>
 

@@ -6,6 +6,7 @@
 
 import { ApplicationApi } from '../config/APIClient';
 import { APIApplication, ApiResponse } from '../types/api';
+import { ApplicationData } from '../types';
 import { statusIdMap } from '../config/statusMap';
 
 // Simple cache to prevent duplicate API calls
@@ -41,7 +42,8 @@ export const STATUS_MAP = {
   closed: statusIdMap.closed || [10],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
-  groundReport: statusIdMap.groundReport || [6] // GROUND_REPORT
+  groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
+  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
 };
 
 /**
@@ -58,15 +60,18 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
   // Handle both old and new API response formats
   const histories = Array.isArray(detailedApp?.FreshLicenseApplicationsFormWorkflowHistories)
     ? detailedApp.FreshLicenseApplicationsFormWorkflowHistories
-    : [];
+    : Array.isArray(detailedApp?.workflowHistory)
+      ? detailedApp.workflowHistory
+      : [];
   const history = histories.map((h: any) => {
     const created = h.createdAt ? new Date(h.createdAt) : new Date();
     return {
       date: created.toISOString().split('T')[0],
       time: created.toTimeString().slice(0, 5),
       action: h.actionTaken || h.action || '',
-      by: h.previousUser?.username || String(h.previousUserId ?? ''),
+      by: h.previousUserName + ' (' + h.previousRoleName + ')' || 'Unknown User',
       comments: h.remarks || undefined,
+      attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
     };
   });
 
@@ -117,8 +122,9 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       canReturn: !detailedApp.isApprovied && !detailedApp.isRejected,
       canDispose: detailedApp.isApprovied,
     },
-    // Add acknowledgement number for new API format
-    acknowledgementNo: detailedApp.acknowledgementNo || undefined,
+    usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
+      ? detailedApp.usersInHierarchy
+      : [],
   };
 };
 
@@ -306,53 +312,6 @@ export interface DetailedApplicationData {
   previousUser?: any | null;
 }
 
-// Application interface (matches your existing structure)
-export interface ApplicationData {
-  id: string;
-  applicantName: string;
-  applicantMobile: string;
-  applicantEmail?: string;
-  fatherName?: string;
-  gender?: 'Male' | 'Female' | 'Other';
-  dob?: string;
-  address?: string;
-  applicationType: string;
-  applicationDate: string;
-  applicationTime?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 're-enquiry' | 'ground-report' | 'closed' | 'recommended';
-  status_id: string | number;
-  assignedTo: string;
-  forwardedFrom?: string;
-  forwardedTo?: string;
-  forwardComments?: string;
-  isViewed?: boolean;
-  returnReason?: string;
-  flagReason?: string;
-  disposalReason?: string;
-  lastUpdated: string;
-  documents?: Array<{
-    name: string;
-    type: string;
-    url: string;
-  }>;
-  history?: Array<{
-    date: string;
-    time: string;
-    action: string;
-    by: string;
-    comments?: string;
-  }>;
-  actions?: {
-    canForward: boolean;
-    canReport: boolean;
-    canApprove: boolean;
-    canReject: boolean;
-    canRaiseRedflag: boolean;
-    canReturn: boolean;
-    canDispose: boolean;
-  };
-}
-
 /**
  * Converts status name strings to their corresponding numeric IDs
  */
@@ -400,9 +359,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<A
     return [];
   }
 
-  console.log(`🔄 Fetching ${statusKey} applications with status IDs:`, statusIds);
   const applications = await fetchApplicationsByStatus(statusIds);
-  console.log(`✅ Fetched ${applications.length} ${statusKey} applications`);
 
   return applications;
 };
@@ -504,6 +461,7 @@ export const fetchApplicationCounts = async (): Promise<{
   returnedCount: number;
   redFlaggedCount: number;
   disposedCount: number;
+  draftCount: number;
   pendingCount: number;
   approvedCount: number;
   closedCount: number;
@@ -524,11 +482,12 @@ export const fetchApplicationCounts = async (): Promise<{
     console.log('📊 fetchApplicationCounts called - optimized version');
 
     // Only fetch counts for the essential inbox items to reduce API load
-    const [forwarded, returned, redFlagged, disposed] = await Promise.all([
+    const [forwarded, returned, redFlagged, disposed, draft] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.disposed),
+      fetchApplicationsByStatus(STATUS_MAP.draft),
     ]);
 
     const counts = {
@@ -536,6 +495,7 @@ export const fetchApplicationCounts = async (): Promise<{
       returnedCount: returned.length,
       redFlaggedCount: redFlagged.length,
       disposedCount: disposed.length,
+      draftCount: draft.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
@@ -558,6 +518,7 @@ export const fetchApplicationCounts = async (): Promise<{
       returnedCount: 0,
       redFlaggedCount: 0,
       disposedCount: 0,
+      draftCount: 0,
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
@@ -573,9 +534,14 @@ export const fetchApplicationCounts = async (): Promise<{
  * Maps the actual API response structure to ApplicationData interface
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
+  // Derive applicant name from available fields; some list endpoints may not include applicantFullName
+  const derivedName = (apiApp.applicantFullName
+    || `${apiApp.firstName || ''} ${apiApp.middleName || ''} ${apiApp.lastName || ''}`.trim()
+  ) || 'Unknown Applicant';
+
   return {
     id: String(apiApp.id || ''),
-    applicantName: apiApp.applicantFullName || 'Unknown',
+    applicantName: derivedName,
     applicantMobile: apiApp.mobileNumber || '', // This might need to be fetched from detailed API
     applicantEmail: apiApp.emailAddress || undefined, // This might need to be fetched from detailed API
     fatherName: apiApp.fatherName || undefined, // This might need to be fetched from detailed API
@@ -607,6 +573,9 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
       canReturn: !apiApp.isApprovied && !apiApp.isRejected,
       canDispose: apiApp.isApprovied,
     },
+    usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
+      ? apiApp.usersInHierarchy
+      : undefined,
   };
 };
 

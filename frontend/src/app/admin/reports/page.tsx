@@ -6,7 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { useLayout } from "@/config/layoutContext";
-import { fetchAllApplications, ApplicationData } from "@/services/sidebarApiCalls";
+import { fetchAllApplications } from "@/services/sidebarApiCalls";
+import type { ApplicationData } from "@/types";
 
 interface Application {
   status: string;
@@ -112,7 +113,7 @@ export default function ReportsPage() {
         onReset={handleReset}
       />
 
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">My Reports</h1>
 

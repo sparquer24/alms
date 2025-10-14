@@ -6,7 +6,9 @@ import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey, ApplicationData } from '../../services/sidebarApiCalls';
+import { getRoleConfig } from '../../config/roles';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function ClosedPage() {
@@ -16,12 +18,31 @@ export default function ClosedPage() {
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const router = useRouter();
+
   useEffect(() => {
-    // Fetch closed applications
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
+    // Permission gate: allow users who can view disposed/final disposal/closed
+  const roleConfig = getRoleConfig(userRole);
+    const perms = roleConfig?.permissions || [];
+    const allowed = perms.includes('canViewDisposed') || perms.includes('canViewFinalDisposal') || perms.includes('canViewClosed');
+    if (!authLoading && isAuthenticated && !allowed) {
+      router.push('/');
+      return;
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    // Fetch closed applications only after auth finishes and user is authenticated
     const loadApplications = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch closed applications using the utility function
         const fetchedApplications = await fetchApplicationsByStatusKey('closed');
         setApplications(fetchedApplications);
@@ -33,11 +54,12 @@ export default function ClosedPage() {
       }
     };
 
-    loadApplications();
-  }, []);
-
-  const { isAuthenticated, isLoading: authLoading } = useAuthSync();
-  const router = useRouter();
+    if (!authLoading && isAuthenticated) {
+      loadApplications();
+    } else if (!authLoading && !isAuthenticated) {
+      setIsLoading(false);
+    }
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -87,7 +109,7 @@ export default function ClosedPage() {
         onDateFilter={handleDateFilter}
         onReset={handleReset}
       />
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">Closed Applications</h1>
           

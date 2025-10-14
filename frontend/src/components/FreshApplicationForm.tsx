@@ -860,10 +860,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       // Set errors and return validation result
-      setErrors(newErrors);
-      const isValid = Object.keys(newErrors).length === 0;
-      console.log("🔍 Validation errors found:", newErrors);
-      console.log("🔍 Validation errors count:", Object.keys(newErrors).length);
+  setErrors(newErrors);
+  const isValid = Object.keys(newErrors || {}).length === 0;
+  console.log("🔍 Validation errors found:", newErrors);
+  console.log("🔍 Validation errors count:", Object.keys(newErrors || {}).length);
       console.log("🔍 Validation result (is valid):", isValid);
 
       if (!isValid) {
@@ -1390,6 +1390,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.applicantAddress || "",
         stateId: formData.presentStateId ?? getStateId(formData.presentState || ""),
         districtId: formData.presentDistrictId ?? getDistrictId(formData.presentDistrict || ""),
+  zoneId: formData.presentZoneId ?? undefined,
+  divisionId: formData.presentDivisionId ?? undefined,
         policeStationId: formData.presentStationId ?? getPoliceStationId(formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
@@ -1400,6 +1402,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.permanentAddress || formData.applicantAddress || "",
   stateId: formData.permanentStateId ?? getStateId(formData.permanentState || formData.presentState || ""),
   districtId: formData.permanentDistrictId ?? getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
+  zoneId: formData.permanentZoneId ?? (formData.sameAsPresent ? formData.presentZoneId : undefined),
+  divisionId: formData.permanentDivisionId ?? (formData.sameAsPresent ? formData.presentDivisionId : undefined),
   policeStationId: formData.permanentStationId ?? getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
@@ -1521,10 +1525,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       allErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
     }
 
-    console.log('🔍 All validation errors:', allErrors);
-    console.log('🔍 Total errors count:', Object.keys(allErrors).length);
+  console.log('🔍 All validation errors:', allErrors);
+  console.log('🔍 Total errors count:', Object.keys(allErrors || {}).length);
 
-    const isValid = Object.keys(allErrors).length === 0;
+  const isValid = Object.keys(allErrors || {}).length === 0;
     if (!isValid) {
       setErrors(allErrors);
     }
@@ -1745,7 +1749,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   return (
     <>
-      <div className="max-w-7xl mx-auto h-full overflow-hidden grid ">
+  <div className="max-w-8xl mx-auto h-full overflow-hidden grid ">
         {/* Fixed Header with Messages */}
         <div className="">
           {/* Success/Error messages */}
@@ -1820,243 +1824,99 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {formStep === 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Personal Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-6">
+                    {/* Row 1: Alice Ack No, First, Middle, Last Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Alice Acknowledgement Number</label>
-                      <input
-                        type="text"
-                        name="aliceAcknowledgementNumber"
-                        value={formData.aliceAcknowledgementNumber}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
+                      <input type="text" name="aliceAcknowledgementNumber" value={formData.aliceAcknowledgementNumber} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">First Name<span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="applicantName"
-                        value={formData.applicantName}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Applicant First Name<span className="text-red-500">*</span></label>
+                      <input type="text" name="applicantName" value={formData.applicantName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
                       {errors.applicantName && <p className="text-red-500 text-xs mt-1">{errors.applicantName}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Middle Name</label>
-                      <input
-                        type="text"
-                        name="applicantMiddleName"
-                        value={formData.applicantMiddleName}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Applicant Middle Name</label>
+                      <input type="text" name="applicantMiddleName" value={formData.applicantMiddleName} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Applicant Last Name</label>
+                      <input type="text" name="applicantLastName" value={formData.applicantLastName} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
 
+                    {/* Row 2: Application filled by, Parent/Spouse, Sex, Place of Birth */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                      <input
-                        type="text"
-                        name="applicantLastName"
-                        value={formData.applicantLastName}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Application filled by <span className="text-xs text-gray-400">(Zonal Superintendent name)</span></label>
+                      <input type="text" name="applicationFilledBy" value={formData.applicationFilledBy} onChange={handleChange} placeholder="Self/Agent/Other" className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Father's Name <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="fatherName"
-                        value={formData.fatherName}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Parent/ Spouse Name</label>
+                      <input type="text" name="fatherName" value={formData.fatherName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
                       {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Place of Birth (Nativity)</label>
-                      <input
-                        type="text"
-                        name="placeOfBirth"
-                        value={formData.placeOfBirth}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Date of Birth in Words</label>
-                      <input
-                        type="text"
-                        name="dateOfBirthInWords"
-                        value={formData.dateOfBirthInWords}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Mobile Number <span className="text-red-500">*</span></label>
-                      <input
-                        type="tel"
-                        name="applicantMobile"
-                        value={formData.applicantMobile}
-                        onChange={handleChange}
-                        maxLength={10}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantMobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.applicantMobile && <p className="text-red-500 text-xs mt-1">{errors.applicantMobile}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Email<span className="text-red-500">*</span></label>
-                      <input
-                        type="email"
-                        name="applicantEmail"
-                        value={formData.applicantEmail}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantEmail ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.applicantEmail && <p className="text-red-500 text-xs mt-1">{errors.applicantEmail}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Gender <span className="text-red-500">*</span></label>
-                      <select
-                        name="applicantGender"
-                        value={formData.applicantGender}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantGender ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      >
-                        <option value="">Select Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700">Sex</label>
+                      <div className="flex items-center gap-4 mt-1">
+                        <label className="inline-flex items-center">
+                          <input type="radio" name="applicantGender" value="male" checked={formData.applicantGender === 'male'} onChange={handleChange} className="h-4 w-4 text-[#6366F1]" />
+                          <span className="ml-2">Male</span>
+                        </label>
+                        <label className="inline-flex items-center">
+                          <input type="radio" name="applicantGender" value="female" checked={formData.applicantGender === 'female'} onChange={handleChange} className="h-4 w-4 text-[#6366F1]" />
+                          <span className="ml-2">Female</span>
+                        </label>
+                      </div>
                       {errors.applicantGender && <p className="text-red-500 text-xs mt-1">{errors.applicantGender}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Date of Birth <span className="text-red-500">*</span></label>
-                      <input
-                        type="date"
-                        name="applicantDateOfBirth"
-                        value={formData.applicantDateOfBirth}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantDateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Place of Birth (Nativity)</label>
+                      <input type="text" name="placeOfBirth" value={formData.placeOfBirth} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                    </div>
+
+                    {/* Row 3: Date of Birth, PAN, Aadhar, Date of Birth in Words */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Date of birth in Christian era <span className="text-xs text-gray-400">(Must be 21 years old on the date of application)</span></label>
+                      <input type="date" name="applicantDateOfBirth" value={formData.applicantDateOfBirth} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantDateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
                       {errors.applicantDateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.applicantDateOfBirth}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Father/Spouse Name <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="fatherName"
-                        value={formData.fatherName}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
+                      <label className="block text-sm font-medium text-gray-700">PAN</label>
+                      <input type="text" name="panNumber" value={formData.panNumber} onChange={handleChange} maxLength={10} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" placeholder="10-character PAN number" style={{ textTransform: 'uppercase' }} />
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Place of Birth</label>
-                      <input
-                        type="text"
-                        name="placeOfBirth"
-                        value={formData.placeOfBirth}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Application Filled By</label>
-                      <input
-                        type="text"
-                        name="applicationFilledBy"
-                        value={formData.applicationFilledBy}
-                        onChange={handleChange}
-                        placeholder="Self/Agent/Other"
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div className="col-span-1 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Residential Address <span className="text-red-500">*</span></label>
-                      <textarea
-                        name="applicantAddress"
-                        value={formData.applicantAddress}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                        rows={3}
-                      />
-                      {errors.applicantAddress && <p className="text-red-500 text-xs mt-1">{errors.applicantAddress}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">ID Type <span className="text-red-500">*</span></label>
-                      <select
-                        name="applicantIdType"
-                        value={formData.applicantIdType}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      >
-                        <option value="aadhar">Aadhar Card</option>
-                        <option value="pan">PAN Card</option>
-                        <option value="voter">Voter ID</option>
-                        <option value="driving">Driving License</option>
-                        <option value="passport">Passport</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">ID Number <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="applicantIdNumber"
-                        value={formData.applicantIdNumber}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantIdNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.applicantIdNumber && <p className="text-red-500 text-xs mt-1">{errors.applicantIdNumber}</p>}
-                    </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Aadhar Number</label>
-                      <input
-                        type="text"
-                        name="aadharNumber"
-                        value={formData.aadharNumber}
-                        onChange={handleChange}
-                        maxLength={12}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        placeholder="12-digit Aadhar number"
-                      />
+                      <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} maxLength={12} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" placeholder="12-digit Aadhar number" />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">PAN Number</label>
-                      <input
-                        type="text"
-                        name="panNumber"
-                        value={formData.panNumber}
-                        onChange={handleChange}
-                        maxLength={10}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        placeholder="10-character PAN number"
-                        style={{ textTransform: 'uppercase' }}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Date of Birth in Words</label>
+                      <input type="text" name="dateOfBirthInWords" value={formData.dateOfBirthInWords} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
                   </div>
+
+                  {/* Note and navigation buttons */}
+                  <div className="flex flex-col md:flex-row items-center justify-between mt-8">
+                    <div className="text-xs text-blue-700 font-semibold">
+                      SCHEDULE-III Part – II &nbsp;|&nbsp; Application Form &nbsp;|&nbsp; <span className="font-bold text-indigo-700">Form A-1</span> (for individuals) &nbsp;|&nbsp; Form of application for an arms license In <span className="font-bold text-indigo-700">Form II, III and IV</span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-4 md:mt-0">
+                      <span className="text-xs text-red-600 font-bold">NOTE:</span>
+                      <span className="text-xs text-gray-700">Please review the data before submitting your Arms License application</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center gap-4 mt-6">
+                    <button type="button" className="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-md flex items-center gap-2 border border-yellow-300 hover:bg-yellow-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      Save to Draft
+                    </button>
+                    <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700">
+                      Next
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
                 </div>
-              )}        {/* Step 1: Address Details */}
-              {formStep === 1 && (
+              )} 
+               {/* Step 1: Address Details */}
+
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-3 ">Present Address</h3>
@@ -2269,8 +2129,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
                     </div>
                   </div>
-                </div>
-              )}        {/* Step 2: Weapon Details */}
+                </div>    
+              {/* Step 2: Weapon Details */}
               {formStep === 2 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Occupation & Business Details</h3>

@@ -9,9 +9,11 @@ import { logoutUser } from "../store/thunks/authThunks";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
 import { useAuthSync } from "../hooks/useAuthSync";
 import { useLayout } from "../config/layoutContext";
+import { useInbox } from "../context/InboxContext";
 import { useSidebarCounts } from "../hooks/useSidebarCounts";
 import { menuMeta, MenuMetaKey } from "../config/menuMeta";
 import { getRoleConfig } from "../config/roles";
+import { getRoleBasedRedirectPath } from "../config/roleRedirections";
 import { HamburgerButton } from "./HamburgerButton";
 
 interface MenuItemProps {
@@ -197,7 +199,10 @@ const getUserRoleFromCookie = () => {
   useEffect(() => {
     // prefer cookie-derived role when available (role code or name), fallback to auth sync role
     const effective = cookieRole || userRole || "SHO";
-    setRoleConfig(getRoleConfig(effective));
+    console.log('🔄 Role config update:', { cookieRole, userRole, effective });
+    const config = getRoleConfig(effective);
+    console.log('📋 Role config result:', config);
+    setRoleConfig(config);
   }, [userRole, cookieRole]);
 
   // Use the optimized sidebar counts hook with more stable conditions
@@ -243,83 +248,75 @@ const getUserRoleFromCookie = () => {
     } else {
       setActiveItem(item.name);
       localStorage.setItem("activeNavItem", item.name);
-      // Robust special-case routing for freshform, finaldisposal, myreports, closed, and sent
-      const normalizedName = item.name.replace(/\s+/g, '').toLowerCase();
-
-      // Navigation first, then fetch data on the destination page
-      if (normalizedName === "freshform") {
-        router.replace("/freshform");
-      } else if (normalizedName === "finaldisposal") {
-        router.replace("/finalDisposal");
-      } else if (normalizedName === "myreports" || normalizedName === "reports") {
-        router.replace("/reports/myreports");
-      } else if (normalizedName === "closed") {
-        router.replace("/closed");
-      } else if (normalizedName === "sent") {
-        router.replace("/sent");
+      const effectiveRole = cookieRole || userRole;
+      // Only ADMIN can access /admin/*
+      if (effectiveRole === 'ADMIN') {
+        const pathSegment = item.name.replace(/\s+/g, '');
+        router.push(`/admin/${encodeURIComponent(pathSegment)}`);
       } else {
-        router.replace(`/${normalizedName}`);
+        // For non-admins, use role-based redirect logic
+        // Special case: if menu is "dashboard" or similar, use getRoleBasedRedirectPath
+        if (item.name.toLowerCase().includes('dashboard')) {
+          const redirectPath = getRoleBasedRedirectPath(effectiveRole);
+          router.push(redirectPath);
+        } else {
+          // For other menu items, try to route to /inbox?type={item}
+          // You may want to map item names to types as needed
+          const type = item.name.replace(/\s+/g, '').toLowerCase();
+          router.push(`/inbox?type=${encodeURIComponent(type)}`);
+        }
       }
     }
-  }, [router, dispatch]);
+  }, [router, dispatch, cookieRole, userRole]);
 
   const handleInboxToggle = useCallback(() => {
     console.log('📂 Inbox toggle clicked, current state:', isInboxOpen);
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch, isInboxOpen]);
 
+  const { loadType } = useInbox();
+
   const handleInboxSubItemClick = useCallback((subItem: string) => {
-    console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem); 
-    
+    console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem);
+
     const activeItemKey = `inbox-${subItem}`;
     const currentPath = window.location.pathname;
-    const isOnInboxPage = currentPath.startsWith('/inbox/');
-    
-    // Ultra-stable state management to prevent flickering
-    if (activeItem === activeItemKey && isOnInboxPage) {
-      console.log('🚫 Same item already active, updating URL and reloading table');
-      // Update URL without router navigation
-      window.history.replaceState(null, '', `/inbox/${subItem}`);
-      // Trigger application table reload if callback exists
-      if (onTableReload) {
-        onTableReload(subItem);
-      }
-      return;
-    }
-    
-    console.log('✅ Setting new active item:', activeItemKey);
-    
-    // Use React's concurrent features for smooth updates
+    const effectiveRole = cookieRole || userRole;
+    // For admin, use /admin/inbox, for others use /inbox
+    const isAdmin = effectiveRole === 'ADMIN';
+    const isOnInboxBase = isAdmin
+      ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
+      : currentPath === '/inbox' || currentPath.startsWith('/inbox');
+
+    // Delegate loading to InboxContext which ensures a single fetch per type
+    const normalized = String(subItem).toLowerCase();
     startTransition(() => {
-      // Batch synchronous DOM updates
       setActiveItem(activeItemKey);
-      localStorage.setItem("activeNavItem", activeItemKey);
-      
-      // Ensure inbox stays open (minimal Redux dispatch)
+      localStorage.setItem('activeNavItem', activeItemKey);
+
       if (!isInboxOpen) {
         dispatch(openInbox());
       }
     });
-    
-    // Navigate appropriately based on current context
-    requestAnimationFrame(() => {
-      if (isOnInboxPage && onTableReload) {
-        // If we're on inbox page with callback, just update URL and reload table
-        console.log('🔄 On inbox page, updating URL and reloading table');
-        window.history.replaceState(null, '', `/inbox/${subItem}`);
-        onTableReload(subItem);
-      } else {
-        // If we're on a different page or no callback, navigate to inbox page
-        console.log('🚀 Navigating to inbox page');
-        router.push(`/inbox/${subItem}`);
-      }
-    });
-  }, [dispatch, isInboxOpen, activeItem, onTableReload, router]);
+
+    // Update context (single fetch) and update URL without forcing a full remount
+    loadType(normalized).catch((e) => console.error('loadType error', e));
+    const targetBase = isAdmin ? '/admin/userManagement' : '/inbox';
+    const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
+    if (isOnInboxBase) {
+      // replace state to avoid adding history entries when already under inbox/home
+      window.history.replaceState(null, '', targetUrl);
+      if (onTableReload) onTableReload(normalized);
+    } else {
+      router.push(targetUrl);
+    }
+  }, [dispatch, isInboxOpen, activeItem, onTableReload, router, cookieRole, userRole]);
 
   const handleLogout = useCallback(async () => {
     if (token) {
       await dispatch(logoutUser() as any);
-      document.cookie = 'auth=; Max-Age=0; path=/'; // Remove the auth cookie
+      // Small delay to ensure cookies are removed and Redux reset has propagated
+      await new Promise((res) => setTimeout(res, 250));
     }
     router.push("/login");
   }, [dispatch, router, token]);
@@ -327,6 +324,12 @@ const getUserRoleFromCookie = () => {
   // Update menuItems logic with type casting and guards
   const menuItems = useMemo(() => {
     const items = roleConfig?.menuItems ?? [];
+    console.log('🔍 Sidebar menuItems generation:', {
+      roleConfig,
+      items,
+      effectiveRole: cookieRole || userRole,
+      itemCount: items.length
+    });
     return items.map((item) => {
       const key = item.name as MenuMetaKey;
       return {
@@ -335,7 +338,7 @@ const getUserRoleFromCookie = () => {
         icon: menuMeta[key]?.icon,
       };
     });
-  }, [roleConfig]);
+  }, [roleConfig, cookieRole, userRole]);
 
   // Create stable icons outside of memoization to prevent recreating React elements
   const forwardedIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
@@ -395,7 +398,18 @@ const getUserRoleFromCookie = () => {
   // Only render sidebar if allowed role
   // determine effective role used for rendering checks
   const effectiveRole = cookieRole || userRole;
-  if (!effectiveRole) return null;
+  if (!effectiveRole) {
+    console.warn('⚠️ Sidebar: No effective role found, cannot render');
+    return null;
+  }
+
+  console.log('✅ Sidebar rendering with:', {
+    effectiveRole,
+    menuItemsCount: menuItems.length,
+    roleConfig: roleConfig ? 'exists' : 'missing',
+    visible,
+    showSidebar
+  });
 
   return (
     <>
@@ -459,23 +473,21 @@ const getUserRoleFromCookie = () => {
               </li>
             )}
             {/* Render other menu items except inbox, settings, login */}
-            <ul className="space-y-1">
-              {menuItems
-                .filter((item) => item.name !== "inbox")
-                .map((item) => (
-                  <MenuItem
-                    key={item.name}
-                    icon={item.icon}
-                    label={item.label}
-                    active={activeItem === item.name}
-                    onClick={() => handleMenuClick({ name: item.name })}
-                  />
-                ))}
-            </ul>
+            {menuItems
+              .filter((item) => item.name !== "inbox")
+              .map((item) => (
+                <MenuItem
+                  key={item.name}
+                  icon={item.icon}
+                  label={item.label}
+                  active={activeItem === item.name}
+                  onClick={() => handleMenuClick({ name: item.name })}
+                />
+              ))}
             {/* Add Flow Mapping menu item for ADMIN users */}
             {effectiveRole === "ADMIN" && (
               <li>
-                <a href="/admin/flow-mapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
+                <a href="/admin/flowMapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
                   <ChartBarIcon className="w-5 h-5" />
                   <span>Flow Mapping</span>
                 </a>

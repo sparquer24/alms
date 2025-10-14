@@ -1,20 +1,31 @@
 /* ApplicationTable.module.css */
 .tableContainer {
   width: 100%;
-  max-width: 100%; /* Use full available width */
-  min-width: 900px;  /* Ensure table is not too small */
-  margin: 0; /* Remove auto margin to eliminate right-side spacing */
+  box-sizing: border-box;
+  /* allow the table to fill the parent card fully */
+  max-width: 100%;
+  margin: 0; /* let parent control alignment */
+  padding-right: 0;
   background-color: white;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  max-height: 600px; /* Set maximum height for the table container */
 }
 
 .tableWrapper {
   overflow-x: auto;
   overflow-y: auto; /* Enable vertical scrolling */
-  max-height: 550px; /* Set max height for scrollable area */
+  max-height: none; /* allow parent to control height */
+}
+
+/* Responsive: on small screens use full width (no offset) */
+@media (max-width: 768px) {
+  .tableContainer {
+    max-width: 100%;
+    margin-left: 0;
+    padding-right: 0.5rem;
+    border-radius: 0.5rem;
+  }
 }
 
 .table {
@@ -33,7 +44,7 @@
 .tableHeaderCell {
   padding: 0.75rem 1.5rem;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   font-weight: 600;
   text-transform: uppercase;
   color: #000000;
@@ -42,12 +53,38 @@
 }
 
 .tableRow {
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  position: relative;
+}
+
+/* Zebra striping for readability */
+.tableRow:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* Unread emphasis: keep existing bold from tailwind, add subtle left indicator when bold present */
+tr.font-bold::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #6366f1;
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
 }
 
 .tableRow:hover {
-  background-color: #4F46E5; /* Bright indigo color */
-  color: #ffffff; /* Light font color */
+  color: #ffffff; 
+    background-color: #092da487; /* App primary color */
+/* Light font color */
+}
+
+/* Keyboard accessibility */
+.tableRow:focus-within {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
 }
 
 .tableCell {
@@ -60,6 +97,37 @@
 
 .tableRow:hover .tableCell {
   color: #ffffff; /* Ensure text changes to white on hover */
+}
+
+/* Override Tailwind text color utilities inside hovered row to force white text EXCEPT status pill */
+.tableRow:hover td { /* base cell text */
+  color: #ffffff;
+}
+.tableRow:hover td *:not(.statusPill) {
+  color: #ffffff !important;
+}
+
+/* Slightly adjust buttons on hover for better contrast while keeping white text */
+.tableRow:hover td button {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #ffffff !important;
+}
+.tableRow:hover td button:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Status pill refinement */
+.statusPill {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  letter-spacing: .25px;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Keep status pill text readable (override global white enforcement) */
+.tableRow:hover .statusPill {
+  color: inherit;
+  mix-blend-mode: normal;
 }
 
 .idLink {
@@ -110,24 +178,25 @@
 }
 
 /* Maintain status pill colors on hover */
+/* Darker tone on row hover */
 .tableRow:hover .initiated {
-  background-color: #A7F3D0;
-  color: #065f46;
+  background-color: #34D399; /* darker than #A7F3D0 */
+  color: #064e3b !important; /* retain readable green text */
 }
 
 .tableRow:hover .approved {
-  background-color: #10B981;
-  color: white;
+  background-color: #059669; /* darker emerald */
+  color: #ffffff !important; /* keep white */
 }
 
 .tableRow:hover .pending {
-  background-color: #FACC15;
-  color: black;
+  background-color: #d4af0a; /* slightly darker gold */
+  color: #111827 !important; /* keep dark text */
 }
 
 .tableRow:hover .rejected {
-  background-color: #EF4444;
-  color: white;
+  background-color: #dc2626; /* darker red */
+  color: #ffffff !important; /* keep white */
 }
 
 .redFlagged {
@@ -136,8 +205,8 @@
 }
 
 .tableRow:hover .redFlagged {
-  background-color: #DC2626;
-  color: white;
+  background-color: #b91c1c; /* deeper red */
+  color: #ffffff !important; /* keep white */
 }
 
 /* Loading state */
@@ -150,7 +219,7 @@
 
 .spinner {
   border: 2px solid rgba(99, 102, 241, 0.1);
-  border-left-color: #6366F1;
+  border-left-color: #7300ff9c; /* spinner accent uses app primary */
   border-radius: 50%;
   width: 3rem;
   height: 3rem;

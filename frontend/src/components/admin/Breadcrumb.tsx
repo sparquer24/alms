@@ -17,9 +17,9 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
 
   // Generate breadcrumb items from pathname if not provided
   const generateBreadcrumbs = (): BreadcrumbItem[] => {
-    const paths = pathname.split('/').filter(Boolean);
+  const paths = (pathname || '').split('/').filter(Boolean);
     const breadcrumbs: BreadcrumbItem[] = [
-      { label: 'Home', href: '/' }
+      { label: 'Inbox', href: '/' }
     ];
 
     let currentPath = '';
@@ -28,16 +28,16 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       
       // Special handling for admin routes
       if (path === 'admin') {
-        breadcrumbs.push({ label: 'Admin', href: '/admin' });
+  breadcrumbs.push({ label: 'Admin', href: '/admin/userManagement' });
       } else if (paths[index - 1] === 'admin') {
         // Admin sub-routes
         const label = path.charAt(0).toUpperCase() + path.slice(1);
         breadcrumbs.push({ label, href: currentPath });
       } else if (path === 'inbox' && paths[index + 1]) {
-        // Inbox sub-routes
+        // Inbox sub-routes (now under /inbox)
         breadcrumbs.push({ label: 'Inbox', href: '/inbox' });
         const subLabel = paths[index + 1].charAt(0).toUpperCase() + paths[index + 1].slice(1);
-        breadcrumbs.push({ label: subLabel, href: currentPath });
+        breadcrumbs.push({ label: subLabel, href: currentPath.replace('/inbox', '/inbox') });
       } else if (path !== 'inbox') {
         // Other routes
         const label = path.charAt(0).toUpperCase() + path.slice(1);

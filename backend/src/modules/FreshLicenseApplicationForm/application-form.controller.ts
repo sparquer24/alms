@@ -1,9 +1,12 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
-import { CreateApplicationDto } from './dto/create-application.dto';
-import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
+// import { CreateApplicationDto } from './dto/create-application.dto';
+import { CreatePersonalDetailsDto } from './dto/create-personal-details.dto';
+import { PatchApplicationDetailsDto } from './dto/patch-application-details.dto';
+import { UploadFileDto, UploadFileResponseDto } from './dto/upload-file.dto';
+// import { LicensePurpose, FileType, Sex } from '@prisma/client';
 
 @ApiTags('Application Form')
 @Controller('application-form')
@@ -11,145 +14,449 @@ import { LicensePurpose, WeaponCategory, FileType, Sex } from '@prisma/client';
 @ApiBearerAuth('JWT-auth')
 export class ApplicationFormController {
   constructor(private readonly applicationFormService: ApplicationFormService) { }
-
-  @Post()
-  @ApiOperation({
-    summary: 'Create Application',
-    description: `Create a new fresh license application.`
+  @Post('personal-details')
+  @ApiOperation({ 
+    summary: 'Create Personal Details (Step 1 separate table)', 
+    description: 'Create personal details in a dedicated table and return applicationId. Application status is automatically set to DRAFT.' 
   })
-  @ApiBody({ type: CreateApplicationDto })
+  @ApiBody({
+    type: CreatePersonalDetailsDto,
+  })
   @ApiResponse({
     status: 201,
-    description: 'Application created successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: true },
-        data: {
-          type: 'object',
-          properties: {
-            id: { type: 'number', example: 1 },
-            acknowledgementNo: { type: 'string', example: 'ACK123456789' }
-          }
-        }
-      }
+    description: 'Personal details created successfully with DRAFT status',
+    example: {
+      success: true,
+      applicationId: 123,
+      message: 'Personal details saved with DRAFT status'
     }
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad Request - Invalid input data',
-    schema: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean', example: false },
-        error: { type: 'string' },
-        details: { type: 'object' }
-      }
-    }
-  })
-  async createApplication(@Body() applicationData: CreateApplicationDto, @Request() req: any) {
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or DRAFT status not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async createPersonalDetails(@Body() dto: CreatePersonalDetailsDto, @Request() req: any) {
     try {
-      // Convert DTO to service input format
-      const processedData = {
-        statusId: applicationData.statusId,
-        firstName: applicationData.firstName,
-        middleName: applicationData.middleName,
-        lastName: applicationData.lastName,
-        filledBy: applicationData.filledBy,
-        parentOrSpouseName: applicationData.parentOrSpouseName,
-        sex: applicationData.sex as Sex,
-        placeOfBirth: applicationData.placeOfBirth,
-        dateOfBirth: new Date(applicationData.dateOfBirth),
-        panNumber: applicationData.panNumber,
-        aadharNumber: applicationData.aadharNumber,
-        dobInWords: applicationData.dobInWords,
-        stateId: applicationData.stateId,
-        districtId: applicationData.districtId,
-        currentUserId: applicationData.currentUserId,
-        currentRoleId: applicationData.currentRoleId,
-
-        presentAddress: {
-          addressLine: applicationData.presentAddress.addressLine,
-          stateId: applicationData.presentAddress.stateId,
-          districtId: applicationData.presentAddress.districtId,
-          policeStationId: applicationData.presentAddress.policeStationId,
-          sinceResiding: new Date(applicationData.presentAddress.sinceResiding)
-        },
-
-        permanentAddress: applicationData.permanentAddress ? {
-          addressLine: applicationData.permanentAddress.addressLine,
-          stateId: applicationData.permanentAddress.stateId,
-          districtId: applicationData.permanentAddress.districtId,
-          policeStationId: applicationData.permanentAddress.policeStationId,
-          sinceResiding: new Date(applicationData.permanentAddress.sinceResiding)
-        } : undefined,
-
-        contactInfo: applicationData.contactInfo,
-        occupationInfo: applicationData.occupationInfo,
-        biometricData: applicationData.biometricData,
-
-        // Convert criminal history to expected format
-        criminalHistory: applicationData.criminalHistory?.map(ch => ({
-          convicted: ch.convicted,
-          convictionData: {
-            isCriminalCasePending: ch.isCriminalCasePending,
-            firNumber: ch.firNumber,
-            policeStation: ch.policeStation,
-            sectionOfLaw: ch.sectionOfLaw,
-            dateOfOffence: ch.dateOfOffence,
-            caseStatus: ch.caseStatus
-          }
-        })),
-
-        // Convert license history to expected format
-        licenseHistory: applicationData.licenseHistory?.map(lh => ({
-          hasAppliedBefore: lh.hasAppliedBefore,
-          hasOtherApplications: lh.hasOtherApplications,
-          familyMemberHasArmsLicense: lh.familyMemberHasArmsLicense,
-          hasSafePlaceForArms: lh.hasSafePlaceForArms,
-          hasUndergoneTraining: lh.hasUndergoneTraining,
-          previousApplications: {
-            hasPreviousLicense: lh.hasPreviousLicense,
-            previousLicenseNumber: lh.previousLicenseNumber,
-            licenseIssueDate: lh.licenseIssueDate,
-            licenseExpiryDate: lh.licenseExpiryDate,
-            issuingAuthority: lh.issuingAuthority,
-            isLicenseRenewed: lh.isLicenseRenewed,
-            renewalDate: lh.renewalDate,
-            renewingAuthority: lh.renewingAuthority
-          }
-        })),
-
-        licenseRequestDetails: {
-          needForLicense: applicationData.licenseRequestDetails.needForLicense as LicensePurpose,
-          weaponCategory: applicationData.licenseRequestDetails.weaponCategory as WeaponCategory,
-          requestedWeaponIds: applicationData.licenseRequestDetails.requestedWeaponIds,
-          areaOfValidity: applicationData.licenseRequestDetails.areaOfValidity
-        },
-
-        fileUploads: applicationData.fileUploads?.map(fu => ({
-          fileName: fu.fileName,
-          fileSize: fu.fileSize,
-          fileType: fu.fileType as FileType,
-          fileUrl: fu.fileUrl
-        }))
-      };
-
-      const [error, result] = await this.applicationFormService.createApplication(processedData);
+  // Pass the DTO object directly to the service, and include the authenticated user id so
+  // the service can set currentUserId/currentRoleId on creation when available.
+  const payload = { ...(dto as any), currentUserId: req.user?.sub };
+  const [error, applicationId] = await this.applicationFormService.createPersonalDetails(payload);
       if (error) {
-        // Provide more details if error is an object
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
         const errorDetails = typeof error === 'object' ? error : {};
         throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.BAD_REQUEST);
       }
-      return { success: true, data: result };
+
+      return { success: true, applicationId, message: 'Personal details saved with DRAFT status' };
     } catch (err: any) {
-      // Provide more details if err is an object
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  @Patch()
+  @ApiOperation({ 
+    summary: 'Update Application Details', 
+    description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
+  })
+  @ApiQuery({
+    name: 'applicationId',
+    description: 'Application ID',
+    example: '123'
+  })
+    @ApiQuery({
+    name: 'isSubmit',
+    description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
+    example: false,
+    required: false,
+  })
+  @ApiBody({
+    type: PatchApplicationDetailsDto,
+    description: 'Application details to update. All sections are optional - only provide the sections you want to update.',
+    examples: {
+      'Complete Address Update': {
+        summary: 'Update both present and permanent addresses with full details',
+        value: {
+          presentAddress: {
+            addressLine: '123 Main Street, Block A, Flat 4B',
+            stateId: 1,
+            districtId: 1,
+            policeStationId: 1,
+            zoneId: 1,
+            divisionId: 1,
+            sinceResiding: '2020-01-15T00:00:00.000Z',
+            telephoneOffice: '033-12345678',
+            officeMobileNumber: '9876543210',
+            alternativeMobile: '9876543211'
+          },
+          permanentAddress: {
+            addressLine: '456 Village Road, House No. 12',
+            stateId: 1,
+            districtId: 2,
+            policeStationId: 2,
+            zoneId: 2,
+            divisionId: 2,
+            sinceResiding: '1990-05-20T00:00:00.000Z',
+            telephoneOffice: '033-87654321',
+            officeMobileNumber: '9123456789',
+            alternativeMobile: '9123456790'
+          }
+        }
+      },
+      'Submit the application': {
+        summary: '',
+        value: {
+          isDeclarationAccepted: true,
+          isAwareOfLegalConsequences: true,
+          isTermsAccepted: true
+        }
+      },
+      'Personal Details Update': {
+        summary: 'Update applicant personal details (name, aadhar, PAN, DOB, etc.)',
+        value: {
+          personalDetails: {
+            firstName: 'Jane',
+            middleName: 'M',
+            lastName: 'Doe',
+            parentOrSpouseName: 'Janet Doe',
+            sex: 'FEMALE',
+            dateOfBirth: '1992-08-15T00:00:00.000Z',
+            aadharNumber: '123456789012',
+            panNumber: 'ABCDE1234F',
+          }
+        }
+      },
+      'Occupation and Business Details': {
+        summary: 'Update complete occupation and business information',
+        value: {
+          occupationAndBusiness: {
+            occupation: 'Software Engineer',
+            officeAddress: '456 Corporate Plaza, IT Park, Sector V',
+            stateId: 1,
+            districtId: 1,
+            cropLocation: 'Village ABC, Block XYZ (for farmers only)',
+            areaUnderCultivation: 5.5
+          }
+        }
+      },
+      'Complete Criminal History': {
+        summary: 'Update criminal history with all possible fields',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              bondDate: '2019-03-20T00:00:00.000Z',
+              bondPeriod: '6 months',
+              isProhibited: false,
+              prohibitionDate: '2020-07-10T00:00:00.000Z',
+              prohibitionPeriod: '5 years',
+              // Example FIR details array
+              firDetails: [
+                { firNumber: '123/2018', underSection: '35', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: '', sentence: '', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ]
+            }
+          ]
+        }
+      },
+      'Complete License History': {
+        summary: 'Update license history with all possible fields',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: true,
+              dateAppliedFor: '2019-06-15T00:00:00.000Z',
+              previousAuthorityName: 'District Magistrate, Kolkata',
+              previousResult: 'REJECTED',
+              hasLicenceSuspended: false,
+              suspensionAuthorityName: 'District Magistrate, Mumbai',
+              suspensionReason: 'Violation of terms and conditions',
+              hasFamilyLicence: true,
+              familyMemberName: 'John Doe (Father)',
+              familyLicenceNumber: 'LIC123456789',
+              familyWeaponsEndorsed: ['Pistol .32', 'Rifle .22'],
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock in bedroom',
+              hasTraining: true,
+              trainingDetails: 'Basic firearms training from XYZ Academy, Certificate No: ABC123'
+            }
+          ]
+        }
+      },
+      'Complete License Details': {
+        summary: 'Update license details with all possible fields',
+        value: {
+          licenseDetails: [
+            {
+              needForLicense: 'SELF_PROTECTION',
+              armsCategory: 'RESTRICTED',
+              requestedWeaponIds: [1, 2, 3],
+              areaOfValidity: 'District-wide',
+              ammunitionDescription: '50 rounds of .32 ammunition',
+              specialConsiderationReason: 'Required for personal protection due to threats',
+              licencePlaceArea: 'Urban areas of Kolkata district',
+              wildBeastsSpecification: 'Wild boars, leopards as per Wildlife Protection Act Schedule'
+            }
+          ]
+        }
+      },
+      'No Criminal Record': {
+        summary: 'Clean criminal history record',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              isProhibited: false
+            }
+          ]
+        }
+      },
+      'First Time Applicant': {
+        summary: 'License history for first-time applicant',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: false,
+              hasLicenceSuspended: false,
+              hasFamilyLicence: false,
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock system',
+              hasTraining: false
+            }
+          ]
+        }
+      },
+      'Complete Application Update': {
+        summary: 'Update all sections with comprehensive data',
+        value: {
+          presentAddress: {
+            addressLine: '123 Main Street, Block A, Flat 4B',
+            stateId: 1,
+            districtId: 1,
+            policeStationId: 1,
+            zoneId: 1,
+            divisionId: 1,
+            sinceResiding: '2020-01-15T00:00:00.000Z',
+            telephoneOffice: '033-12345678',
+            officeMobileNumber: '9876543210',
+            alternativeMobile: '9876543211'
+          },
+          permanentAddress: {
+            addressLine: '456 Village Road, House No. 12',
+            stateId: 1,
+            districtId: 2,
+            policeStationId: 2,
+            zoneId: 2,
+            divisionId: 2,
+            sinceResiding: '1990-05-20T00:00:00.000Z',
+            telephoneOffice: '033-87654321',
+            officeMobileNumber: '9123456789'
+          },
+          occupationAndBusiness: {
+            occupation: 'Business Owner',
+            officeAddress: '789 Business Complex, Commercial Area',
+            stateId: 1,
+            districtId: 1,
+            cropLocation: 'Agricultural land in Block DEF',
+            areaUnderCultivation: 12.25
+          },
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              isProhibited: false,
+              firDetails: []
+            }
+          ],
+          licenseHistories: [
+            {
+              hasAppliedBefore: false,
+              hasLicenceSuspended: false,
+              hasFamilyLicence: false,
+              hasSafePlace: true,
+              safePlaceDetails: 'Fire-proof steel safe with digital lock',
+              hasTraining: true,
+              trainingDetails: 'Professional firearms training from ABC Institute'
+            }
+          ],
+          licenseDetails: [
+            {
+              needForLicense: 'CROP_PROTECTION',
+              armsCategory: 'NON_PROHIBITED',
+              requestedWeaponIds: [4, 5],
+              areaOfValidity: 'Within district boundaries',
+              ammunitionDescription: '100 rounds of .22 caliber ammunition',
+              specialConsiderationReason: 'Crop protection from wild animals',
+              licencePlaceArea: 'Rural agricultural areas of district',
+              wildBeastsSpecification: 'Wild boars, deer, and other crop-damaging animals'
+            }
+          ]
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Application details updated successfully',
+    example: {
+      success: true,
+      message: 'Application details updated successfully',
+      data: {
+        updatedSections: ['presentAddress', 'criminalHistories'],
+        application: {
+          id: 123,
+          acknowledgementNo: 'ALMS1696050000000',
+          firstName: 'John',
+          lastName: 'Doe',
+          // ... other application data with relations
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or application not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 409, description: 'Conflict - Duplicate values or constraint violations' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async patchApplicationDetails(
+    @Query('applicationId') applicationId: string,
+    @Query('isSubmit') isSubmit: boolean,
+    @Body() dto: PatchApplicationDetailsDto,
+    @Request() req: any
+  ) {
+    try {
+      const applicationIdNum = parseInt(applicationId, 10);
+      if (isNaN(applicationIdNum)) {
+        throw new HttpException(
+          { success: false, error: 'Invalid application ID format' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+  // Coerce isSubmit query param into boolean 
+  const isSubmitBool = Boolean(isSubmit);
+
+  const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmitBool, dto);
+      
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException(
+          { success: false, error: errorMessage, details: errorDetails },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      return {
+        success: true,
+        message: 'Application details updated successfully',
+        data: result
+      };
+    } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException(
+        { success: false, error: errorMessage, details: errorDetails },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post(':applicationId/upload-file')
+  @ApiOperation({ 
+    summary: 'Store file URL for application', 
+    description: 'Store file URL and metadata for a specific application. The file should already be uploaded to a file storage service.' 
+  })
+  @ApiParam({
+    name: 'applicationId',
+    description: 'Application ID',
+    example: '123'
+  })
+  @ApiBody({
+    type: UploadFileDto,
+    description: 'File metadata including URL, type, name, and size',
+    examples: {
+      'Aadhar Card': {
+        value: {
+          fileType: 'AADHAR_CARD',
+          fileUrl: 'https://example.com/files/aadhar_card.pdf',
+          fileName: 'aadhar_card.pdf',
+          fileSize: 2048576,
+          description: 'Front side of Aadhar card'
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'File uploaded successfully',
+    type: UploadFileResponseDto,
+    example: {
+      success: true,
+      message: 'File uploaded successfully',
+      data: {
+        id: 1,
+        applicationId: 123,
+        fileType: 'AADHAR_CARD',
+        fileName: 'aadhar_card.pdf',
+        fileUrl: 'uploads/application-123/files/AADHAR_CARD_1696507200000_aadhar_card.pdf',
+        fileSize: 2048576,
+        uploadedAt: '2023-10-05T12:00:00.000Z'
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or application ID' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async uploadFile(
+    @Param('applicationId') applicationId: string,
+    @Body() dto: UploadFileDto,
+    @Request() req: any
+  ) {
+    try {
+      const applicationIdNum = parseInt(applicationId, 10);
+      if (isNaN(applicationIdNum)) {
+        throw new HttpException(
+          { success: false, error: 'Invalid application ID format' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      const [error, result] = await this.applicationFormService.uploadFile(applicationIdNum, dto);
+
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException(
+          { success: false, error: errorMessage, details: errorDetails },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      return {
+        success: true,
+        message: 'File uploaded successfully',
+        data: result
+      };
+    } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException(
+        { success: false, error: errorMessage, details: errorDetails },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
 
   @Get()
   @ApiOperation({ summary: 'Get Applications', description: 'Retrieve applications with filtering, pagination, and search' })
@@ -162,6 +469,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'applicationId', required: false, type: String })
   @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
   @ApiQuery({ name: 'statusIds', required: false, type: String })
+  @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -173,7 +481,8 @@ export class ApplicationFormController {
     @Query('order') order?: string,
     @Query('applicationId') applicationId?: number,
     @Query('acknowledgementNo') acknowledgementNo?: string,
-    @Query('statusIds') statusIds?: string
+    @Query('statusIds') statusIds?: string,
+    @Query('isOwned') isOwned?: Boolean
   ) {
     try {
       // Parse pagination
@@ -191,33 +500,80 @@ export class ApplicationFormController {
       const parsedSearchValue = search ?? undefined;
       const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
-      const parsedStatusIds = statusIds ? statusIds.split(',').map(id => Number(id.trim())) : undefined;
-      if (parsedApplicationId || parsedAcknowledgementNo) {
+  // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
+  // We'll pass them to the service resolver which will return numeric IDs.
+  const 
+  parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
+  // Reusable address builder used for single-item and list-item transforms
+  const buildAddress = (addr: any) => {
+    if (!addr) return null;
+    return {
+      addressLine: addr.addressLine,
+      sinceResiding: addr.sinceResiding,
+      // Return only the name for state/district inside addresses per request
+      state: addr.state ? addr.state.name : null,
+      district: addr.district ? addr.district.name : null,
+      zone: addr.zone ? { id: addr.zone.id, name: addr.zone.name } : null,
+      division: addr.division ? { id: addr.division.id, name: addr.division.name } : null,
+      policeStation: addr.policeStation ? { id: addr.policeStation.id, name: addr.policeStation.name } : null,
+    };
+  };
+
+  if (parsedApplicationId || parsedAcknowledgementNo) {
         const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
         if (error) {
           const errMsg = (error as any)?.message || 'Failed to fetch applications';
           throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
         }
-        // dataApplication.applicantName = `${dataApplication?.firstName} ${dataApplication?.middleName ? dataApplication?.middleName + ' ' : ''}${dataApplication?.lastName}`;
-        let applicantName 
-        if (dataApplication) { 
-          if (dataApplication.firstName) applicantName = dataApplication.firstName;
-          if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
-          if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
-          dataApplication.applicantName = applicantName || 'Unknown Applicant';
-        } else {
-          return {
-            success: true,
-            message: "Application not found",
-            data: []
-          }
+        if (!dataApplication) {
+          return { success: true, message: 'Application not found', data: [] };
         }
+
+        // Build applicant name
+        let applicantName = '';
+        if (dataApplication.firstName) applicantName += dataApplication.firstName;
+        if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
+        if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
+
+        const presentAddress = buildAddress(dataApplication.presentAddress);
+        const permanentAddress = buildAddress(dataApplication.permanentAddress);
+
+  // status -> return code string
+  const status = dataApplication.status ? dataApplication.status.code : null;
+  // Return state/district as name strings per request
+  const state = dataApplication.state ? dataApplication.state.name : null;
+  const district = dataApplication.district ? dataApplication.district.name : null;
+
+        const currentUser = dataApplication.currentUser ? { id: dataApplication.currentUser.id, username: dataApplication.currentUser.username } : null;
+        const previousUser = dataApplication.previousUser ? { id: dataApplication.previousUser.id, username: dataApplication.previousUser.username } : null;
+        const currentRole = dataApplication.currentRole ? dataApplication.currentRole.code : null;
+        const previousRole = dataApplication.previousRole ? dataApplication.previousRole.code : null;
+
+        const transformed: any = {
+          ...dataApplication,
+          applicantName: applicantName.trim() || 'Unknown Applicant',
+          presentAddress,
+          permanentAddress,
+          state,
+          district,
+          status,
+          currentUser,
+          previousUser,
+          currentRole,
+          previousRole,
+        };
+
+        // Remove raw id fields that should not be returned
+        ['presentAddressId','permanentAddressId','contactInfoId','occupationInfoId','biometricDataId','statusId','currentRoleId','previousRoleId','currentUserId','previousUserId','stateId','districtId'].forEach(k => delete transformed[k]);
+
         return {
           success: true,
           message: 'Applications retrieved successfully',
-          data: dataApplication,
+          data: transformed,
         }
       }
+
       // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
@@ -227,16 +583,20 @@ export class ApplicationFormController {
         orderBy: parsedOrderBy,
         order: parsedOrder as 'asc' | 'desc',
         currentUserId: req.user?.sub, // If you need user context
-        statusIds: parsedStatusIds,
-        applicationId: parsedApplicationId,
-        // acknowledgementNo: parsedAcknowledgementNo, // Removed to match service type
+        // Resolve textual identifiers to numeric IDs if provided
+        statusIds: parsedStatusIdentifiers && parsedStatusIdentifiers.length > 0
+          ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
+          : undefined,
+        // applicationId: parsedApplicationId,
+        isOwned : isOwned == true? true : false,
       });
       if (error) {
-        const errMsg = (error as any)?.message || 'Failed to fetch applications';
+        const errMsg = (error as any)?.message || 'Failed to fetch applications--------------584';
         throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
       }
-
       const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
+
+      // The service already returns transformed rows and a combined usersInHierarchy
       return {
         success: true,
         message: 'Applications retrieved successfully',
@@ -250,7 +610,7 @@ export class ApplicationFormController {
         }
       };
     } catch (error: any) {
-      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
+      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications------------------605', error: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -401,9 +761,9 @@ export class ApplicationFormController {
         HttpStatus.BAD_REQUEST
       );
     }
-  }
+  } 
 
-  @Get('helpers/check-aadhar/:aadharNumber')
+ /* @Get('helpers/check-aadhar/:aadharNumber')
   @ApiOperation({
     summary: 'Check Aadhar Number Availability',
     description: 'Check if an Aadhar number already exists in the system'
@@ -463,5 +823,5 @@ export class ApplicationFormController {
         HttpStatus.BAD_REQUEST
       );
     }
-  }
+  }*/
 }

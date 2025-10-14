@@ -25,6 +25,17 @@ export default function NotificationsPage() {
   const { setShowHeader, setShowSidebar } = useLayout();
   const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
 
+  // Example notification to show as a sample response when there are no real notifications.
+  const exampleNotification = {
+    id: 'example_notif_1',
+    type: 'APPLICATION_STATUS_CHANGE',
+    title: 'Application status updated to Approved',
+    message: 'Your application for Housing Grant HG-2025-021 has been approved. Please check the application for next steps.',
+    createdAt: new Date().toISOString(),
+    isRead: false,
+    applicationId: 'HG-2025-021'
+  };
+
   useEffect(() => {
     // Show header and sidebar on the page
     setShowHeader(true);
@@ -51,11 +62,21 @@ export default function NotificationsPage() {
         read: filter === 'all' ? undefined : filter === 'read'
       });
       
-      if (response.success && response.data) {
-        // Check if there are more notifications
-        if (response.data.notifications && response.data.notifications.length > 0) {
+      if (response.success && response.body) {
+        // Normalize body and guard against missing fields
+        const body: any = response.body;
+        const notificationsList = Array.isArray(body.notifications) ? body.notifications : [];
+
+        if (notificationsList.length > 0) {
           setPage(nextPage);
-          setHasMoreNotifications(response.data.pagination.page < response.data.pagination.totalPages);
+
+          // If pagination info is present, use it. Otherwise infer based on pageSize.
+          if (body.pagination && typeof body.pagination.page === 'number' && typeof body.pagination.totalPages === 'number') {
+            setHasMoreNotifications(body.pagination.page < body.pagination.totalPages);
+          } else {
+            const pageSize = 20; // same pageSize passed to the API call above
+            setHasMoreNotifications(notificationsList.length >= pageSize);
+          }
         } else {
           setHasMoreNotifications(false);
         }
@@ -162,7 +183,7 @@ export default function NotificationsPage() {
         onReset={handleReset}
       />
       
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
@@ -203,12 +224,28 @@ export default function NotificationsPage() {
           {/* Notifications List */}
           <div className="space-y-4">
             {filteredNotifications.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                {filter === 'all' 
-                  ? "You don't have any notifications yet" 
-                  : filter === 'unread' 
-                    ? "You don't have any unread notifications" 
-                    : "You don't have any read notifications"}
+              // Show an example notification when there are no notifications to help with visual testing
+              <div className="p-4 border rounded-lg flex items-start space-x-4 bg-indigo-50 border-indigo-100">
+                {getNotificationIcon(exampleNotification.type)}
+                <div className="flex-1">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-medium text-gray-900">{exampleNotification.title}</h3>
+                    <span className="text-xs text-gray-500">{formatDate(exampleNotification.createdAt)}</span>
+                  </div>
+                  <p className="text-gray-600 mt-1 text-sm">{exampleNotification.message}</p>
+                </div>
+
+                <div className="ml-4 flex flex-col items-end space-y-2">
+                  <a
+                    href={`/application/${exampleNotification.applicationId}`}
+                    className="text-xs text-indigo-600 hover:underline"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    View Application
+                  </a>
+
+                  <span className="h-2 w-2 bg-indigo-600 rounded-full flex-shrink-0"></span>
+                </div>
               </div>
             ) : (
               <>
@@ -225,22 +262,24 @@ export default function NotificationsPage() {
                         <span className="text-xs text-gray-500">{formatDate(notification.createdAt)}</span>
                       </div>
                       <p className="text-gray-600 mt-1 text-sm">{notification.message}</p>
+                    </div>
+
+                    {/* Right-side actions */}
+                    <div className="ml-4 flex flex-col items-end space-y-2">
                       {notification.applicationId && (
-                        <div className="mt-2">
-                          <a 
-                            href={`/application/${notification.applicationId}`}
-                            className="text-xs text-indigo-600 hover:underline"
-                            onClick={e => e.stopPropagation()}
-                          >
-                            View Application
-                          </a>
-                        </div>
+                        <a
+                          href={`/application/${notification.applicationId}`}
+                          className="text-xs text-indigo-600 hover:underline"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          View Application
+                        </a>
+                      )}
+
+                      {!notification.isRead && (
+                        <span className="h-2 w-2 bg-indigo-600 rounded-full flex-shrink-0"></span>
                       )}
                     </div>
-                    
-                    {!notification.isRead && (
-                      <span className="h-2 w-2 bg-indigo-600 rounded-full flex-shrink-0"></span>
-                    )}
                   </div>
                 ))}
                 

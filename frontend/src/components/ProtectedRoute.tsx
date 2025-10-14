@@ -1,22 +1,21 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCookie } from 'cookies-next';
+import { getAuthTokenFromCookie, getUserFromCookie } from '../utils/authCookies';
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
 const checkAuthentication = (): boolean => {
-  const authCookie = getCookie('auth');
   try {
-    if (authCookie) {
-      const { token, user } = JSON.parse(authCookie as string);
-      return !!token && !!user;
-    }
+    const token = getAuthTokenFromCookie();
+    const user = getUserFromCookie();
+    return !!token && !!user;
   } catch (e) {
-    console.error('ProtectedRoute: Failed to parse auth cookie', e);
+    console.error('ProtectedRoute: Failed to read auth cookies', e);
+    return false;
   }
-  return false;
 };
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
@@ -27,7 +26,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     const authStatus = checkAuthentication();
     setIsAuthenticated(authStatus);
     if (!authStatus) {
-      router.replace('/login');
+      router.push('/login');
     }
   }, [router]);
 

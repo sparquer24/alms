@@ -29,7 +29,7 @@ export const APPLICATION_APIS = {
 export const DOCUMENT_APIS = {
   UPLOAD: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
   GET_ALL: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
-  DELETE: (applicationId: string, documentId: string) => 
+  DELETE: (applicationId: string, documentId: string) =>
     `${BASE_URL}/applications/${applicationId}/documents/${documentId}`,
 };
 

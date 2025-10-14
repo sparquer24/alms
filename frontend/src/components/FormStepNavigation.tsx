@@ -69,7 +69,7 @@ const NavigationMultiStepForm: React.FC<NavigationMultiStepFormProps> = () => {
     );
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-6 border border-gray-200 rounded-lg">
+    <div className="w-full max-w-8xl mx-auto p-6 border border-gray-200 rounded-lg">
             <div className="mt-3 w-full text-center justify-between">{renderStepContent(currentStep)}</div>
             <div className="mt-1 overflow-x-auto bg-blue-700 text-white">
                 <div className="flex space-x-4 mb-6 p-2">

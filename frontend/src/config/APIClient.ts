@@ -4,13 +4,15 @@
  */
 
 import { apiClient, getAuthToken, redirectToLogin } from './authenticatedApiClient';
-import { setAuthToken } from '../api/axiosConfig';
+// Import the underlying axios instance so we can make public (no-token) calls
+// without triggering the authenticated client's ensureAuthHeader() guard.
+import axiosInstance, { setAuthToken } from '../api/axiosConfig';
 import {
   BASE_URL,
   AUTH_APIS,
   APPLICATION_APIS,
   DOCUMENT_APIS,
-  REPORT_APIS,  USER_APIS,
+  REPORT_APIS, USER_APIS,
   ROLE_APIS,
   NOTIFICATION_APIS,
   DASHBOARD_APIS,
@@ -30,30 +32,42 @@ import {
   getHeaders,
   getMultipartHeaders,
 } from './APIsEndpoints';
+// import the cookes
+import { parse } from 'cookie';
 
 /**
  * Authentication API client - These endpoints don't require authorization headers
  */
 export const AuthApi = {
   login: async (params: LoginParams): Promise<ApiResponse<any>> => {
-    console.log('🌐 APIClient - login called with params:', { 
-      username: params.username, 
-      passwordLength: params.password.length 
+    console.log('🌐 APIClient - login called with params:', {
+      username: params.username,
+      passwordLength: params.password.length
     });
-    
+
     const url = AUTH_APIS.LOGIN;
     const headers = getHeaders();
     const body = JSON.stringify(params);
-    
+
     console.log('🌐 Request details:');
     console.log('  URL:', url);
     console.log('  Headers:', headers);
     console.log('  Body:', body);
     console.log('  Method: POST');
-    
+
     try {
-      const data = await apiClient.post(url, params as any);
-      console.log('🌐 Parsed response data:', data);
+      // IMPORTANT: Do NOT use apiClient.post here because it enforces an auth token
+      // via ensureAuthHeader(). During login we have no token yet, so using apiClient
+      // causes an immediate redirect back to /login and the real network call never happens.
+      // We call the raw axios instance directly so a 401 (invalid credentials) can be surfaced
+      // normally to the thunk instead of forcing a navigation.
+      // Convert HeadersInit to a plain object acceptable by axios (in case getHeaders returns a Headers instance)
+      const axiosHeaders: Record<string, string> = Array.isArray(headers)
+        ? headers.reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {} as Record<string, string>)
+        : (headers as Record<string, string>);
+      const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
+      const data = response.data;
+      console.log('🌐 Login response (unauthenticated request) received:', data);
       return data as any;
     } catch (error) {
       console.error('🌐 APIClient login error:', error);
@@ -107,7 +121,7 @@ export const AuthApi = {
       throw error;
     }
   },
-  
+
   changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.post('/auth/change-password', { currentPassword, newPassword });
@@ -116,13 +130,13 @@ export const AuthApi = {
       throw error;
     }
   },
-  
+
   resetPassword: async (email: string): Promise<ApiResponse<any>> => {
-  return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
+    return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
   },
-  
+
   refreshToken: async (refreshToken: string): Promise<ApiResponse<any>> => {
-  return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
+    return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
   },
 };
 
@@ -133,8 +147,29 @@ import { Application } from '../types/application';
 
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
+    // Read role from cookies. `parse` is the cookie parser; use it on document.cookie.
+    // Note: document may be undefined during SSR — guard for that.
+    let role: string | undefined;
     try {
-      return await apiClient.get('/application-form',params);
+      if (typeof document !== 'undefined' && document.cookie) {
+        const cookies = parse(document.cookie || '');
+        role = cookies.role || cookies.Roles || cookies.role_code; // try a few common keys
+      }
+    } catch (e) {
+      // ignore cookie parse errors
+      role = undefined;
+    }
+
+    // If the user is a ZS, the backend expects a special param; add it to params.
+    const requestParams = { ...params } as Record<string, any>;
+    if (role === 'ZS' || role === 'zs') {
+      // attach a flag so backend can filter appropriately. Use 'role' param to be explicit.
+      requestParams.isOwned = 'true';
+    }
+    console.log({ requestParams, role });
+
+    try {
+      return await apiClient.get('/application-form', requestParams as any);
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;
@@ -209,7 +244,7 @@ export const DocumentApi = {
       const formData = new FormData();
       formData.append('document', file);
       formData.append('documentType', documentType);
-      
+
       return await apiClient.uploadFile(`/applications/${applicationId}/documents`, formData);
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -267,15 +302,15 @@ export const ReportApi = {
         throw new Error('Authentication required');
       }
 
-  // Use apiClient which ensures auth headers are set
-  const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
-  // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
-  if (blob instanceof Blob) return blob;
-  // If axios returned data as ArrayBuffer or base64, convert accordingly
-  // Fallback: try requesting via axiosInstance directly
-  const axios = await import('../api/axiosConfig');
-  const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
-  return resp.data as Blob;
+      // Use apiClient which ensures auth headers are set
+      const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
+      // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
+      if (blob instanceof Blob) return blob;
+      // If axios returned data as ArrayBuffer or base64, convert accordingly
+      // Fallback: try requesting via axiosInstance directly
+      const axios = await import('../api/axiosConfig');
+      const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
+      return resp.data as Blob;
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
@@ -295,7 +330,7 @@ export const UserApi = {
       throw error;
     }
   },
-  
+
   getPreferences: async (): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.get('/users/preferences');
@@ -304,7 +339,7 @@ export const UserApi = {
       throw error;
     }
   },
-  
+
   updatePreferences: async (preferences: UserPreferencesParams): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.put('/users/preferences', preferences);
@@ -344,23 +379,40 @@ export const RoleApi = {
 export const NotificationApi = {
   getAll: async (params: NotificationQueryParams = {}): Promise<ApiResponse<any>> => {
     try {
-      // Endpoint removed. Return stubbed notifications list.
-      const pageSize = (params as any)?.pageSize ?? 20;
-      const notifications = Array.from({ length: Math.min(5, Number(pageSize) || 5) }).map((_, i) => ({
-        id: `local-${i + 1}`,
-        type: 'INFO',
-        title: 'No server notifications',
-        message: 'Notifications API disabled; showing local placeholder.',
-        isRead: i > 0,
-        createdAt: new Date(Date.now() - i * 3600_000).toISOString(),
-      }));
+      // Endpoint removed. Return exactly 3 simple placeholder notifications to keep UI concise.
+      const notifications = [
+        {
+          id: 'local-1',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Notifications API disabled',
+          isRead: false,
+          createdAt: new Date(Date.now() - 1 * 60_000).toISOString(),
+        },
+        {
+          id: 'local-2',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Showing local placeholder',
+          isRead: false,
+          createdAt: new Date(Date.now() - 30 * 60_000).toISOString(),
+        },
+        {
+          id: 'local-3',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Check back later',
+          isRead: false,
+          createdAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+        },
+      ];
       return { statusCode: 200, success: true, body: { notifications } } as any;
     } catch (error) {
       console.error('Error getting notifications:', error);
       throw error;
     }
   },
-  
+
   markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
     try {
       // No-op locally, reflect success
@@ -370,7 +422,7 @@ export const NotificationApi = {
       throw error;
     }
   },
-  
+
   markAllAsRead: async (): Promise<ApiResponse<any>> => {
     try {
       // No-op locally

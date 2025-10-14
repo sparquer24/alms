@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useState, ReactNode } from "react";
 
 // Define the shape of the user object

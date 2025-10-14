@@ -34,7 +34,6 @@ async getStatus(code?: string, id?: number): Promise<any[]> {
 }
 async createStatus(data: Statuses): Promise<Statuses | { error: boolean; message: string }> {
   try {
-    console.log("data", data);
     const status = await this.getStatus(data.code); 
     if (Array.isArray(status) && status.length > 0) {
       return {
@@ -57,7 +56,6 @@ async createStatus(data: Statuses): Promise<Statuses | { error: boolean; message
 
   async updateStatus(id: number, data: Partial<Statuses>): Promise<Statuses> {
     
-    console.log("id, data", id, data);
     return await prisma.statuses.update({
       where: { id },
       data:data,

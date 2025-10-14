@@ -291,7 +291,7 @@ export default function PermissionsPage() {
         onReset={handleReset}
       />
 
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <div>
@@ -319,7 +319,7 @@ export default function PermissionsPage() {
               >
                 All Categories
               </button>
-              {Object.keys(PERMISSION_CATEGORIES).map(category => (
+              {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
                 <button
                   key={category}
                   onClick={() => handleCategoryFilter(category)}

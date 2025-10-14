@@ -5,8 +5,7 @@ import { useAuth } from './auth';
 import { NotificationApi } from './APIClient';
 
 export interface Notification {
-  applicationId: any;
-  applicationId: React.JSX.Element;
+  applicationId?: string | number;
   id: string;
   type: string;
   title: string;
@@ -39,7 +38,8 @@ interface NotificationProviderProps {
 
 export const NotificationProvider = ({ children }: NotificationProviderProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);  const { isAuthenticated, token } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { isAuthenticated, token } = useAuth();
   
   // Listen for mock WebSocket messages (for testing purposes)
   useEffect(() => {

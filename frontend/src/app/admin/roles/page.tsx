@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useAuthSync } from "@/hooks/useAuthSync";
 import { useRouter } from "next/navigation";
 import { RoleApi } from "@/config/APIClient";
-import { Role, UpdateRolePermissionsParams } from "@/config/APIsEndpoints";
+import { AdminRoleService } from '@/services/admin/roles';
+import type { AdminRole } from '@/store/slices/adminRoleSlice';
 
 // Permission categories for better organization
 const PERMISSION_CATEGORIES = {
@@ -49,7 +50,7 @@ const PermissionEditorModal = ({
   isOpen: boolean;
   onClose: () => void;
   onSave: (permissions: Record<string, boolean>) => void;
-  role: Role | null;
+  role: AdminRole | null;
 }) => {
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
@@ -138,14 +139,14 @@ export default function UserRolesMappingPage() {
   const router = useRouter();
   
   // State
-  const [roles, setRoles] = useState<Role[]>([]);
+  const [roles, setRoles] = useState<AdminRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   
   // Modal states
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [selectedRole, setSelectedRole] = useState<AdminRole | null>(null);
 
   // Check admin access
   useEffect(() => {
@@ -165,10 +166,14 @@ export default function UserRolesMappingPage() {
     setError("");
     
     try {
-      const response = await RoleApi.getAll();
+      const response = await AdminRoleService.getRoles();
 
-      if (response.success) {
-        setRoles(response.body || []);
+      // AdminRoleService.getRoles returns the raw API response; adapt to expected shape
+      if (response && (response as any).success) {
+        setRoles((response as any).body || []);
+      } else if (response && (response as any).data) {
+        // sometimes services return data directly
+        setRoles((response as any).data || []);
       } else {
         setError("Failed to load roles");
       }
@@ -181,7 +186,7 @@ export default function UserRolesMappingPage() {
     }
   };
 
-  const handleEditPermissions = (role: Role) => {
+  const handleEditPermissions = (role: AdminRole) => {
     setSelectedRole(role);
     setIsPermissionModalOpen(true);
   };
@@ -190,13 +195,13 @@ export default function UserRolesMappingPage() {
     if (!selectedRole) return;
 
     try {
-      const response = await RoleApi.updatePermissions(selectedRole.id, { permissions });
-      if (response.success) {
+      const response = await AdminRoleService.updateRolePermissions(selectedRole.id, permissions);
+      if (response && (response as any).success) {
         await loadRoles(); // Refresh the list
         setIsPermissionModalOpen(false);
         setSelectedRole(null);
       } else {
-        setError(response.message || "Failed to update permissions");
+        setError((response as any)?.message || "Failed to update permissions");
       }
     } catch (err) {
       setError("An error occurred while updating permissions");
@@ -228,7 +233,7 @@ export default function UserRolesMappingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-8xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex justify-between items-center">

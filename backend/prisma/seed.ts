@@ -64,13 +64,13 @@ async function main() {
   console.log('Seeding roles...');
   const roles = [
     { code: 'APPLICANT', name: 'Citizen Applicant', dashboardTitle: 'Applicant Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['freshform', 'inbox', 'sent', 'closed', 'finaldisposal', 'reports'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
-    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal', 'reports', 'logout'], permissions: ['read'], canAccessSettings: true },
-    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal', 'reports', 'logout'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal', 'reports'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
+    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['freshform', 'inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
+    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read'], canAccessSettings: true },
+    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: true },
+    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
     { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal', 'reports', 'logout'], permissions: ['read', 'write'], canAccessSettings: true },
+    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: true },
     { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
@@ -677,6 +677,115 @@ async function main() {
     }
   }
 
+  // --- Role-Action Mappings Seeding ---
+  console.log('Seeding role-action mappings...');
+
+  // Get all roles and actions from database
+  const allRoles = await prisma.roles.findMany();
+  const allActions = await prisma.actiones.findMany();
+
+  // Create mapping of codes to IDs for easier reference
+  const roleCodeToId: Record<string, number> = {};
+  const actionCodeToId: Record<string, number> = {};
+  
+  allRoles.forEach(role => {
+    roleCodeToId[role.code] = role.id;
+  });
+  
+  allActions.forEach(action => {
+    actionCodeToId[action.code] = action.id;
+  });
+
+  // Define role-action mappings based on role hierarchy and permissions
+  const roleActionMappings = [
+    // APPLICANT - Limited actions for citizens
+    { roleCode: 'APPLICANT', actionCodes: ['INITIATE'] },
+    
+    // SHO - Station House Officer can forward, reject, recommend, close
+    { roleCode: 'SHO', actionCodes: ['FORWARD','RE_ENQUIRY', 'GROUND_REPORT'] },
+    
+    // ACP - Assistant Commissioner can do all SHO actions plus approve
+    { roleCode: 'ACP', actionCodes: ['FORWARD'] },
+    
+    // DCP - Deputy Commissioner has broader approval powers
+    { roleCode: 'DCP', actionCodes: ['FORWARD'] },
+    
+    // ZS - Zonal Superintendent can handle all workflow actions
+    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATE'] },
+    
+    // CADO - Chief Administrative Officer
+    { roleCode: 'CADO', actionCodes: ['FORWARD'] },
+    
+    // AS - Arms Superintendent
+    { roleCode: 'AS', actionCodes: ['FORWARD'] },
+    
+    // ADO - Administrative Officer
+    { roleCode: 'ADO', actionCodes: ['FORWARD'] },
+    
+    // JTCP - Joint Commissioner of Police
+    { roleCode: 'JTCP', actionCodes: ['FORWARD','RE_ENQUIRY'] },
+    
+    // CP - Commissioner of Police (highest authority)
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
+    
+    // ARMS_SUPDT - Arms Superintendent
+    { roleCode: 'ARMS_SUPDT', actionCodes: ['FORWARD'] },
+    
+    // ARMS_SEAT - Arms Seat
+    { roleCode: 'ARMS_SEAT', actionCodes: ['FORWARD'] },
+    
+    // ADMIN - System Administrator (can perform all actions for system management)
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND'] },
+  ];
+
+  // Insert role-action mappings
+  for (const mapping of roleActionMappings) {
+    const roleId = roleCodeToId[mapping.roleCode];
+    
+    if (!roleId) {
+      console.warn(`Role '${mapping.roleCode}' not found. Skipping mappings.`);
+      continue;
+    }
+
+    for (const actionCode of mapping.actionCodes) {
+      const actionId = actionCodeToId[actionCode];
+      
+      if (!actionId) {
+        console.warn(`Action '${actionCode}' not found. Skipping mapping for role '${mapping.roleCode}'.`);
+        continue;
+      }
+
+      // Check if mapping already exists
+      const existingMapping = await prisma.rolesActionsMapping.findUnique({
+        where: {
+          roleId_actionId: {
+            roleId: roleId,
+            actionId: actionId
+          }
+        }
+      });
+
+      if (existingMapping) {
+        console.log(`Role-Action mapping already exists: ${mapping.roleCode} -> ${actionCode}. Skipping.`);
+        continue;
+      }
+
+      try {
+        await prisma.rolesActionsMapping.create({
+          data: {
+            roleId: roleId,
+            actionId: actionId,
+            isActive: true
+          }
+        });
+        console.log(`Created role-action mapping: ${mapping.roleCode} -> ${actionCode}`);
+      } catch (error) {
+        console.error(`Error creating role-action mapping ${mapping.roleCode} -> ${actionCode}:`, error);
+      }
+    }
+  }
+
+  console.log('Role-action mappings seeding completed!');
   console.log('Seeding completed successfully!');
 }
 

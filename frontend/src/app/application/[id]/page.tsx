@@ -7,6 +7,7 @@ import Header from '../../../components/Header';
 import { useAuthSync } from '../../../hooks/useAuthSync';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
+import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
@@ -15,53 +16,8 @@ import EnhancedApplicationTimeline from '../../../components/EnhancedApplication
 // import { generateApplicationPDF, getApplicationPrintHTML } from '../../../config/pdfUtils';
 import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
-
-// Application interface for the detail page
-interface ApplicationData {
-  id: string;
-  status_id: string | number; // Add for compatibility with modals
-  acknowledgementNo?: string;
-  applicantName: string;
-  applicantMobile: string;
-  applicantEmail?: string;
-  fatherName?: string;
-  gender?: 'Male' | 'Female' | 'Other';
-  dob?: string;
-  address?: string;
-  applicationType: string;
-  applicationDate: string;
-  applicationTime?: string;
-  status: 're-enquiry' | 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 'ground-report' | 'closed' | 'recommended';
-  assignedTo: string;
-  forwardedFrom?: string;
-  forwardedTo?: string;
-  forwardComments?: string;
-  returnReason?: string;
-  flagReason?: string;
-  disposalReason?: string;
-  lastUpdated: string;
-  documents?: Array<{
-    name: string;
-    type: string;
-    url: string;
-  }>;
-  history?: Array<{
-    date: string;
-    time: string;
-    action: string;
-    by: string;
-    comments?: string;
-  }>;
-  actions?: {
-    canForward: boolean;
-    canReport: boolean;
-    canApprove: boolean;
-    canReject: boolean;
-    canRaiseRedflag: boolean;
-    canReturn: boolean;
-    canDispose: boolean;
-  };
-}
+import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
+import { truncateFilename } from '../../../utils/string';
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -79,6 +35,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isForwarding, setIsForwarding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
@@ -92,17 +50,132 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     onConfirm: () => {}
   });
   const [showProceedingsModal, setShowProceedingsModal] = useState(false);
-  const [showProceedingsForm, setShowProceedingsForm] = useState(false);
+  const [showProceedingsForm, setShowProceedingsForm] = useState(true);
   const [showTimelineDetails, setShowTimelineDetails] = useState(false);
   const [timelineDetails, setTimelineDetails] = useState({
     user1: false,
     user2: false,
     user3: false
   });
-  const [showActions, setShowActions] = useState(true);
-  const [showApplicationHistory, setShowApplicationHistory] = useState(true);
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Open attachments from history with a robust viewer (PDF/image) in a new tab
+  const openAttachment = (att: any) => {
+    try {
+      const rawUrl = typeof att?.url === 'string' ? att.url : '';
+      const fileName = att?.name || 'attachment';
+      if (!rawUrl) return;
+
+      const isHttpUrl = /^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('/');
+      const isDataUrl = rawUrl.startsWith('data:');
+
+      // Helper: open a blob/content in a simple viewer HTML
+      const openInViewer = (objectUrl: string, contentType: string) => {
+        const viewer = window.open('', '_blank');
+        if (!viewer) {
+          // Popup blocked -> download
+          const a = document.createElement('a');
+          a.href = objectUrl;
+          a.download = fileName;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return;
+        }
+        const isPdf = /pdf/i.test(contentType);
+        const isImage = /^image\//i.test(contentType);
+        const safeTitle = fileName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const body = isPdf
+          ? `<object data="${objectUrl}" type="application/pdf" style="width:100%;height:100vh;">` +
+            `<p>PDF preview unavailable. <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a></p>` +
+            `</object>`
+          : isImage
+          ? `<img src="${objectUrl}" alt="${safeTitle}" style="max-width:100%;height:auto;display:block;margin:0 auto;padding:16px;" />`
+          : `<div style="padding:16px;font-family:system-ui,Segoe UI,Arial;">
+               <p>Preview not supported for this file type (${contentType}).</p>
+               <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a>
+             </div>`;
+        viewer.document.open();
+        viewer.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${safeTitle}</title></head><body style="margin:0;">${body}</body></html>`);
+        viewer.document.close();
+      };
+
+      if (isHttpUrl) {
+        // Let browser handle http(s) directly (respecting Content-Disposition)
+        const win = window.open(rawUrl, '_blank', 'noopener');
+        if (!win) {
+          const a = document.createElement('a');
+          a.href = rawUrl;
+          a.download = fileName;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        return;
+      }
+
+      // Build Blob from data URL or bare base64
+      let base64Data = '';
+      // Infer content type from name if not provided
+      let contentType = att?.contentType || (() => {
+        const lower = (fileName || '').toLowerCase();
+        if (lower.endsWith('.pdf')) return 'application/pdf';
+        if (lower.endsWith('.png')) return 'image/png';
+        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+        if (lower.endsWith('.gif')) return 'image/gif';
+        if (lower.endsWith('.svg')) return 'image/svg+xml';
+        if (lower.endsWith('.txt')) return 'text/plain';
+        return 'application/octet-stream';
+      })();
+      if (isDataUrl) {
+        const match = rawUrl.match(/^data:([^;]+);base64,(.*)$/i);
+        if (match) {
+          contentType = match[1] || contentType;
+          base64Data = match[2] || '';
+        } else {
+          // Non-base64 data URL; open as-is
+          const win = window.open(rawUrl, '_blank', 'noopener');
+          if (!win) {
+            const a = document.createElement('a');
+            a.href = rawUrl;
+            a.download = fileName;
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }
+          return;
+        }
+      } else {
+        // Bare base64 string; normalize URL-safe base64 and pad
+        base64Data = rawUrl;
+      }
+
+      // Normalize base64 (URL-safe -> standard) and remove whitespace
+      let normalized = (base64Data || '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+      const padding = normalized.length % 4;
+      if (padding) normalized += '='.repeat(4 - padding);
+
+      // Decode base64 to Blob
+      const byteChars = atob(normalized);
+      const len = byteChars.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        u8[i] = byteChars.charCodeAt(i);
+      }
+      const blob = new Blob([u8.buffer], { type: contentType });
+      const blobUrl = URL.createObjectURL(blob);
+      openInViewer(blobUrl, contentType);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (e) {
+      console.error('Failed to open attachment:', e);
+      // Last-resort message
+      alert('Unable to preview file. It may still be downloadable from the history.');
+    }
+  };
   
   // Unwrap params using React.use()
   const resolvedParams = React.use(params);
@@ -127,61 +200,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [setShowHeader, setShowSidebar]);
   
   useEffect(() => {
-    // Fetch application directly from API
+    // Fetch application using shared service which maps workflow history correctly
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        console.log('🔍 ApplicationDetailPage: Fetching application with ID:', applicationId);
-        const response = await ApplicationApi.getById(Number(applicationId));
-        console.log('🔍 ApplicationDetailPage: API Response:', response);
-
-        if (response?.success && response?.data) {
-          // Transform API response to ApplicationData format
-          const apiApp = response.data as any; // Use any to handle dynamic API response
-          const transformedApp: ApplicationData = {
-            id: String(apiApp.id || applicationId),
-            status_id: apiApp.status?.id || '1', // Default status_id for compatibility
-            acknowledgementNo: apiApp.acknowledgementNo || undefined,
-            applicantName: apiApp.applicantName || 'Unknown Applicant',
-            applicantMobile: apiApp.contactInfo?.mobileNumber || apiApp.mobileNumber || 'N/A',
-            applicantEmail: apiApp.contactInfo?.email || apiApp.email || undefined,
-            fatherName: apiApp.parentOrSpouseName || undefined,
-            gender: (apiApp.sex === 'MALE' ? 'Male' : apiApp.sex === 'FEMALE' ? 'Female' : 'Other') as 'Male' | 'Female' | 'Other',
-            dob: apiApp.dateOfBirth || undefined,
-            address: apiApp.presentAddress?.addressLine || undefined,
-            applicationType: 'Fresh License',
-            applicationDate: apiApp.createdAt || new Date().toISOString(),
-            applicationTime: undefined, // Extract time from createdAt if needed
-            status: (apiApp.status?.name?.toLowerCase() || 'pending') as 'pending' | 'approved' | 'rejected' | 'returned' | 're-enquiry' | 'red-flagged' | 'disposed' | 'initiated' | 'cancelled' | 'ground-report' | 'closed' | 'recommended',
-            assignedTo: apiApp.currentUser?.username || 'Unassigned',
-            forwardedFrom: apiApp.previousUser?.username || undefined,
-            forwardedTo: apiApp.currentUser?.username || undefined,
-            forwardComments: apiApp.remarks || undefined,
-            returnReason: undefined, // Will be set based on workflow status
-            flagReason: undefined, // Will be set based on workflow status  
-            disposalReason: undefined, // Will be set based on workflow status
-            lastUpdated: apiApp.updatedAt || apiApp.createdAt || new Date().toISOString(),
-            documents: apiApp.fileUploads?.map((upload: any) => ({
-              name: upload.fileName || 'Document',
-              type: upload.fileType || 'unknown',
-              url: upload.fileUrl || ''
-            })) || [],
-            history: [], // Will be populated if workflow history is available
-            actions: {
-              canForward: apiApp.currentRole?.can_forward || false,
-              canReport: true,
-              canApprove: !apiApp.isApproved && !apiApp.isRejected,
-              canReject: !apiApp.isApproved && !apiApp.isRejected,
-              canRaiseRedflag: !apiApp.isApproved && !apiApp.isRejected,
-              canReturn: !apiApp.isApproved && !apiApp.isRejected,
-              canDispose: apiApp.isApproved,
-            }
-          };
-
-          console.log('✅ ApplicationDetailPage: Transformed application:', transformedApp);
-          setApplication(transformedApp);
+        const result = await getApplicationByApplicationId(applicationId);
+        if (result) {
+          setApplication(result as ApplicationData);
         } else {
-          console.warn('⚠️ ApplicationDetailPage: Invalid API response');
+          console.warn('⚠️ ApplicationDetailPage: No application found');
           setApplication(null);
         }
       } catch (error) {
@@ -249,84 +276,108 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
     }
   };
-    const handleProcessApplication = (
+    const handleProcessApplication = async (
     action: string,
     reason: string
   ) => {
     if (!application) return;
 
-    // In a real app, this would be an API call
-    // For now, we'll just update the local state to simulate the change
-    const updatedApplication = { ...application };
+    setIsProcessing(true);
     
-    switch (action) {
-      case 'approve':
-        updatedApplication.status = 'approved';
-        setSuccessMessage('Application has been approved successfully');
-        break;
-      case 'reject':
-        updatedApplication.status = 'rejected';
-        setSuccessMessage('Application has been rejected');
-        break;
-      case 'return':
-        updatedApplication.status = 'returned';
-        updatedApplication.returnReason = reason;
-        setSuccessMessage('Application has been returned to the applicant');
-        break;
-      case 'flag':
-        updatedApplication.status = 'red-flagged';
-        updatedApplication.flagReason = reason;
-        setSuccessMessage('Application has been red-flagged');
-        break;
-      case 'dispose':
-        updatedApplication.status = 'disposed';
-        updatedApplication.disposalReason = reason;
-        setSuccessMessage('Application has been disposed');
-        break;
-      case 'recommend':
-        // In a real app, this would change the status differently based on the role
-        updatedApplication.status = 'pending';
-        setSuccessMessage('Application has been recommended for approval');
-        break;
-      case 'not-recommend':
-        // In a real app, this would change the status differently based on the role
-        updatedApplication.status = 'pending';
-        setSuccessMessage('Application has been marked as not recommended');
-        break;
-      case 're-enquiry':
-        updatedApplication.status = 'pending';
-        setSuccessMessage('Application has been marked for re-enquiry');
-        break;
+    try {
+      // In a real app, this would be an API call
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // For now, we'll just update the local state to simulate the change
+      const updatedApplication = { ...application };
+      
+      switch (action) {
+        case 'approve':
+          updatedApplication.status = 'approved';
+          setSuccessMessage('Application has been approved successfully');
+          break;
+        case 'reject':
+          updatedApplication.status = 'rejected';
+          setSuccessMessage('Application has been rejected');
+          break;
+        case 'return':
+          updatedApplication.status = 'returned';
+          updatedApplication.returnReason = reason;
+          setSuccessMessage('Application has been returned to the applicant');
+          break;
+        case 'flag':
+          updatedApplication.status = 'red-flagged';
+          updatedApplication.flagReason = reason;
+          setSuccessMessage('Application has been red-flagged');
+          break;
+        case 'dispose':
+          updatedApplication.status = 'disposed';
+          updatedApplication.disposalReason = reason;
+          setSuccessMessage('Application has been disposed');
+          break;
+        case 'recommend':
+          // In a real app, this would change the status differently based on the role
+          updatedApplication.status = 'pending';
+          setSuccessMessage('Application has been recommended for approval');
+          break;
+        case 'not-recommend':
+          // In a real app, this would change the status differently based on the role
+          updatedApplication.status = 'pending';
+          setSuccessMessage('Application has been marked as not recommended');
+          break;
+        case 're-enquiry':
+          updatedApplication.status = 'pending';
+          setSuccessMessage('Application has been marked for re-enquiry');
+          break;
+      }
+      
+      updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
+      setApplication(updatedApplication);
+      setIsProcessModalOpen(false);
+      
+      // Redirect to inbox/forwarded after successful processing
+      setTimeout(() => {
+        router.push('/inbox/forwarded');
+      }, 2000);
+    } catch (error) {
+      console.error('Error processing application:', error);
+      setErrorMessage('Failed to process application. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
-    
-    updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
-    setApplication(updatedApplication);
-    setIsProcessModalOpen(false);
-    
-    // In a real app, you would redirect to the appropriate list view
-    // based on the new status
-    setTimeout(() => {
-      router.push('/');
-    }, 2000);
   };
-    const handleForwardApplication = (recipient: string, comments: string) => {
+    const handleForwardApplication = async (recipient: string, comments: string) => {
     if (!application) return;
 
-    // In a real app, this would be an API call
-    const updatedApplication = { ...application };
-    updatedApplication.forwardedFrom = userRole;
-    updatedApplication.forwardedTo = recipient;
-    updatedApplication.forwardComments = comments; // Store comments
-    updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
+    setIsForwarding(true);
     
-    setApplication(updatedApplication);
-    setIsForwardModalOpen(false);
-    setSuccessMessage(`Application has been forwarded to ${recipient}`);
-    
-    // In a real app, you would redirect to the sent view
-    setTimeout(() => {
-      router.push('/sent');
-    }, 2000);  };
+    try {
+      // In a real app, this would be an API call
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const updatedApplication = { ...application };
+      updatedApplication.forwardedFrom = userRole;
+      updatedApplication.forwardedTo = recipient;
+      updatedApplication.forwardComments = comments; // Store comments
+      updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
+      
+      setApplication(updatedApplication);
+      setIsForwardModalOpen(false);
+      setSuccessMessage(`Application has been forwarded to ${recipient}`);
+      
+      // Redirect to inbox/forwarded after successful forwarding
+      setTimeout(() => {
+        router.push('/inbox/forwarded');
+      }, 2000);
+    } catch (error) {
+      console.error('Error forwarding application:', error);
+      setErrorMessage('Failed to forward application. Please try again.');
+    } finally {
+      setIsForwarding(false);
+    }
+  };
   
   // Enhanced print function using our PDF utility
   const handleExportPDF = async () => {
@@ -386,9 +437,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const handleProceedingsSuccess = () => {
     setShowProceedingsForm(false);
     setSuccessMessage('Proceedings action completed successfully');
-    // Optionally refresh the application data or redirect
+    // Redirect to inbox/forwarded after successful proceedings action
     setTimeout(() => {
-      router.push('/');
+      router.push('/inbox/forwarded');
     }, 2000);
   };
   
@@ -402,15 +453,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }
 
   return (
-    <div className="min-h-screen w-screen h-screen bg-cover bg-center overflow-auto" style={{ backgroundImage: 'url("/backgroundIMGALMS.jpeg")' }}>
+    <div className="min-h-screen w-full bg-cover bg-center" style={{ backgroundImage: 'url("/backgroundIMGALMS.jpeg")' }}>
       <Sidebar />
       <Header 
         onSearch={handleSearch}
         onDateFilter={handleDateFilter}
         onReset={handleReset}
       />
-      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 p-2 lg:p-6">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             {successMessage && (
               <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm">
                 <div className="flex items-center">
@@ -443,9 +494,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           </div>
 
             {/* Header Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-2 overflow-hidden">
               {/* New Header with #001F54 background */}
-              <div className="bg-[#001F54] p-6 lg:p-8 flex items-center justify-between">
+              <div className="bg-[#001F54] p-2 lg:p-8 flex items-center justify-between">
                 <div className="flex items-center">
                   <button
                     onClick={() => router.back()}
@@ -491,10 +542,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               </div>
 
               {(() => {
-                console.log('🔍 Render check - application state:', application);
-                console.log('🔍 Render check - application is truthy?', !!application);
-                console.log('🔍 Render check - loading state:', loading);
-                console.log('🔍 Render check - applicationId:', applicationId);
                 return application;
               })() ? (
                 <>
@@ -663,7 +710,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             </div>
                           ))
                         ) : (
-                          // Default documents if none are provided
                           <>
                             <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200">
                               <div className="flex items-center justify-between">
@@ -754,85 +800,46 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     </div>
                   </div>
 
-                  {/* Action Buttons and Timeline Section */}
-                  <div className="p-6 lg:p-8 border-t border-gray-100 bg-gradient-to-r from-gray-50 to-blue-50">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                      {/* Action Buttons - Left Side */}
-                      <div className="lg:col-span-2">
-                        <div className="flex items-center justify-between mb-4">
+                  {/* Action Buttons and Timeline Section - Top of Screen */}
+                  <div className="p-6 lg:p-8 border-t border-gray-100 bg-white">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[600px]">
+                      {/* Action Buttons - Left Side with Scroll */}
+                      <div className="flex flex-col">
+                        <div className="flex items-center mb-4">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <div className="w-1 h-5 bg-blue-600 rounded-full mr-3"></div>
                             Actions
                           </h3>
-                          <button
-                            onClick={() => setShowActions(!showActions)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            {showActions ? 'Hide' : 'Show'}
-                          </button>
                         </div>
-                        
-                        {showActions && (
-                          <>
-                            <div className="flex flex-col gap-4">
-                              {/* Print/Export Button */}
-                              <button
-                                onClick={() => setShowPrintOptions(true)}
-                                className="flex items-center px-6 py-3 bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                              >
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z" />
-                                </svg>
-                                Print/Export
-                              </button>
-
-                              {/* Proceedings Button */}
-                              <button
-                                onClick={() => setShowProceedingsForm(!showProceedingsForm)}
-                                className="flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
-                              >
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                {showProceedingsForm ? 'Hide Proceedings' : 'Proceedings'}
-                              </button>
+                      <div className="flex flex-col gap-4">
+                          {/* Proceedings Form - Always Open */}
+                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                            <div className="p-4 bg-gray-50">
+                                <div className="p-4">
+                                  <ProceedingsForm 
+                                    applicationId={applicationId} 
+                                    onSuccess={handleProceedingsSuccess}
+                                    userRole={userRole}
+                                    applicationData={application || undefined}
+                                  />
+                                </div>
                             </div>
-
-                            {/* Inline Proceedings Form */}
-                            {showProceedingsForm && (
-                              <div className="mt-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
-                                  <div className="w-1 h-4 bg-blue-600 rounded-full mr-2"></div>
-                                  Proceedings Form
-                                </h4>
-                                <ProceedingsForm 
-                                  applicationId={applicationId} 
-                                  onSuccess={handleProceedingsSuccess}
-                                />
-                              </div>
-                            )}
-                          </>
-                        )}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Application Timeline/History - Right Side */}
-                      <div className="lg:col-span-2">
+                      {/* Application Timeline/History - Right Side with Scroll */}
+                      <div className="flex flex-col">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <div className="w-1 h-5 bg-green-600 rounded-full mr-3"></div>
                             Application History
                           </h3>
-                          <button
-                            onClick={() => setShowApplicationHistory(!showApplicationHistory)}
-                            className="text-green-600 hover:text-green-800 text-sm font-medium"
-                          >
-                            {showApplicationHistory ? 'Hide' : 'Show'}
-                          </button>
                         </div>
                         
-                        {showApplicationHistory && application && (
-                          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                            {application.history && application.history.length > 0 ? (
+                        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                          <div className="h-full max-h-[700px] md:max-h-[600px] overflow-y-auto p-6 custom-scrollbar">
+                            {application && application.history && application.history.length > 0 ? (
                               <div className="space-y-4">
                                 {application.history.map((h, idx) => {
                                   const color = h.action.toLowerCase().includes('forward')
@@ -842,30 +849,103 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                     : h.action.toLowerCase().includes('reject') || h.action.toLowerCase().includes('return')
                                     ? 'border-red-500'
                                     : 'border-blue-500';
+                                  
+                                  const bgColor = h.action.toLowerCase().includes('forward')
+                                    ? 'bg-orange-50'
+                                    : h.action.toLowerCase().includes('approve')
+                                    ? 'bg-green-50'
+                                    : h.action.toLowerCase().includes('reject') || h.action.toLowerCase().includes('return')
+                                    ? 'bg-red-50'
+                                    : 'bg-blue-50';
+                                  const attachmentsArr = (h as any).attachments;
+                                  const hasAttachments = Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
+                                  const hasRemarks = !!h.comments;
+                                  const hasDetails = hasAttachments || hasRemarks;
+                                  const isExpanded = !!expandedHistory[idx];
+                                    
                                   return (
-                                    <div key={idx} className={`border-l-2 ${color} pl-4`}>
-                                      <div className="flex items-center justify-between">
+                                    <div key={idx} className={`border-l-4 ${color} ${bgColor} pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm`}>
+                                      <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                          <p className="font-medium text-gray-900">{h.by || 'Unknown User'}</p>
-                                          <p className="text-sm text-gray-600">{h.action}</p>
-                                          <p className="text-xs text-gray-500">{h.date} {h.time}</p>
+                                          <p className="font-semibold text-gray-900 text-sm">{h.by || 'Unknown User'}</p>
+                                          <p className="text-sm text-gray-700 font-medium mt-1">{h.action}</p>
+                                          <p className="text-xs text-gray-500 mt-1 flex items-center">
+                                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {h.date} {h.time}
+                                          </p>
+                                          {/* Attachments are now rendered below the header row to match remarks width */}
                                         </div>
-                                        {h.comments && (
+                    {hasDetails && (
                                           <button
                                             type="button"
                                             onClick={() => setExpandedHistory(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                                            className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                            aria-expanded={!!expandedHistory[idx]}
+                                            className="ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium px-2 py-1 rounded-md hover:bg-blue-100 transition-colors duration-200 flex items-center"
+                      aria-expanded={isExpanded}
                                             aria-controls={`history-remarks-${idx}`}
-                                            aria-label={expandedHistory[idx] ? 'Hide' : 'Show'}
+                      aria-label={isExpanded ? 'Hide details' : 'Show details'}
                                           >
-                                            {expandedHistory[idx] ? 'Hide' : 'Show'}
+                      <svg className={`w-4 h-4 mr-1 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                      {isExpanded ? 'Hide' : 'Show more'}
                                           </button>
                                         )}
                                       </div>
-                                      {h.comments && expandedHistory[idx] && (
-                                        <div id={`history-remarks-${idx}`} className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                          <p className="text-sm text-gray-700">{h.comments}</p>
+                                      {hasRemarks && isExpanded && (
+                                        <div id={`history-remarks-${idx}`} className="mt-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                          <div className="text-base font-semibold text-gray-800 mb-2">Remarks</div>
+                                          <div className="flex items-start">
+                                            <svg className="w-5 h-5 mr-2 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                            </svg>
+                                            <p className="text-sm text-gray-700 leading-relaxed">{h.comments}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {hasAttachments && isExpanded && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                          <div className="text-base font-semibold text-gray-800 mb-2">Attachments</div>
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {attachmentsArr.map((att: any, aidx: number) => {
+                                              const isGroundReport = String(att?.type || '').toUpperCase().includes('GROUND');
+                                              const displayName = isGroundReport ? truncateFilename(att?.name || '', 10) : (att?.name || 'Attachment');
+                                              const contentType = String(att?.contentType || '').toLowerCase();
+                                              const fileLower = String(att?.name || '').toLowerCase();
+                                              const isPdf = contentType.includes('pdf') || fileLower.endsWith('.pdf');
+                                              const isImage = contentType.startsWith('image/') || /\.(png|jpe?g|gif|svg|webp)$/.test(fileLower);
+                                              const iconColor = isPdf
+                                                ? 'text-red-500'
+                                                : isImage
+                                                ? 'text-emerald-500'
+                                                : 'text-blue-500';
+                                              return (
+                                                <div key={aidx} className="flex items-center text-xs text-blue-700 min-w-0">
+                                                  <svg className={`w-5 h-5 mr-2 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    {isImage ? (
+                                                      // Image icon
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    ) : (
+                                                      // File/PDF icon
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    )}
+                                                  </svg>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => openAttachment(att)}
+                                                    className="hover:underline truncate text-left text-blue-700"
+                                                    title={att?.name}
+                                                  >
+                                                    {displayName}
+                                                  </button>
+                                                  {att?.contentType && (
+                                                    <span className="ml-2 text-gray-500">({att.contentType})</span>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
@@ -873,10 +953,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 })}
                               </div>
                             ) : (
-                              <p className="text-gray-500 text-sm">No history available for this application.</p>
+                              <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                                <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <p className="text-gray-500 text-sm font-medium">No history available</p>
+                                <p className="text-gray-400 text-xs mt-1">Application history will appear here when actions are taken</p>
+                              </div>
                             )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -889,6 +975,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       onClose={() => setIsProcessModalOpen(false)}
                       onProcess={handleProcessApplication}
                       initialAction={selectedAction}
+                      isLoading={isProcessing}
                     />
                   )}
 
@@ -899,6 +986,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       isOpen={isForwardModalOpen}
                       onClose={() => setIsForwardModalOpen(false)}
                       onForward={handleForwardApplication}
+                      isLoading={isForwarding}
                     />
                   )}
                   
@@ -1001,6 +1089,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           <ProceedingsForm 
                             applicationId={applicationId} 
                             onSuccess={handleProceedingsSuccess}
+                            userRole={userRole}
+                            applicationData={application || undefined}
                           />
                         </div>
                       </div>
@@ -1019,7 +1109,27 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </div>
               )}
             </div>
-          </main>
+      </main>
+          
+          {/* Loading Overlay */}
+          {(isProcessing || isForwarding) && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-gray-100">
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {isProcessing ? 'Processing Application...' : 'Forwarding Application...'}
+                  </h3>
+                  <p className="text-gray-600 text-center">
+                    {isProcessing 
+                      ? 'Please wait while we process your request.'
+                      : 'Please wait while we forward the application.'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
     );
 }

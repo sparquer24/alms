@@ -33,7 +33,7 @@ const MultiStepForm: React.FC = () => {
             }}
         >
             <NavigationMultiStepForm />
-            <div className="w-full max-w-7xl mx-auto mt-8 p-6 border bg-white border-gray-200 rounded-lg">
+            <div className="w-full max-w-8xl mx-auto mt-8 p-6 border bg-white border-gray-200 rounded-lg">
                 {renderStep()}
 
                 <div className="flex justify-between mt-6">

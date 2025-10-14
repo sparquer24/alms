@@ -76,8 +76,6 @@ export class WorkflowController {
     @Req() req: Request
   ) {
     // Log the incoming body at the very start for debugging
-    console.log('Incoming body:', body);
-
     // Extract user info from JWT
     const user = (req as any).user;
     const roleId = user?.role_id;
@@ -129,7 +127,7 @@ export class WorkflowController {
     // ...existing code...
 
     // Call service to process action
-    try {
+    /*try {
       const result = await this.workflowService.handleUserAction({
         ...body,
         applicationId: Number(body.applicationId),
@@ -151,5 +149,6 @@ export class WorkflowController {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('Unexpected error occurred.');
     }
+    */
   }
 }

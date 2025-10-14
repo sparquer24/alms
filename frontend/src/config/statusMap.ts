@@ -14,7 +14,8 @@ export type StatusKey =
   | 'cancelled'
   | 'reEnquiry'
   | 'groundReport'
-  | 'myreports';
+  | 'myreports'
+  | 'drafts';
 
 export type StatusIdMap = Partial<Record<StatusKey, number[]>>;
 
@@ -33,7 +34,8 @@ export const statusIdMap: StatusIdMap = {
   closed: [10],          // CLOSE
   cancelled: [4],        // CANCEL
   reEnquiry: [5],        // RE_ENQUIRY
-  groundReport: [6],     // GROUND_REPORT
+  groundReport: [6],     // GROUND_REPORT          // DRAFT
+  drafts: [13],          // DRAFTS (alias for draft)
 };
 
 

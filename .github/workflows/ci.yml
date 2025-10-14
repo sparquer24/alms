@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, 'fix/**' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      integration:
+        description: 'Run integration tests (will spin up docker-compose.full.yml)'
+        required: false
+        default: 'false'
+
+jobs:
+  lint-and-test:
+    name: Lint, Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies (root workspace)
+        run: npm ci || npm install
+
+      - name: Generate Prisma client (backend)
+        run: npm -w backend run prisma:generate
+
+      - name: Build backend (TypeScript)
+        run: npm -w backend run build
+
+      - name: Run frontend lint
+        run: npm -w frontend run lint
+
+      - name: Run frontend tests
+        run: npm -w frontend run test --if-present
+
+  integration:
+    name: Integration tests (docker-compose)
+    needs: lint-and-test
+    if: github.event.inputs.integration == 'true' || contains(github.event.head_commit.message, '[integration]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ensure Docker Compose is available
+        run: |
+          docker version
+          docker compose version || true
+
+      - name: Build and start compose
+        run: |
+          echo "Preparing minimal .env files for CI"
+          # Root .env (frontend use - points to host-mapped backend port)
+          printf '%s\n' \
+            "NEXT_PUBLIC_API_URL=http://localhost:3001" \
+            "NEXT_PUBLIC_PORT=5000" \
+            "PORT=3001" \
+            "NODE_ENV=development" > .env
+
+          # backend/.env - point DATABASE_URL to the postgres service inside compose network
+          mkdir -p backend
+          printf '%s\n' \
+            "DATABASE_URL=postgresql://postgres:pgpassword@db:5432/alms" \
+            "JWT_SECRET=ci_jwt_secret" \
+            "PORT=3000" > backend/.env
+
+          docker compose -f docker-compose.full.yml up -d --build
+
+      - name: Wait for backend to respond
+        run: |
+          echo "Waiting for backend (http://localhost:3001) to be ready..."
+          for i in {1..30}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
+            if [ "$status" = "200" ] || [ "$status" = "404" ]; then
+              echo "Backend responded with status $status"
+              exit 0
+            fi
+            echo "Attempt $i: status=$status - sleeping 4s"
+            sleep 4
+          done
+          echo "Timed out waiting for backend" && docker compose -f docker-compose.full.yml logs --no-color && exit 1
+
+      - name: Run simple smoke checks
+        run: |
+          echo "Checking /users endpoint (if available)"
+          # Fail the step if the endpoint is not reachable / returns non-2xx
+          curl -v --fail http://localhost:3001/users
+
+      - name: Tear down compose
+        if: always()
+        run: docker compose -f docker-compose.full.yml down -v

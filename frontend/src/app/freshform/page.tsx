@@ -7,7 +7,8 @@ import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useLayout } from '../../config/layoutContext';
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { filterApplications, getApplicationsByStatus, ApplicationData, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
 export default function FreshFormPage() {
@@ -33,20 +34,12 @@ export default function FreshFormPage() {
     }
     // Check if the user has permission to view fresh forms
     const roleConfig = getRoleConfig(userRole);
-    console.log('🔑 Fresh Form - User Role:', userRole);
-    console.log('🔑 Fresh Form - Role Config:', roleConfig);
-    console.log('🔑 Fresh Form - User Permissions:', roleConfig?.permissions);
-    console.log('🔑 Fresh Form - Has canViewFreshForm:', roleConfig?.permissions.includes('canViewFreshForm'));
-    
-    // Temporarily disable permission check for debugging
-    /*
+    // Enforce permission check
     if (!roleConfig || !roleConfig.permissions.includes('canViewFreshForm')) {
       // Redirect to dashboard or show access denied
-      console.log('❌ Fresh Form - Access denied, redirecting to home');
       router.push('/');
       return;
     }
-    */
   }, [isAuthenticated, router, userRole]);
 
   useEffect(() => {
@@ -144,7 +137,7 @@ export default function FreshFormPage() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto ml-[18%] mt-[70px]">          
+  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">          
 
           {/* Success message */}
           {successMessage && (

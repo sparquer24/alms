@@ -1,46 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-// Import role-based redirection logic
-function getRoleBasedRedirectPath(userRole: string): string {
-  console.log('getRoleBasedRedirectPath called with userRole:', userRole);
-  
-  // Define valid roles
-  const validRoles = ['ADMIN', 'DCP', 'ACP', 'CP', 'ARMS_SUPDT', 'SHO', 'ZS', 'APPLICANT', 'ADO', 'CADO'];
-  
-  if (!userRole || !validRoles.includes(userRole)) {
-    console.warn('Invalid or undefined role detected:', userRole);
-    return '/login?error=invalid_role';
-  }
-  
-  switch (userRole) {
-    case 'ADMIN':
-      return '/';
-      
-    case 'DCP':
-    case 'ACP': 
-    case 'CP':
-      return '/reports';
-      
-    case 'ARMS_SUPDT':
-      return '/final';
-      
-    case 'SHO':
-      return '/inbox/forwarded';
-    case 'ZS':
-      return '/freshform';
-      
-    case 'APPLICANT':
-      return '/sent';
-      
-    case 'ADO':
-    case 'CADO':
-      return '/';
-      
-    default:
-      return '/';
-  }
-}
+import { getRoleBasedRedirectPath } from './config/roleRedirections';
 
 // Define protected routes that require authentication
 const protectedRoutes = [
@@ -64,8 +24,9 @@ const publicRoutes = [
 const adminRoutes = [
   '/admin/users',
   '/admin/locations',
-  '/admin/forwarding', 
+  '/admin/forwarding',
   '/admin/reports',
+  '/admin/userManagement',
 ];
 
 // Define role-based access for specific routes
@@ -122,7 +83,12 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
     // If token came from parsed object (legacy), try to extract
     const token = authData?.token ?? null;
     let isAuthenticated = false;
-    let userRole = authData?.role || authData?.user?.role;
+    let userRole: any = authData?.role || authData?.user?.role;
+
+    // If role is an object (e.g. { code: 'ADMIN' }), flatten it and support different property names
+    if (userRole && typeof userRole === 'object') {
+      userRole = userRole.code || userRole.key || userRole.name || null;
+    }
 
     if (token) {
       // If we decoded JWT payload earlier, check expiry if present
@@ -140,7 +106,23 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 
     // If role missing, try other keys
     if (!userRole) {
-      userRole = authData?.roleCode ?? authData?.role_id ?? authData?.user?.roleCode ?? undefined;
+      userRole = authData?.roleCode ?? authData?.role_id ?? authData?.user?.roleCode ?? authData?.user?.role_id ?? undefined;
+    }
+
+    if (typeof userRole === 'string') {
+      userRole = userRole.toUpperCase();
+    }
+
+    // Map known numeric role ids to role codes for robust handling
+    const numericRoleMap: Record<string, string> = {
+      '14': 'ADMIN',
+      '7': 'ZS',
+      '2': 'ZS', // backend sometimes uses 2 for ZS role_id in JWT payloads
+      // add other mappings as needed
+    };
+    if (userRole && /^[0-9]+$/.test(String(userRole))) {
+      const mapped = numericRoleMap[String(userRole)];
+      if (mapped) userRole = mapped;
     }
 
     console.log('Extracted authentication status:', isAuthenticated, 'userRole:', userRole);
@@ -158,7 +140,7 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 // Helper function to check if route requires authentication
 function isRouteProtected(pathname: string): boolean {
   return protectedRoutes.some(route => pathname.startsWith(route)) ||
-         adminRoutes.some(route => pathname.startsWith(route));
+    adminRoutes.some(route => pathname.startsWith(route));
 }
 
 // Helper function to check if user has role-based access
@@ -173,19 +155,41 @@ function hasRoleAccess(pathname: string, userRole: string | undefined): boolean 
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
+
   // Skip middleware for static files and API routes
-  if (pathname.startsWith('/_next') || 
-      pathname.startsWith('/api') || 
-      pathname.includes('.') ||
-      pathname === '/favicon.ico') {
+  if (pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.includes('.') ||
+    pathname === '/favicon.ico') {
     return NextResponse.next();
   }
-  
+
   // Get and parse auth cookie
   const authCookie = request.cookies.get('auth')?.value;
-  const { isAuthenticated, userRole } = parseAuthCookie(authCookie);
-  
+  let { isAuthenticated, userRole } = parseAuthCookie(authCookie);
+
+  // Fallback: check standalone role cookie if role still missing
+  if (!userRole) {
+    const roleCookie = request.cookies.get('role')?.value;
+    if (roleCookie) {
+      userRole = roleCookie.toUpperCase();
+    }
+  }
+
+  // Fallback: attempt to parse user cookie if present
+  if (!userRole) {
+    const userCookieRaw = request.cookies.get('user')?.value;
+    if (userCookieRaw) {
+      try {
+        const parsedUser = JSON.parse(userCookieRaw);
+        const flattenedRole = parsedUser?.role?.code || parsedUser?.roleCode || parsedUser?.role_id || parsedUser?.role || null;
+        if (flattenedRole) userRole = String(flattenedRole).toUpperCase();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   // Handle public routes
   if (publicRoutes.some(route => pathname.startsWith(route))) {
     // If authenticated user tries to access login page, redirect to role-based path
@@ -202,7 +206,7 @@ export function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
-  
+
   // Handle admin routes (separate admin authentication - for future implementation)
   if (adminRoutes.some(route => pathname.startsWith(route))) {
     if (!isAuthenticated) {
@@ -213,13 +217,13 @@ export function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
-  
+
   // Handle admin login route
   if (pathname === '/admin/login') {
     // Always allow access to admin login page (separate from regular login)
     return NextResponse.next();
   }
-  
+
   // Handle protected routes
   if (isRouteProtected(pathname)) {
     // Check authentication
@@ -227,7 +231,7 @@ export function middleware(request: NextRequest) {
       console.log('User not authenticated, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    
+
     // Check if user has a valid role
     if (!userRole) {
       console.warn('User authenticated but no role found, redirecting to login for re-authentication');
@@ -235,23 +239,23 @@ export function middleware(request: NextRequest) {
       loginUrl.searchParams.set('error', 'no_role');
       return NextResponse.redirect(loginUrl);
     }
-    
+
     // Check role-based access
     if (!hasRoleAccess(pathname, userRole)) {
       console.log('User does not have access to this route, redirecting to home');
       return NextResponse.redirect(new URL('/', request.url));
     }
-    
+
     return NextResponse.next();
   }
-  
+
   // For root path, check authentication and redirect accordingly
   if (pathname === '/') {
     if (!isAuthenticated) {
       console.log('Root path accessed by unauthenticated user, redirecting to login');
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    
+
     // Check if user has a valid role
     if (!userRole) {
       console.warn('Root path accessed by authenticated user with no role, redirecting to login');
@@ -259,11 +263,11 @@ export function middleware(request: NextRequest) {
       loginUrl.searchParams.set('error', 'no_role');
       return NextResponse.redirect(loginUrl);
     }
-    
+
     // Allow root path access - role-based redirection will be handled by the component
     return NextResponse.next();
   }
-  
+
   return NextResponse.next();
 }
 
