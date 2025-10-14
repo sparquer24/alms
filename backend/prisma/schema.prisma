@@ -183,42 +183,42 @@ model ActionHistories {
 }
 
 model FreshLicenseApplicationPersonalDetails {
-  id                      Int                             @id @default(autoincrement())
-  acknowledgementNo       String?                        
-  firstName               String
-  middleName              String?
-  lastName                String
-  parentOrSpouseName      String
-  sex                     Sex
-  placeOfBirth            String?
-  dateOfBirth             DateTime?
-  dobInWords              String?
-  panNumber               String?                        
-  aadharNumber            String?                         
-  createdAt               DateTime                        @default(now())
-  updatedAt               DateTime                        @default(now()) @updatedAt
-  filledBy                String?
-  isDeclarationAccepted   Boolean?                        @default(false)
-  isAwareOfLegalConsequences Boolean?                   @default(false)
-  isTermsAccepted       Boolean?                         @default(false)
-  isSubmit           Boolean?                          @default(false)
-  occupationAndBusinessId Int?
-  permanentAddressId      Int?
-  presentAddressId        Int?
-  currentUserId           Int?
-  previousUserId          Int?
-  workflowStatusId        Int?
-  biometricData           FLAFBiometricDatas?
-  criminalHistories       FLAFCriminalHistories[]
-  fileUploads             FLAFFileUploads[]
-  licenseDetails          FLAFLicenseDetails[]
-  licenseHistories        FLAFLicenseHistories[]
-  currentUser             Users?                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id])
-  occupationAndBusiness   FLAFOccupationAndBusiness?      @relation(fields: [occupationAndBusinessId], references: [id])
-  permanentAddress        FLAFAddressesAndContactDetails? @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
-  presentAddress          FLAFAddressesAndContactDetails? @relation("PresentAddress", fields: [presentAddressId], references: [id])
-  previousUser            Users?                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id])
-  workflowStatus          Statuses?                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id])
+  id                         Int                             @id @default(autoincrement())
+  acknowledgementNo          String?
+  firstName                  String
+  middleName                 String?
+  lastName                   String
+  parentOrSpouseName         String
+  sex                        Sex
+  placeOfBirth               String?
+  dateOfBirth                DateTime?
+  dobInWords                 String?
+  panNumber                  String?
+  aadharNumber               String?
+  createdAt                  DateTime                        @default(now())
+  updatedAt                  DateTime                        @default(now()) @updatedAt
+  filledBy                   String?
+  occupationAndBusinessId    Int?
+  permanentAddressId         Int?
+  presentAddressId           Int?
+  currentUserId              Int?
+  previousUserId             Int?
+  workflowStatusId           Int?
+  isAwareOfLegalConsequences Boolean?                        @default(false)
+  isDeclarationAccepted      Boolean?                        @default(false)
+  isTermsAccepted            Boolean?                        @default(false)
+  isSubmit                   Boolean?                        @default(false)
+  biometricData              FLAFBiometricDatas?             @relation("BiometricData")
+  criminalHistories          FLAFCriminalHistories[]         @relation("CriminalHistories")
+  fileUploads                FLAFFileUploads[]               @relation("FileUploads")
+  licenseDetails             FLAFLicenseDetails[]            @relation("LicenseDetails")
+  licenseHistories           FLAFLicenseHistories[]          @relation("LicenseHistories")
+  currentUser                Users?                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id])
+  occupationAndBusiness      FLAFOccupationAndBusiness?      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id])
+  permanentAddress           FLAFAddressesAndContactDetails? @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
+  presentAddress             FLAFAddressesAndContactDetails? @relation("PresentAddress", fields: [presentAddressId], references: [id])
+  previousUser               Users?                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id])
+  workflowStatus             Statuses?                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id])
 
   @@index([aadharNumber])
 }
@@ -255,14 +255,13 @@ model FLAFOccupationAndBusiness {
   areaUnderCultivation Float?
   district             Districts                                @relation(fields: [districtId], references: [id])
   state                States                                   @relation(fields: [stateId], references: [id])
-  applications         FreshLicenseApplicationPersonalDetails[]
+  applications         FreshLicenseApplicationPersonalDetails[] @relation("occupationAndBusinessId")
 }
 
 model FLAFCriminalHistories {
   id                Int                                    @id @default(autoincrement())
   applicationId     Int
   isConvicted       Boolean                                @default(false)
-  firDetails        Json?
   isBondExecuted    Boolean                                @default(false)
   bondDate          DateTime?
   bondPeriod        String?
@@ -271,7 +270,8 @@ model FLAFCriminalHistories {
   prohibitionPeriod String?
   createdAt         DateTime                               @default(now())
   updatedAt         DateTime                               @updatedAt
-  application       FreshLicenseApplicationPersonalDetails @relation(fields: [applicationId], references: [id])
+  firDetails        Json?
+  application       FreshLicenseApplicationPersonalDetails @relation("CriminalHistories", fields: [applicationId], references: [id])
 }
 
 model FLAFLicenseHistories {
@@ -294,7 +294,7 @@ model FLAFLicenseHistories {
   trainingDetails         String?
   createdAt               DateTime                               @default(now())
   updatedAt               DateTime                               @updatedAt
-  application             FreshLicenseApplicationPersonalDetails @relation(fields: [applicationId], references: [id])
+  application             FreshLicenseApplicationPersonalDetails @relation("LicenseHistories", fields: [applicationId], references: [id])
 }
 
 model FLAFLicenseDetails {
@@ -309,7 +309,7 @@ model FLAFLicenseDetails {
   wildBeastsSpecification    String?
   createdAt                  DateTime                               @default(now())
   updatedAt                  DateTime                               @updatedAt
-  application                FreshLicenseApplicationPersonalDetails @relation(fields: [applicationId], references: [id])
+  application                FreshLicenseApplicationPersonalDetails @relation("LicenseDetails", fields: [applicationId], references: [id])
   requestedWeapons           WeaponTypeMaster[]                     @relation("RequestedWeapons")
 }
 
@@ -321,7 +321,7 @@ model FLAFFileUploads {
   uploadedAt    DateTime                               @default(now())
   fileName      String
   fileSize      Int
-  application   FreshLicenseApplicationPersonalDetails @relation(fields: [applicationId], references: [id])
+  application   FreshLicenseApplicationPersonalDetails @relation("FileUploads", fields: [applicationId], references: [id])
 }
 
 model FLAFBiometricDatas {
@@ -330,7 +330,7 @@ model FLAFBiometricDatas {
   irisScanImageUrl  String?
   photoImageUrl     String?
   applicationId     Int                                    @unique
-  application       FreshLicenseApplicationPersonalDetails @relation(fields: [applicationId], references: [id])
+  application       FreshLicenseApplicationPersonalDetails @relation("BiometricData", fields: [applicationId], references: [id])
 }
 
 model FreshLicenseApplicationsFormWorkflowHistories {
