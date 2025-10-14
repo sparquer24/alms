@@ -32,13 +32,33 @@ const extractErrorMessage = (error: any): string => {
 };
 
 
+// Enhanced function to extract token from cookies with multiple fallback strategies
+const getTokenFromCookie = (): string | null => {
+  try {
+    const authCookie = jsCookie.get('auth');
+    if (!authCookie) return null;
+
+    // Try to parse as JSON first (in case it's a complex object)
+    try {
+      const parsed = JSON.parse(authCookie);
+      return parsed.token || parsed.accessToken || parsed.authToken || authCookie;
+    } catch (e) {
+      // If parsing fails, treat as raw token string
+      return authCookie;
+    }
+  } catch (e) {
+    console.warn('Failed to read auth cookie:', e);
+    return null;
+  }
+};
+
 // Function to update Authorization header
 export const setAuthToken = (token: any) => {
   // Accept either a raw token string or an object that contains a token property
   let raw: any = token;
   try {
     if (token && typeof token === 'object') {
-      raw = token.token ?? token.accessToken ?? token;
+      raw = token.token ?? token.accessToken ?? token.authToken ?? token;
     }
   } catch (e) {
     raw = token;
@@ -46,38 +66,87 @@ export const setAuthToken = (token: any) => {
 
   if (raw) {
     axiosInstance.defaults.headers['Authorization'] = `Bearer ${raw}`;
+    console.log('🔑 Authorization header set successfully');
   } else {
     // Remove header when no token provided
     delete axiosInstance.defaults.headers['Authorization'];
+    console.log('🔑 Authorization header removed');
+  }
+};
+
+// Helper function to ensure token is attached before making any request
+const ensureAuthToken = () => {
+  if (!axiosInstance.defaults.headers['Authorization']) {
+    const token = getTokenFromCookie();
+    if (token) {
+      setAuthToken(token);
+      console.log('🔑 Token automatically retrieved from cookie');
+    } else {
+      console.warn('⚠️ No authentication token found in cookies');
+    }
   }
 };
 
 // Initialize axios instance Authorization header from cookie (if present)
 try {
-  const existing = jsCookie.get('auth');
-  if (existing) {
-    setAuthToken(existing);
+  const token = getTokenFromCookie();
+  if (token) {
+    setAuthToken(token);
+    console.log('🔑 Initial token loaded from cookie on module import');
   }
 } catch (e) {
-  // ignore cookie read errors
+  console.warn('Failed to initialize token from cookie:', e);
 }
+
+// Request interceptor to ensure token is always attached
+axiosInstance.interceptors.request.use(
+  (config) => {
+    // Double-check that auth header is present before each request
+    if (!config.headers['Authorization']) {
+      const token = getTokenFromCookie();
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+        console.log('🔑 Token injected via interceptor for:', config.url);
+      }
+    }
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to handle auth errors globally
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 && typeof window !== 'undefined') {
+      console.error('🔒 Authentication failed - redirecting to login');
+      try {
+        jsCookie.remove('auth');
+        jsCookie.remove('user');
+        jsCookie.remove('role');
+      } catch (e) {
+        // ignore cookie cleanup errors
+      }
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 
 // GET request function
 export const fetchData = async (url: string, params = {}) => {
   try {
-    // Ensure Authorization header exists (support code paths that call fetchData directly)
-    try {
-      if (!axiosInstance.defaults.headers['Authorization']) {
-        const existing = jsCookie.get('auth');
-        if (existing) {
-          setAuthToken(existing);
-        }
-      }
-    } catch (e) {
-      // ignore cookie read errors
-    }
+    // Ensure Authorization header exists
+    ensureAuthToken();
+    
+    console.log('🌐 Making GET request to:', url, 'with params:', params);
     const response = await axiosInstance.get(url, { params });
+    console.log('✅ GET response received:', response.status);
     return response.data;
   } catch (error) {
     const err: any = error;
@@ -106,18 +175,12 @@ export const fetchData = async (url: string, params = {}) => {
 // POST request function
 export const postData = async (url: string, data: any, options = {}) => {
   try {
-    // Ensure Authorization header exists (support code paths that call postData directly)
-    try {
-      if (!axiosInstance.defaults.headers['Authorization']) {
-        const existing = jsCookie.get('auth');
-        if (existing) {
-          setAuthToken(existing);
-        }
-      }
-    } catch (e) {
-      // ignore cookie read errors
-    }
+    // Ensure Authorization header exists
+    ensureAuthToken();
+    
+    console.log('🌐 Making POST request to:', url, 'with data:', data);
     const response = await axiosInstance.post(url, data, options);
+    console.log('✅ POST response received:', response.status);
     return response.data;
   } catch (error) {
     const err: any = error;
@@ -139,7 +202,12 @@ export const postData = async (url: string, data: any, options = {}) => {
 // PUT request function
 export const putData = async (url: string, data: any, options = {}) => {
   try {
+    // Ensure Authorization header exists
+    ensureAuthToken();
+    
+    console.log('🌐 Making PUT request to:', url, 'with data:', data);
     const response = await axiosInstance.put(url, data, options);
+    console.log('✅ PUT response received:', response.status);
     return response.data;
   } catch (error) {
     const err: any = error;
@@ -161,24 +229,16 @@ export const putData = async (url: string, data: any, options = {}) => {
 // PATCH request function
 export const patchData = async (url: string, data: any, options = {}) => {
   try {
-    // Ensure Authorization header exists (support code paths that call patchData directly)
+    // Ensure Authorization header exists
+    ensureAuthToken();
+    
     console.log('🔥 PATCH REQUEST - URL:', url);
     console.log('🔥 PATCH REQUEST - Data:', data);
     console.log('🔥 PATCH REQUEST - Full URL:', process.env.NEXT_PUBLIC_API_URL + url);
-
-    try {
-      if (!axiosInstance.defaults.headers['Authorization']) {
-        const existing = jsCookie.get('auth');
-        if (existing) {
-          setAuthToken(existing);
-        }
-      }
-    } catch (e) {
-      // ignore cookie read errors
-    }
+    console.log('🔑 PATCH REQUEST - Auth Header:', axiosInstance.defaults.headers['Authorization'] ? 'Present' : 'Missing');
 
     const response = await axiosInstance.patch(url, data, options);
-    console.log('✅ PATCH RESPONSE:', response.data);
+    console.log('✅ PATCH RESPONSE:', response.status, response.data);
     return response.data;
   } catch (error) {
     const err: any = error;
@@ -201,7 +261,12 @@ export const patchData = async (url: string, data: any, options = {}) => {
 // DELETE request function
 export const deleteData = async (url: string, options = {}) => {
   try {
+    // Ensure Authorization header exists
+    ensureAuthToken();
+    
+    console.log('🌐 Making DELETE request to:', url);
     const response = await axiosInstance.delete(url, options);
+    console.log('✅ DELETE response received:', response.status);
     return response.data;
   } catch (error) {
     const err: any = error;
@@ -218,6 +283,23 @@ export const deleteData = async (url: string, options = {}) => {
     }
     throw new Error(message);
   }
+};
+
+// Debug function to check current token status
+export const debugTokenStatus = () => {
+  const cookieToken = getTokenFromCookie();
+  const axiosToken = axiosInstance.defaults.headers['Authorization'];
+  
+  console.log('🔍 TOKEN DEBUG STATUS:');
+  console.log('  📁 Cookie token:', cookieToken ? `${cookieToken.substring(0, 20)}...` : 'Not found');
+  console.log('  🔧 Axios header:', axiosToken ? 'Present' : 'Missing');
+  console.log('  🌐 Base URL:', process.env.NEXT_PUBLIC_API_URL);
+  
+  return {
+    cookieToken: !!cookieToken,
+    axiosHeader: !!axiosToken,
+    baseUrl: process.env.NEXT_PUBLIC_API_URL
+  };
 };
 
 export default axiosInstance;

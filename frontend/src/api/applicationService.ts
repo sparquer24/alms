@@ -1,4 +1,4 @@
-import { postData, patchData, fetchData, putData } from './axiosConfig';
+import { postData, patchData, fetchData, putData, debugTokenStatus } from './axiosConfig';
 
 export interface ApplicationFormData {
   // Personal Information Fields
@@ -75,6 +75,31 @@ export interface ApplicationFormData {
 
 export class ApplicationService {
   /**
+   * Debug function to test if application exists and check API connectivity
+   * @param applicantId - The application ID to test
+   */
+  static async debugApplicationStatus(applicantId: string) {
+    console.log('🔍 DEBUGGING APPLICATION STATUS FOR ID:', applicantId);
+    
+    try {
+      // Test GET first to see if application exists
+      console.log('1️⃣ Testing GET endpoint...');
+      const getResult = await this.getApplication(applicantId);
+      console.log('✅ GET successful - Application exists:', getResult);
+      return { exists: true, data: getResult };
+    } catch (error: any) {
+      console.log('❌ GET failed:', error.message);
+      
+      if (error.message.includes('404') || error.message.includes('Not Found')) {
+        console.log('📝 Application does not exist - need to create it first');
+        return { exists: false, error: 'Application not found' };
+      }
+      
+      return { exists: false, error: error.message };
+    }
+  }
+
+  /**
    * Create new application (POST) - Only for Personal Information
    * @param personalData - Personal information data
    * @returns Response with applicationId
@@ -119,16 +144,44 @@ export class ApplicationService {
     formData: Partial<ApplicationFormData>,
     section: 'personal' | 'address' | 'occupation' | 'criminal' | 'license-history' | 'license-details'
   ) {
-    const payload = this.preparePayload(formData, section);
+    try {
+      const payload = this.preparePayload(formData, section);
 
-    const cleanPayload = Object.fromEntries(
-      Object.entries(payload).filter(([_, value]) => value !== undefined)
-    );
+      const cleanPayload = Object.fromEntries(
+        Object.entries(payload).filter(([_, value]) => value !== undefined)
+      );
 
-    const url = `/application-form/${applicantId}`;
-    console.log(`🟡 Updating application (PATCH) - URL: ${url}, Section: ${section}, ID: ${applicantId}`, cleanPayload);
+      const url = `/application-form?applicationId=${applicantId}`;
+      console.log(`🟡======= Updating application (PATCH) - URL: ${url}, Section: ${section}, ID: ${applicantId}`);
+      console.log(`🟡======= PATCH Payload:`, JSON.stringify(cleanPayload, null, 2));
 
-    return await patchData(url, cleanPayload);
+      return await patchData(url, cleanPayload);
+    } catch (error: any) {
+      console.error('❌ PATCH failed:', error);
+      
+      // If 404, the application doesn't exist
+      if (error.message.includes('404') || error.message.includes('Not Found')) {
+        console.log('📝 Application not found, checking if we can create it...');
+        
+        // For personal section, we can create a new application
+        if (section === 'personal') {
+          console.log('🔄 Creating new application since personal data was provided...');
+          try {
+            const createResult = await this.createApplication(formData);
+            console.log('✅ New application created:', createResult);
+            return createResult;
+          } catch (createError: any) {
+            console.error('❌ Failed to create new application:', createError);
+            throw new Error(`Cannot update application ${applicantId}: Application not found and creation failed - ${createError.message}`);
+          }
+        } else {
+          throw new Error(`Cannot update application ${applicantId}: Application not found. Please create the application with personal details first.`);
+        }
+      }
+      
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
@@ -207,6 +260,40 @@ export class ApplicationService {
       default:
         return applicationData;
     }
+  }
+
+  /**
+   * Complete debugging utility - call this to diagnose all issues
+   * @param applicantId - The application ID to debug
+   */
+  static async completeDebugCheck(applicantId: string) {
+    console.log('🚀 COMPLETE DEBUG CHECK STARTING...');
+    console.log('='.repeat(50));
+    
+    // 1. Check token status
+    console.log('1️⃣ Checking authentication...');
+    const tokenStatus = debugTokenStatus();
+    
+    // 2. Test if application exists
+    console.log('2️⃣ Checking application existence...');
+    const appStatus = await this.debugApplicationStatus(applicantId);
+    
+    // 3. Summary
+    console.log('3️⃣ SUMMARY:');
+    console.log('   🔑 Token:', tokenStatus.cookieToken ? 'OK' : '❌ MISSING');
+    console.log('   📄 Application:', appStatus.exists ? 'EXISTS' : '❌ NOT FOUND');
+    console.log('   🌐 Base URL:', tokenStatus.baseUrl);
+    
+    if (!tokenStatus.cookieToken) {
+      console.error('🚨 SOLUTION: Please log in first to get authentication token');
+    }
+    
+    if (!appStatus.exists) {
+      console.error('🚨 SOLUTION: Application does not exist. Create it first with personal details, or use a valid application ID');
+    }
+    
+    console.log('='.repeat(50));
+    return { tokenStatus, appStatus };
   }
 
   /**
