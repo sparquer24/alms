@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
@@ -446,6 +446,57 @@ export class ApplicationFormController {
       );
     }
   }
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete file record for application',
+    description: 'Delete a specific file record associated with an application. This does not delete the actual file from storage.'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Uploaded file ID to delete',
+    example: '1'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'File record deleted successfully',
+    
+  })
+  async deleteFileRecord(@Param('id') id: string) {
+    try {
+      const fileIdNum = parseInt(id, 10);
+      if (isNaN(fileIdNum)) {
+        throw new HttpException(
+          { success: false, error: 'Invalid file ID format' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const [error, result] = await this.applicationFormService.deleteApplicationId(fileIdNum);
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        const errorDetails = typeof error === 'object' ? error : {};
+        throw new HttpException(
+          { success: false, error: errorMessage, details: errorDetails },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      return {
+        success: true,
+        message: 'File record deleted successfully',
+        data: result
+      };
+    } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      const errorMessage = err?.message || err;
+      const errorDetails = err;
+      throw new HttpException(
+        { success: false, error: errorMessage, details: errorDetails },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
 
 
   @Get()

@@ -101,12 +101,13 @@ export class ActionesService {
 
      return await prisma.rolesActionsMapping.update({
       where: {id},
-      data,
-      //  roleId: data.roleId,
-      //   actionId: data.actionId,
-      //   isActive: data.isActive,
-      //   updatedAt: new Date(),
-      });
+      data: {
+        roleId: data.roleId,
+        actionId: data.actionId,
+        isActive: data.isActive,
+        updatedAt: new Date(),
+      }
+    });
   }
 async deleteActionMapping(id: number): Promise<RolesActionsMapping> {
     const mapping = await prisma.rolesActionsMapping.findUnique({
