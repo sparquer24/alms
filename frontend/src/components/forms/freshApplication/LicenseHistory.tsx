@@ -29,6 +29,9 @@ const LicenseHistory = () => {
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
+	
+	// Add flag to prevent backend data from overwriting fresh form data
+	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
 
 	const router = useRouter();
 	
@@ -52,13 +55,75 @@ const LicenseHistory = () => {
 
 	// Load existing data into local state when form data changes
 	useEffect(() => {
-		if (form.licenseHistories && form.licenseHistories.length > 0) {
-			// Parse license histories from backend format
-			const histories = form.licenseHistories;
-			console.log('Loaded license histories:', histories);
-			// TODO: Map backend data to local state format
+		// Skip loading if we're currently updating the form to prevent overwriting
+		if (isUpdatingForm) {
+			console.log('🚫 Skipping backend data load - form update in progress');
+			return;
 		}
-	}, [form.licenseHistories]);
+		
+		if (form.licenseHistories && form.licenseHistories.length > 0) {
+			const history = form.licenseHistories[0]; // Get the first license history record
+			console.log('🔍 Loading license history from backend:', history);
+			
+			// Map backend data to local state
+			if (history.hasAppliedBefore !== undefined) {
+				setAppliedBefore(history.hasAppliedBefore ? 'yes' : 'no');
+				
+				if (history.hasAppliedBefore && (history.dateAppliedFor || history.previousAuthorityName || history.previousResult)) {
+					setAppliedDetails({
+						date: history.dateAppliedFor ? history.dateAppliedFor.split('T')[0] : '',
+						authority: history.previousAuthorityName || '',
+						result: history.previousResult?.toLowerCase() || ''
+					});
+				}
+			}
+			
+			if (history.hasLicenceSuspended !== undefined) {
+				setSuspended(history.hasLicenceSuspended ? 'yes' : 'no');
+				
+				if (history.hasLicenceSuspended && (history.suspensionAuthorityName || history.suspensionReason)) {
+					setSuspendedDetails({
+						authority: history.suspensionAuthorityName || '',
+						reason: history.suspensionReason || ''
+					});
+				}
+			}
+			
+			if (history.hasFamilyLicence !== undefined) {
+				setFamily(history.hasFamilyLicence ? 'yes' : 'no');
+				
+				if (history.hasFamilyLicence && (history.familyMemberName || history.familyLicenceNumber || history.familyWeaponsEndorsed)) {
+					// Map weapon names back to IDs
+					const weaponIds = (history.familyWeaponsEndorsed || []).map((weaponName: string) => {
+						const weapon = weapons.find(w => w.name === weaponName);
+						return weapon ? weapon.id : 0;
+					}).filter((id: number) => id !== 0);
+					
+					setFamilyDetails([{
+						name: history.familyMemberName || '',
+						licenseNumber: history.familyLicenceNumber || '',
+						weapons: weaponIds.length > 0 ? weaponIds : [0]
+					}]);
+				}
+			}
+			
+			if (history.hasSafePlace !== undefined) {
+				setSafePlace(history.hasSafePlace ? 'yes' : 'no');
+				if (history.hasSafePlace && history.safePlaceDetails) {
+					setSafePlaceDetails(history.safePlaceDetails);
+				}
+			}
+			
+			if (history.hasTraining !== undefined) {
+				setTraining(history.hasTraining ? 'yes' : 'no');
+				if (history.hasTraining && history.trainingDetails) {
+					setTrainingDetails(history.trainingDetails);
+				}
+			}
+			
+			console.log('✅ Loaded license history data successfully');
+		}
+	}, [form.licenseHistories, weapons, isUpdatingForm]); // Include isUpdatingForm in dependency array
 
 	// Fetch weapons on component mount
 	useEffect(() => {
@@ -144,45 +209,136 @@ const LicenseHistory = () => {
 	}
 
 	const transformFormData = () => {
-		// Transform to new API format matching the payload structure
+		// Transform to new API format matching the exact backend payload structure
 		return [{
 			hasAppliedBefore: appliedBefore === 'yes',
-			applicationDetails: appliedBefore === 'yes' ? JSON.stringify(appliedDetails) : undefined,
+			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? new Date(appliedDetails.date).toISOString() : null,
+			previousAuthorityName: appliedBefore === 'yes' ? appliedDetails.authority || null : null,
+			previousResult: appliedBefore === 'yes' ? appliedDetails.result?.toUpperCase() || null : null,
 			hasLicenceSuspended: suspended === 'yes',
-			suspensionDetails: suspended === 'yes' ? JSON.stringify(suspendedDetails) : undefined,
+			suspensionAuthorityName: suspended === 'yes' ? suspendedDetails.authority || null : null,
+			suspensionReason: suspended === 'yes' ? suspendedDetails.reason || null : null,
 			hasFamilyLicence: family === 'yes',
-			familyLicenceDetails: family === 'yes' ? JSON.stringify(familyDetails) : undefined,
+			familyMemberName: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].name || null : null,
+			familyLicenceNumber: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].licenseNumber || null : null,
+			familyWeaponsEndorsed: family === 'yes' && familyDetails.length > 0 
+				? familyDetails[0].weapons
+					.filter(weaponId => weaponId !== 0) // Filter out unselected weapons
+					.map(weaponId => {
+						const weapon = weapons.find(w => w.id === weaponId);
+						return weapon ? weapon.name : null;
+					})
+					.filter(Boolean) // Remove null values
+				: [],
 			hasSafePlace: safePlace === 'yes',
-			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails : undefined,
+			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails || null : null,
 			hasTraining: training === 'yes',
-			trainingDetails: training === 'yes' ? trainingDetails : undefined,
+			trainingDetails: training === 'yes' ? trainingDetails || null : null,
 		}];
 	};
 
 	const handleSaveToDraft = async () => {
+		// Debug current state before transformation
+		console.log('🔵 License History - Current form state before transformation:', {
+			appliedBefore,
+			appliedDetails,
+			suspended,
+			suspendedDetails,
+			family,
+			familyDetails,
+			safePlace,
+			safePlaceDetails,
+			training,
+			trainingDetails,
+			weapons: weapons.length
+		});
+
 		// Transform local state to API format before saving
 		const licenseHistories = transformFormData();
-		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 License History Payload:', licenseHistories);
+		console.log('🟡 License History Payload:', JSON.stringify(licenseHistories, null, 2));
 		
-		await saveFormData();
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
+		
+		// Instead of using setForm which might get overridden, pass the data directly
+		console.log('💡 Bypassing form state, saving directly with correct data');
+		
+		// Create the form data structure that includes the license histories
+		const formDataToSave = {
+			...form,
+			licenseHistories
+		};
+		
+		// Add debugging to see what's in the form state right before save
+		console.log('🔍 Form state right before saveFormData:', {
+			licenseHistories,
+			fullFormState: formDataToSave
+		});
+		
+		// Also update the form state for UI consistency
+		setForm((prev: any) => ({ ...prev, licenseHistories }));
+		
+		// Pass the correct license histories directly to saveFormData to avoid timing issues
+		await saveFormData(undefined, formDataToSave);
+		
+		// Reset flag after a delay to allow for data loading
+		setTimeout(() => setIsUpdatingForm(false), 1000);
 	};
 
 	const handleNext = async () => {
+		// Debug current state before transformation
+		console.log('🔵 License History - Current form state before transformation:', {
+			appliedBefore,
+			appliedDetails,
+			suspended,
+			suspendedDetails,
+			family,
+			familyDetails,
+			safePlace,
+			safePlaceDetails,
+			training,
+			trainingDetails,
+			weapons: weapons.length
+		});
+
 		// Transform local state to API format before saving
 		const licenseHistories = transformFormData();
-		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 License History Payload:', licenseHistories);
+		console.log('🟡 License History Payload:', JSON.stringify(licenseHistories, null, 2));
 		
-		const savedApplicantId = await saveFormData();
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
+		
+		// Instead of using setForm which might get overridden, pass the data directly
+		console.log('💡 Bypassing form state, saving directly with correct data');
+		
+		// Create the form data structure that includes the license histories
+		const formDataToSave = {
+			...form,
+			licenseHistories
+		};
+		
+		// Add debugging to see what's in the form state right before save
+		console.log('🔍 Form state right before saveFormData:', {
+			licenseHistories,
+			fullFormState: formDataToSave
+		});
+		
+		// Also update the form state for UI consistency
+		setForm((prev: any) => ({ ...prev, licenseHistories }));
+		
+		// Pass the correct license histories directly to saveFormData to avoid timing issues
+		const savedApplicantId = await saveFormData(undefined, formDataToSave);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, savedApplicantId);
 		}
+		
+		// Reset flag after navigation
+		setTimeout(() => setIsUpdatingForm(false), 1000);
 	};
 
 	const handlePrevious = async () => {

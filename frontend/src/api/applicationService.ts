@@ -449,15 +449,20 @@ export class ApplicationService {
         const licenseHistoryPayload = {
           licenseHistories: (formData.licenseHistories || []).map((history: any) => ({
             hasAppliedBefore: history.hasAppliedBefore || false,
-            applicationDetails: history.applicationDetails || undefined,
+            dateAppliedFor: history.dateAppliedFor || null,
+            previousAuthorityName: history.previousAuthorityName || null,
+            previousResult: history.previousResult || null,
             hasLicenceSuspended: history.hasLicenceSuspended || false,
-            suspensionDetails: history.suspensionDetails || undefined,
+            suspensionAuthorityName: history.suspensionAuthorityName || null,
+            suspensionReason: history.suspensionReason || null,
             hasFamilyLicence: history.hasFamilyLicence || false,
-            familyLicenceDetails: history.familyLicenceDetails || undefined,
+            familyMemberName: history.familyMemberName || null,
+            familyLicenceNumber: history.familyLicenceNumber || null,
+            familyWeaponsEndorsed: history.familyWeaponsEndorsed || [],
             hasSafePlace: history.hasSafePlace || false,
-            safePlaceDetails: history.safePlaceDetails || undefined,
+            safePlaceDetails: history.safePlaceDetails || null,
             hasTraining: history.hasTraining || false,
-            trainingDetails: history.trainingDetails || undefined,
+            trainingDetails: history.trainingDetails || null,
           })),
         };
         console.log('🟢 Final license history payload:', licenseHistoryPayload);
