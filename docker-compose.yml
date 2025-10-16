@@ -2,6 +2,8 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: alms-postgres
+    env_file:
+      - .env
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
