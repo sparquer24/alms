@@ -15,7 +15,7 @@ import Declaration from '../../../../components/forms/freshApplication/Declarati
 import { StepHeader } from '../../../../components/forms/elements/StepHeader';
 
 interface StepPageProps {
-	params: { step: string };
+	params: Promise<{ step: string }>;
 }
 
 
@@ -48,7 +48,7 @@ import { use } from 'react';
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	const router = useRouter();
 	// Unwrap params with React.use() for Next.js app router compliance
-	const { step } = params;
+	const { step } = use(params);
 	let StepComponent;
 	let currentStep = 0;
 

@@ -60,15 +60,14 @@ const Declaration = () => {
 			const payload = {
 				isDeclarationAccepted: form.declareTrue,
 				isAwareOfLegalConsequences: form.declareFalseInfo,
-				isTermsAccepted: form.declareTerms,
-				isSubmitted: true, // Mark application as submitted
+				isTermsAccepted: form.declareTerms
 			};
 
 			console.log('🔄 Submitting declaration with payload:', payload);
 
 			// Make PATCH request to update application
 			const response = await patchData(
-				`/application-form/${applicantId}`,
+				`/application-form?applicationId=${applicantId}&isSubmit=${true}`,
 				payload
 			);
 
