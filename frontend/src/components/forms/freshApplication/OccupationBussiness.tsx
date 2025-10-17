@@ -14,7 +14,7 @@ const initialState = {
 	officeState: '',
 	officeDistrict: '',
 	cropLocation: '',
-	cropArea: '',
+	areaUnderCultivation: '',
 };
 
 // Validation rules for occupation information
@@ -214,8 +214,8 @@ const OccupationBussiness: React.FC = () => {
 				/>
 				<Input
 					label="Area of land under cultivation"
-					name="cropArea"
-					value={form.cropArea}
+					name="areaUnderCultivation"
+					value={form.areaUnderCultivation}
 					onChange={handleChange}
 					placeholder="Enter area (in acres)"
 				/>
