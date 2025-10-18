@@ -10,8 +10,6 @@ import { FORM_ROUTES } from '../../../config/formRoutes';
 
 const initialState = {
 	claims: '',
-	place: '',
-	wildBeasts: '',
 };
 
 interface UploadedFile {
@@ -314,23 +312,6 @@ const DocumentsUpload = () => {
 						</div>
 					))}
 				</div>
-			</div>
-			<div className="mb-6">
-				<div className="font-medium mb-2">19. Details for an application for license in Form IV</div>
-				<Input
-					label="(a) Place or area for which the licence is sought"
-					name="place"
-					value={form.place}
-					onChange={handleChange}
-					placeholder="Enter place or area"
-				/>
-				<Input
-					label="(b) Specification of the wild beasts which are permitted to be destroyed as per the permit granted under the Wild life (Protection) Act, 1972 (53 of 1972) to the applicant"
-					name="wildBeasts"
-					value={form.wildBeasts}
-					onChange={handleChange}
-					placeholder="Enter specification"
-				/>
 			</div>
 			<FormFooter
 				onSaveToDraft={handleSaveToDraft}

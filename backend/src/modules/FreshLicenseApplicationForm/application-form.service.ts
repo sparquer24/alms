@@ -865,7 +865,11 @@ export class ApplicationFormService {
           biometricData: true,
           criminalHistories: true,
           licenseHistories: true,
-          licenseDetails: true,
+          licenseDetails: {
+            include: {
+              requestedWeapons: true,
+            }
+          },
           fileUploads: true,
         },
       });

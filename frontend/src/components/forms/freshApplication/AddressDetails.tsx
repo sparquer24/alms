@@ -25,10 +25,10 @@ const initialState: AddressFormData = {
 	permanentZone: '',
 	permanentDivision: '',
 	permanentPoliceStation: '',
-	telOffice: '',
-	telResidence: '',
-	mobOffice: '',
-	mobAlternative: '',
+	telephoneOffice: '',
+	telephoneResidence: '',
+	officeMobileNumber: '',
+	alternativeMobile: '',
 };
 
 // Validation rules for address information
@@ -233,29 +233,29 @@ const AddressDetails: React.FC = () => {
 			<div className="bg-blue-50 rounded-lg p-4 grid grid-cols-4 gap-4 mb-2 h-30">
 				<Input
 					label="Telephone Number\nOffice"
-					name="telOffice"
-					value={form.telOffice}
+					name="telephoneOffice"
+					value={form.telephoneOffice}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
 				<Input
 					label="Residence"
-					name="telResidence"
-					value={form.telResidence}
+					name="telephoneResidence"
+					value={form.telephoneResidence}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
 				<Input
 					label="Mobile Number\nOffice"
-					name="mobOffice"
-					value={form.mobOffice}
+					name="officeMobileNumber"
+					value={form.officeMobileNumber}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
 				<Input
 					label="Alternative Mobile Number"
-					name="mobAlternative"
-					value={form.mobAlternative}
+					name="alternativeMobile"
+					value={form.alternativeMobile}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>

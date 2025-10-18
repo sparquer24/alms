@@ -7,6 +7,7 @@ import { WeaponsService, Weapon } from '../../../services/weapons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import FileUploadService from '../../../services/fileUploadService';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] }; // Use weapon IDs instead of strings
 
@@ -17,8 +18,11 @@ const initialState = {
 const LicenseHistory = () => {
 	const [appliedBefore, setAppliedBefore] = useState('no');
 	const [appliedDetails, setAppliedDetails] = useState({ date: '', authority: '', result: '' });
-	const [rejectedFile, setRejectedFile] = useState<File | null>(null);
+	const [rejectedFiles, setRejectedFiles] = useState<File[]>([]);
 	const [fileError, setFileError] = useState<string>('');
+	const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+	const [uploading, setUploading] = useState<boolean>(false);
+	const [uploadProgress, setUploadProgress] = useState<Record<string, boolean>>({});
 	const [suspended, setSuspended] = useState('no');
 	const [suspendedDetails, setSuspendedDetails] = useState({ authority: '', reason: '' });
 	const [family, setFamily] = useState('no');
@@ -154,14 +158,152 @@ const LicenseHistory = () => {
 		setAppliedDetails(prev => ({ ...prev, [name]: value }));
 	};
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const files = e.target.files;
 		setFileError('');
-		if (file && file.size > 5 * 1024 * 1024) {
-			setFileError('File size should not exceed 5MB');
+		
+		if (!files || files.length === 0) return;
+		
+		const newFiles: File[] = [];
+		const maxSize = 5 * 1024 * 1024; // 5MB
+		
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			
+			// Check file size
+			if (file.size > maxSize) {
+				setFileError(`File "${file.name}" exceeds 5MB size limit`);
+				return;
+			}
+			
+			// Validate file type
+			const validation = FileUploadService.validateFile(file);
+			if (!validation.isValid) {
+				setFileError(`File "${file.name}": ${validation.error}`);
+				return;
+			}
+			
+			// Check if file already exists
+			const isDuplicate = rejectedFiles.some(existingFile => 
+				existingFile.name === file.name && existingFile.size === file.size
+			);
+			
+			if (!isDuplicate) {
+				newFiles.push(file);
+			}
+		}
+		
+		if (newFiles.length > 0) {
+			// Add files to local state first
+			setRejectedFiles(prev => [...prev, ...newFiles]);
+			
+			// Upload files if applicationId is available
+			if (applicantId) {
+				await uploadFiles(newFiles);
+			}
+		}
+		
+		// Clear the input so the same file can be selected again if needed
+		e.target.value = '';
+	};
+
+	const uploadFiles = async (files: File[]) => {
+		if (!applicantId) {
+			console.log('📋 No application ID available yet, files will be uploaded after saving');
 			return;
 		}
-		setRejectedFile(file || null);
+
+		setUploading(true);
+		
+		try {
+			const uploadPromises = files.map(async (file) => {
+				const fileKey = `${file.name}_${file.size}`;
+				setUploadProgress(prev => ({ ...prev, [fileKey]: true }));
+				
+				try {
+					const result = await FileUploadService.uploadFileWithStorage(
+						Number(applicantId),
+						file,
+						'REJECTED_LICENSE', // Specific file type for rejected license documents
+					);
+					
+					console.log('✅ File uploaded successfully:', result);
+					setUploadProgress(prev => ({ ...prev, [fileKey]: false }));
+					return result;
+				} catch (error) {
+					console.error('❌ File upload failed:', error);
+					setUploadProgress(prev => ({ ...prev, [fileKey]: false }));
+					throw error;
+				}
+			});
+
+			const results = await Promise.allSettled(uploadPromises);
+			
+			const successful = results
+				.filter(result => result.status === 'fulfilled')
+				.map(result => (result as PromiseFulfilledResult<any>).value);
+			
+			const failed = results
+				.filter(result => result.status === 'rejected')
+				.map(result => (result as PromiseRejectedResult).reason);
+
+			if (successful.length > 0) {
+				setUploadedFiles(prev => [...prev, ...successful]);
+				console.log(`✅ Successfully uploaded ${successful.length} files`);
+				
+				// Show success message
+				setSubmitSuccess(`Successfully uploaded ${successful.length} file(s)`);
+				setTimeout(() => setSubmitSuccess(''), 3000);
+			}
+
+			if (failed.length > 0) {
+				console.error(`❌ Failed to upload ${failed.length} files:`, failed);
+				setFileError(`Failed to upload ${failed.length} file(s). Please try again.`);
+			}
+
+		} catch (error) {
+			console.error('❌ Upload process failed:', error);
+			setFileError('Failed to upload files. Please try again.');
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	// Retry upload for files that haven't been uploaded yet
+	const retryUploads = async () => {
+		if (!applicantId) {
+			setFileError('Please save your application data first');
+			return;
+		}
+
+		const pendingFiles = rejectedFiles.filter(file => 
+			!uploadedFiles.some(uploaded => uploaded.fileName === file.name)
+		);
+
+		if (pendingFiles.length > 0) {
+			await uploadFiles(pendingFiles);
+		}
+	};
+
+	const removeFile = (index: number) => {
+		const fileToRemove = rejectedFiles[index];
+		if (fileToRemove) {
+			// Remove from local files array
+			setRejectedFiles(prev => prev.filter((_, i) => i !== index));
+			
+			// Remove from uploaded files array if it was uploaded
+			setUploadedFiles(prev => prev.filter(uploaded => uploaded.fileName !== fileToRemove.name));
+			
+			// Clean up upload progress
+			const fileKey = `${fileToRemove.name}_${fileToRemove.size}`;
+			setUploadProgress(prev => {
+				const newProgress = { ...prev };
+				delete newProgress[fileKey];
+				return newProgress;
+			});
+		}
+		
+		setFileError('');
 	};
 
 	const handleSuspendedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -193,7 +335,6 @@ const LicenseHistory = () => {
 		));
 	};
 
-	const addFamily = () => setFamilyDetails(prev => [...prev, { ...initialFamily }]);
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
 
 	// Show loading state if data is being loaded
@@ -215,6 +356,11 @@ const LicenseHistory = () => {
 			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? new Date(appliedDetails.date).toISOString() : null,
 			previousAuthorityName: appliedBefore === 'yes' ? appliedDetails.authority || null : null,
 			previousResult: appliedBefore === 'yes' ? appliedDetails.result?.toUpperCase() || null : null,
+			rejectedLicenseFiles: appliedDetails.result === 'rejected' ? rejectedFiles.map(file => ({
+				name: file.name,
+				size: file.size,
+				type: file.type
+			})) : [],
 			hasLicenceSuspended: suspended === 'yes',
 			suspensionAuthorityName: suspended === 'yes' ? suspendedDetails.authority || null : null,
 			suspensionReason: suspended === 'yes' ? suspendedDetails.reason || null : null,
@@ -281,7 +427,19 @@ const LicenseHistory = () => {
 		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
 		// Pass the correct license histories directly to saveFormData to avoid timing issues
-		await saveFormData(undefined, formDataToSave);
+		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		
+		// If we have pending files and now have an application ID, upload them
+		if (savedApplicantId && rejectedFiles.length > 0) {
+			const pendingFiles = rejectedFiles.filter(file => 
+				!uploadedFiles.some(uploaded => uploaded.fileName === file.name)
+			);
+			
+			if (pendingFiles.length > 0) {
+				console.log(`📤 Uploading ${pendingFiles.length} pending files...`);
+				await uploadFiles(pendingFiles);
+			}
+		}
 		
 		// Reset flag after a delay to allow for data loading
 		setTimeout(() => setIsUpdatingForm(false), 1000);
@@ -332,6 +490,18 @@ const LicenseHistory = () => {
 		
 		// Pass the correct license histories directly to saveFormData to avoid timing issues
 		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		
+		// If we have pending files and now have an application ID, upload them before proceeding
+		if (savedApplicantId && rejectedFiles.length > 0) {
+			const pendingFiles = rejectedFiles.filter(file => 
+				!uploadedFiles.some(uploaded => uploaded.fileName === file.name)
+			);
+			
+			if (pendingFiles.length > 0) {
+				console.log(`📤 Uploading ${pendingFiles.length} pending files before navigation...`);
+				await uploadFiles(pendingFiles);
+			}
+		}
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, savedApplicantId);
@@ -413,10 +583,98 @@ const LicenseHistory = () => {
 						</div>
 						{appliedDetails.result === 'rejected' && (
 							<div className="col-span-2">
-								<label className="block text-sm font-medium text-gray-700 mb-1">Upload Rejection Document (Optional)</label>
-								<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} className="w-full p-2 border border-gray-300 rounded-md" />
-								{fileError && <div className="text-red-600 text-sm mt-1">{fileError}</div>}
-								{rejectedFile && <div className="text-green-600 text-sm mt-1">File selected: {rejectedFile.name}</div>}
+								<label className="block text-sm font-medium text-gray-700 mb-2">
+									Upload previously rejected license documents
+								</label>
+								
+								{/* Upload Button */}
+								<div className="mb-3">
+									<label className={`inline-flex items-center gap-2 px-4 py-2 rounded-md cursor-pointer transition-colors ${uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>
+										<span>📤</span>
+										<span>{uploading ? 'Uploading...' : 'Choose Files'}</span>
+										<input 
+											type="file" 
+											accept=".pdf,.jpg,.jpeg,.png" 
+											onChange={handleFileChange} 
+											className="hidden"
+											multiple
+											disabled={uploading}
+										/>
+									</label>
+									<span className="ml-3 text-sm text-gray-500">
+										Multiple files allowed (Max 5MB each)
+									</span>
+									{rejectedFiles.length > 0 && !applicantId && (
+										<div className="mt-2 text-sm text-orange-600">
+											⚠️ Files will be uploaded automatically once you save your application data
+										</div>
+									)}
+								</div>
+
+								{/* Error Message */}
+								{fileError && (
+									<div className="text-red-600 text-sm mb-3 p-2 bg-red-50 border border-red-200 rounded">
+										{fileError}
+									</div>
+								)}
+
+								{/* Uploaded Files List */}
+								{rejectedFiles.length > 0 && (
+									<div className="border border-gray-200 rounded-md">
+										<div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+											<span className="text-sm font-medium text-gray-700">
+												Selected Files ({rejectedFiles.length})
+												{uploading && <span className="ml-2 text-blue-600">Uploading...</span>}
+											</span>
+										</div>
+										<div className="divide-y divide-gray-200">
+											{rejectedFiles.map((file, index) => {
+												const fileKey = `${file.name}_${file.size}`;
+												const isUploading = uploadProgress[fileKey];
+												const uploadedFile = uploadedFiles.find(uploaded => uploaded.fileName === file.name);
+												
+												return (
+													<div key={index} className="flex items-center justify-between p-3">
+														<div className="flex items-center gap-3">
+															<span className={`text-lg ${uploadedFile ? 'text-green-500' : 'text-blue-500'}`}>
+																{uploadedFile ? '✅' : '📄'}
+															</span>
+															<div>
+																<div className="text-sm font-medium text-gray-900">
+																	{file.name}
+																	{isUploading && <span className="ml-2 text-xs text-blue-600">(Uploading...)</span>}
+																	{uploadedFile && <span className="ml-2 text-xs text-green-600">(Uploaded)</span>}
+																</div>
+																<div className="text-xs text-gray-500">
+																	{(file.size / 1024 / 1024).toFixed(2)} MB
+																	{uploadedFile && (
+																		<span className="ml-2 text-green-600">
+																			• File ID: {uploadedFile.id}
+																		</span>
+																	)}
+																</div>
+															</div>
+														</div>
+														<button
+															type="button"
+															onClick={() => removeFile(index)}
+															className="text-red-500 hover:text-red-700 transition-colors p-1"
+															title="Remove file"
+															disabled={isUploading}
+														>
+															<span className="text-lg">×</span>
+														</button>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+
+								{/* File Format Info */}
+								<div className="mt-2 text-xs text-gray-500">
+									Supported formats: PDF, JPG, JPEG, PNG
+								</div>
 							</div>
 						)}
 					</div>
@@ -504,8 +762,7 @@ const LicenseHistory = () => {
 								{fam.weapons.length > 1 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
 							</div>
 						))}
-						<button type="button" className="bg-blue-900 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={addFamily}>+ Add</button>
-						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2 ml-2" onClick={() => removeFamily(idx)}>- Remove</button>}
+						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={() => removeFamily(idx)}>- Remove</button>}
 					</div>
 				))}
 			</div>

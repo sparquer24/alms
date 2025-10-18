@@ -29,10 +29,10 @@ export interface ApplicationFormData {
   permanentZone?: string;
   permanentDivision?: string;
   permanentPoliceStation?: string;
-  telOffice?: string;
-  telResidence?: string;
-  mobOffice?: string;
-  mobAlternative?: string;
+  telephoneOffice?: string;
+  telephoneResidence?: string;
+  officeMobileNumber?: string;
+  alternativeMobile?: string;
 
   // Occupation Fields
   occupation?: string;
@@ -42,7 +42,6 @@ export interface ApplicationFormData {
   stateId?: string;
   districtId?: string;
   cropLocation?: string;
-  cropArea?: string;
   areaUnderCultivation?: string;
   employerName?: string;
   businessDetails?: string;
@@ -185,12 +184,19 @@ export class ApplicationService {
   }
 
   /**
-   * Get application data by ID
+   * Get application data by ID with optional isOwned parameter
    * @param applicantId - The application ID
+   * @param isOwned - Optional ownership parameter
    * @returns Application data
    */
-  static async getApplication(applicantId: string) {
-    const url = `/application-form?applicationId=${applicantId}`;
+  static async getApplication(applicantId: string, isOwned?: boolean) {
+    let url = `/application-form?applicationId=${applicantId}`;
+    
+    // Add isOwned parameter if provided
+    if (isOwned !== undefined) {
+      url += `&isOwned=${isOwned}`;
+    }
+    
     console.log('🟢 Fetching application (GET):', url);
     return await fetchData(url);
   }
@@ -227,10 +233,10 @@ export class ApplicationService {
           permanentDivision: permanentAddr.divisionId ? String(permanentAddr.divisionId) : '',
           permanentPoliceStation: permanentAddr.policeStationId ? String(permanentAddr.policeStationId) : '',
           // Contact details
-          telOffice: presentAddr.telephoneOffice || permanentAddr.telephoneOffice || '',
-          telResidence: presentAddr.telephoneResidence || permanentAddr.telephoneResidence || '',
-          mobOffice: presentAddr.officeMobileNumber || permanentAddr.officeMobileNumber || '',
-          mobAlternative: presentAddr.alternativeMobile || permanentAddr.alternativeMobile || '',
+          telephoneOffice: presentAddr.telephoneOffice || permanentAddr.telephoneOffice || '',
+          telephoneResidence: presentAddr.telephoneResidence || permanentAddr.telephoneResidence || '',
+          officeMobileNumber: presentAddr.officeMobileNumber || permanentAddr.officeMobileNumber || '',
+          alternativeMobile: presentAddr.alternativeMobile || permanentAddr.alternativeMobile || '',
           // Checkbox state
           sameAsPresent: false,
         };
@@ -243,7 +249,7 @@ export class ApplicationService {
           officeState: occupationData.stateId ? String(occupationData.stateId) : '',
           officeDistrict: occupationData.districtId ? String(occupationData.districtId) : '',
           cropLocation: occupationData.cropLocation || '',
-          cropArea: occupationData.areaUnderCultivation ? String(occupationData.areaUnderCultivation) : '',
+          areaUnderCultivation: occupationData.areaUnderCultivation ? String(occupationData.areaUnderCultivation) : '',
         };
         console.log('🟢 Extracted occupation form data:', extracted);
         return extracted;
@@ -256,7 +262,47 @@ export class ApplicationService {
           licenseHistories: applicationData.licenseHistories || [],
         };
       case 'license-details':
-        return applicationData.licenseDetails || {};
+        console.log('🟠 Extracting license details data:', applicationData.licenseDetails);
+        const licenseDetailsData = applicationData.licenseDetails || [];
+        
+        // Return in the new format that matches our form structure
+        if (licenseDetailsData.length > 0) {
+          // Transform backend data to match frontend form structure
+          const transformedLicenseDetails = licenseDetailsData.map((detail: any) => {
+            // Extract weapon IDs from requestedWeapons relationship
+            const requestedWeaponIds = detail.requestedWeapons 
+              ? detail.requestedWeapons.map((weapon: any) => weapon.id)
+              : [];
+            
+            console.log('🔄 Transforming license detail:', {
+              original: detail,
+              extractedWeaponIds: requestedWeaponIds
+            });
+            
+            return {
+              ...detail,
+              requestedWeaponIds // Override with extracted IDs
+            };
+          });
+          
+          return {
+            licenseDetails: transformedLicenseDetails
+          };
+        } else {
+          // Return default structure if no data exists
+          return {
+            licenseDetails: [{
+              needForLicense: '',
+              armsCategory: '',
+              requestedWeaponIds: [],
+              areaOfValidity: '',
+              ammunitionDescription: '',
+              specialConsiderationReason: '',
+              licencePlaceArea: '',
+              wildBeastsSpecification: ''
+            }]
+          };
+        }
       default:
         return applicationData;
     }
@@ -345,10 +391,10 @@ export class ApplicationService {
             divisionId: parseInt(formData.presentDivision || '0'),
             policeStationId: parseInt(formData.presentPoliceStation || '0'),
             sinceResiding: formattedPresentSince,
-            telephoneOffice: formData.telOffice || undefined,
-            telephoneResidence: formData.telResidence || undefined,
-            officeMobileNumber: formData.mobOffice || undefined,
-            alternativeMobile: formData.mobAlternative || undefined,
+            telephoneOffice: formData.telephoneOffice || undefined,
+            telephoneResidence: formData.telephoneResidence || undefined,
+            officeMobileNumber: formData.officeMobileNumber || undefined,
+            alternativeMobile: formData.alternativeMobile || undefined,
           },
           permanentAddress: {
             addressLine: formData.permanentAddress,
@@ -358,10 +404,10 @@ export class ApplicationService {
             divisionId: parseInt(formData.permanentDivision || '0'),
             policeStationId: parseInt(formData.permanentPoliceStation || '0'),
             sinceResiding: formData.presentSince ? new Date(formData.presentSince).toISOString() : undefined,
-            telephoneOffice: formData.telOffice || undefined,
-            telephoneResidence: formData.telResidence || undefined,
-            officeMobileNumber: formData.mobOffice || undefined,
-            alternativeMobile: formData.mobAlternative || undefined,
+            telephoneOffice: formData.telephoneOffice || undefined,
+            telephoneResidence: formData.telephoneResidence || undefined,
+            officeMobileNumber: formData.officeMobileNumber || undefined,
+            alternativeMobile: formData.alternativeMobile || undefined,
           },
         };
       case 'occupation':
@@ -372,7 +418,7 @@ export class ApplicationService {
             stateId: parseInt(formData.officeState || formData.stateId || '0'),
             districtId: parseInt(formData.officeDistrict || formData.districtId || '0'),
             cropLocation: formData.cropLocation || undefined,
-            areaUnderCultivation: (formData.cropArea || formData.areaUnderCultivation) ? parseFloat((formData.cropArea || formData.areaUnderCultivation) as string) : undefined,
+            areaUnderCultivation: formData.areaUnderCultivation ? parseFloat(formData.areaUnderCultivation) : undefined,
             employerName: formData.employerName || undefined,
             businessDetails: formData.businessDetails || undefined,
             annualIncome: formData.annualIncome || undefined,
@@ -469,6 +515,27 @@ export class ApplicationService {
         return licenseHistoryPayload;
       case 'license-details':
         console.log('🟠 Preparing license details payload from form data:', formData);
+        
+        // Check if form data is already in the correct format (new structure)
+        if (formData.licenseDetails && Array.isArray(formData.licenseDetails)) {
+          console.log('🔵 Using new licenseDetails structure directly');
+          
+          // Clean the license details to remove file-related fields that are handled separately
+          const cleanedLicenseDetails = formData.licenseDetails.map(detail => {
+            const { uploadedFiles, specialClaimsEvidence, ...cleanDetail } = detail;
+            console.log('🧹 Cleaned license detail (removed uploadedFiles, specialClaimsEvidence):', cleanDetail);
+            return cleanDetail;
+          });
+          
+          const licenseDetailsPayload = {
+            licenseDetails: cleanedLicenseDetails
+          };
+          console.log('🟢 Final license details payload:', licenseDetailsPayload);
+          return licenseDetailsPayload;
+        }
+        
+        // Fallback for old format (legacy support)
+        console.log('🟡 Converting from old format to new structure');
         const licenseDetailsPayload = {
           licenseDetails: [{
             needForLicense: formData.needForLicense || undefined,
@@ -488,6 +555,7 @@ export class ApplicationService {
         console.log('🟢 Final license details payload:', licenseDetailsPayload);
         return licenseDetailsPayload;
       default:
+        console.log('🟡 No specific transformation for section:', section);
         return formData;
     }
   }
