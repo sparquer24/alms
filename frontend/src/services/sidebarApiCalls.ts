@@ -43,7 +43,7 @@ export const STATUS_MAP = {
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
   groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
-  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
+  draft: statusIdMap.draft || [13]            // DRAFTS (alias for draft)
 };
 
 /**
