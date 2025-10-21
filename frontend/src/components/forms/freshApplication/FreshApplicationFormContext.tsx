@@ -11,6 +11,7 @@ export interface FreshApplicationFormData {
   licenseHistory: Record<string, any>;
   biometricInformation: Record<string, any>;
   documentsUpload: Record<string, any>;
+  
 }
 
 const defaultFormData: FreshApplicationFormData = {

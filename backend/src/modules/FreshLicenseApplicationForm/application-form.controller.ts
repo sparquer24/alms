@@ -54,15 +54,21 @@ export class ApplicationFormController {
     }
   }
 
-  @Patch(':applicationId')
+  @Patch()
   @ApiOperation({ 
     summary: 'Update Application Details', 
     description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
   })
-  @ApiParam({
+  @ApiQuery({
     name: 'applicationId',
     description: 'Application ID',
     example: '123'
+  })
+    @ApiQuery({
+    name: 'isSubmit',
+    description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
+    example: false,
+    required: false,
   })
   @ApiBody({
     type: PatchApplicationDetailsDto,
@@ -97,10 +103,12 @@ export class ApplicationFormController {
           }
         }
       },
-      'Status Updates': {
-        summary: 'Update application workflow status',
+      'Submit the application': {
+        summary: '',
         value: {
-          workflowStatusId: 2
+          isDeclarationAccepted: true,
+          isAwareOfLegalConsequences: true,
+          isTermsAccepted: true
         }
       },
       'Personal Details Update': {
@@ -114,14 +122,8 @@ export class ApplicationFormController {
             sex: 'FEMALE',
             dateOfBirth: '1992-08-15T00:00:00.000Z',
             aadharNumber: '123456789012',
-            panNumber: 'ABCDE1234F'
+            panNumber: 'ABCDE1234F',
           }
-        }
-      },
-      'Submit Application': {
-        summary: 'Submit application (change from DRAFT to INITIATED status)',
-        value: {
-          workflowStatusId: 3
         }
       },
       'Occupation and Business Details': {
@@ -132,7 +134,8 @@ export class ApplicationFormController {
             officeAddress: '456 Corporate Plaza, IT Park, Sector V',
             stateId: 1,
             districtId: 1,
-            cropLocation: 'Village ABC, Block XYZ (for farmers only)'
+            cropLocation: 'Village ABC, Block XYZ (for farmers only)',
+            areaUnderCultivation: 5.5
           }
         }
       },
@@ -142,15 +145,16 @@ export class ApplicationFormController {
           criminalHistories: [
             {
               isConvicted: false,
-              offence: 'Theft',
-              sentence: '2 years imprisonment',
-              dateOfSentence: '2018-05-15T00:00:00.000Z',
               isBondExecuted: false,
               bondDate: '2019-03-20T00:00:00.000Z',
               bondPeriod: '6 months',
               isProhibited: false,
               prohibitionDate: '2020-07-10T00:00:00.000Z',
-              prohibitionPeriod: '5 years'
+              prohibitionPeriod: '5 years',
+              // Example FIR details array
+              firDetails: [
+                { firNumber: '123/2018', underSection: '35', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: '', sentence: '', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ]
             }
           ]
         }
@@ -254,13 +258,15 @@ export class ApplicationFormController {
             officeAddress: '789 Business Complex, Commercial Area',
             stateId: 1,
             districtId: 1,
-            cropLocation: 'Agricultural land in Block DEF'
+            cropLocation: 'Agricultural land in Block DEF',
+            areaUnderCultivation: 12.25
           },
           criminalHistories: [
             {
               isConvicted: false,
               isBondExecuted: false,
-              isProhibited: false
+              isProhibited: false,
+              firDetails: []
             }
           ],
           licenseHistories: [
@@ -313,7 +319,8 @@ export class ApplicationFormController {
   @ApiResponse({ status: 409, description: 'Conflict - Duplicate values or constraint violations' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async patchApplicationDetails(
-    @Param('applicationId') applicationId: string,
+    @Query('applicationId') applicationId: string,
+    @Query('isSubmit') isSubmit: boolean,
     @Body() dto: PatchApplicationDetailsDto,
     @Request() req: any
   ) {
@@ -326,7 +333,10 @@ export class ApplicationFormController {
         );
       }
 
-      const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, dto);
+  // Coerce isSubmit query param into boolean 
+  const isSubmitBool = Boolean(isSubmit);
+
+  const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmitBool, dto);
       
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;

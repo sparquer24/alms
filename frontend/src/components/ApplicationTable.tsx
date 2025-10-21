@@ -6,6 +6,8 @@ import { useApplications } from '../context/ApplicationContext';
 // Removed PDF generation feature
 import { useAuth } from '../config/auth';
 import { TableSkeleton } from './Skeleton';
+import { ApplicationApi } from '../config/APIClient';
+import { Edit } from 'lucide-react';
 // Note: Excel export uses dynamic import of 'xlsx' to avoid SSR issues
 
 interface UserData {
@@ -23,6 +25,7 @@ interface ApplicationTableProps {
   statusIdFilter?: string;
   applications?: ApplicationData[]; // Applications prop for backward compatibility
   filteredApplications?: ApplicationData[]; // Optional filtered applications list
+  pageType?: string; // Type of page being viewed (e.g., 'drafts', 'forwarded', etc.)
 }
 
 const getStatusPillClass = (status: string) => {
@@ -43,9 +46,12 @@ const getStatusPillClass = (status: string) => {
   return statusClasses[normalized] || statusClasses.unknown;
 };
 
-const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, filteredApplications, isLoading = false, statusIdFilter }) => {
+const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, applications, filteredApplications, isLoading = false, statusIdFilter, pageType }) => {
   // Get applications from context
   const { applications: contextApplications } = useApplications();
+  
+  // Check if we're on the drafts page
+  const isDraftsPage = pageType === 'drafts' || pageType === 'draft';
 
   // Local search state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -80,6 +86,30 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
 
   const handleViewApplication = useCallback((id: string) => {
     router.push(`/application/${id}`);
+  }, [router]);
+
+  const handleEditDraft = useCallback(async (id: string) => {
+    try {
+      console.log('🔄 Fetching draft application with ID:', id);
+      const response = await ApplicationApi.getById(Number(id));
+      
+      if (response?.success && response?.data) {
+        console.log('✅ Draft application fetched successfully:', response.data);
+        // Store the application data in sessionStorage to use in the form
+        sessionStorage.setItem('draftApplicationData', JSON.stringify(response.data));
+        sessionStorage.setItem('editingApplicationId', id);
+        // Navigate to the form with application ID as query parameter
+        router.push(`/forms/createFreshApplication/personal-information?id=${id}`);
+      } else {
+        console.error('❌ Failed to fetch draft application:', response);
+        setErrorMessage('Failed to load draft application');
+        setTimeout(() => setErrorMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching draft application:', error);
+      setErrorMessage('Error loading draft application');
+      setTimeout(() => setErrorMessage(null), 3000);
+    }
   }, [router]);
 
   const formatDateTime = useCallback((dateStr: string) => {
@@ -169,6 +199,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
                 app={app}
                 index={index}
                 handleViewApplication={handleViewApplication}
+                handleEditDraft={handleEditDraft}
+                isDraftsPage={isDraftsPage}
+                userRole={userRole}
                 // PDF button removed
                 isApplicationUnread={isApplicationUnread}
                 formatDateTime={formatDateTime}
@@ -282,6 +315,9 @@ const TableRow: React.FC<{
   app: ApplicationData;
   index: number;
   handleViewApplication: (id: string) => void;
+  handleEditDraft: (id: string) => Promise<void>;
+  isDraftsPage: boolean;
+  userRole: string | null;
   // PDF generation removed
   isApplicationUnread: (app: ApplicationData) => boolean;
   formatDateTime: (dateStr: string) => string;
@@ -290,11 +326,25 @@ const TableRow: React.FC<{
   app,
   index,
   handleViewApplication,
+  handleEditDraft,
+  isDraftsPage,
+  userRole,
   // Removed PDF props
   isApplicationUnread,
   formatDateTime,
   getStatusPillClass,
-}) => (
+}) => {
+  // Check if user is ZS role
+  const isZSRole = userRole === 'ZS' || userRole === 'zs';
+  
+  // Show Edit button only if:
+  // 1. User is ZS role, AND
+  // 2. On drafts page OR status_id is 13
+  const statusId = app.status_id || (app as any).status?.id;
+  const isDraftByStatus = Number(statusId) === 13 || String(statusId) === '13';
+  const isDraft = (isDraftsPage || isDraftByStatus) && isZSRole;
+  
+  return (
     <tr
       key={app.id}
       className={`${styles.tableRow} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
@@ -302,16 +352,20 @@ const TableRow: React.FC<{
     >
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium ">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleViewApplication(app.id);
-          }}
-          className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
-          aria-label={`View details for application ${app.id}`}
-        >
-          {app.applicantName}
-        </button>
+        {isDraft ? (
+          <span className="text-gray-900">{app.applicantName}</span>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewApplication(app.id);
+            }}
+            className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
+            aria-label={`View details for application ${app.id}`}
+          >
+            {app.applicantName}
+          </button>
+        )}
       </td>
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{app.applicationType}</td>
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{formatDateTime(app.applicationDate)}</td>
@@ -334,18 +388,33 @@ const TableRow: React.FC<{
         })()}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleViewApplication(app.id);
-          }}
-          className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
-          aria-label={`View application ${app.id}`}
-        >
-          View
-        </button>
+        {isDraft ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditDraft(app.id);
+            }}
+            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
+            aria-label={`Edit draft application ${app.id}`}
+          >
+            <Edit className="w-4 h-4" />
+            Edit
+          </button>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewApplication(app.id);
+            }}
+            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
+            aria-label={`View application ${app.id}`}
+          >
+            View
+          </button>
+        )}
       </td>
     </tr>
   );
+};
 
 export default ApplicationTable;

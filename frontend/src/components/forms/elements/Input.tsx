@@ -45,6 +45,7 @@ export const Input: React.FC<InputProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         maxLength={maxLength}
+        suppressHydrationWarning
         className={`
           block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
           ${error ? 'border-b-red-500' : 'border-b-gray-300'}
