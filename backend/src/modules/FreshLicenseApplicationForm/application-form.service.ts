@@ -321,6 +321,7 @@ export class ApplicationFormService {
         dobInWords,
         aadharNumber,
         panNumber,
+        currentUserId
       } = data || {};
 
       // Basic validation
@@ -392,6 +393,7 @@ export class ApplicationFormService {
             dobInWords,
             aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
             panNumber: panNumberForPersonal ?? undefined as any,
+            currentUserId: currentUserId || null,
             workflowStatusId: draftStatusId,
           } as any),
         });
