@@ -204,10 +204,17 @@ model FreshLicenseApplicationPersonalDetails {
   currentUserId              Int?
   previousUserId             Int?
   workflowStatusId           Int?
-  isAwareOfLegalConsequences Boolean?                        @default(false)
-  isDeclarationAccepted      Boolean?                        @default(false)
-  isTermsAccepted            Boolean?                        @default(false)
-  isSubmit                   Boolean?                        @default(false)
+  isApprovied                Boolean?                       @default(false)                   
+  isFLAFGenerated            Boolean?                       @default(false)
+  isGroundReportGenerated    Boolean?                       @default(false)
+  isPending                  Boolean?                       @default(false)
+  isReEnquiry                Boolean?                       @default(false)
+  isReEnquiryDone            Boolean?                       @default(false)
+  isRejected                 Boolean?                       @default(false)
+  isAwareOfLegalConsequences Boolean?                       @default(false)
+  isDeclarationAccepted      Boolean?                       @default(false)
+  isTermsAccepted            Boolean?                       @default(false)
+  isSubmit                   Boolean?                       @default(false)
   biometricData              FLAFBiometricDatas?             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]         @relation("CriminalHistories")
   fileUploads                FLAFFileUploads[]               @relation("FileUploads")

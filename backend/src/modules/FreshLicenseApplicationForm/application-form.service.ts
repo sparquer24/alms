@@ -2,6 +2,7 @@ import { Injectable, ConflictException, BadRequestException, InternalServerError
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
+import { STATUS_CODES, ACTION_CODES } from '../../constants/workflow-actions';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -320,6 +321,7 @@ export class ApplicationFormService {
         dobInWords,
         aadharNumber,
         panNumber,
+        currentUserId
       } = data || {};
 
       // Basic validation
@@ -368,11 +370,11 @@ export class ApplicationFormService {
 
         // Find DRAFT status ID by code (more reliable than assuming ID)
         const draftStatus = await prisma.statuses.findFirst({
-          where: { code: 'DRAFT', isActive: true }
+          where: { code: STATUS_CODES.DRAFT, isActive: true }
         });
 
         if (!draftStatus) {
-          throw new Error('DRAFT status not found in Statuses table. Please ensure DRAFT status exists.');
+          throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
         }
 
         const draftStatusId = draftStatus.id;
@@ -391,6 +393,7 @@ export class ApplicationFormService {
             dobInWords,
             aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
             panNumber: panNumberForPersonal ?? undefined as any,
+            currentUserId: currentUserId || null,
             workflowStatusId: draftStatusId,
           } as any),
         });
@@ -410,8 +413,12 @@ export class ApplicationFormService {
 
   /**
    * Patch application details - update related tables (addresses, occupation, histories, license details)
+   * @param applicationId - Application ID to update
+   * @param isSubmit - Whether this is a final submission
+   * @param data - Data to update
+   * @param currentUserId - Authenticated user ID from JWT token (optional)
    */
-  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any): Promise<[any, any]> {
+  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any, currentUserId?: number): Promise<[any, any]> {
     try {
       // First validate that the application exists
       const existingApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -688,11 +695,34 @@ export class ApplicationFormService {
         }
 
         // Handle workflow status updates
-        if (isSubmit === true) {
-          // get the Status ID for INITIATED from the Status table
+        if (isSubmit === true) {        
+          // get the Status ID for INITIATE from the Status table
           const initiatedStatus = await tx.statuses.findFirst({
-            where: { code: 'INITIATED', isActive: true }
+            where: { code: STATUS_CODES.INITIATE, isActive: true }
           });
+
+          // Get INITIATE action from Actiones table
+          const initiateAction = await tx.actiones.findFirst({
+            where: { code: ACTION_CODES.INITIATE, isActive: true }
+          });
+
+          // Get current application details to know the current user
+          const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { 
+              currentUserId: true, 
+              previousUserId: true,
+              workflowStatusId: true 
+            }
+          });
+
+          // Determine which user ID to use: passed from auth token > currentUserId from app > previousUserId from app
+          const effectiveUserId = currentUserId || currentApp?.currentUserId || currentApp?.previousUserId;
+
+          // If we still don't have a user ID, we cannot create workflow history
+          if (!effectiveUserId) {
+            throw new BadRequestException('Cannot submit application: No user information available. Please ensure you are authenticated.');
+          }
 
           // workflowStatus and acceptance flags are saved together.
           const updateData: any = {
@@ -700,6 +730,11 @@ export class ApplicationFormService {
           };
           // mark submitted flag so it's written as part of the same update
           updateData.isSubmit = true;
+
+          // Update currentUserId if it was passed from auth token and is different from what's stored
+          if (currentUserId && currentApp?.currentUserId !== currentUserId) {
+            updateData.currentUserId = currentUserId;
+          }
 
           if (initiatedStatus && initiatedStatus.id) {
             updateData.workflowStatusId = initiatedStatus.id;
@@ -718,6 +753,33 @@ export class ApplicationFormService {
               where: { id: applicationId },
               data: updateData
             });
+
+            // Create workflow history entry for INITIATE action
+            if (initiateAction) {
+              // Get user's role
+              let currentUserRoleId: number | null = null;
+              const currentUser = await tx.users.findUnique({
+                where: { id: effectiveUserId },
+                select: { roleId: true }
+              });
+              currentUserRoleId = currentUser?.roleId || null;
+
+              // Create workflow history
+              await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+                data: {
+                  applicationId: applicationId,
+                  previousUserId: effectiveUserId, // Use the authenticated user as initiator
+                  nextUserId: effectiveUserId, // Same user initially
+                  actionTaken: initiateAction.code,
+                  remarks: 'Application submitted for review',
+                  previousRoleId: currentUserRoleId,
+                  nextRoleId: currentUserRoleId,
+                  actionesId: initiateAction.id
+                }
+              });
+
+              updatedSections.push('workflowHistory');
+            }
 
             // Push appropriate section markers
             if (updateData.workflowStatusId) updatedSections.push('workflowStatus');
@@ -1485,7 +1547,7 @@ export class ApplicationFormService {
    * This ensures consistent status IDs across the application
    */
   async getStatusIds() {
-    const statusCodes = ['DRAFT', 'INITIATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
+    const statusCodes = ['DRAFT', 'INITIATE', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
     const statusMap: Record<string, number> = {};
 
     for (const code of statusCodes) {
@@ -1507,7 +1569,7 @@ export class ApplicationFormService {
   async initializeDefaultStatuses() {
     const defaultStatuses = [
       { code: 'DRAFT', name: 'Draft', description: 'Application is being filled out' },
-      { code: 'INITIATED', name: 'Initiated', description: 'Application has been submitted for review' },
+      { code: 'INITIATE', name: 'Initiate', description: 'Application has been submitted for review' },
       { code: 'UNDER_REVIEW', name: 'Under Review', description: 'Application is being reviewed by officer' },
       { code: 'APPROVED', name: 'Approved', description: 'Application has been approved' },
       { code: 'REJECTED', name: 'Rejected', description: 'Application has been rejected' }
