@@ -18,6 +18,18 @@ export class PatchApplicationDetailsDto {
   @IsNumber()
   workflowStatusId?: number;
 
+  @ApiPropertyOptional({ description: 'Whether the declaration is accepted', example: true })
+  @IsOptional()
+  isDeclarationAccepted?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether applicant is aware of legal consequences', example: true })
+  @IsOptional()
+  isAwareOfLegalConsequences?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether terms are accepted', example: true })
+  @IsOptional()
+  isTermsAccepted?: boolean;
+
   @ApiPropertyOptional({ 
     type: PatchAddressDetailsDto,
     description: 'Present address details with contact information' 

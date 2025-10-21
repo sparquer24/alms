@@ -21,7 +21,7 @@ async function bootstrap() {
   app.enableCors({
     origin: origins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
@@ -57,7 +57,7 @@ async function bootstrap() {
       showRequestDuration: true,
     },
   });
-  
+
   await app.listen(3000);
 }
 
