@@ -52,7 +52,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
   const { applications: contextApplications } = useApplications();
   
   // Check if we're on the drafts page
-  const isDraftsPage = pageType === 'draft' || pageType === 'draft';
+  const isDraftsPage = pageType === 'drafts' || pageType === 'drafts';
 
   // Local search state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -354,7 +354,7 @@ const TableRow: React.FC<{
   // 2. On drafts page OR status_id is 13
   const statusId = app.status_id || (app as any).status?.id;
   const isDraftByStatus = Number(statusId) === 13 || String(statusId) === '13';
-  const isDraft = (isDraftsPage || isDraftByStatus) && isZSRole;
+  const isDrafts = (isDraftsPage || isDraftByStatus) && isZSRole;
   
   return (
     <tr
@@ -364,7 +364,7 @@ const TableRow: React.FC<{
     >
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium ">
-        {isDraft ? (
+        {isDrafts ? (
           <span className="text-gray-900">{app.applicantName}</span>
         ) : (
           <button
@@ -412,7 +412,7 @@ const TableRow: React.FC<{
         })()}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {isDraft ? (
+        {isDrafts ? (
           <button
             onClick={(e) => {
               e.stopPropagation();
