@@ -18,14 +18,69 @@ export class WorkflowController {
     description: 'Process workflow actions like forward, approve, reject, etc. on applications' 
   })
   @ApiBody({
-    description: 'Workflow action data',
+    description: 'Workflow action data - Same payload structure for all actions',
+    schema: {
+      type: 'object',
+      required: ['applicationId', 'actionId', 'remarks'],
+      properties: {
+        applicationId: {
+          type: 'number',
+          description: 'ID of the application to perform action on',
+          example: 1
+        },
+        actionId: {
+          type: 'number',
+          description: 'ID of the action to perform (from Actiones table)',
+          example: 1
+        },
+        nextUserId: {
+          type: 'number',
+          description: 'ID of the user to forward to (required only for forward action)',
+          example: 4,
+          nullable: true
+        },
+        remarks: {
+          type: 'string',
+          description: 'Comments or notes for this action',
+          example: 'Application reviewed and processing'
+        },
+        attachments: {
+          type: 'array',
+          description: 'Optional attachments for this action',
+          items: {
+            type: 'object',
+            required: ['name', 'type', 'contentType', 'url'],
+            properties: {
+              name: {
+                type: 'string',
+                example: 'verification_report.pdf'
+              },
+              type: {
+                type: 'string',
+                example: 'DOCUMENT'
+              },
+              contentType: {
+                type: 'string',
+                example: 'application/pdf'
+              },
+              url: {
+                type: 'string',
+                example: 'https://example.com/files/verification_report.pdf'
+              }
+            }
+          }
+        }
+      }
+    },
     examples: {
-      'Forward Application': {
+      'Standard Action Payload': {
+        summary: 'Standard payload for any workflow action',
+        description: 'Use this payload structure for all actions. Only nextUserId is required when actionId is for "forward" action.',
         value: {
-          applicationId: 123,
+          applicationId: 1,
           actionId: 1,
-          nextUserId: 456,
-          remarks: 'Forwarding to next level for review',
+          nextUserId: 5,
+          remarks: 'Application reviewed and processing',
           attachments: [
             {
               name: 'verification_report.pdf',
@@ -34,20 +89,6 @@ export class WorkflowController {
               url: 'https://example.com/files/verification_report.pdf'
             }
           ]
-        }
-      },
-      'Approve Application': {
-        value: {
-          applicationId: 123,
-          actionId: 2,
-          remarks: 'Application approved after thorough review'
-        }
-      },
-      'Reject Application': {
-        value: {
-          applicationId: 123,
-          actionId: 3,
-          remarks: 'Application rejected due to incomplete documentation'
         }
       }
     }
@@ -117,8 +158,6 @@ export class WorkflowController {
       throw new BadRequestException('Invalid actionId: not found in Actiones table.');
     }
 
-    // Example: If you want to check for a specific action, compare by action.id
-    // if (action.id === FORWARD_ACTION_ID && !body.nextUserId) { ... }
     // For now, keep the forward check by code for compatibility
     if (action.code.toLowerCase() === 'forward' && (body.nextUserId === undefined || body.nextUserId === null || isNaN(Number(body.nextUserId)))) {
       throw new BadRequestException('nextUserId is required for forwarding and must be a valid number.');
@@ -127,7 +166,7 @@ export class WorkflowController {
     // ...existing code...
 
     // Call service to process action
-    /*try {
+    try {
       const result = await this.workflowService.handleUserAction({
         ...body,
         applicationId: Number(body.applicationId),
@@ -149,6 +188,5 @@ export class WorkflowController {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('Unexpected error occurred.');
     }
-    */
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch, ParseBoolPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
@@ -62,13 +62,14 @@ export class ApplicationFormController {
   @ApiQuery({
     name: 'applicationId',
     description: 'Application ID',
-    example: '123'
+    example: '1'
   })
     @ApiQuery({
     name: 'isSubmit',
     description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
     example: false,
     required: false,
+    type: Boolean,
   })
   @ApiBody({
     type: PatchApplicationDetailsDto,
@@ -305,7 +306,7 @@ export class ApplicationFormController {
       data: {
         updatedSections: ['presentAddress', 'criminalHistories'],
         application: {
-          id: 123,
+          id: 1,
           acknowledgementNo: 'ALMS1696050000000',
           firstName: 'John',
           lastName: 'Doe',
@@ -320,9 +321,9 @@ export class ApplicationFormController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async patchApplicationDetails(
     @Query('applicationId') applicationId: string,
-    @Query('isSubmit') isSubmit: boolean,
     @Body() dto: PatchApplicationDetailsDto,
-    @Request() req: any
+    @Request() req: any,
+    @Query('isSubmit', new ParseBoolPipe({ optional: true })) isSubmit?: boolean
   ) {
     try {
       const applicationIdNum = parseInt(applicationId, 10);
@@ -333,10 +334,10 @@ export class ApplicationFormController {
         );
       }
 
-  // Coerce isSubmit query param into boolean 
-  const isSubmitBool = Boolean(isSubmit);
+      // Get authenticated user ID from JWT token
+      const currentUserId = req.user?.sub;
 
-  const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmitBool, dto);
+  const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmit || false, dto, currentUserId);
       
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
