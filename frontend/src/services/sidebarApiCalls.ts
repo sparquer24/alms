@@ -113,6 +113,12 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       url: upload.fileUrl
     })) || [],
     history,
+    // Preserve the original workflowHistories for the new Application History display
+    workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || [],
+    // Preserve additional data fields
+    licenseHistories: detailedApp.licenseHistories || [],
+    criminalHistories: detailedApp.criminalHistories || [],
+    licenseDetails: detailedApp.licenseDetails || [],
     actions: {
       canForward: detailedApp.currentRole?.can_forward || false,
       canReport: true,
