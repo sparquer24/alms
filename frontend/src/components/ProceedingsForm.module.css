@@ -1,0 +1,315 @@
+/* ProceedingsForm.module.css */
+
+.formContainer {
+  /* center and constrain width */
+  max-width: 158rem; /* increased width to allow wider panels */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  /* keep container within viewport minus expected header area so page doesn't scroll */
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.formHeader {
+  @apply mb-8 text-center;
+}
+
+.formHeader h2 {
+  @apply text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center;
+}
+
+.formHeader p {
+  @apply text-gray-600;
+}
+
+.formContent {
+  @apply space-y-6;
+}
+
+.formSection {
+  @apply space-y-2;
+}
+
+.formLabel {
+  @apply block text-sm font-semibold text-gray-700 mb-2;
+}
+
+.required {
+  @apply text-red-500 ml-1;
+}
+
+.selectContainer {
+  @apply relative;
+}
+
+.richTextContainer {
+  @apply relative;
+}
+
+.helpText {
+  @apply text-sm text-gray-500 mt-2;
+}
+
+.fieldError {
+  @apply text-sm text-red-600 mt-2;
+}
+
+.submitSection {
+  @apply flex flex-col items-center space-y-4 pt-6 border-t border-gray-100;
+}
+
+.submitButton {
+  @apply flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.loadingText {
+  @apply flex items-center justify-center text-sm text-gray-600 space-x-2;
+}
+
+.loadingSpinner {
+  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
+}
+
+.loadingSpinnerSmall {
+  @apply h-4 w-4;
+}
+
+.loadingSpinnerMedium {
+  @apply h-6 w-6;
+}
+
+.loadingSpinnerLarge {
+  @apply h-8 w-8;
+}
+
+.statusMessage {
+  @apply flex items-center p-4 rounded-xl border shadow-sm;
+}
+
+.successMessage {
+  @apply bg-emerald-50 border-emerald-200 text-emerald-800;
+}
+
+.errorMessage {
+  @apply bg-red-50 border-red-200 text-red-800;
+}
+
+.statusIcon {
+  @apply flex-shrink-0 mr-3;
+}
+
+.statusContent {
+  @apply flex-1;
+}
+
+.statusContent p {
+  @apply text-sm font-medium;
+}
+
+.dismissButton {
+  @apply flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white hover:bg-opacity-50 transition-colors;
+}
+
+/* Rich Text Editor Fallback */
+.richTextFallback {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.fallbackToolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.fallbackToolbarItem {
+  width: 1rem;
+  height: 1rem;
+  background-color: #d1d5db;
+  border-radius: 0.25rem;
+}
+
+.fallbackContent {
+  height: 8rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+  border: 2px dashed #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .formContainer {
+    margin: 0 1rem;
+    border-radius: 8px;
+  }
+  
+  .formHeader {
+    padding: 1rem;
+  }
+  
+  .formContent {
+    padding: 1rem;
+  }
+  
+  .submitSection {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .submitButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Select Component Customization */
+.selectContainer :global(.select__control) {
+  border-color: #d1d5db;
+  border-radius: 0.375rem;
+  min-height: 2.5rem;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.selectContainer :global(.select__control:hover) {
+  border-color: #3b82f6;
+}
+
+.selectContainer :global(.select__control--is-focused) {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.selectContainer :global(.select__control--is-disabled) {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.selectContainer :global(.select__placeholder) {
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.selectContainer :global(.select__value-container) {
+  padding: 0.5rem 0.75rem;
+}
+
+.selectContainer :global(.select__input-container) {
+  font-size: 0.875rem;
+}
+
+.selectContainer :global(.select__option) {
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.selectContainer :global(.select__option--is-focused) {
+  background-color: #eff6ff;
+}
+
+.selectContainer :global(.select__option--is-selected) {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.selectContainer :global(.select__indicator-separator) {
+  background-color: #e5e7eb;
+}
+
+.selectContainer :global(.select__indicator) {
+  color: #6b7280;
+}
+
+.selectContainer :global(.select__indicator:hover) {
+  color: #374151;
+} 
+
+/* Scroll panel to contain form content and keep scrollbar inside the panel */
+.scrollPanel {
+  /* fill available vertical space inside .formContainer and scroll internally */
+  height: 100%;
+  overflow: auto;
+  padding-top: 0;
+  padding-bottom: 0;
+  
+}
+
+/* New background variants for visual separation */
+.proceedingsPanel {
+  background: linear-gradient(180deg, #ffffff 0%, #c4d7e9 100%); /* subtle blue tint */
+  padding: 1.25rem; /* give inner content breathing room */
+  border-radius: 0.75rem;
+  border: 1px solid rgba(99,102,241,0.06);
+}
+
+.groundReportPanel {
+  background: linear-gradient(180deg, #c4d7e9 0%, #fff7ed 100%); /* warm paper-like tint */
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(245,158,11,0.06);
+}
+
+/* Invalid field highlight */
+.invalidField {
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.06);
+}
+
+/* Make react-select control show red outline when its container is invalid */
+.invalidField :global(.select__control) {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.16) !important;
+}
+
+.invalidField :global(textarea) {
+  border-color: #ef4444 !important;
+}
+
+/* Make panels extend to container width and allow slightly wider max width */
+.proceedingsPanel,
+.groundReportPanel {
+  width: 100%;
+  max-width: 86rem; /* roughly 1376px */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 1200px) {
+  .formContainer {
+    max-width: 72rem;
+  }
+  .proceedingsPanel,
+  .groundReportPanel {
+    max-width: 70rem;
+  }
+}
+
+/* Ensure editor areas use border-box and have no extra bottom padding so scrollbar is flush */
+.richTextContainer :global(textarea),
+.formContent :global(.prose),
+.scrollPanel :global([contenteditable]) {
+  box-sizing: border-box;
+  padding-bottom: 0 !important;
+}
