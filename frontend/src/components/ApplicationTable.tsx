@@ -33,6 +33,7 @@ const getStatusPillClass = (status: string) => {
   const statusClasses: Record<string, string> = {
     pending: 'bg-[#FACC15] text-black',
     approved: 'bg-[#10B981] text-white',
+    initiate: 'bg-[#A7F3D0] text-green-800',
     initiated: 'bg-[#A7F3D0] text-green-800',
     rejected: 'bg-[#EF4444] text-white',
     red_flagged: 'bg-[#DC2626] text-white',
@@ -66,8 +67,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
     return baseApplications.filter(app => {
       const applicant = (app.applicantName || '').toLowerCase();
       const type = (app.applicationType || '').toLowerCase();
-      let statusRaw: any = (app as any).status;
-      const statusStr = typeof statusRaw === 'string' ? statusRaw : (statusRaw && statusRaw.name ? statusRaw.name : '');
+      const workflowStatus = (app as any).workflowStatus;
+      let statusStr = '';
+      if (workflowStatus && workflowStatus.name) {
+        statusStr = workflowStatus.name;
+      } else if (workflowStatus && workflowStatus.code) {
+        statusStr = workflowStatus.code;
+      } else if ((app as any).status && (app as any).status.name) {
+        statusStr = (app as any).status.name;
+      }
       const status = statusStr.toLowerCase();
       return applicant.includes(q) || type.includes(q) || status.includes(q);
     });
@@ -126,17 +134,21 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
       const XLSX = await import('xlsx');
       // Prepare data
       const rows = effectiveApplications.map(app => {
-        const rawStatus: any = (app as any).status;
-        const statusStr = typeof rawStatus === 'string' ? rawStatus : (rawStatus && rawStatus.name ? rawStatus.name : 'unknown');
-        const displayStatus = statusStr
-          .replace(/[-_]+/g, ' ')
-          .replace(/\b\w/g, (c: string) => c.toUpperCase());
+        const workflowStatus = (app as any).workflowStatus;
+        let statusName = 'unknown';
+        if (workflowStatus && workflowStatus.name) {
+          statusName = workflowStatus.name;
+        } else if (workflowStatus && workflowStatus.code) {
+          statusName = workflowStatus.code;
+        } else if ((app as any).status && (app as any).status.name) {
+          statusName = (app as any).status.name;
+        }
         return {
           ID: app.id,
           ApplicantName: app.applicantName,
           ApplicationType: app.applicationType,
           ApplicationDate: formatDateTime(app.applicationDate),
-          Status: displayStatus,
+          Status: statusName,
           ForwardedTo: (app as any).forwardedTo || '',
           IsViewed: (app as any).isViewed ? 'Yes' : 'No'
         };
@@ -371,8 +383,20 @@ const TableRow: React.FC<{
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{formatDateTime(app.applicationDate)}</td>
       <td className="px-6 py-4 whitespace-nowrap">
         {(() => {
-          const raw = (app as any).status; // supports flexible status sources
-          const statusStr = typeof raw === 'string' ? raw : (raw && raw.name ? raw.name : 'unknown');
+          const workflowStatus = (app as any).workflowStatus;
+          console.log('🔍 Debug status for app', app.id, ':', { workflowStatus, app });
+          
+          let statusStr = 'unknown';
+          if (workflowStatus && workflowStatus.name) {
+            statusStr = workflowStatus.name;
+          } else if (workflowStatus && workflowStatus.code) {
+            statusStr = workflowStatus.code;
+          } else if ((app as any).status && (app as any).status.name) {
+            statusStr = (app as any).status.name;
+          }
+          
+          console.log('🔍 Final statusStr:', statusStr);
+          
           const display = statusStr
             .replace(/[-_]+/g, ' ')
             .replace(/\b\w/g, (c: string) => c.toUpperCase());

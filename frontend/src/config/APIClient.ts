@@ -252,6 +252,23 @@ export const DocumentApi = {
     }
   },
 
+  // New: Store file URL and metadata for application (based on API documentation)
+  storeFileUrl: async (applicationId: string, fileMetadata: {
+    fileType: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    description?: string;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const endpoint = `/application-form/${applicationId}/upload-file`;
+      return await apiClient.post(endpoint, fileMetadata);
+    } catch (error) {
+      console.error('Error storing file URL and metadata:', error);
+      throw error;
+    }
+  },
+
   getAll: async (applicationId: string): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.get(`/applications/${applicationId}/documents`);

@@ -43,7 +43,7 @@ export const STATUS_MAP = {
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
   groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
-  draft: statusIdMap.draft || [13]            // DRAFTS (alias for draft)
+  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
 };
 
 /**
@@ -487,7 +487,7 @@ export const fetchApplicationCounts = async (): Promise<{
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.disposed),
-      fetchApplicationsByStatus(STATUS_MAP.draft),
+      fetchApplicationsByStatus(STATUS_MAP.drafts),
     ]);
 
     const counts = {
@@ -553,6 +553,11 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
     status: mapApiStatusToApplicationStatus(apiApp.status),
     status_id: apiApp.status?.id || STATUS_MAP.pending[0],
+    workflowStatus: apiApp.workflowStatus ? {
+      id: apiApp.workflowStatus.id,
+      code: apiApp.workflowStatus.code,
+      name: apiApp.workflowStatus.name
+    } : undefined,
     assignedTo: String(apiApp.currentUser?.id || ''),
     forwardedFrom: apiApp.previousUser?.id ? String(apiApp.previousUser.id) : undefined,
     forwardedTo: apiApp.currentUser?.id ? String(apiApp.currentUser.id) : undefined,

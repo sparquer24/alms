@@ -32,8 +32,10 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
   ],
   ZS: [
     { name: "inbox" },
+    { name: "freshform" },
     { name: "sent" },
     { name: "closed" },
+    { name: "drafts" },
     { name: "reports" },
   ],
   DCP: [
@@ -114,19 +116,62 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
     return { name: String(it) } as MenuItem;
   });
 
-  // Fallback to default menu items if none found
+  // Fallback to default menu items if none found, or ensure ZS users always have required menu items
+  const roleKey = (code || name || '').toUpperCase();
+  
   if (menuItems.length === 0) {
-    const roleKey = (code || name || '').toUpperCase();
     menuItems = defaultMenuItems[roleKey] || defaultMenuItems.SHO;
     console.log(`⚠️ No menu items in cookie, using default for ${roleKey}:`, menuItems);
   } else {
     console.log('✅ Menu items from cookie:', menuItems);
+    
+    // Ensure ZS users always have essential menu items regardless of cookie content
+    if (roleKey === 'ZS' || roleKey.includes('ZS')) {
+      const requiredZSItems = ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'reports'];
+      const currentItemNames = menuItems.map(item => item.name);
+      
+      // Add missing required items
+      requiredZSItems.forEach(requiredItem => {
+        if (!currentItemNames.includes(requiredItem)) {
+          menuItems.push({ name: requiredItem });
+          console.log(`✅ Added missing required item for ZS: ${requiredItem}`);
+        }
+      });
+    }
   }
 
   if (code || name) {
+    // Normalize dashboard title for specific roles
+    let dashboardTitle = dashboardTitleRaw;
+    if (!dashboardTitle) {
+      const roleIdentifier = (code || name || '').toUpperCase();
+      
+      // Standardize dashboard titles for common roles
+      switch (true) {
+        case roleIdentifier === 'ZS' || roleIdentifier.includes('ZS'):
+          dashboardTitle = 'ZS Dashboard';
+          break;
+        case roleIdentifier === 'DCP' || roleIdentifier.includes('DCP'):
+          dashboardTitle = 'DCP Dashboard';
+          break;
+        case roleIdentifier === 'SHO' || roleIdentifier.includes('SHO'):
+          dashboardTitle = 'SHO Dashboard';
+          break;
+        case roleIdentifier === 'ADMIN' || roleIdentifier.includes('ADMIN'):
+          dashboardTitle = 'Admin Dashboard';
+          break;
+        case roleIdentifier === 'ACP' || roleIdentifier.includes('ACP'):
+          dashboardTitle = 'ACP Dashboard';
+          break;
+        default:
+          dashboardTitle = `${name || code} Dashboard`;
+          break;
+      }
+    }
+
     const config = {
       permissions: permissionsArr,
-      dashboardTitle: dashboardTitleRaw ?? `${name || code} Dashboard`,
+      dashboardTitle,
       canAccessSettings: Boolean(canAccessSettingsRaw),
       menuItems,
     };

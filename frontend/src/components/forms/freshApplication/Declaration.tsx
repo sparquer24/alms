@@ -6,6 +6,7 @@ import FormFooter from '../elements/footer';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { patchData } from '../../../api/axiosConfig';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import SuccessModal from '../../modals/SuccessModal';
 
 const initialState = {
 	declareTrue: false,
@@ -18,6 +19,7 @@ const Declaration = () => {
 	const [form, setForm] = useState(initialState);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [showSuccessModal, setShowSuccessModal] = useState(false);
 	const searchParams = useSearchParams();
 	const applicantId = searchParams?.get('applicantId') || searchParams?.get('id');
 
@@ -61,22 +63,20 @@ const Declaration = () => {
 				isDeclarationAccepted: form.declareTrue,
 				isAwareOfLegalConsequences: form.declareFalseInfo,
 				isTermsAccepted: form.declareTerms,
-				isSubmitted: true, // Mark application as submitted
 			};
 
 			console.log('🔄 Submitting declaration with payload:', payload);
 
-			// Make PATCH request to update application
+			// Make PATCH request to submit application with isSubmit=true parameter
 			const response = await patchData(
-				`/application-form/${applicantId}`,
+				`/application-form?applicationId=${applicantId}&isSubmit=true`,
 				payload
 			);
 
 			console.log('✅ Declaration submitted successfully:', response);
 
-			// Handle successful submission
-			// You might want to navigate to a success page or show a success message
-			alert('Application submitted successfully!');
+			// Show success modal instead of alert
+			setShowSuccessModal(true);
 			
 		} catch (err: any) {
 			console.error('❌ Error submitting declaration:', err);
@@ -99,6 +99,15 @@ const Declaration = () => {
 			console.log('🔙 No applicant ID, using browser back');
 			router.back();
 		}
+	};
+
+	const handleCloseSuccessModal = () => {
+		setShowSuccessModal(false);
+	};
+
+	const handleNavigateHome = () => {
+		setShowSuccessModal(false);
+		router.push('/inbox?type=freshform'); // Navigate to dashboard or home page
 	};
 
 	return (
@@ -151,6 +160,14 @@ const Declaration = () => {
 					isLoading={isSubmitting}
 				/>
 			</form>
+
+			{/* Success Modal */}
+			<SuccessModal
+				isOpen={showSuccessModal}
+				onClose={handleCloseSuccessModal}
+				title="Application Submitted Successfully!"
+				onNavigateHome={handleNavigateHome}
+			/>
 		</div>
 	);
 };

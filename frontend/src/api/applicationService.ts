@@ -212,7 +212,36 @@ export class ApplicationService {
 
     switch (section) {
       case 'personal':
-        return applicationData.personalDetails || {};
+        const personalData = applicationData.personalDetails || applicationData;
+        console.log('🔵 Extracting personal data from:', personalData);
+        
+        // Handle date formatting for frontend
+        let dateOfBirth = '';
+        if (personalData.dateOfBirth) {
+          try {
+            dateOfBirth = new Date(personalData.dateOfBirth).toISOString().split('T')[0];
+          } catch (error) {
+            console.warn('⚠️ Could not parse dateOfBirth:', personalData.dateOfBirth);
+          }
+        }
+        
+        const extractedPersonal = {
+          acknowledgementNo: personalData.acknowledgementNo || '',
+          firstName: personalData.firstName || '',
+          middleName: personalData.middleName || '',
+          lastName: personalData.lastName || '',
+          filledBy: personalData.filledBy || '',
+          parentOrSpouseName: personalData.parentOrSpouseName || '',
+          sex: personalData.sex || '',
+          placeOfBirth: personalData.placeOfBirth || '',
+          dateOfBirth: dateOfBirth,
+          panNumber: personalData.panNumber || '',
+          aadharNumber: personalData.aadharNumber || '',
+          dobInWords: personalData.dobInWords || '',
+        };
+        
+        console.log('🟢 Extracted personal form data:', extractedPersonal);
+        return extractedPersonal;
       case 'address':
         const presentAddr = applicationData.presentAddress || {};
         const permanentAddr = applicationData.permanentAddress || {};
@@ -279,8 +308,11 @@ export class ApplicationService {
               extractedWeaponIds: requestedWeaponIds
             });
             
+            // Destructure to remove requestedWeapons and keep only the needed fields
+            const { requestedWeapons, ...cleanDetail } = detail;
+            
             return {
-              ...detail,
+              ...cleanDetail,
               requestedWeaponIds // Override with extracted IDs
             };
           });
@@ -404,10 +436,7 @@ export class ApplicationService {
             divisionId: parseInt(formData.permanentDivision || '0'),
             policeStationId: parseInt(formData.permanentPoliceStation || '0'),
             sinceResiding: formData.presentSince ? new Date(formData.presentSince).toISOString() : undefined,
-            telephoneOffice: formData.telephoneOffice || undefined,
-            telephoneResidence: formData.telephoneResidence || undefined,
-            officeMobileNumber: formData.officeMobileNumber || undefined,
-            alternativeMobile: formData.alternativeMobile || undefined,
+            // Phone numbers are now only included in presentAddress
           },
         };
       case 'occupation':
@@ -520,10 +549,10 @@ export class ApplicationService {
         if (formData.licenseDetails && Array.isArray(formData.licenseDetails)) {
           console.log('🔵 Using new licenseDetails structure directly');
           
-          // Clean the license details to remove file-related fields that are handled separately
+          // Clean the license details to remove file-related fields and backend-only fields that are handled separately
           const cleanedLicenseDetails = formData.licenseDetails.map(detail => {
-            const { uploadedFiles, specialClaimsEvidence, ...cleanDetail } = detail;
-            console.log('🧹 Cleaned license detail (removed uploadedFiles, specialClaimsEvidence):', cleanDetail);
+            const { uploadedFiles, specialClaimsEvidence, requestedWeapons, ...cleanDetail } = detail;
+            console.log('🧹 Cleaned license detail (removed uploadedFiles, specialClaimsEvidence, requestedWeapons):', cleanDetail);
             return cleanDetail;
           });
           

@@ -85,6 +85,11 @@ export interface ApplicationData {
   acknowledgementNo?: string;
   status: ApplicationStatus;
   status_id: string | number; // Numeric status ID for backend compatibility
+  workflowStatus?: {
+    id: number;
+    code: string;
+    name: string;
+  };
   assignedTo: string;
   forwardedFrom?: string;
   forwardedTo?: string;

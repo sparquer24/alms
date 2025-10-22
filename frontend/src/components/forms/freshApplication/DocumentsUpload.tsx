@@ -180,7 +180,9 @@ const DocumentsUpload = () => {
 	const handlePrevious = async () => {
 		if (applicantId) {
 			await loadExistingData(applicantId);
-			navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, applicantId);
+			// Skip biometric step - go back to license details
+			// navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, applicantId);
+			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, applicantId);
 		} else {
 			router.back();
 		}
