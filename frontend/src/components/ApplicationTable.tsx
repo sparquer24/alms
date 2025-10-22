@@ -51,7 +51,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
   const { applications: contextApplications } = useApplications();
   
   // Check if we're on the drafts page
-  const isDraftsPage = pageType === 'drafts' || pageType === 'draft';
+  const isDraftsPage = pageType === 'draft' || pageType === 'draft';
 
   // Local search state
   const [searchQuery, setSearchQuery] = useState<string>('');

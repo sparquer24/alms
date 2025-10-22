@@ -27,7 +27,7 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
     { name: "freshform" },
     { name: "sent" },
     { name: "closed" },
-    { name: "drafts" },
+    { name: "draft" },
     { name: "reports" },
   ],
   ZS: [

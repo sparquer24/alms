@@ -10,7 +10,7 @@ export type MenuMetaKey =
   | 'closed'
   | 'final'
   | 'finaldisposal'
-  | 'drafts'
+  | 'draft'
   | 'reports'
   | 'analytics' // New analytics tab
   | 'logout'
@@ -25,7 +25,7 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: React.ReactNod
   closed: { label: "Closed", icon: <FolderCheck className="w-6 h-6 mr-2" aria-label="Closed" /> },
   final: { label: "Final Disposal", icon: <Archive className="w-6 h-6 mr-2" aria-label="Final Disposal" /> },
   finaldisposal: { label: "Final Disposal", icon: <Archive className="w-6 h-6 mr-2" aria-label="Final Disposal" /> },
-  drafts: { label: "Drafts", icon: <FileEdit className="w-6 h-6 mr-2" aria-label="Drafts" /> },
+  draft: { label: "Draft", icon: <FileEdit className="w-6 h-6 mr-2" aria-label="Draft" /> },
   reports: { label: "My Reports", icon: <BarChart2 className="w-6 h-6 mr-2" aria-label="My Reports" /> },
   analytics: { label: "Analytics", icon: <BarChart2 className="w-6 h-6 mr-2" aria-label="Analytics" /> },
   logout: { label: "Log Out", icon: <LogOut className="w-6 h-6 mr-2" aria-label="Log Out" /> },

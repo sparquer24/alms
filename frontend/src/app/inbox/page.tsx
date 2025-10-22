@@ -66,7 +66,7 @@ export default function InboxQueryPage() {
       case 'returned': return 'Returned Applications';
       case 'redFlagged': return 'Red Flagged Applications';
       case 'disposed': return 'Disposed Applications';
-      case 'drafts':
+      case 'draft':
       case 'draft': return 'Draft Applications';
       default: return 'Applications';
     }
