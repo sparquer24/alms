@@ -179,10 +179,10 @@ export const useAuthSync = () => {
     if (normalizedRole && !cachedRoleRef.current) cachedRoleRef.current = normalizedRole;
     return {
       isAuthenticated: c.isAuthenticated,
-      user: c.user,
+      user: c.user || reduxUser, // Fallback to Redux user if cookie user is missing
       token: c.token,
       userRole: cachedRoleRef.current || normalizedRole,
-      userName: c.user?.name,
+      userName: c.user?.name || reduxUser?.name, // Fallback to Redux userName
       isLoading: isFetchingUser, // remain loading while we try to fetch user details
       isFetchingUser,
       hydrationAttempts,
