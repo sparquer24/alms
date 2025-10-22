@@ -867,6 +867,7 @@ export class ApplicationFormService {
           workflowStatus: {
             select: {
               id: true,
+              code: true,
               name: true,
             }
           },
