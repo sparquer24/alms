@@ -132,9 +132,22 @@ interface SidebarProps {
 export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {}) => {
   const { showSidebar } = useLayout();
   const [visible, setVisible] = useState(false);
+  // Determine active item based on URL (for correct highlight on reload or direct link)
   const [activeItem, setActiveItem] = useState(() => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      return localStorage.getItem("activeNavItem") || "";
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      const pathname = url.pathname;
+      const type = url.searchParams.get('type');
+      if (pathname === '/inbox') {
+        if (type === 'drafts') return 'Drafts';
+        if (type === 'forwarded') return 'Inbox';
+        if (type === 'returned') return 'Inbox';
+        if (type === 'redFlagged') return 'Inbox';
+        if (type === 'disposed') return 'Inbox';
+      }
+      if (window.localStorage) {
+        return localStorage.getItem("activeNavItem") || "";
+      }
     }
     return "";
   });
