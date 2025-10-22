@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
-import { useAuth } from '../config/auth';
+import { useAuthSync } from '../hooks/useAuthSync';
 import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
@@ -24,8 +24,17 @@ interface HeaderProps {
 
 const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication, onShowMessage }: HeaderProps) => {
   const { showHeader } = useLayout();
-  const { userName } = useAuth();
-  const safeUserName = typeof userName === 'string' && userName.length > 0 ? userName : 'U';
+  const { userName, isLoading, user } = useAuthSync();
+  const [displayName, setDisplayName] = useState<string | undefined>(undefined);
+  
+  // Update displayName whenever userName or user changes
+  useEffect(() => {
+    // Priority: userName from hook, then user.name, then user.username
+    const name = userName || user?.name || user?.username;
+    setDisplayName(name);
+  }, [userName, user]);
+  
+  const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
   const { unreadCount } = useNotifications();
   // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
@@ -124,11 +133,13 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
             </button>
             {showNotifications && <NotificationDropdown onClose={() => setShowNotifications(false)} />}
           </div>
-          <Link href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
-            <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium">
-              {safeUserName.charAt(0).toUpperCase()}
-            </div>
-          </Link>
+          {hasValidUserName && (
+            <Link href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
+              <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium">
+                {displayName!.charAt(0).toUpperCase()}
+              </div>
+            </Link>
+          )}
         </div>
       </div>
     </header>
