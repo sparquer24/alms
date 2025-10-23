@@ -2,7 +2,7 @@ import { Injectable, ConflictException, BadRequestException, InternalServerError
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
-import { STATUS_CODES, ACTION_CODES } from '../../constants/workflow-actions';
+import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -972,35 +972,19 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
 
       // Add previousUserName and previousRoleName to each workflow history entry
       if (workflowHistories?.length) {
-        for (const history of workflowHistories) {
-          const transformedHistory = history as any;
-          let previousUserName: string | null = null;
-          let previousRoleName: string | null = null;
-          if (transformedHistory.previousUser) {
-            previousUserName = transformedHistory.previousUser.username;
-          }
-          if (transformedHistory.previousRole) {
-            previousRoleName = transformedHistory.previousRole.name;
-          }
-          transformedHistory.previousUserName = previousUserName;
-          transformedHistory.previousRoleName = previousRoleName;
-          delete transformedHistory.previousUser;
-          delete transformedHistory.previousRole;
+       // Transform histories
+        const transformedHistories = workflowHistories.map((history) => {
+        const { previousUser, previousRole, nextUser, nextRole, ...rest } = history;
 
-          let nextUserName: string | null = null;
-          let nextRoleName: string | null = null;
-          if (transformedHistory.nextUser) {
-            nextUserName = transformedHistory.nextUser.username;
-          }
-          if (transformedHistory.nextRole) {
-            nextRoleName = transformedHistory.nextRole.name;
-          }
-          transformedHistory.nextUserName = nextUserName;
-          transformedHistory.nextRoleName = nextRoleName;
-          delete transformedHistory.nextUser;
-          delete transformedHistory.nextRole;
-        }
-        application.workflowHistories = workflowHistories;
+          return {
+            ...rest,
+            previousUserName: previousUser?.username ?? null,
+            previousRoleName: previousRole?.name ?? null,
+            nextUserName: nextUser?.username ?? null,
+            nextRoleName: nextRole?.name ?? null,
+          };
+        });
+        application.workflowHistories = transformedHistories;
       }
 
       let usersInHierarchy: any[] = [];
@@ -1211,6 +1195,25 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
       const limit = Math.max(Number(filter.limit ?? 10), 1);
       const skip = (page - 1) * limit;
 
+      // Role-based filtering: Get current user's role
+      let userRole = null;
+      if (filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          const user = await prisma.users.findUnique({
+            where: { id: parsedUserId },
+            include: { role: true }
+          });
+          userRole = user?.role?.code;
+
+          // For non-ZS users, filter by currentUserId
+          // ZS users can see all applications
+          if (userRole && userRole !== ROLE_CODES.ZS) {
+            where.currentUserId = parsedUserId;
+          }
+        }
+      }
+
       // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
         // Split numeric-like entries and non-numeric entries
@@ -1235,7 +1238,7 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
         where.workflowStatusId = { in: resolvedIds };
       }
 
-      // Specific application ID filter (ownership)
+      // Specific application ID filter (ownership) - for explicit isOwned flag
       if (filter.isOwned == true && filter.currentUserId) {
         // currentUserId might be string; convert if numeric
         const parsed = Number(filter.currentUserId);

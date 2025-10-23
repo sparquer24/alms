@@ -557,20 +557,6 @@ export class ApplicationFormController {
   const 
   parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
-  // Reusable address builder used for single-item and list-item transforms
-  const buildAddress = (addr: any) => {
-    if (!addr) return null;
-    return {
-      addressLine: addr.addressLine,
-      sinceResiding: addr.sinceResiding,
-      // Return only the name for state/district inside addresses per request
-      state: addr.state ? addr.state.name : null,
-      district: addr.district ? addr.district.name : null,
-      zone: addr.zone ? { id: addr.zone.id, name: addr.zone.name } : null,
-      division: addr.division ? { id: addr.division.id, name: addr.division.name } : null,
-      policeStation: addr.policeStation ? { id: addr.policeStation.id, name: addr.policeStation.name } : null,
-    };
-  };
 
   if (parsedApplicationId || parsedAcknowledgementNo) {
         const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
@@ -583,37 +569,11 @@ export class ApplicationFormController {
         }
 
         // Build applicant name
-        let applicantName = '';
-        if (dataApplication.firstName) applicantName += dataApplication.firstName;
-        if (dataApplication.middleName) applicantName += ` ${dataApplication.middleName}`;
-        if (dataApplication.lastName) applicantName += ` ${dataApplication.lastName}`;
-
-        const presentAddress = buildAddress(dataApplication.presentAddress);
-        const permanentAddress = buildAddress(dataApplication.permanentAddress);
-
-  // status -> return code string
-  const status = dataApplication.status ? dataApplication.status.code : null;
-  // Return state/district as name strings per request
-  const state = dataApplication.state ? dataApplication.state.name : null;
-  const district = dataApplication.district ? dataApplication.district.name : null;
-
-        const currentUser = dataApplication.currentUser ? { id: dataApplication.currentUser.id, username: dataApplication.currentUser.username } : null;
-        const previousUser = dataApplication.previousUser ? { id: dataApplication.previousUser.id, username: dataApplication.previousUser.username } : null;
-        const currentRole = dataApplication.currentRole ? dataApplication.currentRole.code : null;
-        const previousRole = dataApplication.previousRole ? dataApplication.previousRole.code : null;
+        let buildApplicantName  = (app: any) =>[app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ');
 
         const transformed: any = {
           ...dataApplication,
-          applicantName: applicantName.trim() || 'Unknown Applicant',
-          presentAddress,
-          permanentAddress,
-          state,
-          district,
-          status,
-          currentUser,
-          previousUser,
-          currentRole,
-          previousRole,
+          applicantName: buildApplicantName(dataApplication),
         };
 
         // Remove raw id fields that should not be returned
@@ -643,7 +603,7 @@ export class ApplicationFormController {
         isOwned : isOwned == true? true : false,
       });
       if (error) {
-        const errMsg = (error as any)?.message || 'Failed to fetch applications--------------584';
+        const errMsg = (error as any)?.message || 'Failed to fetch applications';
         throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
       }
       const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
@@ -662,7 +622,7 @@ export class ApplicationFormController {
         }
       };
     } catch (error: any) {
-      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications------------------605', error: error.message }, HttpStatus.BAD_REQUEST);
+      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 

@@ -5,6 +5,27 @@
  */
 
 // ============================================
+// ROLE CODES
+// ============================================
+
+/**
+ * Role codes used in the application
+ */
+export const ROLE_CODES = {
+  ZS: 'ZS',                    // Zonal Superintendent
+  SHO: 'SHO',                  // Station House Officer
+  ACP: 'ACP',                  // Assistant Commissioner of Police
+  DCP: 'DCP',                  // Deputy Commissioner of Police
+  AS: 'AS',                    // Arms Superintendent
+  ADO: 'ADO',                  // Administrative Officer
+  CADO: 'CADO',                // Chief Administrative Officer
+  JTCP: 'JTCP',                // Joint Commissioner of Police
+  CP: 'CP',                    // Commissioner of Police
+  APPLICANT: 'APPLICANT',      // Citizen Applicant
+  ADMIN: 'ADMIN'               // System Administrator
+} as const;
+
+// ============================================
 // ACTION CATEGORIES
 // ============================================
 
