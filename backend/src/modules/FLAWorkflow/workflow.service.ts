@@ -76,35 +76,20 @@ export class WorkflowService {
     }
 
     // 3. Determine next user and validate based on action type
-    let newCurrentUserId: number | null = application.currentUserId;
-    let nextRoleId: number | null = null;
+    let nextUserId: number | null 
+     const nextUserRoleId = await this.prisma.users.findUnique({
+      where: { id: payload.nextUserId },
+      select: { roleId: true },
+    });
 
     const actionCode = payload.action.code.toUpperCase();
 
-    // Check if action requires forwarding to another user
-    if (isForwardAction(actionCode)) {
-      // For forward action, nextUserId is required
-      if (!payload.nextUserId) {
-        throw new BadRequestException('nextUserId is required for forward action');
-      }
-      newCurrentUserId = payload.nextUserId;
-      
-      // Fetch next user's roleId
-      const nextUser = await this.prisma.users.findUnique({ 
-        where: { id: payload.nextUserId },
-        select: { roleId: true }
-      });
-      if (!nextUser) {
-        throw new NotFoundException(`Next user with ID '${payload.nextUserId}' not found.`);
-      }
-      nextRoleId = nextUser.roleId;
-    } else if (isTerminalAction(actionCode)) {
-      // Terminal actions: workflow ends, clear current user
-      newCurrentUserId = null;
-      nextRoleId = null;
+    if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
+      nextUserId = payload.nextUserId;
+    }else{
+      throw new BadRequestException('nextUserId is required for this action.');
     }
-    // For IN_PLACE_ACTIONS (RE_ENQUIRY, GROUND_REPORT, etc.), keep current user and role unchanged
-
+     
     // 4. Find corresponding status for this action
     const status = await this.prisma.statuses.findFirst({
       where: { code: payload.action.code }
@@ -115,7 +100,7 @@ export class WorkflowService {
     const updateData: any = {
       workflowStatusId: newStatusId,
       previousUserId: payload.currentUserId,
-      currentUserId: newCurrentUserId,
+      currentUserId: nextUserId,
     };
 
     // Set approval/rejection flags based on action code
@@ -140,15 +125,16 @@ export class WorkflowService {
     });
 
     // 6. Add workflow history log
-    // For schema requirement: nextUserId is required, so use currentUserId as fallback for non-forward actions
+    const previousUserIdForHistory = application.currentUserId || payload.currentUserId; // Who had it before
+    
     const workflowHistoryData: any = {
       applicationId: payload.applicationId,
-      previousUserId: payload.currentUserId,
-      nextUserId: newCurrentUserId !== null ? newCurrentUserId : payload.currentUserId, // Use currentUserId as fallback
+      previousUserId: previousUserIdForHistory, // Who had the application before this action
+      nextUserId: nextUserId, // Who has it after (or who completed it)
       actionTaken: payload.action.code,
       remarks: payload.remarks || '',
-      previousRoleId: currentRoleId,
-      nextRoleId: nextRoleId,
+      previousRoleId: previousUserIdForHistory ? (await this.prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
+      nextRoleId: nextUserRoleId?.roleId ,
       actionesId: payload.actionId,
       attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
     };
