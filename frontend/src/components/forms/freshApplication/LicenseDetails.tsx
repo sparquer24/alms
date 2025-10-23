@@ -391,8 +391,8 @@ const LicenseDetails = () => {
 		
 		if (savedApplicantId) {
 			// Skip biometric step - go directly to documents upload
-			// navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, savedApplicantId);
-			navigateToNext(FORM_ROUTES.DOCUMENTS_UPLOAD, savedApplicantId);
+			navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, savedApplicantId);
+			// navigateToNext(FORM_ROUTES.DOCUMENTS_UPLOAD, savedApplicantId);
 		}
 	};
 

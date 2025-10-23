@@ -8,7 +8,7 @@ import OccupationBussiness from '../../../../components/forms/freshApplication/O
 import LicenseDetails from '../../../../components/forms/freshApplication/LicenseDetails'; // step5
 import CriminalHistory from '../../../../components/forms/freshApplication/CriminalHistory'; // step6
 import LicenseHistory from '../../../../components/forms/freshApplication/LicenseHistory'; // step7
-// import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8
+import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8
 import DocumentsUpload from '../../../../components/forms/freshApplication/DocumentsUpload'; // step9
 import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
 import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
@@ -27,7 +27,7 @@ const steps = [
 	'Criminal History',
 	'License History',
 	'License Details',
-	// 'Biometric Information',
+	'Biometric Information',
 	'Documents Upload',
 	'Preview',
 	'Declaration & Submit',
@@ -56,9 +56,9 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	   // Special handling for preview and declaration which use different slug patterns
 	   let stepIndex;
 	   if (step === 'preview') {
-		   stepIndex = 7; // Preview is at index 8
+		   stepIndex = 8; // Preview is at index 8
 	   } else if (step === 'declaration') {
-		   stepIndex = 8; // Declaration & Submit is at index 9
+		   stepIndex = 9; // Declaration & Submit is at index 9
 	   } else {
 		   stepIndex = steps.findIndex(s => stepToSlug(s) === step);
 	   }
@@ -83,9 +83,9 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 		   case stepToSlug('License Details'):
 			   StepComponent = <LicenseDetails />;
 			   break;
-		//    case stepToSlug('Biometric Information'):
-		// 	   StepComponent = <BiometricInformation />;
-		// 	   break;
+		   case stepToSlug('Biometric Information'):
+			   StepComponent = <BiometricInformation />;
+			   break;
 		   case stepToSlug('Documents Upload'):
 			   StepComponent = <DocumentsUpload />;
 			   break;

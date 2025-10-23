@@ -206,7 +206,7 @@ const PersonalInformation: React.FC = () => {
 							<input
 								type="radio"
 								name="sex"
-								value="Male"
+								value="MALE"
 								checked={form.sex === 'MALE'}
 								onChange={handleChange}
 								suppressHydrationWarning
@@ -218,7 +218,7 @@ const PersonalInformation: React.FC = () => {
 							<input
 								type="radio"
 								name="sex"
-								value="Female"
+								value="FEMALE"
 								checked={form.sex === 'FEMALE'}
 								onChange={handleChange}
 								suppressHydrationWarning
