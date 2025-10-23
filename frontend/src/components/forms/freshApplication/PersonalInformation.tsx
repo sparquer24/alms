@@ -158,13 +158,19 @@ const PersonalInformation: React.FC = () => {
 				required
 				//placeholder="Enter first name"
 			/>
-			<Input
-				label="Applicant Middle Name"
-				name="middleName"
-				value={form.middleName}
-				onChange={handleChange}
-				//placeholder="Enter middle name"
-			/>
+			<div className="flex flex-col">
+				<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="middleName">
+					Applicant Middle Name
+					<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+				</label>
+				<Input
+					label=""
+					name="middleName"
+					value={form.middleName}
+					onChange={handleChange}
+					//placeholder="Enter middle name"
+				/>
+			</div>
 			<Input
 				label="Applicant Last Name"
 				name="lastName"
@@ -201,7 +207,7 @@ const PersonalInformation: React.FC = () => {
 								type="radio"
 								name="sex"
 								value="Male"
-								checked={form.sex === 'Male'}
+								checked={form.sex === 'MALE'}
 								onChange={handleChange}
 								suppressHydrationWarning
 							/>
@@ -213,7 +219,7 @@ const PersonalInformation: React.FC = () => {
 								type="radio"
 								name="sex"
 								value="Female"
-								checked={form.sex === 'Female'}
+								checked={form.sex === 'FEMALE'}
 								onChange={handleChange}
 								suppressHydrationWarning
 							/>

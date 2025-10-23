@@ -48,10 +48,10 @@ const DocumentsUpload = () => {
 	   'Aadhar Card',
 	   'PAN Card',
 	   'Training certificate',
+	   'Medical Reports',
 	   'Other state Arms License',
 	   'Existing Arms License',
-	   'Safe custody',
-	   'Medical Reports',
+	   'Safe custody'
    ];
    const [files, setFiles] = useState<{ [key: string]: UploadedFile[] }>({});
    const [fileError, setFileError] = useState<{ [key: string]: string }>({});
@@ -254,7 +254,12 @@ const DocumentsUpload = () => {
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					{documentTypes.map((docType) => (
 						<div key={docType} className="mb-2 border-2 border-dashed border-blue-300 rounded-lg p-2">
-							<div className="font-semibold mb-1">{docType}</div>
+											<div className="font-semibold mb-1">
+												{docType}
+												{['Other state Arms License', 'Existing Arms License', 'Safe custody'].includes(docType) && (
+													<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+												)}
+											</div>
 							<div className="flex flex-col items-center mb-1">
 								<span className="text-blue-500 text-xl mb-1">📤</span>
 								<label className="text-blue-700 underline cursor-pointer">

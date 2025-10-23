@@ -232,9 +232,9 @@ const AddressDetails: React.FC = () => {
 			</div>
 			<div className="bg-blue-50 rounded-lg p-4 grid grid-cols-4 gap-4 mb-2 h-30">
 				<Input
-					label="Telephone Number\nOffice"
-					name="telephoneOffice"
-					value={form.telephoneOffice}
+					label="Mobile Number\Office"
+					name="officeMobileNumber"
+					value={form.officeMobileNumber}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
@@ -245,20 +245,33 @@ const AddressDetails: React.FC = () => {
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
-				<Input
-					label="Mobile Number\nOffice"
-					name="officeMobileNumber"
-					value={form.officeMobileNumber}
-					onChange={handleChange}
-					placeholder="0000 0000 0000"
-				/>
-				<Input
-					label="Alternative Mobile Number"
-					name="alternativeMobile"
-					value={form.alternativeMobile}
-					onChange={handleChange}
-					placeholder="0000 0000 0000"
-				/>
+				<div className="flex flex-col">
+					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="alternativeMobile">
+						Alternative Mobile Number
+						<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+					</label>
+					<Input
+						label=""
+						name="alternativeMobile"
+						value={form.alternativeMobile}
+						onChange={handleChange}
+						placeholder="0000 0000 0000"
+					/>
+				</div>
+				<div className="flex flex-col">
+					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="telephoneOffice">
+						Telephone Number\Office
+						<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+					</label>
+					<Input
+						label=""
+						name="telephoneOffice"
+						value={form.telephoneOffice}
+						onChange={handleChange}
+						placeholder="0000 0000 0000"
+					/>
+				</div>
+
 			</div>
 			
 			<FormFooter
