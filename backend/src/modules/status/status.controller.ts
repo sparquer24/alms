@@ -79,7 +79,7 @@ export class StatusController {
       }
     }
   })
-  async updateStatus(@Param('id') id: number, @Body() statusData: any) {
-    return this.statusService.updateStatus(id, statusData);
+  async updateStatus(@Param('id') id: string, @Body() statusData: any) {
+    return this.statusService.updateStatus(Number(id), statusData);
   }
 }
