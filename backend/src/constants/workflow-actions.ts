@@ -79,6 +79,10 @@ export const ACTION_CODES = {
   RED_FLAG: 'RED_FLAG'
 } as const;
 
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
 /**
  * Check if action ends the workflow
  */
@@ -98,4 +102,18 @@ export function isForwardAction(actionCode: string): boolean {
  */
 export function isInPlaceAction(actionCode: string): boolean {
   return IN_PLACE_ACTIONS.includes(actionCode.toUpperCase());
+}
+
+/**
+ * Check if action is approval
+ */
+export function isApprovalAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.APPROVED;
+}
+
+/**
+ * Check if action is rejection
+ */
+export function isRejectionAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.REJECT;
 }

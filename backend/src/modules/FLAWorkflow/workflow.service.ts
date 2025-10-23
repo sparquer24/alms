@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
-import { TERMINAL_ACTIONS, FORWARD_ACTIONS, isTerminalAction, isForwardAction } from '../../constants/workflow-actions';
+import { TERMINAL_ACTIONS, FORWARD_ACTIONS, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction } from '../../constants/workflow-actions';
 
 @Injectable()
 export class WorkflowService {
@@ -118,7 +118,14 @@ export class WorkflowService {
       currentUserId: newCurrentUserId,
     };
 
-    // Add optional boolean fields if provided in payload
+    // Set approval/rejection flags based on action code
+    if (isApprovalAction(actionCode)) {
+      updateData.isApprovied = true;
+    } else if (isRejectionAction(actionCode)) {
+      updateData.isRejected = true;
+    }
+
+    // Add optional boolean fields if provided in payload (can override the above)
     if (payload.isApprovied !== undefined) updateData.isApprovied = payload.isApprovied;
     if (payload.isFLAFGenerated !== undefined) updateData.isFLAFGenerated = payload.isFLAFGenerated;
     if (payload.isGroundReportGenerated !== undefined) updateData.isGroundReportGenerated = payload.isGroundReportGenerated;
