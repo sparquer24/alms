@@ -849,6 +849,26 @@ export class ApplicationFormService {
       return [error, null];
     }
   }
+async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
+    try {
+      // First, check if the file record exists
+      const existingFile = await prisma.fLAFFileUploads.findUnique({
+        where: { id: fileId }
+      });
+      if (!existingFile) {
+        return [new BadRequestException(`File with ID ${fileId} not found`), false];
+      }
+      // Delete the file record
+      await prisma.fLAFFileUploads.delete({
+        where: { id: fileId }
+      });
+      return [null, true];
+    }
+    catch (error) {
+      return [error, false];
+    }
+  }
+
 
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
