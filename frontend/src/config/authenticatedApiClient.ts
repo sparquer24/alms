@@ -5,6 +5,7 @@
 
 import axiosInstance, { setAuthToken, fetchData, postData, putData, deleteData } from '../api/axiosConfig';
 import { getAuthTokenFromCookie } from '../utils/authCookies';
+import { BASE_URL } from './APIsEndpoints';
 
 // Type for auth data stored in cookies
 interface AuthData {
@@ -32,8 +33,8 @@ function getAuthToken(): string | null {
  */
 function isAuthenticated(): boolean {
   try {
-  const token = getAuthToken();
-  return !!token;
+    const token = getAuthToken();
+    return !!token;
   } catch (error) {
     return false;
   }
@@ -46,7 +47,7 @@ function redirectToLogin(): void {
   // Clear invalid auth data
   document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
   localStorage.removeItem('auth');
-  
+
   // Redirect to login
   if (typeof window !== 'undefined') {
     window.location.href = '/login';
@@ -83,7 +84,11 @@ async function ensureAuthHeader() {
 export class ApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || '') {
+  // Use explicit BASE_URL fallback so the client targets the backend when
+  // NEXT_PUBLIC_API_URL is not provided. Previously the fallback was an empty
+  // string which caused endpoints like '/auth/getMe' to be requested against
+  // the frontend origin instead of the backend.
+  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || BASE_URL) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
@@ -178,7 +183,7 @@ export class ApiClient {
 }
 
 // Export singleton instance
-export const apiClient = new ApiClient(process.env.NEXT_PUBLIC_API_URL || '');
+export const apiClient = new ApiClient(process.env.NEXT_PUBLIC_API_URL || BASE_URL);
 
 // Export utility functions
 export { getAuthToken, isAuthenticated, redirectToLogin };

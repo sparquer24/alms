@@ -11,6 +11,7 @@ const initialState = {
 const BiometricInformation = () => {
 	const [form, setForm] = useState(initialState);
 
+	
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, files } = e.target;
 		if (files && files[0]) {

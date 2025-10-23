@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useDispatch, useSelector } from 'react-redux';
@@ -163,6 +164,8 @@ const FormInput: React.FC<{
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      // Prevent hydration mismatch warnings caused by browser extensions injecting attributes client-side
+      suppressHydrationWarning
       disabled={disabled}
       aria-describedby={disabled ? `${id}-disabled` : undefined}
     />
@@ -194,10 +197,46 @@ export default function Login() {
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
-      const redirectPath = getRoleBasedRedirectPath(currentUser.role);
-      router.push(redirectPath);
+      const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
+      if (redirectPath && typeof redirectPath === 'string') {
+        // If redirecting to an admin area, perform a full navigation so the
+        // server middleware sees the newly-set cookies. For non-admin routes,
+        // client-side navigation is fine.
+        if (redirectPath.startsWith('/admin')) {
+          // small delay to ensure cookies set by the thunk are flushed
+          setTimeout(() => { window.location.assign(redirectPath); }, 50);
+        } else {
+          router.push(redirectPath);
+        }
+      } else {
+        console.warn('No redirect path determined for user:', currentUser);
+        // Fallback to root
+        router.push('/');
+      }
     }
   }, [isAuthenticated, currentUser, router]);
+
+  // On initial mount, if auth, role and user cookies already exist then
+  // redirect to root. This keeps users from seeing the login page when a
+  // valid cookie set exists (server or another tab may have established it).
+  useEffect(() => {
+    try {
+      const cAuth = getCookie('auth');
+      const cRole:any = getCookie('role');
+      const cUser = getCookie('user');
+      if (cAuth && cRole && cUser) {
+        if (cRole.toLowerCase() == "admin") {
+          router.replace('/admin/userManagement');
+        } else {
+          router.replace('/inbox?type=forwarded');
+        }
+        // Redirect to root — use replace to avoid creating history entry
+      }
+    } catch (e) {
+      // best-effort; ignore errors
+      // console.warn('Cookie check failed on login page:', e);
+    }
+  }, [router]);
 
   // Form submission handler
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -213,21 +252,44 @@ export default function Login() {
         username: formData.username.trim(), 
         password: formData.password 
       };
-      
+      console.log('Login payload:', loginPayload);
       const result = await dispatch(login(loginPayload)).unwrap();
-      
-      dispatch(setError(''));
-      
-      // Get role-based redirect path
-      const redirectPath = getRoleBasedRedirectPath(result.user.role);
-      
-      // Show loading state before redirect
-      setIsRedirecting(true);
-      
-      // Force reload and redirect to role-specific path
-      window.location.replace(redirectPath);
+      console.log('Login API response:', result);
+      if (result && result.user) {
+        console.log('User object:', result.user);
+        // Normalize role to uppercase string for consistent redirects
+        const extractRole = (u: any): string | undefined => {
+          if (!u) return undefined;
+          const roleObj = u.role ?? u;
+          const candidate = roleObj?.code || roleObj?.key || roleObj?.name || u?.roleCode || u?.role_id || u?.roleId || (typeof roleObj === 'string' ? roleObj : null) || (Array.isArray(u?.roles) ? u.roles[0] : null);
+          return candidate ? String(candidate).trim().toUpperCase() : undefined;
+        };
+        const normalizedRole = extractRole(result.user);
+        console.log('Normalized role:', normalizedRole);
+        if (!normalizedRole) {
+          console.warn('Login returned no role; redirect may loop.');
+          dispatch(setError('No role assigned to your account.'));
+          setIsRedirecting(false);
+        } else {
+          const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+          console.log('Redirect path:', redirectPath);
+          if (!redirectPath || typeof redirectPath !== 'string') {
+            console.warn('Invalid redirectPath, falling back to root:', redirectPath);
+          }
+          dispatch(setError(''));
+          setIsRedirecting(true);
+          // We no longer navigate here. The login thunk will issue a full page
+          // reload after persisting cookies so the server middleware and
+          // initializeAuth flow can validate cookies and redirect.
+          console.log('Login complete — cookies persisted. Waiting for full reload by thunk.');
+        }
+      } else {
+        console.warn('No user found in login result:', result);
+        dispatch(setError('No user found after login.'));
+      }
     } catch (err) {
       // Error is handled by the thunk and stored in Redux state
+      console.error('Login error:', err);
       resetForm();
     }
   }, [dispatch, formData, isFormValid, resetForm]);
@@ -261,8 +323,8 @@ export default function Login() {
     />
   ), [formData.password, isLoading, updateField]);
 
-  // Show skeleton while redirecting
-  if (isRedirecting) {
+  // Show LoginSkeleton while loading or redirecting
+  if (isLoading || isRedirecting) {
     return <LoginSkeleton />;
   }
 
@@ -282,7 +344,8 @@ export default function Login() {
               alt="ALMS Logo"
               width={120}
               height={120}
-              className="drop-shadow-md"
+              // Ensure aspect ratio is preserved if CSS changes one dimension
+              className="drop-shadow-md h-auto"
               priority
             />
           </div>

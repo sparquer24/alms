@@ -2,6 +2,7 @@ import { Injectable, ConflictException, BadRequestException, InternalServerError
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
+import { STATUS_CODES, ACTION_CODES } from '../../constants/workflow-actions';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -60,6 +61,11 @@ export interface CreateOccupationInfoInput {
   districtId: number;
   cropLocation?: string;
   areaUnderCultivation?: number;
+  employerName?: string;
+  businessDetails?: string;
+  annualIncome?: string;
+  workExperience?: string;
+  businessType?: string;
 }
 
 export interface CreateLicenseRequestDetailsInput {
@@ -107,6 +113,17 @@ export class ApplicationFormService {
         role: true,
       },
     });
+  }
+
+  // Helper to extract acceptance flags from payload or personalDetails object
+  private extractAcceptanceFlagsFromPayload(payload: any) {
+    // payload may be either the whole DTO or the personalDetails object itself
+    const source = (payload && payload.personalDetails && typeof payload.personalDetails === 'object') ? payload.personalDetails : payload;
+    const result: any = {};
+    if (source?.isDeclarationAccepted !== undefined) result.isDeclarationAccepted = source.isDeclarationAccepted;
+    if (source?.isAwareOfLegalConsequences !== undefined) result.isAwareOfLegalConsequences = source.isAwareOfLegalConsequences;
+    if (source?.isTermsAccepted !== undefined) result.isTermsAccepted = source.isTermsAccepted;
+    return result;
   }
 
   // Helper method to determine initial status for new applications
@@ -283,104 +300,81 @@ export class ApplicationFormService {
    * @param data - Application data including user context from token
    * @returns Created application with all relations
    */
-  
+
 
   /**
    * Create personal details in the dedicated personal details table and return applicationId
    */
-async createPersonalDetails(data: any): Promise<[any, any]> {
-  try {
-    // Pick supported fields from input
-    const {
-      acknowledgementNo,
-      firstName,
-      middleName,
-      lastName,
-      parentOrSpouseName,
-      filledBy,
-      sex,
-      placeOfBirth,
-      dateOfBirth,
-      dobInWords,
-      aadharNumber,
-      panNumber,
-    } = data || {};
+  async createPersonalDetails(data: any): Promise<[any, any]> {
+    try {
+      // Pick supported fields from input
+      const {
+        acknowledgementNo,
+        firstName,
+        middleName,
+        lastName,
+        parentOrSpouseName,
+        filledBy,
+        sex,
+        placeOfBirth,
+        dateOfBirth,
+        dobInWords,
+        aadharNumber,
+        panNumber,
+        currentUserId
+      } = data || {};
 
-    // Basic validation
-    if (!firstName || !lastName) {
-      throw new BadRequestException('firstName and lastName are required');
-    }
-    
-    if (!parentOrSpouseName) {
-      throw new BadRequestException('parentOrSpouseName is required');
-    }
-    
-    if (!sex) {
-      throw new BadRequestException('sex is required');
-    }
-
-    // Normalize Aadhaar (keep as string to preserve leading zeros and match DB type)
-    let aadharNumberStr: string | null = null;
-    if (aadharNumber) {
-      const raw = String(aadharNumber).trim();
-      if (!/^[0-9]{12}$/.test(raw)) {
-        return [new BadRequestException('Aadhar number must be a 12-digit numeric string'), null];
+      // Basic validation
+      if (!firstName || !lastName) {
+        throw new BadRequestException('firstName and lastName are required');
       }
-      aadharNumberStr = raw;
-    }
 
-    // Normalize PAN (keep as string; PANs are typically alphanumeric)
-    let panNumberStr: string | null = null;
-    if (panNumber) {
-      const rawPan = String(panNumber).trim();
-      // Accept any non-empty trimmed PAN string; further validation can be added if needed
-      panNumberStr = rawPan || null;
-    }
-
-    // Use string variants for personal details model to avoid integer overflow.
-    const aadharNumberForPersonal: string | null = aadharNumberStr;
-    const panNumberForPersonal: string | null = panNumberStr || null;
-
-    // Validate sex if provided
-    if (sex && !Object.values(Sex).includes(sex as Sex)) {
-      return [new BadRequestException('Invalid sex value'), null];
-    }
-
-    // Combined duplicate check against personal details table (reduce to one DB call)
-    const whereOr: any[] = [];
-    if (aadharNumberForPersonal) whereOr.push({ aadharNumber: aadharNumberForPersonal as any });
-    const trimmedAck = acknowledgementNo ? String(acknowledgementNo).trim() : undefined;
-    if (trimmedAck) whereOr.push({ acknowledgementNo: trimmedAck });
-
-    if (whereOr.length > 0) {
-      const existing = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
-        where: { OR: whereOr },
-        select: { id: true, aadharNumber: true, acknowledgementNo: true },
-      });
-      if (existing) {
-        if (aadharNumberForPersonal && existing.aadharNumber === aadharNumberForPersonal) {
-          return [new ConflictException(`An application with Aadhaar ${aadharNumber} already exists.`), null];
-        }
-        if (trimmedAck && existing.acknowledgementNo === trimmedAck) {
-          return [new ConflictException(`An application with acknowledgementNo ${trimmedAck} already exists.`), null];
-        }
-        // Fallback
-        return [new ConflictException('An application with the provided identifier already exists.'), null];
+      if (!parentOrSpouseName) {
+        throw new BadRequestException('parentOrSpouseName is required');
       }
-    }
 
-    // Transaction: create only the personal-details row (no application)
-    const created = await prisma.$transaction(async (tx) => {
-      // Generate acknowledgementNo once
-      const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
+      if (!sex) {
+        throw new BadRequestException('sex is required');
+      }
+
+      // Normalize Aadhaar (keep as string to preserve leading zeros and match DB type)
+      let aadharNumberStr: string | null = null;
+      if (aadharNumber) {
+        const raw = String(aadharNumber).trim();
+        if (!/^[0-9]{12}$/.test(raw)) {
+          return [new BadRequestException('Aadhar number must be a 12-digit numeric string'), null];
+        }
+        aadharNumberStr = raw;
+      }
+
+      // Normalize PAN (keep as string; PANs are typically alphanumeric)
+      let panNumberStr: string | null = null;
+      if (panNumber) {
+        const rawPan = String(panNumber).trim();
+        // Accept any non-empty trimmed PAN string; further validation can be added if needed
+        panNumberStr = rawPan || null;
+      }
+
+      // Use string variants for personal details model to avoid integer overflow.
+      const aadharNumberForPersonal: string | null = aadharNumberStr;
+      const panNumberForPersonal: string | null = panNumberStr || null;
+
+      // Validate sex if provided
+      if (sex && !Object.values(Sex).includes(sex as Sex)) {
+        return [new BadRequestException('Invalid sex value'), null];
+      }
+      // Transaction: create only the personal-details row (no application)
+      const created = await prisma.$transaction(async (tx) => {
+        // Generate acknowledgementNo once
+        const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
 
         // Find DRAFT status ID by code (more reliable than assuming ID)
         const draftStatus = await prisma.statuses.findFirst({
-          where: { code: 'DRAFT', isActive: true }
+          where: { code: STATUS_CODES.DRAFT, isActive: true }
         });
 
         if (!draftStatus) {
-          throw new Error('DRAFT status not found in Statuses table. Please ensure DRAFT status exists.');
+          throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
         }
 
         const draftStatusId = draftStatus.id;
@@ -399,27 +393,32 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             dobInWords,
             aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
             panNumber: panNumberForPersonal ?? undefined as any,
+            currentUserId: currentUserId || null,
             workflowStatusId: draftStatusId,
           } as any),
         });
 
-      return personal;
-    });
+        return personal;
+      });
 
-    return [null, created.id];
-  } catch (error: any) {
-    if (error?.code === 'P2002') {
-      const target = error?.meta?.target ? error.meta.target.join(',') : 'field';
-      return [new ConflictException(`Duplicate value for unique field(s): ${target}`), null];
+      return [null, created.id];
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const target = error?.meta?.target ? error.meta.target.join(',') : 'field';
+        return [new ConflictException(`Duplicate value for unique field(s): ${target}`), null];
+      }
+      return [error, null];
     }
-    return [error, null];
   }
-}
 
   /**
    * Patch application details - update related tables (addresses, occupation, histories, license details)
+   * @param applicationId - Application ID to update
+   * @param isSubmit - Whether this is a final submission
+   * @param data - Data to update
+   * @param currentUserId - Authenticated user ID from JWT token (optional)
    */
-  async patchApplicationDetails(applicationId: number, data: any): Promise<[any, any]> {
+  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any, currentUserId?: number): Promise<[any, any]> {
     try {
       // First validate that the application exists
       const existingApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -500,6 +499,32 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
 
         // 3. Handle Occupation and Business
         if (data.occupationAndBusiness) {
+          // Sanitize and coerce occupation payload to avoid invalid FK values or wrong types
+          const rawOcc: any = data.occupationAndBusiness || {};
+          // Only pick fields that are declared in the PatchOccupationBusinessDto
+          // DTO fields: occupation, officeAddress, stateId, districtId, cropLocation, areaUnderCultivation
+          const occData: any = {
+            occupation: rawOcc.occupation,
+            officeAddress: rawOcc.officeAddress,
+            cropLocation: rawOcc.cropLocation ?? undefined,
+          };
+
+          // Coerce numeric fields only if valid positive numbers
+          if (rawOcc.areaUnderCultivation !== undefined && rawOcc.areaUnderCultivation !== null) {
+            const a = Number(rawOcc.areaUnderCultivation);
+            if (!isNaN(a)) occData.areaUnderCultivation = a;
+          }
+
+          if (rawOcc.stateId !== undefined && rawOcc.stateId !== null) {
+            const s = Number(rawOcc.stateId);
+            if (!isNaN(s)) occData.stateId = s;
+          }
+
+          if (rawOcc.districtId !== undefined && rawOcc.districtId !== null) {
+            const d = Number(rawOcc.districtId);
+            if (!isNaN(d)) occData.districtId = d;
+          }
+
           // Check if occupation already exists
           const existingOccupation = await tx.freshLicenseApplicationPersonalDetails.findUnique({
             where: { id: applicationId },
@@ -510,12 +535,12 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             // Update existing occupation
             await tx.fLAFOccupationAndBusiness.update({
               where: { id: existingOccupation.occupationAndBusinessId },
-              data: data.occupationAndBusiness
+              data: occData
             });
           } else {
             // Create new occupation and link it
             const newOccupation = await tx.fLAFOccupationAndBusiness.create({
-              data: data.occupationAndBusiness
+              data: occData
             });
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
@@ -554,53 +579,24 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
             updateData.dateOfBirth = dob ?? undefined;
           }
 
-          // Aadhaar validation and uniqueness
+          // Aadhaar validation (format only). PAN trimming handled alongside when provided.
           if (pd.aadharNumber !== undefined) {
             const raw = pd.aadharNumber ? String(pd.aadharNumber).trim() : '';
             if (raw && !/^[0-9]{12}$/.test(raw)) {
               throw new BadRequestException('Aadhar number must be a 12-digit numeric string');
             }
-
-            if (raw) {
-              const existingAadhar = await tx.freshLicenseApplicationPersonalDetails.findFirst({
-                where: {
-                  aadharNumber: raw,
-                  NOT: { id: applicationId }
-                },
-                select: { id: true }
-              });
-              if (existingAadhar) {
-                throw new ConflictException(`An application with Aadhaar ${raw} already exists.`);
-              }
-              updateData.aadharNumber = raw;
-            } else {
-              // Allow clearing the aadhar by setting null if empty string provided
-              updateData.aadharNumber = undefined;
-            }
-          }
-
-          // PAN validation and uniqueness (basic trimming)
-          if (pd.panNumber !== undefined) {
-            const pan = pd.panNumber ? String(pd.panNumber).trim() : '';
-            if (pan) {
-              const existingPan = await tx.freshLicenseApplicationPersonalDetails.findFirst({
-                where: {
-                  panNumber: pan,
-                  NOT: { id: applicationId }
-                },
-                select: { id: true }
-              });
-              if (existingPan) {
-                throw new ConflictException(`An application with PAN ${pan} already exists.`);
-              }
-              updateData.panNumber = pan;
-            } else {
-              updateData.panNumber = undefined;
-            }
+            updateData.aadharNumber = raw || undefined; // allow clearing by setting undefined if empty string
+            updateData.panNumber = pd.panNumber ? String(pd.panNumber).trim() : undefined;
           }
 
           // If there is something to update, perform the update
+          // Also include acceptance flags here if provided (ensure these are
+          // updated when personalDetails is present, even if this is called
+          // outside of isSubmit flow)
+          Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(pd));
+
           if (Object.keys(updateData).length > 0) {
+            console.debug('Updating personalDetails for application', applicationId, updateData);
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
               data: {
@@ -615,24 +611,28 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
         // 4. Handle Criminal Histories (Replace all existing)
         if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
           // Delete existing criminal histories
-          await tx.fLAFCriminalHistories.deleteMany({
-            where: { applicationId }
-          });
+          await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
 
-          // Create new criminal histories
+          // Create new criminal histories one-by-one to surface any validation/constraint errors
           if (data.criminalHistories.length > 0) {
-            const criminalHistoriesData = data.criminalHistories.map((history: any) => ({
-              ...history,
-              applicationId,
-              dateOfSentence: history.dateOfSentence ? new Date(history.dateOfSentence) : null,
-              bondDate: history.bondDate ? new Date(history.bondDate) : null,
-              prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null
-            }));
+            for (const history of data.criminalHistories) {
+              const record: any = {
+                applicationId,
+                isConvicted: history.isConvicted ?? false,
+                firDetails: history.firDetails ?? null,
+                isBondExecuted: history.isBondExecuted ?? false,
+                bondDate: history.bondDate ? new Date(history.bondDate) : null,
+                bondPeriod: history.bondPeriod ?? null,
+                isProhibited: history.isProhibited ?? false,
+                prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null,
+                prohibitionPeriod: history.prohibitionPeriod ?? null,
+              };
 
-            await tx.fLAFCriminalHistories.createMany({
-              data: criminalHistoriesData
-            });
+              // Create the record and let any errors bubble to the transaction so they can be handled
+              await tx.fLAFCriminalHistories.create({ data: record });
+            }
           }
+
           updatedSections.push('criminalHistories');
         }
 
@@ -669,7 +669,7 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
           if (data.licenseDetails.length > 0) {
             for (const licenseDetail of data.licenseDetails) {
               const { requestedWeaponIds, ...licenseDetailData } = licenseDetail;
-              
+
               const newLicenseDetail = await tx.fLAFLicenseDetails.create({
                 data: {
                   ...licenseDetailData,
@@ -695,24 +695,99 @@ async createPersonalDetails(data: any): Promise<[any, any]> {
         }
 
         // Handle workflow status updates
-        if (data.workflowStatusId !== undefined) {
-          // Validate workflow status exists
-          const workflowStatus = await tx.statuses.findUnique({
-            where: { id: data.workflowStatusId }
+        if (isSubmit === true) {        
+          // get the Status ID for INITIATE from the Status table
+          const initiatedStatus = await tx.statuses.findFirst({
+            where: { code: STATUS_CODES.INITIATE, isActive: true }
           });
-          if (!workflowStatus) {
-            throw new Error(`Invalid workflow status ID: ${data.workflowStatusId}`);
-          }
-          
-          // Update the application with new workflow status
-          await tx.freshLicenseApplicationPersonalDetails.update({
+
+          // Get INITIATE action from Actiones table
+          const initiateAction = await tx.actiones.findFirst({
+            where: { code: ACTION_CODES.INITIATE, isActive: true }
+          });
+
+          // Get current application details to know the current user
+          const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
             where: { id: applicationId },
-            data: {
-              workflowStatusId: data.workflowStatusId,
-              updatedAt: new Date()
+            select: { 
+              currentUserId: true, 
+              previousUserId: true,
+              workflowStatusId: true 
             }
           });
-          updatedSections.push('workflowStatus');
+
+          // Determine which user ID to use: passed from auth token > currentUserId from app > previousUserId from app
+          const effectiveUserId = currentUserId || currentApp?.currentUserId || currentApp?.previousUserId;
+
+          // If we still don't have a user ID, we cannot create workflow history
+          if (!effectiveUserId) {
+            throw new BadRequestException('Cannot submit application: No user information available. Please ensure you are authenticated.');
+          }
+
+          // workflowStatus and acceptance flags are saved together.
+          const updateData: any = {
+            updatedAt: new Date()
+          };
+          // mark submitted flag so it's written as part of the same update
+          updateData.isSubmit = true;
+
+          // Update currentUserId if it was passed from auth token and is different from what's stored
+          if (currentUserId && currentApp?.currentUserId !== currentUserId) {
+            updateData.currentUserId = currentUserId;
+          }
+
+          if (initiatedStatus && initiatedStatus.id) {
+            updateData.workflowStatusId = initiatedStatus.id;
+          }
+
+          // Defensive: accept flags from either personalDetails or top-level payload.
+          Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(data));
+
+          // If there's something other than updatedAt to save, perform the update
+          const hasUpdatableKeys = Object.keys(updateData).some(k => k !== 'updatedAt');
+          if (hasUpdatableKeys) {
+            // small debug to help trace why an update may not happen in future
+            console.debug('Updating workflow/personal acceptance fields for application', applicationId, updateData);
+
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: updateData
+            });
+
+            // Create workflow history entry for INITIATE action
+            if (initiateAction) {
+              // Get user's role
+              let currentUserRoleId: number | null = null;
+              const currentUser = await tx.users.findUnique({
+                where: { id: effectiveUserId },
+                select: { roleId: true }
+              });
+              currentUserRoleId = currentUser?.roleId || null;
+
+              // Create workflow history
+              await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+                data: {
+                  applicationId: applicationId,
+                  previousUserId: effectiveUserId, // Use the authenticated user as initiator
+                  nextUserId: effectiveUserId, // Same user initially
+                  actionTaken: initiateAction.code,
+                  remarks: 'Application submitted for review',
+                  previousRoleId: currentUserRoleId,
+                  nextRoleId: currentUserRoleId,
+                  actionesId: initiateAction.id
+                }
+              });
+
+              updatedSections.push('workflowHistory');
+            }
+
+            // Push appropriate section markers
+            if (updateData.workflowStatusId) updatedSections.push('workflowStatus');
+            if (updateData.isDeclarationAccepted !== undefined || updateData.isAwareOfLegalConsequences !== undefined || updateData.isTermsAccepted !== undefined) {
+              updatedSections.push('personalDetails');
+            }
+            if (updateData.isSubmit) updatedSections.push('isSubmit');
+          }
         }
       });
 
@@ -795,7 +870,7 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
   }
 
 
-async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
+  async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
       let whereCondition: any = {};
       if (id) {
@@ -811,6 +886,8 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
           // Status and user tracking
           workflowStatus: {
             select: {
+              id: true,
+              code: true,
               name: true,
             }
           },
@@ -825,7 +902,7 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
                   code: true,
                   name: true
                 }
-              }
+              },
             }
           },
           previousUser: {
@@ -849,7 +926,7 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
               district: true,
               zone: true,
               division: true,
-              policeStation: true,
+              policeStation: true
             }
           },
           permanentAddress: {
@@ -858,14 +935,14 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
               district: true,
               zone: true,
               division: true,
-              policeStation: true,
+              policeStation: true
             }
           },
           // Other details
           occupationAndBusiness: {
             include: {
               state: true,
-              district: true,
+              district: true
             }
           },
           biometricData: true,
@@ -879,7 +956,6 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
           fileUploads: true,
         },
       });
-
 
       // Get workflow histories for this application
       const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
@@ -1097,8 +1173,8 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
           usersInHierarchy = results.flat();
         }
       }
-      application = { 
-        ...application, 
+      application = {
+        ...application,
         usersInHierarchy
       };
       return [null, application];
@@ -1107,8 +1183,16 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
     }
   }
 
+
+  // page: pageNum,
+  // limit: limitNum,
+  // searchField: parsedSearchField,
+  // search: parsedSearchValue,
+  // orderBy: parsedOrderBy,
+  // order: parsedOrder as 'asc' | 'desc',
+  // currentUserId: req.user?.sub, 
   public async getFilteredApplications(filter: {
-    statusIds?: number[];
+    statusIds?: Array<number | string>;
     currentUserId?: string;
     page?: number;
     limit?: number;
@@ -1116,21 +1200,46 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
     search?: string;
     orderBy?: string;
     order?: 'asc' | 'desc';
-    applicationId?: number;
-    isOwned?: boolean| undefined;
-  })  {
+    isOwned?: boolean;
+  }) {
     // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
 
-      // Workflow status filter
+      // Pagination (move earlier so we can early-return when resolved status filter is empty)
+      const page = Math.max(Number(filter.page ?? 1), 1);
+      const limit = Math.max(Number(filter.limit ?? 10), 1);
+      const skip = (page - 1) * limit;
+
+      // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
-        where.workflowStatusId = { in: filter.statusIds };
+        // Split numeric-like entries and non-numeric entries
+        const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
+        const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
+
+        let resolvedIds: number[] = [...numericCandidates];
+
+        if (nonNumeric.length > 0) {
+          // Use existing helper to resolve textual identifiers (codes/names) to numeric IDs
+          const fromResolver = await this.resolveStatusIdentifiers(nonNumeric);
+          if (fromResolver && fromResolver.length > 0) {
+            resolvedIds = Array.from(new Set([...resolvedIds, ...fromResolver]));
+          }
+        }
+
+        // If we didn't resolve any numeric IDs, return empty result set early (no statuses match)
+        if (!resolvedIds || resolvedIds.length === 0) {
+          return [null, { total: 0, page, limit, data: [] }];
+        }
+
+        where.workflowStatusId = { in: resolvedIds };
       }
 
-      // User ownership filtering (now implemented with direct user tracking)
-      if (filter.isOwned === true && filter.currentUserId) {
-        where.currentUserId = filter.currentUserId;
+      // Specific application ID filter (ownership)
+      if (filter.isOwned == true && filter.currentUserId) {
+        // currentUserId might be string; convert if numeric
+        const parsed = Number(filter.currentUserId);
+        where.currentUserId = !isNaN(parsed) ? parsed : filter.currentUserId;
       }
 
       // Search filter (supports id exact match or text contains on allowed fields)
@@ -1146,11 +1255,6 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
           }
         }
       }
-
-      // Pagination
-      const page = Math.max(Number(filter.page ?? 1), 1);
-      const limit = Math.max(Number(filter.limit ?? 10), 1);
-      const skip = (page - 1) * limit;
 
       // Ordering: allow only a small set of fields for safety
       const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
@@ -1172,7 +1276,6 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
             id: true,
             code: true,
             name: true,
-            description: true
           }
         },
         // User and role tracking (role accessed through user.role)
@@ -1183,9 +1286,7 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
             email: true,
             role: {
               select: {
-                id: true,
                 code: true,
-                name: true
               }
             }
           }
@@ -1199,55 +1300,12 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
               select: {
                 id: true,
                 code: true,
-                name: true
               }
             }
           }
         },
-        // Addresses: include only addressLine and related names
-        presentAddress: {
-          select: {
-            id: true,
-            addressLine: true,
-            sinceResiding: true,
-            telephoneOffice: true,
-            telephoneResidence: true,
-            officeMobileNumber: true,
-            alternativeMobile: true,
-            state: { select: { id: true, name: true } },
-            district: { select: { id: true, name: true } },
-            zone: { select: { id: true, name: true } },
-            division: { select: { id: true, name: true } },
-            policeStation: { select: { id: true, name: true } },
-          }
-        },
-        permanentAddress: {
-          select: {
-            id: true,
-            addressLine: true,
-            sinceResiding: true,
-            telephoneOffice: true,
-            telephoneResidence: true,
-            officeMobileNumber: true,
-            alternativeMobile: true,
-            state: { select: { id: true, name: true } },
-            district: { select: { id: true, name: true } },
-            zone: { select: { id: true, name: true } },
-            division: { select: { id: true, name: true } },
-            policeStation: { select: { id: true, name: true } },
-          }
-        },
-        occupationAndBusiness: {
-          select: {
-            id: true,
-            occupation: true,
-            officeAddress: true,
-            state: { select: { id: true, name: true } },
-            district: { select: { id: true, name: true } },
-          }
-        },
       };
-
+      
       const [total, rawData] = await Promise.all([
         prisma.freshLicenseApplicationPersonalDetails.count({ where }),
         prisma.freshLicenseApplicationPersonalDetails.findMany({
@@ -1258,179 +1316,16 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
           select,
         }),
       ]);
-
-      // Transform each application to a frontend-friendly shape and build usersInHierarchy
-      const finalData: any[] = [];
-      const combinedUsersMap: Record<string, any> = {};
-
-      for (const row of rawData) {
-        // Applicant name
-        const applicantName = [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' ') || 'Unknown Applicant';
-
-        // State / district names from present address (fallback to permanent address)
-        const stateName = row.presentAddress?.state?.name || row.permanentAddress?.state?.name || null;
-        const districtName = row.presentAddress?.district?.name || row.permanentAddress?.district?.name || null;
-
-        // Application lifecycle status
-        const status = row.workflowStatus ? { code: row.workflowStatus.code, name: row.workflowStatus.name } : null;
-
-        // Transform addresses
-        const transformAddress = (addr: any) => {
-          if (!addr) return null;
-          return {
-            addressLine: addr.addressLine,
-            sinceResiding: addr.sinceResiding,
-            telephoneOffice: addr.telephoneOffice || null,
-            telephoneResidence: addr.telephoneResidence || null,
-            officeMobileNumber: addr.officeMobileNumber || null,
-            alternativeMobile: addr.alternativeMobile || null,
-            stateName: addr.state ? addr.state.name : null,
-            districtName: addr.district ? addr.district.name : null,
-            zoneName: addr.zone ? addr.zone.name : null,
-            divisionName: addr.division ? addr.division.name : null,
-            policeStationName: addr.policeStation ? addr.policeStation.name : null,
-          };
+      // Build 'applicatenName' by joining first/middle/last for each record
+      const transformedData = (rawData || []).map((row: any) => {
+        const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+        return {
+          ...row,
         };
+      });
 
-        const presentAddress = transformAddress(row.presentAddress);
-        const permanentAddress = transformAddress(row.permanentAddress);
-
-        // Get workflow histories for this application
-        const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-          where: { applicationId: row.id },
-          take: 3,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            actiones: { select: { id: true, code: true, name: true } },
-            nextUser: { select: { id: true, username: true } },
-            previousUser: { select: { id: true, username: true } },
-            nextRole: { select: { id: true, code: true, name: true } },
-            previousRole: { select: { id: true, code: true, name: true } },
-          }
-        });
-
-        const transformedWorkflowHistories = workflowHistories.map((h: any) => ({
-          id: h.id,
-          actionTaken: h.actionTaken,
-          remarks: h.remarks,
-          createdAt: h.createdAt,
-          attachments: h.attachments || null,
-          action: h.actiones ? (h.actiones.code ?? h.actiones.name) : null,
-          previousUserName: h.previousUser ? h.previousUser.username : null,
-          previousRoleName: h.previousRole ? (h.previousRole.name ?? h.previousRole.code) : null,
-          nextUserName: h.nextUser ? h.nextUser.username : null,
-          nextRoleName: h.nextRole ? (h.nextRole.name ?? h.nextRole.code) : null,
-        }));
-
-        // Build usersInHierarchy for this application using a single OR query
-        let usersInHierarchy: any[] = [];
-        try {
-          // Determine hierarchy ids from presentAddress
-          const psId = row.presentAddress?.policeStation?.id ?? null;
-          const divisionId = row.presentAddress?.division?.id ?? null;
-          const zoneId = row.presentAddress?.zone?.id ?? null;
-          const districtId = row.presentAddress?.district?.id ?? null;
-          const stateId = row.presentAddress?.state?.id ?? null;
-
-          const orClauses: any[] = [];
-          if (psId) orClauses.push({ policeStationId: psId });
-          if (divisionId) orClauses.push({ divisionId: divisionId, policeStationId: null });
-          if (zoneId) orClauses.push({ zoneId: zoneId, divisionId: null });
-          if (districtId) orClauses.push({ districtId: districtId, zoneId: null });
-          if (stateId) orClauses.push({ stateId: stateId, districtId: null });
-
-          if (orClauses.length > 0) {
-            const users = await prisma.users.findMany({
-              where: { OR: orClauses },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                role: { select: { id: true, code: true, name: true } },
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-              }
-            });
-
-            // Map users to include roleName and level (to preserve specificity)
-            usersInHierarchy = users.map(u => {
-              let level = null as string | null;
-              let locationName = null as string | null;
-              if (psId && u.policeStationId === psId) {
-                level = 'policeStation';
-                locationName = row.presentAddress?.policeStation?.name ?? null;
-              } else if (divisionId && u.divisionId === divisionId && u.policeStationId == null) {
-                level = 'division';
-                locationName = row.presentAddress?.division?.name ?? null;
-              } else if (zoneId && u.zoneId === zoneId && u.divisionId == null) {
-                level = 'zone';
-                locationName = row.presentAddress?.zone?.name ?? null;
-              } else if (districtId && u.districtId === districtId && u.zoneId == null) {
-                level = 'district';
-                locationName = row.presentAddress?.district?.name ?? null;
-              } else if (stateId && u.stateId === stateId && u.districtId == null) {
-                level = 'state';
-                locationName = row.presentAddress?.state?.name ?? null;
-              }
-
-              const roleName = u.role ? (u.role.name ?? u.role.code) : null;
-
-              // Add to combined map for top-level usersInHierarchy
-              if (!combinedUsersMap[u.username]) {
-                combinedUsersMap[u.username] = {
-                  username: u.username,
-                  email: u.email || null,
-                  roleName,
-                  level,
-                  locationName,
-                };
-              }
-
-              return {
-                username: u.username,
-                email: u.email || null,
-                roleName,
-                level,
-                locationName,
-              };
-            });
-          }
-        } catch (e) {
-          // ignore usersInHierarchy errors per application to avoid breaking whole list
-          usersInHierarchy = [];
-        }
-
-        // Build final transformed object (strip raw id fields)
-        const transformed = {
-          id: row.id,
-          acknowledgementNo: row.acknowledgementNo,
-          applicantName,
-          createdAt: row.createdAt,
-          status,
-          state: stateName,
-          district: districtName,
-          presentAddress,
-          permanentAddress,
-          occupationAndBusiness: row.occupationAndBusiness ? {
-            occupation: row.occupationAndBusiness.occupation,
-            officeAddress: row.occupationAndBusiness.officeAddress,
-            stateName: row.occupationAndBusiness.state?.name || null,
-            districtName: row.occupationAndBusiness.district?.name || null,
-          } : null,
-          workflowHistory: transformedWorkflowHistories,
-          usersInHierarchy,
-        };
-
-        finalData.push(transformed);
-      }
-
-      // Build combined usersInHierarchy array
-      const usersInHierarchy = Object.values(combinedUsersMap);
-
-      return [null, { total, data: finalData, usersInHierarchy }];
+      // Return in the [error, result] tuple format used across the service methods
+      return [null, { total, page, limit, data: transformedData }];
     } catch (error) {
       return [error, null];
     }
@@ -1527,74 +1422,74 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
    * @returns Updated application with user/role information
    */
   // Method to update application user and role during workflow transitions*/
-/*  async updateApplicationUserAndRole(
-    applicationId: number,
-    newUserId: number,
-    statusId?: number,
-    remarks?: string
-  ) {
-    try {
-      // Get the current application to preserve the current user/role as previous
-      const currentApplication = await prisma.freshLicenseApplicationsForms.findUnique({
-        where: { id: applicationId },
-        select: {
-          id: true,
-          currentUserId: true,
-          currentRoleId: true,
-          acknowledgementNo: true,
+  /*  async updateApplicationUserAndRole(
+      applicationId: number,
+      newUserId: number,
+      statusId?: number,
+      remarks?: string
+    ) {
+      try {
+        // Get the current application to preserve the current user/role as previous
+        const currentApplication = await prisma.freshLicenseApplicationsForms.findUnique({
+          where: { id: applicationId },
+          select: {
+            id: true,
+            currentUserId: true,
+            currentRoleId: true,
+            acknowledgementNo: true,
+          }
+        });
+  
+        if (!currentApplication) {
+          throw new BadRequestException(`Application with ID ${applicationId} not found.`);
         }
-      });
-
-      if (!currentApplication) {
-        throw new BadRequestException(`Application with ID ${applicationId} not found.`);
-      }
-
-      // Get the new user with role information
-      const newUser = await this.getUserWithRole(newUserId);
-      if (!newUser) {
-        throw new BadRequestException('Invalid new user. User not found in the system.');
-      }
-
-      if (!newUser.role) {
-        throw new BadRequestException('New user role information is missing.');
-      }
-
-      // Update the application with new user/role and move current to previous
-      const updatedApplication = await prisma.freshLicenseApplicationsForms.update({
-        where: { id: applicationId },
-        data: {
-          // Move current to previous
-          previousUserId: currentApplication.currentUserId,
-          previousRoleId: currentApplication.currentRoleId,
-          // Set new current
-          currentUserId: newUser.id,
-          currentRoleId: newUser.roleId,
-          // Update status if provided
-          ...(statusId && { statusId }),
-          // Update remarks if provided
-          ...(remarks && { remarks }),
-          updatedAt: new Date(),
-        },
-        include: {
-          currentRole: true,
-          previousRole: true,
-          currentUser: true,
-          previousUser: true,
-          status: true,
+  
+        // Get the new user with role information
+        const newUser = await this.getUserWithRole(newUserId);
+        if (!newUser) {
+          throw new BadRequestException('Invalid new user. User not found in the system.');
         }
-      });
-
-      return updatedApplication;
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
+  
+        if (!newUser.role) {
+          throw new BadRequestException('New user role information is missing.');
+        }
+  
+        // Update the application with new user/role and move current to previous
+        const updatedApplication = await prisma.freshLicenseApplicationsForms.update({
+          where: { id: applicationId },
+          data: {
+            // Move current to previous
+            previousUserId: currentApplication.currentUserId,
+            previousRoleId: currentApplication.currentRoleId,
+            // Set new current
+            currentUserId: newUser.id,
+            currentRoleId: newUser.roleId,
+            // Update status if provided
+            ...(statusId && { statusId }),
+            // Update remarks if provided
+            ...(remarks && { remarks }),
+            updatedAt: new Date(),
+          },
+          include: {
+            currentRole: true,
+            previousRole: true,
+            currentUser: true,
+            previousUser: true,
+            status: true,
+          }
+        });
+  
+        return updatedApplication;
+      } catch (error) {
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+  
+        console.error('Error updating application user and role:', error);
+        throw new InternalServerErrorException('Failed to update application user and role information.');
       }
-
-      console.error('Error updating application user and role:', error);
-      throw new InternalServerErrorException('Failed to update application user and role information.');
     }
-  }
-    */
+      */
 
   /**
    * Upload file for application
@@ -1610,10 +1505,10 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
         return ['Application not found', null];
       }
 
-      // File size validation (2MB limit)
-      const maxFileSize = 2 * 1024 * 1024; // 2MB in bytes
+      // File size validation (10MB limit)
+      const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
       if (dto.fileSize > maxFileSize) {
-        return ['File size too large. Maximum allowed size is 2MB', null];
+        return ['File size too large. Maximum allowed size is 10MB', null];
       }
 
       // Save file record to database
@@ -1639,11 +1534,11 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
 
     } catch (error: any) {
       console.error('Error storing file metadata:', error);
-      
+
       if (error.code === 'P2002') {
         return ['File metadata storage failed due to duplicate entry', null];
       }
-      
+
       return [`File metadata storage failed: ${error.message || 'Unknown error'}`, null];
     }
   }
@@ -1654,9 +1549,9 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
    */
   private async getStatusIdByCode(statusCode: string): Promise<number> {
     const status = await prisma.statuses.findFirst({
-      where: { 
-        code: statusCode, 
-        isActive: true 
+      where: {
+        code: statusCode,
+        isActive: true
       },
       select: { id: true }
     });
@@ -1673,7 +1568,7 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
    * This ensures consistent status IDs across the application
    */
   async getStatusIds() {
-    const statusCodes = ['DRAFT', 'INITIATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
+    const statusCodes = ['DRAFT', 'INITIATE', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
     const statusMap: Record<string, number> = {};
 
     for (const code of statusCodes) {
@@ -1695,7 +1590,7 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
   async initializeDefaultStatuses() {
     const defaultStatuses = [
       { code: 'DRAFT', name: 'Draft', description: 'Application is being filled out' },
-      { code: 'INITIATED', name: 'Initiated', description: 'Application has been submitted for review' },
+      { code: 'INITIATE', name: 'Initiate', description: 'Application has been submitted for review' },
       { code: 'UNDER_REVIEW', name: 'Under Review', description: 'Application is being reviewed by officer' },
       { code: 'APPROVED', name: 'Approved', description: 'Application has been approved' },
       { code: 'REJECTED', name: 'Rejected', description: 'Application has been rejected' }
@@ -1710,7 +1605,6 @@ async getApplicationById(id?: number | undefined, acknowledgementNo?: string | u
         await prisma.statuses.create({
           data: statusData
         });
-        console.log(`Created default status: ${statusData.code}`);
       }
     }
   }

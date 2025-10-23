@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import { IoMdHome } from 'react-icons/io';
 // freshApplication step components
 import PersonalInformation from '../../../../components/forms/freshApplication/PersonalInformation'; // step1
 import AddressDetails from '../../../../components/forms/freshApplication/AddressDetails'; // step2
@@ -7,7 +8,7 @@ import OccupationBussiness from '../../../../components/forms/freshApplication/O
 import LicenseDetails from '../../../../components/forms/freshApplication/LicenseDetails'; // step5
 import CriminalHistory from '../../../../components/forms/freshApplication/CriminalHistory'; // step6
 import LicenseHistory from '../../../../components/forms/freshApplication/LicenseHistory'; // step7
-import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8
+// import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8
 import DocumentsUpload from '../../../../components/forms/freshApplication/DocumentsUpload'; // step9
 import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
 import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
@@ -26,7 +27,7 @@ const steps = [
 	'Criminal History',
 	'License History',
 	'License Details',
-	'Biometric Information',
+	// 'Biometric Information',
 	'Documents Upload',
 	'Preview',
 	'Declaration & Submit',
@@ -47,13 +48,22 @@ import { use } from 'react';
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	const router = useRouter();
 	// Unwrap params with React.use() for Next.js app router compliance
-	const { step } = use(params);
+	const { step } = params;
 	let StepComponent;
 	let currentStep = 0;
 
 	   // Find the index of the current step by slug
-	   const stepIndex = steps.findIndex(s => stepToSlug(s) === step);
+	   // Special handling for preview and declaration which use different slug patterns
+	   let stepIndex;
+	   if (step === 'preview') {
+		   stepIndex = 7; // Preview is at index 8
+	   } else if (step === 'declaration') {
+		   stepIndex = 8; // Declaration & Submit is at index 9
+	   } else {
+		   stepIndex = steps.findIndex(s => stepToSlug(s) === step);
+	   }
 	   currentStep = stepIndex >= 0 ? stepIndex : 0;
+	   
 	   switch (step) {
 		   case stepToSlug('Personal Information'):
 			   StepComponent = <PersonalInformation />;
@@ -73,9 +83,9 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 		   case stepToSlug('License Details'):
 			   StepComponent = <LicenseDetails />;
 			   break;
-		   case stepToSlug('Biometric Information'):
-			   StepComponent = <BiometricInformation />;
-			   break;
+		//    case stepToSlug('Biometric Information'):
+		// 	   StepComponent = <BiometricInformation />;
+		// 	   break;
 		   case stepToSlug('Documents Upload'):
 			   StepComponent = <DocumentsUpload />;
 			   break;
@@ -100,6 +110,14 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 		   }
 	   };
 
+	   // Handler for go home button
+	   const handleGoHome = () => {
+		   window.location.href = 'http://localhost:5000/inbox?type=forwarded';
+	   };
+
+	   // Show home button on all steps
+	   const showHomeButton = true;
+
 	   return (
 		   <div
 			   className="relative min-h-screen"
@@ -110,6 +128,17 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 				   backgroundPosition: 'center',
 			   }}
 		   >
+			   {showHomeButton && (
+				   <div className="fixed top-4 left-6 z-50">
+					   <button
+						   onClick={handleGoHome}
+						   className="flex items-center justify-center w-12 h-12 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105"
+						   title="Go to Home"
+					   >
+						   <IoMdHome className="text-2xl text-[#0d2977]" />
+					   </button>
+				   </div>
+			   )}
 			   <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick}/>
 			   <div
 				   className=" flex max-w-8xl px-4  justify-center sm:px-8 "

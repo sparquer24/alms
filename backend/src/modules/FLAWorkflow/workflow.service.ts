@@ -1,9 +1,12 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
+import { TERMINAL_ACTIONS, FORWARD_ACTIONS, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction } from '../../constants/workflow-actions';
 
 @Injectable()
 export class WorkflowService {
+  private prisma = new PrismaClient();
+
   async getStatusesAndActions(id?: number) {
     if (id) {
       const status = await this.prisma.statuses.findUnique({ where: { id } });
@@ -12,13 +15,27 @@ export class WorkflowService {
     } else {
       const statuses = await this.prisma.statuses.findMany();
       const actions = await this.prisma.actiones.findMany();
-      return { statuses, actions };
+    return { statuses, actions };
     }
   }
-  private prisma = new PrismaClient();
+
+  /**
+   * Check if a role is allowed to perform a specific action
+   */
+  async checkRoleActionPermission(roleId: number, actionId: number): Promise<boolean> {
+    const mapping = await this.prisma.rolesActionsMapping.findUnique({
+      where: {
+        roleId_actionId: {
+          roleId: roleId,
+          actionId: actionId,
+        },
+      },
+    });
+    return mapping !== null && mapping.isActive === true;
+  }
 
 
- /* async handleUserAction(payload: {
+ async handleUserAction(payload: {
     applicationId: number;
     actionId: number;
     action: any; // full action object from Actiones table
@@ -35,7 +52,7 @@ export class WorkflowService {
     isRejected?: boolean;
   }) {
     // 1. Fetch Application Data
-    const application = await this.prisma.freshLicenseApplicationsForms.findUnique({
+    const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
       where: { id: payload.applicationId },
     });
     if (!application) {
@@ -52,51 +69,63 @@ export class WorkflowService {
     }
     const currentRoleId = currentUser.roleId;
 
-    // 2. Validate User Permission (replace with your actual logic)
-    // You should fetch current status and role, and check allowed transitions
-    // Example permission check (replace with your own logic)
-    // if (!isUserAllowed(application.status_id, payload.currentRoleId, payload.actionType)) {
-    //   throw new ForbiddenException('You are not authorized to perform this action.');
-    // }
-
-    // 3. Update Application Fields
-    let newStatusId = application.statusId;
-    let newCurrentUserId = application.currentUserId;
-    let newCurrentRoleId = application.currentRoleId;
-
-    // Use action from payload
-    if (payload.action) {
-      newStatusId = payload.action.id;
+    // 2. Validate User Permission using RolesActionsMapping
+    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
+    if (!hasPermission) {
+      throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
     }
 
-    if (payload.action && payload.action.code.toLowerCase() === 'forward') {
-      newCurrentUserId = payload.nextUserId ?? null;
-      // Fetch next user's roleId
-      if (payload.nextUserId !== undefined && payload.nextUserId !== null) {
-        const nextUser = await this.prisma.users.findUnique({ where: { id: payload.nextUserId } });
-        if (!nextUser || !nextUser.roleId) {
-          throw new InternalServerErrorException(`Role for next user '${payload.nextUserId}' not found.`);
-        }
-        newCurrentRoleId = nextUser.roleId;
-      } else {
-        newCurrentRoleId = null;
+    // 3. Determine next user and validate based on action type
+    let newCurrentUserId: number | null = application.currentUserId;
+    let nextRoleId: number | null = null;
+
+    const actionCode = payload.action.code.toUpperCase();
+
+    // Check if action requires forwarding to another user
+    if (isForwardAction(actionCode)) {
+      // For forward action, nextUserId is required
+      if (!payload.nextUserId) {
+        throw new BadRequestException('nextUserId is required for forward action');
       }
-    } else if (payload.action && payload.action.code.toLowerCase() === 'reject') {
+      newCurrentUserId = payload.nextUserId;
+      
+      // Fetch next user's roleId
+      const nextUser = await this.prisma.users.findUnique({ 
+        where: { id: payload.nextUserId },
+        select: { roleId: true }
+      });
+      if (!nextUser) {
+        throw new NotFoundException(`Next user with ID '${payload.nextUserId}' not found.`);
+      }
+      nextRoleId = nextUser.roleId;
+    } else if (isTerminalAction(actionCode)) {
+      // Terminal actions: workflow ends, clear current user
       newCurrentUserId = null;
-      newCurrentRoleId = null;
+      nextRoleId = null;
     }
+    // For IN_PLACE_ACTIONS (RE_ENQUIRY, GROUND_REPORT, etc.), keep current user and role unchanged
 
-    // 4. Save Changes
+    // 4. Find corresponding status for this action
+    const status = await this.prisma.statuses.findFirst({
+      where: { code: payload.action.code }
+    });
+    const newStatusId = status ? status.id : application.workflowStatusId;
+
+    // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
     const updateData: any = {
-      statusId: newStatusId,
-      previousUserId: payload.currentUserId, // Use userId from JWT/payload
+      workflowStatusId: newStatusId,
+      previousUserId: payload.currentUserId,
       currentUserId: newCurrentUserId,
-      previousRoleId: currentRoleId, // Use roleId fetched from DB
-      currentRoleId: newCurrentRoleId,
-      remarks: payload.remarks,
     };
 
-    // Add optional boolean fields if provided in payload
+    // Set approval/rejection flags based on action code
+    if (isApprovalAction(actionCode)) {
+      updateData.isApprovied = true;
+    } else if (isRejectionAction(actionCode)) {
+      updateData.isRejected = true;
+    }
+
+    // Add optional boolean fields if provided in payload (can override the above)
     if (payload.isApprovied !== undefined) updateData.isApprovied = payload.isApprovied;
     if (payload.isFLAFGenerated !== undefined) updateData.isFLAFGenerated = payload.isFLAFGenerated;
     if (payload.isGroundReportGenerated !== undefined) updateData.isGroundReportGenerated = payload.isGroundReportGenerated;
@@ -105,29 +134,31 @@ export class WorkflowService {
     if (payload.isReEnquiryDone !== undefined) updateData.isReEnquiryDone = payload.isReEnquiryDone;
     if (payload.isRejected !== undefined) updateData.isRejected = payload.isRejected;
 
-    const updatedApplication = await this.prisma.freshLicenseApplicationsForms.update({
+    const updatedApplication = await this.prisma.freshLicenseApplicationPersonalDetails.update({
       where: { id: payload.applicationId },
       data: updateData,
     });
 
-    // 5. Add workflow history log
+    // 6. Add workflow history log
+    // For schema requirement: nextUserId is required, so use currentUserId as fallback for non-forward actions
     const workflowHistoryData: any = {
       applicationId: payload.applicationId,
-      previousUserId: payload.currentUserId ?? null, // Use userId from JWT/payload
-      previousRoleId: currentRoleId ?? null, // Use roleId fetched from DB
-      nextRoleId: newCurrentRoleId ?? null,
+      previousUserId: payload.currentUserId,
+      nextUserId: newCurrentUserId !== null ? newCurrentUserId : payload.currentUserId, // Use currentUserId as fallback
       actionTaken: payload.action.code,
-      remarks: payload.remarks,
+      remarks: payload.remarks || '',
+      previousRoleId: currentRoleId,
+      nextRoleId: nextRoleId,
+      actionesId: payload.actionId,
       attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
     };
-    if (newCurrentUserId !== null && newCurrentUserId !== undefined) {
-      workflowHistoryData.nextUserId = newCurrentUserId;
-    }
+
     await this.prisma.freshLicenseApplicationsFormWorkflowHistories.create({
       data: workflowHistoryData,
     });
 
     return updatedApplication;
   }
-    */
+
 }
+

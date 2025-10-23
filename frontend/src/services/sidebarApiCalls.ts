@@ -42,7 +42,8 @@ export const STATUS_MAP = {
   closed: statusIdMap.closed || [10],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
-  groundReport: statusIdMap.groundReport || [6] // GROUND_REPORT
+  groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
+  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
 };
 
 /**
@@ -70,7 +71,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       action: h.actionTaken || h.action || '',
       by: h.previousUserName + ' (' + h.previousRoleName + ')' || 'Unknown User',
       comments: h.remarks || undefined,
-  attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
+      attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
     };
   });
 
@@ -112,6 +113,12 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       url: upload.fileUrl
     })) || [],
     history,
+    // Preserve the original workflowHistories for the new Application History display
+    workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || [],
+    // Preserve additional data fields
+    licenseHistories: detailedApp.licenseHistories || [],
+    criminalHistories: detailedApp.criminalHistories || [],
+    licenseDetails: detailedApp.licenseDetails || [],
     actions: {
       canForward: detailedApp.currentRole?.can_forward || false,
       canReport: true,
@@ -460,6 +467,7 @@ export const fetchApplicationCounts = async (): Promise<{
   returnedCount: number;
   redFlaggedCount: number;
   disposedCount: number;
+  draftCount: number;
   pendingCount: number;
   approvedCount: number;
   closedCount: number;
@@ -480,11 +488,12 @@ export const fetchApplicationCounts = async (): Promise<{
     console.log('📊 fetchApplicationCounts called - optimized version');
 
     // Only fetch counts for the essential inbox items to reduce API load
-    const [forwarded, returned, redFlagged, disposed] = await Promise.all([
+    const [forwarded, returned, redFlagged, disposed, draft] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.disposed),
+      fetchApplicationsByStatus(STATUS_MAP.drafts),
     ]);
 
     const counts = {
@@ -492,6 +501,7 @@ export const fetchApplicationCounts = async (): Promise<{
       returnedCount: returned.length,
       redFlaggedCount: redFlagged.length,
       disposedCount: disposed.length,
+      draftCount: draft.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
@@ -514,6 +524,7 @@ export const fetchApplicationCounts = async (): Promise<{
       returnedCount: 0,
       redFlaggedCount: 0,
       disposedCount: 0,
+      draftCount: 0,
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
@@ -548,6 +559,11 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
     status: mapApiStatusToApplicationStatus(apiApp.status),
     status_id: apiApp.status?.id || STATUS_MAP.pending[0],
+    workflowStatus: apiApp.workflowStatus ? {
+      id: apiApp.workflowStatus.id,
+      code: apiApp.workflowStatus.code,
+      name: apiApp.workflowStatus.name
+    } : undefined,
     assignedTo: String(apiApp.currentUser?.id || ''),
     forwardedFrom: apiApp.previousUser?.id ? String(apiApp.previousUser.id) : undefined,
     forwardedTo: apiApp.currentUser?.id ? String(apiApp.currentUser.id) : undefined,

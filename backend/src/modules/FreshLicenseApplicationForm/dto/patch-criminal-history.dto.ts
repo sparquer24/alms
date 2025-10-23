@@ -1,5 +1,6 @@
-import { IsBoolean, IsString, IsDateString, IsOptional } from 'class-validator';
+import { IsBoolean, IsString, IsDateString, IsOptional, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { JsonArray } from '@prisma/client/runtime/library';
 
 export class PatchCriminalHistoryDto {
   // (a) Convicted
@@ -7,20 +8,16 @@ export class PatchCriminalHistoryDto {
   @IsBoolean()
   isConvicted!: boolean;
 
-  @ApiPropertyOptional({ example: 'Theft', description: 'Type of offence (required if convicted)' })
+  @ApiPropertyOptional({
+    example: [{ firNumber: '123/2018', underSection: '35', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: '', sentence: '', DateOfSentence: '2020-07-10T00:00:00.000Z' }],
+    description: 'FIR details (required if convicted)',
+    type: 'array',
+    items: { type: 'object' }
+  })
   @IsOptional()
-  @IsString()
-  offence?: string;
-
-  @ApiPropertyOptional({ example: '2 years imprisonment', description: 'Sentence given (required if convicted)' })
-  @IsOptional()
-  @IsString()
-  sentence?: string;
-
-  @ApiPropertyOptional({ example: '2018-05-15T00:00:00.000Z', description: 'Date of sentence (required if convicted)' })
-  @IsOptional()
-  @IsDateString()
-  dateOfSentence?: string;
+  @IsArray()
+  // `JsonArray` from Prisma represents a JSON array; stored as array of objects in FIR details
+  firDetails?: JsonArray;
 
   // (b) Ordered to execute a bond
   @ApiProperty({ example: false, description: 'Whether ordered to execute a bond' })

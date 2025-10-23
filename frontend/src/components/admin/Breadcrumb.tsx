@@ -19,7 +19,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
   const generateBreadcrumbs = (): BreadcrumbItem[] => {
   const paths = (pathname || '').split('/').filter(Boolean);
     const breadcrumbs: BreadcrumbItem[] = [
-      { label: 'Home', href: '/' }
+      { label: 'Inbox', href: '/' }
     ];
 
     let currentPath = '';
@@ -34,10 +34,10 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
         const label = path.charAt(0).toUpperCase() + path.slice(1);
         breadcrumbs.push({ label, href: currentPath });
       } else if (path === 'inbox' && paths[index + 1]) {
-        // Inbox sub-routes (now under /home)
-        breadcrumbs.push({ label: 'Inbox', href: '/home' });
+        // Inbox sub-routes (now under /inbox)
+        breadcrumbs.push({ label: 'Inbox', href: '/inbox' });
         const subLabel = paths[index + 1].charAt(0).toUpperCase() + paths[index + 1].slice(1);
-        breadcrumbs.push({ label: subLabel, href: currentPath.replace('/inbox', '/home') });
+        breadcrumbs.push({ label: subLabel, href: currentPath.replace('/inbox', '/inbox') });
       } else if (path !== 'inbox') {
         // Other routes
         const label = path.charAt(0).toUpperCase() + path.slice(1);

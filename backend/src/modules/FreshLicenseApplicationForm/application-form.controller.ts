@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch, Delete } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuards, Request, Query, Patch, ParseBoolPipe,Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
@@ -54,15 +54,22 @@ export class ApplicationFormController {
     }
   }
 
-  @Patch(':applicationId')
+  @Patch()
   @ApiOperation({ 
     summary: 'Update Application Details', 
     description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
   })
-  @ApiParam({
+  @ApiQuery({
     name: 'applicationId',
     description: 'Application ID',
-    example: '123'
+    example: '1'
+  })
+    @ApiQuery({
+    name: 'isSubmit',
+    description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
+    example: false,
+    required: false,
+    type: Boolean,
   })
   @ApiBody({
     type: PatchApplicationDetailsDto,
@@ -97,10 +104,12 @@ export class ApplicationFormController {
           }
         }
       },
-      'Status Updates': {
-        summary: 'Update application workflow status',
+      'Submit the application': {
+        summary: '',
         value: {
-          workflowStatusId: 2
+          isDeclarationAccepted: true,
+          isAwareOfLegalConsequences: true,
+          isTermsAccepted: true
         }
       },
       'Personal Details Update': {
@@ -114,14 +123,8 @@ export class ApplicationFormController {
             sex: 'FEMALE',
             dateOfBirth: '1992-08-15T00:00:00.000Z',
             aadharNumber: '123456789012',
-            panNumber: 'ABCDE1234F'
+            panNumber: 'ABCDE1234F',
           }
-        }
-      },
-      'Submit Application': {
-        summary: 'Submit application (change from DRAFT to INITIATED status)',
-        value: {
-          workflowStatusId: 3
         }
       },
       'Occupation and Business Details': {
@@ -132,7 +135,8 @@ export class ApplicationFormController {
             officeAddress: '456 Corporate Plaza, IT Park, Sector V',
             stateId: 1,
             districtId: 1,
-            cropLocation: 'Village ABC, Block XYZ (for farmers only)'
+            cropLocation: 'Village ABC, Block XYZ (for farmers only)',
+            areaUnderCultivation: 5.5
           }
         }
       },
@@ -142,15 +146,16 @@ export class ApplicationFormController {
           criminalHistories: [
             {
               isConvicted: false,
-              offence: 'Theft',
-              sentence: '2 years imprisonment',
-              dateOfSentence: '2018-05-15T00:00:00.000Z',
               isBondExecuted: false,
               bondDate: '2019-03-20T00:00:00.000Z',
               bondPeriod: '6 months',
               isProhibited: false,
               prohibitionDate: '2020-07-10T00:00:00.000Z',
-              prohibitionPeriod: '5 years'
+              prohibitionPeriod: '5 years',
+              // Example FIR details array
+              firDetails: [
+                { firNumber: '123/2018', underSection: '35', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: '', sentence: '', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ]
             }
           ]
         }
@@ -254,13 +259,15 @@ export class ApplicationFormController {
             officeAddress: '789 Business Complex, Commercial Area',
             stateId: 1,
             districtId: 1,
-            cropLocation: 'Agricultural land in Block DEF'
+            cropLocation: 'Agricultural land in Block DEF',
+            areaUnderCultivation: 12.25
           },
           criminalHistories: [
             {
               isConvicted: false,
               isBondExecuted: false,
-              isProhibited: false
+              isProhibited: false,
+              firDetails: []
             }
           ],
           licenseHistories: [
@@ -299,7 +306,7 @@ export class ApplicationFormController {
       data: {
         updatedSections: ['presentAddress', 'criminalHistories'],
         application: {
-          id: 123,
+          id: 1,
           acknowledgementNo: 'ALMS1696050000000',
           firstName: 'John',
           lastName: 'Doe',
@@ -313,9 +320,10 @@ export class ApplicationFormController {
   @ApiResponse({ status: 409, description: 'Conflict - Duplicate values or constraint violations' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async patchApplicationDetails(
-    @Param('applicationId') applicationId: string,
+    @Query('applicationId') applicationId: string,
     @Body() dto: PatchApplicationDetailsDto,
-    @Request() req: any
+    @Request() req: any,
+    @Query('isSubmit', new ParseBoolPipe({ optional: true })) isSubmit?: boolean
   ) {
     try {
       const applicationIdNum = parseInt(applicationId, 10);
@@ -326,7 +334,10 @@ export class ApplicationFormController {
         );
       }
 
-      const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, dto);
+      // Get authenticated user ID from JWT token
+      const currentUserId = req.user?.sub;
+
+  const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmit || false, dto, currentUserId);
       
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
@@ -510,7 +521,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'applicationId', required: false, type: String })
   @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
   @ApiQuery({ name: 'statusIds', required: false, type: String })
-  @ApiQuery({ name: 'isOwned', required: false, type: String, default: false})
+  @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -523,7 +534,7 @@ export class ApplicationFormController {
     @Query('applicationId') applicationId?: number,
     @Query('acknowledgementNo') acknowledgementNo?: string,
     @Query('statusIds') statusIds?: string,
-    @Query('isOwned') isOwned?: String
+    @Query('isOwned') isOwned?: Boolean
   ) {
     try {
       // Parse pagination
@@ -543,7 +554,8 @@ export class ApplicationFormController {
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
   // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
   // We'll pass them to the service resolver which will return numeric IDs.
-  const parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+  const 
+  parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
   // Reusable address builder used for single-item and list-item transforms
   const buildAddress = (addr: any) => {
@@ -627,14 +639,13 @@ export class ApplicationFormController {
         statusIds: parsedStatusIdentifiers && parsedStatusIdentifiers.length > 0
           ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
           : undefined,
-        applicationId: parsedApplicationId,
-        isOwned : isOwned == 'true' ? true : false,
+        // applicationId: parsedApplicationId,
+        isOwned : isOwned == true? true : false,
       });
       if (error) {
-        const errMsg = (error as any)?.message || 'Failed to fetch applications';
+        const errMsg = (error as any)?.message || 'Failed to fetch applications--------------584';
         throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
       }
-
       const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
 
       // The service already returns transformed rows and a combined usersInHierarchy
@@ -651,7 +662,7 @@ export class ApplicationFormController {
         }
       };
     } catch (error: any) {
-      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications', error: error.message }, HttpStatus.BAD_REQUEST);
+      throw new HttpException({ success: false, message: error.message || 'Failed to fetch applications------------------605', error: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 

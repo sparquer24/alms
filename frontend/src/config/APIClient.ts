@@ -12,7 +12,7 @@ import {
   AUTH_APIS,
   APPLICATION_APIS,
   DOCUMENT_APIS,
-  REPORT_APIS,  USER_APIS,
+  REPORT_APIS, USER_APIS,
   ROLE_APIS,
   NOTIFICATION_APIS,
   DASHBOARD_APIS,
@@ -32,27 +32,29 @@ import {
   getHeaders,
   getMultipartHeaders,
 } from './APIsEndpoints';
+// import the cookes
+import { parse } from 'cookie';
 
 /**
  * Authentication API client - These endpoints don't require authorization headers
  */
 export const AuthApi = {
   login: async (params: LoginParams): Promise<ApiResponse<any>> => {
-    console.log('🌐 APIClient - login called with params:', { 
-      username: params.username, 
-      passwordLength: params.password.length 
+    console.log('🌐 APIClient - login called with params:', {
+      username: params.username,
+      passwordLength: params.password.length
     });
-    
+
     const url = AUTH_APIS.LOGIN;
     const headers = getHeaders();
     const body = JSON.stringify(params);
-    
+
     console.log('🌐 Request details:');
     console.log('  URL:', url);
     console.log('  Headers:', headers);
     console.log('  Body:', body);
     console.log('  Method: POST');
-    
+
     try {
       // IMPORTANT: Do NOT use apiClient.post here because it enforces an auth token
       // via ensureAuthHeader(). During login we have no token yet, so using apiClient
@@ -119,7 +121,7 @@ export const AuthApi = {
       throw error;
     }
   },
-  
+
   changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.post('/auth/change-password', { currentPassword, newPassword });
@@ -128,13 +130,13 @@ export const AuthApi = {
       throw error;
     }
   },
-  
+
   resetPassword: async (email: string): Promise<ApiResponse<any>> => {
-  return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
+    return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
   },
-  
+
   refreshToken: async (refreshToken: string): Promise<ApiResponse<any>> => {
-  return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
+    return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
   },
 };
 
@@ -145,8 +147,29 @@ import { Application } from '../types/application';
 
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
+    // Read role from cookies. `parse` is the cookie parser; use it on document.cookie.
+    // Note: document may be undefined during SSR — guard for that.
+    let role: string | undefined;
     try {
-      return await apiClient.get('/application-form',params);
+      if (typeof document !== 'undefined' && document.cookie) {
+        const cookies = parse(document.cookie || '');
+        role = cookies.role || cookies.Roles || cookies.role_code; // try a few common keys
+      }
+    } catch (e) {
+      // ignore cookie parse errors
+      role = undefined;
+    }
+
+    // If the user is a ZS, the backend expects a special param; add it to params.
+    const requestParams = { ...params } as Record<string, any>;
+    if (role === 'ZS' || role === 'zs') {
+      // attach a flag so backend can filter appropriately. Use 'role' param to be explicit.
+      requestParams.isOwned = 'true';
+    }
+    console.log({ requestParams, role });
+
+    try {
+      return await apiClient.get('/application-form', requestParams as any);
     } catch (error) {
       console.error('Error getting applications:', error);
       throw error;
@@ -221,10 +244,27 @@ export const DocumentApi = {
       const formData = new FormData();
       formData.append('document', file);
       formData.append('documentType', documentType);
-      
+
       return await apiClient.uploadFile(`/applications/${applicationId}/documents`, formData);
     } catch (error) {
       console.error('Error uploading document:', error);
+      throw error;
+    }
+  },
+
+  // New: Store file URL and metadata for application (based on API documentation)
+  storeFileUrl: async (applicationId: string, fileMetadata: {
+    fileType: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    description?: string;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const endpoint = `/application-form/${applicationId}/upload-file`;
+      return await apiClient.post(endpoint, fileMetadata);
+    } catch (error) {
+      console.error('Error storing file URL and metadata:', error);
       throw error;
     }
   },
@@ -279,15 +319,15 @@ export const ReportApi = {
         throw new Error('Authentication required');
       }
 
-  // Use apiClient which ensures auth headers are set
-  const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
-  // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
-  if (blob instanceof Blob) return blob;
-  // If axios returned data as ArrayBuffer or base64, convert accordingly
-  // Fallback: try requesting via axiosInstance directly
-  const axios = await import('../api/axiosConfig');
-  const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
-  return resp.data as Blob;
+      // Use apiClient which ensures auth headers are set
+      const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
+      // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
+      if (blob instanceof Blob) return blob;
+      // If axios returned data as ArrayBuffer or base64, convert accordingly
+      // Fallback: try requesting via axiosInstance directly
+      const axios = await import('../api/axiosConfig');
+      const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
+      return resp.data as Blob;
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
@@ -307,7 +347,7 @@ export const UserApi = {
       throw error;
     }
   },
-  
+
   getPreferences: async (): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.get('/users/preferences');
@@ -316,7 +356,7 @@ export const UserApi = {
       throw error;
     }
   },
-  
+
   updatePreferences: async (preferences: UserPreferencesParams): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.put('/users/preferences', preferences);
@@ -389,7 +429,7 @@ export const NotificationApi = {
       throw error;
     }
   },
-  
+
   markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
     try {
       // No-op locally, reflect success
@@ -399,7 +439,7 @@ export const NotificationApi = {
       throw error;
     }
   },
-  
+
   markAllAsRead: async (): Promise<ApiResponse<any>> => {
     try {
       // No-op locally

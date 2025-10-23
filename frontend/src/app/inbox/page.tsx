@@ -64,8 +64,13 @@ export default function InboxQueryPage() {
     switch (type) {
       case 'forwarded': return 'Forwarded Applications';
       case 'returned': return 'Returned Applications';
-      case 'redFlagged': return 'Red Flagged Applications';
+      case 'redflagged': return 'Red Flagged Applications';
       case 'disposed': return 'Disposed Applications';
+      case 'drafts': return 'Draft Applications';
+      case 'finaldisposal': return 'Final Disposal Applications';
+      case 'sent' : return 'Sent Applications';
+      case 'closed' : return 'Closed Applications';
+      case 'freshform': return 'Fresh Form Applications';
       default: return 'Applications';
     }
   };
@@ -86,7 +91,7 @@ export default function InboxQueryPage() {
           </div>
         )}
 
-        <ApplicationTable applications={filteredApplications} isLoading={isLoading} />
+        <ApplicationTable applications={filteredApplications} isLoading={isLoading} pageType={type || undefined} />
       </div>
     </div>
   );

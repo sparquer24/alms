@@ -1,8 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
 import FormFooter from '../elements/footer';
-// Checkbox is not used, so no need to import it
+import { useRouter } from 'next/navigation';
+import { useApplicationForm } from '../../../hooks/useApplicationForm';
+import { FORM_ROUTES } from '../../../config/formRoutes';
 
 const initialProvision = {
 	firNumber: '',
@@ -16,13 +18,101 @@ const initialProvision = {
 	dateOfSentence: '',
 };
 
+const initialState = {
+	criminalHistories: [] as any[],
+};
+
 const CriminalHistory = () => {
+	const router = useRouter();
+	
+	const {
+		form,
+		setForm,
+		applicantId,
+		isSubmitting,
+		submitError,
+		submitSuccess,
+		isLoading,
+		saveFormData,
+		navigateToNext,
+		loadExistingData,
+	} = useApplicationForm({
+		initialState,
+		formSection: 'criminal',
+	});
+
 	const [convicted, setConvicted] = useState('no');
 	const [provisions, setProvisions] = useState([{ ...initialProvision }]);
 	const [bond, setBond] = useState('no');
 	const [bondDetails, setBondDetails] = useState({ dateOfSentence: '', period: '' });
 	const [prohibited, setProhibited] = useState('no');
 	const [prohibitedDetails, setProhibitedDetails] = useState({ dateOfSentence: '', period: '' });
+	
+	// Add flag to prevent backend data from overwriting fresh form data
+	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
+
+	// Load existing data into local state when form data changes
+	useEffect(() => {
+		// Skip loading if we're currently updating the form to prevent overwriting
+		if (isUpdatingForm) {
+			console.log('🚫 Skipping backend data load - form update in progress');
+			return;
+		}
+		
+		if (form.criminalHistories && form.criminalHistories.length > 0) {
+			const history = form.criminalHistories[0]; // Get the first criminal history record
+			
+			console.log('🔍 Loading criminal history from backend:', history);
+			
+			// Set conviction status
+			setConvicted(history.isConvicted ? 'yes' : 'no');
+			
+			// Set bond execution status and details
+			setBond(history.isBondExecuted ? 'yes' : 'no');
+			if (history.bondDate || history.bondPeriod) {
+				setBondDetails({
+					dateOfSentence: history.bondDate ? history.bondDate.split('T')[0] : '', // Convert ISO date to YYYY-MM-DD
+					period: history.bondPeriod || ''
+				});
+			}
+			
+			// Set prohibition status and details
+			setProhibited(history.isProhibited ? 'yes' : 'no');
+			if (history.prohibitionDate || history.prohibitionPeriod) {
+				setProhibitedDetails({
+					dateOfSentence: history.prohibitionDate ? history.prohibitionDate.split('T')[0] : '', // Convert ISO date to YYYY-MM-DD
+					period: history.prohibitionPeriod || ''
+				});
+			}
+			
+			// Set FIR details/provisions
+			if (history.firDetails && history.firDetails.length > 0) {
+				console.log('🔍 Found firDetails, mapping to provisions:', history.firDetails);
+				const mappedProvisions = history.firDetails.map((fir: any) => ({
+					firNumber: fir.firNumber || '',
+					underSection: fir.underSection || '',
+					policeStation: fir.policeStation || '',
+					unit: fir.unit || '',
+					district: fir.District || '', // Note: API uses 'District' not 'district'
+					state: fir.state || '',
+					offence: fir.offence || '',
+					sentence: fir.sentence || '',
+					dateOfSentence: fir.DateOfSentence ? fir.DateOfSentence.split('T')[0] : '' // Convert ISO date to YYYY-MM-DD
+				}));
+				setProvisions(mappedProvisions);
+				console.log('🔍 Mapped provisions:', mappedProvisions);
+			} else {
+				// If no FIR details, ensure we have at least one empty provision
+				console.log('🔍 No firDetails found, using empty provision');
+				setProvisions([{ ...initialProvision }]);
+			}
+			
+			console.log('✅ Loaded criminal history data:', history);
+		} else {
+			// Reset to initial state if no data
+			console.log('🔄 No criminal history data found, using defaults');
+		}
+	}, [form.criminalHistories]);
 
 	const handleProvisionChange = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
@@ -32,18 +122,201 @@ const CriminalHistory = () => {
 	const addProvision = () => setProvisions((prev) => [...prev, { ...initialProvision }]);
 	const removeProvision = (idx: number) => setProvisions((prev) => prev.filter((_, i) => i !== idx));
 
+	const handleSaveToDraft = async () => {
+		// Debug current state before transformation
+		console.log('🔵 Current form state before transformation:', {
+			convicted,
+			bond,
+			prohibited,
+			provisions,
+			bondDetails,
+			prohibitedDetails
+		});
+
+		// Transform local state to the new API format
+		const criminalHistories = [{
+			isConvicted: convicted === 'yes',
+			isBondExecuted: bond === 'yes',
+			bondDate: bondDetails.dateOfSentence || null,
+			bondPeriod: bondDetails.period || null,
+			isProhibited: prohibited === 'yes',
+			prohibitionDate: prohibitedDetails.dateOfSentence || null,
+			prohibitionPeriod: prohibitedDetails.period || null,
+			firDetails: convicted === 'yes' ? provisions.filter(prov => 
+				// Only include provisions that have at least some data
+				prov.firNumber || prov.underSection || prov.policeStation || 
+				prov.unit || prov.district || prov.state || 
+				prov.offence || prov.sentence || prov.dateOfSentence
+			).map(prov => ({
+				firNumber: prov.firNumber || "",
+				underSection: prov.underSection || "",
+				policeStation: prov.policeStation || "",
+				unit: prov.unit || "",
+				District: prov.district || "",
+				state: prov.state || "",
+				offence: prov.offence || "",
+				sentence: prov.sentence || "",
+				DateOfSentence: prov.dateOfSentence || null
+			})) : []
+		}];
+
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
+		setForm((prev: any) => ({ ...prev, criminalHistories }));
+		
+		// Log the payload being sent
+		console.log('🟡 Criminal History Payload:', JSON.stringify(criminalHistories, null, 2));
+		
+		// Add debugging to see what's in the form state right before save
+		console.log('🔍 Form state right before saveFormData:', {
+			criminalHistories,
+			fullFormState: { criminalHistories }
+		});
+		
+		await saveFormData();
+		
+		// Reset flag after a delay to allow for data loading
+		setTimeout(() => setIsUpdatingForm(false), 1000);
+	};	const handleNext = async () => {
+		// Debug current state before transformation
+		console.log('🔵 Current form state before transformation:', {
+			convicted,
+			bond,
+			prohibited,
+			provisions,
+			bondDetails,
+			prohibitedDetails
+		});
+
+		// Transform local state to the new API format
+		const criminalHistories = [{
+			isConvicted: convicted === 'yes',
+			isBondExecuted: bond === 'yes',
+			bondDate: bondDetails.dateOfSentence || null,
+			bondPeriod: bondDetails.period || null,
+			isProhibited: prohibited === 'yes',
+			prohibitionDate: prohibitedDetails.dateOfSentence || null,
+			prohibitionPeriod: prohibitedDetails.period || null,
+			firDetails: convicted === 'yes' ? provisions.filter(prov => 
+				// Only include provisions that have at least some data
+				prov.firNumber || prov.underSection || prov.policeStation || 
+				prov.unit || prov.district || prov.state || 
+				prov.offence || prov.sentence || prov.dateOfSentence
+			).map(prov => ({
+				firNumber: prov.firNumber || "",
+				underSection: prov.underSection || "",
+				policeStation: prov.policeStation || "",
+				unit: prov.unit || "",
+				District: prov.district || "",
+				state: prov.state || "",
+				offence: prov.offence || "",
+				sentence: prov.sentence || "",
+				DateOfSentence: prov.dateOfSentence || null
+			})) : []
+		}];
+		
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
+		setForm((prev: any) => ({ ...prev, criminalHistories }));
+		
+		// Log the payload being sent
+		console.log('🟡 Criminal History Payload:', JSON.stringify(criminalHistories, null, 2));
+		
+		// Instead of using setForm which might get overridden, pass the data directly
+		console.log('💡 Bypassing form state, saving directly with correct data');
+		
+		// Create the form data structure that includes the criminal histories
+		const formDataToSave = {
+			...form,
+			criminalHistories
+		};
+		
+		// Add debugging to see what's in the form state right before save
+		console.log('🔍 Form state right before saveFormData:', {
+			criminalHistories,
+			fullFormState: formDataToSave
+		});
+		
+		// Also update the form state for UI consistency
+		setForm((prev: any) => ({ ...prev, criminalHistories }));
+		
+		// Pass the correct criminal histories directly to saveFormData to avoid timing issues
+		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		
+		if (savedApplicantId) {
+			navigateToNext(FORM_ROUTES.LICENSE_HISTORY, savedApplicantId);
+		}
+		
+		// Reset flag after navigation
+		setTimeout(() => setIsUpdatingForm(false), 1000);
+	};
+
+	const handlePrevious = async () => {
+		if (applicantId) {
+			await loadExistingData(applicantId);
+			navigateToNext(FORM_ROUTES.OCCUPATION_DETAILS, applicantId);
+		} else {
+			router.back();
+		}
+	};
+
+	// Show loading state if data is being loaded
+	if (isLoading) {
+		return (
+			<div className="p-6">
+				<h2 className="text-xl font-bold mb-4">Criminal History</h2>
+				<div className="flex justify-center items-center py-8">
+					<div className="text-gray-500">Loading existing data...</div>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<form className="p-6">
         <h2 className="text-xl font-bold mb-4">Criminal History</h2>
+			
+			{/* Display Applicant ID if available */}
+			{applicantId && (
+				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+					<strong>Application ID: {applicantId}</strong>
+				</div>
+			)}
+			
+			{/* Display success/error messages */}
+			{submitSuccess && (
+				<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+					{submitSuccess}
+				</div>
+			)}
+			{submitError && (
+				<div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+					{submitError}
+				</div>
+			)}
 			<div className="mb-4">
 				<div className="font-semibold mb-2">13. Whether the applicant has been -</div>
 				<div className="mb-2">(a) Convicted</div>
 				<div className="flex gap-6 mb-4">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="convicted" value="yes" checked={convicted === 'yes'} onChange={() => setConvicted('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="convicted" 
+							value="yes" 
+							checked={convicted === 'yes'} 
+							onChange={() => setConvicted('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="convicted" value="no" checked={convicted === 'no'} onChange={() => setConvicted('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="convicted" 
+							value="no" 
+							checked={convicted === 'no'} 
+							onChange={() => setConvicted('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				   {convicted === 'yes' && provisions.map((prov, idx) => (
@@ -81,11 +354,25 @@ const CriminalHistory = () => {
 			<div className="mb-4">
 				<div className="mb-2">(b) Ordered to execute a bond under Chapter IX of Bharath Nagarik Suraksha Sameeksha, 1973 (2 of 1947) for keeping the peace or for good behavior</div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="bond" value="yes" checked={bond === 'yes'} onChange={() => setBond('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="bond" 
+							value="yes" 
+							checked={bond === 'yes'} 
+							onChange={() => setBond('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="bond" value="no" checked={bond === 'no'} onChange={() => setBond('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="bond" 
+							value="no" 
+							checked={bond === 'no'} 
+							onChange={() => setBond('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{bond === 'yes' && (
@@ -98,11 +385,25 @@ const CriminalHistory = () => {
 			<div className="mb-4">
 				<div className="mb-2">(c) Prohibited under the Arms Act, 1959, or any other law from having the arms off ammunition</div>
 				<div className="flex gap-6 mb-2">
-					<label className="flex items-center gap-2">
-						<input type="radio" name="prohibited" value="yes" checked={prohibited === 'yes'} onChange={() => setProhibited('yes')} /> Yes
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="prohibited" 
+							value="yes" 
+							checked={prohibited === 'yes'} 
+							onChange={() => setProhibited('yes')} 
+							className="cursor-pointer"
+						/> Yes
 					</label>
-					<label className="flex items-center gap-2">
-						<input type="radio" name="prohibited" value="no" checked={prohibited === 'no'} onChange={() => setProhibited('no')} /> No
+					<label className="flex items-center gap-2 cursor-pointer">
+						<input 
+							type="radio" 
+							name="prohibited" 
+							value="no" 
+							checked={prohibited === 'no'} 
+							onChange={() => setProhibited('no')} 
+							className="cursor-pointer"
+						/> No
 					</label>
 				</div>
 				{prohibited === 'yes' && (
@@ -112,7 +413,12 @@ const CriminalHistory = () => {
 					</div>
 				)}
 			</div>
-			<FormFooter/>
+			<FormFooter
+				onSaveToDraft={handleSaveToDraft}
+				onNext={handleNext}
+				onPrevious={handlePrevious}
+				isLoading={isSubmitting}
+			/>
 		</form>
 	);
 };
