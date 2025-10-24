@@ -25,6 +25,7 @@ async function main() {
     { code: 'INITIATE', name: 'Initiate', description: 'Application initiated' },
     { code: 'CLOSE', name: 'Close', description: 'Application closed' },
     { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
+    { code: 'DRAFT', name: 'Draft', description: 'Draft status' }
   ];
 
   // Seed statuses if not present
@@ -540,6 +541,79 @@ async function main() {
       password: 'password',
       phoneNo: '8712660404',
       role: 'ADMIN',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'SHO_BEGU_HYD',
+      email: 'sho-begumpet@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8733660001',
+      role: 'SHO',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      // Will be linked to Begumpet division and police station via dynamic lookup
+    },
+    {
+      username: 'ARMS_SECTION_HYD',
+      email: 'arms-section@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660300',
+      role: 'AS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SUPDT_HYD',
+      email: 'arms-superintendent@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660301',
+      role: 'ARMS_SUPDT',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A1_HYD',
+      email: 'arms-seat-a1@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660302',
+      role: 'ARMS_SEAT',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A2_HYD',
+      email: 'arms-seat-a2@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660303',
+      role: 'ARMS_SEAT',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A3_HYD',
+      email: 'arms-seat-a3@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660304',
+      role: 'ARMS_SEAT',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A4_HYD',
+      email: 'arms-seat-a4@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660305',
+      role: 'ARMS_SEAT',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ADO_HYD',
+      email: 'ado-hyderabad@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660306',
+      role: 'ADO',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
