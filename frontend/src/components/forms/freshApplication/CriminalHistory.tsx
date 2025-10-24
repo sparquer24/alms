@@ -266,7 +266,7 @@ const CriminalHistory = () => {
 			<div className="p-6">
 				<h2 className="text-xl font-bold mb-4">Criminal History</h2>
 				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading existing data...</div>
+					<div className="text-gray-500">Loading...</div>
 				</div>
 			</div>
 		);

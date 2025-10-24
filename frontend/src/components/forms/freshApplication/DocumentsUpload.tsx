@@ -194,7 +194,7 @@ const DocumentsUpload = () => {
 			<div className="p-6">
 				<h2 className="text-xl font-bold mb-4">Documents Upload</h2>
 				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading existing data...</div>
+					<div className="text-gray-500">Loading...</div>
 				</div>
 			</div>
 		);
@@ -273,9 +273,12 @@ const DocumentsUpload = () => {
 									/>
 								</label>
 								   <span className="text-xs text-gray-500">Max 10 MB per file</span>
-								   {fileError[docType] && <span className="text-xs text-red-500">{fileError[docType]}</span>}
+								   {fileError[docType] && (
+									   <span className="text-xs text-red-500">{fileError[docType]}</span>
+								   )}
 							</div>
 							<div className="text-xs text-gray-500 mb-1">Supported formats: .jpg, .jpeg, .png, .pdf</div>
+							{/* Error message for file size/type is now always from validation, not hardcoded */}
 							<div className="bg-white rounded-lg p-1">
 								{(files[docType] || []).map((uploadedFile, idx) => (
 									<div key={idx} className="flex items-center gap-2 border-b py-1">
