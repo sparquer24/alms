@@ -221,7 +221,7 @@ const Preview = () => {
     }
     
     return (
-      <div className="mb-3 p-2.5 bg-white rounded-md border border-gray-200 hover:border-blue-300 transition-colors duration-200 shadow-sm">
+      <>
         <dt className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
           {label}
         </dt>
@@ -232,7 +232,7 @@ const Preview = () => {
         }`}>
           {displayValue}
         </dd>
-      </div>
+      </>
     );
   };
 
@@ -303,8 +303,8 @@ const Preview = () => {
           </button>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 ">
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">Basic Information</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {renderField('First Name', applicationData.firstName)}
@@ -316,7 +316,7 @@ const Preview = () => {
             </div>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">Birth & Identity Details</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {renderField('Date of Birth', formatDate(applicationData.dateOfBirth))}
@@ -350,7 +350,7 @@ const Preview = () => {
       <div className="mb-6 border rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
             Address Details
           </h3>
           <button
@@ -367,7 +367,7 @@ const Preview = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Present Address */}
-          <div className="space-y-4">
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">
               Present Address
             </h4>
@@ -379,14 +379,11 @@ const Preview = () => {
               {renderField('Division', presentAddr?.division?.name || presentAddr?.division)}
               {renderField('Police Station', presentAddr?.policeStation?.name || presentAddr?.policeStation)}
               {renderField('Residing Since', formatDate(presentAddr?.sinceResiding))}
-              {renderField('Office Phone', presentAddr?.telephoneOffice)}
-              {renderField('Office Mobile', presentAddr?.officeMobileNumber)}
-              {renderField('Alternative Mobile', presentAddr?.alternativeMobile)}
             </div>
           </div>
 
           {/* Permanent Address */}
-          <div className="space-y-4">
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">
               Permanent Address
             </h4>
@@ -397,11 +394,20 @@ const Preview = () => {
               {renderField('Zone', permanentAddr?.zone?.name || permanentAddr?.zone)}
               {renderField('Division', permanentAddr?.division?.name || permanentAddr?.division)}
               {renderField('Police Station', permanentAddr?.policeStation?.name || permanentAddr?.policeStation)}
-              {renderField('Office Phone', permanentAddr?.telephoneOffice)}
-              {renderField('Office Mobile', permanentAddr?.officeMobileNumber)}
-              {renderField('Alternative Mobile', permanentAddr?.alternativeMobile)}
             </div>
           </div>
+        </div>
+
+        {/* Office Contact Details - full width */}
+        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 mt-6">
+          <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">
+            Office Contact Details
+          </h4>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+            {renderField('Office Phone', presentAddr?.telephoneOffice)}
+            {renderField('Office Mobile', presentAddr?.officeMobileNumber)}
+            {renderField('Alternative Mobile', presentAddr?.alternativeMobile)}
+          </dl>
         </div>
       </div>
     );
@@ -433,22 +439,32 @@ const Preview = () => {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">Professional Details</h4>
-            <div className="grid grid-cols-1 gap-3">
-              {renderField('Occupation', occupation?.occupation)}
-              {renderField('Office Address', occupation?.officeAddress)}
-              {renderField('State', occupation?.state?.name || occupation?.state)}
-              {renderField('District', occupation?.district?.name || occupation?.district)}
-            </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+              <>
+                <dt className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Occupation</dt>
+                <dd className="text-sm text-gray-800 font-medium">{occupation?.occupation || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                <dt className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Office Address</dt>
+                <dd className="text-sm text-gray-800 font-medium">{occupation?.officeAddress || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                <dt className="text-xs font-semibold text-gray-600 uppercase tracking-wide">State</dt>
+                <dd className="text-sm text-gray-800 font-medium">{occupation?.state?.name || occupation?.state || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                <dt className="text-xs font-semibold text-gray-600 uppercase tracking-wide">District</dt>
+                <dd className="text-sm text-gray-800 font-medium">{occupation?.district?.name || occupation?.district || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+              </>
+            </dl>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50 ">
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2 mb-4">Agricultural Details</h4>
-            <div className="grid grid-cols-1 gap-3">
-              {renderField('Crop Location', occupation?.cropLocation)}
-              {renderField('Area Under Cultivation', occupation?.areaUnderCultivation)}
-            </div>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+              <>
+                <dt className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Crop Location</dt>
+                <dd className="text-sm text-gray-800 font-medium">{occupation?.cropLocation || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                <dt className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Area Under Cultivation</dt>
+                <dd className="text-sm text-gray-800 font-medium">{occupation?.areaUnderCultivation || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+              </>
+            </dl>
           </div>
         </div>
       </div>
@@ -464,7 +480,8 @@ const Preview = () => {
     return (
       <div className="mb-8 border rounded-lg p-6 bg-white shadow-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
             Criminal History
           </h3>
           <button
@@ -472,6 +489,9 @@ const Preview = () => {
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Edit Criminal History"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             <span className="text-sm">Edit</span>
           </button>
         </div>
@@ -483,50 +503,67 @@ const Preview = () => {
                 <h5 className="font-semibold text-gray-800 mb-4">
                   Criminal History Entry {index + 1}
                 </h5>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <h6 className="font-medium text-gray-700 border-b pb-1">Legal Status</h6>
-                    {renderField('Convicted', history.isConvicted)}
-                    {renderField('Bond Executed', history.isBondExecuted)}
-                    {renderField('Bond Date', formatDate(history.bondDate))}
-                    {renderField('Bond Period', history.bondPeriod)}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Legal Status */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Legal Status</h6>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                      <dt className="text-xs font-semibold text-gray-600">Convicted</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.isConvicted === 'boolean' ? (history.isConvicted ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Bond Executed</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.isBondExecuted === 'boolean' ? (history.isBondExecuted ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Bond Date</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.bondDate ? formatDate(history.bondDate) : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Bond Period</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.bondPeriod || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                    </dl>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <h6 className="font-medium text-gray-700 border-b pb-1">Prohibition Details</h6>
-                    {renderField('Prohibited', history.isProhibited)}
-                    {renderField('Prohibition Date', formatDate(history.prohibitionDate))}
-                    {renderField('Prohibition Period', history.prohibitionPeriod)}
+                  {/* Prohibition Details */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Prohibition Details</h6>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                      <dt className="text-xs font-semibold text-gray-600">Prohibited</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.isProhibited === 'boolean' ? (history.isProhibited ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Prohibition Date</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.prohibitionDate ? formatDate(history.prohibitionDate) : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Prohibition Period</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.prohibitionPeriod || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                    </dl>
                   </div>
-                </div>
-                
-                {/* FIR Details */}
-                {history.firDetails && history.firDetails.length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-gray-300">
-                    <h6 className="font-medium text-gray-700 mb-3">
-                      FIR Details
-                    </h6>
-                    <div className="grid gap-4">
-                      {history.firDetails.map((fir: any, firIndex: number) => (
-                        <div key={firIndex} className="bg-white rounded-lg p-4 border border-gray-200">
-                          <span className="font-medium text-gray-600 mb-2 block">FIR {firIndex + 1}</span>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {renderField('FIR Number', fir.firNumber)}
-                            {renderField('Under Section', fir.underSection)}
-                            {renderField('Police Station', fir.policeStation)}
-                            {renderField('Unit', fir.unit)}
-                            {renderField('District', fir.District)}
-                            {renderField('State', fir.state)}
-                            {renderField('Offence', fir.offence)}
-                            {renderField('Sentence', fir.sentence)}
-                            {renderField('Date of Sentence', formatDate(fir.DateOfSentence))}
+                  {/* FIR Details */}
+                  {history.firDetails && history.firDetails.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-white md:col-span-2">
+                      <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">FIR Details</h6>
+                      <div className="grid gap-4">
+                        {history.firDetails.map((fir: any, firIndex: number) => (
+                          <div key={firIndex} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <span className="font-medium text-gray-600 mb-2 block">FIR {firIndex + 1}</span>
+                            <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                              <dt className="text-xs font-semibold text-gray-600">FIR Number</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.firNumber || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">Under Section</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.underSection || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">Police Station</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.policeStation || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">Unit</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.unit || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">District</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.District || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">State</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.state || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">Offence</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.offence || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">Sentence</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.sentence || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                              <dt className="text-xs font-semibold text-gray-600">Date of Sentence</dt>
+                              <dd className="text-sm text-gray-800 font-medium">{fir.DateOfSentence ? formatDate(fir.DateOfSentence) : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                            </dl>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -549,7 +586,8 @@ const Preview = () => {
     return (
       <div className="mb-8 border rounded-lg p-6 bg-white shadow-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
             License History
           </h3>
           <button
@@ -557,10 +595,13 @@ const Preview = () => {
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Edit License History"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             <span className="text-sm">Edit</span>
           </button>
         </div>
-        
+
         {licenseHistories.length > 0 ? (
           <div className="space-y-6">
             {licenseHistories.map((history: any, index: number) => (
@@ -568,57 +609,60 @@ const Preview = () => {
                 <h5 className="font-semibold text-gray-800 mb-4">
                   License History Entry {index + 1}
                 </h5>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Previous Applications */}
-                  <div className="space-y-3">
-                    <h6 className="font-medium text-gray-700 border-b pb-1">Previous Applications</h6>
-                    {renderField('Applied Before', history.hasAppliedBefore)}
-                    {renderField('Date Applied For', formatDate(history.dateAppliedFor))}
-                    {renderField('Previous Authority Name', history.previousAuthorityName)}
-                    {renderField('Previous Result', history.previousResult)}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Previous Applications</h6>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                      <dt className="text-xs font-semibold text-gray-600">Applied Before</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.hasAppliedBefore === 'boolean' ? (history.hasAppliedBefore ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Date Applied For</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.dateAppliedFor ? formatDate(history.dateAppliedFor) : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Previous Authority Name</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.previousAuthorityName || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Previous Result</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.previousResult || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                    </dl>
                   </div>
-                  
-                  {/* Suspension Details */}
-                  <div className="space-y-3">
-                    <h6 className="font-medium text-gray-700 border-b pb-1">Suspension Information</h6>
-                    {renderField('License Suspended', history.hasLicenceSuspended)}
-                    {renderField('Suspension Authority', history.suspensionAuthorityName)}
-                    {renderField('Suspension Reason', history.suspensionReason)}
+                  {/* Suspension Information */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Suspension Information</h6>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                      <dt className="text-xs font-semibold text-gray-600">License Suspended</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.hasLicenceSuspended === 'boolean' ? (history.hasLicenceSuspended ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Suspension Authority</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.suspensionAuthorityName || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Suspension Reason</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.suspensionReason || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                    </dl>
                   </div>
-                </div>
-                
-                {/* Family License Information */}
-                <div className="mt-6 pt-4 border-t border-gray-300">
-                  <h6 className="font-medium text-gray-700 mb-3">
-                    Family License Information
-                  </h6>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      {renderField('Family Member Has License', history.hasFamilyLicence)}
-                      {renderField('Family Member Name', history.familyMemberName)}
-                      {renderField('Family License Number', history.familyLicenceNumber)}
-                    </div>
-                    <div className="space-y-3">
-                      {renderField('Family Weapons Endorsed', history.familyWeaponsEndorsed?.join(', '))}
-                    </div>
+                  {/* Family License Information */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Family License Information</h6>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                      <dt className="text-xs font-semibold text-gray-600">Family Member Has License</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.hasFamilyLicence === 'boolean' ? (history.hasFamilyLicence ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Family Member Name</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.familyMemberName || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Family License Number</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.familyLicenceNumber || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Family Weapons Endorsed</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.familyWeaponsEndorsed && history.familyWeaponsEndorsed.length > 0 ? history.familyWeaponsEndorsed.join(', ') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                    </dl>
                   </div>
-                </div>
-                
-                {/* Storage and Training */}
-                <div className="mt-6 pt-4 border-t border-gray-300">
-                  <h6 className="font-medium text-gray-700 mb-3">
-                    Storage & Training Information
-                  </h6>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      {renderField('Safe Place for Storage', history.hasSafePlace)}
-                      {renderField('Safe Place Details', history.safePlaceDetails)}
-                    </div>
-                    <div className="space-y-3">
-                      {renderField('Has Training', history.hasTraining)}
-                      {renderField('Training Details', history.trainingDetails)}
-                    </div>
+                  {/* Storage and Training */}
+                  <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Storage & Training Information</h6>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                      <dt className="text-xs font-semibold text-gray-600">Safe Place for Storage</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.hasSafePlace === 'boolean' ? (history.hasSafePlace ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Safe Place Details</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.safePlaceDetails || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Has Training</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{typeof history.hasTraining === 'boolean' ? (history.hasTraining ? 'Yes' : 'No') : <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      <dt className="text-xs font-semibold text-gray-600">Training Details</dt>
+                      <dd className="text-sm text-gray-800 font-medium">{history.trainingDetails || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                    </dl>
                   </div>
                 </div>
               </div>
@@ -658,7 +702,8 @@ const Preview = () => {
     return (
       <div className="mb-8 border rounded-lg p-6 bg-white shadow-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <span className="w-2 h-2 bg-cyan-500 rounded-full"></span>
             License Details
           </h3>
           <button
@@ -666,6 +711,9 @@ const Preview = () => {
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Edit License Details"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             <span className="text-sm">Edit</span>
           </button>
         </div>
@@ -673,114 +721,66 @@ const Preview = () => {
         {licenseDetails.length > 0 ? (
           <div className="space-y-6">
             {licenseDetails.map((detail: any, index: number) => {
-              // Debug each license detail
-              // Transform requestedWeapons to requestedWeaponIds if needed
-              const requestedWeaponIds = detail.requestedWeaponIds || 
-                (detail.requestedWeapons ? detail.requestedWeapons.map((weapon: any) => weapon.id) : []);
-              
-              console.log(`🔍 License Detail ${index}:`, {
-                detail,
-                originalRequestedWeaponIds: detail.requestedWeaponIds,
-                requestedWeapons: detail.requestedWeapons,
-                transformedWeaponIds: requestedWeaponIds,
-                hasRequestedWeaponIds: !!requestedWeaponIds,
-                requestedWeaponIdsLength: requestedWeaponIds?.length,
-                typeOfRequestedWeaponIds: typeof requestedWeaponIds
-              });
-              
+              const requestedWeaponIds = detail.requestedWeaponIds || (detail.requestedWeapons ? detail.requestedWeapons.map((weapon: any) => weapon.id) : []);
               return (
                 <div key={index} className="border border-gray-200 rounded-lg p-5 bg-gray-50">
-                  <h5 className="font-semibold text-gray-800 mb-4">
-                    License Application Details {index + 1}
-                  </h5>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Basic License Information */}
-                  <div className="space-y-3">
-                    <h6 className="font-medium text-gray-700 border-b pb-1">License Requirements</h6>
-                    {renderField('Need for License', detail.needForLicense)}
-                    {renderField('Arms Category', detail.armsCategory)}
-                    {renderField('Area of Validity', detail.areaOfValidity)}
-                    {renderField('License Place Area', detail.licencePlaceArea)}
-                  </div>
-                  
-                  {/* Weapon and Ammunition Details */}
-                  <div className="space-y-3">
-                    <h6 className="font-medium text-gray-700 border-b pb-1">Weapon & Ammunition</h6>
-                    
-                    {/* Display weapon names with enhanced formatting */}
-                    <div className="mb-3 p-2.5 bg-white rounded-md border border-gray-200 hover:border-blue-300 transition-colors duration-200 shadow-sm">
-                      <dt className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
-                        Requested Weapons
-                      </dt>
-                      
-                      <dd className="text-sm leading-relaxed max-w-xs">
-                        {(() => {
-                          console.log('🎯 WEAPON DEBUGGING:', {
-                            requestedWeaponIds,
-                            hasRequestedWeaponIds: !!requestedWeaponIds,
-                            requestedWeaponIdsLength: requestedWeaponIds?.length,
-                            requestedWeapons: detail.requestedWeapons,
-                            weapons,
-                            weaponsLength: weapons.length
-                          });
-                          
-                          return requestedWeaponIds && requestedWeaponIds.length > 0 ? (
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap gap-1.5">
-                                {requestedWeaponIds.map((weaponId: number, idx: number) => {
-                                  // First try to find weapon in the weapons list from API
-                                  let weapon = weapons.find(w => w.id === weaponId);
-                                  
-                                  // If not found in weapons list, try to get it from requestedWeapons directly
-                                  if (!weapon && detail.requestedWeapons) {
-                                    weapon = detail.requestedWeapons.find((w: any) => w.id === weaponId);
-                                  }
-                                  
-                                  console.log(`🔍 Weapon ${weaponId}:`, {
-                                    weaponId,
-                                    foundInWeaponsList: weapons.find(w => w.id === weaponId),
-                                    foundInRequestedWeapons: detail.requestedWeapons?.find((w: any) => w.id === weaponId),
-                                    finalWeapon: weapon
-                                  });
-                                  
-                                  return (
-                                    <span 
-                                      key={weaponId}
-                                      className="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-md border border-blue-200 font-medium"
-                                    >
-                                      {weapon ? weapon.name : `Unknown Weapon (ID: ${weaponId})`}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                Total: {requestedWeaponIds.length} weapon{requestedWeaponIds.length !== 1 ? 's' : ''}
-                              </div>
+                  <h5 className="font-semibold text-gray-800 mb-4">License Application Details {index + 1}</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* License Requirements */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                      <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">License Requirements</h6>
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                        <dt className="text-xs font-semibold text-gray-600">Need for License</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.needForLicense || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                        <dt className="text-xs font-semibold text-gray-600">Arms Category</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.armsCategory || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                        <dt className="text-xs font-semibold text-gray-600">Area of Validity</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.areaOfValidity || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                        <dt className="text-xs font-semibold text-gray-600">License Place Area</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.licencePlaceArea || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      </dl>
+                    </div>
+                    {/* Weapon & Ammunition */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                      <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Weapon & Ammunition</h6>
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                        <dt className="text-xs font-semibold text-gray-600">Requested Weapons</dt>
+                        <dd className="text-sm text-gray-800 font-medium">
+                          {requestedWeaponIds && requestedWeaponIds.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {requestedWeaponIds.map((weaponId: number, idx: number) => {
+                                let weapon = weapons.find(w => w.id === weaponId);
+                                if (!weapon && detail.requestedWeapons) {
+                                  weapon = detail.requestedWeapons.find((w: any) => w.id === weaponId);
+                                }
+                                return (
+                                  <span key={weaponId} className="inline-flex items-center px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-md border border-blue-200 font-medium">
+                                    {weapon ? weapon.name : `Unknown Weapon (ID: ${weaponId})`}
+                                  </span>
+                                );
+                              })}
                             </div>
                           ) : (
                             <span className="text-gray-400 italic">No weapons selected</span>
-                          );
-                        })()}
-                      </dd>
+                          )}
+                        </dd>
+                        <dt className="text-xs font-semibold text-gray-600">Ammunition Description</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.ammunitionDescription || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                        <dt className="text-xs font-semibold text-gray-600">Wild Beasts Specification</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.wildBeastsSpecification || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      </dl>
                     </div>
-                    
-                    {renderField('Ammunition Description', detail.ammunitionDescription)}
-                    {renderField('Wild Beasts Specification', detail.wildBeastsSpecification)}
+                    {/* Special Considerations */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-white md:col-span-2">
+                      <h6 className="font-medium text-gray-700 border-b pb-1 mb-2">Special Considerations</h6>
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2">
+                        <dt className="text-xs font-semibold text-gray-600">Special Consideration Reason</dt>
+                        <dd className="text-sm text-gray-800 font-medium">{detail.specialConsiderationReason || <span className="text-gray-400 italic">Not Provided</span>}</dd>
+                      </dl>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Special Considerations */}
-                {detail.specialConsiderationReason && (
-                  <div className="mt-6 pt-4 border-t border-gray-300">
-                    <h6 className="font-medium text-gray-700 mb-3">
-                      Special Considerations
-                    </h6>
-                    {renderField('Special Consideration Reason', detail.specialConsiderationReason)}
-                  </div>
-                )}
-              </div>
-            );
+              );
             })}
           </div>
         ) : (
@@ -798,13 +798,17 @@ const Preview = () => {
     return (
       <div className="mb-8 border rounded-lg p-6 bg-white shadow-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
             Biometric Information
           </h3>
           <button
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Biometric Information"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             <span className="text-sm">Edit</span>
           </button>
         </div>
@@ -855,7 +859,8 @@ const Preview = () => {
     return (
       <div className="mb-8 border rounded-lg p-6 bg-white shadow-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
             Document Upload
           </h3>
           <button
@@ -863,6 +868,9 @@ const Preview = () => {
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Upload Documents"
           >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             <span className="text-sm">Edit</span>
           </button>
         </div>
@@ -872,79 +880,29 @@ const Preview = () => {
             <h4 className="text-lg font-medium text-gray-700 border-b pb-2">
               Uploaded Documents ({fileUploads.length})
             </h4>
-            
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {fileUploads.map((file: any, index: number) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3 flex-1">
-                      <span className="text-sm font-medium text-gray-600 bg-white px-2 py-1 rounded">
-                        {getFileIcon(file.fileType)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-medium text-gray-900 truncate">
-                          {file.fileType || 'Unknown Document Type'}
-                        </h5>
-                        
-                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                          {renderField('File Type', file.fileType)}
-                          <div className="mb-3 p-2.5 bg-white rounded-md border border-gray-200 hover:border-blue-300 transition-colors duration-200 shadow-sm">
-                            <dt className="text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
-                              File Name
-                            </dt>
-                            <dd className="text-sm leading-relaxed max-w-xs text-gray-800 font-medium">
-                              {file.fileName ? (
-                                <a 
-                                  href={file.fileUrl && (file.fileUrl.startsWith('http') || file.fileUrl.startsWith('data:')) ? file.fileUrl : `https://${file.fileUrl || '#'}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline hover:no-underline transition-colors duration-200 break-words cursor-pointer"
-                                  title="Click to open file - if file doesn't open, the URL may be invalid or require authentication"
-                                  onClick={(e) => {
-                                    // Handle different URL types properly
-                                    if (file.fileUrl) {
-                                      try {
-                                        if (file.fileUrl.startsWith('data:')) {
-                                          // For data URLs, open directly
-                                          window.open(file.fileUrl, '_blank');
-                                        } else if (file.fileUrl.startsWith('http')) {
-                                          // For HTTP URLs, open directly
-                                          window.open(file.fileUrl, '_blank');
-                                        } else {
-                                          // For other URLs, prepend https://
-                                          window.open(`https://${file.fileUrl}`, '_blank');
-                                        }
-                                      } catch (error) {
-                                        console.error('Error opening file:', error);
-                                        alert('Unable to open file. The URL may be invalid or the file may require special access.');
-                                      }
-                                    }
-                                  }}
-                                >
-                                  {file.fileName.length > 30 ? file.fileName.substring(0, 30) + '...' : file.fileName}
-                                </a>
-                              ) : (
-                                <span className="text-gray-400 italic">Not Available</span>
-                              )}
-                            </dd>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-
+                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex flex-col">
+                  <div className="mb-2">
+                    <span className="text-gray-900">{file.fileType || 'Unknown Document Type'}</span>
+                  </div>
+                  <div>
+                    {file.fileName ? (
+                      <a
+                        href={file.fileUrl && (file.fileUrl.startsWith('http') || file.fileUrl.startsWith('data:')) ? file.fileUrl : `https://${file.fileUrl || '#'}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline break-words cursor-pointer mb-1"
+                        title="Click to open file - if file doesn't open, the URL may be invalid or require authentication"
+                      >
+                        {file.fileName.length > 30 ? file.fileName.substring(0, 30) + '...' : file.fileName}
+                      </a>
+                    ) : (
+                      <span className="text-gray-400 italic">Not Available</span>
+                    )}
                   </div>
                 </div>
               ))}
-            </div>
-            
-            {/* Summary */}
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center">
-                <span className="text-green-700 font-medium">
-                  {fileUploads.length} document{fileUploads.length !== 1 ? 's' : ''} uploaded successfully
-                </span>
-              </div>
             </div>
           </div>
         ) : (
@@ -1020,7 +978,7 @@ const Preview = () => {
         onNext={handleNext}
         onPrevious={handlePrevious}
       />
-    </div>
+     </div>
     </div>
   );
 };
