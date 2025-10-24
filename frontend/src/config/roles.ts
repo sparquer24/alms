@@ -20,6 +20,7 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
     { name: "userManagement" },
     { name: "roleManagement" },
     { name: "flowMapping" },
+    { name: "drafts" },
     { name: "reports" },
   ],
   SHO: [
@@ -27,7 +28,6 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
     { name: "freshform" },
     { name: "sent" },
     { name: "closed" },
-    { name: "draft" },
     { name: "reports" },
   ],
   ZS: [
