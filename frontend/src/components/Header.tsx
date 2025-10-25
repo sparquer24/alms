@@ -9,6 +9,7 @@ import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { isZS, APPLICATION_TYPES } from '../config/helpers';
 import { getCookie } from 'cookies-next';
+import { ApplicationFormSkeleton } from './Skeleton';
 
 interface HeaderProps {
   // Search & filter callbacks are now optional since the search bar was removed
@@ -40,6 +41,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [role, setRole] = useState<string | undefined>(undefined);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Read cookie on the client only to avoid server/client markup mismatch.
   useEffect(() => {
@@ -55,6 +57,8 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   const handleDropdownClick = (type: typeof APPLICATION_TYPES[number]) => {
     setShowDropdown(false);
     if (type.enabled) {
+      // Show loading state
+      setIsNavigating(true);
       // Navigate directly to the appropriate route
       try {
         if (type.key === 'fresh') {
@@ -63,6 +67,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
           router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
         }
       } catch (e) {
+        setIsNavigating(false);
         if (onCreateApplication) {
           onCreateApplication(type.key);
         } else if (onShowMessage) {
@@ -142,6 +147,9 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
           )}
         </div>
       </div>
+      
+      {/* Form Skeleton Loading */}
+      {isNavigating && <ApplicationFormSkeleton />}
     </header>
   );
 };

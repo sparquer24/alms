@@ -104,6 +104,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     forwardComments: detailedApp.remarks || undefined,
     isViewed: !detailedApp.isPending,
     returnReason: undefined,
+    currentUser: detailedApp.currentUser,
     flagReason: undefined,
     disposalReason: undefined,
     lastUpdated: detailedApp.updatedAt || detailedApp.createdAt || new Date().toISOString(),
