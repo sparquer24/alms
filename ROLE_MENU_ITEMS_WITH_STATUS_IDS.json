@@ -1,0 +1,404 @@
+{
+  "roles": {
+    "ZS": {
+      "code": "ZS",
+      "name": "Zonal Superintendent",
+      "dashboard_title": "ZS Dashboard",
+      "menu_items": [
+        {
+          "name": "freshform",
+          "statusIds": [9]
+        },
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 1, 9]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10]
+        },
+        {
+          "name": "drafts",
+          "statusIds": [13]
+        },
+        {
+          "name": "finaldisposal",
+          "statusIds": [7]
+        }
+      ],
+      "permissions": ["read", "write", "canViewFreshForm"],
+      "can_access_settings": false
+    },
+    "SHO": {
+      "code": "SHO",
+      "name": "Station House Officer",
+      "dashboard_title": "SHO Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "freshform",
+          "statusIds": [9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 1]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10]
+        }
+      ],
+      "permissions": ["read"],
+      "can_access_settings": true
+    },
+    "ACP": {
+      "code": "ACP",
+      "name": "Assistant Commissioner of Police",
+      "dashboard_title": "ACP Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 1]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10]
+        }
+      ],
+      "permissions": ["read", "write"],
+      "can_access_settings": true
+    },
+    "DCP": {
+      "code": "DCP",
+      "name": "Deputy Commissioner of Police",
+      "dashboard_title": "DCP Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9, 11]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 3]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10, 7]
+        }
+      ],
+      "permissions": ["read", "write", "approve"],
+      "can_access_settings": true
+    },
+    "AS": {
+      "code": "AS",
+      "name": "Arms Superintendent",
+      "dashboard_title": "AS Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 1]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10]
+        },
+        {
+          "name": "finaldisposal",
+          "statusIds": [7]
+        },
+        {
+          "name": "reports",
+          "statusIds": [1, 9, 10, 7, 3]
+        }
+      ],
+      "permissions": ["read", "write", "canViewReports"],
+      "can_access_settings": false
+    },
+    "ADO": {
+      "code": "ADO",
+      "name": "Administrative Officer",
+      "dashboard_title": "ADO Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11]
+        }
+      ],
+      "permissions": ["read"],
+      "can_access_settings": false
+    },
+    "CADO": {
+      "code": "CADO",
+      "name": "Chief Administrative Officer",
+      "dashboard_title": "CADO Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9, 11]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 3]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10, 7]
+        }
+      ],
+      "permissions": ["read", "write"],
+      "can_access_settings": true
+    },
+    "JTCP": {
+      "code": "JTCP",
+      "name": "Joint Commissioner of Police",
+      "dashboard_title": "JTCP Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9, 11]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 3]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10, 7]
+        }
+      ],
+      "permissions": ["read", "write", "approve"],
+      "can_access_settings": false
+    },
+    "CP": {
+      "code": "CP",
+      "name": "Commissioner of Police",
+      "dashboard_title": "CP Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9, 11]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 3]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10, 7]
+        },
+        {
+          "name": "finaldisposal",
+          "statusIds": [7]
+        }
+      ],
+      "permissions": ["read", "write", "approve", "finalize"],
+      "can_access_settings": false
+    },
+    "ARMS_SUPDT": {
+      "code": "ARMS_SUPDT",
+      "name": "Arms Superintendent",
+      "dashboard_title": "ARMS_SUPDT Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 1]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10]
+        },
+        {
+          "name": "finaldisposal",
+          "statusIds": [7]
+        }
+      ],
+      "permissions": ["read", "write"],
+      "can_access_settings": false
+    },
+    "ARMS_SEAT": {
+      "code": "ARMS_SEAT",
+      "name": "Arms Seat",
+      "dashboard_title": "ARMS_SEAT Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11]
+        }
+      ],
+      "permissions": ["read"],
+      "can_access_settings": false
+    },
+    "ACO": {
+      "code": "ACO",
+      "name": "Assistant Compliance Officer",
+      "dashboard_title": "ACO Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10]
+        }
+      ],
+      "permissions": ["read"],
+      "can_access_settings": false
+    },
+    "APPLICANT": {
+      "code": "APPLICANT",
+      "name": "Citizen Applicant",
+      "dashboard_title": "Applicant Dashboard",
+      "menu_items": [
+        {
+          "name": "drafts",
+          "statusIds": [13]
+        }
+      ],
+      "permissions": ["read", "create"],
+      "can_access_settings": false
+    },
+    "ADMIN": {
+      "code": "ADMIN",
+      "name": "System Administrator",
+      "dashboard_title": "Admin Dashboard",
+      "menu_items": [
+        {
+          "name": "userManagement",
+          "statusIds": []
+        },
+        {
+          "name": "roleManagement",
+          "statusIds": []
+        },
+        {
+          "name": "flowMapping",
+          "statusIds": []
+        },
+        {
+          "name": "drafts",
+          "statusIds": [13]
+        },
+        {
+          "name": "reports",
+          "statusIds": [1, 9, 10, 7, 3, 11]
+        }
+      ],
+      "permissions": ["read", "write", "admin", "delete"],
+      "can_access_settings": true
+    }
+  },
+  "statusReference": {
+    "1": {
+      "code": "FORWARD",
+      "name": "Forward",
+      "description": "Application forwarded to next stage"
+    },
+    "2": {
+      "code": "REJECT",
+      "name": "Reject",
+      "description": "Application rejected"
+    },
+    "3": {
+      "code": "APPROVED",
+      "name": "Approved",
+      "description": "Application approved"
+    },
+    "4": {
+      "code": "CANCEL",
+      "name": "Cancel",
+      "description": "Application cancelled"
+    },
+    "5": {
+      "code": "RE_ENQUIRY",
+      "name": "Re-Enquiry",
+      "description": "Re-enquiry required"
+    },
+    "6": {
+      "code": "GROUND_REPORT",
+      "name": "Ground Report",
+      "description": "Ground report required"
+    },
+    "7": {
+      "code": "DISPOSE",
+      "name": "Dispose",
+      "description": "Application disposed"
+    },
+    "8": {
+      "code": "RED_FLAG",
+      "name": "Red-Flag",
+      "description": "Red-flagged application"
+    },
+    "9": {
+      "code": "INITIATE",
+      "name": "Initiate",
+      "description": "Application initiated"
+    },
+    "10": {
+      "code": "CLOSE",
+      "name": "Close",
+      "description": "Application closed"
+    },
+    "11": {
+      "code": "RECOMMEND",
+      "name": "Recommend",
+      "description": "Application recommended"
+    },
+    "13": {
+      "code": "DRAFT",
+      "name": "Draft",
+      "description": "Draft status"
+    }
+  },
+  "menuItemDescriptions": {
+    "freshform": "Fresh applications that have just been initiated",
+    "inbox": "Forwarded and initiated applications in your inbox",
+    "sent": "Applications that have been sent/forwarded by you",
+    "closed": "Closed applications",
+    "drafts": "Draft applications not yet submitted",
+    "finaldisposal": "Finally disposed applications",
+    "reports": "Reports and analytics view",
+    "userManagement": "Manage system users (Admin only)",
+    "roleManagement": "Manage user roles (Admin only)",
+    "flowMapping": "Configure workflow mappings (Admin only)"
+  },
+  "notes": {
+    "statusIds": "Each menu item now has specific statusIds that control which applications are visible",
+    "hierarchy": "Higher-level roles (CP, JTCP) can see more status types including RECOMMEND and APPROVED",
+    "fieldOperations": "Field roles (SHO, ACP) primarily see FORWARD and INITIATE statuses",
+    "administrative": "Admin roles have access to management functions with empty statusIds (no filtering)",
+    "applicant": "Applicants only see their draft applications",
+    "customization": "Backend can modify these statusIds per role to control visibility"
+  }
+}

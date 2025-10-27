@@ -350,9 +350,18 @@ export const getStatusIdsForKey = (statusKey: string): number[] => {
 /**
  * Utility function to fetch applications by status key (from statusIdMap)
  * This is the recommended way for pages to fetch applications by status
+ * @param statusKey - The status key to fetch applications for
+ * @param customStatusIds - Optional custom status IDs from role-based menu items (cookie)
  */
-export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<ApplicationData[]> => {
-  const statusIds = getStatusIdsForKey(statusKey);
+export const fetchApplicationsByStatusKey = async (
+  statusKey: string,
+  customStatusIds?: number[]
+): Promise<ApplicationData[]> => {
+  // Use custom statusIds if provided, otherwise use default mapping from statusIdMap
+  const statusIds = customStatusIds && customStatusIds.length > 0
+    ? customStatusIds
+    : getStatusIdsForKey(statusKey);
+
   if (statusIds.length === 0) {
     return [];
   }

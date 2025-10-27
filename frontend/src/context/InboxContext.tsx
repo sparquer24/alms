@@ -8,7 +8,7 @@ type InboxContextValue = {
   selectedType: string | null;
   applications: ApplicationData[];
   isLoading: boolean;
-  loadType: (type: string, force?: boolean) => Promise<void>;
+  loadType: (type: string, force?: boolean, statusIds?: number[]) => Promise<void>;
 };
 
 const InboxContext = createContext<InboxContextValue | undefined>(undefined);
@@ -20,7 +20,7 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   // request id to ignore stale responses when switching types quickly
   const requestIdRef = useRef(0);
 
-  const loadType = useCallback(async (type: string, force = false) => {
+  const loadType = useCallback(async (type: string, force = false, statusIds?: number[]) => {
     if (!type) return;
     const normalized = String(type).toLowerCase();
     if (normalized === selectedType && !force) return; // already loaded
@@ -31,7 +31,8 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setIsLoading(true);
       setSelectedType(normalized);
-      const apps = await fetchApplicationsByStatusKey(normalized);
+      // Use custom statusIds if provided, otherwise use default mapping
+      const apps = await fetchApplicationsByStatusKey(normalized, statusIds);
       // only apply results if this is the latest request
       if (requestId === requestIdRef.current) {
         setApplications(apps ?? []);

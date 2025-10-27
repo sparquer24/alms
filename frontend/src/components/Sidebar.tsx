@@ -144,6 +144,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   });
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Store statusIds for the current active menu item
+  const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const dispatch = useDispatch();
   const { userRole, token } = useAuthSync();
   const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
@@ -241,7 +243,9 @@ const getUserRoleFromCookie = () => {
     else setTimeout(() => setVisible(false), 400);
   }, [showSidebar]);
 
-  const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[] }) => {
+  const { loadType } = useInbox();
+
+  const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
     if (item.name.toLowerCase() !== "inbox") {
       dispatch(closeInbox()); // Close the inbox if another menu item is clicked
     }
@@ -250,6 +254,16 @@ const getUserRoleFromCookie = () => {
     } else {
       setActiveItem(item.name);
       localStorage.setItem("activeNavItem", item.name);
+      
+      // Store statusIds for later use
+      if (item.statusIds && item.statusIds.length > 0) {
+        setActiveStatusIds(item.statusIds);
+        localStorage.setItem("activeStatusIds", JSON.stringify(item.statusIds));
+      } else {
+        setActiveStatusIds(undefined);
+        localStorage.removeItem("activeStatusIds");
+      }
+      
       const effectiveRole = cookieRole || userRole;
       // Only ADMIN can access /admin/*
       if (effectiveRole === 'ADMIN') {
@@ -263,19 +277,25 @@ const getUserRoleFromCookie = () => {
           router.push(redirectPath);
         } else {
           // For other menu items, try to route to /inbox?type={item}
-          // You may want to map item names to types as needed
+          // Load applications using statusIds if available
           const type = item.name.replace(/\s+/g, '').toLowerCase();
+          
+          // Use loadType with custom statusIds if available
+          if (item.statusIds && item.statusIds.length > 0) {
+            startTransition(() => {
+              loadType(type, true, item.statusIds).catch(() => {});
+            });
+          }
+          
           router.push(`/inbox?type=${encodeURIComponent(type)}`);
         }
       }
     }
-  }, [router, dispatch, cookieRole, userRole]);
+  }, [router, dispatch, cookieRole, userRole, loadType]);
 
   const handleInboxToggle = useCallback(() => {
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch, isInboxOpen]);
-
-  const { loadType } = useInbox();
 
   const handleInboxSubItemClick = useCallback((subItem: string) => {
     const activeItemKey = `inbox-${subItem}`;
@@ -330,6 +350,7 @@ const getUserRoleFromCookie = () => {
         name: item.name,
         label: menuMeta[key]?.label || item.name,
         icon: iconFn ? iconFn() : null,
+        statusIds: item.statusIds, // Include statusIds from role config
       };
     });
   }, [roleConfig, cookieRole, userRole]);
@@ -458,7 +479,10 @@ const getUserRoleFromCookie = () => {
                   icon={item.icon}
                   label={item.label}
                   active={activeItem === item.name}
-                  onClick={() => handleMenuClick({ name: item.name })}
+                  onClick={() => handleMenuClick({ 
+                    name: item.name, 
+                    statusIds: item.statusIds 
+                  })}
                 />
               ))}
             {/* Add Flow Mapping menu item for ADMIN users */}
