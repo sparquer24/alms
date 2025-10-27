@@ -42,6 +42,13 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
     { name: "sent" },
     { name: "closed" },
   ],
+  AS: [
+    { name: "inbox" },
+    { name: "sent" },
+    { name: "closed" },
+    { name: "finaldisposal" },
+    { name: "reports" },
+  ],
 };
 
 // ✅ Reads from cookie and builds RoleConfig

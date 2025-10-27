@@ -2,7 +2,7 @@
  * Utility functions for role-based redirections
  */
 
-export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'ARMS_SUPDT' | 'SHO' | 'ZS' | 'APPLICANT' | 'ADO' | 'CADO';
+export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'ARMS_SUPDT' | 'SHO' | 'ZS' | 'APPLICANT' | 'ADO' | 'CADO' | 'AS';
 
 /**
  * Get the default redirect path for a user based on their role
@@ -32,6 +32,7 @@ export function getRoleBasedRedirectPath(userRole?: string): string {
     case 'JTCP':
     case 'ADO':
     case 'CADO':
+    case 'AS':
       return '/inbox?type=forwarded';
 
     default:
@@ -68,7 +69,7 @@ export function shouldRedirectOnStartup(userRole?: string, currentPath?: string)
   }
 
   // For officer roles, redirect from root to their inbox
-  const officerRoles = ['ARMS_SUPDT', 'SHO', 'ZS', 'ADO', 'CADO', 'DCP', 'ACP', 'CP', 'JTCP'];
+  const officerRoles = ['ARMS_SUPDT', 'SHO', 'ZS', 'ADO', 'CADO', 'DCP', 'ACP', 'CP', 'JTCP', 'AS'];
   if (normalizedRole && officerRoles.includes(normalizedRole) && currentPath === '/') {
     return getRoleBasedRedirectPath(normalizedRole);
   }
