@@ -28,7 +28,6 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
     { name: "freshform" },
     { name: "sent" },
     { name: "closed" },
-    { name: "reports" },
   ],
   ZS: [
     { name: "inbox" },
@@ -36,14 +35,12 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
     { name: "sent" },
     { name: "closed" },
     { name: "drafts" },
-    { name: "reports" },
+    { name: "finaldisposal" },
   ],
   DCP: [
     { name: "inbox" },
     { name: "sent" },
     { name: "closed" },
-    { name: "finaldisposal" },
-    { name: "reports" },
   ],
   AS: [
     { name: "inbox" },
@@ -125,18 +122,18 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
 
   // Fallback to default menu items if none found, or ensure ZS users always have required menu items
   const roleKey = (code || name || '').toUpperCase();
-  
+
   if (menuItems.length === 0) {
     menuItems = defaultMenuItems[roleKey] || defaultMenuItems.SHO;
     console.log(`⚠️ No menu items in cookie, using default for ${roleKey}:`, menuItems);
   } else {
     console.log('✅ Menu items from cookie:', menuItems);
-    
+
     // Ensure ZS users always have essential menu items regardless of cookie content
     if (roleKey === 'ZS' || roleKey.includes('ZS')) {
-      const requiredZSItems = ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'reports'];
+      const requiredZSItems = ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'];
       const currentItemNames = menuItems.map(item => item.name);
-      
+
       // Add missing required items
       requiredZSItems.forEach(requiredItem => {
         if (!currentItemNames.includes(requiredItem)) {
@@ -152,7 +149,7 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
     let dashboardTitle = dashboardTitleRaw;
     if (!dashboardTitle) {
       const roleIdentifier = (code || name || '').toUpperCase();
-      
+
       // Standardize dashboard titles for common roles
       switch (true) {
         case roleIdentifier === 'ZS' || roleIdentifier.includes('ZS'):

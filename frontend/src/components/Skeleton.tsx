@@ -211,3 +211,96 @@ export const MessageSkeleton: React.FC = () => (
     <Skeleton className="h-4 w-48" />
   </div>
 );
+
+// Application Form Skeleton
+export const ApplicationFormSkeleton: React.FC = () => (
+  <div className="fixed inset-0 bg-gray-50 z-[9999] overflow-y-auto">
+    <div className="min-h-screen">
+      {/* Header Skeleton */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center space-x-4">
+            <Skeleton className="h-10 w-10 rounded" />
+            <Skeleton className="h-6 w-48" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto p-6">
+        {/* Form Header */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <Skeleton className="h-8 w-64 mb-4" />
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+
+        {/* Form Sections */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-8">
+          {/* Section 1 */}
+          <div>
+            <Skeleton className="h-6 w-48 mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 2 */}
+          <div className="pt-6 border-t border-gray-200">
+            <Skeleton className="h-6 w-48 mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 3 - Full width fields */}
+          <div className="pt-6 border-t border-gray-200">
+            <Skeleton className="h-6 w-48 mb-6" />
+            <div className="space-y-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* File Upload Section */}
+          <div className="pt-6 border-t border-gray-200">
+            <Skeleton className="h-6 w-48 mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                  <Skeleton className="h-16 w-16 mx-auto mb-3 rounded" />
+                  <Skeleton className="h-4 w-32 mx-auto mb-2" />
+                  <Skeleton className="h-3 w-24 mx-auto" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-6 border-t border-gray-200 flex justify-between">
+            <Skeleton className="h-12 w-32 rounded-lg" />
+            <div className="flex space-x-4">
+              <Skeleton className="h-12 w-24 rounded-lg" />
+              <Skeleton className="h-12 w-32 rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);

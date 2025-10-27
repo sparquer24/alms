@@ -26,7 +26,7 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
-  const { isAuthenticated, userRole, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
   const { setShowHeader, setShowSidebar } = useLayout();
   const [application, setApplication] = useState<ApplicationData | null>(null);
@@ -206,11 +206,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       try {
         const result = await getApplicationByApplicationId(applicationId);
         if (result) {
-          console.log('📋 Application data loaded:', {
-            id: result.id,
-            workflowHistoriesCount: result.workflowHistories?.length || 0,
-            workflowHistories: result.workflowHistories
-          });
+          console.log('📋 Application data loaded:', 
+            result);
           setApplication(result as ApplicationData);
         } else {
           console.warn('⚠️ ApplicationDetailPage: No application found');
@@ -265,6 +262,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
+      case 'forwarded':
+        return 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm';
       case 'pending':
         return 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm';
       case 'approved':
@@ -1187,19 +1186,71 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             </h3>
                           </div>
                           <div className="flex flex-col gap-4">
-                            {/* Proceedings Form - Always Open */}
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                              <div className="p-4 bg-gray-50">
-                                <div className="p-4">
-                                  <ProceedingsForm
-                                    applicationId={applicationId}
-                                    onSuccess={handleProceedingsSuccess}
-                                    userRole={userRole}
-                                    applicationData={application || undefined}
-                                  />
+                            {/* Check if current logged-in user can take action */}
+                            {(() => {
+                              // Compare user IDs with type coercion (handles string vs number mismatch)
+                              const currentUserId = user?.id ? String(user.id) : null;
+                              
+                              // Try multiple possible field names for application's current user ID
+                              const appData = application as any;
+                              const applicationUserId = 
+                                application?.currentUser?.id ? String(application.currentUser.id) :
+                                appData?.currentUserId ? String(appData.currentUserId) :
+                                appData?.current_user_id ? String(appData.current_user_id) :
+                                null;
+                              
+                              const canTakeAction = currentUserId && applicationUserId && currentUserId === applicationUserId;
+                              
+                              console.log('🔐 Authorization Check:', {
+                                cookieUserId: user?.id,
+                                cookieUserIdType: typeof user?.id,
+                                application,
+                                appData,
+                                normalizedCookieUserId: currentUserId,
+                                normalizedApplicationUserId: applicationUserId,
+                                canTakeAction
+                              });
+                              
+                              return canTakeAction;
+                            })() ? (
+                              <>
+                                {/* Proceedings Form - Always Open */}
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                                  <div className="p-4 bg-gray-50">
+                                    <div className="p-4">
+                                      <ProceedingsForm
+                                        applicationId={applicationId}
+                                        onSuccess={handleProceedingsSuccess}
+                                        userRole={userRole}
+                                        applicationData={application || undefined}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              /* Show message if user is not authorized */
+                              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm">
+                                <div className="flex items-start">
+                                  <svg className="w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                  </svg>
+                                  <div>
+                                    <h4 className="text-lg font-semibold text-yellow-800 mb-2">
+                                      Action Not Available
+                                    </h4>
+                                    <p className="text-sm text-yellow-700 leading-relaxed">
+                                      At this point, you cannot take action on this request. This application is currently assigned to another user.
+                                    </p>
+                                    {application?.currentUser && (
+                                      <p className="text-sm text-yellow-700 mt-2">
+                                        <span className="font-medium">Current handler:</span> {application.currentUser.username}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         </div>
 
