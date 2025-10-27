@@ -12,10 +12,14 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import type { ChartData, ChartOptions } from "chart.js";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const Bar = dynamic(() => import("react-chartjs-2").then(mod => mod.Bar), { ssr: false });
+const Bar = dynamic(() => import("react-chartjs-2").then(mod => mod.Bar), { 
+  ssr: false,
+  loading: () => <div className="h-64 flex items-center justify-center">Loading chart...</div>
+});
 
 // Mock data for total reports/analytics
 const mockTotalReports = [
@@ -27,7 +31,10 @@ const mockTotalReports = [
 
 export default function TotalReportsWidget() {
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  
   useEffect(() => {
+    setMounted(true);
     setTimeout(() => setLoading(false), 400);
   }, []);
 
@@ -39,6 +46,30 @@ export default function TotalReportsWidget() {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     saveAs(blob, "total-reports.csv");
   };
+
+  const chartData: ChartData<'bar'> = {
+    labels: mockTotalReports.map(r => r.type),
+    datasets: [
+      {
+        label: "Total Reports",
+        data: mockTotalReports.map(r => r.count),
+        backgroundColor: ["#6366F1", "#60a5fa", "#f87171", "#fbbf24"],
+      },
+    ],
+  };
+
+  const chartOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false
+      }
+    }
+  };
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-8">
@@ -52,21 +83,11 @@ export default function TotalReportsWidget() {
         </button>
       </div>
       {loading ? (
-        <div>Loading...</div>
+        <div className="h-64 flex items-center justify-center">Loading...</div>
       ) : (
-        <Bar
-          data={{
-            labels: mockTotalReports.map(r => r.type),
-            datasets: [
-              {
-                label: "Total Reports",
-                data: mockTotalReports.map(r => r.count),
-                backgroundColor: ["#6366F1", "#60a5fa", "#f87171", "#fbbf24"],
-              },
-            ],
-          }}
-          options={{ responsive: true, plugins: { legend: { display: false } } }}
-        />
+        <div className="h-64">
+          <Bar data={chartData} options={chartOptions} />
+        </div>
       )}
     </div>
   );

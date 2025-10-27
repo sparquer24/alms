@@ -63,6 +63,7 @@ export const AuthInitializer: React.FC = () => {
   }, [isAuthenticated, currentUser?.role, pathname, router]);
 
   return null; // This component doesn't render anything
-};
+}
 
+// Named export to avoid SSR issues with default export
 export default AuthInitializer;

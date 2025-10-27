@@ -42,7 +42,6 @@ const Preview = () => {
   const handleNext = () => {
     const idToUse = applicationId || acknowledgementNo;
     if (idToUse) {
-      console.log('✅ Navigating to Declaration with ID:', idToUse);
       const url = new URL(FORM_ROUTES.DECLARATION, window.location.origin);
       url.searchParams.set('id', idToUse);
       if (isOwned !== null) {
@@ -50,7 +49,6 @@ const Preview = () => {
       }
       router.push(url.pathname + url.search);
     } else {
-      console.log('❌ No application ID found, navigating to Declaration without ID');
       router.push(FORM_ROUTES.DECLARATION);
     }
   };
@@ -83,29 +81,16 @@ const Preview = () => {
           setLoading(false);
           return;
         }
-
-        console.log('🔵 Fetching application data for ID:', idToFetch);
-        console.log('🔵 isOwned parameter:', isOwned);
-        
         // Convert isOwned string to boolean if present
         const isOwnedBool = isOwned === 'true' ? true : isOwned === 'false' ? false : undefined;
         
         const response = await ApplicationService.getApplication(idToFetch, isOwnedBool);
-        
-        console.log('🟢 Application data fetched:', response);
-        console.log('🔍 Debug - Raw response structure:', JSON.stringify(response, null, 2));
-        console.log('🔍 Debug - response.success:', response?.success);
-        console.log('🔍 Debug - response.data:', response?.data);
-        console.log('🔍 Debug - response.data.licenseDetails:', response?.data?.licenseDetails);
-        console.log('🔍 Debug - typeof response:', typeof response);
-        
         // Check if response indicates failure
         if (response && response.success === false) {
           const errorMsg = response.details?.response?.error ||
                           response.details?.response?.message ||
                           response.details?.message ||
                           'Failed to fetch application data';
-          console.log('❌ Response indicates failure:', errorMsg);
           setError(errorMsg);
           setLoading(false);
           return;
@@ -115,11 +100,9 @@ const Preview = () => {
         let data = response;
         if (response && response.data) {
           data = response.data;
-          console.log('🔄 Using response.data as application data');
         }
 
         if (!data) {
-          console.log('❌ No data found in response');
           setError('No application data found');
           setLoading(false);
           return;
@@ -128,8 +111,6 @@ const Preview = () => {
         setApplicationData(data);
         setLoading(false);
       } catch (err: any) {
-        console.error('❌ Error fetching application data:', err);
-        
         // Extract detailed error message
         let errorMessage = 'Failed to load application data.';
         if (err.response?.data?.details?.response?.error) {
@@ -156,9 +137,7 @@ const Preview = () => {
       try {
         const weaponsList = await WeaponsService.getAll();
         setWeapons(weaponsList || []);
-        console.log('🔫 Weapons loaded:', weaponsList);
       } catch (error) {
-        console.error('❌ Error loading weapons:', error);
         // Fallback weapons if API fails
         setWeapons([
           { id: 1, name: 'Revolver' },
@@ -685,20 +664,7 @@ const Preview = () => {
     const licenseDetails = applicationData.licenseDetails || [];
     
     // Debug logging
-    console.log('🔍 Debug License Details:', {
-      applicationData,
-      licenseDetails,
-      licenseDetailsLength: licenseDetails.length,
-      firstDetail: licenseDetails[0],
-      firstDetailWeapons: licenseDetails[0]?.requestedWeapons,
-      firstDetailWeaponIds: licenseDetails[0]?.requestedWeaponIds,
-      weapons: weapons,
-      weaponsLength: weapons.length
-    });
-    
     // Additional debugging for the license details structure
-    console.log('🔍 RAW LICENSE DETAILS:', JSON.stringify(licenseDetails, null, 2));
-
     return (
       <div className="mb-8 border rounded-lg p-6 bg-white shadow-sm">
         <div className="flex justify-between items-center mb-6">

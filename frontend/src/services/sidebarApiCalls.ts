@@ -50,13 +50,6 @@ export const STATUS_MAP = {
  * Transform DetailedApplicationData to ApplicationData format for backward compatibility
  */
 const transformDetailedToApplicationData = (detailedApp: any): ApplicationData => {
-  console.log('🔄 Transforming application data:', {
-    id: detailedApp?.id,
-    applicantFullName: detailedApp?.applicantFullName,
-    acknowledgementNo: detailedApp?.acknowledgementNo,
-    status: detailedApp?.status
-  });
-
   // Handle both old and new API response formats
   const histories = Array.isArray(detailedApp?.FreshLicenseApplicationsFormWorkflowHistories)
     ? detailedApp.FreshLicenseApplicationsFormWorkflowHistories
@@ -338,7 +331,6 @@ export const convertStatusNamesToIds = (statusIds: string | string[] | number | 
       if (mappedIds) {
         numericIds.push(...mappedIds);
       } else {
-        console.warn(`⚠️ Unknown status name: ${status}`);
       }
     }
   });
@@ -362,7 +354,6 @@ export const getStatusIdsForKey = (statusKey: string): number[] => {
 export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<ApplicationData[]> => {
   const statusIds = getStatusIdsForKey(statusKey);
   if (statusIds.length === 0) {
-    console.warn(`⚠️ No status IDs mapped for status key: ${statusKey}`);
     return [];
   }
 
@@ -376,32 +367,16 @@ export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<A
  */
 export const fetchAllApplications = async (params: Record<string, any> = {}): Promise<ApplicationData[]> => {
   try {
-    console.log({ params }, '>>>>>>>>>>>>>')
-
-    // Convert status names to numeric IDs if needed
-    if (params.statusIds) {
-      params.statusIds = convertStatusNamesToIds(params.statusIds);
-    }
-
-    console.log({ params }, '<<<<<<<<<<<')
     const response = await ApplicationApi.getAll(params);
 
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      console.warn('⚠️ fetchAllApplications: Invalid response data, returning empty array');
       return [];
     }
 
     // Transform API response to match ApplicationData interface
     const applications = response.data.map(transformApiApplicationToApplicationData);
-
-    console.log('✅ fetchAllApplications: Transformed applications:', {
-      count: applications.length,
-      sample: applications[0]
-    });
-
     return applications;
   } catch (error) {
-    console.error('❌ fetchAllApplications error:', error);
     return [];
   }
 };
@@ -416,46 +391,24 @@ export const fetchApplicationsByStatus = async (status: number[] | string[]): Pr
     // Check cache first
     const cachedData = getCachedData(cacheKey, 30000); // 30 second cache
     if (cachedData) {
-      console.log('📦 fetchApplicationsByStatus: Using cached data for status:', status);
       return cachedData;
     }
-
-    console.log('📡 fetchApplicationsByStatus called with status:', status);
-
     // Convert status names to numeric IDs if needed
     const convertedStatusIds = convertStatusNamesToIds(status);
     const params = { statusIds: convertedStatusIds };
 
     const response = await ApplicationApi.getAll(params);
-
-    console.log('📡 fetchApplicationsByStatus response:', {
-      success: response?.success,
-      message: response?.message,
-      dataType: typeof response?.data,
-      isArray: Array.isArray(response?.data),
-      length: Array.isArray(response?.data) ? response.data.length : 'N/A',
-      pagination: (response as any)?.pagination
-    });
-
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      console.warn('⚠️ fetchApplicationsByStatus: Invalid response data, returning empty array');
       return [];
     }
 
     // Transform API response to match ApplicationData interface
     const applications = response.data.map(transformApiApplicationToApplicationData);
-
-    console.log('✅ fetchApplicationsByStatus: Transformed applications:', {
-      count: applications.length,
-      sample: applications[0]
-    });
-
     // Cache the results
     setCachedData(cacheKey, applications, 30000);
 
     return applications;
   } catch (error) {
-    console.error('❌ fetchApplicationsByStatus error:', error);
     return [];
   }
 };
@@ -482,12 +435,8 @@ export const fetchApplicationCounts = async (): Promise<{
     // Check cache first - increased cache time to 5 minutes
     const cachedData = getCachedData(cacheKey, 300000); // 5 minute cache
     if (cachedData) {
-      console.log('📦 fetchApplicationCounts: Using cached data');
       return cachedData;
     }
-
-    console.log('📊 fetchApplicationCounts called - optimized version');
-
     // Only fetch counts for the essential inbox items to reduce API load
     const [forwarded, returned, redFlagged, disposed, draft] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
@@ -511,15 +460,11 @@ export const fetchApplicationCounts = async (): Promise<{
       reEnquiryCount: 0,
       groundReportCount: 0,
     };
-
-    console.log('📊 fetchApplicationCounts result (optimized):', counts);
-
     // Cache the results for longer
     setCachedData(cacheKey, counts, 300000);
 
     return counts;
   } catch (error) {
-    console.error('❌ fetchApplicationCounts error:', error);
     return {
       forwardedCount: 0,
       returnedCount: 0,
@@ -743,21 +688,15 @@ export const getApplicationsByStatus = (
  */
 export const fetchApplicationById = async (id: Number): Promise<ApplicationData | null> => {
   try {
-    console.log('📡 fetchApplicationById called with id:', id);
-
     const response = await ApplicationApi.getById(id);
 
     if (!response?.data) {
-      console.warn('⚠️ fetchApplicationById: No data in response');
       return null;
     }
 
     const application = transformApiApplicationToApplicationData(response.data);
-
-    console.log('✅ fetchApplicationById: Transformed application:', application);
     return application;
   } catch (error) {
-    console.error('❌ fetchApplicationById error:', error);
     return null;
   }
 };
@@ -779,12 +718,9 @@ export const searchApplications = async (searchParams: {
   limit: number;
 }> => {
   try {
-    console.log('🔍 searchApplications called with params:', searchParams);
-
     const response = await ApplicationApi.getAll(searchParams);
 
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      console.warn('⚠️ searchApplications: Invalid response data');
       return {
         applications: [],
         total: 0,
@@ -806,7 +742,6 @@ export const searchApplications = async (searchParams: {
 
     return result;
   } catch (error) {
-    console.error('❌ searchApplications error:', error);
     return {
       applications: [],
       total: 0,
@@ -827,46 +762,20 @@ export const searchApplications = async (searchParams: {
  */
 export const getApplicationByApplicationId = async (applicationId: string | number): Promise<ApplicationData | null> => {
   try {
-    console.log('📡 getApplicationByApplicationId called with applicationId:', applicationId);
-
     // Make API call to get specific application by ID
     const response = await ApplicationApi.getById(Number(applicationId));
-
-    console.log('📡 getApplicationByApplicationId response:', {
-      success: response?.success,
-      message: response?.message,
-      hasData: !!response?.data,
-      dataType: typeof response?.data,
-      dataLength: Array.isArray(response?.data) ? response?.data?.length : 'not array'
-    });
-
     if (!response?.success || !response?.data) {
-      console.warn('⚠️ getApplicationByApplicationId: Invalid response data');
       return null;
     }
 
     // The API now returns a single application object (not an array)
     const detailedApplicationData: any = response.data;
-
-    console.log('📡 Single application response:', {
-      id: detailedApplicationData?.id,
-      applicantName: detailedApplicationData?.applicantFullName,
-      acknowledgementNo: detailedApplicationData?.acknowledgementNo
-    });
-
     // Transform the detailed API response to ApplicationData format for backward compatibility
     const applicationData = transformDetailedToApplicationData(detailedApplicationData);
 
     // Return the transformed data that matches the expected ApplicationData interface
-    console.log('✅ getApplicationByApplicationId: Transformed application:', {
-      id: applicationData.id,
-      applicantName: applicationData.applicantName,
-      status: applicationData.status
-    });
-
     return applicationData;
   } catch (error) {
-    console.error('❌ getApplicationByApplicationId error:', error);
     return null;
   }
 };

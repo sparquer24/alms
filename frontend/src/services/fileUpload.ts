@@ -50,15 +50,6 @@ export class FileUploadService {
       if (file.size === 0) {
         throw new Error('File cannot be empty');
       }
-      
-      console.log('🚀 Starting file upload with inputs:', {
-        applicationId,
-        fileName: file.name,
-        fileSize: file.size,
-        fileType,
-        description
-      });
-
       // Step 1: Simulate file upload to storage service
       // In a real implementation, you would upload to AWS S3, Cloudinary, etc.
       const fileUrl = await this.uploadToStorageService(file);
@@ -73,15 +64,9 @@ export class FileUploadService {
       };
 
       const url = `/application-form/${applicationId}/upload-file`;
-      console.log('🔄 Sending file metadata to:', url);
-      console.log('� File metadata payload:', fileMetadata);
-
       const response = await postData(url, fileMetadata);
-
-      console.log('✅ File upload successful:', response);
       return response;
     } catch (error: any) {
-      console.error('❌ File upload failed:', error);
       throw new Error(`File upload failed: ${error.message}`);
     }
   }
@@ -100,8 +85,6 @@ export class FileUploadService {
         const timestamp = Date.now();
         const fileExtension = file.name.split('.').pop();
         const mockUrl = `https://storage.example.com/uploads/${timestamp}_${file.name}`;
-        
-        console.log('📁 Mock file uploaded to storage:', mockUrl);
         resolve(mockUrl);
       }, 1000); // 1 second delay to simulate upload
     });
@@ -127,10 +110,8 @@ export class FileUploadService {
 
     try {
       const results = await Promise.all(uploadPromises);
-      console.log('✅ All files uploaded successfully:', results);
       return results;
     } catch (error: any) {
-      console.error('❌ Some files failed to upload:', error);
       throw error;
     }
   }

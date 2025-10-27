@@ -171,7 +171,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       openInViewer(blobUrl, contentType);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (e) {
-      console.error('Failed to open attachment:', e);
       // Last-resort message
       alert('Unable to preview file. It may still be downloadable from the history.');
     }
@@ -206,15 +205,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       try {
         const result = await getApplicationByApplicationId(applicationId);
         if (result) {
-          console.log('📋 Application data loaded:', 
-            result);
           setApplication(result as ApplicationData);
         } else {
-          console.warn('⚠️ ApplicationDetailPage: No application found');
           setApplication(null);
         }
       } catch (error) {
-        console.error('❌ ApplicationDetailPage: Error fetching application:', error);
         setApplication(null);
       } finally {
         setLoading(false);
@@ -345,7 +340,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         router.push('/inbox/forwarded');
       }, 2000);
     } catch (error) {
-      console.error('Error processing application:', error);
       setErrorMessage('Failed to process application. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -376,7 +370,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         router.push('/inbox/forwarded');
       }, 2000);
     } catch (error) {
-      console.error('Error forwarding application:', error);
       setErrorMessage('Failed to forward application. Please try again.');
     } finally {
       setIsForwarding(false);
@@ -394,7 +387,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       // await generateApplicationPDF(application);
       setSuccessMessage("PDF generation feature temporarily disabled");
     } catch (error) {
-      console.error("Error generating PDF:", error);
       setErrorMessage("Failed to generate PDF. Please try again.");
     } finally {
       setIsPrinting(false);
@@ -449,7 +441,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           setApplication(result as ApplicationData);
         }
       }).catch((error) => {
-        console.error('Error reloading application:', error);
+        // Error reloading application
       });
     }
     
@@ -1201,16 +1193,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               
                               const canTakeAction = currentUserId && applicationUserId && currentUserId === applicationUserId;
                               
-                              console.log('🔐 Authorization Check:', {
-                                cookieUserId: user?.id,
-                                cookieUserIdType: typeof user?.id,
-                                application,
-                                appData,
-                                normalizedCookieUserId: currentUserId,
-                                normalizedApplicationUserId: applicationUserId,
-                                canTakeAction
-                              });
-                              
                               return canTakeAction;
                             })() ? (
                               <>
@@ -1265,15 +1247,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           
                           <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                             <div className="h-full max-h-[700px] md:max-h-[600px] overflow-y-auto p-6 custom-scrollbar">
-                              {(() => {
-                                console.log('🔍 History Check:', {
-                                  hasApplication: !!application,
-                                  hasWorkflowHistories: !!application?.workflowHistories,
-                                  workflowHistoriesLength: application?.workflowHistories?.length || 0,
-                                  workflowHistories: application?.workflowHistories
-                                });
-                                return null;
-                              })()}
                               {application && application.workflowHistories && application.workflowHistories.length > 0 ? (
                                 <div className="space-y-4">
                                   {application.workflowHistories.map((h, idx) => {

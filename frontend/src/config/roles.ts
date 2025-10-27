@@ -47,28 +47,22 @@ const defaultMenuItems: Record<string, MenuItem[]> = {
 // ✅ Reads from cookie and builds RoleConfig
 export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
   const token = jsCookie.get("user");
-  console.log('🔍 getRoleConfig called with:', { userRole, token: token ? 'exists' : 'missing' });
 
   if (!token) {
-    console.warn('❌ No user token found in cookie');
     return undefined;
   }
 
   let parsedUser: any;
   try {
     parsedUser = JSON.parse(token);
-    console.log('✅ Parsed user cookie:', parsedUser);
   } catch (err) {
-    console.error("❌ Invalid user cookie:", err);
     return undefined;
   }
 
   // role may be under user.role or user directly
   const roleData: any = parsedUser?.role ?? parsedUser;
-  console.log('🔍 Role data extracted:', roleData);
 
   if (!roleData || typeof roleData !== "object") {
-    console.warn('❌ Invalid role data structure');
     return undefined;
   }
 
@@ -80,8 +74,6 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
   let permissionsRaw: string[] | string | undefined = roleData.permissions;
   if (permissionsRaw === undefined) permissionsRaw = roleData.permission_list ?? roleData.PermissionList;
   let menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
-
-  console.log('🔍 Extracted role properties:', { code, name, menuItemsRaw });
 
   // Parse stringified JSON arrays if needed
   const safeParse = <T,>(v: any): T | undefined => {
@@ -118,9 +110,7 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
 
   if (menuItems.length === 0) {
     menuItems = defaultMenuItems[roleKey] || defaultMenuItems.SHO;
-    console.log(`⚠️ No menu items in cookie, using default for ${roleKey}:`, menuItems);
   } else {
-    console.log('✅ Menu items from cookie:', menuItems);
 
     // Ensure ZS users always have essential menu items regardless of cookie content
     if (roleKey === 'ZS' || roleKey.includes('ZS')) {
@@ -131,7 +121,6 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
       requiredZSItems.forEach(requiredItem => {
         if (!currentItemNames.includes(requiredItem)) {
           menuItems.push({ name: requiredItem });
-          console.log(`✅ Added missing required item for ZS: ${requiredItem}`);
         }
       });
     }
@@ -172,11 +161,9 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
       canAccessSettings: Boolean(canAccessSettingsRaw),
       menuItems,
     };
-    console.log('✅ Final role config:', config);
     return config;
   }
 
-  console.warn('❌ No valid code or name found in role data');
   return undefined; // no valid role found
 };
 

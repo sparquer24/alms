@@ -71,7 +71,6 @@ export const DOCUMENT_TYPE_MAPPING: Record<string, DocumentTypeMapping> = {
 export const getFileTypeFromDisplayName = (displayName: string): string => {
   const mapping = DOCUMENT_TYPE_MAPPING[displayName];
   if (!mapping) {
-    console.warn(`Unknown document type: ${displayName}`);
     return 'OTHER';
   }
   return mapping.fileType;

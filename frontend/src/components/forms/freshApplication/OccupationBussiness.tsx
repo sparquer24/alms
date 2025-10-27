@@ -63,19 +63,14 @@ const OccupationBussiness: React.FC = () => {
 
 	// Sync location state with form values (only when data is loaded from backend)
 	React.useEffect(() => {
-		console.log('🔵 Occupation form state:', form);
-		console.log('🔵 Location state:', locationState.selectedState, locationState.selectedDistrict);
-		
 		// Only sync if we have data and location state is different
 		if (form.officeState && form.officeState !== locationState.selectedState) {
-			console.log('🟢 Syncing officeState:', form.officeState);
 			locationActions.setSelectedState(form.officeState);
 		}
 	}, [form.officeState, isLoading]); // Include isLoading to sync after data loads
 
 	React.useEffect(() => {
 		if (form.officeDistrict && form.officeDistrict !== locationState.selectedDistrict) {
-			console.log('🟢 Syncing officeDistrict:', form.officeDistrict);
 			locationActions.setSelectedDistrict(form.officeDistrict);
 		}
 	}, [form.officeDistrict, isLoading]); // Include isLoading to sync after data loads

@@ -37,12 +37,10 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
         setApplications(apps ?? []);
       } else {
         // stale response - ignore
-        console.debug('Ignored stale inbox response for', normalized);
       }
     } catch (err) {
       // only report/clear if this is the latest request
       if (requestId === requestIdRef.current) {
-        console.error('InboxProvider loadType error', err);
         setApplications([]);
       }
     } finally {
@@ -62,7 +60,6 @@ export const useInbox = () => {
   if (!ctx) {
     // Fallback safe implementation so components rendered outside the provider don't crash.
     // This logs so we can find and wrap callers with the provider if needed.
-    if (typeof window !== 'undefined') console.warn('useInbox called outside InboxProvider - returning no-op fallback');
     return {
       selectedType: null,
       applications: [],

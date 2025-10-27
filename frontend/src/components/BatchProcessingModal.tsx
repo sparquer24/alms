@@ -62,7 +62,6 @@ const BatchProcessingModal: React.FC<BatchProcessingModalProps> = ({
       setComment('');
       onClose();
     } catch (error) {
-      console.error('Error processing batch:', error);
     } finally {
       setProcessing(false);
     }

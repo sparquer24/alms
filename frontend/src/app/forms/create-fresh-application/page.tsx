@@ -57,7 +57,6 @@ export default function CreateFreshApplicationPage() {
       }, 3000);
       
     } catch (error) {
-      console.error('Error submitting application:', error);
       setErrorMessage('Failed to submit application. Please try again.');
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {

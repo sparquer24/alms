@@ -15,7 +15,6 @@ import { InboxProvider } from '../context/InboxContext';
 export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <Provider store={store}>
-      <AuthInitializer />
       <AuthProvider>
         <LayoutProvider>
           <NotificationProvider>
@@ -23,6 +22,7 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
               <UserProvider>
                 <ApplicationProvider>
                   <InboxProvider>
+                    <AuthInitializer />
                     {children}
                   </InboxProvider>
                 </ApplicationProvider>

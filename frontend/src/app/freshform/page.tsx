@@ -11,6 +11,10 @@ import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusK
 import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default function FreshFormPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -52,7 +56,6 @@ export default function FreshFormPage() {
         const fetchedApplications = await fetchApplicationsByStatusKey('freshform');
         setApplications(fetchedApplications);
       } catch (error) {
-        console.error('❌ Error fetching freshform applications:', error);
         setApplications([]);
       } finally {
         setIsLoading(false);

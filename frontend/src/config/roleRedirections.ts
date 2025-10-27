@@ -10,8 +10,6 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'ARMS_SUPDT' | 
 export function getRoleBasedRedirectPath(userRole?: string): string {
   // Defensive normalization: accept undefined, objects, lowercase values, and trim whitespace
   const role = userRole ? String(userRole).trim().toUpperCase() : undefined;
-  console.log({ userRole, role });
-
   switch (role) {
     case 'ADMIN':
       return '/admin/userManagement';

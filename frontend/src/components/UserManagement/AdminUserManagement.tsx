@@ -37,7 +37,6 @@ const AdminUserManagement = () => {
   }, []);
 
   const handleEdit = (userId: string) => {
-    console.log(`Edit user with ID: ${userId}`);
   };
 
   if (loading) return <p>Loading users...</p>;

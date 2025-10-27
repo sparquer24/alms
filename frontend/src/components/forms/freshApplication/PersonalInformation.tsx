@@ -70,25 +70,20 @@ const PersonalInformation: React.FC = () => {
 	// Manual data refresh functionality for cases where automatic loading doesn't work
 	const handleRefreshData = async () => {
 		if (applicantId) {
-			console.log('🔄 Manually refreshing data for applicationId:', applicantId);
 			await loadExistingData(applicantId);
 		}
 	};
 
 	const handleSaveToDraft = async () => {
-		console.log('💾 Save to Draft clicked - Current applicantId:', applicantId);
 		await saveFormData();
 	};
 
 	const handleNext = async () => {
-		console.log('➡️ Next clicked - Current applicantId:', applicantId);
 		const savedApplicantId = await saveFormData();
 		
 		if (savedApplicantId) {
-			console.log('✅ Successfully saved, navigating with ID:', savedApplicantId);
 			navigateToNext(FORM_ROUTES.ADDRESS_DETAILS, savedApplicantId);
 		} else {
-			console.log('❌ Failed to save, not navigating');
 		}
 	};
 

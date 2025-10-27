@@ -43,7 +43,6 @@ export default function InboxQueryPage() {
         const apps = await fetchApplicationsByStatusKey(type);
         setApplications(apps);
       } catch (err) {
-        console.error('Error fetching inbox apps', err);
         setApplications([]);
       } finally {
         setIsLoading(false);

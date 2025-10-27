@@ -132,7 +132,7 @@ export default function AdminDashboard() {
   };
 
   const confirmDeleteUser = () => {
-    console.log(`User with ID ${selectedUser} deleted.`); // Replace with actual delete logic
+    // Replace with actual delete logic
     setIsDeleteModalOpen(false);
     setSelectedUser(null);
   };

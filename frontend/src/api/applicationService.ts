@@ -78,19 +78,12 @@ export class ApplicationService {
    * @param applicantId - The application ID to test
    */
   static async debugApplicationStatus(applicantId: string) {
-    console.log('🔍 DEBUGGING APPLICATION STATUS FOR ID:', applicantId);
-    
     try {
       // Test GET first to see if application exists
-      console.log('1️⃣ Testing GET endpoint...');
       const getResult = await this.getApplication(applicantId);
-      console.log('✅ GET successful - Application exists:', getResult);
       return { exists: true, data: getResult };
     } catch (error: any) {
-      console.log('❌ GET failed:', error.message);
-      
       if (error.message.includes('404') || error.message.includes('Not Found')) {
-        console.log('📝 Application does not exist - need to create it first');
         return { exists: false, error: 'Application not found' };
       }
       
@@ -112,7 +105,6 @@ export class ApplicationService {
       if (!isNaN(dobDate.getTime())) {
         formattedDateOfBirth = dobDate.toISOString();
       } else {
-        console.error('❌ Invalid date of birth:', personalData.dateOfBirth);
         throw new Error('Invalid date of birth format');
       }
     }
@@ -126,8 +118,6 @@ export class ApplicationService {
     const cleanPayload = Object.fromEntries(
       Object.entries(payload).filter(([_, value]) => value !== undefined && value !== null && value !== '')
     );
-
-    console.log('🔵 Creating new application (POST):', '/application-form/personal-details', cleanPayload);
     return await postData('/application-form/personal-details', cleanPayload);
   }
 
@@ -151,26 +141,16 @@ export class ApplicationService {
       );
 
       const url = `/application-form?applicationId=${applicantId}`;
-      console.log(`🟡======= Updating application (PATCH) - URL: ${url}, Section: ${section}, ID: ${applicantId}`);
-      console.log(`🟡======= PATCH Payload:`, JSON.stringify(cleanPayload, null, 2));
-
       return await patchData(url, cleanPayload);
     } catch (error: any) {
-      console.error('❌ PATCH failed:', error);
-      
       // If 404, the application doesn't exist
       if (error.message.includes('404') || error.message.includes('Not Found')) {
-        console.log('📝 Application not found, checking if we can create it...');
-        
         // For personal section, we can create a new application
         if (section === 'personal') {
-          console.log('🔄 Creating new application since personal data was provided...');
           try {
             const createResult = await this.createApplication(formData);
-            console.log('✅ New application created:', createResult);
             return createResult;
           } catch (createError: any) {
-            console.error('❌ Failed to create new application:', createError);
             throw new Error(`Cannot update application ${applicantId}: Application not found and creation failed - ${createError.message}`);
           }
         } else {
@@ -196,8 +176,6 @@ export class ApplicationService {
     if (isOwned !== undefined) {
       url += `&isOwned=${isOwned}`;
     }
-    
-    console.log('🟢 Fetching application (GET):', url);
     return await fetchData(url);
   }
 
@@ -213,15 +191,12 @@ export class ApplicationService {
     switch (section) {
       case 'personal':
         const personalData = applicationData.personalDetails || applicationData;
-        console.log('🔵 Extracting personal data from:', personalData);
-        
         // Handle date formatting for frontend
         let dateOfBirth = '';
         if (personalData.dateOfBirth) {
           try {
             dateOfBirth = new Date(personalData.dateOfBirth).toISOString().split('T')[0];
           } catch (error) {
-            console.warn('⚠️ Could not parse dateOfBirth:', personalData.dateOfBirth);
           }
         }
         
@@ -239,8 +214,6 @@ export class ApplicationService {
           aadharNumber: personalData.aadharNumber || '',
           dobInWords: personalData.dobInWords || '',
         };
-        
-        console.log('🟢 Extracted personal form data:', extractedPersonal);
         return extractedPersonal;
       case 'address':
         const presentAddr = applicationData.presentAddress || {};
@@ -271,7 +244,6 @@ export class ApplicationService {
         };
       case 'occupation':
         const occupationData = applicationData.occupationAndBusiness || {};
-        console.log('🔵 Extracting occupation data:', occupationData);
         const extracted = {
           occupation: occupationData.occupation || '',
           officeAddress: occupationData.officeAddress || '',
@@ -280,7 +252,6 @@ export class ApplicationService {
           cropLocation: occupationData.cropLocation || '',
           areaUnderCultivation: occupationData.areaUnderCultivation ? String(occupationData.areaUnderCultivation) : '',
         };
-        console.log('🟢 Extracted occupation form data:', extracted);
         return extracted;
       case 'criminal':
         return {
@@ -291,7 +262,6 @@ export class ApplicationService {
           licenseHistories: applicationData.licenseHistories || [],
         };
       case 'license-details':
-        console.log('🟠 Extracting license details data:', applicationData.licenseDetails);
         const licenseDetailsData = applicationData.licenseDetails || [];
         
         // Return in the new format that matches our form structure
@@ -302,12 +272,6 @@ export class ApplicationService {
             const requestedWeaponIds = detail.requestedWeapons 
               ? detail.requestedWeapons.map((weapon: any) => weapon.id)
               : [];
-            
-            console.log('🔄 Transforming license detail:', {
-              original: detail,
-              extractedWeaponIds: requestedWeaponIds
-            });
-            
             // Destructure to remove requestedWeapons and keep only the needed fields
             const { requestedWeapons, ...cleanDetail } = detail;
             
@@ -345,32 +309,18 @@ export class ApplicationService {
    * @param applicantId - The application ID to debug
    */
   static async completeDebugCheck(applicantId: string) {
-    console.log('🚀 COMPLETE DEBUG CHECK STARTING...');
-    console.log('='.repeat(50));
-    
     // 1. Check token status
-    console.log('1️⃣ Checking authentication...');
     const tokenStatus = debugTokenStatus();
     
     // 2. Test if application exists
-    console.log('2️⃣ Checking application existence...');
     const appStatus = await this.debugApplicationStatus(applicantId);
     
     // 3. Summary
-    console.log('3️⃣ SUMMARY:');
-    console.log('   🔑 Token:', tokenStatus.cookieToken ? 'OK' : '❌ MISSING');
-    console.log('   📄 Application:', appStatus.exists ? 'EXISTS' : '❌ NOT FOUND');
-    console.log('   🌐 Base URL:', tokenStatus.baseUrl);
-    
     if (!tokenStatus.cookieToken) {
-      console.error('🚨 SOLUTION: Please log in first to get authentication token');
     }
     
     if (!appStatus.exists) {
-      console.error('🚨 SOLUTION: Application does not exist. Create it first with personal details, or use a valid application ID');
     }
-    
-    console.log('='.repeat(50));
     return { tokenStatus, appStatus };
   }
 
@@ -391,7 +341,6 @@ export class ApplicationService {
           if (!isNaN(dobDate.getTime())) {
             formattedDateOfBirth = dobDate.toISOString();
           } else {
-            console.error('❌ Invalid date of birth:', formData.dateOfBirth);
           }
         }
 
@@ -401,8 +350,6 @@ export class ApplicationService {
           dateOfBirth: formattedDateOfBirth,
         };
       case 'address':
-        console.log('🟠 Preparing address payload:', formData);
-
         // Validate and format presentSince date
         let formattedPresentSince = undefined;
         if (formData.presentSince) {
@@ -410,7 +357,6 @@ export class ApplicationService {
           if (!isNaN(presentSinceDate.getTime())) {
             formattedPresentSince = presentSinceDate.toISOString();
           } else {
-            console.error('❌ Invalid presentSince date:', formData.presentSince);
           }
         }
 
@@ -455,33 +401,19 @@ export class ApplicationService {
             businessType: formData.businessType || undefined,
           },
         };
-        console.log('🟢 Final occupation payload:', occupationPayload);
         return occupationPayload;
       case 'criminal':
-        console.log('🟠 Preparing criminal payload from form data:', formData);
-        console.log('🟠 Raw criminalHistories:', formData.criminalHistories);
-        
         // The issue: formData.criminalHistories contains backend response data, not form data
         // We need to check if this is fresh form data or stale backend data
         
         const criminalHistories = formData.criminalHistories || [];
-        console.log('🔍 Analyzing criminal histories data:', criminalHistories);
-        
         // Check if this is backend response data (has database fields like id, createdAt)
         const isBackendData = criminalHistories.length > 0 && 
           (criminalHistories[0].hasOwnProperty('id') || 
            criminalHistories[0].hasOwnProperty('createdAt') || 
            criminalHistories[0].hasOwnProperty('updatedAt'));
-        
-        console.log('🔍 Is backend data?', isBackendData);
-        
         if (isBackendData) {
-          console.log('⚠️ WARNING: Received backend response data instead of form data');
-          console.log('💡 This indicates the form state was overwritten by backend response');
-          console.log('🚫 Backend data firDetails:', criminalHistories[0].firDetails);
-          console.log('🚫 Backend data isBondExecuted:', criminalHistories[0].isBondExecuted);
         } else {
-          console.log('✅ Received fresh form data from CriminalHistory component');
         }
         
         // Create payload with detailed logging for each field
@@ -496,8 +428,6 @@ export class ApplicationService {
             prohibitionPeriod: history.prohibitionPeriod || null,
             firDetails: history.firDetails || []
           };
-          
-          console.log('🔍 Mapped history:', mapped);
           return mapped;
         });
         
@@ -507,20 +437,9 @@ export class ApplicationService {
         
         // Add validation logging
         criminalPayload.criminalHistories.forEach((history: any, index: number) => {
-          console.log(`🔍 Criminal History ${index + 1}:`, {
-            isConvicted: history.isConvicted,
-            isBondExecuted: history.isBondExecuted,
-            firDetailsCount: history.firDetails?.length || 0,
-            firDetails: history.firDetails,
-            isBackendData: isBackendData
-          });
         });
-        
-        console.log('🟢 Final criminal payload (detailed):', JSON.stringify(criminalPayload, null, 2));
-        console.log('🟢 Final criminal payload (compact):', criminalPayload);
         return criminalPayload;
       case 'license-history':
-        console.log('🟠 Preparing license history payload from form data:', formData);
         const licenseHistoryPayload = {
           licenseHistories: (formData.licenseHistories || []).map((history: any) => ({
             hasAppliedBefore: history.hasAppliedBefore || false,
@@ -540,31 +459,23 @@ export class ApplicationService {
             trainingDetails: history.trainingDetails || null,
           })),
         };
-        console.log('🟢 Final license history payload:', licenseHistoryPayload);
         return licenseHistoryPayload;
       case 'license-details':
-        console.log('🟠 Preparing license details payload from form data:', formData);
-        
         // Check if form data is already in the correct format (new structure)
         if (formData.licenseDetails && Array.isArray(formData.licenseDetails)) {
-          console.log('🔵 Using new licenseDetails structure directly');
-          
           // Clean the license details to remove file-related fields and backend-only fields that are handled separately
           const cleanedLicenseDetails = formData.licenseDetails.map(detail => {
             const { uploadedFiles, specialClaimsEvidence, requestedWeapons, ...cleanDetail } = detail;
-            console.log('🧹 Cleaned license detail (removed uploadedFiles, specialClaimsEvidence, requestedWeapons):', cleanDetail);
             return cleanDetail;
           });
           
           const licenseDetailsPayload = {
             licenseDetails: cleanedLicenseDetails
           };
-          console.log('🟢 Final license details payload:', licenseDetailsPayload);
           return licenseDetailsPayload;
         }
         
         // Fallback for old format (legacy support)
-        console.log('🟡 Converting from old format to new structure');
         const licenseDetailsPayload = {
           licenseDetails: [{
             needForLicense: formData.needForLicense || undefined,
@@ -581,10 +492,8 @@ export class ApplicationService {
             wildBeastsSpecification: formData.wildBeastsSpecification || undefined,
           }],
         };
-        console.log('🟢 Final license details payload:', licenseDetailsPayload);
         return licenseDetailsPayload;
       default:
-        console.log('🟡 No specific transformation for section:', section);
         return formData;
     }
   }

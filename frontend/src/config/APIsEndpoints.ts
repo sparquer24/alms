@@ -185,7 +185,6 @@ export const appendQueryParams = (url: string, params: Record<string, any>): str
  * Common headers for API requests
  */
 export const getHeaders = (token?: string): HeadersInit => {
-  console.log('test 192 : ', token)
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };

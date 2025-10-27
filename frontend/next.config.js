@@ -7,12 +7,28 @@ config({ path: path.resolve(__dirname, '../.env') });
 
 module.exports = {
   reactStrictMode: true,
-  experimental: {
-    forceSwcTransforms: true // This forces Next.js to use SWC even with custom Babel config
+  // Use standalone output for Docker/production deployment
+  output: 'standalone',
+  // Set output file tracing root for monorepo
+  outputFileTracingRoot: path.resolve(__dirname),
+  // Disable image optimization for static export
+  images: {
+    unoptimized: false,
   },
-  env: {
-    // Expose only the variables you want available on client if needed
-    // Example: API_BASE_URL: process.env.API_BASE_URL
+  // Skip generating static 404/500 pages during build
+  // They'll be handled dynamically at runtime
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          }
+        ],
+      },
+    ]
   },
 };
 

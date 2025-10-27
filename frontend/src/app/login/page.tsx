@@ -177,6 +177,9 @@ const FormInput: React.FC<{
   </div>
 );
 
+// Force dynamic rendering to avoid static generation issues with useSearchParams
+export const dynamic = 'force-dynamic';
+
 // Main component
 export default function Login() {
   const dispatch = useDispatch<AppDispatch>();
@@ -209,7 +212,6 @@ export default function Login() {
           router.push(redirectPath);
         }
       } else {
-        console.warn('No redirect path determined for user:', currentUser);
         // Fallback to root
         router.push('/');
       }
@@ -252,11 +254,8 @@ export default function Login() {
         username: formData.username.trim(), 
         password: formData.password 
       };
-      console.log('Login payload:', loginPayload);
       const result = await dispatch(login(loginPayload)).unwrap();
-      console.log('Login API response:', result);
       if (result && result.user) {
-        console.log('User object:', result.user);
         // Normalize role to uppercase string for consistent redirects
         const extractRole = (u: any): string | undefined => {
           if (!u) return undefined;
@@ -265,31 +264,24 @@ export default function Login() {
           return candidate ? String(candidate).trim().toUpperCase() : undefined;
         };
         const normalizedRole = extractRole(result.user);
-        console.log('Normalized role:', normalizedRole);
         if (!normalizedRole) {
-          console.warn('Login returned no role; redirect may loop.');
           dispatch(setError('No role assigned to your account.'));
           setIsRedirecting(false);
         } else {
           const redirectPath = getRoleBasedRedirectPath(normalizedRole);
-          console.log('Redirect path:', redirectPath);
           if (!redirectPath || typeof redirectPath !== 'string') {
-            console.warn('Invalid redirectPath, falling back to root:', redirectPath);
           }
           dispatch(setError(''));
           setIsRedirecting(true);
           // We no longer navigate here. The login thunk will issue a full page
           // reload after persisting cookies so the server middleware and
           // initializeAuth flow can validate cookies and redirect.
-          console.log('Login complete — cookies persisted. Waiting for full reload by thunk.');
         }
       } else {
-        console.warn('No user found in login result:', result);
         dispatch(setError('No user found after login.'));
       }
     } catch (err) {
       // Error is handled by the thunk and stored in Redux state
-      console.error('Login error:', err);
       resetForm();
     }
   }, [dispatch, formData, isFormValid, resetForm]);

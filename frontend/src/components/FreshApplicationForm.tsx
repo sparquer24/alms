@@ -192,7 +192,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Add effect to monitor form step changes and scroll to top of scrollable div
   useEffect(() => {
-    console.log("Form step changed to:", formStep);
     if (formContentRef.current) {
       formContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -390,7 +389,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      console.log(`Checkbox ${name} changed to:`, checked);
       setFormData(prev => setValueByPath(prev, name, checked));
     } else if (type === 'radio') {
       // Radios generally set string values; keep as-is unless we handle booleans separately
@@ -578,7 +576,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         ];
         setDistricts(fallbackDistricts.sort());
       } catch (err) {
-        console.error('Error fetching districts from internal API:', err);
         // Fallback districts in case API fails
         const fallbackDistricts = [
           'Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon',
@@ -607,7 +604,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         const items = (list || []).map(w => ({ id: w.id, name: w.name })) as { id: number, name: string }[];
         setWeapons(items);
       } catch (e) {
-        console.error('Error loading weapons list', e);
         setWeapons([
           { id: 1, name: 'Pistol' },
           { id: 2, name: 'Revolver' },
@@ -665,7 +661,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           setPoliceStations(fallbackStations);
         }
       } catch (err) {
-        console.error('Error fetching police stations:', err);
         // Fallback police stations in case API fails
         const fallbackStations = [
           { id: 1, name: 'Central Police Station' },
@@ -735,13 +730,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   // Validate form fields for current step
   const validateCurrentStep = () => {
     try {
-      console.log("🔍 Validating step:", formStep);
-      console.log("🔍 Step name:", formSteps[formStep].title);
-      console.log("🔍 Current form data:", formData);
       const newErrors: Record<string, string> = {};
 
       if (formStep === 0) {
-        console.log("🔍 Validating personal information step");
         // Personal Information Validation
         if (!formData.applicantName) newErrors.applicantName = 'Applicant name is required';
         if (!formData.applicantMobile) {
@@ -768,7 +759,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 1) {
-        console.log("Validating address information");
         // Address Validation
         if (!formData.applicantAddress) newErrors.applicantAddress = 'Present address is required';
         if (!formData.presentState) newErrors.presentState = 'Present state is required';
@@ -787,13 +777,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 2) {
-        console.log("Validating occupation details");
         // Occupation & Business Validation
         if (!formData.occupation) newErrors.occupation = 'Occupation is required';
       }
 
       if (formStep === 3) {
-        console.log("Validating criminal history");
         // Criminal History Validation
         if (Array.isArray(formData.criminalHistory)) {
           formData.criminalHistory.forEach((record: any, idx: number) => {
@@ -809,7 +797,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 4) {
-        console.log("Validating license details and weapon info");
         // Weapon Details Validation
         if (!formData.weaponType) newErrors.weaponType = 'Weapon type is required';
         if (!formData.weaponReason) newErrors.weaponReason = 'Reason for weapon is required';
@@ -833,13 +820,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 5) {
-        console.log("Validating biometric information");
         // Biometric Validation
         // Add any biometric validation if needed
       }
 
       if (formStep === 6) {
-        console.log("Validating documents upload");
         // Documents Upload Validation
         if (!formData.idProofUploaded) newErrors.idProofUploaded = 'Aadhaar Card is required';
         if (!formData.addressProofUploaded) newErrors.addressProofUploaded = 'Address proof is required';
@@ -848,12 +833,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 7) {
-        console.log("Validating preview step");
         // Preview step - no validation needed, just review
       }
 
       if (formStep === 8) {
-        console.log("Validating final submission");
         if (formData.hasSubmittedTrueInfo !== true) {
           newErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
         }
@@ -862,49 +845,34 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       // Set errors and return validation result
   setErrors(newErrors);
   const isValid = Object.keys(newErrors || {}).length === 0;
-  console.log("🔍 Validation errors found:", newErrors);
-  console.log("🔍 Validation errors count:", Object.keys(newErrors || {}).length);
-      console.log("🔍 Validation result (is valid):", isValid);
-
       if (!isValid) {
-        console.log("❌ Validation failed - form has errors");
       } else {
-        console.log("✅ Validation passed - form is valid");
       }
 
       return isValid;
     } catch (error) {
-      console.error("❌ Error during validation:", error);
       return false;
     }
   };
 
   // Handle next step
   const handleNextStep = () => {
-    console.log("Current form step:", formStep);
-
     try {
       // Validate current step before proceeding
       const isValid = validateCurrentStep();
-      console.log("Form validation result:", isValid);
-
       if (isValid) {
-        console.log("Moving to next step:", formStep + 1);
         // Make sure we don't go beyond the max step
         if (formStep < formSteps.length - 1) {
           setFormStep(prev => prev + 1);
         }
       } else {
-        console.log("Cannot proceed due to validation errors");
       }
     } catch (error) {
-      console.error("Error in handleNextStep:", error);
     }
   };
 
   // Handle previous step
   const handlePreviousStep = () => {
-    console.log("Moving to previous step:", formStep - 1);
     if (formStep > 0) {
       setFormStep(prev => prev - 1);
     }
@@ -926,7 +894,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         setSaveMessage(null);
       }, 3000);
     } catch (error) {
-      console.error('Error saving draft:', error);
       setSaveMessage({ type: 'error', text: 'Failed to save draft. Please try again.' });
 
       // Clear message after 3 seconds
@@ -1138,7 +1105,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         }
       }
     } catch (error) {
-      console.error('Error loading draft:', error);
     }
   }, []);
 
@@ -1165,7 +1131,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           setDistrictsData(districtsList || []);
         }
       } catch (error) {
-        console.error('Error fetching location data:', error);
       }
     };
 
@@ -1235,8 +1200,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           const img = new Image();
 
           img.onload = () => {
-            console.log(`🖼️ Original image: ${img.width}x${img.height}`);
-
             // ULTRA aggressive compression settings
             const maxWidth = 300;  // Much smaller
             const maxHeight = 300; // Much smaller
@@ -1262,16 +1225,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
             canvas.width = width;
             canvas.height = height;
             ctx?.drawImage(img, 0, 0, width, height);
-
-            console.log(`🔄 Ultra compressed to: ${width}x${height}`);
-
             // Convert to base64 with very low quality
             const compressedBase64 = canvas.toDataURL('image/jpeg', 0.3); // Very low quality
-            console.log(`📊 Original size: ${file.size} bytes, Base64 size: ${compressedBase64.length} chars (~${Math.round(compressedBase64.length * 0.75)} bytes)`);
-
             // If STILL too large, make it even smaller
             if (compressedBase64.length > 100000) { // ~75KB base64 limit
-              console.log('🔄 Still too large, making thumbnail...');
               // Make it a tiny thumbnail
               canvas.width = 100;
               canvas.height = 100;
@@ -1284,7 +1241,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           };
 
           img.onerror = () => {
-            console.error(`❌ Failed to load image ${file.name}, using minimal placeholder`);
             // Use minimal placeholder
             resolve('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=');
           };
@@ -1300,7 +1256,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           reader.readAsDataURL(file);
         } else {
           // For non-images, use minimal placeholder to avoid 413 error
-          console.warn(`📄 Non-image file ${file.name} - using placeholder to avoid payload size issues`);
           resolve('data:application/pdf;base64,JVBERi0xLjQKJcfsj6IKCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoKMiAwIG9iago8PAovVHlwZSAvUGFnZXMKL0NvdW50IDEKL0tpZHMgWzMgMCBSXQo+PgplbmRvYmoKCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQo+PgplbmRvYmoKCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA0Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgoxODIKJSVFT0Y=');
         }
       });
@@ -1311,7 +1266,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       if (docFile && docFile.file) {
         try {
           // Convert file to base64 and use as fileUrl (buffer data)
-          console.log(`📄 Converting ${docKey} to base64 buffer data...`);
           const base64Data = await fileToBase64(docFile.file);
 
           fileUploads.push({
@@ -1320,15 +1274,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
             fileType: fileType,
             fileUrl: base64Data // Send buffer data directly in fileUrl
           });
-
-          console.log(`✅ Added ${fileType} with base64 data (${base64Data.length} characters)`);
         } catch (error) {
-          console.error(`❌ Failed to convert ${docKey} to base64:`, error);
         }
       } else {
         // For test data, create smaller placeholder base64 data
         if ((formData as any)[docKey]) {
-          console.log(`📄 Creating small placeholder base64 for ${fileType}...`);
           // Create a very small 1x1 pixel PNG as base64 for test data (minimal size)
           const placeholderBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=';
 
@@ -1338,28 +1288,17 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
             fileType: fileType,
             fileUrl: placeholderBase64 // Very small buffer data
           });
-
-          console.log(`✅ Added minimal test ${fileType} with small base64 data`);
         }
       }
     }
-
-    console.log(`📦 Total file uploads prepared: ${fileUploads.length}`);
-
     // Calculate total payload size estimate
     const totalBase64Size = fileUploads.reduce((sum, upload) => sum + (upload.fileUrl?.length || 0), 0);
     const estimatedSizeKB = Math.round(totalBase64Size * 0.75 / 1024); // Base64 to bytes conversion
-    console.log(`📊 Estimated total payload size: ${estimatedSizeKB} KB`);
-
     // If payload is still too large, remove file uploads to prevent 413 error
     if (estimatedSizeKB > 1000) { // 1MB limit
-      console.warn('🚨 Payload still too large! Removing file uploads to prevent 413 error.');
-      console.warn('📝 Application will be created without file attachments - files can be uploaded separately.');
       return []; // Return empty array to avoid 413 error
     } else if (estimatedSizeKB > 500) { // 500KB warning
-      console.warn('⚠️ Payload is getting large. If 413 error occurs, files will be excluded.');
     } else {
-      console.log('✅ Payload size looks acceptable');
     }
 
     return fileUploads;
@@ -1466,7 +1405,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Validate ALL steps for submission
   const validateAllStepsForSubmission = () => {
-    console.log('🔍 Validating all steps for submission...');
     const allErrors: Record<string, string> = {};
 
     // Step 0: Personal Information
@@ -1524,10 +1462,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     if (formData.hasSubmittedTrueInfo !== true) {
       allErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
     }
-
-  console.log('🔍 All validation errors:', allErrors);
-  console.log('🔍 Total errors count:', Object.keys(allErrors || {}).length);
-
   const isValid = Object.keys(allErrors || {}).length === 0;
     if (!isValid) {
       setErrors(allErrors);
@@ -1539,55 +1473,35 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 Form submit triggered');
     setApiError(null);
     setApiErrorDetails(null);
     setShowErrorDetails(false);
 
     // Validate all steps before submission
     const isValid = validateAllStepsForSubmission();
-    console.log('✅ Overall validation result:', isValid);
     if (!isValid) {
-      console.log('❌ Overall validation failed, stopping submission');
       setApiError('Please fill in all required fields correctly across all steps');
       return;
     }
 
     try {
-      console.log('📤 Starting form submission...');
       setIsSubmitting(true);
-
-      console.log('📂 Form data:', formData);
-      console.log('👤 User ID:', userId);
-
       // Upload files first and get URLs
-      console.log('⬆️ Starting file uploads...');
       let fileUploads = await uploadFilesAndGetUrls();
-      console.log('✅ File uploads completed:', fileUploads);
-
       // Build payload for API
       let payload = createPayload(formData, userId ?? "", fileUploads);
-      console.log('📦 API payload:', payload);
-
       let resp;
       try {
-        console.log('🌐 Calling ApplicationApi.create...');
         resp = await ApplicationApi.create(payload as any);
-        console.log('✅ API response:', resp);
       } catch (apiError: any) {
         // If we get 413 error, retry without file uploads
         if (apiError?.response?.status === 413 || apiError?.status === 413 || apiError?.message?.includes('413') || apiError?.message?.includes('too large')) {
-          console.warn('🚨 Got 413 error, retrying without file uploads...');
           setApiError('Request too large. Submitting application without file attachments...');
 
           // Retry with empty file uploads
           fileUploads = [];
           payload = createPayload(formData, userId ?? "", []);
-          console.log('🔄 Retry payload without files:', payload);
-
           resp = await ApplicationApi.create(payload as any);
-          console.log('✅ Retry successful:', resp);
-
           // Update user about missing files
           setApiError('Application submitted successfully, but files were too large to include. Please upload documents separately.');
         } else {
@@ -1596,21 +1510,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       // Log the complete response for debugging
-      console.log('✅ Complete API response:', JSON.stringify(resp, null, 2));
-
       // Try to extract application id and acknowledgement number from various shapes
       const createdApp: any = (resp as any)?.data && typeof (resp as any).data === 'object' ? (resp as any).data : (resp as any).body || (resp as any);
       const applicationId = String(createdApp?.id || createdApp?.applicationId || createdApp?.data?.id || '');
       const acknowledgementNo = String(createdApp?.acknowledgementNo || createdApp?.acknowledgmentNo || createdApp?.data?.acknowledgementNo || createdApp?.data?.acknowledgmentNo || '');
-      console.log('🆔 Extracted application ID:', applicationId);
-      console.log('🎫 Extracted acknowledgement number:', acknowledgementNo);
-
       // Log success details for debugging
       if ((resp as any)?.success !== undefined) {
-        console.log('✅ API Success status:', (resp as any).success);
       }
       if ((resp as any)?.message) {
-        console.log('✅ API Success message:', (resp as any).message);
       }
 
       // Set success message and call parent callback with acknowledgement info
@@ -1642,16 +1549,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           applicationId: applicationId
         } as any);
         setIsSubmitting(false);
-        console.log('🎉 Form submission completed successfully!');
       } catch (callbackError) {
-        console.error('❌ Error in onSubmit callback:', callbackError);
       }
 
     } catch (error: any) {
-      console.error('❌ Form submission error:', error);
       setIsSubmitting(false);
-      console.log('❌ Full error object:', JSON.stringify(error, null, 2));
-
       // Store the full error details for debugging
       setApiErrorDetails({
         fullError: error,
@@ -1666,8 +1568,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       try {
         // Log the complete response structure for debugging
         if (error?.response) {
-          console.log('❌ Error response:', JSON.stringify(error.response, null, 2));
-          console.log('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
         }
 
         if (error?.response?.data) {
@@ -1676,36 +1576,29 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           // Check if it's the nested error structure with details.response.error
           if (errorData.details?.response?.error) {
             errorMessage = errorData.details.response.error;
-            console.log('❌ Using details.response.error:', errorMessage);
           }
           // Check for details.response.message
           else if (errorData.details?.response?.message) {
             errorMessage = errorData.details.response.message;
-            console.log('❌ Using details.response.message:', errorMessage);
           }
           // Fallback to details.message
           else if (errorData.details?.message) {
             errorMessage = errorData.details.message;
-            console.log('❌ Using details.message:', errorMessage);
           }
           // Fallback to top-level error message
           else if (errorData.error) {
             errorMessage = errorData.error;
-            console.log('❌ Using top-level error:', errorMessage);
           }
           // Fallback to message field
           else if (errorData.message) {
             errorMessage = errorData.message;
-            console.log('❌ Using message field:', errorMessage);
           }
         }
         // Direct error message
         else if (error?.message) {
           errorMessage = error.message;
-          console.log('❌ Using direct error message:', errorMessage);
         }
       } catch (parseError) {
-        console.error('❌ Error parsing error response:', parseError);
         errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
@@ -1743,7 +1636,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
       pdf.save(`Application_Preview.pdf`);
     } catch (err) {
-      console.error('Preview PDF generation failed', err);
     }
   };
 

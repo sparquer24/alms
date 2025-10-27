@@ -18,7 +18,6 @@ export default function AdminLayout({
 
   // Debug log each render (can be removed later)
   if (typeof window !== 'undefined') {
-    console.debug('[AdminLayout] render', { tokenPresent: !!token, userRole, isLoading, checked });
   }
 
   useEffect(() => {

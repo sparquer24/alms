@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default function ResetPassword() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -41,7 +44,6 @@ export default function ResetPassword() {
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
-      console.error('Password reset error:', err);
     } finally {
       setIsLoading(false);
     }

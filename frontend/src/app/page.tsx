@@ -32,7 +32,6 @@ export default function Home() {
       if (userRole) {
         const redirectPath = shouldRedirectOnStartup(userRole, '/');
         if (redirectPath) {
-          console.log(`Redirecting ${userRole} user from dashboard to: ${redirectPath}`);
           router.push(redirectPath);
           return;
         }
@@ -66,7 +65,6 @@ export default function Home() {
             setApplications(tableData);
           }
         } catch (err) {
-          console.error('Failed to load initial applications:', err);
         } finally {
           // Mark initial load as completed regardless of result so UI can show empty state
           setHasLoadedInitialData(true);
@@ -79,7 +77,6 @@ export default function Home() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    console.log("Searching for:", query);
     // Here you would typically fetch data based on the search query
   };
 
@@ -87,7 +84,6 @@ export default function Home() {
     setSearchQuery('');
     setStartDate('');
     setEndDate('');
-    console.log("Reset filters");
     // Here you would typically reset the data to its original state
   };
 

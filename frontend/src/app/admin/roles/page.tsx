@@ -180,7 +180,6 @@ export default function UserRolesMappingPage() {
 
     } catch (err) {
       setError("An error occurred while loading roles");
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -205,7 +204,6 @@ export default function UserRolesMappingPage() {
       }
     } catch (err) {
       setError("An error occurred while updating permissions");
-      console.error(err);
     }
   };
 

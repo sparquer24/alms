@@ -13,7 +13,6 @@ const checkAuthentication = (): boolean => {
     const user = getUserFromCookie();
     return !!token && !!user;
   } catch (e) {
-    console.error('ProtectedRoute: Failed to read auth cookies', e);
     return false;
   }
 };

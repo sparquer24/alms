@@ -1,5 +1,3 @@
-"use client"; // force client context here
-
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import RootProviders from '../components/RootProviders';

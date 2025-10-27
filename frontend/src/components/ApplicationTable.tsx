@@ -98,23 +98,19 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
 
   const handleEditDraft = useCallback(async (id: string) => {
     try {
-      console.log('🔄 Fetching draft application with ID:', id);
       const response = await ApplicationApi.getById(Number(id));
       
       if (response?.success && response?.data) {
-        console.log('✅ Draft application fetched successfully:', response.data);
         // Store the application data in sessionStorage to use in the form
         sessionStorage.setItem('draftApplicationData', JSON.stringify(response.data));
         sessionStorage.setItem('editingApplicationId', id);
         // Navigate to the form with application ID as query parameter
         router.push(`/forms/createFreshApplication/personal-information?id=${id}`);
       } else {
-        console.error('❌ Failed to fetch draft application:', response);
         setErrorMessage('Failed to load draft application');
         setTimeout(() => setErrorMessage(null), 3000);
       }
     } catch (error) {
-      console.error('❌ Error fetching draft application:', error);
       setErrorMessage('Error loading draft application');
       setTimeout(() => setErrorMessage(null), 3000);
     }
@@ -161,7 +157,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
       setSuccessMessage('Applications exported to Excel successfully');
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
-      console.error('Excel export failed', err);
       setErrorMessage('Failed to export applications to Excel');
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
@@ -384,8 +379,6 @@ const TableRow: React.FC<{
       <td className="px-6 py-4 whitespace-nowrap">
         {(() => {
           const workflowStatus = (app as any).workflowStatus;
-          console.log('🔍 Debug status for app', app.id, ':', { workflowStatus, app });
-          
           let statusStr = 'unknown';
           if (workflowStatus && workflowStatus.name) {
             statusStr = workflowStatus.name;
@@ -394,9 +387,6 @@ const TableRow: React.FC<{
           } else if ((app as any).status && (app as any).status.name) {
             statusStr = (app as any).status.name;
           }
-          
-          console.log('🔍 Final statusStr:', statusStr);
-          
           const display = statusStr
             .replace(/[-_]+/g, ' ')
             .replace(/\b\w/g, (c: string) => c.toUpperCase());

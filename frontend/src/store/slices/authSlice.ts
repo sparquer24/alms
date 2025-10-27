@@ -61,8 +61,6 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
-      console.log('Restoring auth state from cookies...');
-      console.log('Document cookies:', document.cookie);
       try {
         // Read cookies defensively: support token-only `auth`, separate `user` and `role` cookies
         const cookies = document.cookie.split('; ').reduce<Record<string, string>>((acc, cur) => {
@@ -117,7 +115,6 @@ const authSlice = createSlice({
             // Ensure isAuthenticated is true if token exists
             if (!state.isAuthenticated && state.token) state.isAuthenticated = true;
           } catch (e) {
-            console.warn('restoreAuthState: failed to parse user cookie', e);
           }
         } else if (roleCookieVal) {
           // If only role cookie exists, construct a minimal user object so redirection can use role
@@ -130,7 +127,6 @@ const authSlice = createSlice({
           }
         }
       } catch (error) {
-        console.error('Failed to restore auth state:', error);
       }
     },
   },
