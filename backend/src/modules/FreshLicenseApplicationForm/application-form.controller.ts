@@ -522,6 +522,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'acknowledgementNo', required: false, type: String })
   @ApiQuery({ name: 'statusIds', required: false, type: String })
   @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
+  @ApiQuery({ name: 'isSent', required: false, type: Boolean, default: false})
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -534,7 +535,8 @@ export class ApplicationFormController {
     @Query('applicationId') applicationId?: number,
     @Query('acknowledgementNo') acknowledgementNo?: string,
     @Query('statusIds') statusIds?: string,
-    @Query('isOwned') isOwned?: Boolean
+    @Query('isOwned', new ParseBoolPipe({ optional: true })) isOwned?: boolean,
+    @Query('isSent', new ParseBoolPipe({ optional: true })) isSent?: boolean
   ) {
     try {
       // Parse pagination
@@ -586,6 +588,7 @@ export class ApplicationFormController {
         }
       }
 
+      console.log("591----",isSent);
       // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,
@@ -600,7 +603,8 @@ export class ApplicationFormController {
           ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
           : undefined,
         // applicationId: parsedApplicationId,
-        isOwned : isOwned == true? true : false,
+        isOwned: isOwned === true,
+        isSent: isSent === true,
       });
       if (error) {
         const errMsg = (error as any)?.message || 'Failed to fetch applications';

@@ -275,7 +275,7 @@ const getUserRoleFromCookie = () => {
         } else {
           // For other menu items, try to route to /inbox?type={item}
           // You may want to map item names to types as needed
-          const type = item.name.replace(/\s+/g, '').toLowerCase();
+          const type = item.name.replace(/\s+/g, '');
           router.push(`/inbox?type=${encodeURIComponent(type)}`);
         }
       }
@@ -302,7 +302,8 @@ const getUserRoleFromCookie = () => {
       : currentPath === '/inbox' || currentPath.startsWith('/inbox');
 
     // Delegate loading to InboxContext which ensures a single fetch per type
-    const normalized = String(subItem).toLowerCase();
+    // Keep camelCase format for types like "reEnquiry" instead of converting to lowercase
+    const normalized = String(subItem);
     startTransition(() => {
       setActiveItem(activeItemKey);
       localStorage.setItem('activeNavItem', activeItemKey);
