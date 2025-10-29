@@ -35,7 +35,6 @@ export default function ReportsPage() {
         const fetchedApplications = await fetchAllApplications();
         setApplications(fetchedApplications);
       } catch (error) {
-        console.error('Error fetching applications:', error);
         setApplications([]);
       } finally {
         setIsLoading(false);

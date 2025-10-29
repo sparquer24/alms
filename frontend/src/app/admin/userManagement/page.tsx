@@ -203,7 +203,7 @@ export default function UserManagementPage() {
 				const role = apiRoles.find(r => r.code === (u.roleCode || u.role));
 				if (!role) continue;
 				await postData("/users", { username: u.username, password: u.password || "Password123!", roleId: role.id, email: u.email || undefined, phoneNo: u.phoneNo || u.phone || undefined });
-			} catch (e) { console.error("Bulk create failed", e); }
+			} catch (e) { }
 		}
 		setShowBulkModal(false);
 		setBulkUsers([]);

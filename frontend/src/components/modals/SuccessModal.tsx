@@ -2,6 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, X, Sparkles, Award } from 'lucide-react';
 
+// Type assertions for lucide-react icons to fix React 18 compatibility
+const CheckCircleFixed = CheckCircle as any;
+const XFixed = X as any;
+const SparklesFixed = Sparkles as any;
+const AwardFixed = Award as any;
+
 interface SuccessModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -52,10 +58,10 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
         
         {/* Decorative elements */}
         <div className="absolute top-4 left-4 text-green-200 opacity-50">
-          <Sparkles className="w-6 h-6 animate-pulse" />
+          <SparklesFixed className="w-6 h-6 animate-pulse" />
         </div>
         <div className="absolute top-8 right-8 text-emerald-200 opacity-30">
-          <Award className="w-5 h-5 animate-pulse" style={{ animationDelay: '0.5s' }} />
+          <AwardFixed className="w-5 h-5 animate-pulse" style={{ animationDelay: '0.5s' }} />
         </div>
 
         {/* Close button */}
@@ -64,7 +70,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 z-10"
           aria-label="Close modal"
         >
-          <X className="w-5 h-5" />
+          <XFixed className="w-5 h-5" />
         </button>
 
         {/* Success icon with animation */}
@@ -73,7 +79,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
             showContent ? 'scale-100 rotate-0' : 'scale-0 rotate-180'
           }`}>
             <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-              <CheckCircle className="w-12 h-12 text-white drop-shadow-sm" />
+              <CheckCircleFixed className="w-12 h-12 text-white drop-shadow-sm" />
             </div>
             {/* Animated ring */}
             <div className="absolute inset-0 w-20 h-20 border-4 border-green-300 rounded-full animate-ping opacity-20"></div>
@@ -104,7 +110,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
             <div className="absolute inset-0 bg-blue-100 opacity-20 transform -skew-y-3"></div>
             <div className="relative z-10">
               <p className="text-sm font-semibold text-blue-700 text-center mb-2 flex items-center justify-center gap-2">
-                <Award className="w-4 h-4" />
+                <AwardFixed className="w-4 h-4" />
                 Application ID
               </p>
               <p className="text-xl font-mono font-bold text-center text-blue-900 bg-white bg-opacity-50 rounded-lg py-2 px-3 backdrop-blur-sm">
@@ -123,7 +129,7 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
               onClick={onNavigateHome}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
             >
-              <Award className="w-5 h-5" />
+              <AwardFixed className="w-5 h-5" />
               Go to Back
             </button>
           )}

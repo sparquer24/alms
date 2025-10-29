@@ -7,7 +7,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    
+
     // Validate required fields
     if (!body.actionType) {
       return NextResponse.json(
@@ -42,10 +42,9 @@ export async function POST(
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Error processing application:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: 'Failed to process application',
         error: error instanceof Error ? error.message : 'Unknown error'
       },

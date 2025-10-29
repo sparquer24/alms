@@ -10,7 +10,7 @@ import { LayoutProvider } from "@/config/layoutContext";
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: any;
 }) {
   const { userRole, token, isLoading } = useAuthSync();
   const router = useRouter();
@@ -18,7 +18,6 @@ export default function AdminLayout({
 
   // Debug log each render (can be removed later)
   if (typeof window !== 'undefined') {
-    console.debug('[AdminLayout] render', { tokenPresent: !!token, userRole, isLoading, checked });
   }
 
   useEffect(() => {

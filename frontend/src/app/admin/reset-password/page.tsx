@@ -5,6 +5,13 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
+// Type assertions for Next.js components to fix React 18 compatibility
+const ImageFixed = Image as any;
+const LinkFixed = Link as any;
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default function ResetPassword() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -41,7 +48,6 @@ export default function ResetPassword() {
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
-      console.error('Password reset error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +58,7 @@ export default function ResetPassword() {
       <div className="max-w-md w-full space-y-6 bg-white/95 p-10 rounded-lg shadow-xl backdrop-blur-sm">
         <div className="flex flex-col items-center">
           <div className="mb-6">
-            <Image
+            <ImageFixed
               src="/icon-alms.svg"
               alt="ALMS Logo"
               width={120}
@@ -130,9 +136,9 @@ export default function ResetPassword() {
             </button>
           </div>
             <div className="text-center mt-4">
-            <Link href="/login" className="font-medium text-[#D4AF37] hover:text-[#C4A02F] transition-colors">
+            <LinkFixed href="/login" className="font-medium text-[#D4AF37] hover:text-[#C4A02F] transition-colors">
               Back to Login
-            </Link>
+            </LinkFixed>
           </div>
         </form>
       </div>

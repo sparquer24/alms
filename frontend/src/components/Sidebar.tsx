@@ -1,9 +1,19 @@
 import React, { memo, useCallback, useMemo, useState, useEffect, startTransition } from "react";
 import Image from "next/image";
+
+// Type assertion for Next.js Image to fix React 18 compatibility
+const ImageFixed = Image as any;
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
+
+// Type assertions for lucide-react icons to fix React 18 compatibility
+const CornerUpRightFixed = CornerUpRight as any;
+const Undo2Fixed = Undo2 as any;
+const FlagFixed = Flag as any;
+const FolderCheckFixed = FolderCheck as any;
+const ChartBarIconFixed = ChartBarIcon as any;
 
 import { logoutUser } from "../store/thunks/authThunks";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
@@ -64,7 +74,6 @@ const InboxSubMenuItem = memo(({
 }) => {
   // Minimize re-render logging in production
   if (process.env.NODE_ENV === 'development') {
-    console.log('🔄 InboxSubMenuItem render:', name, 'active:', active, 'count:', count);
   }
   
   // Create ultra-stable click handler
@@ -111,14 +120,6 @@ const InboxSubMenuItem = memo(({
   );
   
   if (process.env.NODE_ENV === 'development' && !propsEqual) {
-    console.log('🔄 InboxSubMenuItem props changed for:', prevProps.name, {
-      activeChanged: prevProps.active !== nextProps.active,
-      countChanged: prevProps.count !== nextProps.count,
-      prevActive: prevProps.active,
-      nextActive: nextProps.active,
-      prevCount: prevProps.count,
-      nextCount: nextProps.count
-    });
   }
   
   return propsEqual;
@@ -153,6 +154,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   });
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Store statusIds for the current active menu item
+  const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const dispatch = useDispatch();
   const { userRole, token } = useAuthSync();
   const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
@@ -212,9 +215,7 @@ const getUserRoleFromCookie = () => {
   useEffect(() => {
     // prefer cookie-derived role when available (role code or name), fallback to auth sync role
     const effective = cookieRole || userRole || "SHO";
-    console.log('🔄 Role config update:', { cookieRole, userRole, effective });
     const config = getRoleConfig(effective);
-    console.log('📋 Role config result:', config);
     setRoleConfig(config);
   }, [userRole, cookieRole]);
 
@@ -252,7 +253,9 @@ const getUserRoleFromCookie = () => {
     else setTimeout(() => setVisible(false), 400);
   }, [showSidebar]);
 
-  const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[] }) => {
+  const { loadType } = useInbox();
+
+  const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
     if (item.name.toLowerCase() !== "inbox") {
       dispatch(closeInbox()); // Close the inbox if another menu item is clicked
     }
@@ -261,6 +264,16 @@ const getUserRoleFromCookie = () => {
     } else {
       setActiveItem(item.name);
       localStorage.setItem("activeNavItem", item.name);
+      
+      // Store statusIds for later use
+      if (item.statusIds && item.statusIds.length > 0) {
+        setActiveStatusIds(item.statusIds);
+        localStorage.setItem("activeStatusIds", JSON.stringify(item.statusIds));
+      } else {
+        setActiveStatusIds(undefined);
+        localStorage.removeItem("activeStatusIds");
+      }
+      
       const effectiveRole = cookieRole || userRole;
       // Only ADMIN can access /admin/*
       if (effectiveRole === 'ADMIN') {
@@ -280,18 +293,13 @@ const getUserRoleFromCookie = () => {
         }
       }
     }
-  }, [router, dispatch, cookieRole, userRole]);
+  }, [router, dispatch, cookieRole, userRole, loadType]);
 
   const handleInboxToggle = useCallback(() => {
-    console.log('📂 Inbox toggle clicked, current state:', isInboxOpen);
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch, isInboxOpen]);
 
-  const { loadType } = useInbox();
-
   const handleInboxSubItemClick = useCallback((subItem: string) => {
-    console.log('🔄 inboxSubItem clicked:', subItem, 'current active:', activeItem);
-
     const activeItemKey = `inbox-${subItem}`;
     const currentPath = window.location.pathname;
     const effectiveRole = cookieRole || userRole;
@@ -314,7 +322,7 @@ const getUserRoleFromCookie = () => {
     });
 
     // Update context (single fetch) and update URL without forcing a full remount
-    loadType(normalized).catch((e) => console.error('loadType error', e));
+    loadType(normalized).catch((e) => {});
     const targetBase = isAdmin ? '/admin/userManagement' : '/inbox';
     const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
     if (isOnInboxBase) {
@@ -338,18 +346,14 @@ const getUserRoleFromCookie = () => {
   // Update menuItems logic with type casting and guards
   const menuItems = useMemo(() => {
     const items = roleConfig?.menuItems ?? [];
-    console.log('🔍 Sidebar menuItems generation:', {
-      roleConfig,
-      items,
-      effectiveRole: cookieRole || userRole,
-      itemCount: items.length
-    });
     return items.map((item) => {
       const key = item.name as MenuMetaKey;
+      const iconFn = menuMeta[key]?.icon;
       return {
         name: item.name,
         label: menuMeta[key]?.label || item.name,
-        icon: menuMeta[key]?.icon,
+        icon: iconFn ? (iconFn() as any) : null,
+        statusIds: item.statusIds, // Include statusIds from role config
       };
     });
   }, [roleConfig, cookieRole, userRole]);
@@ -363,13 +367,6 @@ const getUserRoleFromCookie = () => {
 
   // Create highly stable inbox sub-items to prevent flickering
   const inboxSubItems = useMemo(() => {
-    console.log('📦 inboxSubItems memoization triggered with counts:', {
-      forwarded: applicationCounts?.forwardedCount,
-      returned: applicationCounts?.returnedCount,
-      redFlagged: applicationCounts?.redFlaggedCount,
-      disposed: applicationCounts?.disposedCount
-    });
-    
     return [
       { 
         name: "forwarded", 
@@ -421,18 +418,8 @@ const getUserRoleFromCookie = () => {
   // determine effective role used for rendering checks
   const effectiveRole = cookieRole || userRole;
   if (!effectiveRole) {
-    console.warn('⚠️ Sidebar: No effective role found, cannot render');
     return null;
   }
-
-  console.log('✅ Sidebar rendering with:', {
-    effectiveRole,
-    menuItemsCount: menuItems.length,
-    roleConfig: roleConfig ? 'exists' : 'missing',
-    visible,
-    showSidebar
-  });
-
   return (
     <>
       <div className="md:hidden fixed top-4 left-4 z-50">
@@ -444,7 +431,7 @@ const getUserRoleFromCookie = () => {
         md:opacity-100 md:transform md:translate-x-0 md:pointer-events-auto`}
       >
         <div className="p-4 flex items-center border-b border-gray-100">
-          <Image src="/icon-alms.svg" alt="Arms License Icon" width={52} height={52} className="mr-2" />
+          <ImageFixed src="/icon-alms.svg" alt="Arms License Icon" width={52} height={52} className="mr-2" />
           <h1 className="text-lg font-bold">Arms License</h1>
         </div>
         <div className="bg-[#001F54] text-white p-4 flex items-center">
@@ -466,9 +453,9 @@ const getUserRoleFromCookie = () => {
                   onClick={handleInboxToggle}
                   className={`flex items-center w-full px-4 py-2 rounded-md text-left ${isInboxOpen ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"}`}
                 >
-                  <span className="inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors" aria-hidden="true">
-                    {menuMeta.inbox.icon}
-                  </span>
+                <span className="inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors" aria-hidden="true">
+                  {menuMeta.inbox.icon() as any}
+                </span>
                   <span className="flex-grow">{menuMeta.inbox.label}</span>
                   <span className="ml-2">{isInboxOpen ? '▾' : '▸'}</span>
                 </button>
@@ -503,7 +490,10 @@ const getUserRoleFromCookie = () => {
                   icon={item.icon}
                   label={item.label}
                   active={activeItem === item.name}
-                  onClick={() => handleMenuClick({ name: item.name })}
+                  onClick={() => handleMenuClick({ 
+                    name: item.name, 
+                    statusIds: item.statusIds 
+                  })}
                 />
               ))}
             {/* Add Flow Mapping menu item for ADMIN users */}
@@ -536,8 +526,3 @@ const getUserRoleFromCookie = () => {
     </>
   );
 });
-
-// Add display names for debugging
-Sidebar.displayName = 'Sidebar';
-InboxSubMenuItem.displayName = 'InboxSubMenuItem';
-MenuItem.displayName = 'MenuItem';

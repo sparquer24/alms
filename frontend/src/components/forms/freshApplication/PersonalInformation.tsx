@@ -1,6 +1,10 @@
 "use client";
 import React from 'react';
 import { IoMdMale, IoMdFemale } from 'react-icons/io';
+
+// Type assertions for react-icons to fix React 18 compatibility
+const IoMdMaleFixed = IoMdMale as any;
+const IoMdFemaleFixed = IoMdFemale as any;
 import { Input } from '../elements/Input';
 import { useRouter } from 'next/navigation';
 import FormFooter from '../elements/footer';
@@ -70,25 +74,20 @@ const PersonalInformation: React.FC = () => {
 	// Manual data refresh functionality for cases where automatic loading doesn't work
 	const handleRefreshData = async () => {
 		if (applicantId) {
-			console.log('🔄 Manually refreshing data for applicationId:', applicantId);
 			await loadExistingData(applicantId);
 		}
 	};
 
 	const handleSaveToDraft = async () => {
-		console.log('💾 Save to Draft clicked - Current applicantId:', applicantId);
 		await saveFormData();
 	};
 
 	const handleNext = async () => {
-		console.log('➡️ Next clicked - Current applicantId:', applicantId);
 		const savedApplicantId = await saveFormData();
 		
 		if (savedApplicantId) {
-			console.log('✅ Successfully saved, navigating with ID:', savedApplicantId);
 			navigateToNext(FORM_ROUTES.ADDRESS_DETAILS, savedApplicantId);
 		} else {
-			console.log('❌ Failed to save, not navigating');
 		}
 	};
 
@@ -212,7 +211,7 @@ const PersonalInformation: React.FC = () => {
 								suppressHydrationWarning
 							/>
 							Male
-							<IoMdMale className="text-xl" /> 
+                                                        <IoMdMaleFixed className="text-xl" />
 						</label>
 						<label className="flex items-center gap-2">
 							<input
@@ -224,7 +223,7 @@ const PersonalInformation: React.FC = () => {
 								suppressHydrationWarning
 							/>
 							 Female
-							<IoMdFemale className="text-xl" />
+                                                        <IoMdFemaleFixed className="text-xl" />
 						</label>
 					</div>
 				</div>

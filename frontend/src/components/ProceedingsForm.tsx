@@ -3,6 +3,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Select from 'react-select';
+
+// Type assertion for react-select to fix React 18 compatibility
+const SelectFixed = Select as any;
 import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { EnhancedTextEditor } from './RichTextEditor';
@@ -213,11 +216,9 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
               const t = String(cookieAuth || '');
               const masked = t.length > 8 ? `${t.slice(0,4)}...${t.slice(-4)}` : t;
               // eslint-disable-next-line no-console
-              console.debug('[ProceedingsForm] auth cookie read, masked:', masked);
             } catch (e) {}
           }
         } catch (e) {
-          console.error('Failed to read auth cookie', e);
         }
 
         const data = await fetchData(`/actiones`);
@@ -322,7 +323,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submit button clicked - form submission started');
     setError(null);
     setSuccess(null);
 
@@ -372,7 +372,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
         });
         payload.isGroundReportGenerated = true;
       } catch (err) {
-        console.error('Failed to generate PDF, falling back to text:', err);
         payload.attachments.push({
           name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
           type: 'GROUND_REPORT',
@@ -408,19 +407,14 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
           });
         });
       } catch (err) {
-        console.error('Failed to attach selected files:', err);
         setError('Failed to process selected attachments. Please try again.');
         return;
       }
     }
-
-    console.log('Payload to be sent:', payload);
     setIsSubmitting(true);
 
     try {
-      console.log('Making API call to /workflow/action');
       const result = await postData(`/workflow/action`, payload);
-      console.log('API response:', result);
       setSuccess(result.message || 'Action completed successfully.');
       
       // Reset form
@@ -431,7 +425,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       if (onSuccess) onSuccess();
     } catch (err: any) {
       setError(err.message || 'Failed to submit action. Please try again.');
-      console.error('Error submitting form:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -475,7 +468,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       // Revoke after a short delay to allow the new tab to load
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (e) {
-      console.error('Failed to open file preview', e);
       setError('Unable to open file preview.');
     }
   };
@@ -589,7 +581,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       
       setSuccess('PDF download initiated - please check your downloads folder');
     } catch (error) {
-      console.error('PDF generation error:', error);
       setError('Failed to generate PDF. Please try again.');
     }
   };
@@ -648,7 +639,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       URL.revokeObjectURL(url);
       setSuccess('Word document downloaded successfully!');
     } catch (error) {
-      console.error('Word generation error:', error);
       setError('Failed to generate Word document. Please try again.');
     }
   };
@@ -815,16 +805,16 @@ Yours faithfully,
               Action Type <span className={styles.required}>*</span>
             </label>
             <div className={styles.selectContainer}>
-              <Select
+              <SelectFixed
                 options={actionOptions}
                 value={selectedAction}
-                onChange={(opt) => setSelectedAction(opt as ActionOption || null)}
+                onChange={(opt: any) => setSelectedAction(opt as ActionOption || null)}
                 placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
                 isLoading={actionsLoading}
                 isDisabled={isSubmitting || actionsLoading}
                 className="text-sm"
                 styles={{
-                  control: (provided, state) => ({
+                  control: (provided: any, state: any) => ({
                     ...provided,
                     borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
                     boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
@@ -852,7 +842,7 @@ Yours faithfully,
               <span className={styles.required}>*</span>
             </label>
             <div className={styles.selectContainer} ref={nextUserRef}>
-              <Select
+              <SelectFixed
                 options={userOptions}
                 value={nextUser}
                 onChange={setNextUser}
@@ -863,7 +853,7 @@ Yours faithfully,
                 isDisabled={isSubmitting || fetchingUsers}
                 className="text-sm"
                 styles={{
-                  control: (provided, state) => ({
+                  control: (provided: any, state: any) => ({
                     ...provided,
                     borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
                     boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',

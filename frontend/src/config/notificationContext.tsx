@@ -80,7 +80,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         setUnreadCount(unread);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
     }
   };
   
@@ -100,7 +99,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Error marking notification as read:', error);
     }
   };
   
@@ -118,7 +116,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         setUnreadCount(0);
       }
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
     }
   };
   

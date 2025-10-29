@@ -14,7 +14,7 @@ import { logError, logDebug } from '@/utils/loggingUtils';
  * Component to initialize auth state on app startup
  * This should be rendered once at the root level
  */
-export const AuthInitializer: React.FC = () => {
+export const AuthInitializer = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
@@ -63,6 +63,7 @@ export const AuthInitializer: React.FC = () => {
   }, [isAuthenticated, currentUser?.role, pathname, router]);
 
   return null; // This component doesn't render anything
-};
+}
 
+// Named export to avoid SSR issues with default export
 export default AuthInitializer;

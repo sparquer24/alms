@@ -4,6 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
+
 export default function NotFoundClient() {
   const router = useRouter();
   const [count, setCount] = useState(8);
@@ -31,19 +34,19 @@ export default function NotFoundClient() {
         <p className="mb-6">Don&apos;t worry — we&apos;ll get you back on track.</p>
 
         <div className="flex items-center justify-center gap-4">
-          <Link
+          <LinkFixed
             href="/"
             className="px-4 py-2 rounded-lg bg-white text-purple-700 font-semibold hover:scale-105 transform transition"
           >
             Go back home
-          </Link>
+          </LinkFixed>
 
-          <Link
+          <LinkFixed
             href="/"
             className="px-4 py-2 rounded-lg border border-white border-opacity-30 hover:bg-white hover:bg-opacity-10 transition"
           >
             Try previous
-          </Link>
+          </LinkFixed>
         </div>
 
         <div className="mt-6 text-sm text-white text-opacity-80">

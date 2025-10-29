@@ -5,6 +5,7 @@ import jsCookie from "js-cookie";
 // New role config structure for dynamic sidebar
 export type MenuItem = {
   name: string;
+  statusIds?: number[]; // Optional status IDs for filtering applications
 };
 
 export type RoleConfig = {
@@ -14,68 +15,25 @@ export type RoleConfig = {
   menuItems: MenuItem[];
 };
 
-// Default menu items for common roles
-const defaultMenuItems: Record<string, MenuItem[]> = {
-  ADMIN: [
-    { name: "userManagement" },
-    { name: "roleManagement" },
-    { name: "flowMapping" },
-    { name: "drafts" },
-    { name: "reports" },
-  ],
-  SHO: [
-    { name: "inbox" },
-    { name: "freshform" },
-    { name: "sent" },
-    { name: "closed" },
-  ],
-  ZS: [
-    { name: "inbox" },
-    { name: "freshform" },
-    { name: "sent" },
-    { name: "closed" },
-    { name: "drafts" },
-    { name: "finaldisposal" },
-  ],
-  DCP: [
-    { name: "inbox" },
-    { name: "sent" },
-    { name: "closed" },
-  ],
-  AS: [
-    { name: "inbox" },
-    { name: "sent" },
-    { name: "closed" },
-    { name: "finaldisposal" },
-    { name: "reports" },
-  ],
-};
-
 // ✅ Reads from cookie and builds RoleConfig
 export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
   const token = jsCookie.get("user");
-  console.log('🔍 getRoleConfig called with:', { userRole, token: token ? 'exists' : 'missing' });
 
   if (!token) {
-    console.warn('❌ No user token found in cookie');
     return undefined;
   }
 
   let parsedUser: any;
   try {
     parsedUser = JSON.parse(token);
-    console.log('✅ Parsed user cookie:', parsedUser);
   } catch (err) {
-    console.error("❌ Invalid user cookie:", err);
     return undefined;
   }
 
   // role may be under user.role or user directly
   const roleData: any = parsedUser?.role ?? parsedUser;
-  console.log('🔍 Role data extracted:', roleData);
 
   if (!roleData || typeof roleData !== "object") {
-    console.warn('❌ Invalid role data structure');
     return undefined;
   }
 
@@ -87,8 +45,6 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
   let permissionsRaw: string[] | string | undefined = roleData.permissions;
   if (permissionsRaw === undefined) permissionsRaw = roleData.permission_list ?? roleData.PermissionList;
   let menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
-
-  console.log('🔍 Extracted role properties:', { code, name, menuItemsRaw });
 
   // Parse stringified JSON arrays if needed
   const safeParse = <T,>(v: any): T | undefined => {
@@ -115,34 +71,22 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
     : safeParse<any[]>(menuItemsRaw) ?? [];
 
   let menuItems: MenuItem[] = (menuItemsParsed as any[]).map((it: any) => {
-    if (typeof it === "string") return { name: it } as MenuItem;
-    if (it && typeof it === "object" && typeof it.name === "string") return { name: it.name } as MenuItem;
+    // Handle new format: { name: "freshform", statusIds: [1,2,3] }
+    if (it && typeof it === "object" && typeof it.name === "string") {
+      return {
+        name: it.name,
+        statusIds: Array.isArray(it.statusIds) ? it.statusIds : undefined
+      } as MenuItem;
+    }
+    // Handle old format: string
+    if (typeof it === "string") {
+      return { name: it } as MenuItem;
+    }
     return { name: String(it) } as MenuItem;
   });
 
-  // Fallback to default menu items if none found, or ensure ZS users always have required menu items
-  const roleKey = (code || name || '').toUpperCase();
-
-  if (menuItems.length === 0) {
-    menuItems = defaultMenuItems[roleKey] || defaultMenuItems.SHO;
-    console.log(`⚠️ No menu items in cookie, using default for ${roleKey}:`, menuItems);
-  } else {
-    console.log('✅ Menu items from cookie:', menuItems);
-
-    // Ensure ZS users always have essential menu items regardless of cookie content
-    if (roleKey === 'ZS' || roleKey.includes('ZS')) {
-      const requiredZSItems = ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'];
-      const currentItemNames = menuItems.map(item => item.name);
-
-      // Add missing required items
-      requiredZSItems.forEach(requiredItem => {
-        if (!currentItemNames.includes(requiredItem)) {
-          menuItems.push({ name: requiredItem });
-          console.log(`✅ Added missing required item for ZS: ${requiredItem}`);
-        }
-      });
-    }
-  }
+  // Menu items should be provided by the cookie/backend
+  // If no menu items are provided, the role config will have an empty array
 
   if (code || name) {
     // Normalize dashboard title for specific roles
@@ -179,11 +123,9 @@ export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
       canAccessSettings: Boolean(canAccessSettingsRaw),
       menuItems,
     };
-    console.log('✅ Final role config:', config);
     return config;
   }
 
-  console.warn('❌ No valid code or name found in role data');
   return undefined; // no valid role found
 };
 

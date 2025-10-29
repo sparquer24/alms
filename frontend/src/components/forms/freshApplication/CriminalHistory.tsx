@@ -55,15 +55,11 @@ const CriminalHistory = () => {
 	useEffect(() => {
 		// Skip loading if we're currently updating the form to prevent overwriting
 		if (isUpdatingForm) {
-			console.log('🚫 Skipping backend data load - form update in progress');
 			return;
 		}
 		
 		if (form.criminalHistories && form.criminalHistories.length > 0) {
 			const history = form.criminalHistories[0]; // Get the first criminal history record
-			
-			console.log('🔍 Loading criminal history from backend:', history);
-			
 			// Set conviction status
 			setConvicted(history.isConvicted ? 'yes' : 'no');
 			
@@ -87,7 +83,6 @@ const CriminalHistory = () => {
 			
 			// Set FIR details/provisions
 			if (history.firDetails && history.firDetails.length > 0) {
-				console.log('🔍 Found firDetails, mapping to provisions:', history.firDetails);
 				const mappedProvisions = history.firDetails.map((fir: any) => ({
 					firNumber: fir.firNumber || '',
 					underSection: fir.underSection || '',
@@ -100,17 +95,12 @@ const CriminalHistory = () => {
 					dateOfSentence: fir.DateOfSentence ? fir.DateOfSentence.split('T')[0] : '' // Convert ISO date to YYYY-MM-DD
 				}));
 				setProvisions(mappedProvisions);
-				console.log('🔍 Mapped provisions:', mappedProvisions);
 			} else {
 				// If no FIR details, ensure we have at least one empty provision
-				console.log('🔍 No firDetails found, using empty provision');
 				setProvisions([{ ...initialProvision }]);
 			}
-			
-			console.log('✅ Loaded criminal history data:', history);
 		} else {
 			// Reset to initial state if no data
-			console.log('🔄 No criminal history data found, using defaults');
 		}
 	}, [form.criminalHistories]);
 
@@ -124,15 +114,6 @@ const CriminalHistory = () => {
 
 	const handleSaveToDraft = async () => {
 		// Debug current state before transformation
-		console.log('🔵 Current form state before transformation:', {
-			convicted,
-			bond,
-			prohibited,
-			provisions,
-			bondDetails,
-			prohibitedDetails
-		});
-
 		// Transform local state to the new API format
 		const criminalHistories = [{
 			isConvicted: convicted === 'yes',
@@ -165,29 +146,13 @@ const CriminalHistory = () => {
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 Criminal History Payload:', JSON.stringify(criminalHistories, null, 2));
-		
 		// Add debugging to see what's in the form state right before save
-		console.log('🔍 Form state right before saveFormData:', {
-			criminalHistories,
-			fullFormState: { criminalHistories }
-		});
-		
 		await saveFormData();
 		
 		// Reset flag after a delay to allow for data loading
 		setTimeout(() => setIsUpdatingForm(false), 1000);
 	};	const handleNext = async () => {
 		// Debug current state before transformation
-		console.log('🔵 Current form state before transformation:', {
-			convicted,
-			bond,
-			prohibited,
-			provisions,
-			bondDetails,
-			prohibitedDetails
-		});
-
 		// Transform local state to the new API format
 		const criminalHistories = [{
 			isConvicted: convicted === 'yes',
@@ -220,11 +185,7 @@ const CriminalHistory = () => {
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 Criminal History Payload:', JSON.stringify(criminalHistories, null, 2));
-		
 		// Instead of using setForm which might get overridden, pass the data directly
-		console.log('💡 Bypassing form state, saving directly with correct data');
-		
 		// Create the form data structure that includes the criminal histories
 		const formDataToSave = {
 			...form,
@@ -232,11 +193,6 @@ const CriminalHistory = () => {
 		};
 		
 		// Add debugging to see what's in the form state right before save
-		console.log('🔍 Form state right before saveFormData:', {
-			criminalHistories,
-			fullFormState: formDataToSave
-		});
-		
 		// Also update the form state for UI consistency
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		

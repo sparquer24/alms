@@ -12,10 +12,8 @@ async function fetchCurrentUser(token: string) {
   ongoingFetchCurrentUser = (async () => {
     try {
       try {
-        console.log('📡 fetchCurrentUser - calling AuthApi.getMe with token (first 10 chars):', typeof token === 'string' ? token.substring(0, 10) + '...' : token);
       } catch { }
       const resp = await AuthApi.getMe(token);
-      try { console.log('📡 fetchCurrentUser - AuthApi.getMe response:', resp); } catch { }
       return resp;
     } finally {
       ongoingFetchCurrentUser = null;
@@ -33,7 +31,6 @@ function readCookieSnapshot(): Record<string, any> | null {
     const raw = window.localStorage.getItem(COOKIE_SNAPSHOT_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
-    console.warn('Failed to read cookie snapshot', e);
     return null;
   }
 }
@@ -43,7 +40,6 @@ function saveCookieSnapshot(snapshot: Record<string, any>) {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(COOKIE_SNAPSHOT_KEY, JSON.stringify(snapshot));
   } catch (e) {
-    console.warn('Failed to save cookie snapshot', e);
   }
 }
 
@@ -52,7 +48,6 @@ function removeCookieSnapshot() {
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem(COOKIE_SNAPSHOT_KEY);
   } catch (e) {
-    console.warn('Failed to remove cookie snapshot', e);
   }
 }
 
@@ -72,7 +67,6 @@ const writeCookieWithRetryTop = async (name: string, value: string, maxAgeSec = 
   try {
     setCookie(name, value, { maxAge: maxAgeSec, path: '/' });
   } catch (e) {
-    console.warn(`setCookie(${name}) threw error:`, e);
   }
   if (!verifyCookieWrittenTop(name) && typeof window !== 'undefined') {
     // retry once after a tiny delay
@@ -98,7 +92,6 @@ const pollForCookieTop = async (name: string, timeout = 2000, interval = 100) =>
 };
 
 async function persistAuthCookies(token: string, user: any) {
-  console.debug('persistAuthCookies - start', { tokenSnippet: typeof token === 'string' ? token.substring(0, 10) + '...' : token, user });
   // If auth cookie already exists, don't rewrite it here (we may have written it earlier)
   const authAlready = verifyCookieWrittenTop('auth');
   // Persist auth, role, and user cookies robustly and save snapshot
@@ -130,7 +123,6 @@ async function persistAuthCookies(token: string, user: any) {
   };
 
   // Write cookies with verification
-  console.debug('persistAuthCookies - about to write cookies', { authAlready, roleToPersist, minimalUserForCookie });
   const authOk = authAlready ? true : await writeCookieWithRetryTop('auth', token);
   const roleOk = roleToPersist ? await writeCookieWithRetryTop('role', String(roleToPersist)) : false;
   let userOk = false;
@@ -152,19 +144,12 @@ async function persistAuthCookies(token: string, user: any) {
       if (!verifyCookieWrittenTop('role') && roleToPersist) window.localStorage.setItem('role_fallback', String(roleToPersist));
       if (!verifyCookieWrittenTop('user')) window.localStorage.setItem('user_fallback', JSON.stringify(minimalUserForCookie));
     } catch (e) {
-      console.warn('Failed to write fallback to localStorage:', e);
     }
   }
 
   // Diagnostic snapshot after writes
   try {
     if (typeof document !== 'undefined') {
-      console.debug('persistAuthCookies - post-write document.cookie', document.cookie);
-      console.debug('persistAuthCookies - cookie visibility', {
-        auth: verifyCookieWrittenTop('auth'),
-        role: verifyCookieWrittenTop('role'),
-        user: verifyCookieWrittenTop('user'),
-      });
     }
   } catch (e) {
     // ignore
@@ -199,7 +184,6 @@ async function persistAuthCookies(token: string, user: any) {
   } catch (e) {
     // ignore cleanup errors
   }
-  console.debug('persistAuthCookies - done', { authOk, roleOk, userOk });
 }
 
 
@@ -224,7 +208,6 @@ export const initializeAuth = createAsyncThunk(
         try {
           const pending = getCookie('auth_pending');
           if (pending) {
-            console.warn('Auth snapshot mismatch detected but auth_pending present — delaying clear for up to 2000ms');
             const start = Date.now();
             // wait for auth_pending to be removed (login finished) or timeout
             while (Date.now() - start < 2000) {
@@ -232,31 +215,25 @@ export const initializeAuth = createAsyncThunk(
               await new Promise((r) => setTimeout(r, 100));
               if (!getCookie('auth_pending')) break;
             }
-            console.debug('initializeAuth - waited for auth_pending to clear, elapsed:', Date.now() - start);
             // recompute snapshot after wait
             const recheck = {
               auth: getCookie('auth') ?? null,
               user: getCookie('user') ?? null,
               role: getCookie('role') ?? null,
             };
-            console.debug('initializeAuth - savedSnapshot vs recheck', { savedSnapshot, recheck });
             if (JSON.stringify(savedSnapshot) === JSON.stringify(recheck)) {
-              console.log('Auth snapshot aligns after pending login — skipping clear');
             } else {
-              console.warn('Auth snapshot still mismatched after wait; clearing local auth state');
               removeCookieSnapshot();
               dispatch(logout());
               return;
             }
           } else {
             // No pending login — clear as before
-            console.warn('Auth cookies changed since last snapshot; clearing local auth state');
             removeCookieSnapshot();
             dispatch(logout());
             return;
           }
         } catch (e) {
-          console.warn('Error while handling auth snapshot mismatch:', e);
           removeCookieSnapshot();
           dispatch(logout());
           return;
@@ -283,7 +260,6 @@ export const initializeAuth = createAsyncThunk(
             try {
               setCookie('auth', token, { maxAge: 60 * 60 * 24, path: '/' });
             } catch (e) {
-              console.warn('Failed to write auth cookie during init:', e);
             }
 
             // Ensure role and user cookies exist so page-load checks succeed.
@@ -319,7 +295,6 @@ export const initializeAuth = createAsyncThunk(
                 try { setCookie('user', JSON.stringify(minimalUserForCookie), { maxAge: 60 * 60 * 24, path: '/' }); } catch { /* ignore */ }
               }
             } catch (e) {
-              console.warn('Failed to ensure role/user cookies during init:', e);
             }
 
             // Save snapshot for future refresh checks
@@ -358,7 +333,6 @@ export const initializeAuth = createAsyncThunk(
         }
       }
     } catch (error) {
-      console.error('Error initializing auth:', error);
       dispatch(logout());
     }
   }
@@ -368,47 +342,26 @@ export const login = createAsyncThunk(
   'auth/login',
   async ({ username, password }: { username: string; password: string }, { dispatch }) => {
     try {
-      console.log('🔐 Auth thunk - login started');
-      console.log('📝 Login credentials:', { username, passwordLength: password.length });
-
       dispatch(setLoading(true));
-
-      console.log('📡 Making API call to AuthApi.login...');
       const response = await AuthApi.login({ username, password });
-      console.log('📡 Login API response received:', response);
-
       // Handle different response structures
       let token: string;
       let user: any = null;
-
-      console.log('🔍 Checking response structure:', {
-        hasBody: !!response.body,
-        hasSuccess: !!response.success,
-        hasStatusCode: response.statusCode,
-        response: response
-      });
-
       // Backend returns { success: true, token: "...", user: {...} } directly (not wrapped in body)
       if (response.success && (response as any).token) {
         // Direct response from backend
         token = (response as any).token;
         user = (response as any).user;
-        console.log('✅ Token found in direct response');
       } else if (response.body && response.body.token) {
         // Standard wrapped response structure
         token = response.body.token;
         user = response.body.user;
-        console.log('✅ Token found in response.body');
       } else {
-        console.error('❌ Login response missing token:', response);
         if (response.statusCode === 401) {
           throw new Error(response.message || 'Invalid username or password');
         }
         throw new Error('Login succeeded but no token was returned.');
       }
-
-      console.log('🔍 Token received (first 20 chars):', token.substring(0, 20) + '...');
-
       // After obtaining the token, write the token-only auth cookie immediately so
       // subsequent requests (including getMe) have the token available in cookies.
       try {
@@ -434,13 +387,8 @@ export const login = createAsyncThunk(
             // ignore role write errors
           }
         } catch (cookieErr) {
-          console.warn('Failed to write immediate auth cookie:', cookieErr);
         }
-
-        console.log('📡 Calling /auth/getMe to fetch canonical user data');
         const meResponse = await AuthApi.getMe(token);
-        console.log('📡 /auth/getMe response:', meResponse);
-
         if (meResponse && meResponse.success && (meResponse.body || (meResponse as any).data)) {
           // Some clients return body, others return data
           const payload = meResponse.body ?? (meResponse as any).data ?? meResponse;
@@ -455,11 +403,9 @@ export const login = createAsyncThunk(
               // ignore
             }
           }
-          console.log('✅ Full user payload stored from /auth/getMe:', user);
         } else {
           // Fallback: decode token for basic user info
           try {
-            console.log('🔓 Decoding JWT token as fallback...');
             const tokenPayload = JSON.parse(atob(token.split('.')[1]));
             user = {
               id: tokenPayload.userId || tokenPayload.sub,
@@ -473,14 +419,11 @@ export const login = createAsyncThunk(
               permissions: [],
               availableActions: []
             };
-            console.log('✅ User created from token payload fallback:', user);
           } catch (tokenError) {
-            console.error('❌ Failed to decode token in fallback:', tokenError);
             throw new Error('Invalid token received from server');
           }
         }
       } catch (meErr) {
-        console.warn('⚠️ /auth/getMe failed, falling back to token decode:', meErr);
         // Fallback: decode token for basic user info
         try {
           const tokenPayload = JSON.parse(atob(token.split('.')[1]));
@@ -497,13 +440,9 @@ export const login = createAsyncThunk(
             availableActions: []
           };
         } catch (tokenError) {
-          console.error('❌ Failed to decode token in fallback after getMe error:', tokenError);
           throw new Error('Invalid token received from server');
         }
       }
-
-      console.log('✅ Final user object:', user);
-
       // Robust role extraction & normalization
       const extractRoleString = (u: any): string | null => {
         // Support a variety of role shapes: nested objects with code/name/key, flat fields, or arrays
@@ -533,12 +472,8 @@ export const login = createAsyncThunk(
       // Finally reload so server-side middleware sees the fresh cookies and can redirect.
       try {
         if (typeof window !== 'undefined') {
-          try { console.debug('login - before reload document.cookie', document.cookie); } catch { }
-          try { console.debug('login - cookie visibility', { auth: verifyCookieWrittenTop('auth'), role: verifyCookieWrittenTop('role'), user: verifyCookieWrittenTop('user') }); } catch { }
         }
       } catch { /* best-effort */ }
-
-      console.log('🎉 Login process completed successfully — auth state set in store and cookies');
       // NOTE: Previously this thunk forced a window.location.reload() here which
       // could race with client-side navigation and middleware. We intentionally
       // do not reload here and instead let the UI perform the navigation so
@@ -546,10 +481,7 @@ export const login = createAsyncThunk(
 
       return { token, user };
     } catch (error) {
-      console.error('❌ Login thunk error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      console.error('❌ Error message:', errorMessage);
-
       dispatch(setError(errorMessage));
       throw error;
     } finally {
@@ -579,7 +511,6 @@ export const getCurrentUser = createAsyncThunk(
       if (!token) throw new Error('No authentication token found');
 
       const response = await AuthApi.getCurrentUser(token);
-      try { console.log('📡 getCurrentUser - AuthApi.getCurrentUser response:', response); } catch { }
 
       if (response.success && response.body) {
         const user = response.body;
@@ -605,16 +536,13 @@ export const logoutUser = createAsyncThunk(
       // Call backend logout if available (best-effort)
       try {
         await AuthApi.logout();
-        console.log('AuthApi.logout succeeded');
       } catch (apiErr) {
-        console.warn('AuthApi.logout failed or not available:', apiErr);
       }
 
       // Reset Redux auth state
       dispatch(logout());
 
       // Clear auth cookies and local snapshot
-      console.log('Clearing auth cookies and snapshots');
       // Remove saved snapshot
       removeCookieSnapshot();
       // Explicitly clear cookies that represent auth state
@@ -629,13 +557,11 @@ export const logoutUser = createAsyncThunk(
           try { window.localStorage.removeItem('user_fallback'); } catch { /* ignore */ }
         }
       } catch (e) {
-        console.warn('Error while clearing cookies during logout:', e);
       }
 
       // Give browser a short moment to clear cookies before redirect/login attempts
       await new Promise((res) => setTimeout(res, 200));
     } catch (error) {
-      console.error('Logout error:', error);
       // Still logout locally even if API call fails
       dispatch(logout());
 
@@ -652,7 +578,6 @@ export const logoutUser = createAsyncThunk(
           try { window.localStorage.removeItem('user_fallback'); } catch { /* ignore */ }
         }
       } catch (e) {
-        console.warn('Error while clearing cookies during logout (error path):', e);
       }
       // Short wait to let browser clear cookies
       await new Promise((res) => setTimeout(res, 200));

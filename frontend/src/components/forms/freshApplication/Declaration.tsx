@@ -2,6 +2,9 @@
 import React, { useState } from 'react';
 import { Checkbox } from '../elements/Checkbox';
 import { Frown } from 'lucide-react';
+
+// Type assertion for lucide-react icons to fix React 18 compatibility
+const FrownFixed = Frown as any;
 import FormFooter from '../elements/footer';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { patchData } from '../../../api/axiosConfig';
@@ -24,11 +27,6 @@ const Declaration = () => {
 	const applicantId = searchParams?.get('applicantId') || searchParams?.get('id');
 
 	// Debug logging
-	console.log('🔍 Declaration component loaded');
-	console.log('📋 Form state:', form);
-	console.log('🆔 Applicant ID:', applicantId);
-	console.log('📍 Search params:', searchParams?.toString());
-
 	const handleCheck = (name: string, checked: boolean) => {
 		setForm((prev) => ({ ...prev, [name]: checked }));
 		// Clear error when user interacts
@@ -64,22 +62,15 @@ const Declaration = () => {
 				isAwareOfLegalConsequences: form.declareFalseInfo,
 				isTermsAccepted: form.declareTerms,
 			};
-
-			console.log('🔄 Submitting declaration with payload:', payload);
-
 			// Make PATCH request to submit application with isSubmit=true parameter
 			const response = await patchData(
 				`/application-form?applicationId=${applicantId}&isSubmit=true`,
 				payload
 			);
-
-			console.log('✅ Declaration submitted successfully:', response);
-
 			// Show success modal instead of alert
 			setShowSuccessModal(true);
 
 		} catch (err: any) {
-			console.error('❌ Error submitting declaration:', err);
 			setError(
 				err?.message ||
 				err?.response?.data?.error ||
@@ -93,10 +84,8 @@ const Declaration = () => {
 	const handlePrevious = () => {
 		// Navigate to Preview step
 		if (applicantId) {
-			console.log('🔙 Navigating back to Preview with ID:', applicantId);
 			router.push(`${FORM_ROUTES.PREVIEW}?id=${applicantId}`);
 		} else {
-			console.log('🔙 No applicant ID, using browser back');
 			router.back();
 		}
 	};
@@ -129,7 +118,7 @@ const Declaration = () => {
 						{error && (
 							<div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-auto">
 								<div className="flex items-start">
-									<Frown className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                                                                        <FrownFixed className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
 									<p className="text-sm text-red-800">{error}</p>
 								</div>
 							</div>

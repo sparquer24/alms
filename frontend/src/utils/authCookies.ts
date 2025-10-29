@@ -23,7 +23,6 @@ export function getAuthTokenFromCookie(): string | null {
       return null;
     }
   } catch (error) {
-    console.error('Error reading auth cookie:', error);
     return null;
   }
 }
@@ -41,7 +40,6 @@ export function getUserFromCookie(): any | null {
     }
     return cookie;
   } catch (error) {
-    console.error('Error reading user cookie:', error);
     return null;
   }
 
@@ -75,7 +73,6 @@ export function isAuthCookieValid(): boolean {
 
     return true;
   } catch (error) {
-    console.error('Error validating auth cookie:', error);
     return false;
   }
 }

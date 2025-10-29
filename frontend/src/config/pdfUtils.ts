@@ -136,7 +136,6 @@ export const generateApplicationPDF = async (application: ApplicationData): Prom
     doc.save(`Application_${application.id}.pdf`);
 
   } catch (error) {
-    console.error('Error generating PDF:', error);
     throw new Error('Could not generate PDF');
   }
 };
@@ -297,7 +296,6 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
 
     return;
   } catch (error) {
-    console.error('Error generating batch report PDF:', error);
     throw new Error('Could not generate batch report PDF');
   }
 };

@@ -6,11 +6,14 @@ import { useEffect, useState } from "react";
 import dynamic from 'next/dynamic';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Link from 'next/link';
+
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
 import { PageLayoutSkeleton } from '@/components/Skeleton';
 
 // Dynamically import charts to avoid SSR issues
-const LineChart = dynamic(() => import('@/components/charts/LineChart'), { ssr: false });
-const PieChart = dynamic(() => import('@/components/charts/PieChart'), { ssr: false });
+const LineChart = dynamic(() => import('@/components/charts/LineChart'), { ssr: false }) as any;
+const PieChart = dynamic(() => import('@/components/charts/PieChart'), { ssr: false }) as any;
 
 // Chart data shapes expected by chart components
 type LineDataset = {
@@ -132,7 +135,7 @@ export default function AdminDashboard() {
   };
 
   const confirmDeleteUser = () => {
-    console.log(`User with ID ${selectedUser} deleted.`); // Replace with actual delete logic
+    // Replace with actual delete logic
     setIsDeleteModalOpen(false);
     setSelectedUser(null);
   };
@@ -236,24 +239,24 @@ export default function AdminDashboard() {
         <h2 className="text-lg font-semibold">Navigation</h2>
         <ul className="space-y-2">
           <li>
-            <Link href="/admin/usermanagement">
+            <LinkFixed href="/admin/usermanagement">
               <a className="text-blue-600 hover:underline">Go to User Management</a>
-            </Link>
+            </LinkFixed>
           </li>
           <li>
-            <Link href="/admin/addadmin">
+            <LinkFixed href="/admin/addadmin">
               <a className="text-blue-600 hover:underline">Add Admin</a>
-            </Link>
+            </LinkFixed>
           </li>
           <li>
-            <Link href="/admin/rolemapping">
+            <LinkFixed href="/admin/rolemapping">
               <a className="text-blue-600 hover:underline">Role Mapping</a>
-            </Link>
+            </LinkFixed>
           </li>
           <li>
-            <Link href="/admin/analytics">
+            <LinkFixed href="/admin/analytics">
               <a className="text-blue-600 hover:underline">Analytics</a>
-            </Link>
+            </LinkFixed>
           </li>
         </ul>
       </div>

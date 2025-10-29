@@ -32,8 +32,6 @@ export class FormDataLoader {
    */
   static async loadAllSections(applicationId: string): Promise<LoadedFormData> {
     try {
-      console.log('🔄 Loading all sections for applicationId:', applicationId);
-      
       const response = await ApplicationService.getApplication(applicationId);
       
       if (!response.success || !response.data) {
@@ -41,8 +39,6 @@ export class FormDataLoader {
       }
       
       const applicationData = response.data;
-      console.log('📄 Complete application data received');
-      
       // Extract data for each section
       const loadedData: LoadedFormData = {
         personalInformation: ApplicationService.extractSectionData(applicationData, 'personal'),
@@ -54,12 +50,9 @@ export class FormDataLoader {
         // Documents are typically loaded separately due to file handling
         documentsUpload: { files: [], uploadedDocuments: [] }
       };
-      
-      console.log('✅ All sections loaded successfully');
       return loadedData;
       
     } catch (error: any) {
-      console.error('❌ Error loading all sections:', error);
       throw new Error(`Could not load application data: ${error.message}`);
     }
   }
@@ -75,8 +68,6 @@ export class FormDataLoader {
     section: 'personal' | 'address' | 'occupation' | 'criminal' | 'license-history' | 'license-details'
   ): Promise<any> {
     try {
-      console.log('🔄 Loading section:', section, 'for applicationId:', applicationId);
-      
       const response = await ApplicationService.getApplication(applicationId);
       
       if (!response.success || !response.data) {
@@ -84,12 +75,9 @@ export class FormDataLoader {
       }
       
       const sectionData = ApplicationService.extractSectionData(response.data, section);
-      console.log('✅ Section data loaded:', section);
-      
       return sectionData;
       
     } catch (error: any) {
-      console.error('❌ Error loading section:', section, error);
       throw new Error(`Could not load ${section} data: ${error.message}`);
     }
   }
@@ -105,8 +93,6 @@ export class FormDataLoader {
     message: string;
   }> {
     try {
-      console.log('🔍 Checking data availability for applicationId:', applicationId);
-      
       const response = await ApplicationService.getApplication(applicationId);
       
       if (!response.success || !response.data) {
@@ -147,8 +133,6 @@ export class FormDataLoader {
       };
       
     } catch (error: any) {
-      console.error('❌ Error checking data availability:', error);
-      
       if (error.message.includes('404') || error.message.includes('Not Found')) {
         return {
           exists: false,

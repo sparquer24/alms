@@ -68,7 +68,6 @@ export default function ChangePassword() {
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
-      console.error('Password change error:', err);
     } finally {
       setIsLoading(false);
     }

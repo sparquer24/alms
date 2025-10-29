@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
@@ -11,7 +11,12 @@ import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusK
 import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
-export default function FreshFormPage() {
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+function FreshFormContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -52,7 +57,6 @@ export default function FreshFormPage() {
         const fetchedApplications = await fetchApplicationsByStatusKey('freshform');
         setApplications(fetchedApplications);
       } catch (error) {
-        console.error('❌ Error fetching freshform applications:', error);
         setApplications([]);
       } finally {
         setIsLoading(false);
@@ -197,5 +201,14 @@ export default function FreshFormPage() {
             </div>
       </main>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function FreshFormPage() {
+  return (
+    <Suspense fallback={<PageLayoutSkeleton />}>
+      <FreshFormContent />
+    </Suspense>
   );
 }

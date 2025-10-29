@@ -61,14 +61,11 @@ const LicenseHistory = () => {
 	useEffect(() => {
 		// Skip loading if we're currently updating the form to prevent overwriting
 		if (isUpdatingForm) {
-			console.log('🚫 Skipping backend data load - form update in progress');
 			return;
 		}
 		
 		if (form.licenseHistories && form.licenseHistories.length > 0) {
 			const history = form.licenseHistories[0]; // Get the first license history record
-			console.log('🔍 Loading license history from backend:', history);
-			
 			// Map backend data to local state
 			if (history.hasAppliedBefore !== undefined) {
 				setAppliedBefore(history.hasAppliedBefore ? 'yes' : 'no');
@@ -124,8 +121,6 @@ const LicenseHistory = () => {
 					setTrainingDetails(history.trainingDetails);
 				}
 			}
-			
-			console.log('✅ Loaded license history data successfully');
 		}
 	}, [form.licenseHistories, weapons, isUpdatingForm]); // Include isUpdatingForm in dependency array
 
@@ -138,7 +133,6 @@ const LicenseHistory = () => {
 				const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
 				setWeapons(items);
 			} catch (e) {
-				console.error('Error loading weapons list', e);
 				// Fallback weapons if API fails
 				setWeapons([
 					{ id: 1, name: 'Pistol' },
@@ -209,7 +203,6 @@ const LicenseHistory = () => {
 
 	const uploadFiles = async (files: File[]) => {
 		if (!applicantId) {
-			console.log('📋 No application ID available yet, files will be uploaded after saving');
 			return;
 		}
 
@@ -226,12 +219,9 @@ const LicenseHistory = () => {
 						file,
 						'REJECTED_LICENSE', // Specific file type for rejected license documents
 					);
-					
-					console.log('✅ File uploaded successfully:', result);
 					setUploadProgress(prev => ({ ...prev, [fileKey]: false }));
 					return result;
 				} catch (error) {
-					console.error('❌ File upload failed:', error);
 					setUploadProgress(prev => ({ ...prev, [fileKey]: false }));
 					throw error;
 				}
@@ -249,20 +239,16 @@ const LicenseHistory = () => {
 
 			if (successful.length > 0) {
 				setUploadedFiles(prev => [...prev, ...successful]);
-				console.log(`✅ Successfully uploaded ${successful.length} files`);
-				
 				// Show success message
 				setSubmitSuccess(`Successfully uploaded ${successful.length} file(s)`);
 				setTimeout(() => setSubmitSuccess(''), 3000);
 			}
 
 			if (failed.length > 0) {
-				console.error(`❌ Failed to upload ${failed.length} files:`, failed);
 				setFileError(`Failed to upload ${failed.length} file(s). Please try again.`);
 			}
 
 		} catch (error) {
-			console.error('❌ Upload process failed:', error);
 			setFileError('Failed to upload files. Please try again.');
 		} finally {
 			setUploading(false);
@@ -385,32 +371,14 @@ const LicenseHistory = () => {
 
 	const handleSaveToDraft = async () => {
 		// Debug current state before transformation
-		console.log('🔵 License History - Current form state before transformation:', {
-			appliedBefore,
-			appliedDetails,
-			suspended,
-			suspendedDetails,
-			family,
-			familyDetails,
-			safePlace,
-			safePlaceDetails,
-			training,
-			trainingDetails,
-			weapons: weapons.length
-		});
-
 		// Transform local state to API format before saving
 		const licenseHistories = transformFormData();
 		
 		// Log the payload being sent
-		console.log('🟡 License History Payload:', JSON.stringify(licenseHistories, null, 2));
-		
 		// Set flag to prevent useEffect from overwriting our data
 		setIsUpdatingForm(true);
 		
 		// Instead of using setForm which might get overridden, pass the data directly
-		console.log('💡 Bypassing form state, saving directly with correct data');
-		
 		// Create the form data structure that includes the license histories
 		const formDataToSave = {
 			...form,
@@ -418,11 +386,6 @@ const LicenseHistory = () => {
 		};
 		
 		// Add debugging to see what's in the form state right before save
-		console.log('🔍 Form state right before saveFormData:', {
-			licenseHistories,
-			fullFormState: formDataToSave
-		});
-		
 		// Also update the form state for UI consistency
 		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
@@ -436,7 +399,6 @@ const LicenseHistory = () => {
 			);
 			
 			if (pendingFiles.length > 0) {
-				console.log(`📤 Uploading ${pendingFiles.length} pending files...`);
 				await uploadFiles(pendingFiles);
 			}
 		}
@@ -447,32 +409,14 @@ const LicenseHistory = () => {
 
 	const handleNext = async () => {
 		// Debug current state before transformation
-		console.log('🔵 License History - Current form state before transformation:', {
-			appliedBefore,
-			appliedDetails,
-			suspended,
-			suspendedDetails,
-			family,
-			familyDetails,
-			safePlace,
-			safePlaceDetails,
-			training,
-			trainingDetails,
-			weapons: weapons.length
-		});
-
 		// Transform local state to API format before saving
 		const licenseHistories = transformFormData();
 		
 		// Log the payload being sent
-		console.log('🟡 License History Payload:', JSON.stringify(licenseHistories, null, 2));
-		
 		// Set flag to prevent useEffect from overwriting our data
 		setIsUpdatingForm(true);
 		
 		// Instead of using setForm which might get overridden, pass the data directly
-		console.log('💡 Bypassing form state, saving directly with correct data');
-		
 		// Create the form data structure that includes the license histories
 		const formDataToSave = {
 			...form,
@@ -480,11 +424,6 @@ const LicenseHistory = () => {
 		};
 		
 		// Add debugging to see what's in the form state right before save
-		console.log('🔍 Form state right before saveFormData:', {
-			licenseHistories,
-			fullFormState: formDataToSave
-		});
-		
 		// Also update the form state for UI consistency
 		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
@@ -498,7 +437,6 @@ const LicenseHistory = () => {
 			);
 			
 			if (pendingFiles.length > 0) {
-				console.log(`📤 Uploading ${pendingFiles.length} pending files before navigation...`);
 				await uploadFiles(pendingFiles);
 			}
 		}

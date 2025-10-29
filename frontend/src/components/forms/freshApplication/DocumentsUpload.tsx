@@ -110,11 +110,7 @@ const DocumentsUpload = () => {
 							   : f
 					   ),
 				   }));
-
-				   console.log(`✅ Successfully uploaded ${docType}:`, response);
 			   } catch (error: any) {
-				   console.error(`❌ Failed to upload ${docType}:`, error);
-				   
 				   // Update file state with error
 				   setFiles((prev) => ({
 					   ...prev,
@@ -147,9 +143,7 @@ const DocumentsUpload = () => {
 	   if (fileToRemove.uploaded && fileToRemove.uploadId) {
 		   try {
 			   await FileUploadService.deleteFile(fileToRemove.uploadId);
-			   console.log(`🗑️ Successfully deleted ${docType} from server`);
 		   } catch (error) {
-			   console.warn(`⚠️ Failed to delete ${docType} from server:`, error);
 			   // Continue with local removal even if server deletion fails
 		   }
 	   }
@@ -170,10 +164,8 @@ const DocumentsUpload = () => {
 		const savedApplicantId = await saveFormData();
 		
 		if (savedApplicantId) {
-			console.log('✅ Successfully saved documents, navigating to Preview with ID:', savedApplicantId);
 			navigateToNext(FORM_ROUTES.PREVIEW, savedApplicantId);
 		} else {
-			console.log('❌ Failed to save documents, not navigating');
 		}
 	};
 

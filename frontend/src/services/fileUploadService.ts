@@ -37,21 +37,12 @@ export class FileUploadService {
     uploadData: FileUploadRequest
   ): Promise<FileUploadResponse> {
     try {
-      console.log('🔄 FileUploadService - Uploading file metadata:', {
-        applicationId,
-        uploadData
-      });
-
       const response = await apiClient.post(
         `/application-form/${applicationId}/upload-file`,
         uploadData
       );
-
-      console.log('✅ FileUploadService - File upload successful:', response);
-      
       return (response as unknown as ApiResponse<FileUploadResponse>).data;
     } catch (error) {
-      console.error('❌ FileUploadService - Upload failed:', error);
       throw error;
     }
   }
@@ -64,11 +55,6 @@ export class FileUploadService {
     uploads: FileUploadRequest[]
   ): Promise<FileUploadResponse[]> {
     try {
-      console.log('🔄 FileUploadService - Uploading multiple files:', {
-        applicationId,
-        count: uploads.length
-      });
-
       const results = await Promise.allSettled(
         uploads.map(upload => this.uploadFile(applicationId, upload))
       );
@@ -85,17 +71,9 @@ export class FileUploadService {
       });
 
       if (failed.length > 0) {
-        console.warn('⚠️ FileUploadService - Some uploads failed:', failed);
       }
-
-      console.log('✅ FileUploadService - Multiple file upload completed:', {
-        successful: successful.length,
-        failed: failed.length
-      });
-
       return successful;
     } catch (error) {
-      console.error('❌ FileUploadService - Multiple upload failed:', error);
       throw error;
     }
   }
@@ -111,13 +89,6 @@ export class FileUploadService {
     description?: string
   ): Promise<FileUploadResponse> {
     try {
-      console.log('🔄 FileUploadService - Starting file upload with storage:', {
-        applicationId,
-        fileName: file.name,
-        fileSize: file.size,
-        fileType
-      });
-
       // For now, we'll simulate file upload to storage
       // In a real implementation, this would upload to S3, Azure Blob, etc.
       const mockFileUrl = this.generateMockFileUrl(applicationId, file, fileType);
@@ -132,7 +103,6 @@ export class FileUploadService {
 
       return await this.uploadFile(applicationId, uploadData);
     } catch (error) {
-      console.error('❌ FileUploadService - File upload with storage failed:', error);
       throw error;
     }
   }
@@ -180,7 +150,6 @@ export class FileUploadService {
       const response = await apiClient.get(`/application-form/${applicationId}/files`);
       return (response as unknown as ApiResponse<FileUploadResponse[]>).data;
     } catch (error) {
-      console.error('❌ FileUploadService - Failed to get uploaded files:', error);
       throw error;
     }
   }

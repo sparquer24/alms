@@ -55,7 +55,6 @@ const LicenseDetails = () => {
 
 	useEffect(() => {
 		// Debug: Log initial form state
-		console.log('🚀 Component mounted, initial form state:', JSON.stringify(form, null, 2));
 	}, []);
 
 	// Upload pending files when applicationId becomes available
@@ -74,7 +73,6 @@ const LicenseDetails = () => {
 			   const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
 			   setWeapons(items);
 		   } catch (e) {
-			   console.error('Error loading weapons list', e);
 			   // Fallback weapons if API fails
 			   setWeapons([
 				   { id: 1, name: 'Revolver' },
@@ -92,8 +90,6 @@ const LicenseDetails = () => {
 
    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
 	   const { name, value, type } = e.target;
-	   console.log('🔄 Form field changed:', { name, value, type });
-	   
 	   if (type === 'checkbox' && 'checked' in e.target) {
 		   const checked = (e.target as HTMLInputElement).checked;
 		   setForm((prev: any) => {
@@ -108,7 +104,6 @@ const LicenseDetails = () => {
 					   [name]: checked
 				   }]
 			   };
-			   console.log('🔄 Updated form (checkbox):', newForm);
 			   return newForm;
 		   });
 	   } else {
@@ -124,7 +119,6 @@ const LicenseDetails = () => {
 					   [name]: value
 				   }]
 			   };
-			   console.log('🔄 Updated form (text/select):', newForm);
 			   return newForm;
 		   });
 	   }
@@ -151,7 +145,6 @@ const LicenseDetails = () => {
 				   requestedWeaponIds: updatedWeapons
 			   }]
 		   };
-		   console.log('🔄 Updated weapons:', newForm);
 		   return newForm;
 	   });
    };
@@ -175,7 +168,6 @@ const LicenseDetails = () => {
 				   areaOfValidity: updatedAreas.join(', ')
 			   }]
 		   };
-		   console.log('🔄 Updated areas:', newForm);
 		   return newForm;
 	   });
    };
@@ -201,9 +193,6 @@ const LicenseDetails = () => {
 		   alert('Maximum 5 files allowed. Please remove a file before uploading more.');
 		   return;
 	   }
-	   
-	   console.log('📎 File selected:', file.name);
-	   
 	   // If we have an applicationId, upload immediately
 	   if (applicantId) {
 		   try {
@@ -230,14 +219,11 @@ const LicenseDetails = () => {
 						   uploadedFiles: [...currentUploadedFiles, uploadResponse.data]
 					   }]
 				   };
-				   console.log('🔄 Updated form with uploaded file:', newForm);
 				   return newForm;
 			   });
 			   
 			   setUploadProgress('');
-			   console.log('✅ File uploaded successfully:', uploadResponse);
 		   } catch (error: any) {
-			   console.error('❌ File upload failed:', error);
 			   alert(`File upload failed: ${error.message}`);
 			   setUploadProgress('');
 		   } finally {
@@ -259,7 +245,6 @@ const LicenseDetails = () => {
 					   specialClaimsEvidence: updatedFiles
 				   }]
 			   };
-			   console.log('🔄 Stored file locally (no applicationId):', newForm);
 			   return newForm;
 		   });
 	   }
@@ -333,10 +318,7 @@ const LicenseDetails = () => {
 				   }]
 			   };
 		   });
-		   
-		   console.log('✅ All pending files uploaded successfully');
 	   } catch (error: any) {
-		   console.error('❌ Failed to upload pending files:', error);
 		   alert(`Failed to upload some files: ${error.message}`);
 	   } finally {
 		   setUploadingFiles(false);
@@ -346,46 +328,22 @@ const LicenseDetails = () => {
 
 	const handleSaveToDraft = async () => {
 		// Debug: Log the current form data before saving
-		console.log('🔍 Current form data before save:', JSON.stringify(form, null, 2));
-		console.log('🔍 License details array:', form.licenseDetails);
-		console.log('🔍 First license detail:', getLicenseDetail());
-		console.log('🔍 License detail properties:');
 		const detail = getLicenseDetail();
 		Object.keys(detail).forEach(key => {
-			console.log(`  ${key}:`, detail[key]);
 		});
 		
 		// Enhanced debugging for requestedWeaponIds specifically
-		console.log('🎯 WEAPON IDS DEBUG:', {
-			requestedWeaponIds: detail.requestedWeaponIds,
-			isArray: Array.isArray(detail.requestedWeaponIds),
-			length: detail.requestedWeaponIds?.length,
-			values: detail.requestedWeaponIds
-		});
-		
 		// The form data is already in the correct format (licenseDetails array)
 		await saveFormData();
 	};
 
 	const handleNext = async () => {
 		// Debug: Log the current form data before save
-		console.log('🔍 Current form data before save:', JSON.stringify(form, null, 2));
-		console.log('🔍 License details array:', form.licenseDetails);
-		console.log('🔍 First license detail:', getLicenseDetail());
-		console.log('🔍 License detail properties:');
 		const detail = getLicenseDetail();
 		Object.keys(detail).forEach(key => {
-			console.log(`  ${key}:`, detail[key]);
 		});
 		
 		// Enhanced debugging for requestedWeaponIds specifically
-		console.log('🎯 WEAPON IDS DEBUG:', {
-			requestedWeaponIds: detail.requestedWeaponIds,
-			isArray: Array.isArray(detail.requestedWeaponIds),
-			length: detail.requestedWeaponIds?.length,
-			values: detail.requestedWeaponIds
-		});
-		
 		// The form data is already in the correct format (licenseDetails array)
 		const savedApplicantId = await saveFormData();
 		
@@ -418,10 +376,6 @@ const LicenseDetails = () => {
 	}
 
 	// Debug: Log current form state on render
-	console.log('🎯 Current form state on render:', JSON.stringify(form, null, 2));
-	console.log('🎯 License details structure:', form.licenseDetails);
-	console.log('🎯 License detail object:', getLicenseDetail());
-
 	return (
 		<form className="p-6">
         <h2 className="text-xl font-bold mb-4">License Details</h2>
