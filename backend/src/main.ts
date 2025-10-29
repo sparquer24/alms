@@ -11,6 +11,10 @@ config({ path: rootEnvPath });
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Increase body size limit to 10MB for JSON and URL-encoded requests
+  const express = require('express');
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ limit: '2mb', extended: true }));
   
   // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
   const defaultOrigins = ['http://localhost:5000', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'];
