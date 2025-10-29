@@ -74,6 +74,7 @@ export type ApplicationQueryParams = {
   statusIds?: string;
   page?: number;
   limit?: number;
+  isSent?: boolean;
 };
 
 export type CreateApplicationParams = {

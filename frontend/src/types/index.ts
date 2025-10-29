@@ -307,7 +307,8 @@ export type ApplicationStatus =
   | 'recommended'
   | 'under_review'
   | 'forwarded'
-  | 'final_disposal';
+  | 'final_disposal'
+  | 'sent';
 
 export interface DocumentFile {
   id?: string;

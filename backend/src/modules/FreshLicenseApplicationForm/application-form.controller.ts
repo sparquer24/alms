@@ -587,8 +587,6 @@ export class ApplicationFormController {
           data: transformed,
         }
       }
-
-      console.log("591----",isSent);
       // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
         page: pageNum,

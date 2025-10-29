@@ -359,6 +359,7 @@ const getUserRoleFromCookie = () => {
   const returnedIcon = useMemo(() => <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, []);
   const redFlaggedIcon = useMemo(() => <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
   const disposedIcon = useMemo(() => <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  const sentIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2 transform rotate-180" aria-label="Sent" />, []);
 
   // Create highly stable inbox sub-items to prevent flickering
   const inboxSubItems = useMemo(() => {
@@ -394,6 +395,12 @@ const getUserRoleFromCookie = () => {
         icon: disposedIcon, 
         count: applicationCounts?.disposedCount || 0
       },
+      { 
+        name: "sent", 
+        label: "Sent", 
+        icon: sentIcon, 
+        count: 0 // Sent doesn't have a count
+      },
     ];
   }, [
     // Include stable icon references
@@ -401,6 +408,7 @@ const getUserRoleFromCookie = () => {
     returnedIcon,
     redFlaggedIcon,
     disposedIcon,
+    sentIcon,
     // Only re-create when counts actually change
     applicationCounts?.forwardedCount, 
     applicationCounts?.returnedCount, 
