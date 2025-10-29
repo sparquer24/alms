@@ -21,7 +21,8 @@ module.exports = {
   experimental: {
     forceSwcTransforms: true,
   },
-  // Completely disable static generation for error pages
+  // Add empty turbopack config to work with Next.js 16 Turbopack default
+  turbopack: {},
   // Custom webpack config to skip error page static generation
   webpack: (config, { isServer }) => {
     if (isServer) {
