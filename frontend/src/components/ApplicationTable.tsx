@@ -54,8 +54,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
   // Get applications from context
   const { applications: contextApplications } = useApplications();
   
-  // Check if we're on the drafts page
+  // Check if we're on the drafts page or sent page
   const isDraftsPage = pageType === 'drafts' || pageType === 'drafts';
+  const isSentPage = pageType === 'sent';
 
   // Local search state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -200,6 +201,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
               onSearchChange={setSearchQuery}
               onExportExcel={handleExportExcel}
               exportingExcel={exportingExcel}
+              isSentPage={isSentPage}
             />
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -211,6 +213,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
                 handleViewApplication={handleViewApplication}
                 handleEditDraft={handleEditDraft}
                 isDraftsPage={isDraftsPage}
+                isSentPage={isSentPage}
                 userRole={userRole}
                 // PDF button removed
                 isApplicationUnread={isApplicationUnread}
@@ -248,9 +251,10 @@ interface TableHeaderProps {
   onSearchChange: (value: string) => void;
   onExportExcel: () => void;
   exportingExcel: boolean;
+  isSentPage?: boolean;
 }
 
-const TableHeader: React.FC<TableHeaderProps> = ({ searchQuery, onSearchChange, onExportExcel, exportingExcel }) => (
+const TableHeader: React.FC<TableHeaderProps> = ({ searchQuery, onSearchChange, onExportExcel, exportingExcel, isSentPage = false }) => (
   <>
     <tr className="align-top">
       <th colSpan={6} className="px-4 pt-4 pb-2">
@@ -312,10 +316,18 @@ const TableHeader: React.FC<TableHeaderProps> = ({ searchQuery, onSearchChange, 
     </tr>
     <tr>
       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">S.No</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Applicant Name</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Application Type</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Date & Time</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Status</th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Acknowledgement No' : 'Applicant Name'}
+      </th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Applicant Name' : 'Application Type'}
+      </th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Created At' : 'Date & Time'}
+      </th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Action Taken' : 'Status'}
+      </th>
       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Action</th>
     </tr>
   </>
@@ -327,6 +339,7 @@ const TableRow: React.FC<{
   handleViewApplication: (id: string) => void;
   handleEditDraft: (id: string) => Promise<void>;
   isDraftsPage: boolean;
+  isSentPage?: boolean;
   userRole: string | null;
   // PDF generation removed
   isApplicationUnread: (app: ApplicationData) => boolean;
@@ -338,6 +351,7 @@ const TableRow: React.FC<{
   handleViewApplication,
   handleEditDraft,
   isDraftsPage,
+  isSentPage = false,
   userRole,
   // Removed PDF props
   isApplicationUnread,
@@ -354,6 +368,53 @@ const TableRow: React.FC<{
   const isDraftByStatus = Number(statusId) === 13 || String(statusId) === '13';
   const isDrafts = (isDraftsPage || isDraftByStatus) && isZSRole;
   
+  // Render different columns for sent page
+  if (isSentPage) {
+    return (
+      <tr
+        key={(app as any).workflowHistoryId || app.id}
+        className={`${styles.tableRow}`}
+        aria-label={`Row for sent application ${app.id}`}
+      >
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+          {(app as any).acknowledgementNo || 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewApplication(app.id);
+            }}
+            className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
+            aria-label={`View details for application ${app.id}`}
+          >
+            {app.applicantName}
+          </button>
+        </td>
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+          {formatDateTime((app as any).createdAt || app.applicationDate)}
+        </td>
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+          {(app as any).actionTaken || 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewApplication(app.id);
+            }}
+            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
+            aria-label={`View application ${app.id}`}
+          >
+            View
+          </button>
+        </td>
+      </tr>
+    );
+  }
+  
+  // Normal rendering for non-sent pages
   return (
     <tr
       key={app.id}

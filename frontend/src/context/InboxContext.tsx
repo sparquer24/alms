@@ -22,7 +22,8 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loadType = useCallback(async (type: string, force = false, statusIds?: number[]) => {
     if (!type) return;
-    const normalized = String(type).toLowerCase();
+    // Keep camelCase format for types like "reEnquiry"
+    const normalized = String(type);
     if (normalized === selectedType && !force) return; // already loaded
 
     // bump request id for this load, so we can ignore stale responses

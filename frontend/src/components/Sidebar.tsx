@@ -287,16 +287,8 @@ const getUserRoleFromCookie = () => {
           router.push(redirectPath);
         } else {
           // For other menu items, try to route to /inbox?type={item}
-          // Load applications using statusIds if available
-          const type = item.name.replace(/\s+/g, '').toLowerCase();
-          
-          // Use loadType with custom statusIds if available
-          if (item.statusIds && item.statusIds.length > 0) {
-            startTransition(() => {
-              loadType(type, true, item.statusIds).catch(() => {});
-            });
-          }
-          
+          // You may want to map item names to types as needed
+          const type = item.name.replace(/\s+/g, '');
           router.push(`/inbox?type=${encodeURIComponent(type)}`);
         }
       }
@@ -318,7 +310,8 @@ const getUserRoleFromCookie = () => {
       : currentPath === '/inbox' || currentPath.startsWith('/inbox');
 
     // Delegate loading to InboxContext which ensures a single fetch per type
-    const normalized = String(subItem).toLowerCase();
+    // Keep camelCase format for types like "reEnquiry" instead of converting to lowercase
+    const normalized = String(subItem);
     startTransition(() => {
       setActiveItem(activeItemKey);
       localStorage.setItem('activeNavItem', activeItemKey);
@@ -365,11 +358,12 @@ const getUserRoleFromCookie = () => {
     });
   }, [roleConfig, cookieRole, userRole]);
 
-  // Create stable icon functions to prevent recreating React elements
-  const getForwardedIcon = useCallback(() => <CornerUpRightFixed className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
-  const getReturnedIcon = useCallback(() => <Undo2Fixed className="w-6 h-6 mr-2" aria-label="Returned" />, []);
-  const getRedFlaggedIcon = useCallback(() => <FlagFixed className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
-  const getDisposedIcon = useCallback(() => <FolderCheckFixed className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  // Create stable icons outside of memoization to prevent recreating React elements
+  const forwardedIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
+  const returnedIcon = useMemo(() => <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, []);
+  const redFlaggedIcon = useMemo(() => <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
+  const disposedIcon = useMemo(() => <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  const sentIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2 transform rotate-180" aria-label="Sent" />, []);
 
   // Create highly stable inbox sub-items to prevent flickering
   const inboxSubItems = useMemo(() => {
@@ -377,34 +371,41 @@ const getUserRoleFromCookie = () => {
       { 
         name: "forwarded", 
         label: "Forwarded", 
-        icon: getForwardedIcon(), 
+        icon: forwardedIcon, 
         count: applicationCounts?.forwardedCount || 0
       },
       { 
         name: "returned", 
         label: "Returned", 
-        icon: getReturnedIcon(), 
+        icon: returnedIcon, 
         count: applicationCounts?.returnedCount || 0
       },
       { 
         name: "redFlagged", 
         label: "Red Flagged", 
-        icon: getRedFlaggedIcon(), 
+        icon: redFlaggedIcon, 
         count: applicationCounts?.redFlaggedCount || 0
       },
       { 
         name: "disposed", 
         label: "Disposed", 
-        icon: getDisposedIcon(), 
+        icon: disposedIcon, 
         count: applicationCounts?.disposedCount || 0
+      },
+      { 
+        name: "sent", 
+        label: "Sent", 
+        icon: sentIcon, 
+        count: 0 // Sent doesn't have a count
       },
     ];
   }, [
-    // Include stable icon functions
-    getForwardedIcon,
-    getReturnedIcon,
-    getRedFlaggedIcon,
-    getDisposedIcon,
+    // Include stable icon references
+    forwardedIcon,
+    returnedIcon,
+    redFlaggedIcon,
+    disposedIcon,
+    sentIcon,
     // Only re-create when counts actually change
     applicationCounts?.forwardedCount, 
     applicationCounts?.returnedCount, 

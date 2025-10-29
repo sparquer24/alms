@@ -209,6 +209,16 @@ tr.font-bold::before {
   color: #ffffff !important; /* keep white */
 }
 
+.sent {
+  background-color: #3B82F6;
+  color: white;
+}
+
+.tableRow:hover .sent {
+  background-color: #2563EB; /* darker blue */
+  color: #ffffff !important; /* keep white */
+}
+
 /* Loading state */
 .loadingContainer {
   display: flex;
