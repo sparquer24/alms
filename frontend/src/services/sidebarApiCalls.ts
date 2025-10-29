@@ -353,7 +353,7 @@ export const getStatusIdsForKey = (statusKey: string): number[] => {
  * @param statusKey - The status key to fetch applications for
  * @param customStatusIds - Optional custom status IDs from role-based menu items (cookie)
  */
-export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<ApplicationData[]> => {
+export const fetchApplicationsByStatusKey = async (statusKey: string, customStatusIds?: number[]): Promise<ApplicationData[]> => {
   // Special handling for 'sent' - use isSent parameter instead of status filtering
   if (statusKey === 'sent') {
     try {
@@ -395,7 +395,8 @@ export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<A
   }
 
   // Original logic for other status keys
-  const statusIds = getStatusIdsForKey(statusKey);
+  // Use custom statusIds if provided, otherwise use default mapping
+  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(statusKey);
   if (statusIds.length === 0) {
     return [];
   }
