@@ -275,7 +275,7 @@ const getUserRoleFromCookie = () => {
         } else {
           // For other menu items, try to route to /inbox?type={item}
           // You may want to map item names to types as needed
-          const type = item.name.replace(/\s+/g, '').toLowerCase();
+          const type = item.name.replace(/\s+/g, '');
           router.push(`/inbox?type=${encodeURIComponent(type)}`);
         }
       }
@@ -302,7 +302,8 @@ const getUserRoleFromCookie = () => {
       : currentPath === '/inbox' || currentPath.startsWith('/inbox');
 
     // Delegate loading to InboxContext which ensures a single fetch per type
-    const normalized = String(subItem).toLowerCase();
+    // Keep camelCase format for types like "reEnquiry" instead of converting to lowercase
+    const normalized = String(subItem);
     startTransition(() => {
       setActiveItem(activeItemKey);
       localStorage.setItem('activeNavItem', activeItemKey);
@@ -358,6 +359,7 @@ const getUserRoleFromCookie = () => {
   const returnedIcon = useMemo(() => <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, []);
   const redFlaggedIcon = useMemo(() => <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
   const disposedIcon = useMemo(() => <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  const sentIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2 transform rotate-180" aria-label="Sent" />, []);
 
   // Create highly stable inbox sub-items to prevent flickering
   const inboxSubItems = useMemo(() => {
@@ -393,6 +395,12 @@ const getUserRoleFromCookie = () => {
         icon: disposedIcon, 
         count: applicationCounts?.disposedCount || 0
       },
+      { 
+        name: "sent", 
+        label: "Sent", 
+        icon: sentIcon, 
+        count: 0 // Sent doesn't have a count
+      },
     ];
   }, [
     // Include stable icon references
@@ -400,6 +408,7 @@ const getUserRoleFromCookie = () => {
     returnedIcon,
     redFlaggedIcon,
     disposedIcon,
+    sentIcon,
     // Only re-create when counts actually change
     applicationCounts?.forwardedCount, 
     applicationCounts?.returnedCount, 

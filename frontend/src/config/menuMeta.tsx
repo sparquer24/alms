@@ -16,7 +16,8 @@ export type MenuMetaKey =
   | 'logout'
   | 'userManagement'
   | 'roleManagement'
-  | 'flowMapping';
+  | 'flowMapping' 
+  | "rejected";
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: React.ReactNode }> = {
   freshform: { label: "Fresh Form", icon: <FilePlus className="w-6 h-6 mr-2" aria-label="Fresh Form" /> },
@@ -25,6 +26,7 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: React.ReactNod
   closed: { label: "Closed", icon: <FolderCheck className="w-6 h-6 mr-2" aria-label="Closed" /> },
   final: { label: "Final Disposal", icon: <Archive className="w-6 h-6 mr-2" aria-label="Final Disposal" /> },
   finaldisposal: { label: "Final Disposal", icon: <Archive className="w-6 h-6 mr-2" aria-label="Final Disposal" /> },
+  rejected: { label: "Rejected", icon: <Archive className="w-6 h-6 mr-2" aria-label="Rejected" /> },
   drafts: { label: "Drafts", icon: <FileEdit className="w-6 h-6 mr-2" aria-label="Drafts" /> },
   reports: { label: "My Reports", icon: <BarChart2 className="w-6 h-6 mr-2" aria-label="My Reports" /> },
   analytics: { label: "Analytics", icon: <BarChart2 className="w-6 h-6 mr-2" aria-label="Analytics" /> },

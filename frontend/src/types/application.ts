@@ -3,6 +3,7 @@ export interface ApplicationQueryParams {
   page?: number;
   limit?: number;
   search?: string;
+  isSent?: boolean;
 }
 
 export interface Application {

@@ -356,10 +356,51 @@ export const getStatusIdsForKey = (statusKey: string): number[] => {
 };
 
 /**
- * Utility function to fetch applications by status key (from statusIdMap)
+ * Fetch applications by status key (forwarded, returned, redFlagged, disposed, etc.)
  * This is the recommended way for pages to fetch applications by status
  */
 export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<ApplicationData[]> => {
+  // Special handling for 'sent' - use isSent parameter instead of status filtering
+  if (statusKey === 'sent') {
+    try {
+      const response = await ApplicationApi.getAll({ isSent: true });
+      
+      if (!response?.success || !response?.data || !Array.isArray(response.data)) {
+        console.warn('⚠️ fetchApplicationsByStatusKey (sent): Invalid response data, returning empty array');
+        return [];
+      }
+
+      // Transform sent applications - they have different structure
+      // Backend returns: applicationId, acknowledgementNo, createdAt, applicantName, 
+      // workflowHistoryId, actionTakenAt, actionTaken, actionRemarks
+      const applications: ApplicationData[] = response.data.map((item: any) => ({
+        id: String(item.applicationId),
+        acknowledgementNo: item.acknowledgementNo,
+        applicantName: item.applicantName,
+        applicationDate: item.createdAt,
+        lastUpdated: item.actionTakenAt || item.createdAt,
+        status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
+        status_id: 999, // Unique ID for sent status (not from database)
+        // Fields not available in sent response - use empty/undefined defaults
+        applicantMobile: '', // Not included in workflow history response
+        applicationType: '', // Not included in workflow history response
+        currentUser: undefined,
+        assignedTo: '', // Not included in workflow history response
+        // Additional sent-specific fields from workflow history
+        actionTaken: item.actionTaken,
+        actionRemarks: item.actionRemarks,
+        actionTakenAt: item.actionTakenAt,
+        workflowHistoryId: item.workflowHistoryId,
+      }));
+
+      return applications;
+    } catch (error) {
+      console.error('❌ fetchApplicationsByStatusKey (sent) error:', error);
+      return [];
+    }
+  }
+
+  // Original logic for other status keys
   const statusIds = getStatusIdsForKey(statusKey);
   if (statusIds.length === 0) {
     console.warn(`⚠️ No status IDs mapped for status key: ${statusKey}`);
