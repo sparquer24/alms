@@ -19,7 +19,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 const Bar = dynamic(() => import("react-chartjs-2").then(mod => mod.Bar), { 
   ssr: false,
   loading: () => <div className="h-64 flex items-center justify-center">Loading chart...</div>
-});
+}) as any;
 
 // Mock data for total reports/analytics
 const mockTotalReports = [

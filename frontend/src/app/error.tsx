@@ -8,26 +8,31 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-600 to-orange-500 p-6">
-      <div className="max-w-md w-full bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 text-center text-white">
-        <h1 className="text-6xl font-bold mb-4">500</h1>
-        <h2 className="text-2xl font-semibold mb-4">Server Error</h2>
-        <p className="text-lg mb-6 opacity-90">
-          Something went wrong on our end. Please try again.
-        </p>
-        <button
-          onClick={reset}
-          className="inline-block px-6 py-3 bg-white text-red-600 font-semibold rounded-lg hover:scale-105 transition-transform mr-4"
-        >
-          Try again
-        </button>
-        <a 
-          href="/" 
-          className="inline-block px-6 py-3 bg-white/20 text-white font-semibold rounded-lg hover:scale-105 transition-transform"
-        >
-          Go home
-        </a>
-      </div>
-    </div>
+    <html>
+      <body>
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h1>500 - Server Error</h1>
+          <p>Something went wrong on our end. Please try again.</p>
+          <button 
+            onClick={reset}
+            style={{ 
+              padding: '10px 20px', 
+              margin: '10px', 
+              backgroundColor: '#007bff', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Try again
+          </button>
+          <br />
+          <a href="/" style={{ color: 'blue', textDecoration: 'underline' }}>
+            Go home
+          </a>
+        </div>
+      </body>
+    </html>
   );
 }

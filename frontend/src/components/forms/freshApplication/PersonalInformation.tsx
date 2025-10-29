@@ -1,6 +1,10 @@
 "use client";
 import React from 'react';
 import { IoMdMale, IoMdFemale } from 'react-icons/io';
+
+// Type assertions for react-icons to fix React 18 compatibility
+const IoMdMaleFixed = IoMdMale as any;
+const IoMdFemaleFixed = IoMdFemale as any;
 import { Input } from '../elements/Input';
 import { useRouter } from 'next/navigation';
 import FormFooter from '../elements/footer';
@@ -207,7 +211,7 @@ const PersonalInformation: React.FC = () => {
 								suppressHydrationWarning
 							/>
 							Male
-							<IoMdMale className="text-xl" /> 
+                                                        <IoMdMaleFixed className="text-xl" />
 						</label>
 						<label className="flex items-center gap-2">
 							<input
@@ -219,7 +223,7 @@ const PersonalInformation: React.FC = () => {
 								suppressHydrationWarning
 							/>
 							 Female
-							<IoMdFemale className="text-xl" />
+                                                        <IoMdFemaleFixed className="text-xl" />
 						</label>
 					</div>
 				</div>

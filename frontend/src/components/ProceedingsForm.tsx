@@ -3,6 +3,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Select from 'react-select';
+
+// Type assertion for react-select to fix React 18 compatibility
+const SelectFixed = Select as any;
 import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
 import { EnhancedTextEditor } from './RichTextEditor';
@@ -802,16 +805,16 @@ Yours faithfully,
               Action Type <span className={styles.required}>*</span>
             </label>
             <div className={styles.selectContainer}>
-              <Select
+              <SelectFixed
                 options={actionOptions}
                 value={selectedAction}
-                onChange={(opt) => setSelectedAction(opt as ActionOption || null)}
+                onChange={(opt: any) => setSelectedAction(opt as ActionOption || null)}
                 placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
                 isLoading={actionsLoading}
                 isDisabled={isSubmitting || actionsLoading}
                 className="text-sm"
                 styles={{
-                  control: (provided, state) => ({
+                  control: (provided: any, state: any) => ({
                     ...provided,
                     borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
                     boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
@@ -839,7 +842,7 @@ Yours faithfully,
               <span className={styles.required}>*</span>
             </label>
             <div className={styles.selectContainer} ref={nextUserRef}>
-              <Select
+              <SelectFixed
                 options={userOptions}
                 value={nextUser}
                 onChange={setNextUser}
@@ -850,7 +853,7 @@ Yours faithfully,
                 isDisabled={isSubmitting || fetchingUsers}
                 className="text-sm"
                 styles={{
-                  control: (provided, state) => ({
+                  control: (provided: any, state: any) => ({
                     ...provided,
                     borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
                     boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
@@ -15,7 +15,8 @@ import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-export default function FreshFormPage() {
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+function FreshFormContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -200,5 +201,14 @@ export default function FreshFormPage() {
             </div>
       </main>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function FreshFormPage() {
+  return (
+    <Suspense fallback={<PageLayoutSkeleton />}>
+      <FreshFormContent />
+    </Suspense>
   );
 }

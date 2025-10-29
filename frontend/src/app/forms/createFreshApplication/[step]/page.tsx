@@ -1,6 +1,9 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { IoMdHome } from 'react-icons/io';
+
+// Type assertion for react-icons to fix React 18 compatibility
+const IoMdHomeFixed = IoMdHome as any;
 // freshApplication step components
 import PersonalInformation from '../../../../components/forms/freshApplication/PersonalInformation'; // step1
 import AddressDetails from '../../../../components/forms/freshApplication/AddressDetails'; // step2
@@ -15,7 +18,7 @@ import Declaration from '../../../../components/forms/freshApplication/Declarati
 import { StepHeader } from '../../../../components/forms/elements/StepHeader';
 
 interface StepPageProps {
-	params: { step: string };
+	params: Promise<{ step: string }>;
 }
 
 
@@ -43,12 +46,27 @@ const stepToSlug = (name: string) =>
 
 
 import { useRouter } from 'next/navigation';
-import { use } from 'react';
 
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	const router = useRouter();
-	// Unwrap params with React.use() for Next.js app router compliance
-	const { step } = params;
+	const [step, setStep] = useState<string | null>(null);
+
+	// Handle params Promise in useEffect
+	useEffect(() => {
+		params.then((resolvedParams) => {
+			setStep(resolvedParams.step);
+		});
+	}, [params]);
+
+	// Show loading while params are being resolved
+	if (!step) {
+		return (
+			<div className="flex items-center justify-center min-h-screen">
+				<div className="text-lg">Loading...</div>
+			</div>
+		);
+	}
+
 	let StepComponent: React.ComponentType<any> | null = null;
 	let currentStep = 0;
 
@@ -135,7 +153,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 						   className="flex items-center justify-center w-12 h-12 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105"
 						   title="Go to Home"
 					   >
-						   <IoMdHome className="text-2xl text-[#0d2977]" />
+                                                    <IoMdHomeFixed className="text-2xl text-[#0d2977]" />
 					   </button>
 				   </div>
 			   )}

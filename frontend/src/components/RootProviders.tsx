@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { store } from '../store/store';
 import { AuthProvider } from '../config/auth';
 import { LayoutProvider } from '../config/layoutContext';
-import { NotificationProvider } from '../config/notificationContext';
+import NotificationProvider from '../config/notificationContext';
 import { AdminAuthProvider } from '../context/AdminAuthContext';
 import AuthInitializer from './AuthInitializer';
 import { UserProvider } from '../context/UserContext';

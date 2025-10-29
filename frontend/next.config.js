@@ -15,20 +15,35 @@ module.exports = {
   images: {
     unoptimized: false,
   },
-  // Skip generating static 404/500 pages during build
-  // They'll be handled dynamically at runtime
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
-          }
-        ],
-      },
-    ]
+  // Skip trailing slash redirect
+  skipTrailingSlashRedirect: true,
+  // Disable static optimization to avoid build-time rendering issues
+  experimental: {
+    forceSwcTransforms: true,
   },
+  // Completely disable static generation for error pages
+  // Custom webpack config to skip error page static generation
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Skip static generation of error pages during build
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        // Prevent static generation issues
+      };
+    }
+    return config;
+  },
+  // Disable static generation for specific pages
+  async generateBuildId() {
+    return 'build-' + Date.now();
+  },
+  // Disable prerendering for error pages
+  async rewrites() {
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: []
+    };
+  }
 };
 

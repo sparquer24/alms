@@ -2,6 +2,9 @@
 import React, { useState } from 'react';
 import { Checkbox } from '../elements/Checkbox';
 import { Frown } from 'lucide-react';
+
+// Type assertion for lucide-react icons to fix React 18 compatibility
+const FrownFixed = Frown as any;
 import FormFooter from '../elements/footer';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { patchData } from '../../../api/axiosConfig';
@@ -115,7 +118,7 @@ const Declaration = () => {
 						{error && (
 							<div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-auto">
 								<div className="flex items-start">
-									<Frown className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                                                                        <FrownFixed className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
 									<p className="text-sm text-red-800">{error}</p>
 								</div>
 							</div>

@@ -32,6 +32,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessModalOpen, setIsProcessModalOpen] = useState(false);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
   const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
   const [showPrintOptions, setShowPrintOptions] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -176,9 +177,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   };
   
-  // Unwrap params using React.use()
-  const resolvedParams = React.use(params);
-  const applicationId = resolvedParams.id;
+  // Handle params Promise for React 18 compatibility
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setApplicationId(resolvedParams.id);
+    });
+  }, [params]);
   
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -203,7 +207,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        const result = await getApplicationByApplicationId(applicationId);
+        const result = await getApplicationByApplicationId(applicationId!);
         if (result) {
           setApplication(result as ApplicationData);
         } else {
@@ -436,7 +440,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     
     // Reload the application data to get the latest workflow history
     if (applicationId) {
-      getApplicationByApplicationId(applicationId).then((result) => {
+      getApplicationByApplicationId(applicationId!).then((result) => {
         if (result) {
           setApplication(result as ApplicationData);
         }
@@ -1201,7 +1205,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   <div className="p-4 bg-gray-50">
                                     <div className="p-4">
                                       <ProceedingsForm
-                                        applicationId={applicationId}
+                                        applicationId={applicationId!}
                                         onSuccess={handleProceedingsSuccess}
                                         userRole={userRole}
                                         applicationData={application || undefined}
@@ -1488,7 +1492,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 <div className="w-2 h-8 bg-blue-600 rounded-full mr-4"></div>
                                 <div>
                                   <h2 className="text-2xl font-bold text-gray-900">Proceedings</h2>
-                                  <p className="text-gray-600 mt-1">Process application #{applicationId}</p>
+                                  <p className="text-gray-600 mt-1">Process application #{applicationId!}</p>
                                 </div>
                               </div>
                               <button
@@ -1502,7 +1506,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             </div>
                             <div className="p-6 lg:p-8">
                               <ProceedingsForm
-                                applicationId={applicationId}
+                                applicationId={applicationId!}
                                 onSuccess={handleProceedingsSuccess}
                                 userRole={userRole}
                                 applicationData={application || undefined}

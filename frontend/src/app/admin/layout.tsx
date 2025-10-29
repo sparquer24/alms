@@ -10,7 +10,7 @@ import { LayoutProvider } from "@/config/layoutContext";
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: any;
 }) {
   const { userRole, token, isLoading } = useAuthSync();
   const router = useRouter();

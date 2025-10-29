@@ -168,10 +168,18 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Simple helpers for preview rendering
   const YesNo = (v?: any) => (v === true || v === 'yes' || v === 'Yes') ? 'Yes' : (v === false || v === 'no' || v === 'No') ? 'No' : (v ?? '-');
-  const listOrDash = (arr?: any[]) => (Array.isArray(arr) && arr.length > 0 ? arr : ['-']);
-  const Field: React.FC<{ label: string; value: any }> = ({ label, value }) => (
-    <p className="flex"><span className="text-gray-500 min-w-[200px] inline-block">{label}:</span> <span className="ml-1 break-all">{value ?? '-'}</span></p>
-  );
+  const listOrDash = (arr?: any[]) => (Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '-');
+  const Field: React.FC<{ label: string; value: any }> = ({ label, value }) => {
+    const displayValue = (() => {
+      if (value === null || value === undefined) return '-';
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    })();
+    
+    return (
+      <p className="flex"><span className="text-gray-500 min-w-[200px] inline-block">{label}:</span> <span className="ml-1 break-all">{displayValue}</span></p>
+    );
+  };
 
   // Helper to set nested values like `formIVDetails.licenseArea`
   const setValueByPath = (obj: any, path: string, value: any) => {

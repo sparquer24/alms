@@ -1,6 +1,9 @@
 "use client";
 
 import Link from 'next/link';
+
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
 import { usePathname } from 'next/navigation';
 
 interface BreadcrumbItem {
@@ -70,12 +73,12 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
               </svg>
             )}
             {item.href && index < breadcrumbItems.length - 1 ? (
-              <Link
+              <LinkFixed
                 href={item.href}
                 className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
               >
                 {item.label}
-              </Link>
+              </LinkFixed>
             ) : (
               <span className="text-sm font-medium text-gray-500">
                 {item.label}

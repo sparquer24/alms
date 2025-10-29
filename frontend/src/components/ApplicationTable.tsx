@@ -8,6 +8,9 @@ import { useAuth } from '../config/auth';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi } from '../config/APIClient';
 import { Edit } from 'lucide-react';
+
+// Type assertion for lucide-react icons to fix React 18 compatibility
+const EditFixed = Edit as any;
 // Note: Excel export uses dynamic import of 'xlsx' to avoid SSR issues
 
 interface UserData {
@@ -411,7 +414,7 @@ const TableRow: React.FC<{
             className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
             aria-label={`Edit draft application ${app.id}`}
           >
-            <Edit className="w-4 h-4" />
+            <EditFixed className="w-4 h-4" />
             Edit
           </button>
         ) : (

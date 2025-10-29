@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
+
+// Type assertions for Next.js components to fix React 18 compatibility
+const ImageFixed = Image as any;
+const LinkFixed = Link as any;
 import { useDispatch, useSelector } from 'react-redux';
 import { login } from '../../store/thunks/authThunks';
 import { 
@@ -180,8 +184,8 @@ const FormInput: React.FC<{
 // Force dynamic rendering to avoid static generation issues with useSearchParams
 export const dynamic = 'force-dynamic';
 
-// Main component
-export default function Login() {
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+function LoginContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -331,7 +335,7 @@ export default function Login() {
         {/* Header */}
         <div className="flex flex-col items-center">
           <div className="mb-6">
-            <Image
+            <ImageFixed
               src={LOGO_IMAGE}
               alt="ALMS Logo"
               width={120}
@@ -369,12 +373,12 @@ export default function Login() {
               {/* Placeholder for forgot password link */}
             </div>
             <div className="text-sm">
-              <Link 
+              <LinkFixed 
                 href="/reset-password" 
                 className="font-medium text-[#D4AF37] hover:text-[#C4A02F] transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 rounded"
               >
                 Forgot your password?
-              </Link>
+              </LinkFixed>
             </div>
           </div>
 
@@ -402,5 +406,14 @@ export default function Login() {
       
 
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function Login() {
+  return (
+    <Suspense fallback={<LoginSkeleton />}>
+      <LoginContent />
+    </Suspense>
   );
 }

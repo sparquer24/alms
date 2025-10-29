@@ -1,9 +1,19 @@
 import React, { memo, useCallback, useMemo, useState, useEffect, startTransition } from "react";
 import Image from "next/image";
+
+// Type assertion for Next.js Image to fix React 18 compatibility
+const ImageFixed = Image as any;
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
+
+// Type assertions for lucide-react icons to fix React 18 compatibility
+const CornerUpRightFixed = CornerUpRight as any;
+const Undo2Fixed = Undo2 as any;
+const FlagFixed = Flag as any;
+const FolderCheckFixed = FolderCheck as any;
+const ChartBarIconFixed = ChartBarIcon as any;
 
 import { logoutUser } from "../store/thunks/authThunks";
 import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
@@ -349,17 +359,17 @@ const getUserRoleFromCookie = () => {
       return {
         name: item.name,
         label: menuMeta[key]?.label || item.name,
-        icon: iconFn ? iconFn() : null,
+        icon: iconFn ? (iconFn() as any) : null,
         statusIds: item.statusIds, // Include statusIds from role config
       };
     });
   }, [roleConfig, cookieRole, userRole]);
 
   // Create stable icon functions to prevent recreating React elements
-  const getForwardedIcon = useCallback(() => <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
-  const getReturnedIcon = useCallback(() => <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, []);
-  const getRedFlaggedIcon = useCallback(() => <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
-  const getDisposedIcon = useCallback(() => <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  const getForwardedIcon = useCallback(() => <CornerUpRightFixed className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
+  const getReturnedIcon = useCallback(() => <Undo2Fixed className="w-6 h-6 mr-2" aria-label="Returned" />, []);
+  const getRedFlaggedIcon = useCallback(() => <FlagFixed className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
+  const getDisposedIcon = useCallback(() => <FolderCheckFixed className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
 
   // Create highly stable inbox sub-items to prevent flickering
   const inboxSubItems = useMemo(() => {
@@ -420,7 +430,7 @@ const getUserRoleFromCookie = () => {
         md:opacity-100 md:transform md:translate-x-0 md:pointer-events-auto`}
       >
         <div className="p-4 flex items-center border-b border-gray-100">
-          <Image src="/icon-alms.svg" alt="Arms License Icon" width={52} height={52} className="mr-2" />
+          <ImageFixed src="/icon-alms.svg" alt="Arms License Icon" width={52} height={52} className="mr-2" />
           <h1 className="text-lg font-bold">Arms License</h1>
         </div>
         <div className="bg-[#001F54] text-white p-4 flex items-center">
@@ -443,7 +453,7 @@ const getUserRoleFromCookie = () => {
                   className={`flex items-center w-full px-4 py-2 rounded-md text-left ${isInboxOpen ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"}`}
                 >
                 <span className="inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors" aria-hidden="true">
-                  {menuMeta.inbox.icon()}
+                  {menuMeta.inbox.icon() as any}
                 </span>
                   <span className="flex-grow">{menuMeta.inbox.label}</span>
                   <span className="ml-2">{isInboxOpen ? '▾' : '▸'}</span>

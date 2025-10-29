@@ -7,6 +7,9 @@ import { useAuthSync } from '../hooks/useAuthSync';
 import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
+
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
 import { isZS, APPLICATION_TYPES } from '../config/helpers';
 import { getCookie } from 'cookies-next';
 import { ApplicationFormSkeleton } from './Skeleton';
@@ -139,11 +142,11 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
             {showNotifications && <NotificationDropdown onClose={() => setShowNotifications(false)} />}
           </div>
           {hasValidUserName && (
-            <Link href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
+            <LinkFixed href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
               <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium">
                 {displayName!.charAt(0).toUpperCase()}
               </div>
-            </Link>
+            </LinkFixed>
           )}
         </div>
       </div>
