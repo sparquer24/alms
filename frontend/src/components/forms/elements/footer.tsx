@@ -3,6 +3,11 @@
 import { FaRegSave } from "react-icons/fa";
 import { FiArrowRight, FiArrowLeft } from "react-icons/fi";
 
+// Type assertions for react-icons to fix React 18 compatibility
+const FaRegSaveFixed = FaRegSave as any;
+const FiArrowRightFixed = FiArrowRight as any;
+const FiArrowLeftFixed = FiArrowLeft as any;
+
 
 interface FormFooterProps {
   isDeclarationStep?: boolean;
@@ -14,7 +19,7 @@ interface FormFooterProps {
   isLoading?: boolean;
 }
 
-const FormFooter: React.FC<FormFooterProps> = ({ 
+const FormFooter = ({ 
   isDeclarationStep, 
   hidePrevious = false,
   onSaveToDraft, 
@@ -22,7 +27,7 @@ const FormFooter: React.FC<FormFooterProps> = ({
   onPrevious, 
   onSubmit,
   isLoading = false 
-}) => (
+}: FormFooterProps) => (
   <footer className="w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]">
     <div className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-[#1A237E]">
       <span>SCHEDULE–III Part – II</span>
@@ -48,7 +53,7 @@ const FormFooter: React.FC<FormFooterProps> = ({
             suppressHydrationWarning
             className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-6 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FiArrowLeft className="text-lg" />
+            <FiArrowLeftFixed className="text-lg" />
             Previous
           </button>
           )}
@@ -69,7 +74,7 @@ const FormFooter: React.FC<FormFooterProps> = ({
             suppressHydrationWarning
             className="flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FaRegSave className="text-lg" />
+            <FaRegSaveFixed className="text-lg" />
             {isLoading ? 'Saving...' : 'Save to Draft'}
           </button>
 
@@ -80,7 +85,7 @@ const FormFooter: React.FC<FormFooterProps> = ({
             suppressHydrationWarning
             className="flex items-center gap-2 border border-blue-900 text-blue-900 font-semibold px-4 py-2 rounded-md bg-white hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FiArrowLeft className="text-lg" />
+            <FiArrowLeftFixed className="text-lg" />
             Previous
           </button>
           )}
@@ -91,7 +96,7 @@ const FormFooter: React.FC<FormFooterProps> = ({
             className="flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Saving...' : 'Next'}
-            <FiArrowRight className="text-lg" />
+            <FiArrowRightFixed className="text-lg" />
           </button>
         </div>
       )}

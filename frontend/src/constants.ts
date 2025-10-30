@@ -8,5 +8,5 @@ export const DATATABLE_ROLE_CONFIG = {
     // Add other role groups as needed
 };
 
-export const DASHBOARD_ROLE_CONFIG = ['SHO','DCP','CADO','STORE','JTCP','CP']
+export const DASHBOARD_ROLE_CONFIG = ['SHO','DCP','CADO','STORE','JTCP','CP','AS']
 

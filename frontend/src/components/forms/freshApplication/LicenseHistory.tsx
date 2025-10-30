@@ -7,6 +7,7 @@ import { WeaponsService, Weapon } from '../../../services/weapons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import FileUploadService from '../../../services/fileUploadService';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] }; // Use weapon IDs instead of strings
 
@@ -17,8 +18,11 @@ const initialState = {
 const LicenseHistory = () => {
 	const [appliedBefore, setAppliedBefore] = useState('no');
 	const [appliedDetails, setAppliedDetails] = useState({ date: '', authority: '', result: '' });
-	const [rejectedFile, setRejectedFile] = useState<File | null>(null);
+	const [rejectedFiles, setRejectedFiles] = useState<File[]>([]);
 	const [fileError, setFileError] = useState<string>('');
+	const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+	const [uploading, setUploading] = useState<boolean>(false);
+	const [uploadProgress, setUploadProgress] = useState<Record<string, boolean>>({});
 	const [suspended, setSuspended] = useState('no');
 	const [suspendedDetails, setSuspendedDetails] = useState({ authority: '', reason: '' });
 	const [family, setFamily] = useState('no');
@@ -29,6 +33,9 @@ const LicenseHistory = () => {
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
+	
+	// Add flag to prevent backend data from overwriting fresh form data
+	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
 
 	const router = useRouter();
 	
@@ -52,13 +59,70 @@ const LicenseHistory = () => {
 
 	// Load existing data into local state when form data changes
 	useEffect(() => {
-		if (form.licenseHistories && form.licenseHistories.length > 0) {
-			// Parse license histories from backend format
-			const histories = form.licenseHistories;
-			console.log('Loaded license histories:', histories);
-			// TODO: Map backend data to local state format
+		// Skip loading if we're currently updating the form to prevent overwriting
+		if (isUpdatingForm) {
+			return;
 		}
-	}, [form.licenseHistories]);
+		
+		if (form.licenseHistories && form.licenseHistories.length > 0) {
+			const history = form.licenseHistories[0]; // Get the first license history record
+			// Map backend data to local state
+			if (history.hasAppliedBefore !== undefined) {
+				setAppliedBefore(history.hasAppliedBefore ? 'yes' : 'no');
+				
+				if (history.hasAppliedBefore && (history.dateAppliedFor || history.previousAuthorityName || history.previousResult)) {
+					setAppliedDetails({
+						date: history.dateAppliedFor ? history.dateAppliedFor.split('T')[0] : '',
+						authority: history.previousAuthorityName || '',
+						result: history.previousResult?.toLowerCase() || ''
+					});
+				}
+			}
+			
+			if (history.hasLicenceSuspended !== undefined) {
+				setSuspended(history.hasLicenceSuspended ? 'yes' : 'no');
+				
+				if (history.hasLicenceSuspended && (history.suspensionAuthorityName || history.suspensionReason)) {
+					setSuspendedDetails({
+						authority: history.suspensionAuthorityName || '',
+						reason: history.suspensionReason || ''
+					});
+				}
+			}
+			
+			if (history.hasFamilyLicence !== undefined) {
+				setFamily(history.hasFamilyLicence ? 'yes' : 'no');
+				
+				if (history.hasFamilyLicence && (history.familyMemberName || history.familyLicenceNumber || history.familyWeaponsEndorsed)) {
+					// Map weapon names back to IDs
+					const weaponIds = (history.familyWeaponsEndorsed || []).map((weaponName: string) => {
+						const weapon = weapons.find(w => w.name === weaponName);
+						return weapon ? weapon.id : 0;
+					}).filter((id: number) => id !== 0);
+					
+					setFamilyDetails([{
+						name: history.familyMemberName || '',
+						licenseNumber: history.familyLicenceNumber || '',
+						weapons: weaponIds.length > 0 ? weaponIds : [0]
+					}]);
+				}
+			}
+			
+			if (history.hasSafePlace !== undefined) {
+				setSafePlace(history.hasSafePlace ? 'yes' : 'no');
+				if (history.hasSafePlace && history.safePlaceDetails) {
+					setSafePlaceDetails(history.safePlaceDetails);
+				}
+			}
+			
+			if (history.hasTraining !== undefined) {
+				setTraining(history.hasTraining ? 'yes' : 'no');
+				if (history.hasTraining && history.trainingDetails) {
+					setTrainingDetails(history.trainingDetails);
+				}
+			}
+		}
+	}, [form.licenseHistories, weapons, isUpdatingForm]); // Include isUpdatingForm in dependency array
 
 	// Fetch weapons on component mount
 	useEffect(() => {
@@ -69,7 +133,6 @@ const LicenseHistory = () => {
 				const items = (list || []).map(w => ({ id: w.id, name: w.name })) as Weapon[];
 				setWeapons(items);
 			} catch (e) {
-				console.error('Error loading weapons list', e);
 				// Fallback weapons if API fails
 				setWeapons([
 					{ id: 1, name: 'Pistol' },
@@ -89,14 +152,144 @@ const LicenseHistory = () => {
 		setAppliedDetails(prev => ({ ...prev, [name]: value }));
 	};
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const files = e.target.files;
 		setFileError('');
-		if (file && file.size > 5 * 1024 * 1024) {
-			setFileError('File size should not exceed 5MB');
+		
+		if (!files || files.length === 0) return;
+		
+		const newFiles: File[] = [];
+		const maxSize = 5 * 1024 * 1024; // 5MB
+		
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			
+			// Check file size
+			if (file.size > maxSize) {
+				setFileError(`File "${file.name}" exceeds 5MB size limit`);
+				return;
+			}
+			
+			// Validate file type
+			const validation = FileUploadService.validateFile(file);
+			if (!validation.isValid) {
+				setFileError(`File "${file.name}": ${validation.error}`);
+				return;
+			}
+			
+			// Check if file already exists
+			const isDuplicate = rejectedFiles.some(existingFile => 
+				existingFile.name === file.name && existingFile.size === file.size
+			);
+			
+			if (!isDuplicate) {
+				newFiles.push(file);
+			}
+		}
+		
+		if (newFiles.length > 0) {
+			// Add files to local state first
+			setRejectedFiles(prev => [...prev, ...newFiles]);
+			
+			// Upload files if applicationId is available
+			if (applicantId) {
+				await uploadFiles(newFiles);
+			}
+		}
+		
+		// Clear the input so the same file can be selected again if needed
+		e.target.value = '';
+	};
+
+	const uploadFiles = async (files: File[]) => {
+		if (!applicantId) {
 			return;
 		}
-		setRejectedFile(file || null);
+
+		setUploading(true);
+		
+		try {
+			const uploadPromises = files.map(async (file) => {
+				const fileKey = `${file.name}_${file.size}`;
+				setUploadProgress(prev => ({ ...prev, [fileKey]: true }));
+				
+				try {
+					const result = await FileUploadService.uploadFileWithStorage(
+						Number(applicantId),
+						file,
+						'REJECTED_LICENSE', // Specific file type for rejected license documents
+					);
+					setUploadProgress(prev => ({ ...prev, [fileKey]: false }));
+					return result;
+				} catch (error) {
+					setUploadProgress(prev => ({ ...prev, [fileKey]: false }));
+					throw error;
+				}
+			});
+
+			const results = await Promise.allSettled(uploadPromises);
+			
+			const successful = results
+				.filter(result => result.status === 'fulfilled')
+				.map(result => (result as PromiseFulfilledResult<any>).value);
+			
+			const failed = results
+				.filter(result => result.status === 'rejected')
+				.map(result => (result as PromiseRejectedResult).reason);
+
+			if (successful.length > 0) {
+				setUploadedFiles(prev => [...prev, ...successful]);
+				// Show success message
+				setSubmitSuccess(`Successfully uploaded ${successful.length} file(s)`);
+				setTimeout(() => setSubmitSuccess(''), 3000);
+			}
+
+			if (failed.length > 0) {
+				setFileError(`Failed to upload ${failed.length} file(s). Please try again.`);
+			}
+
+		} catch (error) {
+			setFileError('Failed to upload files. Please try again.');
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	// Retry upload for files that haven't been uploaded yet
+	const retryUploads = async () => {
+		if (!applicantId) {
+			setFileError('Please save your application data first');
+			return;
+		}
+
+		const pendingFiles = rejectedFiles.filter(file => 
+			!uploadedFiles.some(uploaded => uploaded.fileName === file.name)
+		);
+
+		if (pendingFiles.length > 0) {
+			await uploadFiles(pendingFiles);
+		}
+	};
+
+	const removeFile = (index: number) => {
+		const fileToRemove = rejectedFiles[index];
+		if (fileToRemove) {
+			// Remove from local files array
+			setRejectedFiles(prev => prev.filter((_, i) => i !== index));
+			
+			// Remove from uploaded files array if it was uploaded
+			setUploadedFiles(prev => prev.filter(uploaded => uploaded.fileName !== fileToRemove.name));
+			
+			// Clean up upload progress
+			const fileKey = `${fileToRemove.name}_${fileToRemove.size}`;
+			setUploadProgress(prev => {
+				const newProgress = { ...prev };
+				delete newProgress[fileKey];
+				return newProgress;
+			});
+		}
+		
+		setFileError('');
 	};
 
 	const handleSuspendedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -128,7 +321,6 @@ const LicenseHistory = () => {
 		));
 	};
 
-	const addFamily = () => setFamilyDetails(prev => [...prev, { ...initialFamily }]);
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
 
 	// Show loading state if data is being loaded
@@ -137,52 +329,124 @@ const LicenseHistory = () => {
 			<div className="p-6">
 				<h2 className="text-xl font-bold mb-4">License History</h2>
 				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading existing data...</div>
+					<div className="text-gray-500">Loading...</div>
 				</div>
 			</div>
 		);
 	}
 
 	const transformFormData = () => {
-		// Transform to new API format matching the payload structure
+		// Transform to new API format matching the exact backend payload structure
 		return [{
 			hasAppliedBefore: appliedBefore === 'yes',
-			applicationDetails: appliedBefore === 'yes' ? JSON.stringify(appliedDetails) : undefined,
+			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? new Date(appliedDetails.date).toISOString() : null,
+			previousAuthorityName: appliedBefore === 'yes' ? appliedDetails.authority || null : null,
+			previousResult: appliedBefore === 'yes' ? appliedDetails.result?.toUpperCase() || null : null,
+			rejectedLicenseFiles: appliedDetails.result === 'rejected' ? rejectedFiles.map(file => ({
+				name: file.name,
+				size: file.size,
+				type: file.type
+			})) : [],
 			hasLicenceSuspended: suspended === 'yes',
-			suspensionDetails: suspended === 'yes' ? JSON.stringify(suspendedDetails) : undefined,
+			suspensionAuthorityName: suspended === 'yes' ? suspendedDetails.authority || null : null,
+			suspensionReason: suspended === 'yes' ? suspendedDetails.reason || null : null,
 			hasFamilyLicence: family === 'yes',
-			familyLicenceDetails: family === 'yes' ? JSON.stringify(familyDetails) : undefined,
+			familyMemberName: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].name || null : null,
+			familyLicenceNumber: family === 'yes' && familyDetails.length > 0 ? familyDetails[0].licenseNumber || null : null,
+			familyWeaponsEndorsed: family === 'yes' && familyDetails.length > 0 
+				? familyDetails[0].weapons
+					.filter(weaponId => weaponId !== 0) // Filter out unselected weapons
+					.map(weaponId => {
+						const weapon = weapons.find(w => w.id === weaponId);
+						return weapon ? weapon.name : null;
+					})
+					.filter(Boolean) // Remove null values
+				: [],
 			hasSafePlace: safePlace === 'yes',
-			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails : undefined,
+			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails || null : null,
 			hasTraining: training === 'yes',
-			trainingDetails: training === 'yes' ? trainingDetails : undefined,
+			trainingDetails: training === 'yes' ? trainingDetails || null : null,
 		}];
 	};
 
 	const handleSaveToDraft = async () => {
+		// Debug current state before transformation
 		// Transform local state to API format before saving
 		const licenseHistories = transformFormData();
-		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 License History Payload:', licenseHistories);
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
 		
-		await saveFormData();
+		// Instead of using setForm which might get overridden, pass the data directly
+		// Create the form data structure that includes the license histories
+		const formDataToSave = {
+			...form,
+			licenseHistories
+		};
+		
+		// Add debugging to see what's in the form state right before save
+		// Also update the form state for UI consistency
+		setForm((prev: any) => ({ ...prev, licenseHistories }));
+		
+		// Pass the correct license histories directly to saveFormData to avoid timing issues
+		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		
+		// If we have pending files and now have an application ID, upload them
+		if (savedApplicantId && rejectedFiles.length > 0) {
+			const pendingFiles = rejectedFiles.filter(file => 
+				!uploadedFiles.some(uploaded => uploaded.fileName === file.name)
+			);
+			
+			if (pendingFiles.length > 0) {
+				await uploadFiles(pendingFiles);
+			}
+		}
+		
+		// Reset flag after a delay to allow for data loading
+		setTimeout(() => setIsUpdatingForm(false), 1000);
 	};
 
 	const handleNext = async () => {
+		// Debug current state before transformation
 		// Transform local state to API format before saving
 		const licenseHistories = transformFormData();
-		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
 		// Log the payload being sent
-		console.log('🟡 License History Payload:', licenseHistories);
+		// Set flag to prevent useEffect from overwriting our data
+		setIsUpdatingForm(true);
 		
-		const savedApplicantId = await saveFormData();
+		// Instead of using setForm which might get overridden, pass the data directly
+		// Create the form data structure that includes the license histories
+		const formDataToSave = {
+			...form,
+			licenseHistories
+		};
+		
+		// Add debugging to see what's in the form state right before save
+		// Also update the form state for UI consistency
+		setForm((prev: any) => ({ ...prev, licenseHistories }));
+		
+		// Pass the correct license histories directly to saveFormData to avoid timing issues
+		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		
+		// If we have pending files and now have an application ID, upload them before proceeding
+		if (savedApplicantId && rejectedFiles.length > 0) {
+			const pendingFiles = rejectedFiles.filter(file => 
+				!uploadedFiles.some(uploaded => uploaded.fileName === file.name)
+			);
+			
+			if (pendingFiles.length > 0) {
+				await uploadFiles(pendingFiles);
+			}
+		}
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, savedApplicantId);
 		}
+		
+		// Reset flag after navigation
+		setTimeout(() => setIsUpdatingForm(false), 1000);
 	};
 
 	const handlePrevious = async () => {
@@ -257,10 +521,98 @@ const LicenseHistory = () => {
 						</div>
 						{appliedDetails.result === 'rejected' && (
 							<div className="col-span-2">
-								<label className="block text-sm font-medium text-gray-700 mb-1">Upload Rejection Document (Optional)</label>
-								<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileChange} className="w-full p-2 border border-gray-300 rounded-md" />
-								{fileError && <div className="text-red-600 text-sm mt-1">{fileError}</div>}
-								{rejectedFile && <div className="text-green-600 text-sm mt-1">File selected: {rejectedFile.name}</div>}
+								<label className="block text-sm font-medium text-gray-700 mb-2">
+									Upload previously rejected license documents
+								</label>
+								
+								{/* Upload Button */}
+								<div className="mb-3">
+									<label className={`inline-flex items-center gap-2 px-4 py-2 rounded-md cursor-pointer transition-colors ${uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>
+										<span>📤</span>
+										<span>{uploading ? 'Uploading...' : 'Choose Files'}</span>
+										<input 
+											type="file" 
+											accept=".pdf,.jpg,.jpeg,.png" 
+											onChange={handleFileChange} 
+											className="hidden"
+											multiple
+											disabled={uploading}
+										/>
+									</label>
+									<span className="ml-3 text-sm text-gray-500">
+										Multiple files allowed (Max 5MB each)
+									</span>
+									{rejectedFiles.length > 0 && !applicantId && (
+										<div className="mt-2 text-sm text-orange-600">
+											⚠️ Files will be uploaded automatically once you save your application data
+										</div>
+									)}
+								</div>
+
+								{/* Error Message */}
+								{fileError && (
+									<div className="text-red-600 text-sm mb-3 p-2 bg-red-50 border border-red-200 rounded">
+										{fileError}
+									</div>
+								)}
+
+								{/* Uploaded Files List */}
+								{rejectedFiles.length > 0 && (
+									<div className="border border-gray-200 rounded-md">
+										<div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+											<span className="text-sm font-medium text-gray-700">
+												Selected Files ({rejectedFiles.length})
+												{uploading && <span className="ml-2 text-blue-600">Uploading...</span>}
+											</span>
+										</div>
+										<div className="divide-y divide-gray-200">
+											{rejectedFiles.map((file, index) => {
+												const fileKey = `${file.name}_${file.size}`;
+												const isUploading = uploadProgress[fileKey];
+												const uploadedFile = uploadedFiles.find(uploaded => uploaded.fileName === file.name);
+												
+												return (
+													<div key={index} className="flex items-center justify-between p-3">
+														<div className="flex items-center gap-3">
+															<span className={`text-lg ${uploadedFile ? 'text-green-500' : 'text-blue-500'}`}>
+																{uploadedFile ? '✅' : '📄'}
+															</span>
+															<div>
+																<div className="text-sm font-medium text-gray-900">
+																	{file.name}
+																	{isUploading && <span className="ml-2 text-xs text-blue-600">(Uploading...)</span>}
+																	{uploadedFile && <span className="ml-2 text-xs text-green-600">(Uploaded)</span>}
+																</div>
+																<div className="text-xs text-gray-500">
+																	{(file.size / 1024 / 1024).toFixed(2)} MB
+																	{uploadedFile && (
+																		<span className="ml-2 text-green-600">
+																			• File ID: {uploadedFile.id}
+																		</span>
+																	)}
+																</div>
+															</div>
+														</div>
+														<button
+															type="button"
+															onClick={() => removeFile(index)}
+															className="text-red-500 hover:text-red-700 transition-colors p-1"
+															title="Remove file"
+															disabled={isUploading}
+														>
+															<span className="text-lg">×</span>
+														</button>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+
+								{/* File Format Info */}
+								<div className="mt-2 text-xs text-gray-500">
+									Supported formats: PDF, JPG, JPEG, PNG
+								</div>
 							</div>
 						)}
 					</div>
@@ -348,8 +700,7 @@ const LicenseHistory = () => {
 								{fam.weapons.length > 1 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
 							</div>
 						))}
-						<button type="button" className="bg-blue-900 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={addFamily}>+ Add</button>
-						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2 ml-2" onClick={() => removeFamily(idx)}>- Remove</button>}
+						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={() => removeFamily(idx)}>- Remove</button>}
 					</div>
 				))}
 			</div>

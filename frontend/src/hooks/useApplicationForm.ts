@@ -25,58 +25,85 @@ export const useApplicationForm = ({
   const searchParams = useSearchParams();
   const { isAuthenticated, token } = useAuth();
 
-  // Initialize applicant ID from URL
+  // Initialize applicant ID from URL and check if application exists before loading data
   useEffect(() => {
     const urlApplicantId = searchParams?.get('applicantId') || searchParams?.get('id');
     if (urlApplicantId) {
-      console.log('🔍 Found applicantId in URL:', urlApplicantId);
       setApplicantId(urlApplicantId);
 
-      // Only try to load existing data for non-personal forms OR existing personal forms
-      // Skip loading for fresh personal information forms
-      if (formSection !== 'personal') {
-        loadExistingData(urlApplicantId);
-      } else {
-        // For personal forms, only load if we're sure it's an existing application
-        console.log('🔵 Personal form detected, skipping auto-load of existing data');
-      }
+      // First check if application exists before attempting to load data
+      checkAndLoadExistingData(urlApplicantId);
+    } else {
     }
   }, [searchParams, formSection]);
 
-  // Load existing application data
-  const loadExistingData = useCallback(async (appId: string) => {
+  // Check if application exists before loading data
+  const checkAndLoadExistingData = useCallback(async (appId: string) => {
     try {
-      console.log('🟢 Loading existing data (GET) for applicantId:', appId, 'section:', formSection);
       setIsLoading(true);
+      setSubmitError(null);
+
+      // First, check if the application exists
       const response = await ApplicationService.getApplication(appId);
-      console.log('📄 Full application response:', response);
-
+      
       if (response.success && response.data) {
-        // Extract section-specific data using the new method
-        const sectionData = ApplicationService.extractSectionData(response.data, formSection);
-        console.log('📋 Extracted section data for', formSection, ':', sectionData);
-
-        if (sectionData) {
-          // Merge section data with initial state, prioritizing section data
-          setForm((prev: any) => ({ ...prev, ...sectionData }));
-          console.log('✅ Section data loaded and merged');
-        } else {
-          console.log('⚠️ No data found for section:', formSection);
-        }
+        // Application exists, now load the data
+        await loadExistingData(appId);
       } else {
-        console.log('⚠️ No existing data found or response unsuccessful');
+        // Application doesn't exist, this is a new application
+        setIsLoading(false);
       }
     } catch (error: any) {
-      console.log('⚠️ Could not load existing data (this might be OK for new applications):', error.message);
+      setIsLoading(false);
 
-      // If it's a 404 error, that's expected for new applications
-      if (error.message.includes('404') || error.message.includes('Cannot GET')) {
-        console.log('💡 Application not found - this is normal for new applications');
+      // Handle different scenarios
+      if (error.message.includes('404') || error.message.includes('Not Found')) {
+        // This is expected for new applications - don't show error
+      } else if (error.message.includes('Authentication') || error.message.includes('401')) {
+        setSubmitError('Session expired. Please log in again.');
       } else {
-        console.error('❌ Unexpected error loading existing data:', error);
+        // Don't show error to user for application existence check
       }
+    }
+  }, [formSection]);
 
-      // Don't show error to user - continue with initial state
+  // Load existing application data for all sections
+  const loadExistingData = useCallback(async (appId: string) => {
+    try {
+      setIsLoading(true);
+      setSubmitError(null); // Clear any previous errors
+      
+      const response = await ApplicationService.getApplication(appId);
+      if (response.success && response.data) {
+        // Extract section-specific data using the service method
+        const sectionData = ApplicationService.extractSectionData(response.data, formSection);
+        if (sectionData && Object.keys(sectionData).length > 0) {
+          // Merge section data with initial state, prioritizing loaded data
+          setForm((prev: any) => {
+            const mergedData = { ...prev, ...sectionData };
+            return mergedData;
+          });
+          
+          // Show success message for better UX
+          setSubmitSuccess('Existing data loaded successfully');
+          setTimeout(() => setSubmitSuccess(null), 3000); // Clear after 3 seconds
+        } else {
+          // This is normal for new applications or sections not yet filled
+        }
+      } else {
+        // Don't show error - let user continue with empty form
+      }
+    } catch (error: any) {
+      // Handle different types of errors gracefully
+      if (error.message.includes('404') || error.message.includes('Not Found')) {
+        // Don't show error to user - just continue with empty form
+      } else if (error.message.includes('Authentication') || error.message.includes('401')) {
+        setSubmitError('Session expired. Please log in again.');
+      } else {
+        // Show a gentle message to user but don't block form usage
+        setSubmitError('Could not load existing data. You can continue with a fresh form.');
+        setTimeout(() => setSubmitError(null), 5000); // Clear after 5 seconds
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,19 +127,14 @@ export const useApplicationForm = ({
   }, []);
 
   // Save form data
-  const saveFormData = useCallback(async (customValidation?: () => string[]) => {
+  const saveFormData = useCallback(async (customValidation?: () => string[], overrideFormData?: any) => {
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
 
     try {
-      console.log('🔍 SaveFormData called with:', {
-        applicantId,
-        formSection,
-        hasForm: !!form,
-        formData: form
-      });
-
+      // Use override data if provided, otherwise use form state
+      const dataToSave = overrideFormData || form;
       if (!isAuthenticated || !token) {
         throw new Error('Please log in to continue');
       }
@@ -120,7 +142,7 @@ export const useApplicationForm = ({
       // Run validation
       const validation = customValidation || validationRules;
       if (validation) {
-        const validationErrors = validation(form);
+        const validationErrors = validation(dataToSave);
         if (validationErrors.length > 0) {
           throw new Error(validationErrors.join(', '));
         }
@@ -131,28 +153,22 @@ export const useApplicationForm = ({
 
       if (applicantId && formSection !== 'personal') {
         // Update existing application (PATCH) for non-personal forms
-        console.log('🟡 Calling updateApplication (PATCH) for non-personal section:', formSection);
-        response = await ApplicationService.updateApplication(applicantId, form, formSection);
+        response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
         newApplicantId = applicantId;
       } else if (formSection === 'personal') {
         if (applicantId) {
           // Update personal information (PATCH)
-          console.log('🟡 Calling updateApplication (PATCH) for existing personal info');
-          response = await ApplicationService.updateApplication(applicantId, form, formSection);
+          response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
           newApplicantId = applicantId;
         } else {
           // Create new application (POST)
-          console.log('🔵 Calling createApplication (POST) for new personal info');
-          response = await ApplicationService.createApplication(form);
+          response = await ApplicationService.createApplication(dataToSave);
           newApplicantId = response.applicationId;
           setApplicantId(newApplicantId);
         }
       } else {
         throw new Error('Application ID is required for this form section');
       }
-
-      console.log('✅ API Response:', response);
-
       if (response.success) {
         setSubmitSuccess('Data saved successfully!');
         return newApplicantId;
@@ -160,8 +176,6 @@ export const useApplicationForm = ({
         throw new Error('Failed to save data. Please try again.');
       }
     } catch (error: any) {
-      console.error('❌ Error saving form data:', error);
-
       if (error.message === 'Authentication required' || error.message.includes('log in')) {
         setSubmitError('Authentication expired. Please log in again.');
         setTimeout(() => {
@@ -188,6 +202,26 @@ export const useApplicationForm = ({
     }
   }, [applicantId, router]);
 
+  // Utility function to load existing data for all sections at once
+  const loadCompleteApplicationData = useCallback(async (appId: string) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await ApplicationService.getApplication(appId);
+      
+      if (response.success && response.data) {
+        return response.data;
+      } else {
+        throw new Error('Failed to load application data');
+      }
+    } catch (error: any) {
+      setSubmitError('Could not load application data');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     form,
     setForm,
@@ -201,6 +235,7 @@ export const useApplicationForm = ({
     saveFormData,
     navigateToNext,
     loadExistingData,
+    loadCompleteApplicationData,
     setSubmitError,
     setSubmitSuccess,
   };

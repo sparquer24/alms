@@ -14,7 +14,7 @@ const initialState = {
 	officeState: '',
 	officeDistrict: '',
 	cropLocation: '',
-	cropArea: '',
+	areaUnderCultivation: '',
 };
 
 // Validation rules for occupation information
@@ -63,19 +63,14 @@ const OccupationBussiness: React.FC = () => {
 
 	// Sync location state with form values (only when data is loaded from backend)
 	React.useEffect(() => {
-		console.log('🔵 Occupation form state:', form);
-		console.log('🔵 Location state:', locationState.selectedState, locationState.selectedDistrict);
-		
 		// Only sync if we have data and location state is different
 		if (form.officeState && form.officeState !== locationState.selectedState) {
-			console.log('🟢 Syncing officeState:', form.officeState);
 			locationActions.setSelectedState(form.officeState);
 		}
 	}, [form.officeState, isLoading]); // Include isLoading to sync after data loads
 
 	React.useEffect(() => {
 		if (form.officeDistrict && form.officeDistrict !== locationState.selectedDistrict) {
-			console.log('🟢 Syncing officeDistrict:', form.officeDistrict);
 			locationActions.setSelectedDistrict(form.officeDistrict);
 		}
 	}, [form.officeDistrict, isLoading]); // Include isLoading to sync after data loads
@@ -124,7 +119,7 @@ const OccupationBussiness: React.FC = () => {
 			<div className="p-6">
 				<h2 className="text-xl font-bold mb-4">Occupation and Business Details</h2>
 				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading existing data...</div>
+					<div className="text-gray-500">Loading...</div>
 				</div>
 			</div>
 		);
@@ -214,8 +209,8 @@ const OccupationBussiness: React.FC = () => {
 				/>
 				<Input
 					label="Area of land under cultivation"
-					name="cropArea"
-					value={form.cropArea}
+					name="areaUnderCultivation"
+					value={form.areaUnderCultivation}
 					onChange={handleChange}
 					placeholder="Enter area (in acres)"
 				/>

@@ -25,10 +25,10 @@ const initialState: AddressFormData = {
 	permanentZone: '',
 	permanentDivision: '',
 	permanentPoliceStation: '',
-	telOffice: '',
-	telResidence: '',
-	mobOffice: '',
-	mobAlternative: '',
+	telephoneOffice: '',
+	telephoneResidence: '',
+	officeMobileNumber: '',
+	alternativeMobile: '',
 };
 
 // Validation rules for address information
@@ -125,7 +125,7 @@ const AddressDetails: React.FC = () => {
 			<div className="p-6">
 				<h2 className="text-xl font-bold mb-4">Address Details</h2>
 				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading existing data...</div>
+					<div className="text-gray-500">Loading...</div>
 				</div>
 			</div>
 		);
@@ -232,33 +232,46 @@ const AddressDetails: React.FC = () => {
 			</div>
 			<div className="bg-blue-50 rounded-lg p-4 grid grid-cols-4 gap-4 mb-2 h-30">
 				<Input
-					label="Telephone Number\nOffice"
-					name="telOffice"
-					value={form.telOffice}
+					label="Mobile Number\Office"
+					name="officeMobileNumber"
+					value={form.officeMobileNumber}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
 				<Input
 					label="Residence"
-					name="telResidence"
-					value={form.telResidence}
+					name="telephoneResidence"
+					value={form.telephoneResidence}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
 				/>
-				<Input
-					label="Mobile Number\nOffice"
-					name="mobOffice"
-					value={form.mobOffice}
-					onChange={handleChange}
-					placeholder="0000 0000 0000"
-				/>
-				<Input
-					label="Alternative Mobile Number"
-					name="mobAlternative"
-					value={form.mobAlternative}
-					onChange={handleChange}
-					placeholder="0000 0000 0000"
-				/>
+				<div className="flex flex-col">
+					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="alternativeMobile">
+						Alternative Mobile Number
+						<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+					</label>
+					<Input
+						label=""
+						name="alternativeMobile"
+						value={form.alternativeMobile}
+						onChange={handleChange}
+						placeholder="0000 0000 0000"
+					/>
+				</div>
+				<div className="flex flex-col">
+					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="telephoneOffice">
+						Telephone Number\Office
+						<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+					</label>
+					<Input
+						label=""
+						name="telephoneOffice"
+						value={form.telephoneOffice}
+						onChange={handleChange}
+						placeholder="0000 0000 0000"
+					/>
+				</div>
+
 			</div>
 			
 			<FormFooter

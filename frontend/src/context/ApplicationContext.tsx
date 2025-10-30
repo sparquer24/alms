@@ -24,7 +24,6 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         try {
           return JSON.parse(saved);
         } catch (e) {
-          console.error('Error parsing saved applications:', e);
         }
       }
     }
@@ -42,15 +41,12 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('applications', JSON.stringify(payload));
-        console.log('💾 Saved applications to localStorage', { length: payload.length });
       } catch (error) {
-        console.error('❌ Error saving to localStorage:', error);
       }
     }
 
     // Light-weight verification log using the payload (avoids stale closure over `applications`).
     setTimeout(() => {
-      console.log('🔍 Verifying context update (payload):', { length: payload.length, sample: payload[0] });
     }, 0);
   }, []);
 
@@ -61,14 +57,6 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       localStorage.removeItem('applications');
     }
   }, []);
-
-  console.log('ApplicationContext: Providing context value:', { 
-    applications, 
-    applicationsLength: applications?.length,
-    applicationsType: typeof applications,
-    applicationsIsArray: Array.isArray(applications)
-  });
-  
   return (
     <ApplicationContext.Provider value={{ applications, setApplications, clearApplications }}>
       {children}

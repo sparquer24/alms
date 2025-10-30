@@ -1,6 +1,9 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { IoMdHome } from 'react-icons/io';
+
+// Type assertion for react-icons to fix React 18 compatibility
+const IoMdHomeFixed = IoMdHome as any;
 // freshApplication step components
 import PersonalInformation from '../../../../components/forms/freshApplication/PersonalInformation'; // step1
 import AddressDetails from '../../../../components/forms/freshApplication/AddressDetails'; // step2
@@ -43,13 +46,28 @@ const stepToSlug = (name: string) =>
 
 
 import { useRouter } from 'next/navigation';
-import { use } from 'react';
 
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	const router = useRouter();
-	// Unwrap params with React.use() for Next.js app router compliance
-	const { step } = use(params);
-	let StepComponent;
+	const [step, setStep] = useState<string | null>(null);
+
+	// Handle params Promise in useEffect
+	useEffect(() => {
+		params.then((resolvedParams) => {
+			setStep(resolvedParams.step);
+		});
+	}, [params]);
+
+	// Show loading while params are being resolved
+	if (!step) {
+		return (
+			<div className="flex items-center justify-center min-h-screen">
+				<div className="text-lg">Loading...</div>
+			</div>
+		);
+	}
+
+	let StepComponent: React.ComponentType<any> | null = null;
 	let currentStep = 0;
 
 	   // Find the index of the current step by slug
@@ -66,37 +84,37 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	   
 	   switch (step) {
 		   case stepToSlug('Personal Information'):
-			   StepComponent = <PersonalInformation />;
+			   StepComponent = PersonalInformation;
 			   break;
 		   case stepToSlug('Address Details'):
-			   StepComponent = <AddressDetails />;
+			   StepComponent = AddressDetails;
 			   break;
 		   case stepToSlug('Occupation/Business'):
-			   StepComponent = <OccupationBussiness />;
+			   StepComponent = OccupationBussiness;
 			   break;
 		   case stepToSlug('Criminal History'):
-			   StepComponent = <CriminalHistory />;
+			   StepComponent = CriminalHistory;
 			   break;
 		   case stepToSlug('License History'):
-			   StepComponent = <LicenseHistory />;
+			   StepComponent = LicenseHistory;
 			   break;
 		   case stepToSlug('License Details'):
-			   StepComponent = <LicenseDetails />;
+			   StepComponent = LicenseDetails;
 			   break;
 		   case stepToSlug('Biometric Information'):
-			   StepComponent = <BiometricInformation />;
+			   StepComponent = BiometricInformation;
 			   break;
 		   case stepToSlug('Documents Upload'):
-			   StepComponent = <DocumentsUpload />;
+			   StepComponent = DocumentsUpload;
 			   break;
 		   case 'preview':
-			   StepComponent = <Preview />;
+			   StepComponent = Preview;
 			   break;
 		   case 'declaration':
-			   StepComponent = <Declaration />;
+			   StepComponent = Declaration;
 			   break;
 		   default:
-			   StepComponent = <div>Step not implemented: {step}</div>;
+			   StepComponent = () => <div>Step not implemented: {step}</div>;
 	   }
 
 	// Handler to change step and update the URL
@@ -135,30 +153,30 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 						   className="flex items-center justify-center w-12 h-12 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105"
 						   title="Go to Home"
 					   >
-						   <IoMdHome className="text-2xl text-[#0d2977]" />
+                                                    <IoMdHomeFixed className="text-2xl text-[#0d2977]" />
 					   </button>
 				   </div>
 			   )}
 			   <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick}/>
 			   <div
 				   className=" flex max-w-8xl px-4  justify-center sm:px-8 "
+			   style={{
+				   paddingTop: 100, // This creates the space between header and form
+				   minHeight: '100vh',
+			   }}
+		   >
+			   <div
+				   className="rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0"
 				   style={{
-					   paddingTop: 100, // This creates the space between header and form
-					   minHeight: '100vh',
-				   }}
-			   >
-				   <div
-					   className="rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0"
-					   style={{
-						   maxHeight: 'calc(100vh - 100px )',
-						   overflowY: 'auto',
-					   }}
-				   >
-					   {StepComponent}
-				   </div>
-			   </div>
+					   maxHeight: 'calc(100vh - 100px )',
+					   overflowY: 'auto',
+			   }}
+		   >
+			   {StepComponent && <StepComponent />}
 		   </div>
-	   );
-	}
+	   </div>
+   </div>
+   );
+}
 
-	export default StepPage;
+export default StepPage;

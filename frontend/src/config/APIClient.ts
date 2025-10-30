@@ -40,21 +40,9 @@ import { parse } from 'cookie';
  */
 export const AuthApi = {
   login: async (params: LoginParams): Promise<ApiResponse<any>> => {
-    console.log('🌐 APIClient - login called with params:', {
-      username: params.username,
-      passwordLength: params.password.length
-    });
-
     const url = AUTH_APIS.LOGIN;
     const headers = getHeaders();
     const body = JSON.stringify(params);
-
-    console.log('🌐 Request details:');
-    console.log('  URL:', url);
-    console.log('  Headers:', headers);
-    console.log('  Body:', body);
-    console.log('  Method: POST');
-
     try {
       // IMPORTANT: Do NOT use apiClient.post here because it enforces an auth token
       // via ensureAuthHeader(). During login we have no token yet, so using apiClient
@@ -67,10 +55,8 @@ export const AuthApi = {
         : (headers as Record<string, string>);
       const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
       const data = response.data;
-      console.log('🌐 Login response (unauthenticated request) received:', data);
       return data as any;
     } catch (error) {
-      console.error('🌐 APIClient login error:', error);
       throw error;
     }
   },
@@ -88,7 +74,6 @@ export const AuthApi = {
       }
       return await apiClient.get('/auth/me');
     } catch (error) {
-      console.error('Error getting current user:', error);
       throw error;
     }
   },
@@ -106,7 +91,6 @@ export const AuthApi = {
       }
       return await apiClient.get('/auth/getMe');
     } catch (error) {
-      console.error('Error getting /auth/getMe:', error);
       throw error;
     }
   },
@@ -117,7 +101,6 @@ export const AuthApi = {
       // No-op logout: server endpoint removed. Client will clear auth state/cookies.
       return { statusCode: 200, success: true, body: { message: 'Logged out locally' } } as any;
     } catch (error) {
-      console.error('Error during logout:', error);
       throw error;
     }
   },
@@ -126,7 +109,6 @@ export const AuthApi = {
     try {
       return await apiClient.post('/auth/change-password', { currentPassword, newPassword });
     } catch (error) {
-      console.error('Error changing password:', error);
       throw error;
     }
   },
@@ -166,12 +148,9 @@ export const ApplicationApi = {
       // attach a flag so backend can filter appropriately. Use 'role' param to be explicit.
       requestParams.isOwned = 'true';
     }
-    console.log({ requestParams, role });
-
     try {
       return await apiClient.get('/application-form', requestParams as any);
     } catch (error) {
-      console.error('Error getting applications:', error);
       throw error;
     }
   },
@@ -180,7 +159,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.get(`/application-form/?applicationId=${id}`);
     } catch (error) {
-      console.error('Error getting application by ID:', error);
       throw error;
     }
   },
@@ -189,7 +167,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.post('/application-form', params);
     } catch (error) {
-      console.error('Error creating application:', error);
       throw error;
     }
   },
@@ -198,7 +175,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.put(`/applications/${id}/status`, params);
     } catch (error) {
-      console.error('Error updating application status:', error);
       throw error;
     }
   },
@@ -207,7 +183,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.post(`/applications/${id}/forward`, params);
     } catch (error) {
-      console.error('Error forwarding application:', error);
       throw error;
     }
   },
@@ -216,7 +191,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.post('/applications/batch', params);
     } catch (error) {
-      console.error('Error batch processing applications:', error);
       throw error;
     }
   },
@@ -229,7 +203,6 @@ export const ApplicationApi = {
       // apiClient.get accepts params object; pass constructed query
       return await apiClient.get(`/application-form`, query as any);
     } catch (error) {
-      console.error('Error getting applications by statuses:', error);
       throw error;
     }
   },
@@ -247,7 +220,22 @@ export const DocumentApi = {
 
       return await apiClient.uploadFile(`/applications/${applicationId}/documents`, formData);
     } catch (error) {
-      console.error('Error uploading document:', error);
+      throw error;
+    }
+  },
+
+  // New: Store file URL and metadata for application (based on API documentation)
+  storeFileUrl: async (applicationId: string, fileMetadata: {
+    fileType: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    description?: string;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const endpoint = `/application-form/${applicationId}/upload-file`;
+      return await apiClient.post(endpoint, fileMetadata);
+    } catch (error) {
       throw error;
     }
   },
@@ -256,7 +244,6 @@ export const DocumentApi = {
     try {
       return await apiClient.get(`/applications/${applicationId}/documents`);
     } catch (error) {
-      console.error('Error getting documents:', error);
       throw error;
     }
   },
@@ -265,7 +252,6 @@ export const DocumentApi = {
     try {
       return await apiClient.delete(`/applications/${applicationId}/documents/${documentId}`);
     } catch (error) {
-      console.error('Error deleting document:', error);
       throw error;
     }
   },
@@ -279,7 +265,6 @@ export const ReportApi = {
     try {
       return await apiClient.get('/reports/statistics', params);
     } catch (error) {
-      console.error('Error getting statistics:', error);
       throw error;
     }
   },
@@ -288,7 +273,6 @@ export const ReportApi = {
     try {
       return await apiClient.get('/reports/applications-by-status', params);
     } catch (error) {
-      console.error('Error getting applications by status:', error);
       throw error;
     }
   },
@@ -312,7 +296,6 @@ export const ReportApi = {
       const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
       return resp.data as Blob;
     } catch (error) {
-      console.error('Error generating PDF:', error);
       throw error;
     }
   },
@@ -326,7 +309,6 @@ export const UserApi = {
     try {
       return await apiClient.get('/users', { role });
     } catch (error) {
-      console.error('Error getting users by role:', error);
       throw error;
     }
   },
@@ -335,7 +317,6 @@ export const UserApi = {
     try {
       return await apiClient.get('/users/preferences');
     } catch (error) {
-      console.error('Error getting user preferences:', error);
       throw error;
     }
   },
@@ -344,7 +325,6 @@ export const UserApi = {
     try {
       return await apiClient.put('/users/preferences', preferences);
     } catch (error) {
-      console.error('Error updating user preferences:', error);
       throw error;
     }
   }
@@ -358,7 +338,6 @@ export const RoleApi = {
     try {
       return await apiClient.get('/roles/actions');
     } catch (error) {
-      console.error('Error getting available actions:', error);
       throw error;
     }
   },
@@ -367,7 +346,6 @@ export const RoleApi = {
     try {
       return await apiClient.get('/roles/hierarchy');
     } catch (error) {
-      console.error('Error getting role hierarchy:', error);
       throw error;
     }
   },
@@ -408,7 +386,6 @@ export const NotificationApi = {
       ];
       return { statusCode: 200, success: true, body: { notifications } } as any;
     } catch (error) {
-      console.error('Error getting notifications:', error);
       throw error;
     }
   },
@@ -418,7 +395,6 @@ export const NotificationApi = {
       // No-op locally, reflect success
       return { statusCode: 200, success: true, body: { id: notificationId } } as any;
     } catch (error) {
-      console.error('Error marking notification as read:', error);
       throw error;
     }
   },
@@ -428,7 +404,6 @@ export const NotificationApi = {
       // No-op locally
       return { statusCode: 200, success: true } as any;
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
       throw error;
     }
   }
@@ -458,7 +433,6 @@ export const DashboardApi = {
         },
       } as any;
     } catch (error) {
-      console.error('Error getting dashboard summary:', error);
       throw error;
     }
   }

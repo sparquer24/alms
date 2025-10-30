@@ -4,6 +4,9 @@ import React, { useEffect, useRef, memo, useCallback } from 'react';
 import { useNotifications } from '../config/notificationContext';
 import Link from 'next/link';
 
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
+
 interface NotificationDropdownProps {
   onClose?: () => void;
 }
@@ -112,12 +115,12 @@ const NotificationDropdown = ({ onClose }: NotificationDropdownProps) => {
       </div>
 
       <div className="border-t border-gray-100 px-4 py-2">
-        <Link
+        <LinkFixed
           href="/notifications"
           className="text-xs text-indigo-600 hover:text-indigo-800 w-full text-center block"
         >
           View all notifications
-        </Link>
+        </LinkFixed>
       </div>
     </div>
   );

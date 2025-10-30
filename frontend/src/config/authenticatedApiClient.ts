@@ -23,7 +23,6 @@ function getAuthToken(): string | null {
   try {
     return getAuthTokenFromCookie();
   } catch (error) {
-    console.error('Error getting auth token from cookie:', error);
     return null;
   }
 }
@@ -69,7 +68,6 @@ async function ensureAuthHeader() {
 
   // No token available: if running in browser, redirect to login so user can re-authenticate
   if (typeof window !== 'undefined') {
-    console.warn('No auth token found - redirecting to login');
     redirectToLogin();
     return;
   }

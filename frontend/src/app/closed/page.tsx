@@ -47,7 +47,6 @@ export default function ClosedPage() {
         const fetchedApplications = await fetchApplicationsByStatusKey('closed');
         setApplications(fetchedApplications);
       } catch (error) {
-        console.error('❌ Error fetching closed applications:', error);
         setApplications([]);
       } finally {
         setIsLoading(false);

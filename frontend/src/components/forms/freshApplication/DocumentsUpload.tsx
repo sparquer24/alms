@@ -10,8 +10,6 @@ import { FORM_ROUTES } from '../../../config/formRoutes';
 
 const initialState = {
 	claims: '',
-	place: '',
-	wildBeasts: '',
 };
 
 interface UploadedFile {
@@ -50,10 +48,10 @@ const DocumentsUpload = () => {
 	   'Aadhar Card',
 	   'PAN Card',
 	   'Training certificate',
+	   'Medical Reports',
 	   'Other state Arms License',
 	   'Existing Arms License',
-	   'Safe custody',
-	   'Medical Reports',
+	   'Safe custody'
    ];
    const [files, setFiles] = useState<{ [key: string]: UploadedFile[] }>({});
    const [fileError, setFileError] = useState<{ [key: string]: string }>({});
@@ -112,11 +110,7 @@ const DocumentsUpload = () => {
 							   : f
 					   ),
 				   }));
-
-				   console.log(`✅ Successfully uploaded ${docType}:`, response);
 			   } catch (error: any) {
-				   console.error(`❌ Failed to upload ${docType}:`, error);
-				   
 				   // Update file state with error
 				   setFiles((prev) => ({
 					   ...prev,
@@ -149,9 +143,7 @@ const DocumentsUpload = () => {
 	   if (fileToRemove.uploaded && fileToRemove.uploadId) {
 		   try {
 			   await FileUploadService.deleteFile(fileToRemove.uploadId);
-			   console.log(`🗑️ Successfully deleted ${docType} from server`);
 		   } catch (error) {
-			   console.warn(`⚠️ Failed to delete ${docType} from server:`, error);
 			   // Continue with local removal even if server deletion fails
 		   }
 	   }
@@ -172,17 +164,17 @@ const DocumentsUpload = () => {
 		const savedApplicantId = await saveFormData();
 		
 		if (savedApplicantId) {
-			console.log('✅ Successfully saved documents, navigating to Preview with ID:', savedApplicantId);
 			navigateToNext(FORM_ROUTES.PREVIEW, savedApplicantId);
 		} else {
-			console.log('❌ Failed to save documents, not navigating');
 		}
 	};
 
 	const handlePrevious = async () => {
 		if (applicantId) {
 			await loadExistingData(applicantId);
+			// Skip biometric step - go back to license details
 			navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, applicantId);
+			// navigateToNext(FORM_ROUTES.LICENSE_DETAILS, applicantId);
 		} else {
 			router.back();
 		}
@@ -194,7 +186,7 @@ const DocumentsUpload = () => {
 			<div className="p-6">
 				<h2 className="text-xl font-bold mb-4">Documents Upload</h2>
 				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading existing data...</div>
+					<div className="text-gray-500">Loading...</div>
 				</div>
 			</div>
 		);
@@ -254,7 +246,12 @@ const DocumentsUpload = () => {
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					{documentTypes.map((docType) => (
 						<div key={docType} className="mb-2 border-2 border-dashed border-blue-300 rounded-lg p-2">
-							<div className="font-semibold mb-1">{docType}</div>
+											<div className="font-semibold mb-1">
+												{docType}
+												{['Other state Arms License', 'Existing Arms License', 'Safe custody'].includes(docType) && (
+													<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+												)}
+											</div>
 							<div className="flex flex-col items-center mb-1">
 								<span className="text-blue-500 text-xl mb-1">📤</span>
 								<label className="text-blue-700 underline cursor-pointer">
@@ -268,9 +265,12 @@ const DocumentsUpload = () => {
 									/>
 								</label>
 								   <span className="text-xs text-gray-500">Max 10 MB per file</span>
-								   {fileError[docType] && <span className="text-xs text-red-500">{fileError[docType]}</span>}
+								   {fileError[docType] && (
+									   <span className="text-xs text-red-500">{fileError[docType]}</span>
+								   )}
 							</div>
 							<div className="text-xs text-gray-500 mb-1">Supported formats: .jpg, .jpeg, .png, .pdf</div>
+							{/* Error message for file size/type is now always from validation, not hardcoded */}
 							<div className="bg-white rounded-lg p-1">
 								{(files[docType] || []).map((uploadedFile, idx) => (
 									<div key={idx} className="flex items-center gap-2 border-b py-1">
@@ -314,23 +314,6 @@ const DocumentsUpload = () => {
 						</div>
 					))}
 				</div>
-			</div>
-			<div className="mb-6">
-				<div className="font-medium mb-2">19. Details for an application for license in Form IV</div>
-				<Input
-					label="(a) Place or area for which the licence is sought"
-					name="place"
-					value={form.place}
-					onChange={handleChange}
-					placeholder="Enter place or area"
-				/>
-				<Input
-					label="(b) Specification of the wild beasts which are permitted to be destroyed as per the permit granted under the Wild life (Protection) Act, 1972 (53 of 1972) to the applicant"
-					name="wildBeasts"
-					value={form.wildBeasts}
-					onChange={handleChange}
-					placeholder="Enter specification"
-				/>
 			</div>
 			<FormFooter
 				onSaveToDraft={handleSaveToDraft}

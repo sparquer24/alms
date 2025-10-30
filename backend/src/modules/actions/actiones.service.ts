@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Actiones } from '@prisma/client';
 import { RolesActionsMapping } from '@prisma/client';
@@ -54,7 +54,7 @@ export class ActionesService {
     }
   }
    async createAction(data: RolesActionsMapping): Promise<RolesActionsMapping | { error: boolean; message: string }> {  
-   try{
+    try{
     const mappingData = await prisma.rolesActionsMapping.findMany({
       where: {
         roleId: data.roleId,
@@ -80,4 +80,48 @@ export class ActionesService {
     throw error;
    }
   }
+    async updateAction(id: number, data:  Partial<RolesActionsMapping>): Promise<RolesActionsMapping | { error: boolean; message: string }> {
+
+       if(data.roleId && data.actionId){
+        const duplicate = await prisma.rolesActionsMapping.findFirst({
+          where: {
+            roleId: data.roleId,
+            actionId: data.actionId,
+            NOT: { id: id}, // Exclude current record
+          }
+        });
+
+        if (duplicate) {
+          return {
+            error: true,
+            message: 'Mapping with this roleId and actionId already exists'
+          };
+        }
+        }
+
+     return await prisma.rolesActionsMapping.update({
+      where: {id},
+      data: {
+        roleId: data.roleId,
+        actionId: data.actionId,
+        isActive: data.isActive,
+        updatedAt: new Date(),
+      }
+    });
+  }
+async deleteActionMapping(id: number): Promise<RolesActionsMapping> {
+    const mapping = await prisma.rolesActionsMapping.findUnique({
+      where: { id },
+    });
+
+    if (!mapping) {
+      throw new NotFoundException('Mapping with ID${id} not found');
+    }
+   return await prisma.rolesActionsMapping.update({
+      where: { id },
+      data: { isActive: false, updatedAt: new Date() },
+    });
+
 }
+}      
+

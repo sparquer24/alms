@@ -235,10 +235,15 @@ export function DataTable<T extends { id?: string | number }>({
                   {columns.map((column) => (
                     <td key={column.key} className="px-6 py-4 whitespace-nowrap">
                       {column.render ? (
-                        column.render(row[column.key as keyof T], row)
+                        column.render(row[column.key as keyof T], row) as any
                       ) : (
                         <div className="text-sm text-gray-900">
-                          {row[column.key as keyof T] as React.ReactNode}
+                          {(() => {
+                            const value = row[column.key as keyof T];
+                            if (value === null || value === undefined) return '';
+                            if (typeof value === 'object') return JSON.stringify(value);
+                            return String(value);
+                          })()}
                         </div>
                       )}
                     </td>

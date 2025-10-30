@@ -17,6 +17,19 @@ import {
   Legend,
 } from "recharts";
 
+// Type assertion for recharts components to fix React 18 compatibility
+const ResponsiveContainerFixed = ResponsiveContainer as any;
+const BarChartFixed = BarChart as any;
+const BarFixed = Bar as any;
+const XAxisFixed = XAxis as any;
+const YAxisFixed = YAxis as any;
+const TooltipFixed = Tooltip as any;
+const CartesianGridFixed = CartesianGrid as any;
+const PieChartFixed = PieChart as any;
+const PieFixed = Pie as any;
+const CellFixed = Cell as any;
+const LegendFixed = Legend as any;
+
 // Mock data (reuse from userManagement)
 const roles = ["ZS", "DCP", "SHO", "ADMIN"];
 const mockUsers = [
@@ -90,29 +103,29 @@ export default function AnalyticsPage() {
         <main className="flex-1 overflow-y-auto p-6">
           <div className="mt-8 bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold mb-4">Applications Over Time</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={applicationsByWeek}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#4F46E5" />
-              </BarChart>
-            </ResponsiveContainer>
+            <ResponsiveContainerFixed width="100%" height={300}>
+              <BarChartFixed data={applicationsByWeek}>
+                <CartesianGridFixed strokeDasharray="3 3" />
+                <XAxisFixed dataKey="week" />
+                <YAxisFixed />
+                <TooltipFixed />
+                <BarFixed dataKey="count" fill="#4F46E5" />
+              </BarChartFixed>
+            </ResponsiveContainerFixed>
           </div>
           <div className="mt-8 bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold mb-4">Role-wise Application Load</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={appLoadByRole} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+            <ResponsiveContainerFixed width="100%" height={300}>
+              <PieChartFixed>
+                <PieFixed data={appLoadByRole} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
                   {appLoadByRole.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
+                    <CellFixed key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
                   ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+                </PieFixed>
+                <TooltipFixed />
+                <LegendFixed />
+              </PieChartFixed>
+            </ResponsiveContainerFixed>
           </div>
           <div className="mt-8">
             <h2 className="text-lg font-semibold mb-4">Analytics Summary</h2>

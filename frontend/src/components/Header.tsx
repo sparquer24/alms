@@ -3,12 +3,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
-import { useAuth } from '../config/auth';
+import { useAuthSync } from '../hooks/useAuthSync';
 import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
+
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
 import { isZS, APPLICATION_TYPES } from '../config/helpers';
 import { getCookie } from 'cookies-next';
+import { ApplicationFormSkeleton } from './Skeleton';
 
 interface HeaderProps {
   // Search & filter callbacks are now optional since the search bar was removed
@@ -24,13 +28,23 @@ interface HeaderProps {
 
 const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication, onShowMessage }: HeaderProps) => {
   const { showHeader } = useLayout();
-  const { userName } = useAuth();
-  const safeUserName = typeof userName === 'string' && userName.length > 0 ? userName : 'U';
+  const { userName, isLoading, user } = useAuthSync();
+  const [displayName, setDisplayName] = useState<string | undefined>(undefined);
+  
+  // Update displayName whenever userName or user changes
+  useEffect(() => {
+    // Priority: userName from hook, then user.name, then user.username
+    const name = userName || user?.name || user?.username;
+    setDisplayName(name);
+  }, [userName, user]);
+  
+  const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
   const { unreadCount } = useNotifications();
   // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [role, setRole] = useState<string | undefined>(undefined);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Read cookie on the client only to avoid server/client markup mismatch.
   useEffect(() => {
@@ -46,6 +60,8 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   const handleDropdownClick = (type: typeof APPLICATION_TYPES[number]) => {
     setShowDropdown(false);
     if (type.enabled) {
+      // Show loading state
+      setIsNavigating(true);
       // Navigate directly to the appropriate route
       try {
         if (type.key === 'fresh') {
@@ -54,6 +70,7 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
           router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
         }
       } catch (e) {
+        setIsNavigating(false);
         if (onCreateApplication) {
           onCreateApplication(type.key);
         } else if (onShowMessage) {
@@ -76,14 +93,11 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
             {role == 'ZS' && (
               <>
                 <button
-                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center z-50"
+                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap"
                   onClick={() => setShowDropdown((v) => !v)}
                 >
-                  <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Forms
-                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="mr-2">Create Form</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -127,13 +141,18 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
             </button>
             {showNotifications && <NotificationDropdown onClose={() => setShowNotifications(false)} />}
           </div>
-          <Link href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
-            <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium">
-              {safeUserName.charAt(0).toUpperCase()}
-            </div>
-          </Link>
+          {hasValidUserName && (
+            <LinkFixed href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
+              <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium">
+                {displayName!.charAt(0).toUpperCase()}
+              </div>
+            </LinkFixed>
+          )}
         </div>
       </div>
+      
+      {/* Form Skeleton Loading */}
+      {isNavigating && <ApplicationFormSkeleton />}
     </header>
   );
 };

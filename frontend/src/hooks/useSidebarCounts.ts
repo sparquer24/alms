@@ -42,7 +42,6 @@ export const useSidebarCounts = (enabled: boolean = true) => {
 
             setLastFetch(now);
         } catch (err) {
-            console.error('Error fetching application counts:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch counts');
         } finally {
             setLoading(false);
@@ -72,7 +71,6 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                 }
             } catch (err) {
                 if (isMounted) {
-                    console.error('Error fetching application counts:', err);
                     setError(err instanceof Error ? err.message : 'Failed to fetch counts');
                 }
             } finally {

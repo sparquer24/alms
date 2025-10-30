@@ -3,6 +3,9 @@
 import { Sidebar } from "../../../components/Sidebar";
 import { useState, useEffect } from "react";
 import Select from "react-select";
+
+// Type assertion for react-select to fix React 18 compatibility
+const SelectFixed = Select as any;
 import toast from "react-hot-toast";
 
 type User = {
@@ -88,14 +91,14 @@ export default function FlowMappingPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Current User
               </label>
-              <Select
+              <SelectFixed
                 options={users.map((u) => ({
                   value: u.id,
                   label: `${u.name} (${u.role}, ${u.office})`,
                 }))}
                 isLoading={loading}
                 placeholder="Select a user to configure their flow"
-                onChange={(selected) => setCurrentUser(selected as SelectOption)}
+                onChange={(selected: any) => setCurrentUser(selected as SelectOption)}
                 value={currentUser}
               />
             </div>
@@ -103,7 +106,7 @@ export default function FlowMappingPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Next Users
               </label>
-              <Select
+              <SelectFixed
                 options={users
                   .filter((u) => !nextUsers.some((selected) => selected.value === u.id))
                   .map((u) => ({
@@ -112,7 +115,7 @@ export default function FlowMappingPage() {
                   }))}
                 isMulti
                 placeholder="Select next approvers"
-                onChange={(selected) => {
+                onChange={(selected: any) => {
                   setNextUsers(selected as SelectOption[]);
                 }}
                 value={nextUsers}

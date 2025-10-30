@@ -64,10 +64,10 @@ export interface AddressFormData {
   permanentZone: string;
   permanentDivision: string;
   permanentPoliceStation: string;
-  telOffice: string;
-  telResidence: string;
-  mobOffice: string;
-  mobAlternative: string;
+  telephoneOffice: string;
+  telephoneResidence: string;
+  officeMobileNumber: string;
+  alternativeMobile: string;
 }
 
 // Location hierarchy hook state interface

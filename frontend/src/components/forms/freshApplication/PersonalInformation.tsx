@@ -1,6 +1,10 @@
 "use client";
 import React from 'react';
 import { IoMdMale, IoMdFemale } from 'react-icons/io';
+
+// Type assertions for react-icons to fix React 18 compatibility
+const IoMdMaleFixed = IoMdMale as any;
+const IoMdFemaleFixed = IoMdFemale as any;
 import { Input } from '../elements/Input';
 import { useRouter } from 'next/navigation';
 import FormFooter from '../elements/footer';
@@ -50,11 +54,13 @@ const PersonalInformation: React.FC = () => {
 		form,
 		applicantId,
 		isSubmitting,
+		isLoading,
 		submitError,
 		submitSuccess,
 		handleChange,
 		saveFormData,
 		navigateToNext,
+		loadExistingData,
 	} = useApplicationForm({
 		initialState,
 		formSection: 'personal',
@@ -65,20 +71,23 @@ const PersonalInformation: React.FC = () => {
 		setIsMounted(true);
 	}, []);
 
+	// Manual data refresh functionality for cases where automatic loading doesn't work
+	const handleRefreshData = async () => {
+		if (applicantId) {
+			await loadExistingData(applicantId);
+		}
+	};
+
 	const handleSaveToDraft = async () => {
-		console.log('💾 Save to Draft clicked - Current applicantId:', applicantId);
 		await saveFormData();
 	};
 
 	const handleNext = async () => {
-		console.log('➡️ Next clicked - Current applicantId:', applicantId);
 		const savedApplicantId = await saveFormData();
 		
 		if (savedApplicantId) {
-			console.log('✅ Successfully saved, navigating with ID:', savedApplicantId);
 			navigateToNext(FORM_ROUTES.ADDRESS_DETAILS, savedApplicantId);
 		} else {
-			console.log('❌ Failed to save, not navigating');
 		}
 	};
 
@@ -92,8 +101,28 @@ const PersonalInformation: React.FC = () => {
 			
 			{/* Display Applicant ID if available - only after mount to avoid hydration mismatch */}
 			{isMounted && applicantId && (
-				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<strong>Application ID: {applicantId}</strong>
+					<button
+						onClick={handleRefreshData}
+						disabled={isLoading}
+						className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+					>
+						{isLoading ? 'Loading...' : 'Refresh Data'}
+					</button>
+				</div>
+			)}
+
+			{/* Loading indicator */}
+			{isMounted && isLoading && (
+				<div className="mb-4 p-3 bg-gray-100 border border-gray-400 text-gray-700 rounded">
+					<span className="flex items-center">
+						<svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+							<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+							<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						Loading...
+					</span>
 				</div>
 			)}
 			
@@ -128,13 +157,19 @@ const PersonalInformation: React.FC = () => {
 				required
 				//placeholder="Enter first name"
 			/>
-			<Input
-				label="Applicant Middle Name"
-				name="middleName"
-				value={form.middleName}
-				onChange={handleChange}
-				//placeholder="Enter middle name"
-			/>
+			<div className="flex flex-col">
+				<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="middleName">
+					Applicant Middle Name
+					<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+				</label>
+				<Input
+					label=""
+					name="middleName"
+					value={form.middleName}
+					onChange={handleChange}
+					//placeholder="Enter middle name"
+				/>
+			</div>
 			<Input
 				label="Applicant Last Name"
 				name="lastName"
@@ -170,25 +205,25 @@ const PersonalInformation: React.FC = () => {
 							<input
 								type="radio"
 								name="sex"
-								value="Male"
-								checked={form.sex === 'Male'}
+								value="MALE"
+								checked={form.sex === 'MALE'}
 								onChange={handleChange}
 								suppressHydrationWarning
 							/>
 							Male
-							<IoMdMale className="text-xl" /> 
+                                                        <IoMdMaleFixed className="text-xl" />
 						</label>
 						<label className="flex items-center gap-2">
 							<input
 								type="radio"
 								name="sex"
-								value="Female"
-								checked={form.sex === 'Female'}
+								value="FEMALE"
+								checked={form.sex === 'FEMALE'}
 								onChange={handleChange}
 								suppressHydrationWarning
 							/>
 							 Female
-							<IoMdFemale className="text-xl" />
+                                                        <IoMdFemaleFixed className="text-xl" />
 						</label>
 					</div>
 				</div>

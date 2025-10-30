@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const roles = ['Admin', 'User', 'Manager'];
 
-const EditUserPage: React.FC = () => {
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+const EditUserContent = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -142,6 +143,15 @@ const EditUserPage: React.FC = () => {
         </button>
       </form>
     </div>
+  );
+};
+
+// Main component with Suspense boundary
+const EditUserPage = () => {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <EditUserContent />
+    </Suspense>
   );
 };
 

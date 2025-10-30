@@ -82,7 +82,6 @@ export default function NotificationsPage() {
         }
       }
     } catch (error) {
-      console.error('Error loading more notifications:', error);
     } finally {
       setIsLoading(false);
     }

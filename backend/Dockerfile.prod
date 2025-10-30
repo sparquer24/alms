@@ -1,0 +1,35 @@
+# Production Dockerfile for NestJS backend
+# Builds the app, generates Prisma client, and runs the compiled output with node
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Copy package files first so npm install layer is cached when source changes
+COPY package*.json ./
+
+# Install build tools and dependencies (including devDependencies required for build)
+RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
+    && (npm ci --include=dev || npm ci --production=false || npm install) \
+    && npm install typescript --no-save \
+    && apk del .build-deps || true
+
+# Copy application source after dependencies to maximize cache hits
+COPY . .
+
+# Generate Prisma client before building so TypeScript can import generated types
+RUN npx prisma generate || true
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Keep package metadata (node_modules will be copied from builder)
+COPY package*.json ./
+
+# Copy built files and prisma client
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+
+EXPOSE 3000
+CMD ["node", "dist/main.js"]

@@ -8,6 +8,9 @@ import { useAuth } from '../config/auth';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi } from '../config/APIClient';
 import { Edit } from 'lucide-react';
+
+// Type assertion for lucide-react icons to fix React 18 compatibility
+const EditFixed = Edit as any;
 // Note: Excel export uses dynamic import of 'xlsx' to avoid SSR issues
 
 interface UserData {
@@ -33,6 +36,7 @@ const getStatusPillClass = (status: string) => {
   const statusClasses: Record<string, string> = {
     pending: 'bg-[#FACC15] text-black',
     approved: 'bg-[#10B981] text-white',
+    initiate: 'bg-[#A7F3D0] text-green-800',
     initiated: 'bg-[#A7F3D0] text-green-800',
     rejected: 'bg-[#EF4444] text-white',
     red_flagged: 'bg-[#DC2626] text-white',
@@ -50,8 +54,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
   // Get applications from context
   const { applications: contextApplications } = useApplications();
   
-  // Check if we're on the drafts page
-  const isDraftsPage = pageType === 'drafts' || pageType === 'draft';
+  // Check if we're on the drafts page or sent page
+  const isDraftsPage = pageType === 'drafts' || pageType === 'drafts';
+  const isSentPage = pageType === 'sent';
 
   // Local search state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -66,8 +71,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
     return baseApplications.filter(app => {
       const applicant = (app.applicantName || '').toLowerCase();
       const type = (app.applicationType || '').toLowerCase();
-      let statusRaw: any = (app as any).status;
-      const statusStr = typeof statusRaw === 'string' ? statusRaw : (statusRaw && statusRaw.name ? statusRaw.name : '');
+      const workflowStatus = (app as any).workflowStatus;
+      let statusStr = '';
+      if (workflowStatus && workflowStatus.name) {
+        statusStr = workflowStatus.name;
+      } else if (workflowStatus && workflowStatus.code) {
+        statusStr = workflowStatus.code;
+      } else if ((app as any).status && (app as any).status.name) {
+        statusStr = (app as any).status.name;
+      }
       const status = statusStr.toLowerCase();
       return applicant.includes(q) || type.includes(q) || status.includes(q);
     });
@@ -90,23 +102,19 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
 
   const handleEditDraft = useCallback(async (id: string) => {
     try {
-      console.log('🔄 Fetching draft application with ID:', id);
       const response = await ApplicationApi.getById(Number(id));
       
       if (response?.success && response?.data) {
-        console.log('✅ Draft application fetched successfully:', response.data);
         // Store the application data in sessionStorage to use in the form
         sessionStorage.setItem('draftApplicationData', JSON.stringify(response.data));
         sessionStorage.setItem('editingApplicationId', id);
         // Navigate to the form with application ID as query parameter
         router.push(`/forms/createFreshApplication/personal-information?id=${id}`);
       } else {
-        console.error('❌ Failed to fetch draft application:', response);
         setErrorMessage('Failed to load draft application');
         setTimeout(() => setErrorMessage(null), 3000);
       }
     } catch (error) {
-      console.error('❌ Error fetching draft application:', error);
       setErrorMessage('Error loading draft application');
       setTimeout(() => setErrorMessage(null), 3000);
     }
@@ -126,17 +134,21 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
       const XLSX = await import('xlsx');
       // Prepare data
       const rows = effectiveApplications.map(app => {
-        const rawStatus: any = (app as any).status;
-        const statusStr = typeof rawStatus === 'string' ? rawStatus : (rawStatus && rawStatus.name ? rawStatus.name : 'unknown');
-        const displayStatus = statusStr
-          .replace(/[-_]+/g, ' ')
-          .replace(/\b\w/g, (c: string) => c.toUpperCase());
+        const workflowStatus = (app as any).workflowStatus;
+        let statusName = 'unknown';
+        if (workflowStatus && workflowStatus.name) {
+          statusName = workflowStatus.name;
+        } else if (workflowStatus && workflowStatus.code) {
+          statusName = workflowStatus.code;
+        } else if ((app as any).status && (app as any).status.name) {
+          statusName = (app as any).status.name;
+        }
         return {
           ID: app.id,
           ApplicantName: app.applicantName,
           ApplicationType: app.applicationType,
           ApplicationDate: formatDateTime(app.applicationDate),
-          Status: displayStatus,
+          Status: statusName,
           ForwardedTo: (app as any).forwardedTo || '',
           IsViewed: (app as any).isViewed ? 'Yes' : 'No'
         };
@@ -149,7 +161,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
       setSuccessMessage('Applications exported to Excel successfully');
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
-      console.error('Excel export failed', err);
       setErrorMessage('Failed to export applications to Excel');
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
@@ -190,6 +201,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
               onSearchChange={setSearchQuery}
               onExportExcel={handleExportExcel}
               exportingExcel={exportingExcel}
+              isSentPage={isSentPage}
             />
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -201,6 +213,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
                 handleViewApplication={handleViewApplication}
                 handleEditDraft={handleEditDraft}
                 isDraftsPage={isDraftsPage}
+                isSentPage={isSentPage}
                 userRole={userRole}
                 // PDF button removed
                 isApplicationUnread={isApplicationUnread}
@@ -238,9 +251,10 @@ interface TableHeaderProps {
   onSearchChange: (value: string) => void;
   onExportExcel: () => void;
   exportingExcel: boolean;
+  isSentPage?: boolean;
 }
 
-const TableHeader: React.FC<TableHeaderProps> = ({ searchQuery, onSearchChange, onExportExcel, exportingExcel }) => (
+const TableHeader: React.FC<TableHeaderProps> = ({ searchQuery, onSearchChange, onExportExcel, exportingExcel, isSentPage = false }) => (
   <>
     <tr className="align-top">
       <th colSpan={6} className="px-4 pt-4 pb-2">
@@ -302,10 +316,18 @@ const TableHeader: React.FC<TableHeaderProps> = ({ searchQuery, onSearchChange, 
     </tr>
     <tr>
       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">S.No</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Applicant Name</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Application Type</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Date & Time</th>
-      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Status</th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Acknowledgement No' : 'Applicant Name'}
+      </th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Applicant Name' : 'Application Type'}
+      </th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Created At' : 'Date & Time'}
+      </th>
+      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">
+        {isSentPage ? 'Action Taken' : 'Status'}
+      </th>
       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider">Action</th>
     </tr>
   </>
@@ -317,6 +339,7 @@ const TableRow: React.FC<{
   handleViewApplication: (id: string) => void;
   handleEditDraft: (id: string) => Promise<void>;
   isDraftsPage: boolean;
+  isSentPage?: boolean;
   userRole: string | null;
   // PDF generation removed
   isApplicationUnread: (app: ApplicationData) => boolean;
@@ -328,6 +351,7 @@ const TableRow: React.FC<{
   handleViewApplication,
   handleEditDraft,
   isDraftsPage,
+  isSentPage = false,
   userRole,
   // Removed PDF props
   isApplicationUnread,
@@ -342,8 +366,55 @@ const TableRow: React.FC<{
   // 2. On drafts page OR status_id is 13
   const statusId = app.status_id || (app as any).status?.id;
   const isDraftByStatus = Number(statusId) === 13 || String(statusId) === '13';
-  const isDraft = (isDraftsPage || isDraftByStatus) && isZSRole;
+  const isDrafts = (isDraftsPage || isDraftByStatus) && isZSRole;
   
+  // Render different columns for sent page
+  if (isSentPage) {
+    return (
+      <tr
+        key={(app as any).workflowHistoryId || app.id}
+        className={`${styles.tableRow}`}
+        aria-label={`Row for sent application ${app.id}`}
+      >
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+          {(app as any).acknowledgementNo || 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewApplication(app.id);
+            }}
+            className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
+            aria-label={`View details for application ${app.id}`}
+          >
+            {app.applicantName}
+          </button>
+        </td>
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+          {formatDateTime((app as any).createdAt || app.applicationDate)}
+        </td>
+        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+          {(app as any).actionTaken || 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewApplication(app.id);
+            }}
+            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
+            aria-label={`View application ${app.id}`}
+          >
+            View
+          </button>
+        </td>
+      </tr>
+    );
+  }
+  
+  // Normal rendering for non-sent pages
   return (
     <tr
       key={app.id}
@@ -352,7 +423,7 @@ const TableRow: React.FC<{
     >
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium ">
-        {isDraft ? (
+        {isDrafts ? (
           <span className="text-gray-900">{app.applicantName}</span>
         ) : (
           <button
@@ -371,8 +442,15 @@ const TableRow: React.FC<{
       <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{formatDateTime(app.applicationDate)}</td>
       <td className="px-6 py-4 whitespace-nowrap">
         {(() => {
-          const raw = (app as any).status; // supports flexible status sources
-          const statusStr = typeof raw === 'string' ? raw : (raw && raw.name ? raw.name : 'unknown');
+          const workflowStatus = (app as any).workflowStatus;
+          let statusStr = 'unknown';
+          if (workflowStatus && workflowStatus.name) {
+            statusStr = workflowStatus.name;
+          } else if (workflowStatus && workflowStatus.code) {
+            statusStr = workflowStatus.code;
+          } else if ((app as any).status && (app as any).status.name) {
+            statusStr = (app as any).status.name;
+          }
           const display = statusStr
             .replace(/[-_]+/g, ' ')
             .replace(/\b\w/g, (c: string) => c.toUpperCase());
@@ -388,7 +466,7 @@ const TableRow: React.FC<{
         })()}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {isDraft ? (
+        {isDrafts ? (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -397,7 +475,7 @@ const TableRow: React.FC<{
             className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
             aria-label={`Edit draft application ${app.id}`}
           >
-            <Edit className="w-4 h-4" />
+            <EditFixed className="w-4 h-4" />
             Edit
           </button>
         ) : (

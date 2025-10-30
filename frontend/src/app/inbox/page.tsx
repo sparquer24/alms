@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
@@ -9,7 +9,8 @@ import { fetchApplicationsByStatusKey, filterApplications } from '../../services
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 
-export default function InboxQueryPage() {
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+function InboxContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const queryType = searchParams?.get('type') || '';
@@ -43,7 +44,6 @@ export default function InboxQueryPage() {
         const apps = await fetchApplicationsByStatusKey(type);
         setApplications(apps);
       } catch (err) {
-        console.error('Error fetching inbox apps', err);
         setApplications([]);
       } finally {
         setIsLoading(false);
@@ -64,10 +64,13 @@ export default function InboxQueryPage() {
     switch (type) {
       case 'forwarded': return 'Forwarded Applications';
       case 'returned': return 'Returned Applications';
-      case 'redFlagged': return 'Red Flagged Applications';
+      case 'redflagged': return 'Red Flagged Applications';
       case 'disposed': return 'Disposed Applications';
-      case 'drafts':
-      case 'draft': return 'Draft Applications';
+      case 'drafts': return 'Draft Applications';
+      case 'finaldisposal': return 'Final Disposal Applications';
+      case 'sent' : return 'Sent Applications';
+      case 'closed' : return 'Closed Applications';
+      case 'freshform': return 'Fresh Form Applications';
       default: return 'Applications';
     }
   };
@@ -91,5 +94,14 @@ export default function InboxQueryPage() {
         <ApplicationTable applications={filteredApplications} isLoading={isLoading} pageType={type || undefined} />
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function InboxQueryPage() {
+  return (
+    <Suspense fallback={<PageLayoutSkeleton />}>
+      <InboxContent />
+    </Suspense>
   );
 }

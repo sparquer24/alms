@@ -8,7 +8,7 @@ type InboxContextValue = {
   selectedType: string | null;
   applications: ApplicationData[];
   isLoading: boolean;
-  loadType: (type: string, force?: boolean) => Promise<void>;
+  loadType: (type: string, force?: boolean, statusIds?: number[]) => Promise<void>;
 };
 
 const InboxContext = createContext<InboxContextValue | undefined>(undefined);
@@ -20,9 +20,10 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   // request id to ignore stale responses when switching types quickly
   const requestIdRef = useRef(0);
 
-  const loadType = useCallback(async (type: string, force = false) => {
+  const loadType = useCallback(async (type: string, force = false, statusIds?: number[]) => {
     if (!type) return;
-    const normalized = String(type).toLowerCase();
+    // Keep camelCase format for types like "reEnquiry"
+    const normalized = String(type);
     if (normalized === selectedType && !force) return; // already loaded
 
     // bump request id for this load, so we can ignore stale responses
@@ -31,18 +32,17 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       setIsLoading(true);
       setSelectedType(normalized);
-      const apps = await fetchApplicationsByStatusKey(normalized);
+      // Use custom statusIds if provided, otherwise use default mapping
+      const apps = await fetchApplicationsByStatusKey(normalized, statusIds);
       // only apply results if this is the latest request
       if (requestId === requestIdRef.current) {
         setApplications(apps ?? []);
       } else {
         // stale response - ignore
-        console.debug('Ignored stale inbox response for', normalized);
       }
     } catch (err) {
       // only report/clear if this is the latest request
       if (requestId === requestIdRef.current) {
-        console.error('InboxProvider loadType error', err);
         setApplications([]);
       }
     } finally {
@@ -62,7 +62,6 @@ export const useInbox = () => {
   if (!ctx) {
     // Fallback safe implementation so components rendered outside the provider don't crash.
     // This logs so we can find and wrap callers with the provider if needed.
-    if (typeof window !== 'undefined') console.warn('useInbox called outside InboxProvider - returning no-op fallback');
     return {
       selectedType: null,
       applications: [],

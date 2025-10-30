@@ -63,8 +63,6 @@ const fileToBase64 = (file: File): Promise<string> => {
       
       // Convert to JPEG with 0.7 quality for good compression
       const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-      
-      console.log(`📊 Image compression: ${file.size} bytes → ~${Math.round(compressedBase64.length * 0.75)} bytes`);
       resolve(compressedBase64);
     };
     
@@ -125,26 +123,14 @@ export class FileUploadService {
         fileSize: file.size, // Original file size
         description: description
       };
-
-      console.log(`📤 Uploading ${fileType} for application ${applicationId}:`, {
-        fileName: file.name,
-        originalSize: file.size,
-        base64Size: base64Data.length,
-        fileType: fileType
-      });
-
       // Make API call
       const response = await apiClient.post<FileUploadResponse>(
         `/application-form/${applicationId}/upload-file`,
         payload
       );
-
-      console.log(`✅ File uploaded successfully:`, response);
       return response;
 
     } catch (error: any) {
-      console.error(`❌ File upload failed:`, error);
-      
       // Handle specific 413 error
       if (error?.response?.status === 413 || error?.status === 413 || error?.message?.includes('413') || error?.message?.includes('too large')) {
         throw new Error('File is too large for upload. Please use a smaller file (max 2MB recommended).');
@@ -170,10 +156,8 @@ export class FileUploadService {
 
     try {
       const results = await Promise.all(uploadPromises);
-      console.log(`✅ All files uploaded successfully:`, results);
       return results;
     } catch (error) {
-      console.error(`❌ Multiple file upload failed:`, error);
       throw error;
     }
   }
@@ -187,10 +171,8 @@ export class FileUploadService {
     try {
       // Note: This endpoint may need to be implemented in the backend
       const response = await apiClient.delete(`/application-form/file/${fileId}`) as { success: boolean; message: string };
-      console.log(`🗑️ File deleted successfully:`, response);
       return response;
     } catch (error) {
-      console.error(`❌ File deletion failed:`, error);
       throw error;
     }
   }
@@ -203,10 +185,8 @@ export class FileUploadService {
   static async getFiles(applicationId: string | number): Promise<FileUploadResponse['data'][]> {
     try {
       const response = await apiClient.get(`/application-form/${applicationId}/files`) as FileUploadResponse['data'][];
-      console.log(`📋 Files retrieved:`, response);
       return response;
     } catch (error) {
-      console.error(`❌ Failed to get files:`, error);
       throw error;
     }
   }

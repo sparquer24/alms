@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { store } from '../store/store';
 import { AuthProvider } from '../config/auth';
 import { LayoutProvider } from '../config/layoutContext';
-import { NotificationProvider } from '../config/notificationContext';
+import NotificationProvider from '../config/notificationContext';
 import { AdminAuthProvider } from '../context/AdminAuthContext';
 import AuthInitializer from './AuthInitializer';
 import { UserProvider } from '../context/UserContext';
@@ -15,7 +15,6 @@ import { InboxProvider } from '../context/InboxContext';
 export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <Provider store={store}>
-      <AuthInitializer />
       <AuthProvider>
         <LayoutProvider>
           <NotificationProvider>
@@ -23,6 +22,7 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
               <UserProvider>
                 <ApplicationProvider>
                   <InboxProvider>
+                    <AuthInitializer />
                     {children}
                   </InboxProvider>
                 </ApplicationProvider>

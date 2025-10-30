@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/dom';
 import '@testing-library/jest-dom';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { useNotifications } from '../config/notificationContext';

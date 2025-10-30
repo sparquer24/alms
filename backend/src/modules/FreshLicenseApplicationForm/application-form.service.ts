@@ -2,6 +2,7 @@ import { Injectable, ConflictException, BadRequestException, InternalServerError
 import prisma from '../../db/prismaClient';
 import { Sex, FileType, LicensePurpose } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
+import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -320,6 +321,7 @@ export class ApplicationFormService {
         dobInWords,
         aadharNumber,
         panNumber,
+        currentUserId
       } = data || {};
 
       // Basic validation
@@ -368,11 +370,11 @@ export class ApplicationFormService {
 
         // Find DRAFT status ID by code (more reliable than assuming ID)
         const draftStatus = await prisma.statuses.findFirst({
-          where: { code: 'DRAFT', isActive: true }
+          where: { code: STATUS_CODES.DRAFT, isActive: true }
         });
 
         if (!draftStatus) {
-          throw new Error('DRAFT status not found in Statuses table. Please ensure DRAFT status exists.');
+          throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
         }
 
         const draftStatusId = draftStatus.id;
@@ -391,6 +393,7 @@ export class ApplicationFormService {
             dobInWords,
             aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
             panNumber: panNumberForPersonal ?? undefined as any,
+            currentUserId: currentUserId || null,
             workflowStatusId: draftStatusId,
           } as any),
         });
@@ -410,8 +413,12 @@ export class ApplicationFormService {
 
   /**
    * Patch application details - update related tables (addresses, occupation, histories, license details)
+   * @param applicationId - Application ID to update
+   * @param isSubmit - Whether this is a final submission
+   * @param data - Data to update
+   * @param currentUserId - Authenticated user ID from JWT token (optional)
    */
-  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any): Promise<[any, any]> {
+  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any, currentUserId?: number): Promise<[any, any]> {
     try {
       // First validate that the application exists
       const existingApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -688,11 +695,34 @@ export class ApplicationFormService {
         }
 
         // Handle workflow status updates
-        if (isSubmit === true) {
-          // get the Status ID for INITIATED from the Status table
+        if (isSubmit === true) {        
+          // get the Status ID for INITIATE from the Status table
           const initiatedStatus = await tx.statuses.findFirst({
-            where: { code: 'INITIATED', isActive: true }
+            where: { code: STATUS_CODES.INITIATE, isActive: true }
           });
+
+          // Get INITIATE action from Actiones table
+          const initiateAction = await tx.actiones.findFirst({
+            where: { code: ACTION_CODES.INITIATE, isActive: true }
+          });
+
+          // Get current application details to know the current user
+          const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { 
+              currentUserId: true, 
+              previousUserId: true,
+              workflowStatusId: true 
+            }
+          });
+
+          // Determine which user ID to use: passed from auth token > currentUserId from app > previousUserId from app
+          const effectiveUserId = currentUserId || currentApp?.currentUserId || currentApp?.previousUserId;
+
+          // If we still don't have a user ID, we cannot create workflow history
+          if (!effectiveUserId) {
+            throw new BadRequestException('Cannot submit application: No user information available. Please ensure you are authenticated.');
+          }
 
           // workflowStatus and acceptance flags are saved together.
           const updateData: any = {
@@ -700,6 +730,11 @@ export class ApplicationFormService {
           };
           // mark submitted flag so it's written as part of the same update
           updateData.isSubmit = true;
+
+          // Update currentUserId if it was passed from auth token and is different from what's stored
+          if (currentUserId && currentApp?.currentUserId !== currentUserId) {
+            updateData.currentUserId = currentUserId;
+          }
 
           if (initiatedStatus && initiatedStatus.id) {
             updateData.workflowStatusId = initiatedStatus.id;
@@ -718,6 +753,33 @@ export class ApplicationFormService {
               where: { id: applicationId },
               data: updateData
             });
+
+            // Create workflow history entry for INITIATE action
+            if (initiateAction) {
+              // Get user's role
+              let currentUserRoleId: number | null = null;
+              const currentUser = await tx.users.findUnique({
+                where: { id: effectiveUserId },
+                select: { roleId: true }
+              });
+              currentUserRoleId = currentUser?.roleId || null;
+
+              // Create workflow history
+              await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+                data: {
+                  applicationId: applicationId,
+                  previousUserId: effectiveUserId, // Use the authenticated user as initiator
+                  nextUserId: effectiveUserId, // Same user initially
+                  actionTaken: initiateAction.code,
+                  remarks: 'Application submitted for review',
+                  previousRoleId: currentUserRoleId,
+                  nextRoleId: currentUserRoleId,
+                  actionesId: initiateAction.id
+                }
+              });
+
+              updatedSections.push('workflowHistory');
+            }
 
             // Push appropriate section markers
             if (updateData.workflowStatusId) updatedSections.push('workflowStatus');
@@ -787,6 +849,26 @@ export class ApplicationFormService {
       return [error, null];
     }
   }
+async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
+    try {
+      // First, check if the file record exists
+      const existingFile = await prisma.fLAFFileUploads.findUnique({
+        where: { id: fileId }
+      });
+      if (!existingFile) {
+        return [new BadRequestException(`File with ID ${fileId} not found`), false];
+      }
+      // Delete the file record
+      await prisma.fLAFFileUploads.delete({
+        where: { id: fileId }
+      });
+      return [null, true];
+    }
+    catch (error) {
+      return [error, false];
+    }
+  }
+
 
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
@@ -805,6 +887,7 @@ export class ApplicationFormService {
           workflowStatus: {
             select: {
               id: true,
+              code: true,
               name: true,
             }
           },
@@ -865,7 +948,11 @@ export class ApplicationFormService {
           biometricData: true,
           criminalHistories: true,
           licenseHistories: true,
-          licenseDetails: true,
+          licenseDetails: {
+            include: {
+              requestedWeapons: true,
+            }
+          },
           fileUploads: true,
         },
       });
@@ -885,35 +972,19 @@ export class ApplicationFormService {
 
       // Add previousUserName and previousRoleName to each workflow history entry
       if (workflowHistories?.length) {
-        for (const history of workflowHistories) {
-          const transformedHistory = history as any;
-          let previousUserName: string | null = null;
-          let previousRoleName: string | null = null;
-          if (transformedHistory.previousUser) {
-            previousUserName = transformedHistory.previousUser.username;
-          }
-          if (transformedHistory.previousRole) {
-            previousRoleName = transformedHistory.previousRole.name;
-          }
-          transformedHistory.previousUserName = previousUserName;
-          transformedHistory.previousRoleName = previousRoleName;
-          delete transformedHistory.previousUser;
-          delete transformedHistory.previousRole;
+       // Transform histories
+        const transformedHistories = workflowHistories.map((history) => {
+        const { previousUser, previousRole, nextUser, nextRole, ...rest } = history;
 
-          let nextUserName: string | null = null;
-          let nextRoleName: string | null = null;
-          if (transformedHistory.nextUser) {
-            nextUserName = transformedHistory.nextUser.username;
-          }
-          if (transformedHistory.nextRole) {
-            nextRoleName = transformedHistory.nextRole.name;
-          }
-          transformedHistory.nextUserName = nextUserName;
-          transformedHistory.nextRoleName = nextRoleName;
-          delete transformedHistory.nextUser;
-          delete transformedHistory.nextRole;
-        }
-        application.workflowHistories = workflowHistories;
+          return {
+            ...rest,
+            previousUserName: previousUser?.username ?? null,
+            previousRoleName: previousRole?.name ?? null,
+            nextUserName: nextUser?.username ?? null,
+            nextRoleName: nextRole?.name ?? null,
+          };
+        });
+        application.workflowHistories = transformedHistories;
       }
 
       let usersInHierarchy: any[] = [];
@@ -1114,6 +1185,7 @@ export class ApplicationFormService {
     orderBy?: string;
     order?: 'asc' | 'desc';
     isOwned?: boolean;
+    isSent?: boolean;
   }) {
     // Build a compact, frontend-friendly query: include necessary relations
     try {
@@ -1123,6 +1195,132 @@ export class ApplicationFormService {
       const page = Math.max(Number(filter.page ?? 1), 1);
       const limit = Math.max(Number(filter.limit ?? 10), 1);
       const skip = (page - 1) * limit;
+
+      // Handle isSent parameter - fetch applications from workflow history
+      if (filter.isSent === true && filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          // Get all workflow history entries where the user took action
+          const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+            where: {
+              previousUserId: parsedUserId
+            },
+            select: {
+              applicationId: true,
+              id: true,
+              createdAt: true,
+              actionTaken: true,
+              remarks: true
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          });
+
+          if (workflowHistories.length === 0) {
+            // No workflow history found for this user
+            return [null, { total: 0, page, limit, data: [] }];
+          }
+
+          // Group histories by applicationId and count occurrences
+          const applicationMap = new Map<number, any[]>();
+          for (const history of workflowHistories) {
+            if (!applicationMap.has(history.applicationId)) {
+              applicationMap.set(history.applicationId, []);
+            }
+            applicationMap.get(history.applicationId)!.push(history);
+          }
+
+          // Fetch all unique application IDs
+          const applicationIds = Array.from(applicationMap.keys());
+          
+          // Apply pagination on the grouped results
+          // Since we need to duplicate applications based on action count, we need special handling
+          let allResults: any[] = [];
+          
+          // Fetch all applications - only select required fields
+          const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
+            where: {
+              id: { in: applicationIds }
+            },
+            select: {
+              id: true, // Keep id for mapping
+              acknowledgementNo: true,
+              createdAt: true,
+              firstName: true,
+              middleName: true,
+              lastName: true,
+            }
+          });
+
+          // Create a map for quick application lookup
+          const appMap = new Map(applications.map(app => [app.id, app]));
+
+          // Build results array with duplicates based on action count
+          for (const [applicationId, histories] of applicationMap.entries()) {
+            const application = appMap.get(applicationId);
+            if (application) {
+              // Build applicant name
+              const applicantName = [application.firstName, application.middleName, application.lastName]
+                .filter(Boolean)
+                .join(' ');
+
+              // Add the application once for each action taken by the user
+              for (const history of histories) {
+                allResults.push({
+                  applicationId: application.id,
+                  acknowledgementNo: application.acknowledgementNo,
+                  createdAt: application.createdAt,
+                  applicantName: applicantName,
+                  workflowHistoryId: history.id,
+                  actionTakenAt: history.createdAt,
+                  actionTaken: history.actionTaken,
+                  actionRemarks: history.remarks
+                });
+              }
+            }
+          }
+
+          // Apply ordering if specified
+          const allowedOrderFields = ['applicationId','acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
+          const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
+          const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+          allResults.sort((a, b) => {
+            const aValue = a[orderByField];
+            const bValue = b[orderByField];
+            
+            if (aValue < bValue) return orderDirection === 'asc' ? -1 : 1;
+            if (aValue > bValue) return orderDirection === 'asc' ? 1 : -1;
+            return 0;
+          });
+
+          // Apply pagination
+          const total = allResults.length;
+          const paginatedResults = allResults.slice(skip, skip + limit);
+
+          return [null, { total, page, limit, data: paginatedResults }];
+        }
+      }
+
+      // Role-based filtering: Get current user's role
+      let userRole = null;
+      if (filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          const user = await prisma.users.findUnique({
+            where: { id: parsedUserId },
+            include: { role: true }
+          });
+          userRole = user?.role?.code;
+
+          // For non-ZS users, filter by currentUserId
+          // ZS users can see all applications
+          if (userRole && userRole !== ROLE_CODES.ZS) {
+            where.currentUserId = parsedUserId;
+          }
+        }
+      }
 
       // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
       if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
@@ -1148,7 +1346,7 @@ export class ApplicationFormService {
         where.workflowStatusId = { in: resolvedIds };
       }
 
-      // Specific application ID filter (ownership)
+      // Specific application ID filter (ownership) - for explicit isOwned flag
       if (filter.isOwned == true && filter.currentUserId) {
         // currentUserId might be string; convert if numeric
         const parsed = Number(filter.currentUserId);
@@ -1481,7 +1679,7 @@ export class ApplicationFormService {
    * This ensures consistent status IDs across the application
    */
   async getStatusIds() {
-    const statusCodes = ['DRAFT', 'INITIATED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
+    const statusCodes = ['DRAFT', 'INITIATE', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
     const statusMap: Record<string, number> = {};
 
     for (const code of statusCodes) {
@@ -1503,7 +1701,7 @@ export class ApplicationFormService {
   async initializeDefaultStatuses() {
     const defaultStatuses = [
       { code: 'DRAFT', name: 'Draft', description: 'Application is being filled out' },
-      { code: 'INITIATED', name: 'Initiated', description: 'Application has been submitted for review' },
+      { code: 'INITIATE', name: 'Initiate', description: 'Application has been submitted for review' },
       { code: 'UNDER_REVIEW', name: 'Under Review', description: 'Application is being reviewed by officer' },
       { code: 'APPROVED', name: 'Approved', description: 'Application has been approved' },
       { code: 'REJECTED', name: 'Rejected', description: 'Application has been rejected' }

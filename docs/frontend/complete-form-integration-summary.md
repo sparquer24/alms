@@ -189,7 +189,7 @@ const licenseHistories = [
    - Previous component auto-loads data
 
 5. **Loading States**
-   - Shows "Loading existing data..." spinner
+   - Shows "Loading..." spinner
    - Disables form during API calls
    - Clear visual feedback
 
