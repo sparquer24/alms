@@ -27,9 +27,9 @@ app.listen(PORT, HOST, () => {
   console.log('║  Endpoints:                                                ║');
   console.log('║    GET  /health                                            ║');
   console.log('║    GET  /api/rdservice/status                              ║');
-  console.log('║    GET  /api/captureFingerprint                            ║');
-  console.log('║    GET  /api/captureIris                                   ║');
-  console.log('║    GET  /api/capturePhotograph                             ║');
+  console.log('║    GET/POST  /api/captureFingerprint                       ║');
+  console.log('║    GET/POST  /api/captureIris                              ║');
+  console.log('║    GET/POST  /api/capturePhotograph                        ║');
   console.log('║    GET  /api/deviceInfo                                    ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
   console.log('║  📚 View full API documentation at /api-docs               ║');

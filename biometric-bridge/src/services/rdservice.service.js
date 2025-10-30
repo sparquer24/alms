@@ -4,14 +4,118 @@
  */
 
 const axios = require('axios');
+const https = require('https');
 const config = require('../config/config');
 const { parseXmlResponse, buildPidOptions } = require('../utils/xmlParser');
 const { processPidData } = require('../utils/dataProcessor');
 
 class RDServiceService {
   constructor() {
+    // Support for multiple devices on different ports
+    this.devices = {
+      fingerprint: {
+        urlHttps: config.rdservice.fingerprint.url,
+        urlHttp: config.rdservice.fingerprint.url.replace('https://', 'http://'),
+        timeout: config.rdservice.fingerprint.timeout
+      },
+      iris: {
+        urlHttps: config.rdservice.iris.url,
+        urlHttp: config.rdservice.iris.url.replace('https://', 'http://'),
+        timeout: config.rdservice.iris.timeout
+      },
+      photograph: {
+        urlHttps: config.rdservice.photograph.url,
+        urlHttp: config.rdservice.photograph.url.replace('https://', 'http://'),
+        timeout: config.rdservice.photograph.timeout
+      }
+    };
+    
+    // Legacy URLs for backward compatibility
     this.rdserviceUrl = config.rdservice.url;
+    this.rdserviceUrlHttp = config.rdservice.url.replace('https://', 'http://');
     this.timeout = config.rdservice.timeout;
+    
+    // Create HTTPS agent that ignores SSL certificate errors
+    this.httpsAgent = new https.Agent({
+      rejectUnauthorized: false, // Ignore self-signed certificate errors
+      keepAlive: false, // Don't keep connections alive
+      maxSockets: 1, // Limit concurrent connections
+      timeout: 10000 // Socket timeout
+    });
+  }
+
+  /**
+   * Make request with retry logic (try HTTPS only for capture)
+   * @param {string} endpoint - API endpoint path
+   * @param {string} data - Request body
+   * @param {Object} options - Request options
+   * @param {string} deviceType - Device type (fingerprint, iris, photograph)
+   */
+  async makeRequest(endpoint, data, options = {}, deviceType = null) {
+    // Determine which device URLs to use
+    let urls;
+    
+    if (deviceType && this.devices[deviceType]) {
+      // Use device-specific URLs
+      const device = this.devices[deviceType];
+      const isCapture = endpoint.includes('/capture');
+      urls = isCapture 
+        ? [device.urlHttps] // Only HTTPS for capture
+        : [device.urlHttps, device.urlHttp]; // Both for info
+    } else {
+      // Fallback to legacy URLs
+      const isCapture = endpoint.includes('/capture');
+      urls = isCapture 
+        ? [this.rdserviceUrl] // Only HTTPS for capture
+        : [this.rdserviceUrl, this.rdserviceUrlHttp]; // Both for info
+    }
+    
+    let lastError = null;
+    let errorDetails = [];
+
+    for (const url of urls) {
+      try {
+        const isHttps = url.startsWith('https');
+        const urlType = isHttps ? 'HTTPS' : 'HTTP';
+        console.log(`[RDService] Trying ${urlType} (${deviceType || 'default'}): ${url}${endpoint}`);
+        
+        const response = await axios.post(
+          `${url}${endpoint}`,
+          data,
+          {
+            ...options,
+            httpsAgent: isHttps ? this.httpsAgent : undefined,
+            timeout: options.timeout || this.timeout
+          }
+        );
+        
+        console.log(`[RDService] ${urlType} request successful - Status: ${response.status}`);
+        
+        return response;
+      } catch (error) {
+        const errorMsg = `${url} failed: ${error.message} (Code: ${error.code}, Status: ${error.response?.status})`;
+        console.error(`[RDService] ${errorMsg}`);
+        errorDetails.push(errorMsg);
+        lastError = error;
+        
+        // For HTTPS errors, log more details
+        if (url.startsWith('https')) {
+          console.error('[RDService] HTTPS Error details:', {
+            code: error.code,
+            errno: error.errno,
+            syscall: error.syscall,
+            address: error.address,
+            port: error.port
+          });
+        }
+        
+        // Continue to next URL
+      }
+    }
+
+    // If all attempts failed, throw the last error with details
+    console.error('[RDService] All connection attempts failed:', errorDetails);
+    throw lastError;
   }
 
   /**
@@ -22,14 +126,14 @@ class RDServiceService {
     try {
       const startTime = Date.now();
       // RDService expects POST request with empty body for device info
-      const response = await axios.post(
-        `${this.rdserviceUrl}/rd/info`,
+      const response = await this.makeRequest(
+        '/rd/info',
         '',
         {
           headers: { 
-            'Content-Type': 'text/xml'
-          },
-          timeout: this.timeout
+            'Content-Type': 'text/xml; charset=UTF-8',
+            'Accept': '*/*'
+          }
         }
       );
       const responseTime = Date.now() - startTime;
@@ -60,14 +164,14 @@ class RDServiceService {
   async getDeviceInfo() {
     try {
       // RDService expects POST request with empty body for device info
-      const response = await axios.post(
-        `${this.rdserviceUrl}/rd/info`,
+      const response = await this.makeRequest(
+        '/rd/info',
         '',
         {
           headers: { 
-            'Content-Type': 'text/xml'
-          },
-          timeout: this.timeout
+            'Content-Type': 'text/xml; charset=UTF-8',
+            'Accept': '*/*'
+          }
         }
       );
       
@@ -93,27 +197,55 @@ class RDServiceService {
   async capture(type, options = {}) {
     try {
       console.log(`[RDService] Capturing ${type}...`);
+      console.log(`[RDService] Using device URL: ${this.devices[type]?.urlHttps || 'default'}`);
       
       // Build PID Options XML
       const pidOptions = buildPidOptions(type, options);
       console.log('[RDService] Sending PID Options...');
+      console.log('[RDService] PID XML:', pidOptions);
 
-      // Send request to RDService
-      const response = await axios.post(
-        `${this.rdserviceUrl}/rd/capture`,
+      // Get timeout for this device type
+      const deviceTimeout = this.devices[type]?.timeout || parseInt(options.timeout || 20000);
+
+      // Send request to RDService with device-specific URL
+      const response = await this.makeRequest(
+        '/rd/capture',
         pidOptions,
         {
           headers: { 
-            'Content-Type': 'application/xml'
+            'Content-Type': 'text/xml; charset=UTF-8',
+            'Accept': '*/*'
           },
-          timeout: parseInt(options.timeout || 20000)
-        }
+          timeout: deviceTimeout,
+          maxRedirects: 0,
+          validateStatus: (status) => status >= 200 && status < 500
+        },
+        type // Pass device type to use correct URL
       );
 
-      console.log('[RDService] Received response');
+      console.log('[RDService] Received response', response.data);
+      console.log('[RDService] Response status:', response.status);
+      console.log('[RDService] Response data type:', typeof response.data);
+      console.log('[RDService] Response data length:', response.data?.length || 0);
+      
+      // Check if response is valid
+      if (!response.data || response.data.length === 0) {
+        throw new Error(`Empty response from RDService (Status: ${response.status})`);
+      }
+      
+      if (response.status !== 200) {
+        throw new Error(`Invalid response status: ${response.status}`);
+      }
+      
+      console.log('[RDService] Response data (first 500 chars):', 
+        typeof response.data === 'string' 
+          ? response.data.substring(0, 500) 
+          : JSON.stringify(response.data).substring(0, 500)
+      );
       
       // Parse XML response
       const pidData = await parseXmlResponse(response.data);
+      console.log('[RDService] Parsed PID Data keys:', Object.keys(pidData || {}));
       
       // Process and transform to JSON
       const processedData = await processPidData(pidData, type);
@@ -124,6 +256,8 @@ class RDServiceService {
       
     } catch (error) {
       console.error(`[RDService] ${type} capture error:`, error.message);
+      console.error(`[RDService] Error code:`, error.code);
+      console.error(`[RDService] Error response:`, error.response?.status);
       
       // Handle different error types
       if (error.code === 'ECONNREFUSED') {
@@ -142,6 +276,17 @@ class RDServiceService {
           success: false,
           errorCode: 120,
           errorMessage: 'Capture timeout - device did not respond',
+          qScore: 0,
+          type: type,
+          templates: null,
+          deviceInfo: null,
+          timestamp: new Date().toISOString()
+        };
+      } else if (error.code === 'ECONNRESET' || error.code === 'EPIPE' || error.message.includes('socket hang up')) {
+        return {
+          success: false,
+          errorCode: 110,
+          errorMessage: 'Connection interrupted - RDService may be busy or restarting',
           qScore: 0,
           type: type,
           templates: null,

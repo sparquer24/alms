@@ -107,7 +107,7 @@ class BiometricService {
 
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
-                method: 'GET',
+                method: 'OPTIONS',
                 headers: {
                     'Content-Type': 'application/json',
                 },
