@@ -430,13 +430,7 @@ const getUserRoleFromCookie = () => {
         label: "Disposed", 
         icon: disposedIcon, 
         count: applicationCounts?.disposedCount || 0
-      },
-      { 
-        name: "sent", 
-        label: "Sent", 
-        icon: sentIcon, 
-        count: 0 // Sent doesn't have a count
-      },
+      }
     ];
   }, [
     // Include stable icon references
