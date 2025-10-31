@@ -16,16 +16,7 @@ export function getRoleBasedRedirectPath(userRole?: string): string {
 
     case 'ARMS_SUPDT':
     case 'SHO':
-      // Officers forwarded to a special inbox view
-      return '/inbox?type=forwarded';
-
     case 'ZS':
-      // ZS users create fresh forms by default
-      return '/inbox?type=freshform';
-
-    case 'APPLICANT':
-      return '/inbox?type=sent';
-
     case 'DCP':
     case 'ACP':
     case 'CP':
@@ -35,9 +26,12 @@ export function getRoleBasedRedirectPath(userRole?: string): string {
     case 'AS':
       return '/inbox?type=forwarded';
 
+    case 'APPLICANT':
+      return '/inbox?type=sent';
+
     default:
       // Fallback: send to root so router.push always receives a string
-      return '/';
+      return '/inbox?type=forwarded';
   }
 }
 

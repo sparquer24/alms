@@ -418,7 +418,7 @@ export class ApplicationFormService {
    * @param data - Data to update
    * @param currentUserId - Authenticated user ID from JWT token (optional)
    */
-  async patchApplicationDetails(applicationId: number, isSubmit:boolean, data: any, currentUserId?: number): Promise<[any, any]> {
+  async patchApplicationDetails(applicationId: number, isSubmit: boolean, data: any, currentUserId?: number): Promise<[any, any]> {
     try {
       // First validate that the application exists
       const existingApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -695,7 +695,7 @@ export class ApplicationFormService {
         }
 
         // Handle workflow status updates
-        if (isSubmit === true) {        
+        if (isSubmit === true) {
           // get the Status ID for INITIATE from the Status table
           const initiatedStatus = await tx.statuses.findFirst({
             where: { code: STATUS_CODES.INITIATE, isActive: true }
@@ -709,10 +709,10 @@ export class ApplicationFormService {
           // Get current application details to know the current user
           const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
             where: { id: applicationId },
-            select: { 
-              currentUserId: true, 
+            select: {
+              currentUserId: true,
               previousUserId: true,
-              workflowStatusId: true 
+              workflowStatusId: true
             }
           });
 
@@ -849,7 +849,7 @@ export class ApplicationFormService {
       return [error, null];
     }
   }
-async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
+  async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
     try {
       // First, check if the file record exists
       const existingFile = await prisma.fLAFFileUploads.findUnique({
@@ -972,9 +972,9 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
 
       // Add previousUserName and previousRoleName to each workflow history entry
       if (workflowHistories?.length) {
-       // Transform histories
+        // Transform histories
         const transformedHistories = workflowHistories.map((history) => {
-        const { previousUser, previousRole, nextUser, nextRole, ...rest } = history;
+          const { previousUser, previousRole, nextUser, nextRole, ...rest } = history;
 
           return {
             ...rest,
@@ -1233,11 +1233,11 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
 
           // Fetch all unique application IDs
           const applicationIds = Array.from(applicationMap.keys());
-          
+
           // Apply pagination on the grouped results
           // Since we need to duplicate applications based on action count, we need special handling
           let allResults: any[] = [];
-          
+
           // Fetch all applications - only select required fields
           const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
             where: {
@@ -1282,14 +1282,14 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
           }
 
           // Apply ordering if specified
-          const allowedOrderFields = ['applicationId','acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
+          const allowedOrderFields = ['applicationId', 'acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
           const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
           const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
           allResults.sort((a, b) => {
             const aValue = a[orderByField];
             const bValue = b[orderByField];
-            
+
             if (aValue < bValue) return orderDirection === 'asc' ? -1 : 1;
             if (aValue > bValue) return orderDirection === 'asc' ? 1 : -1;
             return 0;
@@ -1416,7 +1416,7 @@ async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
           }
         },
       };
-      
+
       const [total, rawData] = await Promise.all([
         prisma.freshLicenseApplicationPersonalDetails.count({ where }),
         prisma.freshLicenseApplicationPersonalDetails.findMany({

@@ -26,9 +26,10 @@ interface HeaderProps {
 
 // Removed SearchBar and DateInput components (header simplified)
 
-const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication, onShowMessage }: HeaderProps) => {
+const Header = (props: HeaderProps) => {
+  const { onSearch, onDateFilter, onReset, userRole: propUserRole, onCreateApplication, onShowMessage } = props;
   const { showHeader } = useLayout();
-  const { userName, isLoading, user } = useAuthSync();
+  const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   
   // Update displayName whenever userName or user changes
@@ -43,14 +44,11 @@ const Header = ({ onSearch, onDateFilter, onReset, userRole, onCreateApplication
   // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [role, setRole] = useState<string | undefined>(undefined);
+  // Use role from auth hook or fallback to any role passed in props.
+  // This ensures the Create Form button appears correctly when the user's
+  // role is decoded from the token or populated from Redux.
+  const role = hookUserRole || propUserRole;
   const [isNavigating, setIsNavigating] = useState(false);
-
-  // Read cookie on the client only to avoid server/client markup mismatch.
-  useEffect(() => {
-    const r = getCookie('role');
-    setRole(typeof r === 'string' ? r : undefined);
-  }, []);
 
   // Removed handlers: search, date filter, reset
 

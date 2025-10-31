@@ -207,7 +207,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(({ users, a
           <tbody className="bg-white divide-y divide-gray-200">
             {effectiveApplications.map((app, index) => (
               <TableRow
-                key={app.id}
+                key={`${app.id}-${index}`}
                 app={app}
                 index={index}
                 handleViewApplication={handleViewApplication}
@@ -369,10 +369,10 @@ const TableRow: React.FC<{
   const isDrafts = (isDraftsPage || isDraftByStatus) && isZSRole;
   
   // Render different columns for sent page
-  if (isSentPage) {
+    if (isSentPage) {
     return (
       <tr
-        key={(app as any).workflowHistoryId || app.id}
+        key={`${(app as any).workflowHistoryId || app.id}-${index}`}
         className={`${styles.tableRow}`}
         aria-label={`Row for sent application ${app.id}`}
       >
@@ -417,7 +417,7 @@ const TableRow: React.FC<{
   // Normal rendering for non-sent pages
   return (
     <tr
-      key={app.id}
+      key={`${app.id}-${index}`}
       className={`${styles.tableRow} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
       aria-label={`Row for application ${app.id}`}
     >

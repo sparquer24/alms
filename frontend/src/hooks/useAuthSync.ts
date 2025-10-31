@@ -116,6 +116,20 @@ export const useAuthSync = () => {
       if (!cookieAuth || !cookieAuth.token) return;
       // If we already have a user or are mid-fetch, skip
       if (cookieAuth.user || isFetchingUser || fetchAttemptedRef.current) return;
+
+      // If the token contains a decodable role, use it immediately and avoid an API roundtrip.
+      // This reduces startup latency (avoids waiting several seconds for a /me request)
+      const earlyRole = extractRoleFromJwt(cookieAuth.token);
+      if (earlyRole) {
+        const minimalUser = { id: 'jwt-user', role: earlyRole, name: cookieAuth.user?.name || 'User', permissions: [], availableActions: [] };
+        dispatch(setCredentials({ user: minimalUser as any, token: cookieAuth.token }));
+        setCookieAuth((prev: any) => ({ ...(prev || {}), user: minimalUser }));
+        setUserHydrationFailed(false);
+        // mark that we've attempted hydration to avoid duplicate attempts
+        fetchAttemptedRef.current = true;
+        return;
+      }
+
       setIsFetchingUser(true);
       fetchAttemptedRef.current = true;
       setHydrationAttempts(a => a + 1);

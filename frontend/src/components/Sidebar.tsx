@@ -217,6 +217,9 @@ const getUserRoleFromCookie = () => {
     const effective = cookieRole || userRole || "SHO";
     const config = getRoleConfig(effective);
     setRoleConfig(config);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Sidebar] effective role:', effective, 'roleConfig menuItems:', config?.menuItems);
+    }
   }, [userRole, cookieRole]);
 
   // Use the optimized sidebar counts hook with more stable conditions
@@ -344,26 +347,62 @@ const getUserRoleFromCookie = () => {
   }, [dispatch, router, token]);
 
   // Update menuItems logic with type casting and guards
+  // Normalize and dedupe menu items coming from roleConfig
   const menuItems = useMemo(() => {
-    const items = roleConfig?.menuItems ?? [];
-    return items.map((item) => {
-      const key = item.name as MenuMetaKey;
-      const iconFn = menuMeta[key]?.icon;
-      return {
-        name: item.name,
-        label: menuMeta[key]?.label || item.name,
-        icon: iconFn ? (iconFn() as any) : null,
-        statusIds: item.statusIds, // Include statusIds from role config
-      };
+    const items = (roleConfig?.menuItems ?? []) as Array<{ name: string; statusIds?: number[] }>;
+    // Use a Map to dedupe by normalized key (lowercase, remove spaces)
+    const map = new Map<string, { name: string; label: string; icon: React.ReactNode | null; statusIds?: number[] }>();
+    items.forEach((item) => {
+      if (!item || !item.name) return;
+      const raw = String(item.name || '').trim();
+      const normalized = raw.replace(/\s+/g, '').toLowerCase();
+
+      // Prefer canonical key from menuMeta when available
+      const canonicalKey = (Object.keys(menuMeta) as string[]).find(k => k.toLowerCase() === normalized) as MenuMetaKey | undefined;
+
+      const keyForLabel = canonicalKey ?? (raw as MenuMetaKey);
+      const iconFn = canonicalKey ? menuMeta[canonicalKey]?.icon : menuMeta[keyForLabel as MenuMetaKey]?.icon;
+      const label = (canonicalKey && menuMeta[canonicalKey]) ? menuMeta[canonicalKey].label : raw;
+
+      const existing = map.get(normalized);
+      if (existing) {
+        // Merge statusIds (unique)
+        const existingIds = existing.statusIds ?? [];
+        const incomingIds = Array.isArray(item.statusIds) ? item.statusIds : [];
+        const merged = Array.from(new Set([...existingIds, ...incomingIds]));
+        existing.statusIds = merged.length ? merged : undefined;
+        map.set(normalized, existing);
+      } else {
+        map.set(normalized, {
+          name: raw,
+          label,
+          icon: iconFn ? (iconFn() as any) : null,
+          statusIds: Array.isArray(item.statusIds) && item.statusIds.length ? item.statusIds : undefined,
+        });
+      }
     });
+
+    return Array.from(map.values());
   }, [roleConfig, cookieRole, userRole]);
 
+  // Debug: show raw roleConfig.menuItems and deduped menuItems in development
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    try {
+      const raw = (roleConfig && (roleConfig as any).menuItems) || [];
+      console.debug('[Sidebar] raw roleConfig.menuItems:', raw);
+      console.debug('[Sidebar] deduped menuItems:', menuItems.map(m => ({ name: m.name, label: m.label, statusIds: m.statusIds })));
+    } catch (e) {
+      // ignore
+    }
+  }, [roleConfig, menuItems]);
+
   // Create stable icons outside of memoization to prevent recreating React elements
-  const forwardedIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
-  const returnedIcon = useMemo(() => <Undo2 className="w-6 h-6 mr-2" aria-label="Returned" />, []);
-  const redFlaggedIcon = useMemo(() => <Flag className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
-  const disposedIcon = useMemo(() => <FolderCheck className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
-  const sentIcon = useMemo(() => <CornerUpRight className="w-6 h-6 mr-2 transform rotate-180" aria-label="Sent" />, []);
+  const forwardedIcon = useMemo(() => <CornerUpRightFixed className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
+  const returnedIcon = useMemo(() => <Undo2Fixed className="w-6 h-6 mr-2" aria-label="Returned" />, []);
+  const redFlaggedIcon = useMemo(() => <FlagFixed className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
+  const disposedIcon = useMemo(() => <FolderCheckFixed className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  const sentIcon = useMemo(() => <CornerUpRightFixed className="w-6 h-6 mr-2 transform rotate-180" aria-label="Sent" />, []);
 
   // Create highly stable inbox sub-items to prevent flickering
   const inboxSubItems = useMemo(() => {
@@ -481,26 +520,33 @@ const getUserRoleFromCookie = () => {
                 )}
               </li>
             )}
-            {/* Render other menu items except inbox, settings, login */}
+            {/* Render other menu items except inbox (case/space-insensitive) */}
             {menuItems
-              .filter((item) => item.name !== "inbox")
-              .map((item) => (
-                <MenuItem
-                  key={item.name}
-                  icon={item.icon}
-                  label={item.label}
-                  active={activeItem === item.name}
-                  onClick={() => handleMenuClick({ 
-                    name: item.name, 
-                    statusIds: item.statusIds 
-                  })}
-                />
-              ))}
+              .filter((item) => {
+                const normalized = String(item.name || '').replace(/\s+/g, '').toLowerCase();
+                return normalized !== 'inbox';
+              })
+              .map((item) => {
+                const normalizedKey = String(item.name || '').replace(/\s+/g, '').toLowerCase();
+                const isActive = activeItem === item.name || activeItem === normalizedKey || activeItem === normalizedKey.toLowerCase();
+                return (
+                  <MenuItem
+                    key={`menu-${normalizedKey}`}
+                    icon={item.icon}
+                    label={item.label}
+                    active={isActive}
+                    onClick={() => handleMenuClick({ 
+                      name: item.name, 
+                      statusIds: item.statusIds 
+                    })}
+                  />
+                );
+              })}
             {/* Add Flow Mapping menu item for ADMIN users */}
             {effectiveRole === "ADMIN" && (
               <li>
                 <a href="/admin/flowMapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
-                  <ChartBarIcon className="w-5 h-5" />
+                  <ChartBarIconFixed className="w-5 h-5" />
                   <span>Flow Mapping</span>
                 </a>
               </li>

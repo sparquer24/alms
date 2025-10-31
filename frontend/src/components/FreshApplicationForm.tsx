@@ -144,7 +144,7 @@ const formSteps = [
   { title: 'Occupation & Business', description: 'Enter your occupation and business details' },
   { title: 'Criminal History', description: 'Provide information about any criminal history' },
   { title: 'License Details', description: 'Enter details about the license you are applying for' },
-  { title: 'Biometric Information', description: 'Upload your biometric information' },
+  // { title: 'Biometric Information', description: 'Upload your biometric information' },
   { title: 'Documents Upload', description: 'Upload required documents' },
   { title: 'Preview', description: 'Review your application details' },
   { title: 'Declaration', description: 'Review and submit your application' }
@@ -2732,74 +2732,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
                   </div>
                 </div>
-              )}        {/* Step 5: Biometric Information */}
-              {formStep === 5 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-800">Biometric Information</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Signature/Thumb Impression</label>
-                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          name="signature"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="hidden"
-                          id="signature-upload"
-                        />
-                        <label
-                          htmlFor="signature-upload"
-                          className="cursor-pointer text-sm text-gray-600 hover:text-[#6366F1]"
-                        >
-                          {formData.signature ? 'Change signature' : 'Upload signature'}
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Iris Scan</label>
-                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          name="irisScan"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="hidden"
-                          id="iris-scan-upload"
-                        />
-                        <label
-                          htmlFor="iris-scan-upload"
-                          className="cursor-pointer text-sm text-gray-600 hover:text-[#6366F1]"
-                        >
-                          {formData.irisScan ? 'Change iris scan' : 'Upload iris scan'}
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Photograph</label>
-                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          name="photograph"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="hidden"
-                          id="photograph-upload"
-                        />
-                        <label
-                          htmlFor="photograph-upload"
-                          className="cursor-pointer text-sm text-gray-600 hover:text-[#6366F1]"
-                        >
-                          {formData.photograph ? 'Change photograph' : 'Upload photograph'}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}        {/* Step 6: Documents Upload */}
+              )}        {/* Step 5: Biometric Information (removed) */}
+              {/* Biometric step removed - skipping to next step */}
+              {false && (
+                <div />
+              )}
+              {/* Step 6: Documents Upload */}
               {formStep === 6 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Documents Upload</h3>

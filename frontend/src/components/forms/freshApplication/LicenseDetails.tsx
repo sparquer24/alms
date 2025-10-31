@@ -347,11 +347,10 @@ const LicenseDetails = () => {
 		// The form data is already in the correct format (licenseDetails array)
 		const savedApplicantId = await saveFormData();
 		
-		if (savedApplicantId) {
-			// Skip biometric step - go directly to documents upload
-			navigateToNext(FORM_ROUTES.BIOMETRIC_INFO, savedApplicantId);
-			// navigateToNext(FORM_ROUTES.DOCUMENTS_UPLOAD, savedApplicantId);
-		}
+			if (savedApplicantId) {
+				// Biometric step removed - go directly to documents upload
+				navigateToNext(FORM_ROUTES.DOCUMENTS_UPLOAD, savedApplicantId);
+			}
 	};
 
 	const handlePrevious = async () => {
