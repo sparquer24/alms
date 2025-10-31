@@ -9,7 +9,6 @@ export interface FreshApplicationFormData {
   criminalHistory: Record<string, any>;
   licenseDetails: Record<string, any>;
   licenseHistory: Record<string, any>;
-  biometricInformation: Record<string, any>;
   documentsUpload: Record<string, any>;
   
 }
@@ -21,7 +20,6 @@ const defaultFormData: FreshApplicationFormData = {
   criminalHistory: {},
   licenseDetails: {},
   licenseHistory: {},
-  biometricInformation: {},
   documentsUpload: {},
 };
 

@@ -15,7 +15,7 @@ async function bootstrap() {
   const express = require('express');
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ limit: '2mb', extended: true }));
-  
+
   // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
   const defaultOrigins = ['http://localhost:5000', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'];
   const corsEnv = process.env.CORS_ORIGIN;
@@ -61,7 +61,12 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(Number(port));
+  // Helpful startup log so it's obvious which port the server is listening on
+  // (useful when env overrides or Docker maps ports differently)
+  // eslint-disable-next-line no-console
+  console.log(`Backend listening on http://localhost:${port}`);
 }
 
 bootstrap();

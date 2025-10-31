@@ -24,10 +24,17 @@ export default function SettingsPage() {
     try {
       const u = getUserFromCookie();
       setCookieUser(u);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[SettingsPage] cookieUser loaded:', u);
+      }
     } catch (e) {
       setCookieUser(null);
     }
   }, []);
+
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('[SettingsPage] authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
+  }
 
   const role = useMemo(() => cookieUser?.role ?? {}, [cookieUser]);
   const location = useMemo(() => cookieUser?.location ?? {}, [cookieUser]);
@@ -56,16 +63,32 @@ export default function SettingsPage() {
     return [];
   };
 
-  const menuItems = useMemo(() => parseArrayLike(role?.menu_items), [role]);
+  // Normalize menu items into simple strings (handle arrays of objects or strings)
+  const menuItems = useMemo(() => {
+    const raw = parseArrayLike(role?.menu_items);
+    return raw
+      .map((it: any) => {
+        if (it === null || it === undefined) return '';
+        if (typeof it === 'string') return it;
+        if (typeof it === 'number') return String(it);
+        if (typeof it === 'object') return (it.name || it.label || it.key || JSON.stringify(it));
+        return String(it);
+      })
+      .filter(Boolean);
+  }, [role]);
   const permissions = useMemo(() => parseArrayLike(role?.permissions), [role]);
 
   const handleSearch = () => {};
   const handleDateFilter = () => {};
   const handleReset = () => {};
 
-  // Show skeleton loading while authenticating
-  if (authLoading || (!isAuthenticated && !authLoading)) {
-    return <PageLayoutSkeleton />;
+  // Show skeleton while auth is loading
+  if (authLoading) return <PageLayoutSkeleton />;
+
+  // If not authenticated after loading, redirect to login immediately
+  if (!authLoading && !isAuthenticated) {
+    router.replace('/login');
+    return null;
   }
 
   return (
@@ -113,7 +136,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Created</label>
-                        <p className="p-2 bg-gray-100 rounded">{new Date(cookieUser?.createdAt).toLocaleDateString()}</p>
+                        <p className="p-2 bg-gray-100 rounded">{cookieUser?.createdAt ? new Date(cookieUser.createdAt).toLocaleDateString() : '—'}</p>
                       </div>
                     </div>
                   </div>

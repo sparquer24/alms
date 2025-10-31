@@ -11,7 +11,7 @@ import OccupationBussiness from '../../../../components/forms/freshApplication/O
 import LicenseDetails from '../../../../components/forms/freshApplication/LicenseDetails'; // step5
 import CriminalHistory from '../../../../components/forms/freshApplication/CriminalHistory'; // step6
 import LicenseHistory from '../../../../components/forms/freshApplication/LicenseHistory'; // step7
-import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8
+// import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8 (disabled)
 import DocumentsUpload from '../../../../components/forms/freshApplication/DocumentsUpload'; // step9
 import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
 import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
@@ -30,7 +30,7 @@ const steps = [
 	'Criminal History',
 	'License History',
 	'License Details',
-	'Biometric Information',
+	// 'Biometric Information',
 	'Documents Upload',
 	'Preview',
 	'Declaration & Submit',
@@ -73,10 +73,10 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 	   // Find the index of the current step by slug
 	   // Special handling for preview and declaration which use different slug patterns
 	   let stepIndex;
-	   if (step === 'preview') {
-		   stepIndex = 8; // Preview is at index 8
+	if (step === 'preview') {
+		   stepIndex = 7; // Preview is at index 7 (adjusted after removing biometric step)
 	   } else if (step === 'declaration') {
-		   stepIndex = 9; // Declaration & Submit is at index 9
+		   stepIndex = 8; // Declaration & Submit is at index 8 (adjusted)
 	   } else {
 		   stepIndex = steps.findIndex(s => stepToSlug(s) === step);
 	   }
@@ -101,9 +101,10 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 		   case stepToSlug('License Details'):
 			   StepComponent = LicenseDetails;
 			   break;
-		   case stepToSlug('Biometric Information'):
-			   StepComponent = BiometricInformation;
-			   break;
+		   // Biometric step disabled
+		   // case stepToSlug('Biometric Information'):
+		   //     StepComponent = BiometricInformation;
+		   //     break;
 		   case stepToSlug('Documents Upload'):
 			   StepComponent = DocumentsUpload;
 			   break;
@@ -119,9 +120,12 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
 	// Handler to change step and update the URL
 	   const handleStepClick = (idx: number) => {
-		   if (idx === 8) {
+		   // Compute dynamic preview/declaration indices to avoid hardcoding after step removal
+		   const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
+		   const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
+		   if (idx === previewIndex) {
 			   router.push('/forms/createFreshApplication/preview');
-		   } else if (idx === 9) {
+		   } else if (idx === declarationIndex) {
 			   router.push('/forms/createFreshApplication/declaration');
 		   } else {
 			   router.push(`/forms/createFreshApplication/${stepToSlug(steps[idx])}`);
