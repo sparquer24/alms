@@ -50,6 +50,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     actionButtonColor: '',
     onConfirm: () => {}
   });
+
   const [showProceedingsModal, setShowProceedingsModal] = useState(false);
   const [showProceedingsForm, setShowProceedingsForm] = useState(true);
   const [showTimelineDetails, setShowTimelineDetails] = useState(false);
@@ -1183,20 +1184,35 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           </div>
                           <div className="flex flex-col gap-4">
                             {/* Check if current logged-in user can take action */}
-                            {(() => {
-                              // Compare user IDs with type coercion (handles string vs number mismatch)
-                              const currentUserId = user?.id ? String(user.id) : null;
-                              
+                          {(() => {
+                              // Read `user_data` from cookies (if present) and parse it safely.
+                              let user_data: any = null;
+                              try {
+                                if (typeof document !== 'undefined' && document.cookie) {
+                                  const cookie = document.cookie
+                                    .split(';')
+                                    .map(c => c.trim())
+                                    .find(c => c.startsWith('user='));
+                                  if (cookie) {
+                                    const raw = cookie.split('=')[1] || '';
+                                    // Cookies are URL-encoded; decode and parse JSON if possible
+                                    const decoded = decodeURIComponent(raw);
+                                    user_data = decoded ? JSON.parse(decoded) : null;
+                                  }
+                                }
+                              } catch (e) {
+                                // ignore parsing errors and fall back to auth user
+                                user_data = null;
+                              }
+
+                              // Prefer cookie `user_data` id, otherwise fall back to auth `user?.id` from useAuthSync
+                              const currentUserId = user_data?.id ? Number(user_data.id) : (user?.id ? Number(user.id) : null);
                               // Try multiple possible field names for application's current user ID
                               const appData = application as any;
-                              const applicationUserId = 
-                                application?.currentUser?.id ? String(application.currentUser.id) :
-                                appData?.currentUserId ? String(appData.currentUserId) :
-                                appData?.current_user_id ? String(appData.current_user_id) :
-                                null;
-                              
-                              const canTakeAction = currentUserId && applicationUserId && currentUserId === applicationUserId;
-                              
+                              const applicationUserId = Number(application?.currentUser?.id) || null;
+                              // Helpful debug info (kept minimal)
+                              const canTakeAction = currentUserId && applicationUserId && currentUserId == applicationUserId;
+
                               return canTakeAction;
                             })() ? (
                               <>

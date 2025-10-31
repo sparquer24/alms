@@ -53,6 +53,8 @@ const DocumentsUpload = () => {
 	   'Existing Arms License',
 	   'Safe custody'
    ];
+   // Documents that are mandatory before proceeding
+   const requiredDocuments = ['Aadhar Card'];
    const [files, setFiles] = useState<{ [key: string]: UploadedFile[] }>({});
    const [fileError, setFileError] = useState<{ [key: string]: string }>({});
 
@@ -161,8 +163,19 @@ const DocumentsUpload = () => {
 	};
 
 	const handleNext = async () => {
+		// Ensure required documents are uploaded (uploaded === true)
+		for (const req of requiredDocuments) {
+			const docFiles = files[req] || [];
+			const uploadedCount = docFiles.filter(f => f.uploaded).length;
+			if (uploadedCount === 0) {
+				setFileError(prev => ({ ...prev, [req]: 'This document is required before proceeding.' }));
+				// Focus is optional: user will see the error under the doc
+				return;
+			}
+		}
+
 		const savedApplicantId = await saveFormData();
-		
+
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.PREVIEW, savedApplicantId);
 		} else {
@@ -245,12 +258,16 @@ const DocumentsUpload = () => {
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					{documentTypes.map((docType) => (
 						<div key={docType} className="mb-2 border-2 border-dashed border-blue-300 rounded-lg p-2">
-											<div className="font-semibold mb-1">
-												{docType}
-												{['Other state Arms License', 'Existing Arms License', 'Safe custody'].includes(docType) && (
-													<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
-												)}
-											</div>
+									<div className="font-semibold mb-1">
+										{docType}
+										{requiredDocuments.includes(docType) ? (
+											<span className="ml-1 text-xs text-red-600 align-middle">(required)</span>
+										) : (
+											['Other state Arms License', 'Existing Arms License', 'Safe custody'].includes(docType) && (
+												<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+											)
+										)}
+									</div>
 							<div className="flex flex-col items-center mb-1">
 								<span className="text-blue-500 text-xl mb-1">📤</span>
 								<label className="text-blue-700 underline cursor-pointer">
