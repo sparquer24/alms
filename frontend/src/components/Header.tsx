@@ -35,9 +35,10 @@ const Header = (props: HeaderProps) => {
   // Update displayName whenever userName or user changes
   useEffect(() => {
     // Priority: userName from hook, then user.name, then user.username
+    // Also re-run when auth loading completes or role changes so the avatar appears
     const name = userName || user?.name || user?.username;
-    setDisplayName(name);
-  }, [userName, user]);
+    if (!isLoading && name) setDisplayName(name);
+  }, [userName, user, isLoading, hookUserRole]);
   
   const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
   const { unreadCount } = useNotifications();

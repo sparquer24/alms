@@ -1200,16 +1200,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   {/* Action Buttons and Timeline Section - Only show if NOT Draft */}
                   {application?.workflowStatus?.name?.toLowerCase() !== 'draft' && (
                     <div className="p-6 lg:p-8 border-t border-gray-100 bg-white">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[600px]">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[600px] items-stretch">
                         {/* Action Buttons - Left Side with Scroll */}
-                        <div className="flex flex-col">
+                        <div className="flex flex-col h-full">
                           <div className="flex items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                               <div className="w-1 h-5 bg-blue-600 rounded-full mr-3"></div>
                               Actions
                             </h3>
                           </div>
-                          <div className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-4 flex-1">
                             {/* Check if current logged-in user can take action */}
                           {(() => {
                               // Read `user_data` from cookies (if present) and parse it safely.
@@ -1244,9 +1244,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             })() ? (
                               <>
                                 {/* Proceedings Form - Always Open */}
-                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                                  <div className="p-4 bg-gray-50">
-                                    <div className="p-4">
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col">
+                                  <div className="p-4 bg-gray-50 flex-1 overflow-auto">
+                                    <div className="p-4 h-full">
                                       <ProceedingsForm
                                         applicationId={applicationId!}
                                         onSuccess={handleProceedingsSuccess}

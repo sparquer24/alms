@@ -3,7 +3,7 @@
 export type StatusKey =
   | 'forwarded'
   | 'returned'
-  | 'redFlagged'
+  | 'redflagged'
   | 'disposed'
   | 'freshform'
   | 'sent'
@@ -26,7 +26,7 @@ export const statusIdMap: StatusIdMap = {
   pending: [1, 9],       // Same as forward for now
   sent: [11, 1, 9],      // RECOMMEND
   returned: [2, 15],         // REJECT (treated as returned)
-  redFlagged: [8],       // RED_FLAG
+  redflagged: [8],       // RED_FLAG
   disposed: [7],         // DISPOSE
   approved: [11, 3],     // RECOMMEND + APPROVED
   freshform: [9],        // INITIATE (fresh form applications)

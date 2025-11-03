@@ -32,8 +32,8 @@ export const STATUS_MAP = {
   pending: statusIdMap.pending || [1, 9],       // Same as forward for now
   sent: statusIdMap.sent || [11, 1, 9],         // RECOMMEND
   returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
-  flagged: statusIdMap.redFlagged || [8],       // RED_FLAG
-  redFlagged: statusIdMap.redFlagged || [8],    // Alias for flagged
+  flagged: statusIdMap.redflagged || [8],       // RED_FLAG
+  redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
   disposed: statusIdMap.disposed || [7],        // DISPOSE
   approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
   freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)

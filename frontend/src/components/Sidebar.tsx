@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState, useEffect, startTransition } from "react";
+import React, { memo, useCallback, useMemo, useState, useEffect, startTransition, useRef } from "react";
 import Image from "next/image";
 
 // Type assertion for Next.js Image to fix React 18 compatibility
@@ -112,13 +112,14 @@ const InboxSubMenuItem = memo(({
   const propsEqual = (
     prevProps.name === nextProps.name &&
     prevProps.active === nextProps.active &&
-    prevProps.count === nextProps.count
-    // Deliberately exclude onClick and other stable props
+    prevProps.count === nextProps.count &&
+    prevProps.onClick === nextProps.onClick
   );
-  
+
   if (process.env.NODE_ENV === 'development' && !propsEqual) {
+    // intentional noop — developer can set debugger here if needed
   }
-  
+
   return propsEqual;
 });
 
@@ -131,21 +132,42 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const { showSidebar } = useLayout();
   const [visible, setVisible] = useState(false);
   // Determine active item based on URL (for correct highlight on reload or direct link)
+  // Helper: normalize nav keys stored in localStorage and used across the app.
+  // inbox types become `inbox-{type}` (lowercase, no spaces). Other items are
+  // normalized to lowercase, no spaces so comparisons are consistent.
+  const normalizeNavKey = useCallback((raw?: string | null) => {
+    if (!raw) return '';
+    const s = String(raw).trim();
+    // If it's already like inbox-xxx, normalize it
+    if (s.toLowerCase().startsWith('inbox-')) {
+      return `inbox-${s.slice('inbox-'.length).replace(/\s+/g, '').toLowerCase()}`;
+    }
+    // If it's an inbox query param e.g. 'forwarded', map to inbox-forwarded
+    if (!s.includes(' ') && s === s.toLowerCase() && ['forwarded','returned','redflagged','disposed','reenquiry'].includes(s)) {
+      return `inbox-${s.replace(/\s+/g, '').toLowerCase()}`;
+    }
+    // Generic normalization for other menu items
+    return s.replace(/\s+/g, '').toLowerCase();
+  }, []);
+
   const [activeItem, setActiveItem] = useState(() => {
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      const pathname = url.pathname;
-      const type = url.searchParams.get('type');
-      // Normalize initial active item for inbox routes to match the
-      // `inbox-{type}` keys that the inbox submenu uses (eg. 'inbox-forwarded').
-      if (pathname === '/inbox' || pathname.startsWith('/admin')) {
-        if (type) return `inbox-${String(type).toLowerCase()}`;
-      }
-      if (window.localStorage) {
-        return localStorage.getItem("activeNavItem") || "";
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        const pathname = url.pathname;
+        const type = url.searchParams.get('type');
+        if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
+          const key = `inbox-${String(type).toLowerCase()}`;
+          try { localStorage.setItem('activeNavItem', key); } catch (e) {}
+          return normalizeNavKey(key);
+        }
+        const fromStore = window.localStorage ? localStorage.getItem('activeNavItem') : null;
+        return normalizeNavKey(fromStore) || '';
+      } catch (e) {
+        return '';
       }
     }
-    return "";
+    return '';
   });
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -155,6 +177,84 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const { userRole, token, user } = useAuthSync();
   const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
   const router = useRouter();
+
+  // timer ref for scheduled refreshes after redirects
+  const refreshTimerRef = useRef<number | null>(null);
+
+  // schedule a reload 4s after redirecting to inbox?type=forwarded
+  const scheduleInboxForwardedRefresh = useCallback((targetUrl?: string) => {
+    try {
+      // clear previous timer
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+
+      const checksOut = (() => {
+        if (typeof window === 'undefined') return false;
+        try {
+          if (targetUrl) {
+            const u = new URL(targetUrl, window.location.origin);
+            return (u.pathname === '/inbox' || u.pathname.startsWith('/inbox')) && u.searchParams.get('type') === 'forwarded';
+          }
+          const cur = new URL(window.location.href);
+          return (cur.pathname === '/inbox' || cur.pathname.startsWith('/inbox')) && cur.searchParams.get('type') === 'forwarded';
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      if (!checksOut) return;
+
+      // Only reload if cookie flag is not set to true
+      const cookieName = 'inbox_forwarded_refreshed';
+      const readCookie = () => {
+        if (typeof document === 'undefined') return null;
+        const m = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(`${cookieName}=`));
+        if (!m) return null;
+        return decodeURIComponent(m.split('=')[1]);
+      };
+      const setCookie = (val: string, minutes = 10) => {
+        if (typeof document === 'undefined') return;
+        const d = new Date();
+        d.setTime(d.getTime() + (minutes * 60 * 1000));
+        const expires = 'expires=' + d.toUTCString();
+        document.cookie = `${cookieName}=${encodeURIComponent(val)}; ${expires}; path=/`;
+      };
+
+      const current = readCookie();
+      if (current === 'true') {
+        // already refreshed recently — skip reload
+        return;
+      }
+
+      // mark as refreshed so we don't repeatedly reload
+      setCookie('true', 10);
+
+      refreshTimerRef.current = window.setTimeout(() => {
+        try {
+          const cur = new URL(window.location.href);
+          if ((cur.pathname === '/inbox' || cur.pathname.startsWith('/inbox')) && cur.searchParams.get('type') === 'forwarded') {
+            // do a full reload to ensure server-driven state and cookies are applied
+            window.location.reload();
+          }
+        } catch (e) {
+          // ignore
+        }
+      }, 4000) as unknown as number;
+    } catch (e) {
+      // ignore scheduling errors
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+  }, []);
   // Role derived from the `user` cookie (if present) will override or supplement auth state.
   const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
 
@@ -219,17 +319,29 @@ const getUserRoleFromCookie = () => {
       if (!pathname) return;
       const type = searchParams?.get('type');
       if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
-        const newActive = `inbox-${String(type).toLowerCase()}`;
+        const newActive = normalizeNavKey(`inbox-${String(type).toLowerCase()}`);
         if (newActive !== activeItem) {
           console.debug('[Sidebar] URL change -> setting activeItem from URL', { pathname, type, newActive });
           setActiveItem(newActive);
           try { localStorage.setItem('activeNavItem', newActive); } catch (e) {}
+
+          // Ensure the inbox is opened and the data is loaded when landing via URL
+          try {
+            if (!isInboxOpen) dispatch(openInbox());
+            void loadType(String(type), false).catch(() => {});
+            if (onTableReload) onTableReload(String(type));
+            // schedule refresh for forwarded inbox after login/redirect if applicable
+            if (String(type).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
+          } catch (e) {
+            // swallow errors - defensive
+            console.debug('[Sidebar] auto-load on URL change failed', e);
+          }
         }
       }
     } catch (err) {
       console.debug('[Sidebar] url-sync effect failed', err);
     }
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, normalizeNavKey, isInboxOpen, dispatch, loadType, onTableReload, scheduleInboxForwardedRefresh]);
 
   useEffect(() => {
     // prefer cookie-derived role when available (full role object), fallback to auth sync user or role
@@ -329,8 +441,9 @@ const getUserRoleFromCookie = () => {
     if (item.childs?.length) {
       setExpandedMenus((prev) => ({ ...prev, [item.name]: !prev[item.name] }));
     } else {
-      setActiveItem(item.name);
-      localStorage.setItem("activeNavItem", item.name);
+  const key = normalizeNavKey(item.name as string);
+  setActiveItem(key);
+  try { localStorage.setItem('activeNavItem', key); } catch (e) {}
       
       // Store statusIds for later use
       if (item.statusIds && item.statusIds.length > 0) {
@@ -341,7 +454,7 @@ const getUserRoleFromCookie = () => {
         localStorage.removeItem("activeStatusIds");
       }
       
-      const effectiveRole = cookieRole || userRole;
+  const effectiveRole = cookieRole || userRole;
       // Only ADMIN can access /admin/*
       if (effectiveRole === 'ADMIN') {
         const pathSegment = item.name.replace(/\s+/g, '');
@@ -361,17 +474,19 @@ const getUserRoleFromCookie = () => {
           const target = `/inbox?type=${encodeURIComponent(type)}`;
           console.debug('[Sidebar] navigate inbox target', { target, type });
           router.push(target);
+          // schedule a refresh for forwarded inbox in case server-side cookies/redirects
+          scheduleInboxForwardedRefresh(target);
         }
       }
     }
-  }, [router, dispatch, cookieRole, userRole, loadType]);
+  }, [router, dispatch, cookieRole, userRole, loadType, scheduleInboxForwardedRefresh]);
 
   const handleInboxToggle = useCallback(() => {
     dispatch(toggleInbox()); // Dispatch toggle action
   }, [dispatch, isInboxOpen]);
 
   const handleInboxSubItemClick = useCallback((subItem: string) => {
-    const activeItemKey = `inbox-${subItem}`;
+    const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
     const currentPath = window.location.pathname;
     const effectiveRole = cookieRole || userRole;
     // For admin, use /admin/inbox, for others use /inbox
@@ -395,7 +510,7 @@ const getUserRoleFromCookie = () => {
     const normalized = String(subItem);
     startTransition(() => {
       setActiveItem(activeItemKey);
-      localStorage.setItem('activeNavItem', activeItemKey);
+      try { localStorage.setItem('activeNavItem', activeItemKey); } catch (e) {}
 
       if (!isInboxOpen) {
         dispatch(openInbox());
@@ -431,8 +546,10 @@ const getUserRoleFromCookie = () => {
     } else {
       console.debug('[Sidebar] router.push targetUrl', targetUrl);
       router.push(targetUrl);
+      // schedule a refresh when navigating to forwarded inbox
+      scheduleInboxForwardedRefresh(targetUrl);
     }
-  }, [dispatch, isInboxOpen, activeItem, onTableReload, router, cookieRole, userRole]);
+  }, [dispatch, isInboxOpen, onTableReload, router, cookieRole, userRole, scheduleInboxForwardedRefresh]);
 
   const handleLogout = useCallback(async () => {
     if (token) {
@@ -482,6 +599,34 @@ const getUserRoleFromCookie = () => {
     return Array.from(map.values());
   }, [roleConfig, cookieRole, userRole]);
 
+  // Validate activeItem when the available menu changes (role change)
+  useEffect(() => {
+    try {
+      if (!activeItem) return; // nothing to validate
+
+      // Build set of allowed normalized keys
+      const allowed = new Set<string>();
+      // menuItems contains objects with name/raw - normalize them
+      menuItems.forEach(mi => {
+        const k = normalizeNavKey(mi.name as string);
+        if (k) allowed.add(k);
+      });
+  // Add canonical inbox sub items
+  ['forwarded','returned','redflagged','disposed'].forEach(t => allowed.add(`inbox-${t}`));
+      // If activeItem is allowed, nothing to do
+      const normalizedActive = normalizeNavKey(activeItem);
+      if (allowed.has(normalizedActive)) return;
+
+      // Otherwise pick a sane default: prefer first menu item, else dashboard
+      const fallback = menuItems.length ? normalizeNavKey(menuItems[0].name as string) : 'dashboard';
+      console.debug('[Sidebar] activeItem invalid for new role, switching to', fallback, 'current:', activeItem);
+      setActiveItem(fallback);
+      try { localStorage.setItem('activeNavItem', fallback); } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
+  }, [roleConfig, menuItems, activeItem, normalizeNavKey]);
+
   // Debug: show raw roleConfig.menuItems and deduped menuItems in development
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
@@ -499,49 +644,56 @@ const getUserRoleFromCookie = () => {
   const returnedIcon = useMemo(() => <Undo2Fixed className="w-6 h-6 mr-2" aria-label="Returned" />, []);
   const redFlaggedIcon = useMemo(() => <FlagFixed className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
   const disposedIcon = useMemo(() => <FolderCheckFixed className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
-  const sentIcon = useMemo(() => <CornerUpRightFixed className="w-6 h-6 mr-2 transform rotate-180" aria-label="Sent" />, []);
 
-  // Create highly stable inbox sub-items to prevent flickering
+  // Build inbox sub-items dynamically from role/menu config so the menu matches
+  // whatever the role provides. Fall back to a known list if none are present.
   const inboxSubItems = useMemo(() => {
-    return [
-      { 
-        name: "forwarded", 
-        label: "Forwarded", 
-        icon: forwardedIcon, 
-        count: applicationCounts?.forwardedCount || 0
-      },
-      { 
-        name: "returned", 
-        label: "Returned", 
-        icon: returnedIcon, 
-        count: applicationCounts?.returnedCount || 0
-      },
-      { 
-        name: "redFlagged", 
-        label: "Red Flagged", 
-        icon: redFlaggedIcon, 
-        count: applicationCounts?.redFlaggedCount || 0
-      },
-      { 
-        name: "disposed", 
-        label: "Disposed", 
-        icon: disposedIcon, 
-        count: applicationCounts?.disposedCount || 0
-      }
-    ];
-  }, [
-    // Include stable icon references
-    forwardedIcon,
-    returnedIcon,
-    redFlaggedIcon,
-    disposedIcon,
-    sentIcon,
-    // Only re-create when counts actually change
-    applicationCounts?.forwardedCount, 
-    applicationCounts?.returnedCount, 
-    applicationCounts?.redFlaggedCount, 
-    applicationCounts?.disposedCount
-  ]);
+    // derive subtype set from deduped menuItems
+    const set = new Set<string>();
+    menuItems.forEach(mi => {
+      try {
+        const k = normalizeNavKey(mi.name as string);
+        if (k.startsWith('inbox-')) {
+          set.add(k.replace('inbox-', ''));
+        }
+      } catch (e) {}
+    });
+
+  // default fallbacks
+  const fallbacks = ['forwarded', 'returned', 'redflagged', 'disposed'];
+    if (set.size === 0) {
+      fallbacks.forEach(f => set.add(f));
+    } else {
+      // ensure common types are present so counts/icons align
+      fallbacks.forEach(f => set.add(f));
+    }
+
+    const iconMap: Record<string, React.ReactNode> = {
+      forwarded: forwardedIcon,
+      returned: returnedIcon,
+      redflagged: redFlaggedIcon,
+      disposed: disposedIcon,
+    };
+
+    const countMap: Record<string, number> = {
+      forwarded: applicationCounts?.forwardedCount || 0,
+      returned: applicationCounts?.returnedCount || 0,
+      redflagged: applicationCounts?.redFlaggedCount || 0,
+      disposed: applicationCounts?.disposedCount || 0,
+    };
+
+    const labelFor = (n: string) => {
+      if (n.toLowerCase() === 'redflagged') return 'Red Flagged';
+      return n.charAt(0).toUpperCase() + n.slice(1);
+    };
+
+    return Array.from(set).map((name) => ({
+      name,
+      label: labelFor(name),
+      icon: iconMap[name] ?? forwardedIcon,
+      count: countMap[name] ?? 0,
+    }));
+  }, [menuItems, normalizeNavKey, forwardedIcon, returnedIcon, redFlaggedIcon, disposedIcon, applicationCounts?.forwardedCount, applicationCounts?.returnedCount, applicationCounts?.redFlaggedCount, applicationCounts?.disposedCount]);
 
   if (!visible && !showSidebar) return null;
   // Only render sidebar if allowed role
@@ -592,21 +744,21 @@ const getUserRoleFromCookie = () => {
                 {isInboxOpen && (
                   <ul className="ml-8 mt-1 space-y-1" role="menu">
                     {inboxSubItems.map((sub) => {
-                      // Pre-calculate active state to prevent inline computation
-                      const isActive = activeItem === `inbox-${sub.name}`;
+                          // Pre-calculate active state to prevent inline computation
+                          const isActive = activeItem === normalizeNavKey(`inbox-${sub.name}`);
                       
-                      return (
-                        <InboxSubMenuItem
-                          key={`inbox-sub-${sub.name}`} // More specific key
-                          name={sub.name}
-                          label={sub.label}
-                          icon={sub.icon}
-                          count={sub.count}
-                          active={isActive}
-                          onClick={handleInboxSubItemClick}
-                        />
-                      );
-                    })}
+                          return (
+                            <InboxSubMenuItem
+                              key={`inbox-sub-${sub.name}`} // More specific key
+                              name={sub.name}
+                              label={sub.label}
+                              icon={sub.icon}
+                              count={sub.count}
+                              active={isActive}
+                              onClick={handleInboxSubItemClick}
+                            />
+                          );
+                        })}
                   </ul>
                 )}
               </li>
@@ -618,8 +770,8 @@ const getUserRoleFromCookie = () => {
                 return normalized !== 'inbox';
               })
               .map((item) => {
-                const normalizedKey = String(item.name || '').replace(/\s+/g, '').toLowerCase();
-                const isActive = activeItem === item.name || activeItem === normalizedKey || activeItem === normalizedKey.toLowerCase();
+                const normalizedKey = normalizeNavKey(item.name as string);
+                const isActive = activeItem === normalizedKey;
                 return (
                   <MenuItem
                     key={`menu-${normalizedKey}`}

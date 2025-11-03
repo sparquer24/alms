@@ -144,7 +144,7 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
   );
 }
 
-export default function ProceedingsForm({ applicationId, onSuccess, applicationData }: ProceedingsFormProps) {
+export default function ProceedingsForm({ applicationId, onSuccess, applicationData, userRole }: ProceedingsFormProps) {
   // Dynamic actions state
   const [actionOptions, setActionOptions] = useState<ActionOption[]>([]);
   const [actionsLoading, setActionsLoading] = useState<boolean>(true);
