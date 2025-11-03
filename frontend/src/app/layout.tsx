@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: any }) {
           may call Object.keys on a null value which throws. Inject a tiny script
           here to ensure a safe default exists before other scripts run.
         */}
-        <script dangerouslySetInnerHTML={{ __html: `try{(function(){var k='floatingSidebar';if(typeof localStorage!=='undefined'){var r=localStorage.getItem(k);if(r===null||r==='null'||r==='undefined'){localStorage.setItem(k,JSON.stringify({}));}}})()}catch(e){};` }} />
+        <script dangerouslySetInnerHTML={{ __html: `try{(function(){var k='floatingSidebar';if(typeof localStorage!=='undefined'){var r=localStorage.getItem(k);if(r===null||r==='null'||r==='undefined'){localStorage.setItem(k,JSON.stringify({}));}}try{if(typeof window!=='undefined'){window.floatingSidebar=window.floatingSidebar||{}}}catch(e){} })()}catch(e){};` }} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <div className="w-full">

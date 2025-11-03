@@ -74,8 +74,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     'Unknown Applicant';
 
   // Map status from new API format
-  const statusCode = detailedApp.status?.code || detailedApp.status || 'INITIATE';
-  const statusName = detailedApp.status?.name || statusCode;
+  const statusName = detailedApp.workflowStatus?.name;
 
   return {
     id: String(detailedApp.id || ''),
@@ -89,7 +88,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     applicationType: 'Fresh License',
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
-    status: mapApiStatusToApplicationStatus(statusCode),
+    status: statusName,
     status_id: detailedApp.status?.id || detailedApp.statusId || 1,
     assignedTo: detailedApp.currentUser?.username || String(detailedApp.currentUserId || ''),
     forwardedFrom: detailedApp.previousUser?.username || undefined,
@@ -547,7 +546,7 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     applicationType: 'Fresh License', // Default for now, might need to be determined from other fields
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
-    status: mapApiStatusToApplicationStatus(apiApp.status),
+    status: apiApp.status,
     status_id: apiApp.status?.id || STATUS_MAP.pending[0],
     workflowStatus: apiApp.workflowStatus ? {
       id: apiApp.workflowStatus.id,
@@ -580,49 +579,6 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
   };
 };
 
-/**
- * Map API status to ApplicationData status
- * Based on the actual API response structure
- */
-const mapApiStatusToApplicationStatus = (apiStatus: any): ApplicationData['status'] => {
-  if (!apiStatus) return 'pending';
-
-  // Handle the status object structure: { id: 1, name: "Forward", code: "FORWARD" }
-  const statusStr = (apiStatus.code || apiStatus.name || String(apiStatus)).toLowerCase();
-
-  const statusMapping: Record<string, ApplicationData['status']> = {
-    'forward': 'pending', // Forward status maps to pending in UI
-    'pending': 'pending',
-    'approved': 'approved',
-    'approve': 'approved',
-    'rejected': 'rejected',
-    'reject': 'rejected',
-    'returned': 'returned',
-    'return': 'returned',
-    'red_flagged': 'red-flagged',
-    'red-flagged': 'red-flagged',
-    'flagged': 'red-flagged',
-    'flag': 'red-flagged',
-    'disposed': 'disposed',
-    'dispose': 'disposed',
-    'close': 'closed',
-    'closed': 'closed',
-    'initiated': 'initiated',
-    'initiate': 'initiated',
-    'sent': 'pending',
-    'forwarded': 'pending',
-    'cancelled': 'cancelled',
-    'cancel': 'cancelled',
-    're_enquiry': 're-enquiry',
-    're-enquiry': 're-enquiry',
-    'ground_report': 'ground-report',
-    'ground-report': 'ground-report',
-    'recommend': 'recommended',
-    'recommended': 'recommended',
-  };
-
-  return statusMapping[statusStr] || 'pending';
-};
 
 /**
  * Filter applications based on search query and date range

@@ -3,7 +3,7 @@ import Image from "next/image";
 
 // Type assertion for Next.js Image to fix React 18 compatibility
 const ImageFixed = Image as any;
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
 import { ChartBarIcon } from "@heroicons/react/outline";
@@ -152,7 +152,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   // Store statusIds for the current active menu item
   const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const dispatch = useDispatch();
-  const { userRole, token } = useAuthSync();
+  const { userRole, token, user } = useAuthSync();
   const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
   const router = useRouter();
   // Role derived from the `user` cookie (if present) will override or supplement auth state.
@@ -210,13 +210,36 @@ const getUserRoleFromCookie = () => {
   // Inbox context API (moved up so effects can use it)
   const { loadType } = useInbox();
 
+  // react to URL changes (client-side navigation) so activeItem and inbox load
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    // prefer cookie-derived role when available (role code or name), fallback to auth sync role
-    const effective = cookieRole || userRole || "SHO";
-    const config = getRoleConfig(effective);
+    try {
+      if (!pathname) return;
+      const type = searchParams?.get('type');
+      if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
+        const newActive = `inbox-${String(type).toLowerCase()}`;
+        if (newActive !== activeItem) {
+          console.debug('[Sidebar] URL change -> setting activeItem from URL', { pathname, type, newActive });
+          setActiveItem(newActive);
+          try { localStorage.setItem('activeNavItem', newActive); } catch (e) {}
+        }
+      }
+    } catch (err) {
+      console.debug('[Sidebar] url-sync effect failed', err);
+    }
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    // prefer cookie-derived role when available (full role object), fallback to auth sync user or role
+    // Pass the `user` object into getRoleConfig when available so role.menu_items are applied
+    // immediately after login even when cookies are HttpOnly and not client-readable.
+    const effectiveInput = (typeof cookieRole === 'object' && cookieRole) ? cookieRole : (user ?? (cookieRole || userRole || "SHO"));
+    const config = getRoleConfig(effectiveInput);
     setRoleConfig(config);
-      console.debug('[Sidebar] effective role:', effective, 'roleConfig menuItems:', config?.menuItems);
-  }, [userRole, cookieRole]);
+    console.debug('[Sidebar] effective role input:', effectiveInput, 'roleConfig menuItems:', config?.menuItems);
+  }, [userRole, cookieRole, user]);
 
   // Use the optimized sidebar counts hook with more stable conditions
   const shouldFetchCounts = useMemo(() => 
@@ -267,16 +290,22 @@ const getUserRoleFromCookie = () => {
         // ensure the inbox panel is open
         if (!isInboxOpen) dispatch(openInbox());
 
-        // restore any stored status ids
+        // restore any stored status ids and pass them into loadType so
+        // role-provided statusIds (from cookies) are honored immediately.
+        let restoredStatusIds: number[] | undefined = undefined;
         try {
           const s = localStorage.getItem('activeStatusIds');
-          if (s) setActiveStatusIds(JSON.parse(s));
+          if (s) {
+            restoredStatusIds = JSON.parse(s);
+            setActiveStatusIds(restoredStatusIds);
+          }
         } catch (e) {
           // ignore parse errors
         }
 
         // trigger InboxContext load and notify parent to reload table if provided
-        void loadType(String(t)).catch(() => {});
+        // Pass restoredStatusIds (if any) to ensure the Context uses role/menu provided ids.
+        void loadType(String(t), false, restoredStatusIds ?? activeStatusIds).catch(() => {});
         if (onTableReload) onTableReload(String(t));
       }
     } catch (err) {
@@ -374,7 +403,25 @@ const getUserRoleFromCookie = () => {
     });
 
     // Update context (single fetch) and update URL without forcing a full remount
-    loadType(normalized).catch((e) => {});
+    // Attempt to resolve custom statusIds from several sources in order:
+    // 1. currently-active `activeStatusIds` state
+    // 2. deduped `menuItems` entry for 'inbox' (role-provided)
+    // 3. direct menu item that matches the subItem name
+    let customStatusIds: number[] | undefined = activeStatusIds;
+    try {
+      if (!customStatusIds) {
+        const inboxMenu = menuItems.find(mi => String(mi.name || '').replace(/\s+/g, '').toLowerCase() === 'inbox');
+        if (inboxMenu?.statusIds && inboxMenu.statusIds.length) customStatusIds = inboxMenu.statusIds;
+      }
+      if (!customStatusIds) {
+        const direct = menuItems.find(mi => String(mi.name || '').replace(/\s+/g, '').toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase());
+        if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
+      }
+    } catch (e) {
+      // ignore - fallback to default mapping inside fetch
+    }
+
+    loadType(normalized, false, customStatusIds).catch((e) => {});
     const targetBase = isAdmin ? '/admin/userManagement' : '/inbox';
     const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
     if (isOnInboxBase) {

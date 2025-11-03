@@ -16,18 +16,25 @@ export type RoleConfig = {
 };
 
 // ✅ Reads from cookie and builds RoleConfig
-export const getRoleConfig = (userRole: any): RoleConfig | undefined => {
-  const token = jsCookie.get("user");
-
-  if (!token) {
-    return undefined;
-  }
-
-  let parsedUser: any;
-  try {
-    parsedUser = JSON.parse(token);
-  } catch (err) {
-    return undefined;
+export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => {
+  // Accept either a full user object (preferred) or a role identifier (string/code).
+  // If a user object is provided, use it directly. Otherwise attempt to read the
+  // `user` cookie as a fallback (legacy behavior).
+  let parsedUser: any = undefined;
+  if (userRoleOrObject && typeof userRoleOrObject === 'object') {
+    parsedUser = userRoleOrObject;
+  } else {
+    const token = jsCookie.get("user");
+    if (!token) {
+      parsedUser = undefined;
+    } else {
+      try {
+        parsedUser = JSON.parse(token);
+      } catch (err) {
+        // leave parsedUser undefined
+        parsedUser = undefined;
+      }
+    }
   }
 
   // role may be under user.role or user directly
