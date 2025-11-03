@@ -205,19 +205,16 @@ function LoginContent() {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
       const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
+      console.log('LoginContent: Redirecting authenticated user to', redirectPath);
       if (redirectPath && typeof redirectPath === 'string') {
-        // If redirecting to an admin area, perform a full navigation so the
-        // server middleware sees the newly-set cookies. For non-admin routes,
-        // client-side navigation is fine.
-        if (redirectPath.startsWith('/admin')) {
-          // small delay to ensure cookies set by the thunk are flushed
-          setTimeout(() => { window.location.assign(redirectPath); }, 50);
-        } else {
-          router.push(redirectPath);
-        }
+        // Perform a full navigation so the server middleware/layout sees the
+        // newly-set cookies and any server components (eg. sidebar) are
+        // rendered with the correct data. Use a tiny delay so cookies
+        // written by thunks have a chance to flush.
+        setTimeout(() => { window.location.assign(redirectPath); }, 50);
       } else {
-        // Fallback to root
-        router.push('/');
+        // Fallback to root (full navigation)
+        setTimeout(() => { window.location.assign('/'); }, 50);
       }
     }
   }, [isAuthenticated, currentUser, router]);
@@ -230,13 +227,20 @@ function LoginContent() {
       const cAuth = getCookie('auth');
       const cRole:any = getCookie('role');
       const cUser = getCookie('user');
+      console.log({cAuth, cRole, cUser});
       if (cAuth && cRole && cUser) {
-        if (cRole.toLowerCase() == "admin") {
-          router.replace('/admin/userManagement');
-        } else {
-          router.replace('/inbox?type=forwarded');
+        // Use full navigation so server-side layout/middleware reads cookies
+        // and renders the correct navigation/sidebar state immediately.
+        try {
+          if (String(cRole).toLowerCase() === 'admin') {
+            setTimeout(() => { window.location.assign('/admin/userManagement'); }, 50);
+          } else {
+            setTimeout(() => { window.location.assign('/inbox?type=forwarded'); }, 50);
+          }
+        } catch (e) {
+          // Fallback: do a direct assign
+          window.location.assign(String(cRole).toLowerCase() === 'admin' ? '/admin/userManagement' : '/inbox?type=forwarded');
         }
-        // Redirect to root — use replace to avoid creating history entry
       }
     } catch (e) {
       // best-effort; ignore errors

@@ -72,9 +72,6 @@ const InboxSubMenuItem = memo(({
   active: boolean;
   onClick: (name: string) => void;
 }) => {
-  // Minimize re-render logging in production
-  if (process.env.NODE_ENV === 'development') {
-  }
   
   // Create ultra-stable click handler
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -139,12 +136,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       const url = new URL(window.location.href);
       const pathname = url.pathname;
       const type = url.searchParams.get('type');
-      if (pathname === '/inbox') {
-        if (type === 'drafts') return 'Drafts';
-        if (type === 'forwarded') return 'Inbox';
-        if (type === 'returned') return 'Inbox';
-        if (type === 'redFlagged') return 'Inbox';
-        if (type === 'disposed') return 'Inbox';
+      // Normalize initial active item for inbox routes to match the
+      // `inbox-{type}` keys that the inbox submenu uses (eg. 'inbox-forwarded').
+      if (pathname === '/inbox' || pathname.startsWith('/admin')) {
+        if (type) return `inbox-${String(type).toLowerCase()}`;
       }
       if (window.localStorage) {
         return localStorage.getItem("activeNavItem") || "";
@@ -217,9 +212,7 @@ const getUserRoleFromCookie = () => {
     const effective = cookieRole || userRole || "SHO";
     const config = getRoleConfig(effective);
     setRoleConfig(config);
-    if (process.env.NODE_ENV === 'development') {
       console.debug('[Sidebar] effective role:', effective, 'roleConfig menuItems:', config?.menuItems);
-    }
   }, [userRole, cookieRole]);
 
   // Use the optimized sidebar counts hook with more stable conditions
@@ -251,6 +244,17 @@ const getUserRoleFromCookie = () => {
     }
   }, []);
 
+  // Debug: log important runtime values to help diagnose stale sidebar issues
+  useEffect(() => {
+      console.debug('[Sidebar] mount/url/roles', {
+        href: typeof window !== 'undefined' ? window.location.href : null,
+        cookieRole,
+        userRole,
+        activeItem,
+        isInboxOpen,
+      });
+  }, [cookieRole, userRole, activeItem, isInboxOpen]);
+
   useEffect(() => {
     if (showSidebar) setVisible(true);
     else setTimeout(() => setVisible(false), 400);
@@ -259,6 +263,8 @@ const getUserRoleFromCookie = () => {
   const { loadType } = useInbox();
 
   const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
+    console.debug('[Sidebar] handleMenuClick', { item, cookieRole, userRole });
+    
     if (item.name.toLowerCase() !== "inbox") {
       dispatch(closeInbox()); // Close the inbox if another menu item is clicked
     }
@@ -281,18 +287,22 @@ const getUserRoleFromCookie = () => {
       // Only ADMIN can access /admin/*
       if (effectiveRole === 'ADMIN') {
         const pathSegment = item.name.replace(/\s+/g, '');
+        console.debug('[Sidebar] navigate admin', `/admin/${encodeURIComponent(pathSegment)}`);
         router.push(`/admin/${encodeURIComponent(pathSegment)}`);
       } else {
         // For non-admins, use role-based redirect logic
         // Special case: if menu is "dashboard" or similar, use getRoleBasedRedirectPath
         if (item.name.toLowerCase().includes('dashboard')) {
           const redirectPath = getRoleBasedRedirectPath(effectiveRole);
+          console.debug('[Sidebar] navigate dashboard', redirectPath);
           router.push(redirectPath);
         } else {
           // For other menu items, try to route to /inbox?type={item}
           // You may want to map item names to types as needed
           const type = item.name.replace(/\s+/g, '');
-          router.push(`/inbox?type=${encodeURIComponent(type)}`);
+          const target = `/inbox?type=${encodeURIComponent(type)}`;
+          console.debug('[Sidebar] navigate inbox target', { target, type });
+          router.push(target);
         }
       }
     }
@@ -311,6 +321,16 @@ const getUserRoleFromCookie = () => {
     const isOnInboxBase = isAdmin
       ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
       : currentPath === '/inbox' || currentPath.startsWith('/inbox');
+
+    
+    console.debug('[Sidebar] handleInboxSubItemClick', {
+      subItem,
+      activeItemKey,
+      currentPath,
+      effectiveRole,
+      isAdmin,
+      isOnInboxBase
+    });
 
     // Delegate loading to InboxContext which ensures a single fetch per type
     // Keep camelCase format for types like "reEnquiry" instead of converting to lowercase
@@ -333,6 +353,7 @@ const getUserRoleFromCookie = () => {
       window.history.replaceState(null, '', targetUrl);
       if (onTableReload) onTableReload(normalized);
     } else {
+      console.debug('[Sidebar] router.push targetUrl', targetUrl);
       router.push(targetUrl);
     }
   }, [dispatch, isInboxOpen, activeItem, onTableReload, router, cookieRole, userRole]);
