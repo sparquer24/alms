@@ -207,6 +207,9 @@ const getUserRoleFromCookie = () => {
   }
   const isInboxOpen = useSelector((state: RootState) => state.ui.isInboxOpen); // Get inbox state from Redux
 
+  // Inbox context API (moved up so effects can use it)
+  const { loadType } = useInbox();
+
   useEffect(() => {
     // prefer cookie-derived role when available (role code or name), fallback to auth sync role
     const effective = cookieRole || userRole || "SHO";
@@ -255,12 +258,38 @@ const getUserRoleFromCookie = () => {
       });
   }, [cookieRole, userRole, activeItem, isInboxOpen]);
 
+  // Auto-open inbox and load type when activeItem indicates an inbox-{type}
+  useEffect(() => {
+    try {
+      if (activeItem && activeItem.startsWith('inbox-')) {
+        const t = activeItem.replace('inbox-', '');
+        console.debug('[Sidebar] auto-loading inbox for type', t);
+        // ensure the inbox panel is open
+        if (!isInboxOpen) dispatch(openInbox());
+
+        // restore any stored status ids
+        try {
+          const s = localStorage.getItem('activeStatusIds');
+          if (s) setActiveStatusIds(JSON.parse(s));
+        } catch (e) {
+          // ignore parse errors
+        }
+
+        // trigger InboxContext load and notify parent to reload table if provided
+        void loadType(String(t)).catch(() => {});
+        if (onTableReload) onTableReload(String(t));
+      }
+    } catch (err) {
+      // defensive - do not break rendering
+      console.debug('[Sidebar] auto-load inbox failed', err);
+    }
+  }, [activeItem, dispatch, isInboxOpen, loadType, onTableReload]);
+
   useEffect(() => {
     if (showSidebar) setVisible(true);
     else setTimeout(() => setVisible(false), 400);
   }, [showSidebar]);
 
-  const { loadType } = useInbox();
 
   const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
     console.debug('[Sidebar] handleMenuClick', { item, cookieRole, userRole });
