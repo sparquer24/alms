@@ -14,18 +14,19 @@ async function main() {
   // --- Actions Seeding ---
   console.log('Seeding statuses and actions...');
   const statuses = [
-    { code: 'FORWARD', name: 'Forward', description: 'Application forwarded to next stage', isStarted: false },
-    { code: 'REJECT', name: 'Reject', description: 'Application rejected', isStarted: false },
-    { code: 'APPROVED', name: 'Approved', description: 'Application approved', isStarted: false },
-    { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled', isStarted: false },
-    { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required', isStarted: false },
-    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required', isStarted: false },
-    { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed', isStarted: false },
-    { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application', isStarted: false },
-    { code: 'INITIATE', name: 'Initiate', description: 'Application initiated', isStarted: true },
-    { code: 'CLOSE', name: 'Close', description: 'Application closed', isStarted: false },
-    { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended', isStarted: false },
-    { code: 'DRAFT', name: 'Draft', description: 'Draft status', isStarted: false }
+    { code: 'FORWARD', name: 'Forward', description: 'Application forwarded to next stage' },
+    { code: 'REJECT', name: 'Reject', description: 'Application rejected' },
+    { code: 'APPROVED', name: 'Approved', description: 'Application approved' },
+    { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled' },
+    { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required' },
+    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
+    { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
+    { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
+    { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
+    { code: 'CLOSE', name: 'Close', description: 'Application closed' },
+    { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
+    { code: 'DRAFT', name: 'Draft', description: 'Draft status' },
+    { code: 'RETURN', name: 'Return', description: 'Application returned for corrections' }
   ];
 
   // Seed statuses if not present
@@ -65,22 +66,16 @@ async function main() {
 
   console.log('Seeding roles...');
   const roles = [
-    { code: 'APPLICANT', name: 'Citizen Applicant', dashboardTitle: 'Applicant Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'reports'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
+    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
+    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
     { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
     { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: true },
     { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
     { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ARMS_SEAT', name: 'Arms Seat', dashboardTitle: 'ARMS_SEAT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ACO', name: 'Assistant Compliance Officer', dashboardTitle: 'ACO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'reports'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
-    { code: 'STORE', name: 'Store Superintendent', dashboardTitle: 'STORE Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'TL', name: 'Traffic License Superintendent', dashboardTitle: 'TL Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
   ];
   for (const role of roles) {
     // Check if role already exists
@@ -556,20 +551,11 @@ async function main() {
       // Will be linked to Begumpet division and police station via dynamic lookup
     },
     {
-      username: 'ARMS_SECTION_HYD',
-      email: 'arms-section@tspolice.gov.in',
-      password: 'password',
-      phoneNo: '8712660300',
-      role: 'AS',
-      stateId: state ? state.id : undefined,
-      districtId: district ? district.id : undefined
-    },
-    {
       username: 'ARMS_SUPDT_HYD',
       email: 'arms-superintendent@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660301',
-      role: 'ARMS_SUPDT',
+      role: 'AS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -578,7 +564,7 @@ async function main() {
       email: 'arms-seat-a1@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660302',
-      role: 'ARMS_SEAT',
+      role: 'AS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -587,7 +573,7 @@ async function main() {
       email: 'arms-seat-a2@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660303',
-      role: 'ARMS_SEAT',
+      role: 'AS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -596,7 +582,7 @@ async function main() {
       email: 'arms-seat-a3@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660304',
-      role: 'ARMS_SEAT',
+      role: 'AS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -605,7 +591,7 @@ async function main() {
       email: 'arms-seat-a4@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660305',
-      role: 'ARMS_SEAT',
+      role: 'AS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -773,44 +759,35 @@ async function main() {
 
   // Define role-action mappings based on role hierarchy and permissions
   const roleActionMappings = [
-    // APPLICANT - Limited actions for citizens
-    { roleCode: 'APPLICANT', actionCodes: ['INITIATE'] },
-
     // SHO - Station House Officer can forward, reject, recommend, close
-    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT'] },
+    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT', 'RETURN'] },
 
     // ACP - Assistant Commissioner can do all SHO actions plus approve
-    { roleCode: 'ACP', actionCodes: ['FORWARD'] },
+    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RETURN'] },
 
     // DCP - Deputy Commissioner has broader approval powers
-    { roleCode: 'DCP', actionCodes: ['FORWARD'] },
+    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RETURN'] },
 
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATE'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATED', 'RETURN'] },
 
     // CADO - Chief Administrative Officer
-    { roleCode: 'CADO', actionCodes: ['FORWARD'] },
+    { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
 
     // AS - Arms Superintendent
-    { roleCode: 'AS', actionCodes: ['FORWARD'] },
+    { roleCode: 'AS', actionCodes: ['FORWARD', 'RETURN'] },
 
     // ADO - Administrative Officer
-    { roleCode: 'ADO', actionCodes: ['FORWARD'] },
+    { roleCode: 'ADO', actionCodes: ['FORWARD', 'RETURN'] },
 
     // JTCP - Joint Commissioner of Police
-    { roleCode: 'JTCP', actionCodes: ['FORWARD', 'RE_ENQUIRY'] },
+    { roleCode: 'JTCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
-    // CP - Commissioner of Police (highest authority)
-    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
-
-    // ARMS_SUPDT - Arms Superintendent
-    { roleCode: 'ARMS_SUPDT', actionCodes: ['FORWARD'] },
-
-    // ARMS_SEAT - Arms Seat
-    { roleCode: 'ARMS_SEAT', actionCodes: ['FORWARD'] },
+    // CP - Commissioner of Police (highest authority) - NO RETURN action
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND'] },
 
     // ADMIN - System Administrator (can perform all actions for system management)
-    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND'] },
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'RETURN'] },
   ];
 
   // Insert role-action mappings
