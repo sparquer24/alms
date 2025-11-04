@@ -697,7 +697,7 @@ export class ApplicationFormService {
         if (isSubmit === true) {
           // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
-            where: { isStarted: true, isActive: true }
+            where: { isStarted: true, isActive: true } as any
           });   
 
           // Get current application details to know the current user

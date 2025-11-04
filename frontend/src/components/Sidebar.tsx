@@ -1,3 +1,5 @@
+'use client';
+
 import React, {
   memo,
   useCallback,
@@ -42,14 +44,26 @@ interface MenuItemProps {
   count?: number;
   active?: boolean;
   onClick?: () => void;
+  onActivate?: () => void;
 }
-const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) => (
+const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: MenuItemProps) => (
   <li>
     <button
       type='button'
+      onMouseDown={onActivate}
       onClick={onClick}
       className={`flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150
         ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`}
+      aria-pressed={active}
+      aria-current={active ? 'page' : undefined}
+      role='menuitem'
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate?.();
+          onClick?.();
+        }
+      }}
     >
       <span className='inline-flex items-center justify-center w-6 h-6 mr-2' aria-hidden='true'>
         {icon}
@@ -72,6 +86,7 @@ const InboxSubMenuItem = memo(
     count,
     active,
     onClick,
+    onActivate,
   }: {
     name: string;
     label: string;
@@ -79,6 +94,7 @@ const InboxSubMenuItem = memo(
     count?: number;
     active: boolean;
     onClick: (name: string) => void;
+    onActivate?: (name: string) => void;
   }) => {
     const handleClick = useCallback(
       (e: React.MouseEvent) => {
@@ -97,7 +113,21 @@ const InboxSubMenuItem = memo(
 
     return (
       <li>
-        <button type='button' onClick={handleClick} className={className} aria-pressed={active}>
+        <button
+          type='button'
+          onMouseDown={() => onActivate?.(name)}
+          onClick={handleClick}
+          className={className}
+          aria-pressed={active}
+          aria-current={active ? 'page' : undefined}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onActivate?.(name);
+              onClick(name);
+            }
+          }}
+        >
           <span
             className='inline-flex items-center justify-center w-6 h-6 mr-2 transition-colors'
             aria-hidden='true'
@@ -113,9 +143,7 @@ const InboxSubMenuItem = memo(
         </button>
       </li>
     );
-  },
-  (p, n) =>
-    p.name === n.name && p.active === n.active && p.count === n.count && p.onClick === n.onClick
+  }
 );
 
 /* ----------------------------
@@ -136,6 +164,46 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const { userRole, token, user } = useAuthSync();
   const { loadType } = useInbox();
   const isMountedRef = useRef(false);
+  const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // moved up so other handlers can read it
+
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // Ensure we restore previously-selected active nav from localStorage on first client mount
+  // unless the current URL explicitly sets a type (URL beats localStorage).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      const typeParam = url.searchParams.get('type');
+      if (typeParam) return; // URL takes precedence
+      const stored = window.localStorage?.getItem('activeNavItem');
+      if (!stored) return;
+      let key = normalizeNavKey(stored);
+      if (!key) return;
+      // If stored value was saved without `inbox-` (e.g. 'drafts'), try prefixing
+      // so we recover inbox-{type} semantics used by the rest of the sidebar.
+      if (!key.startsWith('inbox-')) {
+        const alt = normalizeNavKey(`inbox-${stored}`);
+        if (alt && alt.startsWith('inbox-')) key = alt;
+      }
+      // Only set when no active item yet to avoid stomping URL-driven state
+      setActiveItem(prev => {
+        if (prev && String(prev).trim().length > 0) return prev;
+        try {
+          const toStore = key.startsWith('inbox-') ? key.slice('inbox-'.length) : key;
+          localStorage.setItem('activeNavItem', toStore);
+        } catch (e) {}
+        return key;
+      });
+    } catch (e) {
+      // ignore
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // avoid reading window/localStorage during render — init blank and sync on client
   const [activeItem, setActiveItem] = useState<string>('');
@@ -144,6 +212,17 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
   const [roleConfig, setRoleConfig] = useState(() => getRoleConfig(userRole));
+
+  // Persist active nav key to localStorage but store inbox types without the `inbox-` prefix
+  const persistActiveNavToLocal = useCallback((key?: string) => {
+    if (typeof window === 'undefined' || !key) return;
+    try {
+      const toStore = key.startsWith('inbox-') ? key.slice('inbox-'.length) : key;
+      localStorage.setItem('activeNavItem', toStore);
+    } catch (e) {
+      /* ignore */
+    }
+  }, []);
 
   // timer for scheduled refresh
   const refreshTimerRef = useRef<number | null>(null);
@@ -363,14 +442,46 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         const pathnameNow = url.pathname;
         const typeParam = url.searchParams.get('type');
         if ((pathnameNow === '/inbox' || pathnameNow.startsWith('/admin')) && typeParam) {
+          const skip =
+            typeof window !== 'undefined' && window.sessionStorage
+              ? window.sessionStorage.getItem('skipOpenInbox') === 'true'
+              : false;
+          // clear the flag if present
+          try {
+            if (skip && typeof window !== 'undefined' && window.sessionStorage) {
+              window.sessionStorage.removeItem('skipOpenInbox');
+            }
+          } catch (e) {}
+
+          if (skip) {
+            // When the skip flag is set we want the URL to update but keep the
+            // inbox UI closed and treat the clicked item as a top-level active
+            // item (no `inbox-` prefix). Also call onTableReload so parent can
+            // refresh content.
+            try {
+              const topKey = normalizeNavKey(String(typeParam).toLowerCase());
+              setActiveItem(topKey);
+              persistActiveNavToLocal(topKey);
+              if (onTableReload) onTableReload(String(typeParam));
+            } catch (e) {
+              /* swallow */
+            }
+            return;
+          }
+
           const key = normalizeNavKey(`inbox-${String(typeParam).toLowerCase()}`);
           setActiveItem(key);
-          try {
-            localStorage.setItem('activeNavItem', key);
-          } catch (e) {}
+          persistActiveNavToLocal(key);
           // ensure inbox open & load
           try {
-            dispatch(openInbox());
+            // Only auto-open the inbox if the user hasn't explicitly closed it
+            const desiredOpen =
+              typeof window !== 'undefined' && window.localStorage
+                ? window.localStorage.getItem('inboxDesiredOpen')
+                : null;
+            if (desiredOpen !== 'false') {
+              dispatch(openInbox());
+            }
             void loadType(String(typeParam), false).catch(() => {});
             if (onTableReload) onTableReload(String(typeParam));
             if (String(typeParam).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
@@ -387,7 +498,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       try {
         const stored = window.localStorage?.getItem('activeNavItem') ?? '';
         if (stored) {
-          setActiveItem(normalizeNavKey(stored));
+          let key = normalizeNavKey(stored);
+          if (!key.startsWith('inbox-')) {
+            const alt = normalizeNavKey(`inbox-${stored}`);
+            if (alt && alt.startsWith('inbox-')) key = alt;
+          }
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
         }
       } catch (e) {
         // ignore
@@ -399,18 +516,48 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       if (!pathname) return;
       const type = searchParams?.get('type');
       if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
+        // Respect a short-lived session flag indicating we should skip
+        // opening the inbox UI even though the URL changed. This is used
+        // when we want the URL to reflect the selection but keep the
+        // inbox visually closed (Option B behavior).
+        const skip =
+          typeof window !== 'undefined' && window.sessionStorage
+            ? window.sessionStorage.getItem('skipOpenInbox') === 'true'
+            : false;
+        try {
+          if (skip && typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem('skipOpenInbox');
+          }
+        } catch (e) {}
+
+        if (skip) {
+          try {
+            const topKey = normalizeNavKey(String(type).toLowerCase());
+            setActiveItem(topKey);
+            persistActiveNavToLocal(topKey);
+            if (onTableReload) onTableReload(String(type));
+          } catch (e) {
+            /* swallow */
+          }
+          return;
+        }
+
         const newActive = normalizeNavKey(`inbox-${String(type).toLowerCase()}`);
         if (newActive !== activeItem) {
           setActiveItem(newActive);
-          try {
-            localStorage.setItem('activeNavItem', newActive);
-          } catch (e) {}
+          persistActiveNavToLocal(newActive);
           if (!isMountedRef.current) return;
           try {
             if (!((window as any).__REDUX_INBOX_OPEN__ || false)) {
               /* noop hook for potential global flag */
             }
-            dispatch(openInbox());
+            const desiredOpen =
+              typeof window !== 'undefined' && window.localStorage
+                ? window.localStorage.getItem('inboxDesiredOpen')
+                : null;
+            if (desiredOpen !== 'false') {
+              dispatch(openInbox());
+            }
             void loadType(String(type), false).catch(() => {});
             if (onTableReload) onTableReload(String(type));
             if (String(type).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
@@ -432,7 +579,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     if (typeof window === 'undefined') return;
     try {
       if (activeItem) {
-        localStorage.setItem('activeNavItem', activeItem);
+        persistActiveNavToLocal(activeItem);
       }
     } catch (e) {
       /* ignore */
@@ -468,16 +615,22 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       const k = normalizeNavKey(mi.name as string);
       if (k) allowed.add(k);
     });
-    ['forwarded', 'returned', 'redflagged', 'disposed'].forEach(t => allowed.add(`inbox-${t}`));
+    // Always allow inbox-* keys (they can be created from table actions / deep links)
     const normalizedActive = normalizeNavKey(activeItem);
+    if (normalizedActive.startsWith('inbox-')) {
+      // keep inbox-* as valid even if it's not present in menuItems (it may be a dynamic type)
+      return;
+    }
+
+    // Ensure a few common fallbacks are present as valid inbox types
+    ['forwarded', 'returned', 'redflagged', 'disposed'].forEach(t => allowed.add(`inbox-${t}`));
+
     if (!allowed.has(normalizedActive)) {
       const fallback = menuItems.length
         ? normalizeNavKey(menuItems[0].name as string)
         : 'dashboard';
       setActiveItem(fallback);
-      try {
-        localStorage.setItem('activeNavItem', fallback);
-      } catch (e) {}
+      persistActiveNavToLocal(fallback);
     }
   }, [menuItems, activeItem, normalizeNavKey]);
 
@@ -493,8 +646,18 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       if (activeItem && activeItem.startsWith('inbox-')) {
         const t = activeItem.replace('inbox-', '');
         if (!isMountedRef.current) return;
-        // open inbox if not open
-        dispatch(openInbox());
+        // open inbox if not open — but respect user's explicit preference
+        try {
+          const desiredOpen =
+            typeof window !== 'undefined' && window.localStorage
+              ? window.localStorage.getItem('inboxDesiredOpen')
+              : null;
+          if (desiredOpen !== 'false') {
+            dispatch(openInbox());
+          }
+        } catch (e) {
+          dispatch(openInbox());
+        }
 
         // Try to restore any stored status ids from localStorage, but only set state
         // when the restored value differs from current to avoid extra renders.
@@ -534,12 +697,33 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       }
 
       if (item.childs?.length) {
-        setExpandedMenus(prev => ({ ...prev, [item.name]: !prev[item.name] }));
+        const k = normalizeNavKey(item.name as string) || item.name;
+        setExpandedMenus(prev => ({ ...prev, [k]: !prev[k] }));
         return;
       }
 
       const key = normalizeNavKey(item.name as string);
-      setActiveItem(key);
+      // Special-case: treat certain inbox-like items as top-level selections
+      // so clicking them will close the inbox and make the clicked menu item active
+      // (no `inbox-` prefix). This prevents URL-driven inbox activation when
+      // these are intended to behave as standalone menu entries.
+      const topLevelInboxLike = new Set(['freshform', 'sent', 'closed', 'drafts', 'finaldisposal']);
+
+      if (key && topLevelInboxLike.has(key)) {
+        try {
+          // ensure inbox is closed immediately in the UI
+          dispatch(closeInbox());
+          try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem('inboxDesiredOpen', 'false');
+            }
+          } catch (e) {}
+        } catch (e) {}
+        setActiveItem(key);
+        persistActiveNavToLocal(key);
+      } else {
+        setActiveItem(key);
+      }
       if (item.statusIds && item.statusIds.length) {
         setActiveStatusIds(item.statusIds);
         try {
@@ -566,28 +750,67 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       }
 
       const type = item.name.replace(/\s+/g, '');
+      const wasTopLevel = key && topLevelInboxLike.has(key);
       const target = `/inbox?type=${encodeURIComponent(type)}`;
-      router.push(target);
-      scheduleInboxForwardedRefresh(target);
+      if (wasTopLevel) {
+        try {
+          // set a short-lived session flag so the pathname/searchParams sync
+          // effect can detect this navigation and avoid opening the inbox.
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem('skipOpenInbox', 'true');
+          }
+        } catch (e) {}
+        // push the URL so it's reflected in the address bar, but the sync
+        // effect will read the flag and avoid opening the inbox UI.
+        router.push(target);
+        scheduleInboxForwardedRefresh(target);
+        if (onTableReload) onTableReload(key);
+      } else {
+        try {
+          const inboxKey = normalizeNavKey(`inbox-${type}`);
+          if (inboxKey) {
+            setActiveItem(inboxKey);
+            persistActiveNavToLocal(inboxKey);
+          }
+        } catch (e) {}
+        router.push(target);
+        scheduleInboxForwardedRefresh(target);
+      }
     },
     [cookieRole, userRole, normalizeNavKey, router, scheduleInboxForwardedRefresh, dispatch]
   );
 
-  const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // keep generic RootState to avoid typing friction
   const handleInboxToggle = useCallback(() => {
-    dispatch(toggleInbox());
-  }, [dispatch]);
+    try {
+      const newState = !isInboxOpen;
+      dispatch(toggleInbox());
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('inboxDesiredOpen', newState ? 'true' : 'false');
+      }
+    } catch (e) {
+      try {
+        dispatch(toggleInbox());
+      } catch (err) {}
+    }
+  }, [dispatch, isInboxOpen]);
 
   const handleInboxSubItemClick = useCallback(
     (subItem: string) => {
       const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
       setActiveItem(activeItemKey);
+      persistActiveNavToLocal(activeItemKey);
 
       try {
-        localStorage.setItem('activeNavItem', activeItemKey);
-      } catch (e) {}
-
-      if (!isInboxOpen) dispatch(openInbox());
+        const desiredOpen =
+          typeof window !== 'undefined' && window.localStorage
+            ? window.localStorage.getItem('inboxDesiredOpen')
+            : null;
+        if (desiredOpen !== 'false') {
+          if (!isInboxOpen) dispatch(openInbox());
+        }
+      } catch (e) {
+        if (!isInboxOpen) dispatch(openInbox());
+      }
 
       // Resolve statusIds fallback logic
       let customStatusIds: number[] | undefined = activeStatusIds;
@@ -734,6 +957,9 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   }, [showSidebar]);
 
   const effectiveRole = cookieRole ?? userRole;
+  // During SSR or before hydration we return null to keep server and
+  // initial client HTML identical. After hydration we render normally.
+  if (!hydrated) return null;
   if (!visible && !showSidebar) return null;
   if (!effectiveRole) return null;
 
@@ -783,10 +1009,15 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           <ul className='space-y-1'>
             {effectiveRole !== 'ADMIN' && (
               <li>
+                {/* highlight Inbox when any inbox-{type} is active, not only when the panel is expanded */}
                 <button
                   type='button'
                   onClick={handleInboxToggle}
-                  className={`flex items-center w-full px-4 py-2 rounded-md text-left ${isInboxOpen ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`}
+                  className={`flex items-center w-full px-4 py-2 rounded-md text-left ${
+                    (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen
+                      ? 'bg-[#001F54] text-white'
+                      : 'hover:bg-gray-100 text-gray-800'
+                  }`}
                 >
                   <span
                     className='inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors'
@@ -810,6 +1041,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                           count={sub.count}
                           active={isActive}
                           onClick={handleInboxSubItemClick}
+                          onActivate={name => {
+                            try {
+                              const activeItemKey = normalizeNavKey(`inbox-${name}`);
+                              setActiveItem(activeItemKey);
+                              persistActiveNavToLocal(activeItemKey);
+                            } catch (e) {}
+                          }}
                         />
                       );
                     })}
@@ -827,7 +1065,50 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               )
               .map(item => {
                 const normalizedKey = normalizeNavKey(item.name as string);
-                const isActive = activeItem === normalizedKey;
+
+                // Determine active state for the main menu item.
+                // - active if activeItem matches the normalized key
+                // - also active if any of its children are active (so parent and child can be active simultaneously)
+                // - as a general fallback, consider active if activeItem startsWith `${normalizedKey}-` (covers derived keys)
+                let isActive = activeItem === normalizedKey;
+
+                try {
+                  if (
+                    !isActive &&
+                    Array.isArray((item as any).childs) &&
+                    (item as any).childs.length
+                  ) {
+                    const childs = (item as any).childs as Array<{ name?: string }>;
+                    // If any child normalized key equals activeItem mark parent active
+                    for (const c of childs) {
+                      const childKey = normalizeNavKey(String(c?.name ?? ''));
+                      if (childKey && childKey === activeItem) {
+                        isActive = true;
+                        break;
+                      }
+                      // also check combined keys like `${parent}-${child}` if those conventions are used
+                      const combined = normalizeNavKey(
+                        `${String(item.name)}-${String(c?.name ?? '')}`
+                      );
+                      if (combined && combined === activeItem) {
+                        isActive = true;
+                        break;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // ignore any errors during active determination
+                }
+
+                if (
+                  !isActive &&
+                  normalizedKey &&
+                  activeItem &&
+                  String(activeItem).startsWith(`${normalizedKey}-`)
+                ) {
+                  isActive = true;
+                }
+
                 return (
                   <MenuItem
                     key={`menu-${normalizedKey}`}
@@ -835,6 +1116,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                     label={item.label}
                     active={isActive}
                     onClick={() => handleMenuClick({ name: item.name, statusIds: item.statusIds })}
+                    onActivate={() => {
+                      try {
+                        setActiveItem(normalizedKey);
+                        persistActiveNavToLocal(normalizedKey);
+                      } catch (e) {}
+                    }}
                   />
                 );
               })}

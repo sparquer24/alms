@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -27,11 +27,19 @@ interface HeaderProps {
 // Removed SearchBar and DateInput components (header simplified)
 
 const Header = (props: HeaderProps) => {
-  const { onSearch, onDateFilter, onReset, userRole: propUserRole, onCreateApplication, onShowMessage } = props;
+  const {
+    onSearch,
+    onDateFilter,
+    onReset,
+    userRole: propUserRole,
+    onCreateApplication,
+    onShowMessage,
+  } = props;
   const { showHeader } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
+  console.log({ userName, isLoading, user, hookUserRole });
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
-  
+
   // Update displayName whenever userName or user changes
   useEffect(() => {
     // Priority: userName from hook, then user.name, then user.username
@@ -39,16 +47,25 @@ const Header = (props: HeaderProps) => {
     const name = userName || user?.name || user?.username;
     if (!isLoading && name) setDisplayName(name);
   }, [userName, user, isLoading, hookUserRole]);
-  
+
   const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
   const { unreadCount } = useNotifications();
   // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  // Use role from auth hook or fallback to any role passed in props.
-  // This ensures the Create Form button appears correctly when the user's
-  // role is decoded from the token or populated from Redux.
-  const role = hookUserRole || propUserRole;
+  // Read role exclusively from the `role` cookie in a client-only effect.
+  // Doing this inside useEffect ensures the initial server-rendered markup
+  // matches the client (avoids hydration mismatches when the cookie exists
+  // only in the browser). The role state updates after mount.
+  const [role, setRole] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    try {
+      const cookieVal = getCookie('role');
+      setRole(cookieVal ? String(cookieVal) : undefined);
+    } catch (e) {
+      setRole(undefined);
+    }
+  }, []);
   const [isNavigating, setIsNavigating] = useState(false);
 
   // Removed handlers: search, date filter, reset
@@ -56,7 +73,7 @@ const Header = (props: HeaderProps) => {
   // Effect related to clearing removed states removed
 
   const router = useRouter();
-  const handleDropdownClick = (type: typeof APPLICATION_TYPES[number]) => {
+  const handleDropdownClick = (type: (typeof APPLICATION_TYPES)[number]) => {
     setShowDropdown(false);
     if (type.enabled) {
       // Show loading state
@@ -82,27 +99,32 @@ const Header = (props: HeaderProps) => {
   };
 
   if (!showHeader) return null;
-
+  console.log('Rendering Header with role:', role, 'and displayName:', displayName);
   return (
-    <header className="fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300">
-      <div className="max-w-8xl w-full mx-auto flex items-center justify-between">
+    <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
+      <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left: Create Application Button (ZS only) */}
-        <div className="flex items-center">
-          <div className="relative">
+        <div className='flex items-center'>
+          <div className='relative'>
             {role == 'ZS' && (
               <>
                 <button
-                  className="px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap"
-                  onClick={() => setShowDropdown((v) => !v)}
+                  className='px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap'
+                  onClick={() => setShowDropdown(v => !v)}
                 >
-                  <span className="mr-2">Create Form</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <span className='mr-2'>Create Form</span>
+                  <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M19 9l-7 7-7-7'
+                    />
                   </svg>
                 </button>
                 {showDropdown && (
-                  <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50">
-                    {APPLICATION_TYPES.map((type) => (
+                  <div className='absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50'>
+                    {APPLICATION_TYPES.map(type => (
                       <button
                         key={type.key}
                         className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${!type.enabled ? 'text-gray-400 cursor-not-allowed' : ''}`}
@@ -120,36 +142,52 @@ const Header = (props: HeaderProps) => {
         </div>
 
         {/* Right: All other header items */}
-        <div className="flex items-center space-x-4 justify-end w-full">
+        <div className='flex items-center space-x-4 justify-end w-full'>
           {/* Search bar removed */}
-          <div className="relative">
+          <div className='relative'>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-full"
-              aria-label="Toggle notifications"
+              className='p-2 text-gray-600 hover:bg-gray-100 rounded-full'
+              aria-label='Toggle notifications'
               aria-expanded={showNotifications}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                className='h-6 w-6'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'
+                />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">
+                <span className='absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full'>
                   {unreadCount}
                 </span>
               )}
             </button>
-            {showNotifications && <NotificationDropdown onClose={() => setShowNotifications(false)} />}
+            {showNotifications && (
+              <NotificationDropdown onClose={() => setShowNotifications(false)} />
+            )}
           </div>
           {hasValidUserName && (
-            <LinkFixed href="/settings" className="flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors">
-              <div className="bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium">
+            <LinkFixed
+              href='/settings'
+              className='flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors'
+            >
+              <div className='bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium'>
                 {displayName!.charAt(0).toUpperCase()}
               </div>
             </LinkFixed>
           )}
         </div>
       </div>
-      
+
       {/* Form Skeleton Loading */}
       {isNavigating && <ApplicationFormSkeleton />}
     </header>
