@@ -276,8 +276,6 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     return () => { mounted = false };
   }, []);
 
-  // Note: nextUser should be selectable for any action (represents next proceeding officer)
-
   // Read role from cookies on mount and normalize
   useEffect(() => {
     try {
