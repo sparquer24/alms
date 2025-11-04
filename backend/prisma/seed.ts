@@ -22,7 +22,7 @@ async function main() {
     { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
     { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
     { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
-    { code: 'INITIATE', name: 'Initiate', description: 'Application initiated' },
+    { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
     { code: 'CLOSE', name: 'Close', description: 'Application closed' },
     { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
     { code: 'DRAFT', name: 'Draft', description: 'Draft status' },
@@ -758,9 +758,6 @@ async function main() {
 
   // Define role-action mappings based on role hierarchy and permissions
   const roleActionMappings = [
-    // APPLICANT - Limited actions for citizens
-    { roleCode: 'APPLICANT', actionCodes: ['INITIATE', 'RETURN'] },
-
     // SHO - Station House Officer can forward, reject, recommend, close
     { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT', 'RETURN'] },
 
@@ -771,7 +768,7 @@ async function main() {
     { roleCode: 'DCP', actionCodes: ['FORWARD', 'RETURN'] },
 
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATE', 'RETURN'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATED', 'RETURN'] },
 
     // CADO - Chief Administrative Officer
     { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
@@ -786,7 +783,7 @@ async function main() {
     { roleCode: 'JTCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // CP - Commissioner of Police (highest authority) - NO RETURN action
-    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'CLOSE', 'DISPOSE', 'RED_FLAG'] },
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND'] },
 
     // ADMIN - System Administrator (can perform all actions for system management)
     { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'RETURN'] },

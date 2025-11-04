@@ -43,7 +43,7 @@ model Districts {
   id          Int                              @id @default(autoincrement())
   name        String                           @unique
   stateId     Int
-  state       States                           @relation(fields: [stateId], references: [id])
+  state       States                           @relation(fields: [stateId], references: [id], onDelete: Cascade)
   addresses   FLAFAddressesAndContactDetails[]
   occupations FLAFOccupationAndBusiness[]
   users       Users[]                          @relation("DistrictUsers")
@@ -57,14 +57,14 @@ model Zones {
   divisions  Divisions[]
   addresses  FLAFAddressesAndContactDetails[]
   users      Users[]                          @relation("ZoneUsers")
-  district   Districts                        @relation(fields: [districtId], references: [id])
+  district   Districts                        @relation(fields: [districtId], references: [id], onDelete: Cascade)
 }
 
 model Divisions {
   id        Int                              @id @default(autoincrement())
   name      String                           @unique
   zoneId    Int
-  zone      Zones                            @relation(fields: [zoneId], references: [id])
+  zone      Zones                            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   addresses FLAFAddressesAndContactDetails[]
   stations  PoliceStations[]
   users     Users[]                          @relation("DivisionUsers")
@@ -75,7 +75,7 @@ model PoliceStations {
   name       String                           @unique
   divisionId Int
   addresses  FLAFAddressesAndContactDetails[]
-  division   Divisions                        @relation(fields: [divisionId], references: [id])
+  division   Divisions                        @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   users      Users[]                          @relation("PoliceStationUsers")
 }
 
@@ -108,8 +108,8 @@ model RolesActionsMapping {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  action    Actiones @relation(fields: [actionId], references: [id])
-  role      Roles    @relation(fields: [roleId], references: [id])
+  action    Actiones @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, actionId])
 }
@@ -144,12 +144,12 @@ model Users {
   previousApplications    FreshLicenseApplicationPersonalDetails[]        @relation("PreviousApplicationOwner")
   workflowHistoryNext     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
   workflowHistoryPrevious FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
-  district                Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id])
-  division                Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id])
-  policeStation           PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id])
-  role                    Roles                                           @relation(fields: [roleId], references: [id])
-  state                   States?                                         @relation("StateUsers", fields: [stateId], references: [id])
-  zone                    Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id])
+  district                Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
+  division                Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
+  policeStation           PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
+  role                    Roles                                           @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  state                   States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
+  zone                    Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
 }
 
 model FlowMaps {
@@ -158,7 +158,7 @@ model FlowMaps {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   actions       ActionHistories[]
-  currentUser   Users             @relation(fields: [currentUserId], references: [id])
+  currentUser   Users             @relation(fields: [currentUserId], references: [id], onDelete: Cascade)
   nextUsers     FlowNextUsers[]
 }
 
@@ -166,8 +166,8 @@ model FlowNextUsers {
   id         Int      @id @default(autoincrement())
   flowMapId  Int
   nextUserId Int
-  flowMap    FlowMaps @relation(fields: [flowMapId], references: [id])
-  nextUser   Users    @relation("NextUserInFlow", fields: [nextUserId], references: [id])
+  flowMap    FlowMaps @relation(fields: [flowMapId], references: [id], onDelete: Cascade)
+  nextUser   Users    @relation("NextUserInFlow", fields: [nextUserId], references: [id], onDelete: Cascade)
 }
 
 model ActionHistories {
@@ -177,9 +177,9 @@ model ActionHistories {
   toUserId    Int
   actionTaken String
   createdAt   DateTime @default(now())
-  flowMap     FlowMaps @relation(fields: [flowMapId], references: [id])
-  fromUser    Users    @relation("ActionFromUser", fields: [fromUserId], references: [id])
-  toUser      Users    @relation("ActionToUser", fields: [toUserId], references: [id])
+  flowMap     FlowMaps @relation(fields: [flowMapId], references: [id], onDelete: Cascade)
+  fromUser    Users    @relation("ActionFromUser", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser      Users    @relation("ActionToUser", fields: [toUserId], references: [id], onDelete: Cascade)
 }
 
 model FreshLicenseApplicationPersonalDetails {
@@ -220,12 +220,12 @@ model FreshLicenseApplicationPersonalDetails {
   fileUploads                FLAFFileUploads[]               @relation("FileUploads")
   licenseDetails             FLAFLicenseDetails[]            @relation("LicenseDetails")
   licenseHistories           FLAFLicenseHistories[]          @relation("LicenseHistories")
-  currentUser                Users?                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id])
-  occupationAndBusiness      FLAFOccupationAndBusiness?      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id])
-  permanentAddress           FLAFAddressesAndContactDetails? @relation("PermanentAddress", fields: [permanentAddressId], references: [id])
-  presentAddress             FLAFAddressesAndContactDetails? @relation("PresentAddress", fields: [presentAddressId], references: [id])
-  previousUser               Users?                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id])
-  workflowStatus             Statuses?                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id])
+  currentUser                Users?                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
+  occupationAndBusiness      FLAFOccupationAndBusiness?      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
+  permanentAddress           FLAFAddressesAndContactDetails? @relation("PermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
+  presentAddress             FLAFAddressesAndContactDetails? @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
+  previousUser               Users?                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
+  workflowStatus             Statuses?                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
 
   @@index([aadharNumber])
 }
@@ -243,11 +243,11 @@ model FLAFAddressesAndContactDetails {
   telephoneResidence    String?
   officeMobileNumber    String?
   alternativeMobile     String?
-  district              Districts                                @relation(fields: [districtId], references: [id])
-  division              Divisions                                @relation(fields: [divisionId], references: [id])
-  policeStation         PoliceStations                           @relation(fields: [policeStationId], references: [id])
-  state                 States                                   @relation(fields: [stateId], references: [id])
-  zone                  Zones                                    @relation(fields: [zoneId], references: [id])
+  district              Districts                                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  division              Divisions                                @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  policeStation         PoliceStations                           @relation(fields: [policeStationId], references: [id], onDelete: Cascade)
+  state                 States                                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  zone                  Zones                                    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   permanentApplications FreshLicenseApplicationPersonalDetails[] @relation("PermanentAddress")
   presentApplications   FreshLicenseApplicationPersonalDetails[] @relation("PresentAddress")
 }
@@ -260,8 +260,8 @@ model FLAFOccupationAndBusiness {
   districtId           Int
   cropLocation         String?
   areaUnderCultivation Float?
-  district             Districts                                @relation(fields: [districtId], references: [id])
-  state                States                                   @relation(fields: [stateId], references: [id])
+  district             Districts                                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  state                States                                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
   applications         FreshLicenseApplicationPersonalDetails[] @relation("occupationAndBusinessId")
 }
 
@@ -278,7 +278,7 @@ model FLAFCriminalHistories {
   createdAt         DateTime                               @default(now())
   updatedAt         DateTime                               @updatedAt
   firDetails        Json?
-  application       FreshLicenseApplicationPersonalDetails @relation("CriminalHistories", fields: [applicationId], references: [id])
+  application       FreshLicenseApplicationPersonalDetails @relation("CriminalHistories", fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model FLAFLicenseHistories {
@@ -301,7 +301,7 @@ model FLAFLicenseHistories {
   trainingDetails         String?
   createdAt               DateTime                               @default(now())
   updatedAt               DateTime                               @updatedAt
-  application             FreshLicenseApplicationPersonalDetails @relation("LicenseHistories", fields: [applicationId], references: [id])
+  application             FreshLicenseApplicationPersonalDetails @relation("LicenseHistories", fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model FLAFLicenseDetails {
@@ -316,7 +316,7 @@ model FLAFLicenseDetails {
   wildBeastsSpecification    String?
   createdAt                  DateTime                               @default(now())
   updatedAt                  DateTime                               @updatedAt
-  application                FreshLicenseApplicationPersonalDetails @relation("LicenseDetails", fields: [applicationId], references: [id])
+  application                FreshLicenseApplicationPersonalDetails @relation("LicenseDetails", fields: [applicationId], references: [id], onDelete: Cascade)
   requestedWeapons           WeaponTypeMaster[]                     @relation("RequestedWeapons")
 }
 
@@ -328,7 +328,7 @@ model FLAFFileUploads {
   uploadedAt    DateTime                               @default(now())
   fileName      String
   fileSize      Int
-  application   FreshLicenseApplicationPersonalDetails @relation("FileUploads", fields: [applicationId], references: [id])
+  application   FreshLicenseApplicationPersonalDetails @relation("FileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model FLAFBiometricDatas {
@@ -337,7 +337,7 @@ model FLAFBiometricDatas {
   irisScanImageUrl  String?
   photoImageUrl     String?
   applicationId     Int                                    @unique
-  application       FreshLicenseApplicationPersonalDetails @relation("BiometricData", fields: [applicationId], references: [id])
+  application       FreshLicenseApplicationPersonalDetails @relation("BiometricData", fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model FreshLicenseApplicationsFormWorkflowHistories {
@@ -352,11 +352,11 @@ model FreshLicenseApplicationsFormWorkflowHistories {
   nextRoleId     Int?
   actionesId     Int?
   attachments    Json?
-  actiones       Actiones? @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id])
-  nextRole       Roles?    @relation("WorkflowNextRole", fields: [nextRoleId], references: [id])
-  nextUser       Users     @relation("WorkflowNextUser", fields: [nextUserId], references: [id])
-  previousRole   Roles?    @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id])
-  previousUser   Users     @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id])
+  actiones       Actiones? @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id], onDelete: Cascade)
+  nextRole       Roles?    @relation("WorkflowNextRole", fields: [nextRoleId], references: [id], onDelete: Cascade)
+  nextUser       Users     @relation("WorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
+  previousRole   Roles?    @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
+  previousUser   Users     @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
 }
 
 enum Sex {
