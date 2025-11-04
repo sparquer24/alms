@@ -30,7 +30,7 @@ I've updated the `sidebarApiCalls.ts` service to match your **actual API respons
         "name": "Forward",
         "code": "FORWARD"
       },
-      "isApprovied": false,
+      "isApproved": false,
       "isPending": false,
       ...
     }
@@ -57,7 +57,7 @@ I've updated the `sidebarApiCalls.ts` service to match your **actual API respons
 | `status.code` | `status` | Mapped to UI-friendly strings |
 | `currentRole.name` | Available for display | Role information |
 | `remarks` | `forwardComments` | Comments/remarks |
-| `isApprovied` | Used for actions | Determines available actions |
+| `isApproved` | Used for actions | Determines available actions |
 
 ## 📝 Status Mapping
 

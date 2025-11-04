@@ -43,7 +43,7 @@ export class WorkflowService {
     remarks: string;
     currentUserId: number;
     attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
-    isApprovied?: boolean;
+    isApproved?: boolean;
     isFLAFGenerated?: boolean;
     isGroundReportGenerated?: boolean;
     isPending?: boolean;
@@ -105,13 +105,13 @@ export class WorkflowService {
 
     // Set approval/rejection flags based on action code
     if (isApprovalAction(actionCode)) {
-      updateData.isApprovied = true;
+      updateData.isApproved = true;
     } else if (isRejectionAction(actionCode)) {
       updateData.isRejected = true;
     }
 
     // Add optional boolean fields if provided in payload (can override the above)
-    if (payload.isApprovied !== undefined) updateData.isApprovied = payload.isApprovied;
+    if (payload.isApproved !== undefined) updateData.isApproved = payload.isApproved;
     if (payload.isFLAFGenerated !== undefined) updateData.isFLAFGenerated = payload.isFLAFGenerated;
     if (payload.isGroundReportGenerated !== undefined) updateData.isGroundReportGenerated = payload.isGroundReportGenerated;
     if (payload.isPending !== undefined) updateData.isPending = payload.isPending;
