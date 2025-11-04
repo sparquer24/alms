@@ -134,7 +134,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
 	   // Handler for go home button
 	   const handleGoHome = () => {
-		   router.push('/inbox?type=drafts');
+		   window.location.href = 'http://localhost:5000/inbox?type=forwarded';
 	   };
 
 	   // Show home button on all steps
