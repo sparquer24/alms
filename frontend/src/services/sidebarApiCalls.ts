@@ -116,11 +116,11 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     actions: {
       canForward: detailedApp.currentRole?.can_forward || false,
       canReport: true,
-      canApprove: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canReject: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canRaiseRedflag: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canReturn: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canDispose: detailedApp.isApprovied,
+      canApprove: !detailedApp.isApproved && !detailedApp.isRejected,
+      canReject: !detailedApp.isApproved && !detailedApp.isRejected,
+      canRaiseRedflag: !detailedApp.isApproved && !detailedApp.isRejected,
+      canReturn: !detailedApp.isApproved && !detailedApp.isRejected,
+      canDispose: detailedApp.isApproved,
     },
     usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
       ? detailedApp.usersInHierarchy
@@ -167,7 +167,7 @@ export interface DetailedApplicationData {
   stateId: number;
   districtId: number;
   updatedAt: string;
-  isApprovied: boolean;
+  isApproved: boolean;
   isFLAFGenerated: boolean;
   isGroundReportGenerated: boolean;
   isPending: boolean;
@@ -566,13 +566,13 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     documents: apiApp.documents || [],
     history: apiApp.workflowHistory || [],
     actions: {
-      canForward: !apiApp.isApprovied && !apiApp.isRejected,
+      canForward: !apiApp.isApproved && !apiApp.isRejected,
       canReport: true,
-      canApprove: !apiApp.isApprovied && !apiApp.isRejected,
-      canReject: !apiApp.isApprovied && !apiApp.isRejected,
-      canRaiseRedflag: !apiApp.isApprovied && !apiApp.isRejected,
-      canReturn: !apiApp.isApprovied && !apiApp.isRejected,
-      canDispose: apiApp.isApprovied,
+      canApprove: !apiApp.isApproved && !apiApp.isRejected,
+      canReject: !apiApp.isApproved && !apiApp.isRejected,
+      canRaiseRedflag: !apiApp.isApproved && !apiApp.isRejected,
+      canReturn: !apiApp.isApproved && !apiApp.isRejected,
+      canDispose: apiApp.isApproved,
     },
     usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
       ? apiApp.usersInHierarchy

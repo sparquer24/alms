@@ -204,7 +204,7 @@ model FreshLicenseApplicationPersonalDetails {
   currentUserId              Int?
   previousUserId             Int?
   workflowStatusId           Int?
-  isApprovied                Boolean?                       @default(false)                   
+  isApproved                Boolean?                       @default(false)                   
   isFLAFGenerated            Boolean?                       @default(false)
   isGroundReportGenerated    Boolean?                       @default(false)
   isPending                  Boolean?                       @default(false)
