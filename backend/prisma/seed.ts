@@ -39,7 +39,6 @@ async function main() {
           name: status.name,
           description: status.description,
           isActive: true,
-          isStarted: status.isStarted,
         },
       });
     }

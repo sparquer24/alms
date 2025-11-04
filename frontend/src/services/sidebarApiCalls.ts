@@ -32,8 +32,8 @@ export const STATUS_MAP = {
   pending: statusIdMap.pending || [1, 9],       // Same as forward for now
   sent: statusIdMap.sent || [11, 1, 9],         // RECOMMEND
   returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
-  flagged: statusIdMap.redflagged || [8],       // RED_FLAG
-  redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
+  flagged: statusIdMap.redFlagged || [8],       // RED_FLAG
+  redFlagged: statusIdMap.redFlagged || [8],    // Alias for flagged
   disposed: statusIdMap.disposed || [7],        // DISPOSE
   approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
   freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)
@@ -74,7 +74,8 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     'Unknown Applicant';
 
   // Map status from new API format
-  const statusName = detailedApp.workflowStatus?.name;
+  const statusCode = detailedApp.status?.code || detailedApp.status || 'INITIATE';
+  const statusName = detailedApp.status?.name || statusCode;
 
   return {
     id: String(detailedApp.id || ''),
@@ -88,7 +89,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     applicationType: 'Fresh License',
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
-    status: statusName,
+    status: mapApiStatusToApplicationStatus(statusCode),
     status_id: detailedApp.status?.id || detailedApp.statusId || 1,
     assignedTo: detailedApp.currentUser?.username || String(detailedApp.currentUserId || ''),
     forwardedFrom: detailedApp.previousUser?.username || undefined,
@@ -353,14 +354,11 @@ export const getStatusIdsForKey = (statusKey: string): number[] => {
  * @param customStatusIds - Optional custom status IDs from role-based menu items (cookie)
  */
 export const fetchApplicationsByStatusKey = async (statusKey: string, customStatusIds?: number[]): Promise<ApplicationData[]> => {
-  // Normalize statusKey to lowercase to be robust against URL/menu casing
-  const key = String(statusKey || '').toLowerCase();
-
   // Special handling for 'sent' - use isSent parameter instead of status filtering
-  if (key === 'sent') {
+  if (statusKey === 'sent') {
     try {
       const response = await ApplicationApi.getAll({ isSent: true });
-
+      
       if (!response?.success || !response?.data || !Array.isArray(response.data)) {
         console.warn('⚠️ fetchApplicationsByStatusKey (sent): Invalid response data, returning empty array');
         return [];
@@ -398,15 +396,8 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
 
   // Original logic for other status keys
   // Use custom statusIds if provided, otherwise use default mapping
-  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
-  // debug: log statusKey -> statusIds mapping
-  try {
-    // eslint-disable-next-line no-console
-    console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
-  } catch (e) { }
+  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(statusKey);
   if (statusIds.length === 0) {
-    // debug: no status ids found for this key
-    try { console.debug('[sidebarApiCalls] No statusIds for key', statusKey); } catch (e) { }
     return [];
   }
 
@@ -556,7 +547,7 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     applicationType: 'Fresh License', // Default for now, might need to be determined from other fields
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
-    status: apiApp.status,
+    status: mapApiStatusToApplicationStatus(apiApp.status),
     status_id: apiApp.status?.id || STATUS_MAP.pending[0],
     workflowStatus: apiApp.workflowStatus ? {
       id: apiApp.workflowStatus.id,
@@ -589,6 +580,49 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
   };
 };
 
+/**
+ * Map API status to ApplicationData status
+ * Based on the actual API response structure
+ */
+const mapApiStatusToApplicationStatus = (apiStatus: any): ApplicationData['status'] => {
+  if (!apiStatus) return 'pending';
+
+  // Handle the status object structure: { id: 1, name: "Forward", code: "FORWARD" }
+  const statusStr = (apiStatus.code || apiStatus.name || String(apiStatus)).toLowerCase();
+
+  const statusMapping: Record<string, ApplicationData['status']> = {
+    'forward': 'pending', // Forward status maps to pending in UI
+    'pending': 'pending',
+    'approved': 'approved',
+    'approve': 'approved',
+    'rejected': 'rejected',
+    'reject': 'rejected',
+    'returned': 'returned',
+    'return': 'returned',
+    'red_flagged': 'red-flagged',
+    'red-flagged': 'red-flagged',
+    'flagged': 'red-flagged',
+    'flag': 'red-flagged',
+    'disposed': 'disposed',
+    'dispose': 'disposed',
+    'close': 'closed',
+    'closed': 'closed',
+    'initiated': 'initiated',
+    'initiate': 'initiated',
+    'sent': 'pending',
+    'forwarded': 'pending',
+    'cancelled': 'cancelled',
+    'cancel': 'cancelled',
+    're_enquiry': 're-enquiry',
+    're-enquiry': 're-enquiry',
+    'ground_report': 'ground-report',
+    'ground-report': 'ground-report',
+    'recommend': 'recommended',
+    'recommended': 'recommended',
+  };
+
+  return statusMapping[statusStr] || 'pending';
+};
 
 /**
  * Filter applications based on search query and date range

@@ -15,9 +15,7 @@
 .tableWrapper {
   overflow-x: auto;
   overflow-y: auto; /* Enable vertical scrolling */
-  /* Limit the table wrapper height so the header (inside the thead) can stick
-     to the top while only the tbody scrolls. Adjust 60vh as necessary for your layout. */
-  max-height: 60vh;
+  max-height: none; /* allow parent to control height */
 }
 
 /* Responsive: on small screens use full width (no offset) */
@@ -276,14 +274,3 @@ tr.font-bold::before {
   scrollbar-width: thin;
   scrollbar-color: #c1c1c1 #f1f1f1;
 }
-
-/* Ensure table header cells stick above the rows and do not get overlapped */
-.tableWrapper table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: #f9fafb; /* same as header background */
-}
-
-/* Add a subtle divider/shadow so header separates from scrolling rows */
-.tableWrapper table thead th { box-shadow: 0 2px 4px rgba(0,0,0,0.04); }

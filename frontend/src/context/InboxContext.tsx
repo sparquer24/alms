@@ -20,38 +20,25 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   // request id to ignore stale responses when switching types quickly
   const requestIdRef = useRef(0);
 
-  // Make `loadType` stable (no changing identity) so consumers can safely
-  // depend on it in useEffect without causing infinite loops. We avoid
-  // reading `selectedType` from closure and instead use a functional
-  // updater to decide whether to fetch.
   const loadType = useCallback(async (type: string, force = false, statusIds?: number[]) => {
     if (!type) return;
+    // Keep camelCase format for types like "reEnquiry"
     const normalized = String(type);
-
-    // Decide whether we should fetch. We use the functional updater to
-    // synchronously inspect previous selectedType and set the new one.
-    let shouldFetch = false;
-    setSelectedType((prev) => {
-      if (prev === normalized && !force) {
-        shouldFetch = false;
-        return prev;
-      }
-      shouldFetch = true;
-      return normalized;
-    });
-
-    if (!shouldFetch) return;
+    if (normalized === selectedType && !force) return; // already loaded
 
     // bump request id for this load, so we can ignore stale responses
     const requestId = ++requestIdRef.current;
 
     try {
       setIsLoading(true);
+      setSelectedType(normalized);
       // Use custom statusIds if provided, otherwise use default mapping
       const apps = await fetchApplicationsByStatusKey(normalized, statusIds);
       // only apply results if this is the latest request
       if (requestId === requestIdRef.current) {
         setApplications(apps ?? []);
+      } else {
+        // stale response - ignore
       }
     } catch (err) {
       // only report/clear if this is the latest request
@@ -63,7 +50,7 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [selectedType]);
 
   const value = useMemo(() => ({ selectedType, applications, isLoading, loadType }), [selectedType, applications, isLoading, loadType]);
 

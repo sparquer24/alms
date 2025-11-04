@@ -11,12 +11,13 @@ import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
+// ApplicationTimeline import removed (using EnhancedApplicationTimeline instead)
 import EnhancedApplicationTimeline from '../../../components/EnhancedApplicationTimeline';
+// import { generateApplicationPDF, getApplicationPrintHTML } from '../../../config/pdfUtils';
 import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 import { truncateFilename } from '../../../utils/string';
-import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -60,10 +61,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const printRef = useRef<HTMLDivElement>(null);
-
-  // Use sidebar counts hook here so we can trigger an immediate refresh
-  // after actions that move an application between inbox buckets.
-  const { refreshCounts } = useSidebarCounts(true);
 
   // Open attachments from history with a robust viewer (PDF/image) in a new tab
   const openAttachment = (att: any) => {
@@ -263,15 +260,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     router.push('/');
   };
 
-  // Accepts either a status string or a numeric statusId and returns
-  // Tailwind classes for the badge. We coerce the input to string to
-  // make the helper robust when application stores numeric status ids.
-  const getStatusBadgeClass = (status?: string | number) => {
-    const raw = status ?? '';
-    const s = String(raw).toLowerCase();
-    switch (s) {
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
       case 'forwarded':
-      case 'forwarded'.toString():
         return 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm';
       case 'pending':
         return 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm';
@@ -282,14 +273,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       case 'returned':
         return 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm';
       case 'red-flagged':
-      case 'redflagged':
-      case 'red_flagged':
         return 'bg-red-50 text-red-700 border-red-200 shadow-sm';
       case 'disposed':
         return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
       default:
-        // Unknown status (including numeric ids we don't explicitly map)
-        // fall back to neutral styling.
         return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
     }
   };
@@ -353,10 +340,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       setApplication(updatedApplication);
       setIsProcessModalOpen(false);
       
-      // Trigger an immediate sidebar counts refresh so the UI updates
-      // (force = true bypasses the 2-minute rate limit)
-      try { refreshCounts(true); } catch (e) { /* ignore */ }
-
       // Redirect to inbox/forwarded after successful processing
       setTimeout(() => {
         router.push('/inbox/forwarded');
@@ -386,9 +369,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       setApplication(updatedApplication);
       setIsForwardModalOpen(false);
       setSuccessMessage(`Application has been forwarded to ${recipient}`);
-      // Trigger an immediate sidebar counts refresh so the UI updates
-      try { refreshCounts(true); } catch (e) { /* ignore */ }
-
+      
       // Redirect to inbox/forwarded after successful forwarding
       setTimeout(() => {
         router.push('/inbox/forwarded');
@@ -468,8 +449,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         // Error reloading application
       });
     }
-    // Refresh sidebar counts as proceedings may change bucket counts
-    try { refreshCounts(true); } catch (e) { /* ignore */ }
     
     // Redirect to inbox/forwarded after successful proceedings action
     setTimeout(() => {
@@ -584,16 +563,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </div>
                 
                 <div className="flex items-center space-x-4">
-                  <span
-                    className={`px-4 py-2 text-sm font-semibold rounded-full border-2 ${getStatusBadgeClass(
-                      application ? (application.status ?? application.status_id) : undefined
-                    )}`}
-                  >
-                    {application
-                      ? (application.workflowStatus?.name || (typeof application.status === 'string'
-                          ? application.status.charAt(0).toUpperCase() + application.status.slice(1)
-                          : String(application.status ?? application.status_id)))
-                      : 'Loading'}
+                  <span className={`px-4 py-2 text-sm font-semibold rounded-full border-2 ${
+                    application ? getStatusBadgeClass(application.status) : 'bg-gray-100 text-gray-600 border-gray-200'
+                  }`}>
+                    {application ? application.status.charAt(0).toUpperCase() + application.status.slice(1) : 'Loading'}
                   </span>
                   
                   {/* Profile Logo */}
@@ -1168,25 +1141,18 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 </div>
                                 <div className="flex space-x-2">
                                   <button 
-                                    onClick={() => openAttachment(doc)}
+                                    onClick={() => window.open(doc.url, '_blank')}
                                     className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
                                   >
                                     View
                                   </button>
-                                  <button 
-                                    onClick={() => {
-                                      const a = document.createElement('a');
-                                      a.href = doc.url;
-                                      a.download = doc.name || 'download';
-                                      a.rel = 'noopener';
-                                      document.body.appendChild(a);
-                                      a.click();
-                                      document.body.removeChild(a);
-                                    }}
+                                  <a 
+                                    href={doc.url} 
+                                    download 
                                     className="text-gray-600 hover:text-gray-800 font-medium text-sm px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors"
                                   >
                                     Download
-                                  </button>
+                                  </a>
                                 </div>
                               </div>
                             </div>
@@ -1207,16 +1173,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   {/* Action Buttons and Timeline Section - Only show if NOT Draft */}
                   {application?.workflowStatus?.name?.toLowerCase() !== 'draft' && (
                     <div className="p-6 lg:p-8 border-t border-gray-100 bg-white">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[600px] items-stretch">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[600px]">
                         {/* Action Buttons - Left Side with Scroll */}
-                        <div className="flex flex-col h-full">
+                        <div className="flex flex-col">
                           <div className="flex items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                               <div className="w-1 h-5 bg-blue-600 rounded-full mr-3"></div>
                               Actions
                             </h3>
                           </div>
-                          <div className="flex flex-col gap-4 flex-1">
+                          <div className="flex flex-col gap-4">
                             {/* Check if current logged-in user can take action */}
                           {(() => {
                               // Read `user_data` from cookies (if present) and parse it safely.
@@ -1251,9 +1217,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             })() ? (
                               <>
                                 {/* Proceedings Form - Always Open */}
-                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col">
-                                  <div className="p-4 bg-gray-50 flex-1 overflow-auto">
-                                    <div className="p-4 h-full">
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                                  <div className="p-4 bg-gray-50">
+                                    <div className="p-4">
                                       <ProceedingsForm
                                         applicationId={applicationId!}
                                         onSuccess={handleProceedingsSuccess}
