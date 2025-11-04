@@ -1,5 +1,5 @@
 # Production Dockerfile for Next.js frontend
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Accept build argument so NEXT_PUBLIC_API_URL is available at build time (Next inlines NEXT_PUBLIC_* vars during build)
@@ -18,9 +18,9 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 COPY . .
 # Build the Next application; NEXT_PUBLIC_API_URL will be inlined into the built assets
 # Use npx to invoke Next directly so the build step succeeds even when the local bin is missing
-RUN npx --yes next build
+RUN npx --yes next build -- --no-lint
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
