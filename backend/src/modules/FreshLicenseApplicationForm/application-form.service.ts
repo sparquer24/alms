@@ -694,17 +694,12 @@ export class ApplicationFormService {
           updatedSections.push('licenseDetails');
         }
 
-        // Handle workflow status updates
+        // Handle workflow status updates - only when isSubmit is true
         if (isSubmit === true) {
-          // get the Status ID for INITIATE from the Status table
+          // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
-            where: { code: STATUS_CODES.INITIATE, isActive: true }
-          });
-
-          // Get INITIATE action from Actiones table
-          const initiateAction = await tx.actiones.findFirst({
-            where: { code: ACTION_CODES.INITIATE, isActive: true }
-          });
+            where: { isStarted: true, isActive: true }
+          });   
 
           // Get current application details to know the current user
           const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
@@ -736,6 +731,7 @@ export class ApplicationFormService {
             updateData.currentUserId = currentUserId;
           }
 
+          // Only update workflowStatusId when isSubmit is true
           if (initiatedStatus && initiatedStatus.id) {
             updateData.workflowStatusId = initiatedStatus.id;
           }
@@ -755,7 +751,7 @@ export class ApplicationFormService {
             });
 
             // Create workflow history entry for INITIATE action
-            if (initiateAction) {
+            if (initiatedStatus) {
               // Get user's role
               let currentUserRoleId: number | null = null;
               const currentUser = await tx.users.findUnique({
@@ -770,11 +766,10 @@ export class ApplicationFormService {
                   applicationId: applicationId,
                   previousUserId: effectiveUserId, // Use the authenticated user as initiator
                   nextUserId: effectiveUserId, // Same user initially
-                  actionTaken: initiateAction.code,
+                  actionTaken: initiatedStatus.code,
                   remarks: 'Application submitted for review',
                   previousRoleId: currentUserRoleId,
                   nextRoleId: currentUserRoleId,
-                  actionesId: initiateAction.id
                 }
               });
 

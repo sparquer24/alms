@@ -14,18 +14,18 @@ async function main() {
   // --- Actions Seeding ---
   console.log('Seeding statuses and actions...');
   const statuses = [
-    { code: 'FORWARD', name: 'Forward', description: 'Application forwarded to next stage' },
-    { code: 'REJECT', name: 'Reject', description: 'Application rejected' },
-    { code: 'APPROVED', name: 'Approved', description: 'Application approved' },
-    { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled' },
-    { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required' },
-    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
-    { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
-    { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
-    { code: 'INITIATE', name: 'Initiate', description: 'Application initiated' },
-    { code: 'CLOSE', name: 'Close', description: 'Application closed' },
-    { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
-    { code: 'DRAFT', name: 'Draft', description: 'Draft status' }
+    { code: 'FORWARD', name: 'Forward', description: 'Application forwarded to next stage', isStarted: false },
+    { code: 'REJECT', name: 'Reject', description: 'Application rejected', isStarted: false },
+    { code: 'APPROVED', name: 'Approved', description: 'Application approved', isStarted: false },
+    { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled', isStarted: false },
+    { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required', isStarted: false },
+    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required', isStarted: false },
+    { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed', isStarted: false },
+    { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application', isStarted: false },
+    { code: 'INITIATE', name: 'Initiate', description: 'Application initiated', isStarted: true },
+    { code: 'CLOSE', name: 'Close', description: 'Application closed', isStarted: false },
+    { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended', isStarted: false },
+    { code: 'DRAFT', name: 'Draft', description: 'Draft status', isStarted: false }
   ];
 
   // Seed statuses if not present
@@ -38,6 +38,7 @@ async function main() {
           name: status.name,
           description: status.description,
           isActive: true,
+          isStarted: status.isStarted,
         },
       });
     }
