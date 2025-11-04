@@ -1168,18 +1168,25 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 </div>
                                 <div className="flex space-x-2">
                                   <button 
-                                    onClick={() => window.open(doc.url, '_blank')}
+                                    onClick={() => openAttachment(doc)}
                                     className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
                                   >
                                     View
                                   </button>
-                                  <a 
-                                    href={doc.url} 
-                                    download 
+                                  <button 
+                                    onClick={() => {
+                                      const a = document.createElement('a');
+                                      a.href = doc.url;
+                                      a.download = doc.name || 'download';
+                                      a.rel = 'noopener';
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                    }}
                                     className="text-gray-600 hover:text-gray-800 font-medium text-sm px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors"
                                   >
                                     Download
-                                  </a>
+                                  </button>
                                 </div>
                               </div>
                             </div>
