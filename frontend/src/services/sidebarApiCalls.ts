@@ -353,11 +353,14 @@ export const getStatusIdsForKey = (statusKey: string): number[] => {
  * @param customStatusIds - Optional custom status IDs from role-based menu items (cookie)
  */
 export const fetchApplicationsByStatusKey = async (statusKey: string, customStatusIds?: number[]): Promise<ApplicationData[]> => {
+  // Normalize statusKey to lowercase to be robust against URL/menu casing
+  const key = String(statusKey || '').toLowerCase();
+
   // Special handling for 'sent' - use isSent parameter instead of status filtering
-  if (statusKey === 'sent') {
+  if (key === 'sent') {
     try {
       const response = await ApplicationApi.getAll({ isSent: true });
-      
+
       if (!response?.success || !response?.data || !Array.isArray(response.data)) {
         console.warn('⚠️ fetchApplicationsByStatusKey (sent): Invalid response data, returning empty array');
         return [];
@@ -395,8 +398,15 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
 
   // Original logic for other status keys
   // Use custom statusIds if provided, otherwise use default mapping
-  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(statusKey);
+  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
+  // debug: log statusKey -> statusIds mapping
+  try {
+    // eslint-disable-next-line no-console
+    console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
+  } catch (e) { }
   if (statusIds.length === 0) {
+    // debug: no status ids found for this key
+    try { console.debug('[sidebarApiCalls] No statusIds for key', statusKey); } catch (e) { }
     return [];
   }
 

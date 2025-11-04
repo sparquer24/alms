@@ -186,6 +186,8 @@ export const ApplicationApi = {
       requestParams.isOwned = 'true';
     }
     try {
+      // debug: log outgoing params for troubleshooting
+      try { console.debug('[ApplicationApi.getAll] requestParams:', requestParams); } catch (e) { }
       return await apiClient.get('/application-form', requestParams as any);
     } catch (error) {
       throw error;

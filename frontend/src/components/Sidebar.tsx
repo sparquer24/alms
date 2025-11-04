@@ -1,31 +1,41 @@
-import React, { memo, useCallback, useMemo, useState, useEffect, startTransition, useRef } from "react";
-import Image from "next/image";
-
-// Type assertion for Next.js Image to fix React 18 compatibility
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  startTransition,
+  useRef,
+} from 'react';
+import Image from 'next/image';
 const ImageFixed = Image as any;
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useDispatch, useSelector } from "react-redux";
-import { CornerUpRight, Undo2, Flag, FolderCheck } from "lucide-react";
-import { ChartBarIcon } from "@heroicons/react/outline";
 
-// Type assertions for lucide-react icons to fix React 18 compatibility
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useDispatch, useSelector } from 'react-redux';
+import { CornerUpRight, Undo2, Flag, FolderCheck } from 'lucide-react';
+import { ChartBarIcon } from '@heroicons/react/outline';
+
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
 const FolderCheckFixed = FolderCheck as any;
 const ChartBarIconFixed = ChartBarIcon as any;
 
-import { logoutUser } from "../store/thunks/authThunks";
-import { toggleInbox, openInbox, closeInbox } from "../store/slices/uiSlice";
-import { useAuthSync } from "../hooks/useAuthSync";
-import { useLayout } from "../config/layoutContext";
-import { useInbox } from "../context/InboxContext";
-import { useSidebarCounts } from "../hooks/useSidebarCounts";
-import { menuMeta, MenuMetaKey } from "../config/menuMeta";
-import { getRoleConfig } from "../config/roles";
-import { getRoleBasedRedirectPath } from "../config/roleRedirections";
-import { HamburgerButton } from "./HamburgerButton";
+import { logoutUser } from '../store/thunks/authThunks';
+import { toggleInbox, openInbox, closeInbox } from '../store/slices/uiSlice';
+import { useAuthSync } from '../hooks/useAuthSync';
+import { useLayout } from '../config/layoutContext';
+import { useInbox } from '../context/InboxContext';
+import { useSidebarCounts } from '../hooks/useSidebarCounts';
+import { menuMeta, MenuMetaKey } from '../config/menuMeta';
+import { getRoleConfig } from '../config/roles';
+import { getRoleBasedRedirectPath } from '../config/roleRedirections';
+import { HamburgerButton } from './HamburgerButton';
 
+/* ----------------------------
+  Small helper memo components
+   - keep these simple and memoized
+-----------------------------*/
 interface MenuItemProps {
   icon: React.ReactNode;
   label: string;
@@ -33,22 +43,20 @@ interface MenuItemProps {
   active?: boolean;
   onClick?: () => void;
 }
-
-// Reusable MenuItem component
 const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) => (
   <li>
     <button
-      type="button"
+      type='button'
       onClick={onClick}
       className={`flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150
-        ${active ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"}`}
+        ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 mr-2" aria-hidden="true">
+      <span className='inline-flex items-center justify-center w-6 h-6 mr-2' aria-hidden='true'>
         {icon}
       </span>
-      <span className="flex-grow">{label}</span>
+      <span className='flex-grow'>{label}</span>
       {count !== undefined && (
-        <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-[#6366F1] rounded-full">
+        <span className='inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-[#6366F1] rounded-full'>
           {count}
         </span>
       )}
@@ -56,73 +64,63 @@ const MenuItem = memo(({ icon, label, count, active, onClick }: MenuItemProps) =
   </li>
 ));
 
-// Ultra-optimized InboxSubMenuItem component with advanced flickering prevention
-const InboxSubMenuItem = memo(({ 
-  name, 
-  label, 
-  icon, 
-  count, 
-  active, 
-  onClick 
-}: {
-  name: string;
-  label: string;
-  icon: React.ReactNode;
-  count?: number;
-  active: boolean;
-  onClick: (name: string) => void;
-}) => {
-  
-  // Create ultra-stable click handler
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onClick(name);
-  }, [onClick, name]);
+const InboxSubMenuItem = memo(
+  ({
+    name,
+    label,
+    icon,
+    count,
+    active,
+    onClick,
+  }: {
+    name: string;
+    label: string;
+    icon: React.ReactNode;
+    count?: number;
+    active: boolean;
+    onClick: (name: string) => void;
+  }) => {
+    const handleClick = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick(name);
+      },
+      [onClick, name]
+    );
 
-  // Memoize className to prevent recalculation
-  const buttonClassName = useMemo(() => 
-    `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${
-      active ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"
-    }`, [active]
-  );
+    const className = useMemo(
+      () =>
+        `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`,
+      [active]
+    );
 
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={handleClick}
-        className={buttonClassName}
-        aria-pressed={active}
-      >
-        <span className="inline-flex items-center justify-center w-6 h-6 mr-2 transition-colors" aria-hidden="true">
-          {icon}
-        </span>
-        <span className="flex-grow">{label}</span>
-        {typeof count === 'number' && count > 0 && (
-          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-[#6366F1] rounded-full ml-2">
-            {count}
+    return (
+      <li>
+        <button type='button' onClick={handleClick} className={className} aria-pressed={active}>
+          <span
+            className='inline-flex items-center justify-center w-6 h-6 mr-2 transition-colors'
+            aria-hidden='true'
+          >
+            {icon}
           </span>
-        )}
-      </button>
-    </li>
-  );
-}, (prevProps, nextProps) => {
-  // Highly efficient comparison - only re-render when essential props change
-  const propsEqual = (
-    prevProps.name === nextProps.name &&
-    prevProps.active === nextProps.active &&
-    prevProps.count === nextProps.count &&
-    prevProps.onClick === nextProps.onClick
-  );
+          <span className='flex-grow'>{label}</span>
+          {typeof count === 'number' && count > 0 && (
+            <span className='inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-[#6366F1] rounded-full ml-2'>
+              {count}
+            </span>
+          )}
+        </button>
+      </li>
+    );
+  },
+  (p, n) =>
+    p.name === n.name && p.active === n.active && p.count === n.count && p.onClick === n.onClick
+);
 
-  if (process.env.NODE_ENV === 'development' && !propsEqual) {
-    // intentional noop — developer can set debugger here if needed
-  }
-
-  return propsEqual;
-});
-
+/* ----------------------------
+  Sidebar main component
+-----------------------------*/
 interface SidebarProps {
   onStatusSelect?: (statusId: string) => void;
   onTableReload?: (subItem: string) => void;
@@ -131,111 +129,158 @@ interface SidebarProps {
 export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {}) => {
   const { showSidebar } = useLayout();
   const [visible, setVisible] = useState(false);
-  // Determine active item based on URL (for correct highlight on reload or direct link)
-  // Helper: normalize nav keys stored in localStorage and used across the app.
-  // inbox types become `inbox-{type}` (lowercase, no spaces). Other items are
-  // normalized to lowercase, no spaces so comparisons are consistent.
+  const dispatch = useDispatch();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { userRole, token, user } = useAuthSync();
+  const { loadType } = useInbox();
+  const isMountedRef = useRef(false);
+
+  // avoid reading window/localStorage during render — init blank and sync on client
+  const [activeItem, setActiveItem] = useState<string>('');
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
+  const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
+  const [roleConfig, setRoleConfig] = useState(() => getRoleConfig(userRole));
+
+  // timer for scheduled refresh
+  const refreshTimerRef = useRef<number | null>(null);
+
+  // Sidebar counts hook — only fetch when visible and not admin (keeps existing behavior)
+  const shouldFetchCounts = useMemo(
+    () => visible && !cookieRole?.includes('ADMIN'),
+    [visible, cookieRole]
+  );
+  const {
+    applicationCounts: rawCounts,
+    loading: loadingCounts,
+    refreshCounts,
+  } = useSidebarCounts(shouldFetchCounts);
+
+  // stabilized counts object to avoid re-renders
+  const applicationCounts = useMemo(
+    () => ({
+      forwardedCount: rawCounts?.forwardedCount || 0,
+      returnedCount: rawCounts?.returnedCount || 0,
+      redFlaggedCount: rawCounts?.redFlaggedCount || 0,
+      disposedCount: rawCounts?.disposedCount || 0,
+    }),
+    [
+      rawCounts?.forwardedCount,
+      rawCounts?.returnedCount,
+      rawCounts?.redFlaggedCount,
+      rawCounts?.disposedCount,
+    ]
+  );
+
+  /* ----------------------------
+     Utility: normalize nav key
+  -----------------------------*/
   const normalizeNavKey = useCallback((raw?: string | null) => {
     if (!raw) return '';
     const s = String(raw).trim();
-    // If it's already like inbox-xxx, normalize it
     if (s.toLowerCase().startsWith('inbox-')) {
       return `inbox-${s.slice('inbox-'.length).replace(/\s+/g, '').toLowerCase()}`;
     }
-    // If it's an inbox query param e.g. 'forwarded', map to inbox-forwarded
-    if (!s.includes(' ') && s === s.toLowerCase() && ['forwarded','returned','redflagged','disposed','reenquiry'].includes(s)) {
+    if (
+      !s.includes(' ') &&
+      s === s.toLowerCase() &&
+      ['forwarded', 'returned', 'redflagged', 'disposed', 'reenquiry'].includes(s)
+    ) {
       return `inbox-${s.replace(/\s+/g, '').toLowerCase()}`;
     }
-    // Generic normalization for other menu items
     return s.replace(/\s+/g, '').toLowerCase();
   }, []);
 
-  const [activeItem, setActiveItem] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const url = new URL(window.location.href);
-        const pathname = url.pathname;
-        const type = url.searchParams.get('type');
-        if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
-          const key = `inbox-${String(type).toLowerCase()}`;
-          try { localStorage.setItem('activeNavItem', key); } catch (e) {}
-          return normalizeNavKey(key);
-        }
-        const fromStore = window.localStorage ? localStorage.getItem('activeNavItem') : null;
-        return normalizeNavKey(fromStore) || '';
-      } catch (e) {
-        return '';
-      }
-    }
-    return '';
-  });
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  // Store statusIds for the current active menu item
-  const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
-  const dispatch = useDispatch();
-  const { userRole, token, user } = useAuthSync();
-  const [roleConfig, setRoleConfig] = useState(getRoleConfig(userRole));
-  const router = useRouter();
-
-  // timer ref for scheduled refreshes after redirects
-  const refreshTimerRef = useRef<number | null>(null);
-
-  // schedule a reload 4s after redirecting to inbox?type=forwarded
-  const scheduleInboxForwardedRefresh = useCallback((targetUrl?: string) => {
+  /* ----------------------------
+     Client-only: read role cookie once on mount
+  -----------------------------*/
+  const getUserRoleFromCookie = useCallback(() => {
+    if (typeof window === 'undefined' || !document?.cookie) return undefined;
     try {
-      // clear previous timer
+      const raw = document.cookie
+        .split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('user='));
+      if (!raw) return undefined;
+      let value = raw.substring('user='.length);
+      let decoded = decodeURIComponent(value);
+      if (decoded.startsWith('j:')) decoded = decoded.slice(2);
+      if (
+        (decoded.startsWith('"') && decoded.endsWith('"')) ||
+        (decoded.startsWith("'") && decoded.endsWith("'"))
+      )
+        decoded = decoded.slice(1, -1);
+      const parsed = JSON.parse(decoded);
+      const roleObj = parsed?.role ?? parsed;
+      if (!roleObj) return undefined;
+      if (typeof roleObj === 'string') return roleObj.toUpperCase();
+      if (typeof roleObj === 'object') {
+        if (roleObj.code) return String(roleObj.code).toUpperCase();
+        if (roleObj.name) return String(roleObj.name).toUpperCase();
+      }
+    } catch (err) {
+      // ignore
+    }
+    return undefined;
+  }, []);
+
+  /* ----------------------------
+     scheduleInboxForwardedRefresh (kept but guarded)
+  -----------------------------*/
+  const scheduleInboxForwardedRefresh = useCallback((targetUrl?: string) => {
+    // client-only
+    if (typeof window === 'undefined') return;
+    try {
       if (refreshTimerRef.current) {
         clearTimeout(refreshTimerRef.current);
         refreshTimerRef.current = null;
       }
 
-      const checksOut = (() => {
-        if (typeof window === 'undefined') return false;
+      const readsForwarded = (() => {
         try {
-          if (targetUrl) {
-            const u = new URL(targetUrl, window.location.origin);
-            return (u.pathname === '/inbox' || u.pathname.startsWith('/inbox')) && u.searchParams.get('type') === 'forwarded';
-          }
-          const cur = new URL(window.location.href);
-          return (cur.pathname === '/inbox' || cur.pathname.startsWith('/inbox')) && cur.searchParams.get('type') === 'forwarded';
+          const u = targetUrl
+            ? new URL(targetUrl, window.location.origin)
+            : new URL(window.location.href);
+          return (
+            (u.pathname === '/inbox' || u.pathname.startsWith('/inbox')) &&
+            u.searchParams.get('type') === 'forwarded'
+          );
         } catch (e) {
           return false;
         }
       })();
 
-      if (!checksOut) return;
+      if (!readsForwarded) return;
 
-      // Only reload if cookie flag is not set to true
       const cookieName = 'inbox_forwarded_refreshed';
       const readCookie = () => {
-        if (typeof document === 'undefined') return null;
-        const m = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(`${cookieName}=`));
+        const m = document.cookie
+          .split(';')
+          .map(c => c.trim())
+          .find(c => c.startsWith(`${cookieName}=`));
         if (!m) return null;
         return decodeURIComponent(m.split('=')[1]);
       };
       const setCookie = (val: string, minutes = 10) => {
-        if (typeof document === 'undefined') return;
         const d = new Date();
-        d.setTime(d.getTime() + (minutes * 60 * 1000));
+        d.setTime(d.getTime() + minutes * 60 * 1000);
         const expires = 'expires=' + d.toUTCString();
         document.cookie = `${cookieName}=${encodeURIComponent(val)}; ${expires}; path=/`;
       };
 
-      const current = readCookie();
-      if (current === 'true') {
-        // already refreshed recently — skip reload
-        return;
-      }
-
-      // mark as refreshed so we don't repeatedly reload
+      if (readCookie() === 'true') return;
       setCookie('true', 10);
 
       refreshTimerRef.current = window.setTimeout(() => {
         try {
           const cur = new URL(window.location.href);
-          if ((cur.pathname === '/inbox' || cur.pathname.startsWith('/inbox')) && cur.searchParams.get('type') === 'forwarded') {
-            // do a full reload to ensure server-driven state and cookies are applied
+          if (
+            (cur.pathname === '/inbox' || cur.pathname.startsWith('/inbox')) &&
+            cur.searchParams.get('type') === 'forwarded'
+          ) {
             window.location.reload();
           }
         } catch (e) {
@@ -243,7 +288,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       }, 4000) as unknown as number;
     } catch (e) {
-      // ignore scheduling errors
+      // ignore
     }
   }, []);
 
@@ -255,332 +300,31 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       }
     };
   }, []);
-  // Role derived from the `user` cookie (if present) will override or supplement auth state.
-  const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
 
-const getUserRoleFromCookie = () => {
-  if (typeof window === "undefined" || !document?.cookie) return undefined;
-  try {
-    // 1. Find "user" cookie from document.cookie
-    const raw = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('user='));
-    if (!raw) return undefined;
-
-    // 2. Remove "user=" prefix
-    let value = raw.substring('user='.length);
-
-    // 3. Decode if URI encoded (sometimes cookies are saved encoded)
-    let decoded = decodeURIComponent(value);
-
-    // 4. Sometimes cookies are prefixed with "j:" or wrapped in quotes → clean it
-    if (decoded.startsWith('j:')) decoded = decoded.slice(2);
-    if ((decoded.startsWith('"') && decoded.endsWith('"')) || (decoded.startsWith("'") && decoded.endsWith("'"))) {
-      decoded = decoded.slice(1, -1);
-    }
-
-    // 5. Parse string → object
-    const parsed = JSON.parse(decoded);
-
-    // 6. Get role object
-    const roleObj = parsed?.role ?? parsed;
-    if (!roleObj) return undefined;
-
-    // 7. If role is a string → return directly
-    if (typeof roleObj === 'string') return roleObj.toUpperCase();
-
-    // 8. If role is object → prefer "code", fallback to "name"
-    if (typeof roleObj === 'object') {
-      if (roleObj.code) return String(roleObj.code).toUpperCase();
-      if (roleObj.name) return String(roleObj.name).toUpperCase();
-    }
-  } catch (err) {
-    // ignore parse errors
-  }
-  return undefined;
-};
-
-  // Define RootState type or import it from your store typings
-  interface RootState {
-    ui: {
-      isInboxOpen: boolean;
-    };
-    // ...other state slices
-  }
-  const isInboxOpen = useSelector((state: RootState) => state.ui.isInboxOpen); // Get inbox state from Redux
-
-  // Inbox context API (moved up so effects can use it)
-  const { loadType } = useInbox();
-
-  // react to URL changes (client-side navigation) so activeItem and inbox load
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    try {
-      if (!pathname) return;
-      const type = searchParams?.get('type');
-      if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
-        const newActive = normalizeNavKey(`inbox-${String(type).toLowerCase()}`);
-        if (newActive !== activeItem) {
-          console.debug('[Sidebar] URL change -> setting activeItem from URL', { pathname, type, newActive });
-          setActiveItem(newActive);
-          try { localStorage.setItem('activeNavItem', newActive); } catch (e) {}
-
-          // Ensure the inbox is opened and the data is loaded when landing via URL
-          try {
-            if (!isInboxOpen) dispatch(openInbox());
-            void loadType(String(type), false).catch(() => {});
-            if (onTableReload) onTableReload(String(type));
-            // schedule refresh for forwarded inbox after login/redirect if applicable
-            if (String(type).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
-          } catch (e) {
-            // swallow errors - defensive
-            console.debug('[Sidebar] auto-load on URL change failed', e);
-          }
-        }
-      }
-    } catch (err) {
-      console.debug('[Sidebar] url-sync effect failed', err);
-    }
-  }, [pathname, searchParams, normalizeNavKey, isInboxOpen, dispatch, loadType, onTableReload, scheduleInboxForwardedRefresh]);
-
-  useEffect(() => {
-    // prefer cookie-derived role when available (full role object), fallback to auth sync user or role
-    // Pass the `user` object into getRoleConfig when available so role.menu_items are applied
-    // immediately after login even when cookies are HttpOnly and not client-readable.
-    const effectiveInput = (typeof cookieRole === 'object' && cookieRole) ? cookieRole : (user ?? (cookieRole || userRole || "SHO"));
-    const config = getRoleConfig(effectiveInput);
-    setRoleConfig(config);
-    console.debug('[Sidebar] effective role input:', effectiveInput, 'roleConfig menuItems:', config?.menuItems);
-  }, [userRole, cookieRole, user]);
-
-  // Use the optimized sidebar counts hook with more stable conditions
-  const shouldFetchCounts = useMemo(() => 
-    visible && !cookieRole?.includes('ADMIN'), 
-    [visible, cookieRole]
-  );
-  
-  const { applicationCounts: rawCounts, loading: loadingCounts, refreshCounts } = useSidebarCounts(shouldFetchCounts);
-  
-  // Create stable reference to counts to prevent unnecessary re-renders
-  const applicationCounts = useMemo(() => ({
-    forwardedCount: rawCounts?.forwardedCount || 0,
-    returnedCount: rawCounts?.returnedCount || 0,
-    redFlaggedCount: rawCounts?.redFlaggedCount || 0,
-    disposedCount: rawCounts?.disposedCount || 0,
-  }), [
-    rawCounts?.forwardedCount,
-    rawCounts?.returnedCount, 
-    rawCounts?.redFlaggedCount,
-    rawCounts?.disposedCount
-  ]);
-
-  useEffect(() => {
-    // read cookie role once on mount (client-side only)
-    if (typeof window !== 'undefined') {
-      const r = getUserRoleFromCookie();
-      if (r) setCookieRole(r);
-    }
-  }, []);
-
-  // Debug: log important runtime values to help diagnose stale sidebar issues
-  useEffect(() => {
-      console.debug('[Sidebar] mount/url/roles', {
-        href: typeof window !== 'undefined' ? window.location.href : null,
-        cookieRole,
-        userRole,
-        activeItem,
-        isInboxOpen,
-      });
-  }, [cookieRole, userRole, activeItem, isInboxOpen]);
-
-  // Auto-open inbox and load type when activeItem indicates an inbox-{type}
-  useEffect(() => {
-    try {
-      if (activeItem && activeItem.startsWith('inbox-')) {
-        const t = activeItem.replace('inbox-', '');
-        console.debug('[Sidebar] auto-loading inbox for type', t);
-        // ensure the inbox panel is open
-        if (!isInboxOpen) dispatch(openInbox());
-
-        // restore any stored status ids and pass them into loadType so
-        // role-provided statusIds (from cookies) are honored immediately.
-        let restoredStatusIds: number[] | undefined = undefined;
-        try {
-          const s = localStorage.getItem('activeStatusIds');
-          if (s) {
-            restoredStatusIds = JSON.parse(s);
-            setActiveStatusIds(restoredStatusIds);
-          }
-        } catch (e) {
-          // ignore parse errors
-        }
-
-        // trigger InboxContext load and notify parent to reload table if provided
-        // Pass restoredStatusIds (if any) to ensure the Context uses role/menu provided ids.
-        void loadType(String(t), false, restoredStatusIds ?? activeStatusIds).catch(() => {});
-        if (onTableReload) onTableReload(String(t));
-      }
-    } catch (err) {
-      // defensive - do not break rendering
-      console.debug('[Sidebar] auto-load inbox failed', err);
-    }
-  }, [activeItem, dispatch, isInboxOpen, loadType, onTableReload]);
-
-  useEffect(() => {
-    if (showSidebar) setVisible(true);
-    else setTimeout(() => setVisible(false), 400);
-  }, [showSidebar]);
-
-
-  const handleMenuClick = useCallback(async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
-    console.debug('[Sidebar] handleMenuClick', { item, cookieRole, userRole });
-    
-    if (item.name.toLowerCase() !== "inbox") {
-      dispatch(closeInbox()); // Close the inbox if another menu item is clicked
-    }
-    if (item.childs?.length) {
-      setExpandedMenus((prev) => ({ ...prev, [item.name]: !prev[item.name] }));
-    } else {
-  const key = normalizeNavKey(item.name as string);
-  setActiveItem(key);
-  try { localStorage.setItem('activeNavItem', key); } catch (e) {}
-      
-      // Store statusIds for later use
-      if (item.statusIds && item.statusIds.length > 0) {
-        setActiveStatusIds(item.statusIds);
-        localStorage.setItem("activeStatusIds", JSON.stringify(item.statusIds));
-      } else {
-        setActiveStatusIds(undefined);
-        localStorage.removeItem("activeStatusIds");
-      }
-      
-  const effectiveRole = cookieRole || userRole;
-      // Only ADMIN can access /admin/*
-      if (effectiveRole === 'ADMIN') {
-        const pathSegment = item.name.replace(/\s+/g, '');
-        console.debug('[Sidebar] navigate admin', `/admin/${encodeURIComponent(pathSegment)}`);
-        router.push(`/admin/${encodeURIComponent(pathSegment)}`);
-      } else {
-        // For non-admins, use role-based redirect logic
-        // Special case: if menu is "dashboard" or similar, use getRoleBasedRedirectPath
-        if (item.name.toLowerCase().includes('dashboard')) {
-          const redirectPath = getRoleBasedRedirectPath(effectiveRole);
-          console.debug('[Sidebar] navigate dashboard', redirectPath);
-          router.push(redirectPath);
-        } else {
-          // For other menu items, try to route to /inbox?type={item}
-          // You may want to map item names to types as needed
-          const type = item.name.replace(/\s+/g, '');
-          const target = `/inbox?type=${encodeURIComponent(type)}`;
-          console.debug('[Sidebar] navigate inbox target', { target, type });
-          router.push(target);
-          // schedule a refresh for forwarded inbox in case server-side cookies/redirects
-          scheduleInboxForwardedRefresh(target);
-        }
-      }
-    }
-  }, [router, dispatch, cookieRole, userRole, loadType, scheduleInboxForwardedRefresh]);
-
-  const handleInboxToggle = useCallback(() => {
-    dispatch(toggleInbox()); // Dispatch toggle action
-  }, [dispatch, isInboxOpen]);
-
-  const handleInboxSubItemClick = useCallback((subItem: string) => {
-    const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
-    const currentPath = window.location.pathname;
-    const effectiveRole = cookieRole || userRole;
-    // For admin, use /admin/inbox, for others use /inbox
-    const isAdmin = effectiveRole === 'ADMIN';
-    const isOnInboxBase = isAdmin
-      ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
-      : currentPath === '/inbox' || currentPath.startsWith('/inbox');
-
-    
-    console.debug('[Sidebar] handleInboxSubItemClick', {
-      subItem,
-      activeItemKey,
-      currentPath,
-      effectiveRole,
-      isAdmin,
-      isOnInboxBase
-    });
-
-    // Delegate loading to InboxContext which ensures a single fetch per type
-    // Keep camelCase format for types like "reEnquiry" instead of converting to lowercase
-    const normalized = String(subItem);
-    startTransition(() => {
-      setActiveItem(activeItemKey);
-      try { localStorage.setItem('activeNavItem', activeItemKey); } catch (e) {}
-
-      if (!isInboxOpen) {
-        dispatch(openInbox());
-      }
-    });
-
-    // Update context (single fetch) and update URL without forcing a full remount
-    // Attempt to resolve custom statusIds from several sources in order:
-    // 1. currently-active `activeStatusIds` state
-    // 2. deduped `menuItems` entry for 'inbox' (role-provided)
-    // 3. direct menu item that matches the subItem name
-    let customStatusIds: number[] | undefined = activeStatusIds;
-    try {
-      if (!customStatusIds) {
-        const inboxMenu = menuItems.find(mi => String(mi.name || '').replace(/\s+/g, '').toLowerCase() === 'inbox');
-        if (inboxMenu?.statusIds && inboxMenu.statusIds.length) customStatusIds = inboxMenu.statusIds;
-      }
-      if (!customStatusIds) {
-        const direct = menuItems.find(mi => String(mi.name || '').replace(/\s+/g, '').toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase());
-        if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
-      }
-    } catch (e) {
-      // ignore - fallback to default mapping inside fetch
-    }
-
-    loadType(normalized, false, customStatusIds).catch((e) => {});
-    const targetBase = isAdmin ? '/admin/userManagement' : '/inbox';
-    const targetUrl = `${targetBase}?type=${encodeURIComponent(normalized)}`;
-    if (isOnInboxBase) {
-      // replace state to avoid adding history entries when already under inbox/home
-      window.history.replaceState(null, '', targetUrl);
-      if (onTableReload) onTableReload(normalized);
-    } else {
-      console.debug('[Sidebar] router.push targetUrl', targetUrl);
-      router.push(targetUrl);
-      // schedule a refresh when navigating to forwarded inbox
-      scheduleInboxForwardedRefresh(targetUrl);
-    }
-  }, [dispatch, isInboxOpen, onTableReload, router, cookieRole, userRole, scheduleInboxForwardedRefresh]);
-
-  const handleLogout = useCallback(async () => {
-    if (token) {
-      await dispatch(logoutUser() as any);
-      // Small delay to ensure cookies are removed and Redux reset has propagated
-      await new Promise((res) => setTimeout(res, 250));
-    }
-    router.push("/login");
-  }, [dispatch, router, token]);
-
-  // Update menuItems logic with type casting and guards
-  // Normalize and dedupe menu items coming from roleConfig
+  /* ----------------------------
+     Build deduped menuItems from roleConfig
+  -----------------------------*/
   const menuItems = useMemo(() => {
     const items = (roleConfig?.menuItems ?? []) as Array<{ name: string; statusIds?: number[] }>;
-    // Use a Map to dedupe by normalized key (lowercase, remove spaces)
-    const map = new Map<string, { name: string; label: string; icon: React.ReactNode | null; statusIds?: number[] }>();
-    items.forEach((item) => {
+    const map = new Map<
+      string,
+      { name: string; label: string; icon: React.ReactNode | null; statusIds?: number[] }
+    >();
+    items.forEach(item => {
       if (!item || !item.name) return;
-      const raw = String(item.name || '').trim();
+      const raw = String(item.name).trim();
       const normalized = raw.replace(/\s+/g, '').toLowerCase();
-
-      // Prefer canonical key from menuMeta when available
-      const canonicalKey = (Object.keys(menuMeta) as string[]).find(k => k.toLowerCase() === normalized) as MenuMetaKey | undefined;
-
+      const canonicalKey = (Object.keys(menuMeta) as string[]).find(
+        k => k.toLowerCase() === normalized
+      ) as MenuMetaKey | undefined;
       const keyForLabel = canonicalKey ?? (raw as MenuMetaKey);
-      const iconFn = canonicalKey ? menuMeta[canonicalKey]?.icon : menuMeta[keyForLabel as MenuMetaKey]?.icon;
-      const label = (canonicalKey && menuMeta[canonicalKey]) ? menuMeta[canonicalKey].label : raw;
+      const iconFn = canonicalKey
+        ? menuMeta[canonicalKey]?.icon
+        : menuMeta[keyForLabel as MenuMetaKey]?.icon;
+      const label = canonicalKey && menuMeta[canonicalKey] ? menuMeta[canonicalKey].label : raw;
 
       const existing = map.get(normalized);
       if (existing) {
-        // Merge statusIds (unique)
         const existingIds = existing.statusIds ?? [];
         const incomingIds = Array.isArray(item.statusIds) ? item.statusIds : [];
         const merged = Array.from(new Set([...existingIds, ...incomingIds]));
@@ -591,64 +335,350 @@ const getUserRoleFromCookie = () => {
           name: raw,
           label,
           icon: iconFn ? (iconFn() as any) : null,
-          statusIds: Array.isArray(item.statusIds) && item.statusIds.length ? item.statusIds : undefined,
+          statusIds:
+            Array.isArray(item.statusIds) && item.statusIds.length ? item.statusIds : undefined,
         });
       }
     });
-
     return Array.from(map.values());
-  }, [roleConfig, cookieRole, userRole]);
+  }, [roleConfig]);
 
-  // Validate activeItem when the available menu changes (role change)
+  /* ----------------------------
+     Client-only initialization and URL -> activeItem sync
+     - runs once on mount and whenever pathname + query change.
+     - centralizes localStorage writes and inbox loading to avoid duplication.
+  -----------------------------*/
   useEffect(() => {
+    // client-only initialization on first mount
+    if (typeof window === 'undefined') return;
+
+    // only run once on mount to read cookie and optionally active item from localStorage or URL
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      const r = getUserRoleFromCookie();
+      if (r) setCookieRole(r);
+      // Read active nav from URL first (query beats localStorage)
+      try {
+        const url = new URL(window.location.href);
+        const pathnameNow = url.pathname;
+        const typeParam = url.searchParams.get('type');
+        if ((pathnameNow === '/inbox' || pathnameNow.startsWith('/admin')) && typeParam) {
+          const key = normalizeNavKey(`inbox-${String(typeParam).toLowerCase()}`);
+          setActiveItem(key);
+          try {
+            localStorage.setItem('activeNavItem', key);
+          } catch (e) {}
+          // ensure inbox open & load
+          try {
+            dispatch(openInbox());
+            void loadType(String(typeParam), false).catch(() => {});
+            if (onTableReload) onTableReload(String(typeParam));
+            if (String(typeParam).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
+          } catch (e) {
+            /* swallow */
+          }
+          return;
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // fallback: read previously stored activeNavItem from localStorage (if any)
+      try {
+        const stored = window.localStorage?.getItem('activeNavItem') ?? '';
+        if (stored) {
+          setActiveItem(normalizeNavKey(stored));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // If pathname or searchParams changed and point to an inbox type -> sync
     try {
-      if (!activeItem) return; // nothing to validate
+      if (!pathname) return;
+      const type = searchParams?.get('type');
+      if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
+        const newActive = normalizeNavKey(`inbox-${String(type).toLowerCase()}`);
+        if (newActive !== activeItem) {
+          setActiveItem(newActive);
+          try {
+            localStorage.setItem('activeNavItem', newActive);
+          } catch (e) {}
+          if (!isMountedRef.current) return;
+          try {
+            if (!((window as any).__REDUX_INBOX_OPEN__ || false)) {
+              /* noop hook for potential global flag */
+            }
+            dispatch(openInbox());
+            void loadType(String(type), false).catch(() => {});
+            if (onTableReload) onTableReload(String(type));
+            if (String(type).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
+          } catch (e) {
+            /* swallow */
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, String(searchParams?.toString())]); // we use stringified params to trigger on query changes
 
-      // Build set of allowed normalized keys
-      const allowed = new Set<string>();
-      // menuItems contains objects with name/raw - normalize them
-      menuItems.forEach(mi => {
-        const k = normalizeNavKey(mi.name as string);
-        if (k) allowed.add(k);
-      });
-  // Add canonical inbox sub items
-  ['forwarded','returned','redflagged','disposed'].forEach(t => allowed.add(`inbox-${t}`));
-      // If activeItem is allowed, nothing to do
-      const normalizedActive = normalizeNavKey(activeItem);
-      if (allowed.has(normalizedActive)) return;
+  /* ----------------------------
+     Persist activeItem -> localStorage when it actually changes
+  -----------------------------*/
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (activeItem) {
+        localStorage.setItem('activeNavItem', activeItem);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }, [activeItem]);
 
-      // Otherwise pick a sane default: prefer first menu item, else dashboard
-      const fallback = menuItems.length ? normalizeNavKey(menuItems[0].name as string) : 'dashboard';
-      console.debug('[Sidebar] activeItem invalid for new role, switching to', fallback, 'current:', activeItem);
+  /* ----------------------------
+     Update roleConfig each time user/userRole/cookieRole changes
+  -----------------------------*/
+  useEffect(() => {
+    const effectiveInput = cookieRole ?? user ?? userRole ?? 'SHO';
+    const cfg = getRoleConfig(effectiveInput);
+    setRoleConfig(cfg);
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.debug(
+          '[Sidebar] effective role input:',
+          effectiveInput,
+          'roleConfig menuItems:',
+          cfg?.menuItems
+        );
+      } catch (e) {}
+    }
+  }, [cookieRole, userRole, user]);
+
+  /* ----------------------------
+     Validate activeItem when menu items change (role change)
+  -----------------------------*/
+  useEffect(() => {
+    if (!activeItem) return;
+    const allowed = new Set<string>();
+    menuItems.forEach(mi => {
+      const k = normalizeNavKey(mi.name as string);
+      if (k) allowed.add(k);
+    });
+    ['forwarded', 'returned', 'redflagged', 'disposed'].forEach(t => allowed.add(`inbox-${t}`));
+    const normalizedActive = normalizeNavKey(activeItem);
+    if (!allowed.has(normalizedActive)) {
+      const fallback = menuItems.length
+        ? normalizeNavKey(menuItems[0].name as string)
+        : 'dashboard';
       setActiveItem(fallback);
-      try { localStorage.setItem('activeNavItem', fallback); } catch (e) {}
-    } catch (e) {
-      // ignore
+      try {
+        localStorage.setItem('activeNavItem', fallback);
+      } catch (e) {}
     }
-  }, [roleConfig, menuItems, activeItem, normalizeNavKey]);
+  }, [menuItems, activeItem, normalizeNavKey]);
 
-  // Debug: show raw roleConfig.menuItems and deduped menuItems in development
+  /* ----------------------------
+     Auto-load inbox when activeItem points to inbox-{type}
+  -----------------------------*/
+  // Auto-load inbox when activeItem points to inbox-{type}
+  // We intentionally exclude `activeStatusIds` from deps to avoid triggering
+  // the effect when we restore status ids from localStorage (which would loop).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
     try {
-      const raw = (roleConfig && (roleConfig as any).menuItems) || [];
-      console.debug('[Sidebar] raw roleConfig.menuItems:', raw);
-      console.debug('[Sidebar] deduped menuItems:', menuItems.map(m => ({ name: m.name, label: m.label, statusIds: m.statusIds })));
+      if (activeItem && activeItem.startsWith('inbox-')) {
+        const t = activeItem.replace('inbox-', '');
+        if (!isMountedRef.current) return;
+        // open inbox if not open
+        dispatch(openInbox());
+
+        // Try to restore any stored status ids from localStorage, but only set state
+        // when the restored value differs from current to avoid extra renders.
+        let restoredStatusIds: number[] | undefined = undefined;
+        try {
+          const s = localStorage.getItem('activeStatusIds');
+          if (s) {
+            const parsed = JSON.parse(s);
+            if (Array.isArray(parsed)) restoredStatusIds = parsed;
+            try {
+              const cur = activeStatusIds;
+              const different = !cur || JSON.stringify(cur) !== JSON.stringify(restoredStatusIds);
+              if (restoredStatusIds && different) setActiveStatusIds(restoredStatusIds);
+            } catch (e) {
+              if (restoredStatusIds) setActiveStatusIds(restoredStatusIds);
+            }
+          }
+        } catch (e) {}
+
+        // call loadType with restored or current activeStatusIds (prefer restored)
+        const toPass = restoredStatusIds ?? activeStatusIds ?? undefined;
+        void loadType(String(t).toLowerCase(), false, toPass).catch(() => {});
+        if (onTableReload) onTableReload(String(t));
+      }
     } catch (e) {
-      // ignore
+      /* ignore */
     }
-  }, [roleConfig, menuItems]);
+  }, [activeItem, dispatch, loadType, onTableReload]);
 
-  // Create stable icons outside of memoization to prevent recreating React elements
-  const forwardedIcon = useMemo(() => <CornerUpRightFixed className="w-6 h-6 mr-2" aria-label="Forwarded" />, []);
-  const returnedIcon = useMemo(() => <Undo2Fixed className="w-6 h-6 mr-2" aria-label="Returned" />, []);
-  const redFlaggedIcon = useMemo(() => <FlagFixed className="w-6 h-6 mr-2" aria-label="Red Flagged" />, []);
-  const disposedIcon = useMemo(() => <FolderCheckFixed className="w-6 h-6 mr-2" aria-label="Disposed" />, []);
+  /* ----------------------------
+     Menu click handlers
+  -----------------------------*/
+  const handleMenuClick = useCallback(
+    async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
+      if (item.name.toLowerCase() !== 'inbox') {
+        dispatch(closeInbox());
+      }
 
-  // Build inbox sub-items dynamically from role/menu config so the menu matches
-  // whatever the role provides. Fall back to a known list if none are present.
+      if (item.childs?.length) {
+        setExpandedMenus(prev => ({ ...prev, [item.name]: !prev[item.name] }));
+        return;
+      }
+
+      const key = normalizeNavKey(item.name as string);
+      setActiveItem(key);
+      if (item.statusIds && item.statusIds.length) {
+        setActiveStatusIds(item.statusIds);
+        try {
+          localStorage.setItem('activeStatusIds', JSON.stringify(item.statusIds));
+        } catch (e) {}
+      } else {
+        setActiveStatusIds(undefined);
+        try {
+          localStorage.removeItem('activeStatusIds');
+        } catch (e) {}
+      }
+
+      const effectiveRole = cookieRole ?? userRole;
+      if (effectiveRole === 'ADMIN') {
+        const pathSegment = item.name.replace(/\s+/g, '');
+        router.push(`/admin/${encodeURIComponent(pathSegment)}`);
+        return;
+      }
+
+      if (item.name.toLowerCase().includes('dashboard')) {
+        const redirectPath = getRoleBasedRedirectPath(effectiveRole);
+        router.push(redirectPath);
+        return;
+      }
+
+      const type = item.name.replace(/\s+/g, '');
+      const target = `/inbox?type=${encodeURIComponent(type)}`;
+      router.push(target);
+      scheduleInboxForwardedRefresh(target);
+    },
+    [cookieRole, userRole, normalizeNavKey, router, scheduleInboxForwardedRefresh, dispatch]
+  );
+
+  const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // keep generic RootState to avoid typing friction
+  const handleInboxToggle = useCallback(() => {
+    dispatch(toggleInbox());
+  }, [dispatch]);
+
+  const handleInboxSubItemClick = useCallback(
+    (subItem: string) => {
+      const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
+      setActiveItem(activeItemKey);
+
+      try {
+        localStorage.setItem('activeNavItem', activeItemKey);
+      } catch (e) {}
+
+      if (!isInboxOpen) dispatch(openInbox());
+
+      // Resolve statusIds fallback logic
+      let customStatusIds: number[] | undefined = activeStatusIds;
+      try {
+        if (!customStatusIds) {
+          const inboxMenu = menuItems.find(
+            mi =>
+              String(mi.name || '')
+                .replace(/\s+/g, '')
+                .toLowerCase() === 'inbox'
+          );
+          if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
+            customStatusIds = inboxMenu.statusIds;
+        }
+        if (!customStatusIds) {
+          const direct = menuItems.find(
+            mi =>
+              String(mi.name || '')
+                .replace(/\s+/g, '')
+                .toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase()
+          );
+          if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
+        }
+      } catch (e) {
+        /* ignore */
+      }
+
+      void loadType(String(subItem), false, customStatusIds).catch(() => {});
+      const targetBase = (cookieRole ?? userRole) === 'ADMIN' ? '/admin/userManagement' : '/inbox';
+      const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
+
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const isOnInboxBase =
+        (cookieRole ?? userRole) === 'ADMIN'
+          ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
+          : currentPath === '/inbox' || currentPath.startsWith('/inbox');
+
+      if (isOnInboxBase) {
+        try {
+          window.history.replaceState(null, '', targetUrl);
+        } catch (e) {}
+        if (onTableReload) onTableReload(subItem);
+      } else {
+        router.push(targetUrl);
+        scheduleInboxForwardedRefresh(targetUrl);
+      }
+    },
+    [
+      activeStatusIds,
+      cookieRole,
+      userRole,
+      dispatch,
+      loadType,
+      menuItems,
+      onTableReload,
+      router,
+      scheduleInboxForwardedRefresh,
+      normalizeNavKey,
+      isInboxOpen,
+    ]
+  );
+
+  const handleLogout = useCallback(async () => {
+    if (token) {
+      await dispatch(logoutUser() as any);
+      await new Promise(res => setTimeout(res, 250));
+    }
+    router.push('/login');
+  }, [dispatch, router, token]);
+
+  /* ----------------------------
+     Icons / inboxSubItems
+  -----------------------------*/
+  const forwardedIcon = useMemo(
+    () => <CornerUpRightFixed className='w-6 h-6 mr-2' aria-label='Forwarded' />,
+    []
+  );
+  const returnedIcon = useMemo(
+    () => <Undo2Fixed className='w-6 h-6 mr-2' aria-label='Returned' />,
+    []
+  );
+  const redFlaggedIcon = useMemo(
+    () => <FlagFixed className='w-6 h-6 mr-2' aria-label='Red Flagged' />,
+    []
+  );
+  const disposedIcon = useMemo(
+    () => <FolderCheckFixed className='w-6 h-6 mr-2' aria-label='Disposed' />,
+    []
+  );
+
   const inboxSubItems = useMemo(() => {
-    // derive subtype set from deduped menuItems
     const set = new Set<string>();
     menuItems.forEach(mi => {
       try {
@@ -658,15 +688,9 @@ const getUserRoleFromCookie = () => {
         }
       } catch (e) {}
     });
-
-  // default fallbacks
-  const fallbacks = ['forwarded', 'returned', 'redflagged', 'disposed'];
-    if (set.size === 0) {
-      fallbacks.forEach(f => set.add(f));
-    } else {
-      // ensure common types are present so counts/icons align
-      fallbacks.forEach(f => set.add(f));
-    }
+    const fallbacks = ['forwarded', 'returned', 'redflagged', 'disposed'];
+    if (set.size === 0) fallbacks.forEach(f => set.add(f));
+    else fallbacks.forEach(f => set.add(f)); // ensure common types present
 
     const iconMap: Record<string, React.ReactNode> = {
       forwarded: forwardedIcon,
@@ -674,102 +698,134 @@ const getUserRoleFromCookie = () => {
       redflagged: redFlaggedIcon,
       disposed: disposedIcon,
     };
-
     const countMap: Record<string, number> = {
       forwarded: applicationCounts?.forwardedCount || 0,
       returned: applicationCounts?.returnedCount || 0,
       redflagged: applicationCounts?.redFlaggedCount || 0,
       disposed: applicationCounts?.disposedCount || 0,
     };
-
-    const labelFor = (n: string) => {
-      if (n.toLowerCase() === 'redflagged') return 'Red Flagged';
-      return n.charAt(0).toUpperCase() + n.slice(1);
-    };
-
-    return Array.from(set).map((name) => ({
+    const labelFor = (n: string) =>
+      n.toLowerCase() === 'redflagged' ? 'Red Flagged' : n.charAt(0).toUpperCase() + n.slice(1);
+    return Array.from(set).map(name => ({
       name,
       label: labelFor(name),
       icon: iconMap[name] ?? forwardedIcon,
       count: countMap[name] ?? 0,
     }));
-  }, [menuItems, normalizeNavKey, forwardedIcon, returnedIcon, redFlaggedIcon, disposedIcon, applicationCounts?.forwardedCount, applicationCounts?.returnedCount, applicationCounts?.redFlaggedCount, applicationCounts?.disposedCount]);
+  }, [
+    menuItems,
+    normalizeNavKey,
+    forwardedIcon,
+    returnedIcon,
+    redFlaggedIcon,
+    disposedIcon,
+    applicationCounts?.forwardedCount,
+    applicationCounts?.returnedCount,
+    applicationCounts?.redFlaggedCount,
+    applicationCounts?.disposedCount,
+  ]);
 
+  /* ----------------------------
+     Visible & role guard
+  -----------------------------*/
+  useEffect(() => {
+    if (showSidebar) setVisible(true);
+    else setTimeout(() => setVisible(false), 400);
+  }, [showSidebar]);
+
+  const effectiveRole = cookieRole ?? userRole;
   if (!visible && !showSidebar) return null;
-  // Only render sidebar if allowed role
-  // determine effective role used for rendering checks
-  const effectiveRole = cookieRole || userRole;
-  if (!effectiveRole) {
-    return null;
-  }
+  if (!effectiveRole) return null;
+
+  /* ----------------------------
+     Render
+  -----------------------------*/
   return (
     <>
-      <div className="md:hidden fixed top-4 left-4 z-50">
-        <HamburgerButton open={mobileSidebarOpen} onClick={() => setMobileSidebarOpen((v) => !v)} />
+      <div className='md:hidden fixed top-4 left-4 z-50'>
+        <HamburgerButton open={mobileSidebarOpen} onClick={() => setMobileSidebarOpen(v => !v)} />
       </div>
       <aside
         className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0
         ${showSidebar || mobileSidebarOpen ? 'opacity-100 transform translate-x-0' : 'opacity-0 pointer-events-none -translate-x-full'}
         md:opacity-100 md:transform md:translate-x-0 md:pointer-events-auto`}
       >
-        <div className="p-4 flex items-center border-b border-gray-100">
-          <ImageFixed src="/icon-alms.svg" alt="Arms License Icon" width={52} height={52} className="mr-2" />
-          <h1 className="text-lg font-bold">Arms License</h1>
+        <div className='p-4 flex items-center border-b border-gray-100'>
+          <ImageFixed
+            src='/icon-alms.svg'
+            alt='Arms License Icon'
+            width={52}
+            height={52}
+            className='mr-2'
+          />
+          <h1 className='text-lg font-bold'>Arms License</h1>
         </div>
-        <div className="bg-[#001F54] text-white p-4 flex items-center">
-          <span className="mr-3">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
+        <div className='bg-[#001F54] text-white p-4 flex items-center'>
+          <span className='mr-3'>
+            <svg
+              xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              className='w-5 h-5'
+            >
+              <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
+              <circle cx='12' cy='7' r='4' />
             </svg>
           </span>
-          <span className="font-bold">{roleConfig?.dashboardTitle ?? "Dashboard"}</span>
+          <span className='font-bold'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
         </div>
-        <nav className="flex-1 overflow-y-auto py-2 px-2">
-          <ul className="space-y-1">
-            {/* Collapsible Inbox Section */}
+
+        <nav className='flex-1 overflow-y-auto py-2 px-2'>
+          <ul className='space-y-1'>
             {effectiveRole !== 'ADMIN' && (
               <li>
                 <button
-                  type="button"
+                  type='button'
                   onClick={handleInboxToggle}
-                  className={`flex items-center w-full px-4 py-2 rounded-md text-left ${isInboxOpen ? "bg-[#001F54] text-white" : "hover:bg-gray-100 text-gray-800"}`}
+                  className={`flex items-center w-full px-4 py-2 rounded-md text-left ${isInboxOpen ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`}
                 >
-                <span className="inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors" aria-hidden="true">
-                  {menuMeta.inbox.icon() as any}
-                </span>
-                  <span className="flex-grow">{menuMeta.inbox.label}</span>
-                  <span className="ml-2">{isInboxOpen ? '▾' : '▸'}</span>
+                  <span
+                    className='inline-flex items-center justify-center w-6 h-6 mr-2 group-hover:text-indigo-600 transition-colors'
+                    aria-hidden='true'
+                  >
+                    {menuMeta.inbox.icon() as any}
+                  </span>
+                  <span className='flex-grow'>{menuMeta.inbox.label}</span>
+                  <span className='ml-2'>{isInboxOpen ? '▾' : '▸'}</span>
                 </button>
                 {isInboxOpen && (
-                  <ul className="ml-8 mt-1 space-y-1" role="menu">
-                    {inboxSubItems.map((sub) => {
-                          // Pre-calculate active state to prevent inline computation
-                          const isActive = activeItem === normalizeNavKey(`inbox-${sub.name}`);
-                      
-                          return (
-                            <InboxSubMenuItem
-                              key={`inbox-sub-${sub.name}`} // More specific key
-                              name={sub.name}
-                              label={sub.label}
-                              icon={sub.icon}
-                              count={sub.count}
-                              active={isActive}
-                              onClick={handleInboxSubItemClick}
-                            />
-                          );
-                        })}
+                  <ul className='ml-8 mt-1 space-y-1' role='menu'>
+                    {inboxSubItems.map(sub => {
+                      const isActive = activeItem === normalizeNavKey(`inbox-${sub.name}`);
+                      return (
+                        <InboxSubMenuItem
+                          key={`inbox-sub-${sub.name}`}
+                          name={sub.name}
+                          label={sub.label}
+                          icon={sub.icon}
+                          count={sub.count}
+                          active={isActive}
+                          onClick={handleInboxSubItemClick}
+                        />
+                      );
+                    })}
                   </ul>
                 )}
               </li>
             )}
-            {/* Render other menu items except inbox (case/space-insensitive) */}
+
             {menuItems
-              .filter((item) => {
-                const normalized = String(item.name || '').replace(/\s+/g, '').toLowerCase();
-                return normalized !== 'inbox';
-              })
-              .map((item) => {
+              .filter(
+                item =>
+                  String(item.name || '')
+                    .replace(/\s+/g, '')
+                    .toLowerCase() !== 'inbox'
+              )
+              .map(item => {
                 const normalizedKey = normalizeNavKey(item.name as string);
                 const isActive = activeItem === normalizedKey;
                 return (
@@ -778,34 +834,49 @@ const getUserRoleFromCookie = () => {
                     icon={item.icon}
                     label={item.label}
                     active={isActive}
-                    onClick={() => handleMenuClick({ 
-                      name: item.name, 
-                      statusIds: item.statusIds 
-                    })}
+                    onClick={() => handleMenuClick({ name: item.name, statusIds: item.statusIds })}
                   />
                 );
               })}
-            {/* Add Flow Mapping menu item for ADMIN users */}
-            {effectiveRole === "ADMIN" && (
+
+            {effectiveRole === 'ADMIN' && (
               <li>
-                <a href="/admin/flowMapping" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md">
-                  <ChartBarIconFixed className="w-5 h-5" />
+                <a
+                  href='/admin/flowMapping'
+                  className='flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md'
+                >
+                  <ChartBarIconFixed className='w-5 h-5' />
                   <span>Flow Mapping</span>
                 </a>
               </li>
             )}
           </ul>
         </nav>
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200">
+
+        <div className='absolute bottom-0 w-full p-4 border-t border-gray-200'>
           <button
-            type="button"
+            type='button'
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150 hover:bg-gray-100 text-gray-800"
+            className='flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150 hover:bg-gray-100 text-gray-800'
           >
-            <span className="inline-flex items-center justify-center w-6 h-6 mr-2" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-9A2.25 2.25 0 002.25 5.25v13.5A2.25 2.25 0 004.5 21h9a2.25 2.25 0 002.25-2.25V15" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H9m3-3l-3 3 3 3" />
+            <span
+              className='inline-flex items-center justify-center w-6 h-6 mr-2'
+              aria-hidden='true'
+            >
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+                strokeWidth='1.5'
+                stroke='currentColor'
+                className='w-6 h-6'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  d='M15.75 9V5.25A2.25 2.25 0 0013.5 3h-9A2.25 2.25 0 002.25 5.25v13.5A2.25 2.25 0 004.5 21h9a2.25 2.25 0 002.25-2.25V15'
+                />
+                <path strokeLinecap='round' strokeLinejoin='round' d='M18 12H9m3-3l-3 3 3 3' />
               </svg>
             </span>
             Logout

@@ -596,7 +596,6 @@ export class ApplicationFormService {
           Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(pd));
 
           if (Object.keys(updateData).length > 0) {
-            console.debug('Updating personalDetails for application', applicationId, updateData);
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
               data: {
