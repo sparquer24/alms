@@ -21,6 +21,29 @@ export const AuthInitializer = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const currentUser = useSelector(selectCurrentUser);
 
+  // Defensive init: some third-party bundles or browser extensions
+  // (e.g. a floating sidebar script) may read a localStorage key like
+  // "floatingSidebar" and call Object.keys on it. If that key is missing
+  // or contains "null", Object.keys will throw. Ensure a safe default.
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const key = 'floatingSidebar';
+        const raw = localStorage.getItem(key);
+        if (raw === null || raw === 'null') {
+          localStorage.setItem(key, JSON.stringify({}));
+          // keep quiet in normal runs; debug available via existing logger
+          // logDebug(`AuthInitializer: initialized ${key} to {}`);
+        }
+      }
+    } catch (err) {
+      // Non-fatal: if localStorage is disabled or access throws, continue.
+      // use existing logging util if available
+      // eslint-disable-next-line no-console
+      console.debug('AuthInitializer: safe storage init failed', err);
+    }
+  }, []);
+
   useEffect(() => {
     // Initialize auth state on startup: validate token via API and persist canonical user.
     try {

@@ -559,8 +559,47 @@ export const logoutUser = createAsyncThunk(
       } catch (e) {
       }
 
+      // Additionally remove all cookies visible to the document and clear storage
+      try {
+        if (typeof document !== 'undefined') {
+          // Iterate over all cookies and expire them
+          const cookies = document.cookie ? document.cookie.split(';') : [];
+          cookies.forEach((c) => {
+            const eqPos = c.indexOf('=');
+            const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+            try {
+              // Expire cookie for current path
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+              // Also attempt to expire cookie without path and with root domain attempt (best-effort)
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            } catch (e) {
+              // ignore per-cookie errors
+            }
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      try {
+        if (typeof window !== 'undefined') {
+          try { window.localStorage.clear(); } catch { /* ignore */ }
+          try { window.sessionStorage.clear(); } catch { /* ignore */ }
+        }
+      } catch (e) {
+        // ignore
+      }
+
       // Give browser a short moment to clear cookies before redirect/login attempts
       await new Promise((res) => setTimeout(res, 200));
+      // Redirect to login page so user lands on the auth screen
+      try {
+        if (typeof window !== 'undefined') {
+          window.location.assign('/login');
+        }
+      } catch (e) {
+        // ignore
+      }
     } catch (error) {
       // Still logout locally even if API call fails
       dispatch(logout());
@@ -579,8 +618,30 @@ export const logoutUser = createAsyncThunk(
         }
       } catch (e) {
       }
+      // Also attempt to wipe all cookies and storages in the error case
+      try {
+        if (typeof document !== 'undefined') {
+          const cookies = document.cookie ? document.cookie.split(';') : [];
+          cookies.forEach((c) => {
+            const eqPos = c.indexOf('=');
+            const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+            try {
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+              document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            } catch (e) { /* ignore */ }
+          });
+        }
+      } catch (e) { /* ignore */ }
+      try { if (typeof window !== 'undefined') { window.localStorage.clear(); window.sessionStorage.clear(); } } catch (e) { /* ignore */ }
       // Short wait to let browser clear cookies
       await new Promise((res) => setTimeout(res, 200));
+      try {
+        if (typeof window !== 'undefined') {
+          window.location.assign('/login');
+        }
+      } catch (e) {
+        // ignore redirect failures
+      }
     } finally {
       dispatch(setLoading(false));
     }

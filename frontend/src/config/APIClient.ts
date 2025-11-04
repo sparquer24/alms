@@ -53,10 +53,47 @@ export const AuthApi = {
       const axiosHeaders: Record<string, string> = Array.isArray(headers)
         ? headers.reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {} as Record<string, string>)
         : (headers as Record<string, string>);
-      const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
-      const data = response.data;
-      return data as any;
+      // Try primary login endpoint first
+      try {
+        const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
+        const data = response.data;
+        return data as any;
+      } catch (primaryErr: any) {
+        // If server responded with 404 or 405 try the alternate `/api` prefixed path
+        const status = primaryErr?.response?.status;
+        // Dev-time debug
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.debug('[AuthApi.login] primary login failed', { url, status, err: primaryErr?.response?.data ?? primaryErr?.message });
+        }
+        if (status === 404 || status === 405) {
+          // Construct alternate URL toggling `/api` segment
+          let alternate = url;
+          if (url.includes('/api/')) {
+            alternate = url.replace('/api/', '/');
+          } else {
+            // insert /api before auth
+            alternate = url.replace('/auth/', '/api/auth/');
+          }
+          try {
+            if (process.env.NODE_ENV === 'development') {
+              // eslint-disable-next-line no-console
+              console.debug('[AuthApi.login] attempting alternate login URL', { alternate });
+            }
+            const resp2 = await axiosInstance.post(alternate, params as any, { headers: axiosHeaders });
+            return resp2.data as any;
+          } catch (altErr: any) {
+            if (process.env.NODE_ENV === 'development') {
+              // eslint-disable-next-line no-console
+              console.debug('[AuthApi.login] alternate login also failed', { alternate, status: altErr?.response?.status, err: altErr?.response?.data ?? altErr?.message });
+            }
+            throw altErr;
+          }
+        }
+        throw primaryErr;
+      }
     } catch (error) {
+      // Re-throw with enriched message for thunks to pick up
       throw error;
     }
   },
@@ -149,6 +186,8 @@ export const ApplicationApi = {
       requestParams.isOwned = 'true';
     }
     try {
+      // debug: log outgoing params for troubleshooting
+      try { console.debug('[ApplicationApi.getAll] requestParams:', requestParams); } catch (e) { }
       return await apiClient.get('/application-form', requestParams as any);
     } catch (error) {
       throw error;

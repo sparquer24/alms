@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -41,7 +41,16 @@ function InboxContent() {
     const fetchApplications = async () => {
       try {
         setIsLoading(true);
+        // debug: log requested type
+        console.debug('[InboxContent] fetching applications for type:', type);
         const apps = await fetchApplicationsByStatusKey(type);
+        console.debug(
+          '[InboxContent] fetch result length for',
+          type,
+          ':',
+          Array.isArray(apps) ? apps.length : typeof apps,
+          apps && apps[0] ? apps[0] : null
+        );
         setApplications(apps);
       } catch (err) {
         setApplications([]);
@@ -54,44 +63,61 @@ function InboxContent() {
     else if (!authLoading && !isAuthenticated) setIsLoading(false);
   }, [type, authLoading, isAuthenticated]);
 
-  const filteredApplications = applications.length > 0
-    ? filterApplications(applications, searchQuery, startDate, endDate)
-    : [];
+  const filteredApplications =
+    applications.length > 0
+      ? filterApplications(applications, searchQuery, startDate, endDate)
+      : [];
 
   if (!type) return <PageLayoutSkeleton />;
 
   const getPageTitle = () => {
     switch (type) {
-      case 'forwarded': return 'Forwarded Applications';
-      case 'returned': return 'Returned Applications';
-      case 'redflagged': return 'Red Flagged Applications';
-      case 'disposed': return 'Disposed Applications';
-      case 'drafts': return 'Draft Applications';
-      case 'finaldisposal': return 'Final Disposal Applications';
-      case 'sent' : return 'Sent Applications';
-      case 'closed' : return 'Closed Applications';
-      case 'freshform': return 'Fresh Form Applications';
-      default: return 'Applications';
+      case 'forwarded':
+        return 'Forwarded Applications';
+      case 'returned':
+        return 'Returned Applications';
+      case 'redflagged':
+        return 'Red Flagged Applications';
+      case 'disposed':
+        return 'Disposed Applications';
+      case 'drafts':
+        return 'Draft Applications';
+      case 'finaldisposal':
+        return 'Final Disposal Applications';
+      case 'sent':
+        return 'Sent Applications';
+      case 'closed':
+        return 'Closed Applications';
+      case 'freshform':
+        return 'Fresh Form Applications';
+      default:
+        return 'Applications';
     }
   };
 
   return (
-    <div className="max-w-8xl w-full mx-auto">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-bold mb-6">{getPageTitle()}</h1>
+    <div className='max-w-8xl w-full mx-auto'>
+      <div className='bg-white rounded-lg shadow p-6'>
+        <h1 className='text-2xl font-bold mb-6'>{getPageTitle()}</h1>
         {(searchQuery || startDate || endDate) && (
-          <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-            <h3 className="font-semibold text-blue-700">Active Filters:</h3>
-            <div className="mt-2 text-sm text-gray-700 space-y-1">
+          <div className='mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg'>
+            <h3 className='font-semibold text-blue-700'>Active Filters:</h3>
+            <div className='mt-2 text-sm text-gray-700 space-y-1'>
               {searchQuery && <p>Search: {searchQuery}</p>}
               {(startDate || endDate) && (
-                <p>Date Range: {startDate || 'Any'} to {endDate || 'Any'}</p>
+                <p>
+                  Date Range: {startDate || 'Any'} to {endDate || 'Any'}
+                </p>
               )}
             </div>
           </div>
         )}
 
-        <ApplicationTable applications={filteredApplications} isLoading={isLoading} pageType={type || undefined} />
+        <ApplicationTable
+          applications={filteredApplications}
+          isLoading={isLoading}
+          pageType={type || undefined}
+        />
       </div>
     </div>
   );
