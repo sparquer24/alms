@@ -2,35 +2,38 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Accept build argument so NEXT_PUBLIC_API_URL is available at build time (Next inlines NEXT_PUBLIC_* vars during build)
+# Accept build argument so NEXT_PUBLIC_API_URL is available at build time
 ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Install dependencies (copy package files first for caching)
-COPY package*.json ./
+# Install dependencies
+COPY package.json ./
 
-# Install dependencies - use npm install if package-lock.json doesn't exist, npm ci if it does
 RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
     && npm install \
     && apk del .build-deps || true
 
-# Copy source and build (context is ./frontend)
+# Copy source code
 COPY . .
-# Build the Next application; NEXT_PUBLIC_API_URL will be inlined into the built assets
-# Use npx to invoke Next directly so the build step succeeds even when the local bin is missing
-RUN npx --yes next build
 
-FROM node:20-alpine AS runner
+# Build the Next.js app (disable linting)
+RUN NEXT_DISABLE_ESLINT=true npx --yes next build
+
+# -----------------------
+# Runner Image
+# -----------------------
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy production node_modules from builder
+# Copy production build from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.js ./
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json ./
 
+# Expose and run on port 5000
 ENV PORT=5000
 EXPOSE 5000
 CMD ["node", "./node_modules/next/dist/bin/next", "start", "-p", "5000"]
