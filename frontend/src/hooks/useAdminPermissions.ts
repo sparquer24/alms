@@ -44,13 +44,13 @@ export const useAdminPermissions = (): AdminPermission => {
 };
 
 // Helper function to check if user has specific permission
-export const hasPermission = (permission: keyof AdminPermission): boolean => {
-  const permissions = useAdminPermissions();
+// This should be called within a component that has access to permissions
+export const hasPermission = (permissions: AdminPermission, permission: keyof AdminPermission): boolean => {
   return permissions[permission];
 };
 
 // Helper function to check if user can access admin panel
-export const canAccessAdminPanel = (): boolean => {
-  const user = useSelector(selectCurrentUser);
-  return user?.role === 'ADMIN';
+// This should be called within a component that has access to user
+export const canAccessAdminPanel = (userRole?: string | null): boolean => {
+  return userRole === 'ADMIN';
 }; 
