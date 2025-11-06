@@ -117,6 +117,7 @@ function InboxContent() {
           applications={filteredApplications}
           isLoading={isLoading}
           pageType={type || undefined}
+          showActionColumn={true}
         />
       </div>
     </div>

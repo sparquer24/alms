@@ -58,6 +58,7 @@ interface ApplicationTableProps {
   applications?: ApplicationData[]; // Applications prop for backward compatibility
   filteredApplications?: ApplicationData[]; // Optional filtered applications list
   pageType?: string; // Type of page being viewed (e.g., 'drafts', 'forwarded', etc.)
+  showActionColumn?: boolean;
 }
 
 const getStatusPillClass = (status: string) => {
@@ -84,7 +85,15 @@ const getStatusPillClass = (status: string) => {
 };
 
 const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
-  ({ users, applications, filteredApplications, isLoading = false, statusIdFilter, pageType }) => {
+  ({
+    users,
+    applications,
+    filteredApplications,
+    isLoading = false,
+    statusIdFilter,
+    pageType,
+    showActionColumn = true,
+  }) => {
     // Get applications from context
     const { applications: contextApplications } = useApplications();
 
@@ -111,6 +120,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     }, [baseApplications, searchQuery]);
 
     const router = useRouter();
+
+    // Compute visible table column names so header and export use same labels
+    const tableColumns = React.useMemo(() => {
+      const base = isSentPage
+        ? ['S.No', 'Acknowledgement No', 'Applicant Name', 'Created At', 'Action Taken']
+        : ['S.No', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
+      if (showActionColumn) base.push('Action');
+      return base;
+    }, [isSentPage, showActionColumn]);
 
     // Prevent outer page scrollbar while this table is rendered so only the
     // inner table wrapper scrolls. We restore the previous overflow value on unmount.
@@ -177,21 +195,47 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       try {
         setExportingExcel(true);
         const XLSX = await import('xlsx');
-        // Prepare data
-        const rows = effectiveApplications.map(app => {
+
+        // Exclude UI-only columns (like 'Action') from the exported columns
+        const exportColumns = tableColumns.filter(c => c !== 'Action');
+
+        const rows = effectiveApplications.map((app, idx) => {
           const statusName = extractWorkflowStatusName(app);
-          const forwardedTo = getForwardedTo(app) || '';
-          const isViewed = getIsViewed(app) ? 'Yes' : 'No';
-          return {
-            ID: app.id,
-            ApplicantName: app.applicantName,
-            ApplicationType: app.applicationType,
-            ApplicationDate: formatDateTime(app.applicationDate),
-            Status: statusName,
-            ForwardedTo: forwardedTo,
-            IsViewed: isViewed,
-          };
+          const createdAtVal = (app as any).createdAt || app.applicationDate;
+
+          const row: Record<string, string | number> = {};
+          exportColumns.forEach(col => {
+            switch (col) {
+              case 'S.No':
+                row[col] = idx + 1;
+                break;
+              case 'Acknowledgement No':
+                row[col] = (app as any).acknowledgementNo || '';
+                break;
+              case 'Applicant Name':
+                row[col] = app.applicantName || '';
+                break;
+              case 'Application Type':
+                row[col] = app.applicationType || '';
+                break;
+              case 'Date & Time':
+              case 'Created At':
+                row[col] = formatDateTime(createdAtVal || '');
+                break;
+              case 'Status':
+                row[col] = statusName;
+                break;
+              case 'Action Taken':
+                row[col] = (app as any).actionTaken || '';
+                break;
+              // 'Action' column intentionally omitted from export via exportColumns
+              default:
+                row[col] = '';
+            }
+          });
+          return row;
         });
+
         const worksheet = XLSX.utils.json_to_sheet(rows);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Applications');
@@ -205,7 +249,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       } finally {
         setExportingExcel(false);
       }
-    }, [effectiveApplications, exportingExcel, formatDateTime]);
+    }, [effectiveApplications, exportingExcel, formatDateTime, tableColumns]);
 
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
@@ -319,52 +363,26 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         {/* Column headers in their own table to avoid overlap issues; body is a separate scrollable table */}
         <div className='w-full'>
           <table className='w-full table-fixed border-collapse'>
+            {/* Dynamic colgroup based on visible columns */}
             <colgroup>
-              <col style={{ width: '5%' }} />
-              <col style={{ width: '30%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '15%' }} />
-              <col style={{ width: '10%' }} />
+              {(() => {
+                const baseWidths = ['5%', '30%', '20%', '20%', '15%'];
+                const cols = [...baseWidths];
+                if (showActionColumn) cols.push('10%');
+                return cols.map((w, i) => <col key={i} style={{ width: w }} />);
+              })()}
             </colgroup>
             <thead className='bg-gray-50'>
               <tr>
-                <th
-                  scope='col'
-                  className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                >
-                  S.No
-                </th>
-                <th
-                  scope='col'
-                  className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                >
-                  {isSentPage ? 'Acknowledgement No' : 'Applicant Name'}
-                </th>
-                <th
-                  scope='col'
-                  className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                >
-                  {isSentPage ? 'Applicant Name' : 'Application Type'}
-                </th>
-                <th
-                  scope='col'
-                  className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                >
-                  {isSentPage ? 'Created At' : 'Date & Time'}
-                </th>
-                <th
-                  scope='col'
-                  className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                >
-                  {isSentPage ? 'Action Taken' : 'Status'}
-                </th>
-                <th
-                  scope='col'
-                  className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                >
-                  Action
-                </th>
+                {tableColumns.map(col => (
+                  <th
+                    key={col}
+                    scope='col'
+                    className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
+                  >
+                    {col}
+                  </th>
+                ))}
               </tr>
             </thead>
           </table>
@@ -373,12 +391,12 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         <div className={`${styles.tableWrapper} w-full min-w-0`}>
           <table className='w-full table-fixed border-collapse'>
             <colgroup>
-              <col style={{ width: '5%' }} />
-              <col style={{ width: '30%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '15%' }} />
-              <col style={{ width: '10%' }} />
+              {(() => {
+                const baseWidths = ['5%', '30%', '20%', '20%', '15%'];
+                const cols = [...baseWidths];
+                if (showActionColumn) cols.push('10%');
+                return cols.map((w, i) => <col key={i} style={{ width: w }} />);
+              })()}
             </colgroup>
             <tbody className='bg-white divide-y divide-gray-200'>
               {effectiveApplications.map((app, index) => (
@@ -395,6 +413,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   isApplicationUnread={isApplicationUnread}
                   formatDateTime={formatDateTime}
                   getStatusPillClass={getStatusPillClass}
+                  showActionColumn={showActionColumn}
                 />
               ))}
             </tbody>
@@ -448,6 +467,7 @@ const TableRow: React.FC<{
   isApplicationUnread: (app: ApplicationData) => boolean;
   formatDateTime: (dateStr: string) => string;
   getStatusPillClass: (status: string) => string;
+  showActionColumn?: boolean;
 }> = ({
   app,
   index,
@@ -460,6 +480,7 @@ const TableRow: React.FC<{
   isApplicationUnread,
   formatDateTime,
   getStatusPillClass,
+  showActionColumn = true,
 }) => {
   // Check if user is ZS role
   const isZSRole = userRole === 'ZS' || userRole === 'zs';
@@ -504,18 +525,20 @@ const TableRow: React.FC<{
         <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
           {(app as any).actionTaken || 'N/A'}
         </td>
-        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              handleViewApplication(app.id);
-            }}
-            className='px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors'
-            aria-label={`View application ${app.id}`}
-          >
-            View
-          </button>
-        </td>
+        {showActionColumn && (
+          <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              className='px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors'
+              aria-label={`View application ${app.id}`}
+            >
+              View
+            </button>
+          </td>
+        )}
       </tr>
     );
   }
@@ -565,32 +588,34 @@ const TableRow: React.FC<{
           );
         })()}
       </td>
-      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-        {isDrafts ? (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              handleEditDraft(app.id);
-            }}
-            className='inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors'
-            aria-label={`Edit draft application ${app.id}`}
-          >
-            <EditFixed className='w-4 h-4' />
-            Edit
-          </button>
-        ) : (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              handleViewApplication(app.id);
-            }}
-            className='px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors'
-            aria-label={`View application ${app.id}`}
-          >
-            View
-          </button>
-        )}
-      </td>
+      {showActionColumn && (
+        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+          {isDrafts ? (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleEditDraft(app.id);
+              }}
+              className='inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors'
+              aria-label={`Edit draft application ${app.id}`}
+            >
+              <EditFixed className='w-4 h-4' />
+              Edit
+            </button>
+          ) : (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              className='px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors'
+              aria-label={`View application ${app.id}`}
+            >
+              View
+            </button>
+          )}
+        </td>
+      )}
     </tr>
   );
 };

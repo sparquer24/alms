@@ -136,6 +136,7 @@ export default function ClosedPage() {
           <ApplicationTable 
             applications={filteredApplications} 
             isLoading={isLoading} 
+            showActionColumn={true}
           />
         </div>
       </main>

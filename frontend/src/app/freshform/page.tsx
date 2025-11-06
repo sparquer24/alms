@@ -197,6 +197,7 @@ function FreshFormContent() {
               <ApplicationTable
                 applications={filteredApplications}
                 isLoading={isLoading}
+                showActionColumn={true}
               />
             </div>
       </main>
