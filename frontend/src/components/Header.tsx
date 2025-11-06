@@ -37,7 +37,6 @@ const Header = (props: HeaderProps) => {
   } = props;
   const { showHeader } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
-  console.log({ userName, isLoading, user, hookUserRole });
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
 
   // Update displayName whenever userName or user changes
@@ -53,25 +52,8 @@ const Header = (props: HeaderProps) => {
   // Removed search & date filter state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  // Read role exclusively from the `role` cookie in a client-only effect.
-  // Doing this inside useEffect ensures the initial server-rendered markup
-  // matches the client (avoids hydration mismatches when the cookie exists
-  // only in the browser). The role state updates after mount.
-  const [role, setRole] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    try {
-      const cookieVal = getCookie('role');
-      setRole(cookieVal ? String(cookieVal) : undefined);
-    } catch (e) {
-      setRole(undefined);
-    }
-  }, []);
+
   const [isNavigating, setIsNavigating] = useState(false);
-
-  // Removed handlers: search, date filter, reset
-
-  // Effect related to clearing removed states removed
-
   const router = useRouter();
   const handleDropdownClick = (type: (typeof APPLICATION_TYPES)[number]) => {
     setShowDropdown(false);
@@ -99,14 +81,14 @@ const Header = (props: HeaderProps) => {
   };
 
   if (!showHeader) return null;
-  console.log('Rendering Header with role:', role, 'and displayName:', displayName);
+  console.log('Rendering Header with role:', hookUserRole, 'and displayName:', displayName);
   return (
     <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left: Create Application Button (ZS only) */}
         <div className='flex items-center'>
           <div className='relative'>
-            {role == 'ZS' && (
+            {hookUserRole == 'ZS' && (
               <>
                 <button
                   className='px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap'
