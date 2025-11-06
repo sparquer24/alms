@@ -7,8 +7,8 @@
   margin-right: auto;
   padding-left: 1rem;
   padding-right: 1rem;
-  /* keep container within viewport minus expected header area so page doesn't scroll */
-  max-height: calc(100vh - 120px);
+  /* give slightly more vertical space to reduce internal scrolling */
+  max-height: calc(100vh - 170px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -27,11 +27,11 @@
 }
 
 .formContent {
-  @apply space-y-6;
+  @apply space-y-4;
 }
 
 .formSection {
-  @apply space-y-2;
+  @apply space-y-1;
 }
 
 .formLabel {
@@ -59,11 +59,11 @@
 }
 
 .submitSection {
-  @apply flex flex-col items-center space-y-4 pt-6 border-t border-gray-100;
+  @apply flex flex-col items-center space-y-3 pt-4 border-t border-gray-100;
 }
 
 .submitButton {
-  @apply flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply flex items-center justify-center px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .loadingText {
@@ -258,15 +258,15 @@
 
 /* New background variants for visual separation */
 .proceedingsPanel {
-  background: linear-gradient(180deg, #ffffff 0%, #c4d7e9 100%); /* subtle blue tint */
-  padding: 1.25rem; /* give inner content breathing room */
+  background: linear-gradient(180deg, #ffffff 0%, #dbdee0 100%); /* subtle blue tint */
+  padding: 0.75rem; /* reduced padding to remove excess white-space */
   border-radius: 0.75rem;
-  border: 1px solid rgba(99,102,241,0.06);
+  border: 1px solid rgba(195, 195, 202, 0.06);
 }
 
 .groundReportPanel {
   background: linear-gradient(180deg, #c4d7e9 0%, #fff7ed 100%); /* warm paper-like tint */
-  padding: 1.25rem;
+  padding: 0.75rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(245,158,11,0.06);
 }

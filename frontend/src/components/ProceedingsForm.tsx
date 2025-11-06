@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -47,9 +46,15 @@ const FALLBACK_ACTIONS: ActionOption[] = [
   { value: -5, label: 'Request More Info', code: 'REQUEST_MORE_INFO' },
 ];
 
-
 // Simple TextArea Component as Rich Text Editor Replacement
-function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId, inputRef }: {
+function SimpleTextArea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  dataTestId,
+  inputRef,
+}: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -61,11 +66,11 @@ function SimpleTextArea({ value, onChange, placeholder, disabled, dataTestId, in
     <textarea
       ref={inputRef}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
       data-testid={dataTestId}
-      className="w-full min-h-[120px] p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
+      className='w-full min-h-[120px] p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y'
       style={{ fontFamily: 'inherit', fontSize: '0.875rem' }}
     />
   );
@@ -76,12 +81,10 @@ function LoadingSpinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizeClasses = {
     sm: styles.loadingSpinnerSmall,
     md: styles.loadingSpinnerMedium,
-    lg: styles.loadingSpinnerLarge
+    lg: styles.loadingSpinnerLarge,
   };
 
-  return (
-    <div className={`${styles.loadingSpinner} ${sizeClasses[size]}`}></div>
-  );
+  return <div className={`${styles.loadingSpinner} ${sizeClasses[size]}`}></div>;
 }
 
 // Success Message Component
@@ -92,10 +95,14 @@ function SuccessMessage({ message, onDismiss }: { message: string; onDismiss: ()
   }, [onDismiss]);
 
   return (
-    <div className={`${styles.statusMessage} ${styles.successMessage}`} role="alert">
+    <div className={`${styles.statusMessage} ${styles.successMessage}`} role='alert'>
       <div className={styles.statusIcon}>
-        <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        <svg className='h-5 w-5 text-green-400' viewBox='0 0 20 20' fill='currentColor'>
+          <path
+            fillRule='evenodd'
+            d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+            clipRule='evenodd'
+          />
         </svg>
       </div>
       <div className={styles.statusContent}>
@@ -104,10 +111,14 @@ function SuccessMessage({ message, onDismiss }: { message: string; onDismiss: ()
       <button
         onClick={onDismiss}
         className={styles.dismissButton}
-        aria-label="Dismiss success message"
+        aria-label='Dismiss success message'
       >
-        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+          <path
+            fillRule='evenodd'
+            d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
+            clipRule='evenodd'
+          />
         </svg>
       </button>
     </div>
@@ -122,10 +133,14 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
   }, [onDismiss]);
 
   return (
-    <div className={`${styles.statusMessage} ${styles.errorMessage}`} role="alert">
+    <div className={`${styles.statusMessage} ${styles.errorMessage}`} role='alert'>
       <div className={styles.statusIcon}>
-        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        <svg className='h-5 w-5 text-red-400' viewBox='0 0 20 20' fill='currentColor'>
+          <path
+            fillRule='evenodd'
+            d='M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
+            clipRule='evenodd'
+          />
         </svg>
       </div>
       <div className={styles.statusContent}>
@@ -134,17 +149,26 @@ function ErrorMessage({ message, onDismiss }: { message: string; onDismiss: () =
       <button
         onClick={onDismiss}
         className={styles.dismissButton}
-        aria-label="Dismiss error message"
+        aria-label='Dismiss error message'
       >
-        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+          <path
+            fillRule='evenodd'
+            d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
+            clipRule='evenodd'
+          />
         </svg>
       </button>
     </div>
   );
 }
 
-export default function ProceedingsForm({ applicationId, onSuccess, applicationData, userRole }: ProceedingsFormProps) {
+export default function ProceedingsForm({
+  applicationId,
+  onSuccess,
+  applicationData,
+  userRole,
+}: ProceedingsFormProps) {
   // Dynamic actions state
   const [actionOptions, setActionOptions] = useState<ActionOption[]>([]);
   const [actionsLoading, setActionsLoading] = useState<boolean>(true);
@@ -152,7 +176,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const [selectedAction, setSelectedAction] = useState<ActionOption | null>(null);
   // Legacy derived string (for conditional UI messages)
   const actionType = selectedAction?.code?.toLowerCase() || '';
-  
+
   const [nextUser, setNextUser] = useState<UserOption | null>(null);
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [remarks, setRemarks] = useState('');
@@ -206,7 +230,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     setActionsLoading(true);
     setActionsError(null);
     (async () => {
-        try {
+      try {
         // request would otherwise be unauthenticated (server returns all actions).
         try {
           const cookieAuth = getCookie('auth');
@@ -214,12 +238,11 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
           if (process.env.NODE_ENV !== 'production') {
             try {
               const t = String(cookieAuth || '');
-              const masked = t.length > 8 ? `${t.slice(0,4)}...${t.slice(-4)}` : t;
+              const masked = t.length > 8 ? `${t.slice(0, 4)}...${t.slice(-4)}` : t;
               // eslint-disable-next-line no-console
             } catch (e) {}
           }
-        } catch (e) {
-        }
+        } catch (e) {}
 
         const data = await fetchData(`/actiones`);
         // data is expected to be an array of BackendAction
@@ -227,7 +250,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
           String(c || '')
             .replace(/_/g, ' ')
             .toLowerCase()
-            .replace(/\b\w/g, (m) => m.toUpperCase());
+            .replace(/\b\w/g, m => m.toUpperCase());
 
         const options: ActionOption[] = (Array.isArray(data) ? data : [])
           .filter((a: BackendAction) => a?.isActive !== false) // prefer active ones
@@ -273,7 +296,9 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
         if (mounted) setActionsLoading(false);
       }
     })();
-    return () => { mounted = false };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Read role from cookies on mount and normalize
@@ -304,7 +329,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
         // Use real application data from usersInHierarchy
         const usersToUse = applicationData.usersInHierarchy || [];
 
-        const formatted = usersToUse.map((u) => ({
+        const formatted = usersToUse.map(u => ({
           value: String(u.id),
           label: `${u.username || u.userName || 'Unknown User'} (${u.id})`,
         }));
@@ -330,35 +355,35 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     // Validation: collect missing fields and show inline messages
     const errors: Record<string, string> = {};
     if (!selectedAction) errors.action = 'Please select an action type.';
-  if (!remarks.trim()) errors.remarks = 'Please add remarks before submitting.';
-  if (!nextUser) errors.nextUser = 'Please select the next proceeding officer.';
-  if (roleFromCookie === 'SHO' && !draftLetter.trim()) errors.draftLetter = 'Ground Report Letter is required for submission.';
+    if (!remarks.trim()) errors.remarks = 'Please add remarks before submitting.';
+    if (!nextUser) errors.nextUser = 'Please select the next proceeding officer.';
+    if (roleFromCookie === 'SHO' && !draftLetter.trim())
+      errors.draftLetter = 'Ground Report Letter is required for submission.';
 
-  if (Object.keys(errors || {}).length > 0) {
+    if (Object.keys(errors || {}).length > 0) {
       setMissingFields(errors);
       // scroll to the first invalid field
       setTimeout(() => scrollToFirstError(errors), 50);
       return;
     }
 
-  // Build payload for /workflow/action
-  const actionId = Number(selectedAction?.value);
+    // Build payload for /workflow/action
+    const actionId = Number(selectedAction?.value);
 
-  const payload: any = {
+    const payload: any = {
       applicationId: Number(applicationId),
       actionId,
       remarks: remarks.trim(),
       attachments: [],
     };
 
-    
     // Add next user as next proceeding officer (if provided)
     if (nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
     }
 
-  // Include ground report as PDF (Base64) for SHO
-  if (roleFromCookie === 'SHO' && draftLetter.trim()) {
+    // Include ground report as PDF (Base64) for SHO
+    if (roleFromCookie === 'SHO' && draftLetter.trim()) {
       try {
         const base64Pdf = generatePdfBase64(draftLetter.trim());
         const today = new Date().toISOString().split('T')[0];
@@ -383,12 +408,13 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     // Include selected attachment files (as data URLs) into payload
     if (attachmentFiles.length > 0) {
       // Helper to read file as data URL
-      const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
+      const readFileAsDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
 
       try {
         const fileUrls = await Promise.all(attachmentFiles.map(f => readFileAsDataUrl(f)));
@@ -414,12 +440,12 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     try {
       const result = await postData(`/workflow/action`, payload);
       setSuccess(result.message || 'Action completed successfully.');
-      
+
       // Reset form
       setSelectedAction(null);
       setNextUser(null);
       setRemarks('');
-      
+
       if (onSuccess) onSuccess();
     } catch (err: any) {
       setError(err.message || 'Failed to submit action. Please try again.');
@@ -450,7 +476,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
     }
 
     const merged = [...attachmentFiles, ...valid].slice(0, MAX_FILES);
-  setAttachmentFiles(merged);
+    setAttachmentFiles(merged);
     // reset input value to allow re-selecting same file later
     e.target.value = '' as any;
   };
@@ -565,18 +591,18 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
 
       printWindow.document.write(htmlContent);
       printWindow.document.close();
-      
+
       // Wait for content to load
       printWindow.onload = () => {
         printWindow.focus();
         printWindow.print();
-        
+
         // Close window after printing
         setTimeout(() => {
           printWindow.close();
         }, 1000);
       };
-      
+
       setSuccess('PDF download initiated - please check your downloads folder');
     } catch (error) {
       setError('Failed to generate PDF. Please try again.');
@@ -586,7 +612,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const downloadAsWord = (content: string, filename: string) => {
     try {
       const formattedContent = formatContentForExport(content);
-      
+
       // Create HTML content formatted for Word
       const htmlContent = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' 
@@ -625,9 +651,9 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
         </body>
         </html>
       `;
-      
-      const blob = new Blob([htmlContent], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+
+      const blob = new Blob([htmlContent], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -681,7 +707,7 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
   const handleDownload = (format: string) => {
     const timestamp = new Date().toISOString().split('T')[0];
     const baseFilename = `ground-report-${applicationId}-${timestamp}`;
-    
+
     switch (format) {
       case 'pdf':
         downloadAsPDF(draftLetter, baseFilename);
@@ -692,10 +718,10 @@ export default function ProceedingsForm({ applicationId, onSuccess, applicationD
       case 'txt':
         // Strip formatting for plain text
         const plainText = draftLetter
-          .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold
-          .replace(/\*(.*?)\*/g, '$1')      // Remove italic
-          .replace(/__(.*?)__/g, '$1');     // Remove underline
-        
+          .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+          .replace(/\*(.*?)\*/g, '$1') // Remove italic
+          .replace(/__(.*?)__/g, '$1'); // Remove underline
+
         const blob = new Blob([plainText], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -764,12 +790,22 @@ Yours faithfully,
   };
 
   return (
-  <div className={`${styles.formContainer} thin-scrollbar`}>
+    <div className={`${styles.formContainer} thin-scrollbar`}>
       {/* Header */}
       <div className={styles.formHeader}>
         <h2>
-          <svg className="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className='w-6 h-6 mr-2 text-blue-600'
+            fill='none'
+            stroke='currentColor'
+            viewBox='0 0 24 24'
+          >
+            <path
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              strokeWidth={2}
+              d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+            />
           </svg>
           Application Processing
         </h2>
@@ -780,239 +816,296 @@ Yours faithfully,
       <div className={styles.scrollPanel}>
         <div className={styles.proceedingsPanel}>
           <form onSubmit={handleSubmit} className={styles.formContent}>
-          {/* Top validation banner when there are missing fields */}
-          {Object.keys(missingFields || {}).length > 0 && (
-            <div className={`${styles.statusMessage} ${styles.errorMessage}`} role="alert">
-              <div className={styles.statusIcon}>
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className={styles.statusContent}>
-                <p>Please fix the highlighted fields and try again.</p>
-              </div>
-            </div>
-          )}
-          {/* Status Messages */}
-          {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
-          {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
-
-          {/* Action Type Selection */}
-          <div className={`${styles.formSection} ${missingFields.action ? styles.invalidField : ''}`} ref={actionRef}>
-            <label className={styles.formLabel}>
-              Action Type <span className={styles.required}>*</span>
-            </label>
-            <div className={styles.selectContainer}>
-              <SelectFixed
-                options={actionOptions}
-                value={selectedAction}
-                onChange={(opt: any) => setSelectedAction(opt as ActionOption || null)}
-                placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
-                isLoading={actionsLoading}
-                isDisabled={isSubmitting || actionsLoading}
-                className="text-sm"
-                styles={{
-                  control: (provided: any, state: any) => ({
-                    ...provided,
-                    borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-                    boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-                    '&:hover': {
-                      borderColor: '#3B82F6'
-                    }
-                  })
-                }}
-              />
-            </div>
-            {actionsError && (
-              <p className={styles.helpText}>
-                Failed to load actions from server. Using defaults. Error: {actionsError}
-              </p>
-            )}
-            {missingFields.action && (
-              <p className={styles.fieldError}>{missingFields.action}</p>
-            )}
-          </div>
-
-          {/* Next User Selection */}
-          <div className={`${styles.formSection} ${missingFields.nextUser ? styles.invalidField : ''}`}>
-            <label className={styles.formLabel}>
-              Forward To (Next User/Role)
-              <span className={styles.required}>*</span>
-            </label>
-            <div className={styles.selectContainer} ref={nextUserRef}>
-              <SelectFixed
-                options={userOptions}
-                value={nextUser}
-                onChange={setNextUser}
-                placeholder={
-                  fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
-                }
-                isLoading={fetchingUsers}
-                isDisabled={isSubmitting || fetchingUsers}
-                className="text-sm"
-                styles={{
-                  control: (provided: any, state: any) => ({
-                    ...provided,
-                    borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-                    boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
-                    '&:hover': {
-                      borderColor: '#3B82F6'
-                    },
-                    backgroundColor: 'white'
-                  })
-                }}
-              />
-            </div>
-            {fetchingUsers && (
-              <div className={styles.loadingText}>
-                <LoadingSpinner size="sm" />
-                <span>Loading available users...</span>
-              </div>
-            )}
-            {!fetchingUsers && userOptions.length === 0 && (
-              <p className={styles.helpText}>
-                No users available. Please try refreshing the page.
-              </p>
-            )}
-            {missingFields.nextUser && (
-              <p className={styles.fieldError}>{missingFields.nextUser}</p>
-            )}
-          </div>
-
-          {/* Remarks/Text Area */}
-          <div className={`${styles.formSection} ${missingFields.remarks ? styles.invalidField : ''}`}>
-            <div className="flex items-center justify-between">
-              <label className={styles.formLabel}>
-                Remarks <span className={styles.required}>*</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setRemarksVisible(v => !v)}
-                className="ml-3 text-blue-600 hover:underline text-sm"
-                aria-pressed={remarksVisible}
-                aria-label={remarksVisible ? 'Hide' : 'Show'}
-              >
-                {remarksVisible ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            {remarksVisible && (
-              <>
-                <div className={styles.richTextContainer}>
-                  <SimpleTextArea
-                    value={remarks}
-                    onChange={setRemarks}
-                    placeholder="Enter your remarks here..."
-                    disabled={isSubmitting}
-                    dataTestId="rich-text-editor"
-                  />
+            {/* Top validation banner when there are missing fields */}
+            {Object.keys(missingFields || {}).length > 0 && (
+              <div className={`${styles.statusMessage} ${styles.errorMessage}`} role='alert'>
+                <div className={styles.statusIcon}>
+                  <svg className='h-5 w-5 text-red-400' viewBox='0 0 20 20' fill='currentColor'>
+                    <path
+                      fillRule='evenodd'
+                      d='M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
+                      clipRule='evenodd'
+                    />
+                  </svg>
                 </div>
-                <p className={styles.helpText}>
-                  Enter your detailed remarks about this action. You can use multiple lines for better formatting.
-                </p>
-                {missingFields.remarks && (
-                  <p className={styles.fieldError}>{missingFields.remarks}</p>
-                )}
-              </>
+                <div className={styles.statusContent}>
+                  <p>Please fix the highlighted fields and try again.</p>
+                </div>
+              </div>
             )}
-              </div>
-              
-    {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
+            {/* Status Messages */}
+            {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
+            {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
-    {roleFromCookie === 'SHO' && (
-            <div className="border-t pt-2">
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="text-md font-semibold text-gray-800">
-                  Ground Report Letter (Draft Letter Content)<span className={styles.required}>*</span>
-                </h4>
+            {/* Action Type Selection */}
+            <div
+              className={`${styles.formSection} ${missingFields.action ? styles.invalidField : ''}`}
+              ref={actionRef}
+            >
+              <label className={styles.formLabel}>
+                Action Type <span className={styles.required}>*</span>
+              </label>
+              <div className={styles.selectContainer}>
+                <SelectFixed
+                  options={actionOptions}
+                  value={selectedAction}
+                  onChange={(opt: any) => setSelectedAction((opt as ActionOption) || null)}
+                  placeholder={actionsLoading ? 'Loading actions...' : 'Select action type'}
+                  isLoading={actionsLoading}
+                  isDisabled={isSubmitting || actionsLoading}
+                  className='text-sm'
+                  styles={{
+                    control: (provided: any, state: any) => ({
+                      ...provided,
+                      borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+                      boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+                      '&:hover': {
+                        borderColor: '#3B82F6',
+                      },
+                    }),
+                  }}
+                />
               </div>
+              {actionsError && (
+                <p className={styles.helpText}>
+                  Failed to load actions from server. Using defaults. Error: {actionsError}
+                </p>
+              )}
+              {missingFields.action && <p className={styles.fieldError}>{missingFields.action}</p>}
+            </div>
 
-              {/* Ground Report Editor within Proceedings - always visible for SHO */}
-                <div className={`${styles.formSection} ${missingFields.draftLetter ? styles.invalidField : ''}`} ref={draftRef}>
+            {/* Next User Selection */}
+            <div
+              className={`${styles.formSection} ${missingFields.nextUser ? styles.invalidField : ''}`}
+            >
+              <label className={styles.formLabel}>
+                Forward To (Next User/Role)
+                <span className={styles.required}>*</span>
+              </label>
+              <div className={styles.selectContainer} ref={nextUserRef}>
+                <SelectFixed
+                  options={userOptions}
+                  value={nextUser}
+                  onChange={setNextUser}
+                  placeholder={
+                    fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
+                  }
+                  isLoading={fetchingUsers}
+                  isDisabled={isSubmitting || fetchingUsers}
+                  className='text-sm'
+                  styles={{
+                    control: (provided: any, state: any) => ({
+                      ...provided,
+                      borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
+                      boxShadow: state.isFocused ? '0 0 0 1px #3B82F6' : 'none',
+                      '&:hover': {
+                        borderColor: '#3B82F6',
+                      },
+                      backgroundColor: 'white',
+                    }),
+                  }}
+                />
+              </div>
+              {fetchingUsers && (
+                <div className={styles.loadingText}>
+                  <LoadingSpinner size='sm' />
+                  <span>Loading available users...</span>
+                </div>
+              )}
+              {!fetchingUsers && userOptions.length === 0 && (
+                <p className={styles.helpText}>
+                  No users available. Please try refreshing the page.
+                </p>
+              )}
+              {missingFields.nextUser && (
+                <p className={styles.fieldError}>{missingFields.nextUser}</p>
+              )}
+            </div>
+
+            {/* Remarks/Text Area */}
+            <div
+              className={`${styles.formSection} ${missingFields.remarks ? styles.invalidField : ''}`}
+            >
+              <div className='flex items-center justify-between'>
+                <label className={styles.formLabel}>
+                  Remarks <span className={styles.required}>*</span>
+                </label>
+                <button
+                  type='button'
+                  onClick={() => setRemarksVisible(v => !v)}
+                  className='ml-3 text-blue-600 hover:underline text-sm'
+                  aria-pressed={remarksVisible}
+                  aria-label={remarksVisible ? 'Hide' : 'Show'}
+                >
+                  {remarksVisible ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {remarksVisible && (
+                <>
+                  <div className={styles.richTextContainer}>
+                    <SimpleTextArea
+                      value={remarks}
+                      onChange={setRemarks}
+                      placeholder='Enter your remarks here...'
+                      disabled={isSubmitting}
+                      dataTestId='rich-text-editor'
+                    />
+                  </div>
+                  <p className={styles.helpText}>
+                    Enter your detailed remarks about this action. You can use multiple lines for
+                    better formatting.
+                  </p>
+                  {missingFields.remarks && (
+                    <p className={styles.fieldError}>{missingFields.remarks}</p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Ground Report Section within Proceedings - Only for SHO role (from cookie) */}
+
+            {roleFromCookie === 'SHO' && (
+              <div className='border-t pt-2'>
+                <div className='flex justify-between items-center mb-2'>
+                  <h4 className='text-md font-semibold text-gray-800'>
+                    Ground Report Letter (Draft Letter Content)
+                    <span className={styles.required}>*</span>
+                  </h4>
+                </div>
+
+                {/* Ground Report Editor within Proceedings - always visible for SHO */}
+                <div
+                  className={`${styles.formSection} ${missingFields.draftLetter ? styles.invalidField : ''}`}
+                  ref={draftRef}
+                >
                   <EnhancedTextEditor
                     content={draftLetter}
                     onChange={setDraftLetter}
-                    placeholder="Draft letter will appear here..."
-                    className="min-h-[400px] w-full max-w-[900px]"
+                    placeholder='Draft letter will appear here...'
+                    className='min-h-[300px] w-full max-w-[900px]'
                   />
                   <p className={styles.helpText}>
-                    This letter is required. Edit as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                    This letter is required. Edit as needed. Use **bold**, *italic*, __underline__
+                    for formatting. Click Preview to see formatted output.
                   </p>
                 </div>
                 {missingFields.draftLetter && (
                   <p className={styles.fieldError}>{missingFields.draftLetter}</p>
                 )}
 
-                <div className="flex gap-3 justify-end mt-4 flex-wrap">
+                <div className='flex gap-3 justify-end mt-4 flex-wrap'>
                   <button
-                    type="button"
+                    type='button'
                     onClick={() => {
                       navigator.clipboard.writeText(draftLetter);
                       setSuccess('Draft letter copied to clipboard!');
                     }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
+                    className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm'
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      className='w-4 h-4 mr-2'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z'
+                      />
                     </svg>
                     Copy
                   </button>
-                  
+
                   {/* Download Dropdown */}
-                  <div className="relative download-dropdown">
+                  <div className='relative download-dropdown'>
                     <button
-                      type="button"
+                      type='button'
                       onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                      className='px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm'
                     >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <svg
+                        className='w-4 h-4 mr-2'
+                        fill='none'
+                        stroke='currentColor'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth={2}
+                          d='M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                        />
                       </svg>
                       Download
-                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <svg
+                        className='w-4 h-4 ml-2'
+                        fill='none'
+                        stroke='currentColor'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth={2}
+                          d='M19 9l-7 7-7-7'
+                        />
                       </svg>
                     </button>
-                    
+
                     {/* Dropdown Menu */}
                     {showDownloadDropdown && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                        <div className="py-2">
+                      <div className='absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20'>
+                        <div className='py-2'>
                           <button
-                            type="button"
+                            type='button'
                             onClick={() => {
                               handleDownload('pdf');
                               setShowDownloadDropdown(false);
                             }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                            className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
                           >
-                            <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            <svg
+                              className='w-4 h-4 mr-3 text-red-600'
+                              fill='currentColor'
+                              viewBox='0 0 24 24'
+                            >
+                              <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                             </svg>
                             PDF (A4)
                           </button>
                           <button
-                            type="button"
+                            type='button'
                             onClick={() => {
                               handleDownload('word');
                               setShowDownloadDropdown(false);
                             }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                            className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
                           >
-                            <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            <svg
+                              className='w-4 h-4 mr-3 text-blue-600'
+                              fill='currentColor'
+                              viewBox='0 0 24 24'
+                            >
+                              <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                             </svg>
                             Word (.doc)
                           </button>
                           <button
-                            type="button"
+                            type='button'
                             onClick={() => {
                               handleDownload('txt');
                               setShowDownloadDropdown(false);
                             }}
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                            className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
                           >
-                            <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            <svg
+                              className='w-4 h-4 mr-3 text-gray-600'
+                              fill='currentColor'
+                              viewBox='0 0 24 24'
+                            >
+                              <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                             </svg>
                             Text (.txt)
                           </button>
@@ -1020,108 +1113,137 @@ Yours faithfully,
                       </div>
                     )}
                   </div>
-                  
+
                   <button
-                    type="button"
+                    type='button'
                     onClick={() => {
                       setDraftLetter(generateDraftLetter());
                       setSuccess('Template reset to default!');
                     }}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+                    className='px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm'
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <svg
+                      className='w-4 h-4 mr-2'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                      />
                     </svg>
                     Reset
                   </button>
                 </div>
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Attachment Section */}
-          <div id="attachments-section" className="mt-8 border-t pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-md font-semibold text-gray-800">Attachment</h4>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex flex-col gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Upload documents</label>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt,.csv,.xlsx,.xls,image/*,application/pdf"
-                    onChange={onAttachmentSelect}
-                    disabled={isSubmitting}
-                    className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  <p className={styles.helpText}>Max 4 files, each up to 1MB. Allowed: PDF, images, Word.</p>
-                </div>
+            {/* Attachment Section */}
+            <div id='attachments-section' className='mt-8 border-t pt-6'>
+              <div className='flex items-center justify-between mb-3'>
+                <h4 className='text-md font-semibold text-gray-800'>Attachment</h4>
+              </div>
+              <div className='bg-gray-50 p-4 rounded-lg'>
+                <div className='flex flex-col gap-3'>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>
+                      Upload documents
+                    </label>
+                    <input
+                      type='file'
+                      multiple
+                      accept='.pdf,.jpg,.jpeg,.png,.doc,.docx,.txt,.csv,.xlsx,.xls,image/*,application/pdf'
+                      onChange={onAttachmentSelect}
+                      disabled={isSubmitting}
+                      className='block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
+                    />
+                    <p className={styles.helpText}>
+                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word.
+                    </p>
+                  </div>
 
-                {attachmentFiles.length > 0 ? (
-                  <ul className="divide-y divide-gray-200 bg-white rounded-md border border-gray-200">
-                    {attachmentFiles.map((file, idx) => (
-                      <li key={idx} className="flex items-center justify-between px-3 py-2 text-sm">
-                        <div className="flex items-center min-w-0">
-                          <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h10M7 11h10M7 15h10" />
-                          </svg>
-                          <button
-                            type="button"
-                            onClick={() => openAttachmentInNewTab(file)}
-                            className="truncate text-blue-600 hover:underline text-left"
-                            title={file.name}
-                          >
-                            {file.name}
-                          </button>
-                          <span className="ml-2 text-gray-500">({Math.round(file.size / 1024)} KB)</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeAttachment(idx)}
-                          className="text-red-600 hover:text-red-700"
-                          disabled={isSubmitting}
+                  {attachmentFiles.length > 0 ? (
+                    <ul className='divide-y divide-gray-200 bg-white rounded-md border border-gray-200'>
+                      {attachmentFiles.map((file, idx) => (
+                        <li
+                          key={idx}
+                          className='flex items-center justify-between px-3 py-2 text-sm'
                         >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-gray-500">No files selected.</p>
-                )}
+                          <div className='flex items-center min-w-0'>
+                            <svg
+                              className='w-4 h-4 text-gray-500 mr-2'
+                              fill='none'
+                              stroke='currentColor'
+                              viewBox='0 0 24 24'
+                            >
+                              <path
+                                strokeLinecap='round'
+                                strokeLinejoin='round'
+                                strokeWidth={2}
+                                d='M7 7h10M7 11h10M7 15h10'
+                              />
+                            </svg>
+                            <button
+                              type='button'
+                              onClick={() => openAttachmentInNewTab(file)}
+                              className='truncate text-blue-600 hover:underline text-left'
+                              title={file.name}
+                            >
+                              {file.name}
+                            </button>
+                            <span className='ml-2 text-gray-500'>
+                              ({Math.round(file.size / 1024)} KB)
+                            </span>
+                          </div>
+                          <button
+                            type='button'
+                            onClick={() => removeAttachment(idx)}
+                            className='text-red-600 hover:text-red-700'
+                            disabled={isSubmitting}
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className='text-xs text-gray-500'>No files selected.</p>
+                  )}
 
-                {/* No separate upload button — attachments will be included when you Submit Action */}
+                  {/* No separate upload button — attachments will be included when you Submit Action */}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Submit Button */}
-          <div className={styles.submitSection}>
-            <div className={styles.loadingText}>
-              {isSubmitting && (
-                <>
-                  <LoadingSpinner size="sm" />
-                  <span>Processing your request...</span>
-                </>
-              )}
+            {/* Submit Button */}
+            <div className={styles.submitSection}>
+              <div className={styles.loadingText}>
+                {isSubmitting && (
+                  <>
+                    <LoadingSpinner size='sm' />
+                    <span>Processing your request...</span>
+                  </>
+                )}
+              </div>
+
+              <button
+                type='submit'
+                disabled={isSubmitting || loading || fetchingUsers}
+                className={styles.submitButton}
+              >
+                {isSubmitting ? (
+                  <>
+                    <LoadingSpinner size='sm' />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  'Submit Action'
+                )}
+              </button>
             </div>
-            
-            <button
-              type="submit"
-              disabled={isSubmitting || loading || fetchingUsers}
-              className={styles.submitButton}
-            >
-              {isSubmitting ? (
-                <>
-                  <LoadingSpinner size="sm" />
-                  <span>Submitting...</span>
-                </>
-              ) : (
-                'Submit Action'
-              )}
-            </button>
-          </div>
           </form>
         </div>
       </div>
@@ -1129,12 +1251,12 @@ Yours faithfully,
       {/* Ground Report Editor */}
       {showGroundReportEditor && (
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Ground Report Editor</h3>
+          <div className='flex justify-between items-center mb-4'>
+            <h3 className='text-lg font-semibold'>Ground Report Editor</h3>
             <button
-              type="button"
+              type='button'
               onClick={() => setShowGroundReportEditor(false)}
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className='text-gray-500 hover:text-gray-700 text-xl'
             >
               ← Back
             </button>
@@ -1149,85 +1271,123 @@ Yours faithfully,
               <EnhancedTextEditor
                 content={draftLetter}
                 onChange={setDraftLetter}
-                placeholder="Draft letter will appear here..."
-                className="min-h-[600px] w-full max-w-[900px]"
+                placeholder='Draft letter will appear here...'
+                className='min-h-[500px] w-full max-w-[900px]'
               />
               <p className={styles.helpText}>
-                Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for formatting. Click Preview to see formatted output.
+                Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for
+                formatting. Click Preview to see formatted output.
               </p>
             </div>
 
-            <div className="flex gap-3 justify-end mt-6 flex-wrap">
+            <div className='flex gap-3 justify-end mt-6 flex-wrap'>
               <button
-                type="button"
+                type='button'
                 onClick={() => {
                   navigator.clipboard.writeText(draftLetter);
                   setSuccess('Draft letter copied to clipboard!');
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm"
+                className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 flex items-center text-sm'
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <svg className='w-4 h-4 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z'
+                  />
                 </svg>
                 Copy
               </button>
-              
+
               {/* Download Dropdown */}
-              <div className="relative download-dropdown">
+              <div className='relative download-dropdown'>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm"
+                  className='px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 flex items-center text-sm'
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <svg
+                    className='w-4 h-4 mr-2'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                    />
                   </svg>
                   Download
-                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <svg
+                    className='w-4 h-4 ml-2'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M19 9l-7 7-7-7'
+                    />
                   </svg>
                 </button>
-                
+
                 {/* Dropdown Menu */}
                 {showDownloadDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                    <div className="py-2">
+                  <div className='absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20'>
+                    <div className='py-2'>
                       <button
-                        type="button"
+                        type='button'
                         onClick={() => {
                           handleDownload('pdf');
                           setShowDownloadDropdown(false);
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
                       >
-                        <svg className="w-4 h-4 mr-3 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        <svg
+                          className='w-4 h-4 mr-3 text-red-600'
+                          fill='currentColor'
+                          viewBox='0 0 24 24'
+                        >
+                          <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                         </svg>
                         PDF (A4)
                       </button>
                       <button
-                        type="button"
+                        type='button'
                         onClick={() => {
                           handleDownload('word');
                           setShowDownloadDropdown(false);
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
                       >
-                        <svg className="w-4 h-4 mr-3 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        <svg
+                          className='w-4 h-4 mr-3 text-blue-600'
+                          fill='currentColor'
+                          viewBox='0 0 24 24'
+                        >
+                          <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                         </svg>
                         Word (.doc)
                       </button>
                       <button
-                        type="button"
+                        type='button'
                         onClick={() => {
                           handleDownload('txt');
                           setShowDownloadDropdown(false);
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
                       >
-                        <svg className="w-4 h-4 mr-3 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        <svg
+                          className='w-4 h-4 mr-3 text-gray-600'
+                          fill='currentColor'
+                          viewBox='0 0 24 24'
+                        >
+                          <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                         </svg>
                         Text (.txt)
                       </button>
@@ -1235,17 +1395,22 @@ Yours faithfully,
                   </div>
                 )}
               </div>
-              
+
               <button
-                type="button"
+                type='button'
                 onClick={() => {
                   setDraftLetter(generateDraftLetter());
                   setSuccess('Template reset to default!');
                 }}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm"
+                className='px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition duration-200 flex items-center text-sm'
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg className='w-4 h-4 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                  />
                 </svg>
                 Reset
               </button>
@@ -1254,5 +1419,5 @@ Yours faithfully,
         </div>
       )}
     </div>
-  )
+  );
 }
