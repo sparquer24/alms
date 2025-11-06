@@ -17,7 +17,8 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 COPY . .
 
 # Build the Next.js app (disable linting)
-RUN NEXT_DISABLE_ESLINT=true npx --yes next build
+# IMPORTANT: Ensure NEXT_PUBLIC_API_URL is available during build
+RUN NEXT_DISABLE_ESLINT=true NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npx --yes next build
 
 # -----------------------
 # Runner Image
@@ -25,6 +26,11 @@ RUN NEXT_DISABLE_ESLINT=true npx --yes next build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+# IMPORTANT: Set NEXT_PUBLIC_API_URL at runtime too
+# This ensures the environment variable is available when Next.js serves pages
+ARG NEXT_PUBLIC_API_URL=/api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Copy production build from builder
 COPY --from=builder /app/node_modules ./node_modules
