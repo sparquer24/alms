@@ -81,14 +81,26 @@ const Header = (props: HeaderProps) => {
   };
 
   if (!showHeader) return null;
-  console.log('Rendering Header with role:', hookUserRole, 'and displayName:', displayName);
+  
+  // Check if user is ZS role (case-insensitive comparison)
+  const isZSUser = hookUserRole && (hookUserRole.toUpperCase() === 'ZS' || hookUserRole === 'ZS');
+  
+  // Debug logging
+  console.log('Header Debug:', {
+    hookUserRole,
+    isZSUser,
+    displayName,
+    isLoading,
+    hasValidUserName
+  });
+  
   return (
     <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left: Create Application Button (ZS only) */}
         <div className='flex items-center'>
           <div className='relative'>
-            {hookUserRole == 'ZS' && (
+            {isZSUser && (
               <>
                 <button
                   className='px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap'
