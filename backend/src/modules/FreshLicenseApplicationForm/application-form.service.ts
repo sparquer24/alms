@@ -376,6 +376,7 @@ export class ApplicationFormService {
         if (!draftStatus) {
           throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
         }
+        const almsLicenseId = `ALMS${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0,8)}${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(8,14)}`;
 
         const draftStatusId = draftStatus.id;
 
@@ -385,6 +386,7 @@ export class ApplicationFormService {
             firstName,
             middleName,
             lastName,
+            almsLicenseId,
             parentOrSpouseName,
             filledBy,
             sex,

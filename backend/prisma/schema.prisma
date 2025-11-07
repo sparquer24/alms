@@ -185,6 +185,7 @@ model ActionHistories {
 
 model FreshLicenseApplicationPersonalDetails {
   id                         Int                             @id @default(autoincrement())
+  almsLicenseId              String?
   acknowledgementNo          String?
   firstName                  String
   middleName                 String?
