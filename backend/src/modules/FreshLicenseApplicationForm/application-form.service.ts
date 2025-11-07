@@ -1183,7 +1183,7 @@ export class ApplicationFormService {
     isOwned?: boolean;
     isSent?: boolean;
   }) {
-    // Build a compact, frontend-friendly query: include necessary relations
+     // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
 
@@ -1241,6 +1241,7 @@ export class ApplicationFormService {
             },
             select: {
               id: true, // Keep id for mapping
+              almsLicenseId: true,
               acknowledgementNo: true,
               createdAt: true,
               firstName: true,
@@ -1372,6 +1373,7 @@ export class ApplicationFormService {
       // Minimal selects for list view (frontend needs these fields)
       const select = {
         id: true,
+        almsLicenseId: true,
         acknowledgementNo: true,
         firstName: true,
         middleName: true,
@@ -1430,6 +1432,7 @@ export class ApplicationFormService {
           ...row,
         };
       });
+
 
       // Return in the [error, result] tuple format used across the service methods
       return [null, { total, page, limit, data: transformedData }];
