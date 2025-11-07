@@ -138,3 +138,17 @@ export function isApprovalAction(actionCode: string): boolean {
 export function isRejectionAction(actionCode: string): boolean {
   return actionCode.toUpperCase() === ACTION_CODES.REJECT;
 }
+
+/**
+ * Check if action is ground report
+ */
+export function isGroundReportAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.GROUND_REPORT;
+}
+
+/**
+ * Check if action is re-enquiry
+ */
+export function isReEnquiryAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.RE_ENQUIRY;
+}
