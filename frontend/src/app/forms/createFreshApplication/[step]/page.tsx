@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import React, { useState, useEffect } from 'react';
 import { IoMdHome } from 'react-icons/io';
 
@@ -11,176 +11,181 @@ import OccupationBussiness from '../../../../components/forms/freshApplication/O
 import LicenseDetails from '../../../../components/forms/freshApplication/LicenseDetails'; // step5
 import CriminalHistory from '../../../../components/forms/freshApplication/CriminalHistory'; // step6
 import LicenseHistory from '../../../../components/forms/freshApplication/LicenseHistory'; // step7
-// import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8 (disabled)
+import BiometricInformation from '../../../../components/forms/freshApplication/BiometricInformation'; // step8 (disabled)
 import DocumentsUpload from '../../../../components/forms/freshApplication/DocumentsUpload'; // step9
 import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
 import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
 import { StepHeader } from '../../../../components/forms/elements/StepHeader';
 
 interface StepPageProps {
-	params: Promise<{ step: string }>;
+  params: Promise<{ step: string }>;
 }
 
-
-
 const steps = [
-	'Personal Information',
-	'Address Details',
-	'Occupation/Business',
-	'Criminal History',
-	'License History',
-	'License Details',
-	// 'Biometric Information',
-	'Documents Upload',
-	'Preview',
-	'Declaration & Submit',
+  'Personal Information',
+  'Address Details',
+  'Occupation/Business',
+  'Criminal History',
+  'License History',
+  'License Details',
+  'Biometric Information',
+  'Documents Upload',
+  'Preview',
+  'Declaration & Submit',
 ];
 
 // Helper to slugify step names for URLs and comparison
 const stepToSlug = (name: string) =>
-	name
-	  .toLowerCase()
-	  .replace(/&/g, 'and')
-	  .replace(/[^a-z0-9]+/g, '-')
-	  .replace(/(^-|-$)/g, '');
+  name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 
-
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
-	const router = useRouter();
-	const [step, setStep] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [step, setStep] = useState<string | null>(null);
 
-	// Handle params Promise in useEffect
-	useEffect(() => {
-		params.then((resolvedParams) => {
-			setStep(resolvedParams.step);
-		});
-	}, [params]);
+  // Handle params Promise in useEffect
+  useEffect(() => {
+    params.then(resolvedParams => {
+      setStep(resolvedParams.step);
+    });
+  }, [params]);
 
-	// Show loading while params are being resolved
-	if (!step) {
-		return (
-			<div className="flex items-center justify-center min-h-screen">
-				<div className="text-lg">Loading...</div>
-			</div>
-		);
-	}
+  // Show loading while params are being resolved
+  if (!step) {
+    return (
+      <div className='flex items-center justify-center min-h-screen'>
+        <div className='text-lg'>Loading...</div>
+      </div>
+    );
+  }
 
-	let StepComponent: React.ComponentType<any> | null = null;
-	let currentStep = 0;
+  let StepComponent: React.ComponentType<any> | null = null;
+  let currentStep = 0;
 
-	   // Find the index of the current step by slug
-	   // Special handling for preview and declaration which use different slug patterns
-	   let stepIndex;
-	if (step === 'preview') {
-		   stepIndex = 7; // Preview is at index 7 (adjusted after removing biometric step)
-	   } else if (step === 'declaration') {
-		   stepIndex = 8; // Declaration & Submit is at index 8 (adjusted)
-	   } else {
-		   stepIndex = steps.findIndex(s => stepToSlug(s) === step);
-	   }
-	   currentStep = stepIndex >= 0 ? stepIndex : 0;
-	   
-	   switch (step) {
-		   case stepToSlug('Personal Information'):
-			   StepComponent = PersonalInformation;
-			   break;
-		   case stepToSlug('Address Details'):
-			   StepComponent = AddressDetails;
-			   break;
-		   case stepToSlug('Occupation/Business'):
-			   StepComponent = OccupationBussiness;
-			   break;
-		   case stepToSlug('Criminal History'):
-			   StepComponent = CriminalHistory;
-			   break;
-		   case stepToSlug('License History'):
-			   StepComponent = LicenseHistory;
-			   break;
-		   case stepToSlug('License Details'):
-			   StepComponent = LicenseDetails;
-			   break;
-		   // Biometric step disabled
-		   // case stepToSlug('Biometric Information'):
-		   //     StepComponent = BiometricInformation;
-		   //     break;
-		   case stepToSlug('Documents Upload'):
-			   StepComponent = DocumentsUpload;
-			   break;
-		   case 'preview':
-			   StepComponent = Preview;
-			   break;
-		   case 'declaration':
-			   StepComponent = Declaration;
-			   break;
-		   default:
-			   StepComponent = () => <div>Step not implemented: {step}</div>;
-	   }
+  // Find the index of the current step by slug
+  // Special handling for preview and declaration which use different slug patterns
+  let stepIndex;
+  if (step === 'preview') {
+    stepIndex = 8; // Preview is at index 7 (adjusted after removing biometric step)
+  } else if (step === 'declaration') {
+    stepIndex = 9; // Declaration & Submit is at index 8 (adjusted)
+  } else {
+    stepIndex = steps.findIndex(s => stepToSlug(s) === step);
+  }
+  currentStep = stepIndex >= 0 ? stepIndex : 0;
 
-	// Handler to change step and update the URL
-	   const handleStepClick = (idx: number) => {
-		   // Compute dynamic preview/declaration indices to avoid hardcoding after step removal
-		   const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
-		   const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
-		   if (idx === previewIndex) {
-			   router.push('/forms/createFreshApplication/preview');
-		   } else if (idx === declarationIndex) {
-			   router.push('/forms/createFreshApplication/declaration');
-		   } else {
-			   router.push(`/forms/createFreshApplication/${stepToSlug(steps[idx])}`);
-		   }
-	   };
+  switch (step) {
+    case stepToSlug('Personal Information'):
+      StepComponent = PersonalInformation;
+      break;
+    case stepToSlug('Address Details'):
+      StepComponent = AddressDetails;
+      break;
+    case stepToSlug('Occupation/Business'):
+      StepComponent = OccupationBussiness;
+      break;
+    case stepToSlug('Criminal History'):
+      StepComponent = CriminalHistory;
+      break;
+    case stepToSlug('License History'):
+      StepComponent = LicenseHistory;
+      break;
+    case stepToSlug('License Details'):
+      StepComponent = LicenseDetails;
+      break;
+    case stepToSlug('Biometric Information'):
+      StepComponent = BiometricInformation;
+      break;
+    case stepToSlug('Documents Upload'):
+      StepComponent = DocumentsUpload;
+      break;
+    case 'preview':
+      StepComponent = Preview;
+      break;
+    case 'declaration':
+      StepComponent = Declaration;
+      break;
+    default:
+      StepComponent = () => <div>Step not implemented: {step}</div>;
+  }
 
-	   // Handler for go home button
-	   const handleGoHome = () => {
-		   router.push('/inbox?type=drafts');
-	   };
+  // Handler to change step and update the URL
+  const handleStepClick = (idx: number) => {
+    // Compute dynamic preview/declaration indices to avoid hardcoding after step removal
+    const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
+    const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
+    // preserve any existing search params (including optional application id) when navigating
+    const currentParams = new URLSearchParams(searchParams ? searchParams.toString() : '');
+    const pushWithParams = (path: string) => {
+      const qs = currentParams.toString();
+      if (qs) router.push(`${path}?${qs}`);
+      else router.push(path);
+    };
 
-	   // Show home button on all steps
-	   const showHomeButton = true;
+    if (idx === previewIndex) {
+      pushWithParams('/forms/createFreshApplication/preview');
+    } else if (idx === declarationIndex) {
+      pushWithParams('/forms/createFreshApplication/declaration');
+    } else {
+      pushWithParams(`/forms/createFreshApplication/${stepToSlug(steps[idx])}`);
+    }
+  };
 
-	   return (
-		   <div
-			   className="relative min-h-screen"
-			   style={{
-				   backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
-				   backgroundSize: 'cover',
-				   backgroundRepeat: 'no-repeat',
-				   backgroundPosition: 'center',
-			   }}
-		   >
-			   {showHomeButton && (
-				   <div className="fixed top-4 left-6 z-50">
-					   <button
-						   onClick={handleGoHome}
-						   className="flex items-center justify-center w-12 h-12 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105"
-						   title="Go to Home"
-					   >
-                                                    <IoMdHomeFixed className="text-2xl text-[#0d2977]" />
-					   </button>
-				   </div>
-			   )}
-			   <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick}/>
-			   <div
-				   className=" flex max-w-8xl px-4  justify-center sm:px-8 "
-			   style={{
-				   paddingTop: 100, // This creates the space between header and form
-				   minHeight: '100vh',
-			   }}
-		   >
-			   <div
-				   className="rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0"
-				   style={{
-					   maxHeight: 'calc(100vh - 100px )',
-					   overflowY: 'auto',
-			   }}
-		   >
-			   {StepComponent && <StepComponent />}
-		   </div>
-	   </div>
-   </div>
-   );
-}
+  // Handler for go home button
+  const handleGoHome = () => {
+    router.push('/inbox?type=drafts');
+  };
+
+  // Show home button on all steps
+  const showHomeButton = true;
+
+  return (
+    <div
+      className='relative min-h-screen'
+      style={{
+        backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+        backgroundSize: 'cover',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+      }}
+    >
+      {showHomeButton && (
+        <div className='fixed top-4 left-6 z-50'>
+          <button
+            onClick={handleGoHome}
+            className='flex items-center justify-center w-12 h-12 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105'
+            title='Go to Home'
+          >
+            <IoMdHomeFixed className='text-2xl text-[#0d2977]' />
+          </button>
+        </div>
+      )}
+      <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick} />
+      <div
+        className=' flex max-w-8xl px-4  justify-center sm:px-8 '
+        style={{
+          paddingTop: 100, // This creates the space between header and form
+          minHeight: '100vh',
+        }}
+      >
+        <div
+          className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0'
+          style={{
+            maxHeight: 'calc(100vh - 100px )',
+            overflowY: 'auto',
+          }}
+        >
+          {StepComponent && <StepComponent />}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default StepPage;
