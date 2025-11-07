@@ -30,6 +30,7 @@ const Header = (props: HeaderProps) => {
   }, [userName, user, isLoading, hookUserRole]);
 
   const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
+  console.log({displayName, hookUserRole, userRoleCookie: document.cookie.split('; ').find(row => row.startsWith('role='))});
   const handleDropdownClick = (type: (typeof APPLICATION_TYPES)[number]) => {
     setShowDropdown(false);
     if (type.enabled) {
@@ -46,6 +47,7 @@ const Header = (props: HeaderProps) => {
   if (!showHeader) return null;
 
   const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
+  console.log({isZSUser})
   
   return (
     <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
