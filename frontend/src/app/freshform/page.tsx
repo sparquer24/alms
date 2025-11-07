@@ -132,10 +132,6 @@ function FreshFormContent() {
       {/* Always render sidebar and header */}
       <Sidebar />
       <Header
-        onSearch={handleSearch}
-        onDateFilter={handleDateFilter}
-        onReset={handleReset}
-        userRole={userRole}
         onCreateApplication={handleCreateApplication}
         onShowMessage={handleShowMessage}
       />

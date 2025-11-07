@@ -70,10 +70,6 @@ export default function ReportsPage() {
     };
   }, [setShowHeader, setShowSidebar]);
 
-  const handleSearch = () => {};
-  const handleDateFilter = () => {};
-  const handleReset = () => {};
-
   // Get statistics for the report
   const getStats = () => {
     const total = applications.length;
@@ -106,11 +102,7 @@ export default function ReportsPage() {
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={handleDateFilter}
-        onReset={handleReset}
-      />
+      <Header />
 
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <div className="bg-white rounded-lg shadow p-6">

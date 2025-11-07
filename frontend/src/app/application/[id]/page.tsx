@@ -516,7 +516,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       style={{ backgroundImage: 'url("/backgroundIMGALMS.jpeg")' }}
     >
       <Sidebar />
-      <Header onSearch={handleSearch} onDateFilter={handleDateFilter} onReset={handleReset} />
+      <Header />
       <main className='flex-1 p-2 lg:p-6'>
         <div className='max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4'>
           {/* Success Message - Fixed Position at Top */}

@@ -1,79 +1,42 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
 import { useAuthSync } from '../hooks/useAuthSync';
 import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
-
-// Type assertion for Next.js Link to fix React 18 compatibility
-const LinkFixed = Link as any;
-import { isZS, APPLICATION_TYPES } from '../config/helpers';
-import { getCookie } from 'cookies-next';
-import { ApplicationFormSkeleton } from './Skeleton';
+import { APPLICATION_TYPES } from '../config/helpers';
 
 interface HeaderProps {
-  // Search & filter callbacks are now optional since the search bar was removed
-  onSearch?: (query: string) => void;
-  onDateFilter?: (startDate: string, endDate: string) => void;
-  onReset?: () => void;
-  userRole?: string;
   onCreateApplication?: (typeKey: string) => void;
   onShowMessage?: (msg: string, type?: 'info' | 'error' | 'success') => void;
 }
 
-// Removed SearchBar and DateInput components (header simplified)
-
 const Header = (props: HeaderProps) => {
-  const {
-    onSearch,
-    onDateFilter,
-    onReset,
-    userRole: propUserRole,
-    onCreateApplication,
-    onShowMessage,
-  } = props;
+  const { onCreateApplication, onShowMessage } = props;
   const { showHeader } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
+  const { unreadCount } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const router = useRouter();
 
-  // Update displayName whenever userName or user changes
   useEffect(() => {
-    // Priority: userName from hook, then user.name, then user.username
-    // Also re-run when auth loading completes or role changes so the avatar appears
     const name = userName || user?.name || user?.username;
     if (!isLoading && name) setDisplayName(name);
   }, [userName, user, isLoading, hookUserRole]);
 
   const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
-  const { unreadCount } = useNotifications();
-  // Removed search & date filter state
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const [isNavigating, setIsNavigating] = useState(false);
-  const router = useRouter();
   const handleDropdownClick = (type: (typeof APPLICATION_TYPES)[number]) => {
     setShowDropdown(false);
     if (type.enabled) {
-      // Show loading state
-      setIsNavigating(true);
-      // Navigate directly to the appropriate route
-      try {
-        if (type.key === 'fresh') {
-          router.push('/forms/createFreshApplication/personal-information');
-        } else {
-          router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
-        }
-      } catch (e) {
-        setIsNavigating(false);
-        if (onCreateApplication) {
-          onCreateApplication(type.key);
-        } else if (onShowMessage) {
-          onShowMessage('This feature will come soon', 'info');
-        }
+      if (type.key === 'fresh') {
+        router.push('/forms/createFreshApplication/personal-information');
+      } else {
+        router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
@@ -81,23 +44,12 @@ const Header = (props: HeaderProps) => {
   };
 
   if (!showHeader) return null;
-  
-  // Check if user is ZS role (case-insensitive comparison)
-  const isZSUser = hookUserRole && (hookUserRole.toUpperCase() === 'ZS' || hookUserRole === 'ZS');
-  
-  // Debug logging
-  console.log('Header Debug:', {
-    hookUserRole,
-    isZSUser,
-    displayName,
-    isLoading,
-    hasValidUserName
-  });
+
+  const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
   
   return (
     <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
-        {/* Left: Create Application Button (ZS only) */}
         <div className='flex items-center'>
           <div className='relative'>
             {isZSUser && (
@@ -135,9 +87,7 @@ const Header = (props: HeaderProps) => {
           </div>
         </div>
 
-        {/* Right: All other header items */}
         <div className='flex items-center space-x-4 justify-end w-full'>
-          {/* Search bar removed */}
           <div className='relative'>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
@@ -170,26 +120,19 @@ const Header = (props: HeaderProps) => {
             )}
           </div>
           {hasValidUserName && (
-            <LinkFixed
+            <Link
               href='/settings'
               className='flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors'
             >
               <div className='bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium'>
                 {displayName!.charAt(0).toUpperCase()}
               </div>
-            </LinkFixed>
+            </Link>
           )}
         </div>
       </div>
-
-      {/* Form Skeleton Loading */}
-      {isNavigating && <ApplicationFormSkeleton />}
     </header>
   );
 };
 
 export default Header;
-
-// NOTE: If you see hydration errors with fdprocessedid or other attributes,
-// they are likely injected by browser extensions (e.g., LastPass, FormDrake).
-// Test in incognito or with extensions disabled to confirm.

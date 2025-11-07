@@ -95,7 +95,7 @@ const MyReportsPage = () => {
     return (
       <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
         <Sidebar />
-        <Header userRole={userRole} onSearch={() => {}} onDateFilter={() => {}} onReset={() => {}} />
+        <Header />
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
           <h1 className="text-2xl font-bold mb-8">My Reports</h1>
           <div className="bg-white rounded-lg shadow p-8 text-center text-xl text-gray-700">
@@ -105,9 +105,6 @@ const MyReportsPage = () => {
       </div>
     );
   }
-
-  // No-op handlers for Header component which expects these props
-  const noop = () => {};
 
   // Small totals/summary component
   function TotalSummary({ appsByType }: { appsByType: Record<string, any[]> }) {
@@ -135,7 +132,7 @@ const MyReportsPage = () => {
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header userRole={userRole} onSearch={noop} onDateFilter={noop} onReset={noop} />
+      <Header />
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%]">
         <h1 className="text-2xl font-bold mb-8">My Reports</h1>
         {/* Totals summary */}

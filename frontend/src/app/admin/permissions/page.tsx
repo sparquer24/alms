@@ -285,11 +285,7 @@ export default function PermissionsPage() {
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={() => {}}
-        onReset={handleReset}
-      />
+      <Header />
 
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">

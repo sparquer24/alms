@@ -81,10 +81,6 @@ export default function SettingsPage() {
   }, [role]);
   const permissions = useMemo(() => parseArrayLike(role?.permissions), [role]);
 
-  const handleSearch = () => {};
-  const handleDateFilter = () => {};
-  const handleReset = () => {};
-
   // Show skeleton while auth is loading
   if (authLoading) return <PageLayoutSkeleton />;
   if (!authLoading && !isAuthenticated) return null;
@@ -92,7 +88,7 @@ export default function SettingsPage() {
   return (
     <div className='flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
       <Sidebar />
-      <Header onSearch={handleSearch} onDateFilter={handleDateFilter} onReset={handleReset} />
+      <Header />
 
       <main className='flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]'>
         <div className='bg-white rounded-lg shadow p-6'>
