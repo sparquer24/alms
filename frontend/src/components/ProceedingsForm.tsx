@@ -244,7 +244,7 @@ export default function ProceedingsForm({
           }
         } catch (e) {}
 
-        const data = await fetchData(`/actiones`);
+        const data = await fetchData(`/actiones${applicationId ? `?applicationId=${applicationId}` : ''}`);
         // data is expected to be an array of BackendAction
         const humanizeCode = (c: string) =>
           String(c || '')

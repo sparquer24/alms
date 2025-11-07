@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Actiones } from '@prisma/client';
 import { RolesActionsMapping } from '@prisma/client';
+import { ACTION_CODES } from '../../constants/workflow-actions';
 
 @Injectable()
 export class ActionesService {
@@ -9,8 +10,9 @@ export class ActionesService {
    * Get actions.
    * - If userId is provided: fetch the user's roleId and return only actions allowed for that role.
    * - If no userId: return all active actions.
+   * - If applicationId is provided: filter out APPROVED action if already approved, REJECT action if already rejected.
    */
-  async getActiones(userId?: number): Promise<Actiones[]> {
+  async getActiones(userId?: number, applicationId?: number): Promise<Actiones[]> {
     try {
       // No userId → return all active actions
       if (userId === undefined || userId === null) {
@@ -35,7 +37,7 @@ export class ActionesService {
 
       // Fetch actions directly via the relation to RolesActionsMapping.
       // This performs the join in the database and avoids a client-side loop/dedup.
-      const actions = await prisma.actiones.findMany({
+      let actions = await prisma.actiones.findMany({
         where: {
           isActive: true,
           rolesActionsMapping: {
@@ -46,6 +48,26 @@ export class ActionesService {
           },
         },
       });
+
+      // If applicationId is provided, filter based on application status
+      if (applicationId) {
+        const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: applicationId },
+          select: { isApproved: true, isRejected: true }
+        });
+
+        if (application) {
+          // If application is approved, filter out APPROVED action
+          if (application.isApproved) {
+            actions = actions.filter(action => action.code.toUpperCase() !== ACTION_CODES.APPROVED);
+          }
+          
+          // If application is rejected, filter out REJECT action
+          if (application.isRejected) {
+            actions = actions.filter(action => action.code.toUpperCase() !== ACTION_CODES.REJECT);
+          }
+        }
+      }
 
       return actions;
     } catch (error) {
