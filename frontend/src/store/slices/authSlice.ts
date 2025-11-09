@@ -61,6 +61,8 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
+      // Guard against SSR
+      if (typeof document === 'undefined') return;
       try {
         // Read cookies defensively: support token-only `auth`, separate `user` and `role` cookies
         const cookies = document.cookie.split('; ').reduce<Record<string, string>>((acc, cur) => {
