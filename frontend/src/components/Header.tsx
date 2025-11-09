@@ -30,7 +30,7 @@ const Header = (props: HeaderProps) => {
   }, [userName, user, isLoading, hookUserRole]);
 
   const hasValidUserName = !isLoading && typeof displayName === 'string' && displayName.length > 0;
-  console.log({displayName, hookUserRole, userRoleCookie: document.cookie.split('; ').find(row => row.startsWith('role='))});
+  console.log({displayName, hookUserRole, userRoleCookie: typeof document !== 'undefined' ? document.cookie.split('; ').find(row => row.startsWith('role=')) : 'SSR'});
   const handleDropdownClick = (type: (typeof APPLICATION_TYPES)[number]) => {
     setShowDropdown(false);
     if (type.enabled) {

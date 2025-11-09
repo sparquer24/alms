@@ -44,8 +44,12 @@ function isAuthenticated(): boolean {
  */
 function redirectToLogin(): void {
   // Clear invalid auth data
-  document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  localStorage.removeItem('auth');
+  if (typeof document !== 'undefined') {
+    document.cookie = 'auth=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('auth');
+  }
 
   // Redirect to login
   if (typeof window !== 'undefined') {
