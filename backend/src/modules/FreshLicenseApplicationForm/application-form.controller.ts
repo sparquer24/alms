@@ -228,37 +228,6 @@ export class ApplicationFormController {
           ]
         }
       },
-      'Biometric Data Update': {
-        summary: 'Update biometric data including signature, photo, iris scan, and fingerprints',
-        value: {
-          biometricData: {
-            signature: {
-              fileType: 'signature',
-              fileName: 'signature.png',
-              url: 'https://example.com/uploads/signature.png',
-              uploadedAt: '2024-01-15T10:30:00.000Z'
-            },
-            photo: {
-              fileType: 'photo',
-              fileName: 'photo.jpg',
-              url: 'https://example.com/uploads/photo.jpg',
-              uploadedAt: '2024-01-15T10:31:00.000Z'
-            },
-            irisScan: {
-              fileType: 'irisScan',
-              fileName: 'iris.png',
-              url: 'https://example.com/uploads/iris.png',
-              uploadedAt: '2024-01-15T10:32:00.000Z'
-            },
-            fingerprint: {
-              fileType: 'fingerprint',
-              fileName: 'fingerprint.png',
-              url: 'https://example.com/uploads/fingerprint.png',
-              uploadedAt: '2024-01-15T10:33:00.000Z'
-            } 
-          }
-        }
-      },
       'Complete Application Update': {
         summary: 'Update all sections with comprehensive data',
         value: {
@@ -323,33 +292,7 @@ export class ApplicationFormController {
               licencePlaceArea: 'Rural agricultural areas of district',
               wildBeastsSpecification: 'Wild boars, deer, and other crop-damaging animals'
             }
-          ],
-          biometricData: {
-            signature: {
-              fileType: 'signature',
-              fileName: 'signature.png',
-              url: 'https://example.com/uploads/signature.png',
-              uploadedAt: '2024-01-15T10:30:00.000Z'
-            },
-            photo: {
-              fileType: 'photo',
-              fileName: 'photo.jpg',
-              url: 'https://example.com/uploads/photo.jpg',
-              uploadedAt: '2024-01-15T10:31:00.000Z'
-            },
-            irisScan: {
-              fileType: 'irisScan',
-              fileName: 'iris.png',
-              url: 'https://example.com/uploads/iris.png',
-              uploadedAt: '2024-01-15T10:32:00.000Z'
-            },
-            fingerprint: {
-              fileType: 'fingerprint',
-              fileName: 'fingerprint.png',
-              url: 'https://example.com/uploads/fingerprint.png',
-              uploadedAt: '2024-01-15T10:33:00.000Z'
-            }
-          }
+          ]
         }
       }
     }
