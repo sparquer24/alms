@@ -544,20 +544,19 @@ export class ApplicationFormController {
       const limitNum = limit ? Math.max(Number(limit), 1) : 10;
 
       // Parse ordering
-      const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
+      const allowedOrderFields = ['id', 'almsLicenseId', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
       const parsedOrderBy = orderBy && allowedOrderFields.includes(orderBy) ? orderBy : 'createdAt';
       const parsedOrder = order && order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
       // Parse search + field
-      const allowedSearchFields = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
+      const allowedSearchFields = ['id', 'almsLicenseId', 'firstName', 'lastName', 'acknowledgementNo'];
       const parsedSearchField = searchField && allowedSearchFields.includes(searchField) ? searchField : undefined;
       const parsedSearchValue = search ?? undefined;
       const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
   // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
   // We'll pass them to the service resolver which will return numeric IDs.
-  const 
-  parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+  const parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
 
   if (parsedApplicationId || parsedAcknowledgementNo) {
