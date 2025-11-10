@@ -695,40 +695,6 @@ export class ApplicationFormService {
           updatedSections.push('licenseDetails');
         }
 
-        // 7. Handle Biometric Data
-        if (data.biometricData) {
-          const biometricDataObject = data.biometricData;
-          
-          // Check if biometric data already exists for this application
-          const existingBiometric = await tx.fLAFBiometricDatas.findUnique({
-            where: { applicationId }
-          });
-
-          if (typeof biometricDataObject !== 'object' || biometricDataObject === null) {
-            throw new BadRequestException('biometricData must be an object');
-          }
-
-          if (existingBiometric) {
-            // Update existing biometric data - replace the entire object
-            await tx.fLAFBiometricDatas.update({
-              where: { applicationId },
-              data: {
-                biometricData: biometricDataObject as any
-              } as any
-            });
-          } else {
-            // Create new biometric data
-            await tx.fLAFBiometricDatas.create({
-              data: {
-                applicationId,
-                biometricData: biometricDataObject as any
-              } as any
-            });
-          }
-          
-          updatedSections.push('biometricData');
-        }
-
         // Handle workflow status updates - only when isSubmit is true
         if (isSubmit === true) {
           // Get the status where isStarted is true
@@ -863,8 +829,7 @@ export class ApplicationFormService {
             include: {
               requestedWeapons: true
             }
-          },
-          biometricData: true
+          }
         }
       });
 
