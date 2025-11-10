@@ -334,11 +334,9 @@ model FLAFFileUploads {
 }
 
 model FLAFBiometricDatas {
-  id                Int                                    @id @default(autoincrement())
-  signatureImageUrl String?
-  irisScanImageUrl  String?
-  photoImageUrl     String?
-  applicationId     Int                                    @unique
+  id                  Int                                    @id @default(autoincrement())
+  biometricData       Json
+  applicationId       Int                                    @unique
   application       FreshLicenseApplicationPersonalDetails @relation("BiometricData", fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
