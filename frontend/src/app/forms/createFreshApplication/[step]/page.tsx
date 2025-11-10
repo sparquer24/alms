@@ -43,11 +43,18 @@ const stepToSlug = (name: string) =>
     .replace(/(^-|-$)/g, '');
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ApplicationService } from '../../../../api/applicationService';
 
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [step, setStep] = useState<string | null>(null);
+  const [allowedToEdit, setAllowedToEdit] = useState<boolean | null>(null);
+  const searchParams = useSearchParams();
+  const applicantId =
+    searchParams?.get('id') ||
+    searchParams?.get('applicationId') ||
+    searchParams?.get('applicantId') ||
+    null;
 
   // Handle params Promise in useEffect
   useEffect(() => {
@@ -56,11 +63,49 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
     });
   }, [params]);
 
+  // Form-level guard: only allow editing when application is in DRAFT state.
+  useEffect(() => {
+    const checkEditable = async () => {
+      // If no application id present, allow creating a new application
+      if (!applicantId) {
+        setAllowedToEdit(true);
+        return;
+      }
+      try {
+        const resp = await ApplicationService.getApplication(applicantId as string);
+        const data = resp?.data || null;
+        const code = data?.workflowStatus?.code || data?.status?.code || null;
+        // Normalize code to string and uppercase for comparison
+        if (String(code).toUpperCase() === 'DRAFT') {
+          setAllowedToEdit(true);
+        } else {
+          setAllowedToEdit(false);
+          // Redirect user back to home page — keep them from editing non-draft apps
+          router.push('/');
+        }
+      } catch (err) {
+        // If the GET fails (e.g., 404), allow edit flow to let user create a new one
+        setAllowedToEdit(true);
+      }
+    };
+    checkEditable();
+    // Intentionally run only when applicantId changes
+  }, [applicantId, router]);
+
   // Show loading while params are being resolved
   if (!step) {
     return (
       <div className='flex items-center justify-center min-h-screen'>
         <div className='text-lg'>Loading...</div>
+      </div>
+    );
+  }
+
+  // While we check whether editing is allowed, show a loading state
+  if (allowedToEdit === null) {
+    return (
+      <div className='flex items-center justify-center min-h-screen'>
+        <div className='text-lg'>Checking application status...</div>
       </div>
     );
   }

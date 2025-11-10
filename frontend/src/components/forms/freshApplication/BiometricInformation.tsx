@@ -10,6 +10,7 @@ import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileUploadService } from '../../../services/fileUpload';
 import { postData } from '../../../api/axiosConfig';
+import { ApplicationService } from '../../../api/applicationService';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 
 type BiometricForm = {
@@ -36,6 +37,7 @@ const BiometricInformation = () => {
   const [uploadProgress, setUploadProgress] = useState('');
   const [streamActive, setStreamActive] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [existingBiometricData, setExistingBiometricData] = useState<any | null>(null);
 
   const webcamRef = useRef<any>(null);
 
@@ -54,10 +56,42 @@ const BiometricInformation = () => {
 
   /** 🧹 Clean up preview on unmount */
   useEffect(() => {
-    return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    // Fetch existing application biometric data to render and merge when patching.
+    // The backend sometimes returns a wrapper like:
+    // { biometricData: { id, biometricData: { photo: {...}, ... }, applicationId } }
+    // or directly: { biometricData: { photo: {...}, ... } }
+    // Normalize to the inner biometric object so the rest of the component can
+    // read `existingBiometricData.photo`, `existingBiometricData.signature`, etc.
+    const loadExisting = async () => {
+      if (!applicantId) return;
+      try {
+        const resp = await ApplicationService.getApplication(applicantId as string);
+        const data = resp?.data || null;
+        const bioWrapper = data?.biometricData || null;
+
+        let normalized: any = null;
+        if (bioWrapper) {
+          // If the payload has a nested `biometricData` property, use that inner object
+          if (bioWrapper.biometricData) normalized = bioWrapper.biometricData;
+          else normalized = bioWrapper;
+        }
+
+        setExistingBiometricData(normalized);
+        if (normalized?.photo?.url) setPhotoPreview(normalized.photo.url);
+      } catch (err) {
+        console.warn('Could not load existing biometric data', err);
+      }
     };
-  }, [photoPreview]);
+
+    loadExisting();
+
+    // Cleanup: if a locally-created object URL was used for preview, revoke it when
+    // the component unmounts or applicantId changes. If preview is a remote URL,
+    // revokeObjectURL is harmless (no-op) in most browsers.
+    return () => {
+      if (photoPreview && photoPreview.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
+    };
+  }, [applicantId]);
 
   /** 📸 Capture webcam photo */
   const capturePhoto = async () => {
@@ -106,28 +140,108 @@ const BiometricInformation = () => {
   /** 🧠 Upload biometric files to backend */
   const uploadBiometricFiles = async (appId: string) => {
     if (!appId) return;
-    const files: Array<{ file: File; type: string; desc: string }> = [];
-    // Use backend-supported FileType enum values; map biometric types to 'OTHER'
-    if (form.fingerprint)
-      files.push({ file: form.fingerprint, type: 'OTHER', desc: 'Fingerprint' });
-    if (form.iris) files.push({ file: form.iris, type: 'OTHER', desc: 'Iris' });
-    if (form.photograph) files.push({ file: form.photograph, type: 'OTHER', desc: 'Photograph' });
-    if (form.signature) files.push({ file: form.signature, type: 'OTHER', desc: 'Signature' });
+    // Helper to convert File -> data URL (base64)
+    const fileToDataUrl = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = err => reject(err);
+        reader.readAsDataURL(file);
+      });
 
-    if (files.length === 0) return;
+    // Build biometricData payload with base64 URLs as requested
+    const biometricData: any = {};
+    const filesToUpload: Array<{ file: File; type: string; desc: string }> = [];
+
+    if (form.signature) {
+      try {
+        const dataUrl = await fileToDataUrl(form.signature);
+        biometricData.signature = {
+          fileType: 'signature',
+          fileName: form.signature.name,
+          url: dataUrl,
+          uploadedAt: new Date().toISOString(),
+        };
+        filesToUpload.push({ file: form.signature, type: 'OTHER', desc: 'Signature' });
+      } catch (err) {
+        console.warn('Failed to read signature file as base64', err);
+      }
+    }
+
+    if (form.photograph) {
+      try {
+        const dataUrl = await fileToDataUrl(form.photograph);
+        biometricData.photo = {
+          fileType: 'photo',
+          fileName: form.photograph.name,
+          url: dataUrl,
+          uploadedAt: new Date().toISOString(),
+        };
+        filesToUpload.push({ file: form.photograph, type: 'OTHER', desc: 'Photograph' });
+      } catch (err) {
+        console.warn('Failed to read photograph file as base64', err);
+      }
+    }
+
+    if (form.iris) {
+      try {
+        const dataUrl = await fileToDataUrl(form.iris);
+        biometricData.irisScan = {
+          fileType: 'iris',
+          fileName: form.iris.name,
+          url: dataUrl,
+          uploadedAt: new Date().toISOString(),
+        };
+        filesToUpload.push({ file: form.iris, type: 'OTHER', desc: 'Iris' });
+      } catch (err) {
+        console.warn('Failed to read iris file as base64', err);
+      }
+    }
+
+    if (form.fingerprint) {
+      try {
+        const dataUrl = await fileToDataUrl(form.fingerprint);
+        biometricData.fingerprint = {
+          fileType: 'fingerprint',
+          fileName: form.fingerprint.name,
+          url: dataUrl,
+          uploadedAt: new Date().toISOString(),
+        };
+        filesToUpload.push({ file: form.fingerprint, type: 'OTHER', desc: 'Fingerprint' });
+      } catch (err) {
+        console.warn('Failed to read fingerprint file as base64', err);
+      }
+    }
+
+    // Merge existing biometric data for items user did not replace
+    if (existingBiometricData) {
+      Object.keys(existingBiometricData).forEach(key => {
+        if (!biometricData[key]) {
+          biometricData[key] = existingBiometricData[key];
+        }
+      });
+    }
+
+    // If there is nothing to upload or patch, return early
+    if (Object.keys(biometricData).length === 0) return;
 
     try {
       setUploadingFiles(true);
-      for (let i = 0; i < files.length; i++) {
-        const { file, type, desc } = files[i];
-        setUploadProgress(`Uploading ${file.name} (${i + 1}/${files.length})`);
-        // Upload using a FileUploadService; fileType must be one of backend enum values (we pass 'OTHER' for biometric files)
+
+      // Upload files to storage/backend as before (keeps current behavior)
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const { file, type, desc } = filesToUpload[i];
+        setUploadProgress(`Uploading ${file.name} (${i + 1}/${filesToUpload.length})`);
         await FileUploadService.uploadFile(appId, file, type, desc);
       }
-      alert('Biometric files uploaded successfully');
+
+      // PATCH application form with biometricData (use ApplicationService to keep payload handling consistent)
+      await ApplicationService.updateApplication(appId, { biometricData } as any, 'personal');
+
+      alert('Biometric data updated successfully');
     } catch (err: any) {
-      console.error('Upload error:', err);
-      alert('Failed to upload biometric files');
+      console.error('Biometric upload/patch error:', err);
+      alert('Failed to update biometric data');
     } finally {
       setUploadingFiles(false);
       setUploadProgress('');
@@ -186,34 +300,80 @@ const BiometricInformation = () => {
         <div>
           <div className='font-semibold mb-2'>Signature / Thumb Impression</div>
           <div className='space-y-2'>
-            <button
-              type='button'
-              onClick={handleScanFingerprint}
-              className='px-4 py-2 bg-indigo-600 text-white rounded'
-            >
-              Scan Fingerprint
-            </button>
+            <div className='flex items-center space-x-3'>
+              <button
+                type='button'
+                onClick={handleScanFingerprint}
+                disabled
+                aria-disabled='true'
+                aria-label='Fingerprint scanning will be available soon'
+                title='Fingerprint scanning will be available soon'
+                className='px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed'
+              >
+                Scan Fingerprint
+              </button>
+              <span className='text-sm text-gray-500'>
+                Fingerprint scanning will be available soon
+              </span>
+            </div>
             <label className='block border-2 border-dashed p-3 text-center text-gray-600 rounded-lg cursor-pointer hover:border-blue-400'>
               Or upload signature/thumb
               <input type='file' name='signature' className='hidden' onChange={handleFileChange} />
             </label>
+            {existingBiometricData?.signature && (
+              <div className='mt-2 text-sm text-gray-600'>
+                Existing: {existingBiometricData.signature.fileName}{' '}
+                {existingBiometricData.signature.url && (
+                  <a
+                    href={existingBiometricData.signature.url}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='underline text-blue-600'
+                  >
+                    View
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         <div>
           <div className='font-semibold mb-2'>Iris Scan</div>
           <div className='space-y-2'>
-            <button
-              type='button'
-              onClick={handleScanIris}
-              className='px-4 py-2 bg-indigo-600 text-white rounded'
-            >
-              Scan Iris
-            </button>
+            <div className='flex items-center space-x-3'>
+              <button
+                type='button'
+                onClick={handleScanIris}
+                disabled
+                aria-disabled='true'
+                aria-label='Iris scanning will be available soon'
+                title='Iris scanning will be available soon'
+                className='px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed'
+              >
+                Scan Iris
+              </button>
+              <span className='text-sm text-gray-500'>Iris scanning will be available soon</span>
+            </div>
             <label className='block border-2 border-dashed p-3 text-center text-gray-600 rounded-lg cursor-pointer hover:border-blue-400'>
               Or upload iris scan
               <input type='file' name='iris' className='hidden' onChange={handleFileChange} />
             </label>
+            {existingBiometricData?.irisScan && (
+              <div className='mt-2 text-sm text-gray-600'>
+                Existing: {existingBiometricData.irisScan.fileName}{' '}
+                {existingBiometricData.irisScan.url && (
+                  <a
+                    href={existingBiometricData.irisScan.url}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='underline text-blue-600'
+                  >
+                    View
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -273,6 +433,21 @@ const BiometricInformation = () => {
                     onChange={handleFileChange}
                   />
                 </label>
+                {existingBiometricData?.photo && (
+                  <div className='mt-2 text-sm text-gray-600'>
+                    Existing: {existingBiometricData.photo.fileName}{' '}
+                    {existingBiometricData.photo.url && (
+                      <a
+                        href={existingBiometricData.photo.url}
+                        target='_blank'
+                        rel='noreferrer'
+                        className='underline text-blue-600'
+                      >
+                        View
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
