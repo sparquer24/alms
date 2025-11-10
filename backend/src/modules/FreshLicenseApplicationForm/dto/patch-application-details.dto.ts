@@ -7,6 +7,7 @@ import { PatchCriminalHistoryDto } from './patch-criminal-history.dto';
 import { PatchLicenseHistoryDto } from './patch-license-history.dto';
 import { PatchLicenseDetailsDto } from './patch-license-details.dto';
 import { PatchPersonalDetailsDto } from './patch-personal-details.dto';
+import { PatchBiometricDataDto } from './patch-biometric-data.dto';
 
 export class PatchApplicationDetailsDto {
   @ApiPropertyOptional({
@@ -95,4 +96,13 @@ export class PatchApplicationDetailsDto {
   @ValidateNested({ each: true })
   @Type(() => PatchLicenseDetailsDto)
   licenseDetails?: PatchLicenseDetailsDto[];
+
+  @ApiPropertyOptional({ 
+    type: PatchBiometricDataDto,
+    description: 'Biometric data (signature, iris scan, photo, fingerprints)' 
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PatchBiometricDataDto)
+  biometricData?: PatchBiometricDataDto;
 }
