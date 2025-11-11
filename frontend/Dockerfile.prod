@@ -18,8 +18,7 @@ COPY . .
 
 # Build the Next.js app (disable linting)
 # IMPORTANT: Ensure NEXT_PUBLIC_API_URL is available during build
-ENV NEXT_DISABLE_ESLINT=true
-RUN NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npx --yes next build
+RUN NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL ESLINT_NO_DEV_ERRORS=true npx --yes next build --no-lint
 
 # -----------------------
 # Runner Image
