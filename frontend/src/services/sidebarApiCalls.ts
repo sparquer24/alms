@@ -34,7 +34,6 @@ export const STATUS_MAP = {
   returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
   flagged: statusIdMap.redflagged || [8],       // RED_FLAG
   redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
-  disposed: statusIdMap.disposed || [7],        // DISPOSE
   approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
   freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)
   final: statusIdMap.finaldisposal || [7],      // FINAL DISPOSAL 
@@ -325,11 +324,12 @@ export const convertStatusNamesToIds = (statusIds: string | string[] | number | 
     if (typeof status === 'number' || !isNaN(Number(status))) {
       numericIds.push(Number(status));
     } else {
-      // Map status name to numeric IDs
-      const mappedIds = STATUS_MAP[String(status).toLowerCase() as keyof typeof STATUS_MAP];
+      // Map status name to numeric IDs (case-insensitive lookup)
+      const lookup = String(status).toLowerCase();
+      const foundKey = Object.keys(STATUS_MAP).find(k => k.toLowerCase() === lookup) as keyof typeof STATUS_MAP | undefined;
+      const mappedIds = foundKey ? STATUS_MAP[foundKey] : undefined;
       if (mappedIds) {
         numericIds.push(...mappedIds);
-      } else {
       }
     }
   });
@@ -342,7 +342,11 @@ export const convertStatusNamesToIds = (statusIds: string | string[] | number | 
  * Provides a consistent interface for all pages to fetch applications by status
  */
 export const getStatusIdsForKey = (statusKey: string): number[] => {
-  const statusIds = statusIdMap[statusKey as keyof typeof statusIdMap];
+  if (!statusKey) return [];
+  // Do a case-insensitive lookup because callers may use lowercase/uppercase variations
+  const lookup = String(statusKey).toLowerCase();
+  const foundKey = Object.keys(statusIdMap).find(k => k.toLowerCase() === lookup) as keyof typeof statusIdMap | undefined;
+  const statusIds = foundKey ? statusIdMap[foundKey] : undefined;
   return statusIds || [];
 };
 
@@ -473,13 +477,12 @@ export const fetchApplicationCounts = async (): Promise<{
   forwardedCount: number;
   returnedCount: number;
   redFlaggedCount: number;
-  disposedCount: number;
+  reEnquiryCount: number;
   draftCount: number;
   pendingCount: number;
   approvedCount: number;
   closedCount: number;
   cancelledCount: number;
-  reEnquiryCount: number;
   groundReportCount: number;
 }> => {
   try {
@@ -491,11 +494,11 @@ export const fetchApplicationCounts = async (): Promise<{
       return cachedData;
     }
     // Only fetch counts for the essential inbox items to reduce API load
-    const [forwarded, returned, redFlagged, disposed, draft] = await Promise.all([
+    const [forwarded, returned, redFlagged, reEnquiry, draft] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
-      fetchApplicationsByStatus(STATUS_MAP.disposed),
+      fetchApplicationsByStatus(STATUS_MAP.reEnquiry),
       fetchApplicationsByStatus(STATUS_MAP.drafts),
     ]);
 
@@ -503,14 +506,13 @@ export const fetchApplicationCounts = async (): Promise<{
       forwardedCount: forwarded.length,
       returnedCount: returned.length,
       redFlaggedCount: redFlagged.length,
-      disposedCount: disposed.length,
+      reEnquiryCount: reEnquiry.length,
       draftCount: draft.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
       cancelledCount: 0,
-      reEnquiryCount: 0,
       groundReportCount: 0,
     };
     // Cache the results for longer
@@ -522,13 +524,12 @@ export const fetchApplicationCounts = async (): Promise<{
       forwardedCount: 0,
       returnedCount: 0,
       redFlaggedCount: 0,
-      disposedCount: 0,
+      reEnquiryCount: 0,
       draftCount: 0,
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
       cancelledCount: 0,
-      reEnquiryCount: 0,
       groundReportCount: 0,
     };
   }
@@ -654,9 +655,6 @@ export const getApplicationsByStatus = (
     case 'redFlagged':
       filtered = applications.filter(app => STATUS_MAP.flagged.includes(Number(app.status_id)));
       break;
-    case 'disposed':
-      filtered = applications.filter(app => STATUS_MAP.disposed.includes(Number(app.status_id)));
-      break;
     case 'freshform':
       filtered = applications.filter(app => STATUS_MAP.freshform.includes(Number(app.status_id)));
       break;
@@ -674,7 +672,7 @@ export const getApplicationsByStatus = (
       filtered = applications.filter(app => STATUS_MAP.cancelled.includes(Number(app.status_id)));
       break;
     case 'reEnquiry':
-    case 're-enquiry':
+    case 'reenquiry':
       filtered = applications.filter(app => STATUS_MAP.reEnquiry.includes(Number(app.status_id)));
       break;
     case 'groundReport':

@@ -56,6 +56,7 @@ export const Alert: React.FC<AlertProps> = ({
         {onClose && (
           <div className="ml-auto pl-3">
             <button
+              type="button"
               onClick={onClose}
               className="inline-flex rounded-md p-1.5 hover:bg-gray-100 transition-colors"
             >

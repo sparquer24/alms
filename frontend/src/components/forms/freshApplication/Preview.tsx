@@ -271,6 +271,7 @@ const Preview = () => {
             Personal Information
           </h3>
           <button
+            type="button"
             onClick={() => handleEdit(FORM_ROUTES.PERSONAL_INFO)}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors duration-200 text-sm font-medium"
             title="Edit Personal Information"
@@ -333,6 +334,7 @@ const Preview = () => {
             Address Details
           </h3>
           <button
+            type="button"
             onClick={() => handleEdit(FORM_ROUTES.ADDRESS_DETAILS)}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors duration-200 text-sm font-medium"
             title="Edit Address Details"
@@ -406,6 +408,7 @@ const Preview = () => {
             Occupation & Business
           </h3>
           <button
+            type="button"
             onClick={() => handleEdit(FORM_ROUTES.OCCUPATION_DETAILS)}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-blue-50 transition-colors duration-200 text-sm font-medium"
             title="Edit Occupation & Business"
@@ -464,6 +467,7 @@ const Preview = () => {
             Criminal History
           </h3>
           <button
+            type="button"
             onClick={() => handleEdit(FORM_ROUTES.CRIMINAL_HISTORY)}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Edit Criminal History"
@@ -570,6 +574,7 @@ const Preview = () => {
             License History
           </h3>
           <button
+            type="button"
             onClick={() => handleEdit(FORM_ROUTES.LICENSE_HISTORY)}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Edit License History"
@@ -673,6 +678,7 @@ const Preview = () => {
             License Details
           </h3>
           <button
+            type="button"
             onClick={() => handleEdit(FORM_ROUTES.LICENSE_DETAILS)}
             className="text-blue-600 hover:text-blue-800 flex items-center gap-2 px-3 py-1 rounded-md hover:bg-blue-50"
             title="Edit License Details"
@@ -878,6 +884,7 @@ const Preview = () => {
               Upload required documents to support your application
             </p>
             <button
+              type="button"
               onClick={() => handleEdit(FORM_ROUTES.DOCUMENTS_UPLOAD)}
               className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
             >

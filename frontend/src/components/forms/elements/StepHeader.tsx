@@ -22,6 +22,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
         {steps.map((stepName, idx) => (
           <div key={idx} className="flex flex-col items-center">
             <button
+              type="button"
               onClick={() => onStepClick(idx)}
               suppressHydrationWarning
               className={`px-3 py-1 text-sm font-medium transition-all duration-200 flex flex-col items-center

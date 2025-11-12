@@ -104,6 +104,7 @@ const PersonalInformation: React.FC = () => {
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<strong>Application ID: {applicantId}</strong>
 					<button
+						type="button"
 						onClick={handleRefreshData}
 						disabled={isLoading}
 						className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
