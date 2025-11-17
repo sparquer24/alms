@@ -54,11 +54,8 @@ services:
     container_name: alms-nginx
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # Mount a directory containing Let's Encrypt files (create ./nginx/certs with your certs)
-      - ./nginx/certs:/etc/letsencrypt:ro
     depends_on:
       - frontend
       - backend
