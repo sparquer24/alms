@@ -267,6 +267,7 @@ function LoginContent() {
           username: formData.username.trim(),
           password: formData.password,
         };
+        console.log('Submitting login for', loginPayload.username);
         const result = await dispatch(login(loginPayload)).unwrap();
         if (result && result.user) {
           // Normalize role to uppercase string for consistent redirects

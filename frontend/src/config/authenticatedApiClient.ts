@@ -95,8 +95,16 @@ export class ApiClient {
   }
 
   private buildUrl(endpoint: string) {
-    if (!endpoint.startsWith('http')) return `${this.baseUrl}${endpoint}`;
-    return endpoint;
+    // If caller passed an absolute URL, return it unchanged
+    if (endpoint.startsWith('http')) return endpoint;
+    // If the endpoint already includes the baseUrl (e.g. BASE_URL + '/auth/...'),
+    // return it as-is to avoid duplicating the base (which would produce '/api/api/...').
+    try {
+      if (this.baseUrl && endpoint.startsWith(this.baseUrl)) return endpoint;
+    } catch (e) {
+      // fall back to simple concatenation on error
+    }
+    return `${this.baseUrl}${endpoint}`;
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {

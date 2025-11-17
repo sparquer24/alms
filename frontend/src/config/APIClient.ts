@@ -55,7 +55,20 @@ export const AuthApi = {
         : (headers as Record<string, string>);
       // Try primary login endpoint first
       try {
-        const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
+        // Normalize URL for axiosInstance: if axiosInstance has a baseURL and
+        // the configured endpoint already includes that base, strip it so
+        // axios doesn't double-prefix (resulting in '/api/api/...').
+        const base = axiosInstance.defaults.baseURL || '';
+        let postUrl = url;
+        try {
+          if (base && postUrl.startsWith(base)) {
+            postUrl = postUrl.slice(base.length);
+          }
+        } catch (e) {
+          // if any error, fall back to original url
+          postUrl = url;
+        }
+        const response = await axiosInstance.post(postUrl, params as any, { headers: axiosHeaders });
         const data = response.data;
         return data as any;
       } catch (primaryErr: any) {
@@ -69,7 +82,7 @@ export const AuthApi = {
         if (status === 404 || status === 405) {
           // Construct alternate URL toggling `/api` segment
           let alternate = url;
-          if (url.includes('/api/')) {
+          if (url.includes('/api/')) {  
             alternate = url.replace('/api/', '/');
           } else {
             // insert /api before auth
