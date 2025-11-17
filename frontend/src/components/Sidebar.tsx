@@ -14,13 +14,14 @@ const ImageFixed = Image as any;
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { CornerUpRight, Undo2, Flag, FolderCheck } from 'lucide-react';
+import { CornerUpRight, Undo2, Flag, FolderCheck, RefreshCcw } from 'lucide-react';
 import { ChartBarIcon } from '@heroicons/react/outline';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
 const FolderCheckFixed = FolderCheck as any;
+const RefreshCcwFixed = RefreshCcw as any;
 const ChartBarIconFixed = ChartBarIcon as any;
 
 import { logoutUser } from '../store/thunks/authThunks';
@@ -162,7 +163,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { userRole, token, user } = useAuthSync();
-  const { loadType } = useInbox();
+  const { loadType, selectedType } = useInbox();
   const isMountedRef = useRef(false);
   const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // moved up so other handlers can read it
 
@@ -244,13 +245,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       forwardedCount: rawCounts?.forwardedCount || 0,
       returnedCount: rawCounts?.returnedCount || 0,
       redFlaggedCount: rawCounts?.redFlaggedCount || 0,
-      disposedCount: rawCounts?.disposedCount || 0,
+      reEnquiryCount: rawCounts?.reEnquiryCount || 0,
     }),
     [
       rawCounts?.forwardedCount,
       rawCounts?.returnedCount,
       rawCounts?.redFlaggedCount,
-      rawCounts?.disposedCount,
+      rawCounts?.reEnquiryCount,
     ]
   );
 
@@ -266,7 +267,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     if (
       !s.includes(' ') &&
       s === s.toLowerCase() &&
-      ['forwarded', 'returned', 'redflagged', 'disposed', 'reenquiry'].includes(s)
+      ['forwarded', 'returned', 'redflagged', 'reenquiry'].includes(s)
     ) {
       return `inbox-${s.replace(/\s+/g, '').toLowerCase()}`;
     }
@@ -623,7 +624,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     }
 
     // Ensure a few common fallbacks are present as valid inbox types
-    ['forwarded', 'returned', 'redflagged', 'disposed'].forEach(t => allowed.add(`inbox-${t}`));
+    ['forwarded', 'returned', 'redflagged', 'reenquiry'].forEach(t => allowed.add(`inbox-${t}`));
 
     if (!allowed.has(normalizedActive)) {
       const fallback = menuItems.length
@@ -834,11 +835,25 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           );
           if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
         }
+        // Final fallback: known static mappings for some inbox types
+        if (!customStatusIds) {
+          try {
+            const normalized = String(subItem).replace(/\s+/g, '').toLowerCase();
+            if (normalized === 'reenquiry') {
+              customStatusIds = [5];
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        }
       } catch (e) {
         /* ignore */
       }
 
-      void loadType(String(subItem), false, customStatusIds).catch(() => {});
+      // If user clicked the same inbox type that's already selected, force a reload
+      const forceReload =
+        !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
+      void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
       const targetBase = (cookieRole ?? userRole) === 'ADMIN' ? '/admin/userManagement' : '/inbox';
       const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
 
@@ -896,8 +911,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     () => <FlagFixed className='w-6 h-6 mr-2' aria-label='Red Flagged' />,
     []
   );
-  const disposedIcon = useMemo(
-    () => <FolderCheckFixed className='w-6 h-6 mr-2' aria-label='Disposed' />,
+  const reenquiryIcon = useMemo(
+    () => <RefreshCcwFixed className='w-6 h-6 mr-2' aria-label='Re Enquiry' />,
     []
   );
 
@@ -911,7 +926,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } catch (e) {}
     });
-    const fallbacks = ['forwarded', 'returned', 'redflagged', 'disposed'];
+    const fallbacks = ['forwarded', 'returned', 'redflagged', 'reenquiry'];
     if (set.size === 0) fallbacks.forEach(f => set.add(f));
     else fallbacks.forEach(f => set.add(f)); // ensure common types present
 
@@ -919,13 +934,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       forwarded: forwardedIcon,
       returned: returnedIcon,
       redflagged: redFlaggedIcon,
-      disposed: disposedIcon,
+      reenquiry: reenquiryIcon,
     };
     const countMap: Record<string, number> = {
       forwarded: applicationCounts?.forwardedCount || 0,
       returned: applicationCounts?.returnedCount || 0,
       redflagged: applicationCounts?.redFlaggedCount || 0,
-      disposed: applicationCounts?.disposedCount || 0,
+      reenquiry: applicationCounts?.reEnquiryCount || 0,
     };
     const labelFor = (n: string) =>
       n.toLowerCase() === 'redflagged' ? 'Red Flagged' : n.charAt(0).toUpperCase() + n.slice(1);
@@ -941,11 +956,11 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     forwardedIcon,
     returnedIcon,
     redFlaggedIcon,
-    disposedIcon,
+    reenquiryIcon,
     applicationCounts?.forwardedCount,
     applicationCounts?.returnedCount,
     applicationCounts?.redFlaggedCount,
-    applicationCounts?.disposedCount,
+    applicationCounts?.reEnquiryCount,
   ]);
 
   /* ----------------------------

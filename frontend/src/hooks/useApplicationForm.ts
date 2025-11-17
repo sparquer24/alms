@@ -19,6 +19,7 @@ export const useApplicationForm = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [applicantId, setApplicantId] = useState<string | null>(null);
+  const [applicantIdKey, setApplicantIdKey] = useState<'applicantId' | 'id' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
@@ -27,13 +28,16 @@ export const useApplicationForm = ({
 
   // Initialize applicant ID from URL and check if application exists before loading data
   useEffect(() => {
-    const urlApplicantId = searchParams?.get('applicantId') || searchParams?.get('id');
+    const applicantIdFromApplicantKey = searchParams?.get('applicantId');
+    const applicantIdFromIdKey = searchParams?.get('id');
+    const urlApplicantId = applicantIdFromApplicantKey || applicantIdFromIdKey;
     if (urlApplicantId) {
       setApplicantId(urlApplicantId);
+      // remember which key was used so we preserve it when navigating
+      setApplicantIdKey(applicantIdFromApplicantKey ? 'applicantId' : 'id');
 
       // First check if application exists before attempting to load data
       checkAndLoadExistingData(urlApplicantId);
-    } else {
     }
   }, [searchParams, formSection]);
 
@@ -45,7 +49,7 @@ export const useApplicationForm = ({
 
       // First, check if the application exists
       const response = await ApplicationService.getApplication(appId);
-      
+
       if (response.success && response.data) {
         // Application exists, now load the data
         await loadExistingData(appId);
@@ -72,7 +76,7 @@ export const useApplicationForm = ({
     try {
       setIsLoading(true);
       setSubmitError(null); // Clear any previous errors
-      
+
       const response = await ApplicationService.getApplication(appId);
       if (response.success && response.data) {
         // Extract section-specific data using the service method
@@ -83,7 +87,7 @@ export const useApplicationForm = ({
             const mergedData = { ...prev, ...sectionData };
             return mergedData;
           });
-          
+
           // Show success message for better UX
           setSubmitSuccess('Existing data loaded successfully');
           setTimeout(() => setSubmitSuccess(null), 3000); // Clear after 3 seconds
@@ -195,7 +199,8 @@ export const useApplicationForm = ({
   const navigateToNext = useCallback((nextRoute: string, currentApplicantId?: string) => {
     const idToUse = currentApplicantId || applicantId;
     if (idToUse) {
-      router.push(`${nextRoute}?id=${idToUse}`);
+      const key = applicantIdKey || 'id';
+      router.push(`${nextRoute}?${key}=${encodeURIComponent(idToUse)}`);
     } else {
       // If no applicant ID, just navigate without query param
       router.push(nextRoute);
@@ -206,9 +211,9 @@ export const useApplicationForm = ({
   const loadCompleteApplicationData = useCallback(async (appId: string) => {
     try {
       setIsLoading(true);
-      
+
       const response = await ApplicationService.getApplication(appId);
-      
+
       if (response.success && response.data) {
         return response.data;
       } else {

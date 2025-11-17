@@ -31,6 +31,12 @@ const BiometricInformation = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const applicantId = searchParams?.get('applicantId') || searchParams?.get('id') || null;
+  // Preserve the original query key used so we don't change `applicantId` -> `id` unexpectedly
+  const queryIdKey = searchParams?.get('applicantId')
+    ? 'applicantId'
+    : searchParams?.get('id')
+      ? 'id'
+      : 'id';
 
   const [form, setForm] = useState<BiometricForm>(initialState);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -257,12 +263,14 @@ const BiometricInformation = () => {
   const handleNext = async () => {
     if (!applicantId) return alert('Please save Personal Info first.');
     await uploadBiometricFiles(applicantId);
-    router.push(`${FORM_ROUTES.DOCUMENTS_UPLOAD}?id=${encodeURIComponent(applicantId)}`);
+    router.push(`${FORM_ROUTES.DOCUMENTS_UPLOAD}?${queryIdKey}=${encodeURIComponent(applicantId)}`);
   };
 
   const handlePrevious = () => {
     if (applicantId)
-      router.push(`${FORM_ROUTES.LICENSE_DETAILS}?id=${encodeURIComponent(applicantId)}`);
+      router.push(
+        `${FORM_ROUTES.LICENSE_DETAILS}?${queryIdKey}=${encodeURIComponent(applicantId)}`
+      );
     else router.back();
   };
 

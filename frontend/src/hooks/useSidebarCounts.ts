@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchApplicationCounts } from '../services/sidebarApiCalls';
 
 interface ApplicationCounts {
+    reEnquiryCount: number;
     forwardedCount: number;
     returnedCount: number;
     redFlaggedCount: number;
-    disposedCount: number;
 }
 
 export const useSidebarCounts = (enabled: boolean = true) => {
@@ -13,7 +13,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
         forwardedCount: 0,
         returnedCount: 0,
         redFlaggedCount: 0,
-        disposedCount: 0,
+        reEnquiryCount: 0,
     });
     const [loading, setLoading] = useState(false);
     const [lastFetch, setLastFetch] = useState<number>(0);
@@ -37,7 +37,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                 forwardedCount: counts.forwardedCount,
                 returnedCount: counts.returnedCount,
                 redFlaggedCount: counts.redFlaggedCount,
-                disposedCount: counts.disposedCount,
+                reEnquiryCount: counts.reEnquiryCount
             });
 
             setLastFetch(now);
@@ -65,7 +65,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                         forwardedCount: counts.forwardedCount,
                         returnedCount: counts.returnedCount,
                         redFlaggedCount: counts.redFlaggedCount,
-                        disposedCount: counts.disposedCount,
+                        reEnquiryCount: counts.reEnquiryCount,
                     });
                     setLastFetch(Date.now());
                 }
