@@ -82,7 +82,7 @@ export const AuthApi = {
         if (status === 404 || status === 405) {
           // Construct alternate URL toggling `/api` segment
           let alternate = url;
-          if (url.includes('/api/')) {  
+          if (url.includes('/api/')) {
             alternate = url.replace('/api/', '/');
           } else {
             // insert /api before auth
