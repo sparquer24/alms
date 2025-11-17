@@ -1,7 +1,11 @@
 // API Configuration
+// Use a relative API path by default so client calls route through the reverse proxy
+const rawApiBase = process.env.NEXT_PUBLIC_API_URL || '/api';
+const apiBase = rawApiBase.replace(/\/$/, '');
+
 export const apiConfig = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
-  
+  baseURL: apiBase,
+
   // Authentication endpoints
   auth: {
     login: '/auth/login',

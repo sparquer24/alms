@@ -4,15 +4,24 @@
  */
 
 // Base API URL
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Default to a relative API base so the frontend uses the reverse proxy in production
+const rawBase = process.env.NEXT_PUBLIC_API_URL || '/api';
+// Helper to join base and path without duplicating slashes or repeating 'api'
+const joinBase = (base: string, path: string) => {
+  const b = base.replace(/\/$/, '');
+  const p = path.replace(/^\//, '');
+  return `${b}/${p}`;
+};
+
+export const BASE_URL = rawBase.replace(/\/$/, '');
 
 // Authentication APIs
 export const AUTH_APIS = {
-  LOGIN: `${BASE_URL}/auth/login`,
-  GET_CURRENT_USER: `${BASE_URL}/auth/me`,
-  CHANGE_PASSWORD: `${BASE_URL}/auth/change-password`,
-  RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
-  REFRESH_TOKEN: `${BASE_URL}/auth/refresh-token`,
+  LOGIN: joinBase(BASE_URL, '/auth/login'),
+  GET_CURRENT_USER: joinBase(BASE_URL, '/auth/me'),
+  CHANGE_PASSWORD: joinBase(BASE_URL, '/auth/change-password'),
+  RESET_PASSWORD: joinBase(BASE_URL, '/auth/reset-password'),
+  REFRESH_TOKEN: joinBase(BASE_URL, '/auth/refresh-token'),
 };
 
 // Application Management APIs
