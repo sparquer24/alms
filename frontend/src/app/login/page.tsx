@@ -389,9 +389,9 @@ function LoginContent() {
             {passwordInput}
           </div>
 
-          {/* Forgot Password Link */}
+          {/* Forgot Password Link 
           <div className='flex items-center justify-between'>
-            <div className='text-sm'>{/* Placeholder for forgot password link */}</div>
+            <div className='text-sm'></div>
             <div className='text-sm'>
               <LinkFixed
                 href='/reset-password'
@@ -400,7 +400,7 @@ function LoginContent() {
                 Forgot your password?
               </LinkFixed>
             </div>
-          </div>
+          </div> */}
 
           {/* Submit Button */}
           <div>
