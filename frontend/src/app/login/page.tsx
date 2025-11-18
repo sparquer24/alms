@@ -51,7 +51,7 @@ const useLoginForm = () => {
   });
 
   const updateField = useCallback((field: keyof LoginFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => ({ ...prev, [field]: value.trim() }));
   }, []);
 
   const resetForm = useCallback(() => {
@@ -285,18 +285,35 @@ function LoginContent() {
             return candidate ? String(candidate).trim().toUpperCase() : undefined;
           };
           const normalizedRole = extractRole(result.user);
+          const isAdminLike =
+            normalizedRole &&
+            ['ADMIN', 'ADMINISTRATOR', 'SUPERADMIN'].includes(String(normalizedRole).toUpperCase());
           if (!normalizedRole) {
             dispatch(setError('No role assigned to your account.'));
             setIsRedirecting(false);
           } else {
+            // Compute role-based redirect and then navigate immediately so the
+            // user lands on the appropriate client route after login.
             const redirectPath = getRoleBasedRedirectPath(normalizedRole);
-            if (!redirectPath || typeof redirectPath !== 'string') {
-            }
             dispatch(setError(''));
             setIsRedirecting(true);
-            // We no longer navigate here. The login thunk will issue a full page
-            // reload after persisting cookies so the server middleware and
-            // initializeAuth flow can validate cookies and redirect.
+            // Prefer explicit admin route when role is ADMIN to ensure the
+            // user management screen is shown.
+            setTimeout(() => {
+              try {
+                if (isAdminLike) {
+                  window.location.assign('/admin/userManagement');
+                } else if (redirectPath && typeof redirectPath === 'string') {
+                  window.location.assign(redirectPath);
+                } else {
+                  // Fallback to inbox or root
+                  window.location.assign('/inbox?type=forwarded');
+                }
+              } catch (e) {
+                // As final fallback do a direct assign without try/catch
+                window.location.assign(isAdminLike ? '/admin/userManagement' : '/');
+              }
+            }, 50);
           }
         } else {
           dispatch(setError('No user found after login.'));
@@ -317,7 +334,7 @@ function LoginContent() {
         type='text'
         placeholder='Username or Email'
         value={formData.username}
-        onChange={value => updateField('username', value)}
+        onChange={value => updateField('username', value.toLocaleUpperCase())}
         disabled={isLoading}
         autoComplete='username'
         required

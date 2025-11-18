@@ -4,6 +4,7 @@ import { Sidebar } from "../../../components/Sidebar";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useAuthSync } from "../../../hooks/useAuthSync";
 import Papa from "papaparse";
+import * as XLSX from 'xlsx';
 import { fetchData, postData, putData, deleteData } from "../../../api/axiosConfig";
 
 // Types representing API user + transformed UI user
@@ -54,6 +55,7 @@ export default function UserManagementPage() {
 	const [roleFilter, setRoleFilter] = useState("");
 	const [showAddModal, setShowAddModal] = useState(false);
 	const [showBulkModal, setShowBulkModal] = useState(false);
+	const [downloadLoading, setDownloadLoading] = useState(false);
 	const [addUser, setAddUser] = useState({
 		username: "",
 		password: "",
@@ -210,6 +212,48 @@ export default function UserManagementPage() {
 		await loadUsers();
 	};
 
+	const handleDownloadAll = async () => {
+		setDownloadLoading(true);
+		setError("");
+		try {
+			// Fetch full user list (ignore current roleFilter to get all users)
+			const data = await fetchData('/users', {});
+			const list: ApiUser[] = Array.isArray(data) ? data : data?.data || data?.users || [];
+
+			const rows = list.map(u => ({
+				id: u.id,
+				username: u.username,
+				role: (u.role && (u.role.code ?? (typeof u.role === 'string' ? u.role : ''))) || (u as any).roleCode || '',
+				roleName: u.role?.name || '',
+				email: u.email || '',
+				phoneNo: (u as any).phoneNo || (u as any).phone || '',
+				createdAt: (u as any).createdAt || (u as any).created_at || '',
+				updatedAt: (u as any).updatedAt || (u as any).updated_at || '',
+			}));
+
+			// Build worksheet and workbook using SheetJS (xlsx)
+			const worksheet = XLSX.utils.json_to_sheet(rows);
+			const workbook = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+
+			// Write workbook to binary array and trigger download
+			const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+			const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `alms-users-${new Date().toISOString().slice(0,10)}.xlsx`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		} catch (e: any) {
+			setError(e?.message || 'Failed to download users');
+		} finally {
+			setDownloadLoading(false);
+		}
+	};
+
 	const openEdit = (u: UiUser) => {
 		setEditUser({ ...u });
 		setActionMessage("");
@@ -289,6 +333,16 @@ export default function UserManagementPage() {
 								</div>
 								<div className="flex gap-3">
 									<button
+										onClick={handleDownloadAll}
+										disabled={downloadLoading}
+										className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:opacity-50"
+									>
+										<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h4v6a2 2 0 002 2h6a2 2 0 002-2v-6h4M12 3v13" />
+										</svg>
+										<span>{downloadLoading ? 'Preparing…' : 'Download Excel'}</span>
+									</button>
+									<button
 										onClick={() => setShowAddModal(true)}
 										className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
 									>
@@ -336,15 +390,17 @@ export default function UserManagementPage() {
 								</span>
 							</div>
 						</div>
-						<div className="overflow-x-auto">
-							<table className="w-full">
-								<thead className="bg-slate-50 border-b border-slate-200">
+							<div className="overflow-x-auto">
+								{/* Keep table header fixed while rows scroll - wrap table in a scrollable container */}
+								<div className="max-h-[60vh] overflow-y-auto">
+								<table className="w-full table-fixed">
+										<thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
 									<tr>
 										<th className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-12">#</th>
 										<th className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
 										<th className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
 										<th className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
-										<th className="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">Actions</th>
+										<th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Actions</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-slate-200">
@@ -402,8 +458,8 @@ export default function UserManagementPage() {
 													</div>}
 												</div>
 											</td>
-											<td className="py-4 px-4">
-												<div className="flex gap-2">
+											<td className="py-4 px-4 w-36">
+												<div className="flex gap-2 justify-end">
 													<button
 														onClick={() => openDetails(u)}
 														className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white w-9 h-9 text-slate-600 hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors"
@@ -436,7 +492,8 @@ export default function UserManagementPage() {
 										</tr>
 									))}
 								</tbody>
-							</table>
+								</table>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -787,31 +844,31 @@ export default function UserManagementPage() {
 				</div>
 			)}
 
-			{/* Delete Confirmation */}
-			{deleteTarget && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-					<div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
-					<div className="relative w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-						<div className="flex items-center gap-3 mb-4">
-							<div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-								<svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-								</svg>
-							</div>
-							<div>
-								<h2 className="text-lg font-semibold text-slate-800">Delete User</h2>
-								<p className="text-sm text-slate-600">This action cannot be undone</p>
-							</div>
+		{/* Delete Confirmation */}
+		{deleteTarget && (
+			<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+				<div className="relative w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+					<div className="flex items-center gap-3 mb-4">
+						<div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+							<svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+							</svg>
 						</div>
-						<p className="text-sm text-slate-700 mb-4">Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteTarget.username}</span>? All associated data will be permanently removed.</p>
-						{actionMessage && <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700 mb-4">{actionMessage}</div>}
-						<div className="flex justify-end gap-3">
-							<button disabled={editLoading} onClick={() => setDeleteTarget(null)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50">Cancel</button>
-							<button disabled={editLoading} onClick={doDelete} className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50">{editLoading ? 'Deleting...' : 'Delete User'}</button>
+						<div>
+							<h2 className="text-lg font-semibold text-slate-800">Delete User</h2>
+							<p className="text-sm text-slate-600">This action cannot be undone</p>
 						</div>
 					</div>
+					<p className="text-sm text-slate-700 mb-4">Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteTarget.username}</span>? All associated data will be permanently removed.</p>
+					{actionMessage && <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700 mb-4">{actionMessage}</div>}
+					<div className="flex justify-end gap-3">
+						<button disabled={editLoading} onClick={() => setDeleteTarget(null)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+						<button disabled={editLoading} onClick={doDelete} className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50">{editLoading ? 'Deleting...' : 'Delete User'}</button>
+					</div>
 				</div>
-			)}
+			</div>
+		)}
 		</div>
 	);
 }
