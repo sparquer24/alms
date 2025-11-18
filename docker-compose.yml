@@ -54,16 +54,34 @@ services:
     container_name: alms-nginx
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
     depends_on:
       - frontend
       - backend
+      - certbot
+    networks:
+      - alms-net
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: alms-certbot
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: /bin/sh
+    # Generates a short-lived self-signed cert if real one missing, then enters renewal loop.
+    command: -c "if [ ! -f /etc/letsencrypt/live/dev.alms.sparquer.com/fullchain.pem ]; then echo 'Generating temporary self-signed certificate'; mkdir -p /etc/letsencrypt/live/dev.alms.sparquer.com; openssl req -x509 -nodes -newkey rsa:2048 -days 1 -keyout /etc/letsencrypt/live/dev.alms.sparquer.com/privkey.pem -out /etc/letsencrypt/live/dev.alms.sparquer.com/fullchain.pem -subj '/CN=dev.alms.sparquer.com'; fi; trap exit TERM; while :; do certbot certonly --webroot -w /var/www/certbot -d dev.alms.sparquer.com --email you@example.com --agree-tos --no-eff-email --rsa-key-size 4096 --non-interactive || true; sleep 12h; done"
     networks:
       - alms-net
 
 volumes:
   pgdata:
+  letsencrypt:
+  certbot-www:
 
 networks:
   alms-net:
