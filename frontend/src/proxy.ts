@@ -169,7 +169,11 @@ export function proxy(request: NextRequest) {
   if (!userRole) {
     const roleCookie = request.cookies.get('role')?.value;
     if (roleCookie) {
-      userRole = roleCookie.toUpperCase();
+      try {
+        userRole = String(roleCookie).replace(/"/g, '').trim().toUpperCase();
+      } catch (e) {
+        userRole = String(roleCookie).toUpperCase();
+      }
     }
   }
 

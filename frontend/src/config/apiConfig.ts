@@ -57,6 +57,7 @@ export const apiConfig = {
 export const buildApiUrl = (endpoint: string): string => {
   const baseUrl = apiConfig.baseURL.replace(/\/$/, ''); // Remove trailing slash
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  console.info(`Building API URL: ${baseUrl}${cleanEndpoint}`);
   return `${baseUrl}${cleanEndpoint}`;
 };
 

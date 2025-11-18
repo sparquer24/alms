@@ -28,6 +28,9 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Prefix all routes with /api so every API endpoint is under /api
+  app.setGlobalPrefix('api');
+
   // Setup Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('ALMS API Documentation')
@@ -52,7 +55,8 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api-docs', app, document, {
+  // Serve Swagger UI under /api/api-docs to match global API prefix
+  SwaggerModule.setup('api/api-docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
       docExpansion: 'none',

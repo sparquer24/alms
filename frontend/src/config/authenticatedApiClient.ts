@@ -92,17 +92,42 @@ export class ApiClient {
   // the frontend origin instead of the backend.
   constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || BASE_URL) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
+    // Log chosen base URL for runtime debugging (does not include token)
+    try {
+      // Be mindful: do not print tokens or sensitive headers
+      console.info(`[ApiClient] initialized with baseUrl=${this.baseUrl}`);
+    } catch (e) {
+      // ignore logging errors in non-browser environments
+    }
   }
 
   private buildUrl(endpoint: string) {
-    if (!endpoint.startsWith('http')) return `${this.baseUrl}${endpoint}`;
-    return endpoint;
+    // If endpoint is absolute, use it directly
+    if (endpoint.startsWith('http')) return endpoint;
+
+    // Normalize base and endpoint to avoid double slashes or duplicated '/api'
+    const base = this.baseUrl.replace(/\/$/, '');
+
+    // If both base and endpoint include the '/api' prefix (e.g. base endsWith '/api' and endpoint startsWith '/api')
+    // then strip the leading '/api' from the endpoint so we don't end up with '/api/api/...'
+    if (base.endsWith('/api') && endpoint.startsWith('/api')) {
+      const fixed = `${base}${endpoint.slice(4)}`; // remove the leading '/api' from endpoint
+      try { console.info(`[ApiClient] normalized endpoint from ${endpoint} to ${fixed}`); } catch (e) { }
+      return fixed;
+    }
+
+    // If endpoint begins with a '/', just concatenate (base already has no trailing slash)
+    if (endpoint.startsWith('/')) return `${base}${endpoint}`;
+
+    // Otherwise insert a slash between base and endpoint
+    return `${base}/${endpoint}`;
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     try {
       await ensureAuthHeader();
       const url = this.buildUrl(endpoint);
+      try { console.info(`[ApiClient] GET ${url}`, params || {}); } catch (e) { }
       const data = await fetchData(url, params || {});
       return data as T;
     } catch (error: any) {
@@ -120,6 +145,7 @@ export class ApiClient {
     try {
       await ensureAuthHeader();
       const url = this.buildUrl(endpoint);
+      try { console.info(`[ApiClient] POST ${url}`, data); } catch (e) { }
       const res = await postData(url, data);
       return res as T;
     } catch (error: any) {
@@ -136,6 +162,7 @@ export class ApiClient {
     try {
       await ensureAuthHeader();
       const url = this.buildUrl(endpoint);
+      try { console.info(`[ApiClient] PUT ${url}`, data); } catch (e) { }
       const res = await putData(url, data);
       return res as T;
     } catch (error: any) {
@@ -152,6 +179,7 @@ export class ApiClient {
     try {
       await ensureAuthHeader();
       const url = this.buildUrl(endpoint);
+      try { console.info(`[ApiClient] DELETE ${url}`); } catch (e) { }
       const res = await deleteData(url);
       return res as T;
     } catch (error: any) {
@@ -168,6 +196,7 @@ export class ApiClient {
     try {
       await ensureAuthHeader();
       const url = this.buildUrl(endpoint);
+      try { console.info(`[ApiClient] UPLOAD ${url}`, { size: formData?.getAll ? formData.getAll('file')?.length : undefined }); } catch (e) { }
       // use axiosInstance directly for multipart
       const response = await axiosInstance.post(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
