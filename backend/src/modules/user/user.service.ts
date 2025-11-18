@@ -9,6 +9,11 @@ export interface CreateUserInput {
   password?: string;
   phoneNo?: string;
   roleId?: number;
+  policeStationId?: number;
+  stateId?: number;
+  districtId?: number;
+  zoneId?: number;
+  divisionId?: number;
 }
 
 function validateCreateUserInput(data: any): asserts data is Required<CreateUserInput> {
@@ -88,6 +93,12 @@ export class UserService {
         password: hashedPassword,
         phoneNo: data.phoneNo,
         roleId: Number(data.roleId),
+        policeStationId: data.policeStationId,
+        stateId: data.stateId,
+        districtId: data.districtId,
+        zoneId: data.zoneId,
+        divisionId: data.divisionId,
+        
       },
     });
   }
