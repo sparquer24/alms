@@ -1,6 +1,8 @@
 import { Controller, Post, Body, HttpException, HttpStatus, Get, Query, Param, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { UserService } from './user.service';
+import { stat } from 'fs';
+import { CreateUsersDto } from './dto/create-users.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -13,34 +15,21 @@ export class UserController {
     description: 'Create a new user in the system' 
   })
   @ApiBody({
-    description: 'User creation data',
-    examples: {
-      'DCP User': {
-        value: {
-          username: 'new_dcp_user',
-          email: 'dcp@example.com',
-          password: 'securePassword123',
-          role: 'DCP'
-        }
-      },
-      'Applicant': {
-        value: {
-          username: 'new_applicant',
-          email: 'applicant@example.com',
-          password: 'securePassword123',
-          role: 'APPLICANT'
-        }
-      }
-    }
+    type: CreateUsersDto,
   })
-  @ApiResponse({ 
+ @ApiResponse({ 
     status: 201, 
     description: 'User created successfully',
     example: {
       id: '123',
       username: 'new_dcp_user',
       email: 'dcp@example.com',
-      role: 'DCP',
+      roleId: 1,
+      policeStationId: 1 ,
+      stateId: 1,
+      distictId: 1,
+      zoneId: 1,
+      divisionId: 1,
       createdAt: '2025-08-20T12:00:00.000Z'
     }
   })
