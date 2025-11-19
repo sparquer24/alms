@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         NODE_ENV: production
+        BACKEND_PORT: ${BACKEND_PORT}
     container_name: pre-alms-backend
     env_file:
       - ./.env
