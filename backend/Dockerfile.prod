@@ -22,13 +22,15 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Add a build argument for APP_ENV
+# Add build arguments
 ARG APP_ENV=production
-ENV APP_ENV=$APP_ENV
-
-# Add a build argument for NODE_ENV
 ARG NODE_ENV=production
+ARG BACKEND_PORT
+
+# Set environment variables
+ENV APP_ENV=$APP_ENV
 ENV NODE_ENV=$NODE_ENV
+ENV PORT=$BACKEND_PORT
 
 # Keep package metadata (node_modules will be copied from builder)
 COPY package*.json ./
@@ -38,5 +40,4 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 
-# EXPOSE 3000
 CMD ["node", "dist/main.js"]
