@@ -21,7 +21,10 @@ RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
+
+# Add a build argument for NODE_ENV
+ARG NODE_ENV=$NODE_ENV
+ENV NODE_ENV=$NODE_ENV
 
 # Keep package metadata (node_modules will be copied from builder)
 COPY package*.json ./
@@ -31,5 +34,5 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 
-EXPOSE 3000
+# EXPOSE 3000
 CMD ["node", "dist/main.js"]
