@@ -40,8 +40,7 @@ services:
     image: nginx:stable-alpine
     container_name: pre-alms-nginx
     ports:
-      - "8080:80"   # host 8080 → container 80
-      - "8443:443"  # host 8443 → container 443
+      - "8080:80"
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
     environment:
