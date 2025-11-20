@@ -51,10 +51,11 @@ http {
         }
 
         # -------------------------
-        # BACKEND API
+        # BACKEND API - Strip /api prefix
         # -------------------------
-        location /api {
-            proxy_pass http://backend;
+        location /api/ {
+            # Trailing slash strips /api and forwards rest to backend
+            proxy_pass http://backend/;
             proxy_http_version 1.1;
 
             proxy_set_header Upgrade $http_upgrade;
