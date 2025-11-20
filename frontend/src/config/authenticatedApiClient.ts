@@ -84,18 +84,15 @@ async function ensureAuthHeader() {
  * Enhanced API client with automatic authentication
  */
 export class ApiClient {
-  private baseUrl: string;
-
-  // Use explicit BASE_URL fallback so the client targets the backend when
-  // NEXT_PUBLIC_API_URL is not provided. Previously the fallback was an empty
-  // string which caused endpoints like '/auth/getMe' to be requested against
-  // the frontend origin instead of the backend.
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || BASE_URL) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
+  // No need to store baseUrl - axiosInstance already has it configured
+  constructor() {
+    // Constructor kept for backward compatibility but doesn't need to do anything
+    // since axiosInstance (from axiosConfig) already has baseURL set
   }
 
   private buildUrl(endpoint: string) {
-    if (!endpoint.startsWith('http')) return `${this.baseUrl}${endpoint}`;
+    // Don't prepend baseUrl - axiosInstance already handles it
+    // Just return the endpoint as-is
     return endpoint;
   }
 
@@ -184,8 +181,8 @@ export class ApiClient {
   }
 }
 
-// Export singleton instance
-export const apiClient = new ApiClient(process.env.NEXT_PUBLIC_API_URL || BASE_URL);
+// Export singleton instance (no baseUrl needed - axiosInstance has it)
+export const apiClient = new ApiClient();
 
 // Export utility functions
 export { getAuthToken, isAuthenticated, redirectToLogin };
