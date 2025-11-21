@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { locationAPI, toSelectOptions } from '@/api/locationApi';
 
 const roles = ['Admin', 'User', 'Manager'];
 
@@ -11,6 +12,11 @@ const CreateUserPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(roles[0]);
+  const [policeStationId, setPoliceStationId] = useState('');
+  const [stateId, setStateId] = useState('');
+  const [districtId, setDistrictId] = useState('');
+  const [zoneId, setZoneId] = useState('');
+  const [divisionId, setDivisionId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
@@ -24,7 +30,7 @@ const CreateUserPage: React.FC = () => {
       const response = await fetch('/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, phone, password, role }),
+        body: JSON.stringify({ username, email, phone, password, role, policeStationId, stateId, districtId, zoneId, divisionId}),
       });
 
       if (!response.ok) {

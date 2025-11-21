@@ -7,6 +7,11 @@ interface User {
   username: string;
   email: string;
   role: string;
+  policeStationId?: number;
+  stateId?: number;
+  districtId?: number;
+  zoneId?: number;
+  divisionId?: number;
   status: string;
 }
 
@@ -93,6 +98,11 @@ const UserListPage: React.FC = () => {
             <th className="border p-2">Role</th>
             <th className="border p-2">Status</th>
             <th className="border p-2">Actions</th>
+            <th className="border p-2">State</th>
+            <th className="border p-2">District</th>
+            <th className="border p-2">Police Station</th>
+            <th className="border p-2">Zone</th>
+            <th className="border p-2">Division</th>
           </tr>
         </thead>
         <tbody>
@@ -102,6 +112,11 @@ const UserListPage: React.FC = () => {
               <td className="border p-2">{user.email}</td>
               <td className="border p-2">{user.role}</td>
               <td className="border p-2">{user.status}</td>
+              <td className="border p-2">{user.stateId || "N/A"}</td>
+              <td className="border p-2">{user.districtId || "N/A"}</td>
+              <td className="border p-2">{user.policeStationId || "N/A"}</td>
+              <td className="border p-2">{user.zoneId || "N/A"}</td>
+              <td className="border p-2">{user.divisionId || "N/A"}</td>
               <td className="border p-2 space-x-2">
                 <button
                   onClick={() => router.push(`/admin/users/${user.id}/edit`)}
