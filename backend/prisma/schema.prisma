@@ -100,6 +100,7 @@ model Roles {
   workflowHistoryPrevious    FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   rolesActionsMapping        RolesActionsMapping[]
   users                      Users[]
+  currentRoleFlowMappings    RoleFlowMapping[]                               @relation("CurrentRole")
 }
 
 model RolesActionsMapping {
@@ -113,6 +114,19 @@ model RolesActionsMapping {
   role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, actionId])
+}
+
+model RoleFlowMapping {
+  id           Int     @id @default(autoincrement())
+  currentRoleId Int
+  nextRoleIds  Int[]
+  updatedBy    Int?
+  updatedAt    DateTime @updatedAt @default(now())
+  createdAt    DateTime @default(now())
+  currentRole  Roles   @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
+  updatedByUser Users?  @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@unique([currentRoleId])
 }
 
 model WeaponTypeMaster {
@@ -145,6 +159,7 @@ model Users {
   previousApplications    FreshLicenseApplicationPersonalDetails[]        @relation("PreviousApplicationOwner")
   workflowHistoryNext     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
   workflowHistoryPrevious FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
+  flowMappingUpdates      RoleFlowMapping[]                               @relation()
   district                Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
   policeStation           PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
