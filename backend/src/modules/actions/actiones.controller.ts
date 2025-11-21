@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Delete } from "@nestjs/common";
+import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Delete, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags, ApiQuery, ApiBody, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
 import { RolesActionsMapping } from "@prisma/client";
@@ -16,14 +16,26 @@ export class ActionesController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: "Get actions",
-    description: "Retrieve actions for the authenticated user (based on token).",
+    description: "Retrieve actions for the authenticated user (based on token). Optionally filter based on application status.",
+  })
+  @ApiQuery({ 
+    name: 'applicationId', 
+    required: false, 
+    type: Number, 
+    description: 'Optional applicationId to filter actions based on application status (excludes APPROVED action if already approved, REJECT action if already rejected)' 
   })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
-  async getActiones(@Request() req: any): Promise<Actiones[]> {
+  async getActiones(
+    @Request() req: any,
+    @Query('applicationId') applicationId?: string
+  ): Promise<Actiones[]> {
     // JwtAuthGuard guarantees request.user is set to decoded token if valid
     const tokenUserId = req.user && (req.user as any).sub ? (req.user as any).sub : undefined;
 
-    return this.actionesService.getActiones(tokenUserId as number | undefined);
+     return this.actionesService.getActiones(
+      tokenUserId as number | undefined,
+      applicationId ? Number(applicationId) : undefined
+    );
   }
 
   @Post("RolesActionsMapping")
@@ -37,10 +49,8 @@ export class ActionesController {
       "New Action": {
         summary: "A new action entry",
         value: {
-          id: 1,
-          name: "Example Action",
-          description: "An example action description",
-          code: "EX_ACTION",
+          roleId: 1,
+          actionId: 1,
           isActive: true,
           createdAt: new Date(),
         }
@@ -51,9 +61,9 @@ export class ActionesController {
     status: 200,
     description: "Action created successfully",
   })
-  async createAction(@Body() actionData: Actiones): Promise<Actiones> {
+  async createAction(@Body() mappingData: RolesActionsMapping ) {
     try{
-      return this.actionesService.createAction(actionData);
+      return this.actionesService.createAction(mappingData);
     }
     catch(error){
       throw error;
@@ -86,7 +96,7 @@ export class ActionesController {
   })
   async updateAction(@Param('id') id : number, @Body() mappingData: RolesActionsMapping ) {
    try {
-      return (this.actionesService as any).updateAction(Number(id), mappingData);
+      return this.actionesService.updateAction(Number(id), mappingData);
     } catch (error) {
       throw error;
     }
@@ -115,7 +125,7 @@ export class ActionesController {
   })
   async deleteActionMapping(@Param('id') id: number) {
     try {
-      return (this.actionesService as any).deleteActionMapping(Number(id));
+      return this.actionesService.deleteActionMapping(Number(id));
     } catch (error) {
       throw error;
     }
