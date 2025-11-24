@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 
 @Injectable()
@@ -22,6 +22,69 @@ export class LocationsService {
       });
     } catch (error) {
       console.error('Error in getStates:', error);
+      throw error;
+    }
+  }
+
+  // Create a new state
+  async createState(stateData: { name: string }) {
+    try {
+      const name = stateData.name?.trim();
+      if (!name) {
+        throw new HttpException('State name is required', HttpStatus.BAD_REQUEST);
+      }
+
+      // Check for existing by name
+      const existing = await prisma.states.findFirst({ where: { name } });
+      if (existing) {
+        throw new HttpException('State already exists', HttpStatus.CONFLICT);
+      }
+
+      const created = await prisma.states.create({ data: { name } });
+      return created;
+    } catch (error) {
+      console.error('Error in createState:', error);
+      throw error;
+    }
+  }
+
+  // Update an existing state
+  async updateState(id: number, data: { name?: string }) {
+    try {
+      const existing = await prisma.states.findUnique({ where: { id } });
+      if (!existing) {
+        throw new HttpException('State not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (data.name) {
+        const name = data.name.trim();
+        // Check for name conflict with other records
+        const conflict = await prisma.states.findFirst({ where: { name, NOT: { id } } });
+        if (conflict) {
+          throw new HttpException('State name already in use', HttpStatus.CONFLICT);
+        }
+      }
+
+      const updated = await prisma.states.update({ where: { id }, data });
+      return updated;
+    } catch (error) {
+      console.error('Error in updateState:', error);
+      throw error;
+    }
+  }
+
+  // Delete a state by id
+  async deleteState(id: number) {
+    try {
+      const existing = await prisma.states.findUnique({ where: { id } });
+      if (!existing) {
+        throw new HttpException('State not found', HttpStatus.NOT_FOUND);
+      }
+      // Delete will cascade to dependent records as per schema cascades
+      const deleted = await prisma.states.delete({ where: { id } });
+      return deleted;
+    } catch (error) {
+      console.error('Error in deleteState:', error);
       throw error;
     }
   }
