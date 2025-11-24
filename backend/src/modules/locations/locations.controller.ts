@@ -1,5 +1,5 @@
-import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Query, HttpException, HttpStatus, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiParam } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
 
 @ApiTags('Locations')
@@ -79,6 +79,90 @@ export class LocationsController {
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
+    }
+  }
+
+  // Create State API - POST /locations/states
+  @Post('states')
+  @ApiOperation({
+    summary: 'Create States',
+    description: 'Create a new state entry'
+  })
+  @ApiBody({
+    description: 'State creation data',
+    examples: {
+      'New State': {
+        summary: 'A new state entry',
+        value: {
+          name: 'Telengana'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 201, description: 'State created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 409, description: 'State already exists' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async createState(@Body() stateData: any) {
+    try {
+      if (!stateData || !stateData.name) {
+        throw new HttpException({ success: false, message: 'State name is required' }, HttpStatus.BAD_REQUEST);
+      }
+      const created = await this.locationsService.createState(stateData);
+      return {
+        success: true,
+        message: 'State created successfully',
+        data: created
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create state', error: error.message },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  // Update State - PATCH /locations/states/:id
+  @Patch('states/:id')
+  @ApiOperation({ summary: 'Update State', description: 'Update an existing state by ID' })
+  @ApiParam({ name: 'id', description: 'State ID', example: '1' })
+  @ApiResponse({ status: 200, description: 'State updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or ID' })
+  @ApiResponse({ status: 404, description: 'State not found' })
+  @ApiResponse({ status: 409, description: 'State name conflict' })
+  async updateState(@Param('id') id: string, @Body() stateData: any) {
+    try {
+      const stateId = id ? parseInt(id, 10) : undefined;
+      if (!stateId || isNaN(stateId)) {
+        throw new HttpException({ success: false, message: 'Invalid state ID' }, HttpStatus.BAD_REQUEST);
+      }
+      const updated = await this.locationsService.updateState(stateId, stateData);
+      return { success: true, message: 'State updated successfully', data: updated };
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException({ success: false, message: error.message || 'Failed to update state', error: error.message }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Delete State - DELETE /locations/states/:id
+  @Delete('states/:id')
+  @ApiOperation({ summary: 'Delete State', description: 'Delete a state by ID' })
+  @ApiParam({ name: 'id', description: 'State ID', example: '1' })
+  @ApiResponse({ status: 200, description: 'State deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid ID' })
+  @ApiResponse({ status: 404, description: 'State not found' })
+  async deleteState(@Param('id') id: string) {
+    try {
+      const stateId = id ? parseInt(id, 10) : undefined;
+      if (!stateId || isNaN(stateId)) {
+        throw new HttpException({ success: false, message: 'Invalid state ID' }, HttpStatus.BAD_REQUEST);
+      }
+      const deleted = await this.locationsService.deleteState(stateId);
+      return { success: true, message: 'State deleted successfully', data: deleted };
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException({ success: false, message: error.message || 'Failed to delete state', error: error.message }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
