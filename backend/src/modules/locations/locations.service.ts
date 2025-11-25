@@ -3,7 +3,7 @@ import prisma from '../../db/prismaClient';
 
 @Injectable()
 export class LocationsService {
-  
+
   // States API - Single endpoint for all or specific state
   async getStates(id?: number) {
     try {
@@ -315,6 +315,214 @@ export class LocationsService {
     } catch (error) {
       console.error('Error in getLocationHierarchy:', error);
       throw error;
+    }
+  }
+
+  /* ===== CREATE METHODS ===== */
+
+  async createState(name: string) {
+    try {
+      return await prisma.states.create({
+        data: {
+          name: name.trim(),
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in createState:', error);
+      throw new Error(error.message || 'Failed to create state');
+    }
+  }
+
+  async createDistrict(stateId: number, name: string) {
+    try {
+      return await prisma.districts.create({
+        data: {
+          name: name.trim(),
+          stateId,
+        },
+        include: { state: true },
+      });
+    } catch (error: any) {
+      console.error('Error in createDistrict:', error);
+      throw new Error(error.message || 'Failed to create district');
+    }
+  }
+
+  async createZone(districtId: number, name: string) {
+    try {
+      return await prisma.zones.create({
+        data: {
+          name: name.trim(),
+          districtId,
+        },
+        include: { district: { include: { state: true } } },
+      });
+    } catch (error: any) {
+      console.error('Error in createZone:', error);
+      throw new Error(error.message || 'Failed to create zone');
+    }
+  }
+
+  async createDivision(zoneId: number, name: string) {
+    try {
+      return await prisma.divisions.create({
+        data: {
+          name: name.trim(),
+          zoneId,
+        },
+        include: { zone: { include: { district: { include: { state: true } } } } },
+      });
+    } catch (error: any) {
+      console.error('Error in createDivision:', error);
+      throw new Error(error.message || 'Failed to create division');
+    }
+  }
+
+  async createPoliceStation(divisionId: number, name: string) {
+    try {
+      return await prisma.policeStations.create({
+        data: {
+          name: name.trim(),
+          divisionId,
+        },
+        include: { division: { include: { zone: { include: { district: { include: { state: true } } } } } } },
+      });
+    } catch (error: any) {
+      console.error('Error in createPoliceStation:', error);
+      throw new Error(error.message || 'Failed to create police station');
+    }
+  }
+
+  /* ===== UPDATE METHODS ===== */
+
+  async updateState(id: number, name: string) {
+    try {
+      return await prisma.states.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+        },
+      });
+    } catch (error: any) {
+      console.error('Error in updateState:', error);
+      throw new Error(error.message || 'Failed to update state');
+    }
+  }
+
+  async updateDistrict(id: number, name: string) {
+    try {
+      return await prisma.districts.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+        },
+        include: { state: true },
+      });
+    } catch (error: any) {
+      console.error('Error in updateDistrict:', error);
+      throw new Error(error.message || 'Failed to update district');
+    }
+  }
+
+  async updateZone(id: number, name: string) {
+    try {
+      return await prisma.zones.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+        },
+        include: { district: { include: { state: true } } },
+      });
+    } catch (error: any) {
+      console.error('Error in updateZone:', error);
+      throw new Error(error.message || 'Failed to update zone');
+    }
+  }
+
+  async updateDivision(id: number, name: string) {
+    try {
+      return await prisma.divisions.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+        },
+        include: { zone: { include: { district: { include: { state: true } } } } },
+      });
+    } catch (error: any) {
+      console.error('Error in updateDivision:', error);
+      throw new Error(error.message || 'Failed to update division');
+    }
+  }
+
+  async updatePoliceStation(id: number, name: string) {
+    try {
+      return await prisma.policeStations.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+        },
+        include: { division: { include: { zone: { include: { district: { include: { state: true } } } } } } },
+      });
+    } catch (error: any) {
+      console.error('Error in updatePoliceStation:', error);
+      throw new Error(error.message || 'Failed to update police station');
+    }
+  }
+
+  /* ===== DELETE METHODS ===== */
+
+  async deleteState(id: number) {
+    try {
+      return await prisma.states.delete({
+        where: { id },
+      });
+    } catch (error: any) {
+      console.error('Error in deleteState:', error);
+      throw new Error(error.message || 'Failed to delete state');
+    }
+  }
+
+  async deleteDistrict(id: number) {
+    try {
+      return await prisma.districts.delete({
+        where: { id },
+      });
+    } catch (error: any) {
+      console.error('Error in deleteDistrict:', error);
+      throw new Error(error.message || 'Failed to delete district');
+    }
+  }
+
+  async deleteZone(id: number) {
+    try {
+      return await prisma.zones.delete({
+        where: { id },
+      });
+    } catch (error: any) {
+      console.error('Error in deleteZone:', error);
+      throw new Error(error.message || 'Failed to delete zone');
+    }
+  }
+
+  async deleteDivision(id: number) {
+    try {
+      return await prisma.divisions.delete({
+        where: { id },
+      });
+    } catch (error: any) {
+      console.error('Error in deleteDivision:', error);
+      throw new Error(error.message || 'Failed to delete division');
+    }
+  }
+
+  async deletePoliceStation(id: number) {
+    try {
+      return await prisma.policeStations.delete({
+        where: { id },
+      });
+    } catch (error: any) {
+      console.error('Error in deletePoliceStation:', error);
+      throw new Error(error.message || 'Failed to delete police station');
     }
   }
 }

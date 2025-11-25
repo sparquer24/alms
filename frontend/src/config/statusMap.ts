@@ -23,9 +23,8 @@ export type StatusIdMap = Partial<Record<StatusKey, number[]>>;
 // Synchronized with STATUS_MAP from sidebarApiCalls.ts
 export const statusIdMap: StatusIdMap = {
   forwarded: [1, 9, 3, 11],     // FORWARD + INITIATE (keep all ids in forward including freshform)
-  pending: [1, 9],       // Same as forward for now
-  sent: [11, 1, 9],      // RECOMMEND
-  returned: [2, 15],         // REJECT (treated as returned)
+  sent: [],      // RECOMMEND
+  returned: [2, 13],         // REJECT (treated as returned)
   redflagged: [8],       // RED_FLAG
   disposed: [7],         // DISPOSE
   approved: [11, 3],     // RECOMMEND + APPROVED
@@ -35,5 +34,5 @@ export const statusIdMap: StatusIdMap = {
   cancelled: [4],        // CANCEL
   reEnquiry: [5],        // RE_ENQUIRY
   groundReport: [6],     // GROUND_REPORT          // DRAFT
-  drafts: [13],          // DRAFTS (alias for draft)
+  drafts: [12],          // DRAFTS (alias for draft)
 };

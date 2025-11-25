@@ -39,7 +39,7 @@ async function main() {
           name: status.name,
           description: status.description,
           isActive: true,
-          isStarted: status.isStarted,
+          isStarted: false,
         },
       });
     }
@@ -68,7 +68,7 @@ async function main() {
   const roles = [
     { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'reports'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
     { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
     { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
@@ -430,6 +430,7 @@ async function main() {
 
   // Create location-based users with proper hierarchy mapping
   const locationUsers: any[] = [];
+  let phoneCounter = 1000; // Counter to ensure unique phone numbers
 
   // Zone-level users (DCP role)
   const zonesForUsers = await prisma.zones.findMany();
@@ -439,7 +440,7 @@ async function main() {
       username: `DCP_${zoneShortForm}_HYD`,
       email: `dcp-${zone.name.toLowerCase().replace(/\s+/g, '-')}@tspolice.gov.in`,
       password: 'password',
-      phoneNo: `871266${String(zone.id).padStart(4, '0')}`, // Dynamic phone numbers
+      phoneNo: `8712661${String(phoneCounter++).padStart(5, '0')}`, // Unique phone numbers
       role: 'DCP',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
@@ -455,7 +456,7 @@ async function main() {
       username: `ACP_${divisionShortForm}_HYD`,
       email: `acp-${division.name.toLowerCase().replace(/\s+/g, '-')}@tspolice.gov.in`,
       password: 'password',
-      phoneNo: `872266${String(division.id).padStart(4, '0')}`, // Dynamic phone numbers
+      phoneNo: `8712662${String(phoneCounter++).padStart(5, '0')}`, // Unique phone numbers
       role: 'ACP',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
@@ -482,7 +483,7 @@ async function main() {
       username: `SHO_${psShortForm}_HYD`,
       email: `sho-${policeStation.name.toLowerCase().replace(/\s+/g, '-').replace('-ps', '')}@tspolice.gov.in`,
       password: 'password',
-      phoneNo: `873366${String(policeStation.id).padStart(4, '0')}`, // Dynamic phone numbers
+      phoneNo: `8712663${String(phoneCounter++).padStart(5, '0')}`, // Unique phone numbers
       role: 'SHO',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,

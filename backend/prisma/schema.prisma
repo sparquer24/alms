@@ -34,6 +34,8 @@ model Actiones {
 model States {
   id          Int                              @id @default(autoincrement())
   name        String                           @unique
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
   districts   Districts[]
   addresses   FLAFAddressesAndContactDetails[]
   occupations FLAFOccupationAndBusiness[]
@@ -44,6 +46,8 @@ model Districts {
   id          Int                              @id @default(autoincrement())
   name        String                           @unique
   stateId     Int
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
   state       States                           @relation(fields: [stateId], references: [id], onDelete: Cascade)
   addresses   FLAFAddressesAndContactDetails[]
   occupations FLAFOccupationAndBusiness[]
@@ -55,6 +59,8 @@ model Zones {
   id         Int                              @id @default(autoincrement())
   name       String                           @unique
   districtId Int
+  createdAt  DateTime                         @default(now())
+  updatedAt  DateTime                         @updatedAt
   divisions  Divisions[]
   addresses  FLAFAddressesAndContactDetails[]
   users      Users[]                          @relation("ZoneUsers")
@@ -65,6 +71,8 @@ model Divisions {
   id        Int                              @id @default(autoincrement())
   name      String                           @unique
   zoneId    Int
+  createdAt DateTime                         @default(now())
+  updatedAt DateTime                         @updatedAt
   zone      Zones                            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   addresses FLAFAddressesAndContactDetails[]
   stations  PoliceStations[]
@@ -75,6 +83,8 @@ model PoliceStations {
   id         Int                              @id @default(autoincrement())
   name       String                           @unique
   divisionId Int
+  createdAt  DateTime                         @default(now())
+  updatedAt  DateTime                         @updatedAt
   addresses  FLAFAddressesAndContactDetails[]
   division   Divisions                        @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   users      Users[]                          @relation("PoliceStationUsers")
@@ -100,6 +110,7 @@ model Roles {
   workflowHistoryPrevious    FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   rolesActionsMapping        RolesActionsMapping[]
   users                      Users[]
+  currentRoleFlowMappings    RoleFlowMapping[]                               @relation("CurrentRole")
 }
 
 model RolesActionsMapping {
@@ -113,6 +124,19 @@ model RolesActionsMapping {
   role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, actionId])
+}
+
+model RoleFlowMapping {
+  id           Int     @id @default(autoincrement())
+  currentRoleId Int
+  nextRoleIds  Int[]
+  updatedBy    Int?
+  updatedAt    DateTime @updatedAt @default(now())
+  createdAt    DateTime @default(now())
+  currentRole  Roles   @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
+  updatedByUser Users?  @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@unique([currentRoleId])
 }
 
 model WeaponTypeMaster {
@@ -145,6 +169,7 @@ model Users {
   previousApplications    FreshLicenseApplicationPersonalDetails[]        @relation("PreviousApplicationOwner")
   workflowHistoryNext     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
   workflowHistoryPrevious FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
+  flowMappingUpdates      RoleFlowMapping[]                               @relation()
   district                Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
   policeStation           PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
