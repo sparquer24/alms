@@ -49,7 +49,7 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/analytics/applications?${params.toString()}`;
+            const url = `${this.baseURL}/admin/analytics/applications?${params.toString()}`;
             console.log('Fetching applications from:', url);
 
             const response = await fetch(url);
@@ -85,7 +85,7 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/analytics/role-load?${params.toString()}`;
+            const url = `${this.baseURL}/admin/analytics/role-load?${params.toString()}`;
             console.log('Fetching role load from:', url);
 
             const response = await fetch(url);
@@ -119,7 +119,7 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/analytics/states?${params.toString()}`;
+            const url = `${this.baseURL}/admin/analytics/states?${params.toString()}`;
             console.log('Fetching states from:', url);
 
             const response = await fetch(url);
@@ -153,7 +153,7 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/analytics/admin-activities?${params.toString()}`;
+            const url = `${this.baseURL}/admin/analytics/admin-activities?${params.toString()}`;
             console.log('Fetching admin activities from:', url);
 
             const response = await fetch(url);

@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/s
 import { RolesService } from './roles.service';
 
 @ApiTags('Roles')
-@Controller('roles')
+@Controller('admin/roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) { }
 

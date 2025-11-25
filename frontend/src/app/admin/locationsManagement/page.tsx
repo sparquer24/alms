@@ -20,7 +20,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/a
 interface Location {
   id: number;
   name: string;
-  code?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,11 +75,11 @@ export default function LocationsManagementPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingItem, setEditingItem] = useState<LocationEntity | null>(null);
-  const [formData, setFormData] = useState({ name: '', code: '' });
+  const [formData, setFormData] = useState({ name: '' });
 
   // Reset form
   const resetForm = () => {
-    setFormData({ name: '', code: '' });
+    setFormData({ name: '' });
     setEditingItem(null);
     setModalMode('create');
   };
@@ -210,7 +209,6 @@ export default function LocationsManagementPage() {
 
     const payload = {
       name: formData.name.trim(),
-      code: formData.code.trim() || formData.name.trim().substring(0, 3).toUpperCase(),
       ...(parentId && { parentId }),
     };
 
@@ -224,7 +222,7 @@ export default function LocationsManagementPage() {
   // Handle edit
   const handleEdit = (item: LocationEntity) => {
     setEditingItem(item);
-    setFormData({ name: item.name, code: item.code || '' });
+    setFormData({ name: item.name });
     setModalMode('edit');
     setShowModal(true);
   };
@@ -281,7 +279,6 @@ export default function LocationsManagementPage() {
     const exportData = items.map(item => ({
       ID: item.id,
       Name: item.name,
-      Code: item.code || '',
       'Created At': new Date(item.createdAt).toLocaleDateString(),
       'Updated At': new Date(item.updatedAt).toLocaleDateString(),
     }));
@@ -293,23 +290,28 @@ export default function LocationsManagementPage() {
     toast.success('Exported successfully');
   };
 
+  // Navigate to a specific level in the hierarchy
+  const handleBreadcrumbClick = (level: LocationLevel) => {
+    setCurrentLevel(level);
+  };
+
   // Breadcrumb path
   const breadcrumbPath = useMemo(() => {
-    const path = [{ level: 'state', label: 'States', item: selectedPath.state }];
+    const path = [{ level: 'state' as LocationLevel, item: selectedPath.state }];
     if (currentLevel !== 'state' && selectedPath.state) {
-      path.push({ level: 'district', label: 'Districts', item: selectedPath.district });
+      path.push({ level: 'district' as LocationLevel, item: selectedPath.district });
     }
     if (
       (currentLevel === 'zone' || currentLevel === 'division' || currentLevel === 'station') &&
       selectedPath.district
     ) {
-      path.push({ level: 'zone', label: 'Zones', item: selectedPath.zone });
+      path.push({ level: 'zone' as LocationLevel, item: selectedPath.zone });
     }
     if ((currentLevel === 'division' || currentLevel === 'station') && selectedPath.zone) {
-      path.push({ level: 'division', label: 'Divisions', item: selectedPath.division });
+      path.push({ level: 'division' as LocationLevel, item: selectedPath.division });
     }
     if (currentLevel === 'station' && selectedPath.division) {
-      path.push({ level: 'station', label: 'Police Stations', item: selectedPath.station });
+      path.push({ level: 'station' as LocationLevel, item: selectedPath.station });
     }
     return path;
   }, [currentLevel, selectedPath]);
@@ -356,11 +358,36 @@ export default function LocationsManagementPage() {
           >
             ← Back
           </button>
-          <div style={{ fontSize: '14px', color: colors.text.secondary }}>
+          <div
+            style={{
+              fontSize: '14px',
+              color: colors.text.secondary,
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '4px',
+            }}
+          >
+            <strong>Manage the hierarchical location structure</strong>
+            <br />
             {breadcrumbPath.map((item, idx) => (
-              <span key={item.level}>
-                {idx > 0 && ' / '}
-                <strong>{item.item?.name || item.label}</strong>
+              <span key={item.level} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {idx > 0 && <span>/</span>}
+                <button
+                  onClick={() => handleBreadcrumbClick(item.level)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: colors.text.primary,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    padding: '0',
+                  }}
+                >
+                  {item.item?.name}
+                </button>
               </span>
             ))}
           </div>
@@ -446,9 +473,6 @@ export default function LocationsManagementPage() {
                     Name
                   </th>
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
-                    Code
-                  </th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
                     Created At
                   </th>
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
@@ -472,9 +496,6 @@ export default function LocationsManagementPage() {
                   >
                     <td style={{ padding: AdminSpacing.md }}>{item.id}</td>
                     <td style={{ padding: AdminSpacing.md, fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
-                      {item.code}
-                    </td>
                     <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
                       {new Date(item.createdAt).toLocaleDateString()}
                     </td>
@@ -571,28 +592,6 @@ export default function LocationsManagementPage() {
                     value={formData.name}
                     onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder={`Enter ${levelConfig.singular.toLowerCase()} name`}
-                    style={{
-                      width: '100%',
-                      padding: AdminSpacing.md,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: AdminBorderRadius.md,
-                      fontSize: '14px',
-                    }}
-                    disabled={isSaving}
-                  />
-                </div>
-
-                <div style={{ marginBottom: AdminSpacing.lg }}>
-                  <label
-                    style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
-                  >
-                    Code
-                  </label>
-                  <input
-                    type='text'
-                    value={formData.code}
-                    onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                    placeholder={`Enter ${levelConfig.singular.toLowerCase()} code (optional)`}
                     style={{
                       width: '100%',
                       padding: AdminSpacing.md,

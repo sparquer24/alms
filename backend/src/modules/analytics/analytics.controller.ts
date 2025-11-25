@@ -10,7 +10,7 @@ import {
 } from './dto/analytics.dto';
 
 @ApiTags('Analytics')
-@Controller('analytics')
+@Controller('admin/analytics')
 export class AnalyticsController {
     constructor(private readonly analyticsService: AnalyticsService) { }
 
