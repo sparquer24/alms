@@ -11,6 +11,7 @@ import {
   Shield,
   GitBranch,
   RefreshCcw,
+  MapPin,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -26,6 +27,7 @@ const UsersFixed = Users as any;
 const ShieldFixed = Shield as any;
 const GitBranchFixed = GitBranch as any;
 const RefreshCcwFixed = RefreshCcw as any;
+const MapPinFixed = MapPin as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
@@ -41,7 +43,9 @@ export type MenuMetaKey =
   | 'logout'
   | 'userManagement'
   | 'roleManagement'
+  | 'roleMapping'
   | 'flowMapping'
+  | 'locationsManagement'
   | 'rejected';
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
@@ -92,8 +96,16 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
     label: 'Role Management',
     icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
   },
+  roleMapping: {
+    label: 'Role Mapping',
+    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Mapping' />,
+  },
   flowMapping: {
     label: 'Flow Mapping',
     icon: () => <GitBranchFixed className='w-6 h-6 mr-2' aria-label='Flow Mapping' />,
+  },
+  locationsManagement: {
+    label: 'Locations Management',
+    icon: () => <MapPinFixed className='w-6 h-6 mr-2' aria-label='Locations Management' />,
   },
 };

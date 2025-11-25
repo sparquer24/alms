@@ -15,14 +15,12 @@ const ImageFixed = Image as any;
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { CornerUpRight, Undo2, Flag, FolderCheck, RefreshCcw } from 'lucide-react';
-import { ChartBarIcon } from '@heroicons/react/outline';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
 const FolderCheckFixed = FolderCheck as any;
 const RefreshCcwFixed = RefreshCcw as any;
-const ChartBarIconFixed = ChartBarIcon as any;
 
 import { logoutUser } from '../store/thunks/authThunks';
 import { toggleInbox, openInbox, closeInbox } from '../store/slices/uiSlice';
@@ -33,6 +31,9 @@ import { useSidebarCounts } from '../hooks/useSidebarCounts';
 import { menuMeta, MenuMetaKey } from '../config/menuMeta';
 import { getRoleConfig } from '../config/roles';
 import { getRoleBasedRedirectPath } from '../config/roleRedirections';
+import { useAdminMenu } from '../context/AdminMenuContext';
+import { getAdminMenuKeyFromPath, getAdminMenuItems } from '../config/adminMenuService';
+import { preloadAdminPages } from '../utils/adminPagePreloader';
 import { HamburgerButton } from './HamburgerButton';
 
 /* ----------------------------
@@ -213,6 +214,27 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
   const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
   const [roleConfig, setRoleConfig] = useState(() => getRoleConfig(userRole));
+
+  // Get admin menu context (optional, may not be available)
+  const adminMenuContext = useAdminMenu();
+
+  // Sync active menu key with pathname for admin pages
+  useEffect(() => {
+    const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
+    if (!pathname || !normalizedRole?.includes('ADMIN')) return;
+    const adminKey = getAdminMenuKeyFromPath(pathname);
+    if (adminKey && adminMenuContext?.setActiveMenuKey) {
+      adminMenuContext.setActiveMenuKey(adminKey);
+    }
+  }, [pathname, cookieRole, userRole, adminMenuContext]);
+
+  // Preload admin pages once on mount
+  useEffect(() => {
+    const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
+    if (normalizedRole?.includes('ADMIN')) {
+      preloadAdminPages();
+    }
+  }, [cookieRole, userRole]);
 
   // Persist active nav key to localStorage but store inbox types without the `inbox-` prefix
   const persistActiveNavToLocal = useCallback((key?: string) => {
@@ -704,6 +726,30 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       }
 
       const key = normalizeNavKey(item.name as string);
+      // Use userRole directly from useAuthSync, fall back to cookieRole for consistency
+      let effectiveRole = userRole;
+      if (!effectiveRole) {
+        effectiveRole = cookieRole;
+      }
+      // Normalize role to uppercase for comparison
+      const normalizedRole = effectiveRole ? String(effectiveRole).toUpperCase() : undefined;
+
+      // For ADMIN role: navigate directly to admin page, not inbox
+      if (normalizedRole === 'ADMIN') {
+        // Use the raw item name for the path (e.g., 'userManagement' or 'roleMapping')
+        const pathSegment = item.name.replace(/\s+/g, '');
+        const adminPath = `/admin/${encodeURIComponent(pathSegment)}`;
+
+        // Set active item to the normalized key (e.g., 'usermanagement')
+        setActiveItem(key);
+        persistActiveNavToLocal(key);
+
+        // Navigate without any inbox-related logic
+        router.push(adminPath);
+        return;
+      }
+
+      // For non-ADMIN roles: use inbox pattern
       // Special-case: treat certain inbox-like items as top-level selections
       // so clicking them will close the inbox and make the clicked menu item active
       // (no `inbox-` prefix). This prevents URL-driven inbox activation when
@@ -725,6 +771,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       } else {
         setActiveItem(key);
       }
+
       if (item.statusIds && item.statusIds.length) {
         setActiveStatusIds(item.statusIds);
         try {
@@ -735,13 +782,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         try {
           localStorage.removeItem('activeStatusIds');
         } catch (e) {}
-      }
-
-      const effectiveRole = cookieRole ?? userRole;
-      if (effectiveRole === 'ADMIN') {
-        const pathSegment = item.name.replace(/\s+/g, '');
-        router.push(`/admin/${encodeURIComponent(pathSegment)}`);
-        return;
       }
 
       if (item.name.toLowerCase().includes('dashboard')) {
@@ -854,12 +894,16 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       const forceReload =
         !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
       void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
-      const targetBase = (cookieRole ?? userRole) === 'ADMIN' ? '/admin/userManagement' : '/inbox';
+      const effectiveRoleInbox = userRole || cookieRole;
+      const normalizedRoleInbox = effectiveRoleInbox
+        ? String(effectiveRoleInbox).toUpperCase()
+        : undefined;
+      const targetBase = normalizedRoleInbox === 'ADMIN' ? '/admin/userManagement' : '/inbox';
       const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
 
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
       const isOnInboxBase =
-        (cookieRole ?? userRole) === 'ADMIN'
+        normalizedRoleInbox === 'ADMIN'
           ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
           : currentPath === '/inbox' || currentPath.startsWith('/inbox');
 
@@ -1140,18 +1184,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                   />
                 );
               })}
-
-            {effectiveRole === 'ADMIN' && (
-              <li>
-                <a
-                  href='/admin/flowMapping'
-                  className='flex items-center gap-2 px-4 py-2 hover:bg-gray-200 rounded-md'
-                >
-                  <ChartBarIconFixed className='w-5 h-5' />
-                  <span>Flow Mapping</span>
-                </a>
-              </li>
-            )}
           </ul>
         </nav>
 

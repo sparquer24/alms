@@ -34,6 +34,8 @@ model Actiones {
 model States {
   id          Int                              @id @default(autoincrement())
   name        String                           @unique
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
   districts   Districts[]
   addresses   FLAFAddressesAndContactDetails[]
   occupations FLAFOccupationAndBusiness[]
@@ -44,6 +46,8 @@ model Districts {
   id          Int                              @id @default(autoincrement())
   name        String                           @unique
   stateId     Int
+  createdAt   DateTime                         @default(now())
+  updatedAt   DateTime                         @updatedAt
   state       States                           @relation(fields: [stateId], references: [id], onDelete: Cascade)
   addresses   FLAFAddressesAndContactDetails[]
   occupations FLAFOccupationAndBusiness[]
@@ -55,6 +59,8 @@ model Zones {
   id         Int                              @id @default(autoincrement())
   name       String                           @unique
   districtId Int
+  createdAt  DateTime                         @default(now())
+  updatedAt  DateTime                         @updatedAt
   divisions  Divisions[]
   addresses  FLAFAddressesAndContactDetails[]
   users      Users[]                          @relation("ZoneUsers")
@@ -65,6 +71,8 @@ model Divisions {
   id        Int                              @id @default(autoincrement())
   name      String                           @unique
   zoneId    Int
+  createdAt DateTime                         @default(now())
+  updatedAt DateTime                         @updatedAt
   zone      Zones                            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   addresses FLAFAddressesAndContactDetails[]
   stations  PoliceStations[]
@@ -75,6 +83,8 @@ model PoliceStations {
   id         Int                              @id @default(autoincrement())
   name       String                           @unique
   divisionId Int
+  createdAt  DateTime                         @default(now())
+  updatedAt  DateTime                         @updatedAt
   addresses  FLAFAddressesAndContactDetails[]
   division   Divisions                        @relation(fields: [divisionId], references: [id], onDelete: Cascade)
   users      Users[]                          @relation("PoliceStationUsers")

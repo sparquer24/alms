@@ -349,7 +349,7 @@ export default function LocationsManagementPage() {
       )}
 
       {/* Error Alert */}
-      {error && <AdminErrorAlert message={(error as Error).message} />}
+      {error && <AdminErrorAlert message={(error as Error).message} title={''} />}
 
       {/* Main Content Card */}
       <AdminCard title={levelConfig.label}>
@@ -410,7 +410,7 @@ export default function LocationsManagementPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ backgroundColor: colors.background.secondary, borderBottom: `1px solid ${colors.border}` }}>
+                <tr style={{ backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}` }}>
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>ID</th>
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>Name</th>
                   <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>Code</th>
@@ -425,7 +425,7 @@ export default function LocationsManagementPage() {
                     key={item.id}
                     style={{
                       borderBottom: `1px solid ${colors.border}`,
-                      backgroundColor: idx % 2 === 0 ? colors.background.primary : colors.background.secondary,
+                      backgroundColor: idx % 2 === 0 ? colors.background : colors.surface,
                       cursor: canNavigateToChild ? 'pointer' : 'default',
                     }}
                     onClick={() => canNavigateToChild && handleNavigateToChild(item)}
@@ -505,11 +505,11 @@ export default function LocationsManagementPage() {
           }}
           onClick={() => !isSaving && setShowModal(false)}
         >
-          <AdminCard
-            title={modalMode === 'create' ? `Create ${levelConfig.singular}` : `Edit ${levelConfig.singular}`}
-            style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}
-            onClick={e => e.stopPropagation()}
-          >
+          <div style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <AdminCard
+              title={modalMode === 'create' ? `Create ${levelConfig.singular}` : `Edit ${levelConfig.singular}`}
+              onClick={() => undefined}
+            >
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: AdminSpacing.lg }}>
                 <label style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}>
@@ -591,10 +591,10 @@ export default function LocationsManagementPage() {
                 </button>
               </div>
             </form>
-          </AdminCard>
+            </AdminCard>
+          </div>
         </div>
       )}
     </div>
   );
 }
-

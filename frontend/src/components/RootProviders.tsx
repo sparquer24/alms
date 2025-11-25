@@ -8,6 +8,7 @@ import { AuthProvider } from '../config/auth';
 import { LayoutProvider } from '../config/layoutContext';
 import NotificationProvider from '../config/notificationContext';
 import { AdminAuthProvider } from '../context/AdminAuthContext';
+import { AdminMenuProvider } from '../context/AdminMenuContext';
 import AuthInitializer from './AuthInitializer';
 import { UserProvider } from '../context/UserContext';
 import { ApplicationProvider } from '../context/ApplicationContext';
@@ -34,14 +35,16 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
             <NotificationProvider>
               <AdminThemeProvider>
                 <AdminAuthProvider>
-                  <UserProvider>
-                    <ApplicationProvider>
-                      <InboxProvider>
-                        <AuthInitializer />
-                        {children}
-                      </InboxProvider>
-                    </ApplicationProvider>
-                  </UserProvider>
+                  <AdminMenuProvider>
+                    <UserProvider>
+                      <ApplicationProvider>
+                        <InboxProvider>
+                          <AuthInitializer />
+                          {children}
+                        </InboxProvider>
+                      </ApplicationProvider>
+                    </UserProvider>
+                  </AdminMenuProvider>
                 </AdminAuthProvider>
               </AdminThemeProvider>
             </NotificationProvider>

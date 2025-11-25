@@ -24,14 +24,14 @@ export default function RootLayout({ children }: { children: any }) {
         <meta name='viewport' content='width=device-width, initial-scale=1.0' />
         {/* Favicon and social metadata */}
         <link rel='icon' href='/icon-alms.svg' />
-        <link rel='canonical' href='http://dev.alms.sparquer.com' />
+        <link rel='canonical' href='http://localhost:3000' />
         <meta property='og:title' content='ALMS — Arms License Management System' />
         <meta
           property='og:description'
           content='ALMS: manage arms license applications, approvals and workflows'
         />
         <meta property='og:image' content='/assets/ARMS_&_AMMUNITAION_LICENSE_LOGO.svg' />
-        <meta property='og:url' content='http://dev.alms.sparquer.com' />
+        <meta property='og:url' content='http://localhost:3000' />
         {/*
           Defensive inline script: some third-party bundles or browser extensions
           attempt to read localStorage keys (eg. 'floatingSidebar') very early and

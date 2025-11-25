@@ -12,6 +12,11 @@ const EditUserContent = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(roles[0]);
+  const [policeStationId, setPoliceStationId] = useState('');
+  const [stateId, setStateId] = useState('');
+  const [districtId, setDistrictId] = useState('');
+  const [zoneId, setZoneId] = useState('');
+  const [divisionId, setDivisionId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
@@ -52,7 +57,7 @@ const EditUserContent = () => {
       const response = await fetch(`/admin/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, phone, password, role }),
+        body: JSON.stringify({ username, email, phone, password:password || undefined, roleCode: role, policeStationId, stateId:Number(stateId), districtId:Number(districtId), zoneId:Number(zoneId), divisionId:Number(divisionId)}),
       });
 
       if (!response.ok) {

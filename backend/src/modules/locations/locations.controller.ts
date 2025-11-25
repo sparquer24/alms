@@ -1,4 +1,4 @@
-import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Query, Body, Param, ParseIntPipe, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
 
@@ -561,6 +561,324 @@ export class LocationsController {
           message: error.message || 'Failed to fetch location hierarchy',
           error: error.message,
         },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /* ===== CREATE ENDPOINTS ===== */
+
+  @Post('states')
+  @ApiOperation({ summary: 'Create State' })
+  @ApiResponse({ status: 201, description: 'State created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  async createState(@Body() body: { name: string }) {
+    try {
+      const data = await this.locationsService.createState(body.name);
+      return {
+        success: true,
+        message: 'State created successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to create state',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('districts')
+  @ApiOperation({ summary: 'Create District' })
+  @ApiResponse({ status: 201, description: 'District created successfully' })
+  async createDistrict(@Body() body: { name: string; parentId?: number; stateId?: number }) {
+    try {
+      const stateId = body.parentId || body.stateId;
+      if (!stateId) {
+        throw new HttpException(
+          { success: false, message: 'stateId (or parentId) is required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.createDistrict(stateId, body.name);
+      return {
+        success: true,
+        message: 'District created successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create district' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('zones')
+  @ApiOperation({ summary: 'Create Zone' })
+  @ApiResponse({ status: 201, description: 'Zone created successfully' })
+  async createZone(@Body() body: { name: string; parentId?: number; districtId?: number }) {
+    try {
+      const districtId = body.parentId || body.districtId;
+      if (!districtId) {
+        throw new HttpException(
+          { success: false, message: 'districtId (or parentId) is required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.createZone(districtId, body.name);
+      return {
+        success: true,
+        message: 'Zone created successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create zone' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('divisions')
+  @ApiOperation({ summary: 'Create Division' })
+  @ApiResponse({ status: 201, description: 'Division created successfully' })
+  async createDivision(@Body() body: { name: string; parentId?: number; zoneId?: number }) {
+    try {
+      const zoneId = body.parentId || body.zoneId;
+      if (!zoneId) {
+        throw new HttpException(
+          { success: false, message: 'zoneId (or parentId) is required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.createDivision(zoneId, body.name);
+      return {
+        success: true,
+        message: 'Division created successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create division' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('police-stations')
+  @ApiOperation({ summary: 'Create Police Station' })
+  @ApiResponse({ status: 201, description: 'Police Station created successfully' })
+  async createPoliceStation(@Body() body: { name: string; parentId?: number; divisionId?: number }) {
+    try {
+      const divisionId = body.parentId || body.divisionId;
+      if (!divisionId) {
+        throw new HttpException(
+          { success: false, message: 'divisionId (or parentId) is required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.createPoliceStation(divisionId, body.name);
+      return {
+        success: true,
+        message: 'Police Station created successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create police station' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /* ===== UPDATE ENDPOINTS ===== */
+
+  @Put('states/:id')
+  @ApiOperation({ summary: 'Update State' })
+  @ApiResponse({ status: 200, description: 'State updated successfully' })
+  async updateState(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+    try {
+      const data = await this.locationsService.updateState(id, body.name);
+      return {
+        success: true,
+        message: 'State updated successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update state' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Put('districts/:id')
+  @ApiOperation({ summary: 'Update District' })
+  @ApiResponse({ status: 200, description: 'District updated successfully' })
+  async updateDistrict(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+    try {
+      const data = await this.locationsService.updateDistrict(id, body.name);
+      return {
+        success: true,
+        message: 'District updated successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update district' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Put('zones/:id')
+  @ApiOperation({ summary: 'Update Zone' })
+  @ApiResponse({ status: 200, description: 'Zone updated successfully' })
+  async updateZone(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+    try {
+      const data = await this.locationsService.updateZone(id, body.name);
+      return {
+        success: true,
+        message: 'Zone updated successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update zone' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Put('divisions/:id')
+  @ApiOperation({ summary: 'Update Division' })
+  @ApiResponse({ status: 200, description: 'Division updated successfully' })
+  async updateDivision(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+    try {
+      const data = await this.locationsService.updateDivision(id, body.name);
+      return {
+        success: true,
+        message: 'Division updated successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update division' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Put('police-stations/:id')
+  @ApiOperation({ summary: 'Update Police Station' })
+  @ApiResponse({ status: 200, description: 'Police Station updated successfully' })
+  async updatePoliceStation(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+    try {
+      const data = await this.locationsService.updatePoliceStation(id, body.name);
+      return {
+        success: true,
+        message: 'Police Station updated successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update police station' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /* ===== DELETE ENDPOINTS ===== */
+
+  @Delete('states/:id')
+  @ApiOperation({ summary: 'Delete State' })
+  @ApiResponse({ status: 200, description: 'State deleted successfully' })
+  async deleteState(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.locationsService.deleteState(id);
+      return {
+        success: true,
+        message: 'State deleted successfully',
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to delete state' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete('districts/:id')
+  @ApiOperation({ summary: 'Delete District' })
+  @ApiResponse({ status: 200, description: 'District deleted successfully' })
+  async deleteDistrict(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.locationsService.deleteDistrict(id);
+      return {
+        success: true,
+        message: 'District deleted successfully',
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to delete district' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete('zones/:id')
+  @ApiOperation({ summary: 'Delete Zone' })
+  @ApiResponse({ status: 200, description: 'Zone deleted successfully' })
+  async deleteZone(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.locationsService.deleteZone(id);
+      return {
+        success: true,
+        message: 'Zone deleted successfully',
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to delete zone' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete('divisions/:id')
+  @ApiOperation({ summary: 'Delete Division' })
+  @ApiResponse({ status: 200, description: 'Division deleted successfully' })
+  async deleteDivision(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.locationsService.deleteDivision(id);
+      return {
+        success: true,
+        message: 'Division deleted successfully',
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to delete division' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete('police-stations/:id')
+  @ApiOperation({ summary: 'Delete Police Station' })
+  @ApiResponse({ status: 200, description: 'Police Station deleted successfully' })
+  async deletePoliceStation(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.locationsService.deletePoliceStation(id);
+      return {
+        success: true,
+        message: 'Police Station deleted successfully',
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to delete police station' },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

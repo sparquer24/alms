@@ -32,7 +32,7 @@ export class ActionesController {
     // JwtAuthGuard guarantees request.user is set to decoded token if valid
     const tokenUserId = req.user && (req.user as any).sub ? (req.user as any).sub : undefined;
 
-    return this.actionesService.getActiones(
+     return this.actionesService.getActiones(
       tokenUserId as number | undefined,
       applicationId ? Number(applicationId) : undefined
     );
@@ -61,7 +61,7 @@ export class ActionesController {
     status: 200,
     description: "Action created successfully",
   })
-  async createAction(@Body() mappingData: RolesActionsMapping) {
+  async createAction(@Body() mappingData: RolesActionsMapping ) {
     try{
       return this.actionesService.createAction(mappingData);
     }
@@ -96,7 +96,7 @@ export class ActionesController {
   })
   async updateAction(@Param('id') id : number, @Body() mappingData: RolesActionsMapping ) {
    try {
-      return this.actionesService.updateAction(Number(id) ,mappingData);
+      return this.actionesService.updateAction(Number(id), mappingData);
     } catch (error) {
       throw error;
     }

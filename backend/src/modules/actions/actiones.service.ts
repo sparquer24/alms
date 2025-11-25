@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException} from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Actiones } from '@prisma/client';
 import { RolesActionsMapping } from '@prisma/client';
@@ -10,7 +10,7 @@ export class ActionesService {
    * Get actions.
    * - If userId is provided: fetch the user's roleId and return only actions allowed for that role.
    * - If no userId: return all active actions.
-   * - If applicationId is provided: filter out APPROVED action if already approved, REJECT action if already rejected.
+   *    * - If applicationId is provided: filter out APPROVED action if already approved, REJECT action if already rejected.
    */
   async getActiones(userId?: number, applicationId?: number): Promise<Actiones[]> {
     try {
@@ -49,7 +49,7 @@ export class ActionesService {
         },
       });
 
-      // If applicationId is provided, filter based on application status
+          // If applicationId is provided, filter based on application status
       if (applicationId) {
         const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
           where: { id: applicationId },
@@ -61,7 +61,7 @@ export class ActionesService {
           if (application.isApproved) {
             actions = actions.filter(action => action.code.toUpperCase() !== ACTION_CODES.APPROVED);
           }
-          
+
           // If application is rejected, filter out REJECT action
           if (application.isRejected) {
             actions = actions.filter(action => action.code.toUpperCase() !== ACTION_CODES.REJECT);
@@ -83,19 +83,19 @@ export class ActionesService {
         actionId: data.actionId 
       }
     });
-  if (mappingData.length > 0) {
-    return {
-      error: true,
-      message: 'Mapping with this roleId and actionId already exists'
-    };
-  
+  if(mappingData.length > 0){
+      return {
+       error: true,
+       message: 'Mapping  with this roleId and actionId already exists' };
+
+
   }
     return await prisma.rolesActionsMapping.create({
       data: {
         roleId: data.roleId,
         actionId: data.actionId,
         isActive: data.isActive,
-        createdAt: data.createdAt,
+          createdAt: data.createdAt,
    }
   });
    } catch(error){
@@ -112,8 +112,7 @@ export class ActionesService {
             NOT: { id: id}, // Exclude current record
           }
         });
-
-        if (duplicate) {
+             if (duplicate) {
           return {
             error: true,
             message: 'Mapping with this roleId and actionId already exists'
@@ -131,7 +130,7 @@ export class ActionesService {
       }
     });
   }
-async deleteActionMapping(id: number): Promise<RolesActionsMapping> {
+  async deleteActionMapping(id: number): Promise<RolesActionsMapping> {
     const mapping = await prisma.rolesActionsMapping.findUnique({
       where: { id },
     });
@@ -143,7 +142,6 @@ async deleteActionMapping(id: number): Promise<RolesActionsMapping> {
       where: { id },
       data: { isActive: false, updatedAt: new Date() },
     });
-
+  }
 }
-}      
-
+       

@@ -20,6 +20,11 @@ interface User {
   username: string;
   email: string;
   role: string;
+  policeStationId?: number;
+  stateId?: number;
+  districtId?: number;
+  zoneId?: number;
+  divisionId?: number;
   status: string;
 }
 
@@ -165,84 +170,52 @@ const UserListPage: React.FC = () => {
           onClear={handleClearFilters}
         />
 
-        {/* Table */}
-        <AdminCard title={`Users (${filteredUsers.length})`}>
-          {isLoading ? (
-            <AdminTableSkeleton rows={5} columns={5} />
-          ) : (
-            <AdminTable<User>
-              columns={[
-                { key: 'username', header: 'Username' },
-                { key: 'email', header: 'Email' },
-                { key: 'role', header: 'Role' },
-                {
-                  key: 'status',
-                  header: 'Status',
-                  render: value => (
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        backgroundColor: getStatusColor(value),
-                        color: '#ffffff',
-                      }}
-                    >
-                      {value.charAt(0).toUpperCase() + value.slice(1)}
-                    </span>
-                  ),
-                },
-                {
-                  key: 'id',
-                  header: 'Actions',
-                  render: (value, row) => (
-                    <div style={{ display: 'flex', gap: AdminSpacing.md }}>
-                      <button
-                        onClick={() => router.push(`/admin/users/${row.id}/edit`)}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: colors.status.info,
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: 500,
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(row.id)}
-                        disabled={deleteUserMutation.isPending}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: colors.status.error,
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: deleteUserMutation.isPending ? 'not-allowed' : 'pointer',
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          opacity: deleteUserMutation.isPending ? 0.6 : 1,
-                        }}
-                      >
-                        {deleteUserMutation.isPending ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </div>
-                  ),
-                },
-              ]}
-              data={filteredUsers}
-              rowKey='id'
-              onRowClick={row => router.push(`/admin/users/${row.id}`)}
-              emptyMessage='No users found'
-              loading={isLoading}
-            />
-          )}
-        </AdminCard>
+      {/* User Table */}
+      <table className="w-full border-collapse border border-gray-200">
+        <thead>
+          <tr>
+            <th className="border p-2">Username</th>
+            <th className="border p-2">Email</th>
+            <th className="border p-2">Role</th>
+            <th className="border p-2">Status</th>
+            <th className="border p-2">Actions</th>
+            <th className="border p-2">State</th>
+            <th className="border p-2">District</th>
+            <th className="border p-2">Police Station</th>
+            <th className="border p-2">Zone</th>
+            <th className="border p-2">Division</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.map(user => (
+            <tr key={user.id}>
+              <td className="border p-2">{user.username}</td>
+              <td className="border p-2">{user.email}</td>
+              <td className="border p-2">{user.role}</td>
+              <td className="border p-2">{user.status}</td>
+              <td className="border p-2">{user.stateId || "N/A"}</td>
+              <td className="border p-2">{user.districtId || "N/A"}</td>
+              <td className="border p-2">{user.policeStationId || "N/A"}</td>
+              <td className="border p-2">{user.zoneId || "N/A"}</td>
+              <td className="border p-2">{user.divisionId || "N/A"}</td>
+              <td className="border p-2 space-x-2">
+                <button
+                  onClick={() => router.push(`/admin/users/${user.id}/edit`)}
+                  className="text-blue-600 hover:underline"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => alert("Delete functionality pending")}
+                  className="text-red-600 hover:underline"
+                >
+                  Delete
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       </div>
     </AdminErrorBoundary>
   );
