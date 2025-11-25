@@ -5,22 +5,22 @@ import { LocationsService } from './locations.service';
 @ApiTags('Locations')
 @Controller('locations')
 export class LocationsController {
-  constructor(private readonly locationsService: LocationsService) {}
+  constructor(private readonly locationsService: LocationsService) { }
 
   // States API - GET /locations/states?id=1 (optional)
   @Get('states')
-  @ApiOperation({ 
-    summary: 'Get States', 
-    description: 'Retrieve all states or a specific state by ID' 
+  @ApiOperation({
+    summary: 'Get States',
+    description: 'Retrieve all states or a specific state by ID'
   })
-  @ApiQuery({ 
-    name: 'id', 
-    required: false, 
+  @ApiQuery({
+    name: 'id',
+    required: false,
     description: 'State ID to retrieve specific state',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'States retrieved successfully',
     example: {
       success: true,
@@ -38,7 +38,7 @@ export class LocationsController {
   async getStates(@Query('id') id?: string) {
     try {
       const stateId = id ? parseInt(id, 10) : undefined;
-      
+
       if (id && isNaN(stateId!)) {
         throw new HttpException(
           {
@@ -50,7 +50,7 @@ export class LocationsController {
       }
 
       const data = await this.locationsService.getStates(stateId);
-      
+
       if (id && !data) {
         throw new HttpException(
           {
@@ -84,24 +84,24 @@ export class LocationsController {
 
   // Districts API - GET /locations/districts?id=1&stateId=1 (both optional)
   @Get('districts')
-  @ApiOperation({ 
-    summary: 'Get Districts', 
-    description: 'Retrieve all districts or filter by state ID, or get specific district by ID' 
+  @ApiOperation({
+    summary: 'Get Districts',
+    description: 'Retrieve all districts or filter by state ID, or get specific district by ID'
   })
-  @ApiQuery({ 
-    name: 'id', 
-    required: false, 
+  @ApiQuery({
+    name: 'id',
+    required: false,
     description: 'District ID to retrieve specific district',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'stateId', 
-    required: false, 
+  @ApiQuery({
+    name: 'stateId',
+    required: false,
     description: 'State ID to filter districts by state',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Districts retrieved successfully',
     example: {
       success: true,
@@ -124,7 +124,7 @@ export class LocationsController {
     try {
       const districtId = id ? parseInt(id, 10) : undefined;
       const filterStateId = stateId ? parseInt(stateId, 10) : undefined;
-      
+
       if (id && isNaN(districtId!)) {
         throw new HttpException(
           {
@@ -134,7 +134,7 @@ export class LocationsController {
           HttpStatus.BAD_REQUEST
         );
       }
-      
+
       if (stateId && isNaN(filterStateId!)) {
         throw new HttpException(
           {
@@ -146,7 +146,7 @@ export class LocationsController {
       }
 
       const data = await this.locationsService.getDistricts(districtId, filterStateId);
-      
+
       if (id && !data) {
         throw new HttpException(
           {
@@ -181,24 +181,24 @@ export class LocationsController {
 
   // Zones API - GET /locations/zones?id=1&districtId=1 (both optional)
   @Get('zones')
-  @ApiOperation({ 
-    summary: 'Get Zones', 
-    description: 'Retrieve all zones or filter by district ID, or get specific zone by ID' 
+  @ApiOperation({
+    summary: 'Get Zones',
+    description: 'Retrieve all zones or filter by district ID, or get specific zone by ID'
   })
-  @ApiQuery({ 
-    name: 'id', 
-    required: false, 
+  @ApiQuery({
+    name: 'id',
+    required: false,
     description: 'Zone ID to retrieve specific zone',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'districtId', 
-    required: false, 
+  @ApiQuery({
+    name: 'districtId',
+    required: false,
     description: 'District ID to filter zones by district',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Zones retrieved successfully',
     example: {
       success: true,
@@ -221,7 +221,7 @@ export class LocationsController {
     try {
       const zoneId = id ? parseInt(id, 10) : undefined;
       const filterDistrictId = districtId ? parseInt(districtId, 10) : undefined;
-      
+
       if (id && isNaN(zoneId!)) {
         throw new HttpException(
           {
@@ -231,7 +231,7 @@ export class LocationsController {
           HttpStatus.BAD_REQUEST
         );
       }
-      
+
       if (districtId && isNaN(filterDistrictId!)) {
         throw new HttpException(
           {
@@ -243,7 +243,7 @@ export class LocationsController {
       }
 
       const data = await this.locationsService.getZones(zoneId, filterDistrictId);
-      
+
       if (id && !data) {
         throw new HttpException(
           {
@@ -278,24 +278,24 @@ export class LocationsController {
 
   // Divisions API - GET /locations/divisions?id=1&zoneId=1 (both optional)
   @Get('divisions')
-  @ApiOperation({ 
-    summary: 'Get Divisions', 
-    description: 'Retrieve all divisions or filter by zone ID, or get specific division by ID' 
+  @ApiOperation({
+    summary: 'Get Divisions',
+    description: 'Retrieve all divisions or filter by zone ID, or get specific division by ID'
   })
-  @ApiQuery({ 
-    name: 'id', 
-    required: false, 
+  @ApiQuery({
+    name: 'id',
+    required: false,
     description: 'Division ID to retrieve specific division',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'zoneId', 
-    required: false, 
+  @ApiQuery({
+    name: 'zoneId',
+    required: false,
     description: 'Zone ID to filter divisions by zone',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Divisions retrieved successfully',
     example: {
       success: true,
@@ -318,7 +318,7 @@ export class LocationsController {
     try {
       const divisionId = id ? parseInt(id, 10) : undefined;
       const filterZoneId = zoneId ? parseInt(zoneId, 10) : undefined;
-      
+
       if (id && isNaN(divisionId!)) {
         throw new HttpException(
           {
@@ -328,7 +328,7 @@ export class LocationsController {
           HttpStatus.BAD_REQUEST
         );
       }
-      
+
       if (zoneId && isNaN(filterZoneId!)) {
         throw new HttpException(
           {
@@ -340,7 +340,7 @@ export class LocationsController {
       }
 
       const data = await this.locationsService.getDivisions(divisionId, filterZoneId);
-      
+
       if (id && !data) {
         throw new HttpException(
           {
@@ -375,24 +375,24 @@ export class LocationsController {
 
   // Police Stations API - GET /locations/police-stations?id=1&divisionId=1 (both optional)
   @Get('police-stations')
-  @ApiOperation({ 
-    summary: 'Get Police Stations', 
-    description: 'Retrieve all police stations or filter by division ID, or get specific police station by ID' 
+  @ApiOperation({
+    summary: 'Get Police Stations',
+    description: 'Retrieve all police stations or filter by division ID, or get specific police station by ID'
   })
-  @ApiQuery({ 
-    name: 'id', 
-    required: false, 
+  @ApiQuery({
+    name: 'id',
+    required: false,
     description: 'Police Station ID to retrieve specific police station',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'divisionId', 
-    required: false, 
+  @ApiQuery({
+    name: 'divisionId',
+    required: false,
     description: 'Division ID to filter police stations by division',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Police stations retrieved successfully',
     example: {
       success: true,
@@ -415,7 +415,7 @@ export class LocationsController {
     try {
       const stationId = id ? parseInt(id, 10) : undefined;
       const filterDivisionId = divisionId ? parseInt(divisionId, 10) : undefined;
-      
+
       if (id && isNaN(stationId!)) {
         throw new HttpException(
           {
@@ -425,7 +425,7 @@ export class LocationsController {
           HttpStatus.BAD_REQUEST
         );
       }
-      
+
       if (divisionId && isNaN(filterDivisionId!)) {
         throw new HttpException(
           {
@@ -437,7 +437,7 @@ export class LocationsController {
       }
 
       const data = await this.locationsService.getPoliceStations(stationId, filterDivisionId);
-      
+
       if (id && !data) {
         throw new HttpException(
           {
@@ -472,42 +472,42 @@ export class LocationsController {
 
   // Enhanced: Get location hierarchy for a specific location type and ID
   @Get('hierarchy')
-  @ApiOperation({ 
-    summary: 'Get Location Hierarchy', 
-    description: 'Get the complete location hierarchy for a specific location. Provide only one location ID parameter.' 
+  @ApiOperation({
+    summary: 'Get Location Hierarchy',
+    description: 'Get the complete location hierarchy for a specific location. Provide only one location ID parameter.'
   })
-  @ApiQuery({ 
-    name: 'stateId', 
-    required: false, 
+  @ApiQuery({
+    name: 'stateId',
+    required: false,
     description: 'State ID to get hierarchy from state level',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'districtId', 
-    required: false, 
+  @ApiQuery({
+    name: 'districtId',
+    required: false,
     description: 'District ID to get hierarchy from district level',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'zoneId', 
-    required: false, 
+  @ApiQuery({
+    name: 'zoneId',
+    required: false,
     description: 'Zone ID to get hierarchy from zone level',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'divisionId', 
-    required: false, 
+  @ApiQuery({
+    name: 'divisionId',
+    required: false,
     description: 'Division ID to get hierarchy from division level',
     example: '1'
   })
-  @ApiQuery({ 
-    name: 'policeStationId', 
-    required: false, 
+  @ApiQuery({
+    name: 'policeStationId',
+    required: false,
     description: 'Police Station ID to get complete hierarchy',
     example: '1'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Location hierarchy retrieved successfully',
     example: {
       success: true,

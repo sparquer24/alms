@@ -3,7 +3,7 @@ import prisma from '../../db/prismaClient';
 
 @Injectable()
 export class LocationsService {
-  
+
   // States API - Single endpoint for all or specific state
   async getStates(id?: number) {
     try {

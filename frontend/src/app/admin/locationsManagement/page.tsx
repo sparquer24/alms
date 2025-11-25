@@ -42,12 +42,19 @@ interface PoliceStation extends Location {
 type LocationLevel = 'state' | 'district' | 'zone' | 'division' | 'station';
 type LocationEntity = State | District | Zone | Division | PoliceStation;
 
-const LOCATION_HIERARCHY: Record<LocationLevel, { label: string; singular: string; endpoint: string }> = {
+const LOCATION_HIERARCHY: Record<
+  LocationLevel,
+  { label: string; singular: string; endpoint: string }
+> = {
   state: { label: 'States', singular: 'State', endpoint: 'locations/states' },
   district: { label: 'Districts', singular: 'District', endpoint: 'locations/districts' },
   zone: { label: 'Zones', singular: 'Zone', endpoint: 'locations/zones' },
   division: { label: 'Divisions', singular: 'Division', endpoint: 'locations/divisions' },
-  station: { label: 'Police Stations', singular: 'Police Station', endpoint: 'locations/police-stations' },
+  station: {
+    label: 'Police Stations',
+    singular: 'Police Station',
+    endpoint: 'locations/police-stations',
+  },
 };
 
 export default function LocationsManagementPage() {
@@ -98,7 +105,7 @@ export default function LocationsManagementPage() {
 
   // Fetch current level data
   const levelConfig = LOCATION_HIERARCHY[currentLevel];
-  
+
   // Build fetch URL with correct query parameter names based on level
   let fetchUrl = `${API_BASE_URL}/${levelConfig.endpoint}`;
   if (parentId) {
@@ -224,7 +231,9 @@ export default function LocationsManagementPage() {
 
   // Handle delete
   const handleDelete = (id: number) => {
-    if (window.confirm(`Are you sure you want to delete this ${levelConfig.singular.toLowerCase()}?`)) {
+    if (
+      window.confirm(`Are you sure you want to delete this ${levelConfig.singular.toLowerCase()}?`)
+    ) {
       deleteMutation.mutate(id);
     }
   };
@@ -290,7 +299,10 @@ export default function LocationsManagementPage() {
     if (currentLevel !== 'state' && selectedPath.state) {
       path.push({ level: 'district', label: 'Districts', item: selectedPath.district });
     }
-    if ((currentLevel === 'zone' || currentLevel === 'division' || currentLevel === 'station') && selectedPath.district) {
+    if (
+      (currentLevel === 'zone' || currentLevel === 'division' || currentLevel === 'station') &&
+      selectedPath.district
+    ) {
       path.push({ level: 'zone', label: 'Zones', item: selectedPath.zone });
     }
     if ((currentLevel === 'division' || currentLevel === 'station') && selectedPath.zone) {
@@ -321,7 +333,14 @@ export default function LocationsManagementPage() {
 
       {/* Breadcrumb Navigation */}
       {breadcrumbPath.length > 1 && (
-        <div style={{ marginBottom: AdminSpacing.lg, display: 'flex', alignItems: 'center', gap: AdminSpacing.md }}>
+        <div
+          style={{
+            marginBottom: AdminSpacing.lg,
+            display: 'flex',
+            alignItems: 'center',
+            gap: AdminSpacing.md,
+          }}
+        >
           <button
             onClick={handleNavigateBack}
             style={{
@@ -399,8 +418,12 @@ export default function LocationsManagementPage() {
 
         {/* Empty State */}
         {!isLoading && items.length === 0 && (
-          <div style={{ textAlign: 'center', padding: AdminSpacing.xl, color: colors.text.secondary }}>
-            <p style={{ fontSize: '16px', margin: '0 0 8px 0' }}>No {levelConfig.label.toLowerCase()} found</p>
+          <div
+            style={{ textAlign: 'center', padding: AdminSpacing.xl, color: colors.text.secondary }}
+          >
+            <p style={{ fontSize: '16px', margin: '0 0 8px 0' }}>
+              No {levelConfig.label.toLowerCase()} found
+            </p>
             <p style={{ fontSize: '14px', margin: 0 }}>Create one to get started</p>
           </div>
         )}
@@ -410,13 +433,30 @@ export default function LocationsManagementPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ backgroundColor: colors.surface, borderBottom: `1px solid ${colors.border}` }}>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>ID</th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>Name</th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>Code</th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>Created At</th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>Updated At</th>
-                  <th style={{ padding: AdminSpacing.md, textAlign: 'center', fontWeight: 600 }}>Actions</th>
+                <tr
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderBottom: `1px solid ${colors.border}`,
+                  }}
+                >
+                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
+                    ID
+                  </th>
+                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
+                    Name
+                  </th>
+                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
+                    Code
+                  </th>
+                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
+                    Created At
+                  </th>
+                  <th style={{ padding: AdminSpacing.md, textAlign: 'left', fontWeight: 600 }}>
+                    Updated At
+                  </th>
+                  <th style={{ padding: AdminSpacing.md, textAlign: 'center', fontWeight: 600 }}>
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -432,7 +472,9 @@ export default function LocationsManagementPage() {
                   >
                     <td style={{ padding: AdminSpacing.md }}>{item.id}</td>
                     <td style={{ padding: AdminSpacing.md, fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>{item.code}</td>
+                    <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
+                      {item.code}
+                    </td>
                     <td style={{ padding: AdminSpacing.md, color: colors.text.secondary }}>
                       {new Date(item.createdAt).toLocaleDateString()}
                     </td>
@@ -505,92 +547,103 @@ export default function LocationsManagementPage() {
           }}
           onClick={() => !isSaving && setShowModal(false)}
         >
-          <div style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+          <div
+            style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
             <AdminCard
-              title={modalMode === 'create' ? `Create ${levelConfig.singular}` : `Edit ${levelConfig.singular}`}
+              title={
+                modalMode === 'create'
+                  ? `Create ${levelConfig.singular}`
+                  : `Edit ${levelConfig.singular}`
+              }
               onClick={() => undefined}
             >
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: AdminSpacing.lg }}>
-                <label style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}>
-                  Name *
-                </label>
-                <input
-                  type='text'
-                  value={formData.name}
-                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder={`Enter ${levelConfig.singular.toLowerCase()} name`}
-                  style={{
-                    width: '100%',
-                    padding: AdminSpacing.md,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: AdminBorderRadius.md,
-                    fontSize: '14px',
-                  }}
-                  disabled={isSaving}
-                />
-              </div>
+              <form onSubmit={handleSubmit}>
+                <div style={{ marginBottom: AdminSpacing.lg }}>
+                  <label
+                    style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
+                  >
+                    Name *
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.name}
+                    onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder={`Enter ${levelConfig.singular.toLowerCase()} name`}
+                    style={{
+                      width: '100%',
+                      padding: AdminSpacing.md,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: AdminBorderRadius.md,
+                      fontSize: '14px',
+                    }}
+                    disabled={isSaving}
+                  />
+                </div>
 
-              <div style={{ marginBottom: AdminSpacing.lg }}>
-                <label style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}>
-                  Code
-                </label>
-                <input
-                  type='text'
-                  value={formData.code}
-                  onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                  placeholder={`Enter ${levelConfig.singular.toLowerCase()} code (optional)`}
-                  style={{
-                    width: '100%',
-                    padding: AdminSpacing.md,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: AdminBorderRadius.md,
-                    fontSize: '14px',
-                  }}
-                  disabled={isSaving}
-                />
-              </div>
+                <div style={{ marginBottom: AdminSpacing.lg }}>
+                  <label
+                    style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
+                  >
+                    Code
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.code}
+                    onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                    placeholder={`Enter ${levelConfig.singular.toLowerCase()} code (optional)`}
+                    style={{
+                      width: '100%',
+                      padding: AdminSpacing.md,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: AdminBorderRadius.md,
+                      fontSize: '14px',
+                    }}
+                    disabled={isSaving}
+                  />
+                </div>
 
-              <div style={{ display: 'flex', gap: AdminSpacing.md, justifyContent: 'flex-end' }}>
-                <button
-                  type='button'
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  disabled={isSaving}
-                  style={{
-                    padding: '10px 16px',
-                    backgroundColor: 'transparent',
-                    color: colors.text.secondary,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: AdminBorderRadius.md,
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type='submit'
-                  disabled={isSaving}
-                  style={{
-                    padding: '10px 16px',
-                    backgroundColor: colors.status.success,
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: AdminBorderRadius.md,
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    opacity: isSaving ? 0.6 : 1,
-                  }}
-                >
-                  {isSaving ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Update'}
-                </button>
-              </div>
-            </form>
+                <div style={{ display: 'flex', gap: AdminSpacing.md, justifyContent: 'flex-end' }}>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      setShowModal(false);
+                      resetForm();
+                    }}
+                    disabled={isSaving}
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: 'transparent',
+                      color: colors.text.secondary,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: AdminBorderRadius.md,
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='submit'
+                    disabled={isSaving}
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: colors.status.success,
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: AdminBorderRadius.md,
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      opacity: isSaving ? 0.6 : 1,
+                    }}
+                  >
+                    {isSaving ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Update'}
+                  </button>
+                </div>
+              </form>
             </AdminCard>
           </div>
         </div>
