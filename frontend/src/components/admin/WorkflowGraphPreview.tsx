@@ -23,24 +23,6 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
 }) => {
   const { colors } = useAdminTheme();
 
-  if (!currentRole) {
-    return (
-      <div
-        style={{
-          padding: AdminSpacing.lg,
-          textAlign: 'center',
-          backgroundColor: colors.background,
-          borderRadius: AdminBorderRadius.md,
-          border: `1px solid ${colors.border}`,
-          color: colors.text.secondary,
-          fontSize: '14px',
-        }}
-      >
-        Select a role to see the workflow diagram
-      </div>
-    );
-  }
-
   // Calculate layout
   const nodesPerRow = Math.ceil(Math.sqrt(nextRoles.length)) || 1;
   const containerWidth = Math.max(900, 150 + nodesPerRow * 200);
@@ -48,6 +30,8 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
 
   // Position nodes
   const nodePositions = useMemo(() => {
+    if (!currentRole) return {};
+
     const positions: Record<number, { x: number; y: number }> = {};
 
     // Current role at top
@@ -68,6 +52,24 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
 
     return positions;
   }, [currentRole, nextRoles, nodesPerRow, containerWidth]);
+
+  if (!currentRole) {
+    return (
+      <div
+        style={{
+          padding: AdminSpacing.lg,
+          textAlign: 'center',
+          backgroundColor: colors.background,
+          borderRadius: AdminBorderRadius.md,
+          border: `1px solid ${colors.border}`,
+          color: colors.text.secondary,
+          fontSize: '14px',
+        }}
+      >
+        Select a role to see the workflow diagram
+      </div>
+    );
+  }
 
   return (
     <div

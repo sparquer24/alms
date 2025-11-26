@@ -63,7 +63,7 @@ const PermissionEditorModal: React.FC<{
   const { colors } = useAdminTheme();
 
   const handlePermissionChange = (permissionKey: string, value: boolean) => {
-    setPermissions((prev) => ({
+    setPermissions(prev => ({
       ...prev,
       [permissionKey]: value,
     }));
@@ -148,9 +148,9 @@ const PermissionEditorModal: React.FC<{
                   }}
                 >
                   <input
-                    type="checkbox"
+                    type='checkbox'
                     checked={permissions[key] || false}
-                    onChange={(e) => handlePermissionChange(key, e.target.checked)}
+                    onChange={e => handlePermissionChange(key, e.target.checked)}
                     style={{
                       width: '16px',
                       height: '16px',
@@ -214,7 +214,7 @@ export default function UserRolesMappingPage() {
   });
 
   const filteredRoles = roles.filter(
-    (role) =>
+    role =>
       role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       role.displayName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -264,7 +264,7 @@ export default function UserRolesMappingPage() {
         {/* Error Alert */}
         {fetchError && (
           <AdminErrorAlert
-            title="Failed to Load Roles"
+            title='Failed to Load Roles'
             message={fetchError instanceof Error ? fetchError.message : 'Unknown error'}
             onRetry={() => refetch()}
           />
@@ -289,8 +289,9 @@ export default function UserRolesMappingPage() {
           <AdminCardSkeleton count={3} />
         ) : filteredRoles.length === 0 ? (
           <AdminCard
-            title="No Roles Found"
+            title='No Roles Found'
             description={searchTerm ? 'Try adjusting your search criteria.' : 'No roles available.'}
+            children={undefined}
           />
         ) : (
           <div
@@ -300,12 +301,8 @@ export default function UserRolesMappingPage() {
               gap: AdminSpacing.xl,
             }}
           >
-            {filteredRoles.map((role) => (
-              <AdminCard
-                key={role.id}
-                title={role.displayName}
-                description={role.description}
-              >
+            {filteredRoles.map(role => (
+              <AdminCard key={role.id} title={role.displayName} description={role.description}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.lg }}>
                   {/* Permission Count */}
                   <div
@@ -334,7 +331,14 @@ export default function UserRolesMappingPage() {
 
                   {/* Key Permissions Preview */}
                   <div>
-                    <h4 style={{ margin: '0 0 8px 0', color: colors.text.secondary, fontSize: '12px', fontWeight: 500 }}>
+                    <h4
+                      style={{
+                        margin: '0 0 8px 0',
+                        color: colors.text.secondary,
+                        fontSize: '12px',
+                        fontWeight: 500,
+                      }}
+                    >
                       Key Permissions:
                     </h4>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: AdminSpacing.sm }}>
@@ -353,7 +357,10 @@ export default function UserRolesMappingPage() {
                               fontWeight: 500,
                             }}
                           >
-                            {key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
+                            {key
+                              .replace('can', '')
+                              .replace(/([A-Z])/g, ' $1')
+                              .trim()}
                           </span>
                         ))}
                       {getActivePermissionsCount(role.permissions) > 3 && (
@@ -421,153 +428,5 @@ export default function UserRolesMappingPage() {
         isSaving={updatePermissionsMutation.isPending}
       />
     </AdminErrorBoundary>
-  );
-}
-        setSelectedRole(null);
-      } else {
-        setError((response as any)?.message || "Failed to update permissions");
-      }
-    } catch (err) {
-      setError("An error occurred while updating permissions");
-    }
-  };
-
-  // Count active permissions for each role
-  const getActivePermissionsCount = (permissions: Record<string, boolean>) => {
-    return Object.values(permissions).filter(Boolean).length;
-  };
-
-  // Filter roles based on search term
-  const filteredRoles = roles.filter(role =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.displayName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading roles...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-8xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">User Roles & Permissions</h1>
-              <p className="text-gray-600">Manage role-based permissions for the system</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search roles by name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
-        {/* Roles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRoles.map((role) => (
-            <div key={role.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{role.displayName}</h3>
-                    <p className="text-sm text-gray-500">{role.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {getActivePermissionsCount(role.permissions)}
-                    </div>
-                    <div className="text-xs text-gray-500">Permissions</div>
-                  </div>
-                </div>
-
-                {role.description && (
-                  <p className="text-sm text-gray-600 mb-4">{role.description}</p>
-                )}
-
-                {/* Permission Preview */}
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Key Permissions:</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {Object.entries(role.permissions)
-                      .filter(([_, value]) => value)
-                      .slice(0, 3)
-                      .map(([key, _]) => (
-                        <span key={key} className="inline-flex px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                          {key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                      ))}
-                    {getActivePermissionsCount(role.permissions) > 3 && (
-                      <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                        +{getActivePermissionsCount(role.permissions) - 3} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Updated: {new Date(role.updatedAt).toLocaleDateString()}</span>
-                  <button
-                    onClick={() => handleEditPermissions(role)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                  >
-                    Edit Permissions
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredRoles.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No roles found</h3>
-            <p className="mt-2 text-gray-500">
-              {searchTerm ? 'Try adjusting your search criteria.' : 'No roles available.'}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Permission Editor Modal */}
-      <PermissionEditorModal
-        isOpen={isPermissionModalOpen}
-        onClose={() => {
-          setIsPermissionModalOpen(false);
-          setSelectedRole(null);
-        }}
-        onSave={handleSavePermissions}
-        role={selectedRole}
-      />
-    </div>
   );
 }
