@@ -58,26 +58,34 @@ function extractRoleFromJwt(token?: string | null): string | undefined {
       payload.user?.role?.code ||
       payload.user?.role ||
       payload.user?.roleCode;
-    // If backend returned a numeric role id, map it to known role codes
-    const numericRoleMap: Record<string, string> = {
-      '14': 'ADMIN',
-      '7': 'ZS',
-      '2': 'ZS',
-    };
-    if (candidate !== undefined && candidate !== null) {
-      const asString = String(candidate);
-      if (/^[0-9]+$/.test(asString)) {
-        const mapped = numericRoleMap[asString];
-        if (mapped) return mapped;
-      }
-      if (typeof candidate === 'string') return candidate.toUpperCase();
-      // fallback to stringified value uppercased
-      return asString.toUpperCase();
-    }
+    return normalizeRoleValue(candidate);
   } catch {
     // ignore decoding issues silently
   }
   return undefined;
+}
+
+// Normalize a role value (numeric or string) to a role code
+function normalizeRoleValue(value: any): string | undefined {
+  if (!value) return undefined;
+
+  const asString = String(value).trim();
+  if (!asString) return undefined;
+
+  // If backend returned a numeric role id, map it to known role codes
+  const numericRoleMap: Record<string, string> = {
+    '14': 'ADMIN',
+    '3': 'ADMIN',
+    '7': 'ZS',
+    '2': 'ZS',
+  };
+
+  if (/^[0-9]+$/.test(asString)) {
+    const mapped = numericRoleMap[asString];
+    if (mapped) return mapped;
+  }
+
+  return asString.toUpperCase();
 }
 
 /**
@@ -209,7 +217,7 @@ export const useAuthSync = () => {
     user: reduxUser,
     token: reduxToken,
     userRole: (() => {
-      const computed = (reduxUser?.role ? reduxUser.role.toUpperCase() : extractRoleFromJwt(reduxToken || undefined));
+      const computed = (reduxUser?.role ? normalizeRoleValue(reduxUser.role) : extractRoleFromJwt(reduxToken || undefined));
       if (computed && !cachedRoleRef.current) cachedRoleRef.current = computed;
       return cachedRoleRef.current || computed;
     })(),

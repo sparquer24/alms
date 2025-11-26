@@ -22,7 +22,11 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   // If a user object is provided, use it directly. Otherwise attempt to read the
   // `user` cookie as a fallback (legacy behavior).
   let parsedUser: any = undefined;
-  if (userRoleOrObject && typeof userRoleOrObject === 'object') {
+
+  // If we get a string role code (e.g. 'ADMIN', 'SHO'), create a minimal user object
+  if (typeof userRoleOrObject === 'string') {
+    parsedUser = { role: { code: userRoleOrObject.toUpperCase() } };
+  } else if (userRoleOrObject && typeof userRoleOrObject === 'object') {
     parsedUser = userRoleOrObject;
   } else {
     const token = jsCookie.get("user");

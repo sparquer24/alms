@@ -522,12 +522,12 @@ export default function LocationsManagementPage() {
                       >
                         Edit
                       </button>
-                      <button
+                      {/* <button
                         onClick={e => {
                           e.stopPropagation();
-                          handleDelete(item.id);
+                          handleDeactivate(item.id);
                         }}
-                        disabled={deleteMutation.isPending}
+                        disabled={softDeleteMutation.isPending}
                         style={{
                           padding: '6px 12px',
                           backgroundColor: colors.status.error,
@@ -537,11 +537,11 @@ export default function LocationsManagementPage() {
                           cursor: 'pointer',
                           fontSize: '12px',
                           fontWeight: 600,
-                          opacity: deleteMutation.isPending ? 0.6 : 1,
+                          opacity: softDeleteMutation.isPending ? 0.6 : 1,
                         }}
                       >
-                        Delete
-                      </button>
+                        Deactivate
+                      </button> */}
                     </td>
                   </tr>
                 ))}

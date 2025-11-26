@@ -1,5 +1,109 @@
 import { RoleTypes } from '../config/roles';
 
+/**
+ * Type for role values - can be string or object with code/name properties
+ */
+export type RoleValue = string | number | { code?: string; name?: string;[key: string]: any } | undefined | null;
+
+/**
+ * Numeric role ID to role code mapping
+ */
+const NUMERIC_ROLE_MAP: Record<string, string> = {
+  '14': 'ADMIN',
+  '3': 'ADMIN',
+  '7': 'ZS',
+  '2': 'ZS',
+};
+
+/**
+ * Normalize a role to uppercase string
+ * Handles both string roles and object roles with code/name properties
+ */
+export const normalizeRole = (role: RoleValue): string | undefined => {
+  if (!role) return undefined;
+
+  if (typeof role === 'string') {
+    const trimmed = role.trim();
+    // Check if it's a numeric role ID
+    if (/^[0-9]+$/.test(trimmed)) {
+      const mapped = NUMERIC_ROLE_MAP[trimmed];
+      const result = mapped || trimmed;
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.log('[roleUtils] normalizeRole numeric string:', role, '-> ', result);
+      }
+      return result;
+    }
+    const normalized = trimmed.toUpperCase();
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      console.log('[roleUtils] normalizeRole string:', role, '-> ', normalized);
+    }
+    return normalized;
+  }
+
+  if (typeof role === 'number') {
+    const asString = String(role);
+    const mapped = NUMERIC_ROLE_MAP[asString];
+    const result = mapped || asString;
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      console.log('[roleUtils] normalizeRole numeric:', role, '-> ', result);
+    }
+    return result;
+  }
+
+  if (typeof role === 'object') {
+    const roleObj = role as any;
+    // Try code property first (most common)
+    if (roleObj.code && typeof roleObj.code === 'string') {
+      const normalized = roleObj.code.toUpperCase();
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.log('[roleUtils] normalizeRole object.code:', roleObj, '-> ', normalized);
+      }
+      return normalized;
+    }
+    // Fall back to name property
+    if (roleObj.name && typeof roleObj.name === 'string') {
+      const normalized = roleObj.name.toUpperCase();
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.log('[roleUtils] normalizeRole object.name:', roleObj, '-> ', normalized);
+      }
+      return normalized;
+    }
+  }
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    console.log('[roleUtils] normalizeRole failed for:', role);
+  }
+  return undefined;
+};
+
+/**
+ * Check if a role is ADMIN
+ */
+export const isAdminRole = (role: RoleValue): boolean => {
+  const normalized = normalizeRole(role);
+  const isAdmin = normalized === 'ADMIN';
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    console.log('[roleUtils] isAdminRole - role:', role, 'normalized:', normalized, 'isAdmin:', isAdmin);
+  }
+  return isAdmin;
+};
+
+/**
+ * Check if a role matches any of the provided roles
+ */
+export const isRoleIn = (role: RoleValue, allowedRoles: string[]): boolean => {
+  const normalized = normalizeRole(role);
+  if (!normalized) return false;
+  return allowedRoles.some(r => r.toUpperCase() === normalized);
+};
+
+/**
+ * Check if a role can access admin pages
+ */
+export const canAccessAdmin = (role: RoleValue): boolean => {
+  return isAdminRole(role);
+};
+
 export const getRoleHierarchy = (): Record<string, string[]> => ({
   [RoleTypes.SHO]: [RoleTypes.ACP, RoleTypes.ZS],
   [RoleTypes.ACP]: [RoleTypes.DCP, RoleTypes.ZS, RoleTypes.SHO],
