@@ -3,6 +3,8 @@
 import { Sidebar } from '../../../components/Sidebar';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useSearchParams } from 'next/navigation';
+import { getCookie, setCookie } from 'cookies-next';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { fetchData, postData, putData, deleteData } from '../../../api/axiosConfig';
@@ -48,6 +50,23 @@ interface UiUser {
 }
 
 export default function UserManagementPage() {
+  const searchParams = useSearchParams();
+  const shouldRefresh = searchParams?.get('refresh') === 'true';
+
+  // Handle refresh parameter - only refresh once per login
+  useEffect(() => {
+    if (shouldRefresh) {
+      const refreshed = getCookie('pageRefreshed');
+      if (!refreshed) {
+        const timer = setTimeout(() => {
+          setCookie('pageRefreshed', 'true', { maxAge: 60 * 5 }); // 5 minute expiry
+          window.location.reload();
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [shouldRefresh]);
+
   const [users, setUsers] = useState<UiUser[]>([]);
   const [apiRoles, setApiRoles] = useState<ApiRole[]>([]);
   const [loading, setLoading] = useState(false);
@@ -860,7 +879,14 @@ export default function UserManagementPage() {
                   onChange={e => {
                     const v = e.target.value;
                     locationActions.setSelectedState(v);
-                    setAddUser({ ...addUser, state: v, district: '', zone: '', division: '', policeStation: '' });
+                    setAddUser({
+                      ...addUser,
+                      state: v,
+                      district: '',
+                      zone: '',
+                      division: '',
+                      policeStation: '',
+                    });
                   }}
                   disabled={locationState.loadingStates}
                 >
@@ -881,7 +907,13 @@ export default function UserManagementPage() {
                   onChange={e => {
                     const v = e.target.value;
                     locationActions.setSelectedDistrict(v);
-                    setAddUser({ ...addUser, district: v, zone: '', division: '', policeStation: '' });
+                    setAddUser({
+                      ...addUser,
+                      district: v,
+                      zone: '',
+                      division: '',
+                      policeStation: '',
+                    });
                   }}
                   disabled={!addUser.state || locationState.loadingDistricts}
                 >
@@ -937,7 +969,9 @@ export default function UserManagementPage() {
               </div>
 
               <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>
+                  Police Station
+                </label>
                 <select
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.policeStation}

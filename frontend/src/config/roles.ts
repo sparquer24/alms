@@ -105,6 +105,71 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     menuItems = adminItems;
   }
 
+  // Fallback menu items with status IDs for specific roles
+  // Synced from ROLE_MENU_ITEMS_WITH_STATUS_IDS.json
+  const roleSpecificMenuDefaults: Record<string, MenuItem[]> = {
+    // Field Operational Roles
+    'ZS': [
+      { name: 'freshform', statusIds: [9] },
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1, 9] },
+      { name: 'closed', statusIds: [10] },
+      { name: 'drafts', statusIds: [13] },
+      { name: 'finaldisposal', statusIds: [7] },
+    ],
+    'SHO': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'ACP': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'DCP': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+
+    // Administrative & Support Roles
+    'AS': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'ADO': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11] },
+    ],
+    'CADO': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+    'JTCP': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+    'CP': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+    'ARMS_SUPDT': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'ARMS_SEAT': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11] },
+    ],
+    'ACO': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11] },
+    ],
+  };
+
+  // If menu items are empty or missing, use role-specific defaults
+  if (roleCode && menuItems.length === 0 && roleSpecificMenuDefaults[roleCode]) {
+    menuItems = roleSpecificMenuDefaults[roleCode];
+  }
+
   // Menu items should be provided by the cookie/backend
   // If no menu items are provided, the role config will have an empty array
 

@@ -18,7 +18,7 @@
     "up": "prisma migrate deploy",
     "down": "prisma migrate reset --force",
     "studio": "prisma studio",
-    "postinstall": "prisma generate",
+    "postinstall": "echo 'Postinstall disabled'",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate deploy",
     "prisma:migrate:dev": "npx prisma migrate dev",

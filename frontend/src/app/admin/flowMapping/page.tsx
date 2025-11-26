@@ -10,6 +10,7 @@ import {
   AdminErrorAlert,
   AdminErrorBoundary,
   WorkflowGraphPreview,
+  AdminSectionSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
@@ -360,271 +361,281 @@ export default function FlowMappingPage() {
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: AdminSpacing.xl,
-            }}
-          >
-            {/* Current Role Selection */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
-              <div>
-                <label
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: colors.text.primary,
-                    marginBottom: AdminSpacing.sm,
-                    display: 'block',
-                  }}
-                >
-                  Select Current Role
-                </label>
-                <p style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}>
-                  Choose the role that will be forwarding applications
-                </p>
-              </div>
-              <Select
-                options={roleOptions}
-                value={currentRole}
-                onChange={setCurrentRole}
-                placeholder='Select a role...'
-                isDisabled={isLoading}
-                isClearable
-                styles={selectStyles}
-              />
-              {formErrors.currentRole && (
-                <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
-                  {formErrors.currentRole}
-                </p>
-              )}
-            </div>
-
-            {/* Next Roles Selection */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
-              <div>
-                <label
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: colors.text.primary,
-                    marginBottom: AdminSpacing.sm,
-                    display: 'block',
-                  }}
-                >
-                  Select Next Roles (Can Forward To)
-                </label>
-                <p style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}>
-                  Choose multiple roles that can receive applications from the current role
-                </p>
-              </div>
-              <Select
-                isMulti
-                options={availableNextRoleOptions}
-                value={nextRoles}
-                onChange={selected => setNextRoles(selected || [])}
-                placeholder='Select next roles...'
-                isDisabled={!currentRole || isLoading}
-                styles={selectStyles}
-              />
-              {formErrors.nextRoles && (
-                <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
-                  {formErrors.nextRoles}
-                </p>
-              )}
-              {formErrors.selfReference && (
-                <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
-                  {formErrors.selfReference}
-                </p>
-              )}
-            </div>
-
-            {/* Workflow Graph Preview */}
-            {currentRole && (
-              <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: AdminSpacing.lg }}>
-                <h3
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: colors.text.primary,
-                    margin: `0 0 ${AdminSpacing.md}px 0`,
-                  }}
-                >
-                  Workflow Diagram Preview
-                </h3>
-                <WorkflowGraphPreview
-                  currentRole={{
-                    id: currentRole.value,
-                    name: currentRole.role?.name || '',
-                    code: currentRole.role?.code || '',
-                  }}
-                  nextRoles={nextRoleDetails}
-                />
-              </div>
-            )}
-
-            {/* Audit Information */}
-            {currentFlowMapping && currentFlowMapping.id && (
-              <div
-                style={{
-                  backgroundColor: colors.background,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: AdminBorderRadius.md,
-                  padding: AdminSpacing.md,
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: colors.text.secondary,
-                    margin: `0 0 ${AdminSpacing.sm}px 0`,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  Audit Information
-                </h4>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: AdminSpacing.md,
-                    fontSize: '12px',
-                  }}
-                >
-                  {currentFlowMapping.updatedAt && (
-                    <div>
-                      <p style={{ color: colors.text.secondary, margin: '0 0 4px 0' }}>
-                        Last Updated
-                      </p>
-                      <p style={{ color: colors.text.primary, fontWeight: 500, margin: 0 }}>
-                        {new Date(currentFlowMapping.updatedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {currentFlowMapping.updatedByUser && (
-                    <div>
-                      <p style={{ color: colors.text.secondary, margin: '0 0 4px 0' }}>
-                        Updated By
-                      </p>
-                      <p style={{ color: colors.text.primary, fontWeight: 500, margin: 0 }}>
-                        {currentFlowMapping.updatedByUser.username}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
+          {rolesLoading ? (
+            <AdminSectionSkeleton />
+          ) : (
             <div
               style={{
                 display: 'flex',
-                gap: AdminSpacing.md,
-                flexWrap: 'wrap',
-                paddingTop: AdminSpacing.lg,
-                borderTop: `1px solid ${colors.border}`,
+                flexDirection: 'column',
+                gap: AdminSpacing.xl,
               }}
             >
-              <button
-                onClick={handleSubmit}
-                disabled={!currentRole || nextRoles.length === 0 || isSaving || isLoading}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor:
-                    !currentRole || nextRoles.length === 0 || isSaving || isLoading
-                      ? colors.text.secondary
-                      : colors.status.success,
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: AdminBorderRadius.md,
-                  cursor:
-                    !currentRole || nextRoles.length === 0 || isSaving || isLoading
-                      ? 'not-allowed'
-                      : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  opacity: !currentRole || nextRoles.length === 0 || isSaving ? 0.6 : 1,
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {saveFlowMappingMutation.isPending || validateFlowMutation.isPending
-                  ? 'Saving...'
-                  : 'Save Mapping'}
-              </button>
+              {/* Current Role Selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text.primary,
+                      marginBottom: AdminSpacing.sm,
+                      display: 'block',
+                    }}
+                  >
+                    Select Current Role
+                  </label>
+                  <p
+                    style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}
+                  >
+                    Choose the role that will be forwarding applications
+                  </p>
+                </div>
+                <Select
+                  options={roleOptions}
+                  value={currentRole}
+                  onChange={setCurrentRole}
+                  placeholder='Select a role...'
+                  isDisabled={isLoading}
+                  isClearable
+                  styles={selectStyles}
+                />
+                {formErrors.currentRole && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
+                    {formErrors.currentRole}
+                  </p>
+                )}
+              </div>
 
-              <button
-                onClick={handleReset}
-                disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: 'transparent',
-                  color:
-                    !currentRole || !currentFlowMapping || isSaving
-                      ? colors.text.secondary
-                      : '#ef4444',
-                  border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : '#ef4444'}`,
-                  borderRadius: AdminBorderRadius.md,
-                  cursor:
-                    !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
-                }}
-              >
-                {resetMappingMutation.isPending ? 'Resetting...' : 'Reset Mapping'}
-              </button>
+              {/* Next Roles Selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text.primary,
+                      marginBottom: AdminSpacing.sm,
+                      display: 'block',
+                    }}
+                  >
+                    Select Next Roles (Can Forward To)
+                  </label>
+                  <p
+                    style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}
+                  >
+                    Choose multiple roles that can receive applications from the current role
+                  </p>
+                </div>
+                <Select
+                  isMulti
+                  options={availableNextRoleOptions}
+                  value={nextRoles}
+                  onChange={selected => setNextRoles(selected || [])}
+                  placeholder='Select next roles...'
+                  isDisabled={!currentRole || isLoading}
+                  styles={selectStyles}
+                />
+                {formErrors.nextRoles && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
+                    {formErrors.nextRoles}
+                  </p>
+                )}
+                {formErrors.selfReference && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
+                    {formErrors.selfReference}
+                  </p>
+                )}
+              </div>
 
-              <button
-                onClick={() => {
-                  setDuplicateSource(currentRole);
-                  setShowDuplicateModal(true);
-                }}
-                disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: 'transparent',
-                  color:
-                    !currentRole || !currentFlowMapping || isSaving
-                      ? colors.text.secondary
-                      : colors.status.info,
-                  border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : colors.status.info}`,
-                  borderRadius: AdminBorderRadius.md,
-                  cursor:
-                    !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
-                }}
-              >
-                Duplicate Mapping
-              </button>
+              {/* Workflow Graph Preview */}
+              {currentRole && (
+                <div
+                  style={{ borderTop: `1px solid ${colors.border}`, paddingTop: AdminSpacing.lg }}
+                >
+                  <h3
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text.primary,
+                      margin: `0 0 ${AdminSpacing.md}px 0`,
+                    }}
+                  >
+                    Workflow Diagram Preview
+                  </h3>
+                  <WorkflowGraphPreview
+                    currentRole={{
+                      id: currentRole.value,
+                      name: currentRole.role?.name || '',
+                      code: currentRole.role?.code || '',
+                    }}
+                    nextRoles={nextRoleDetails}
+                  />
+                </div>
+              )}
 
-              <button
-                onClick={() => {
-                  setCurrentRole(null);
-                  setNextRoles([]);
-                  setFormErrors({});
-                }}
-                disabled={isSaving || isLoading}
+              {/* Audit Information */}
+              {currentFlowMapping && currentFlowMapping.id && (
+                <div
+                  style={{
+                    backgroundColor: colors.background,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: AdminBorderRadius.md,
+                    padding: AdminSpacing.md,
+                  }}
+                >
+                  <h4
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: colors.text.secondary,
+                      margin: `0 0 ${AdminSpacing.sm}px 0`,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    Audit Information
+                  </h4>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: AdminSpacing.md,
+                      fontSize: '12px',
+                    }}
+                  >
+                    {currentFlowMapping.updatedAt && (
+                      <div>
+                        <p style={{ color: colors.text.secondary, margin: '0 0 4px 0' }}>
+                          Last Updated
+                        </p>
+                        <p style={{ color: colors.text.primary, fontWeight: 500, margin: 0 }}>
+                          {new Date(currentFlowMapping.updatedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    {currentFlowMapping.updatedByUser && (
+                      <div>
+                        <p style={{ color: colors.text.secondary, margin: '0 0 4px 0' }}>
+                          Updated By
+                        </p>
+                        <p style={{ color: colors.text.primary, fontWeight: 500, margin: 0 }}>
+                          {currentFlowMapping.updatedByUser.username}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div
                 style={{
-                  marginLeft: 'auto',
-                  padding: '10px 20px',
-                  backgroundColor: 'transparent',
-                  color: colors.text.secondary,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: AdminBorderRadius.md,
-                  cursor: isSaving || isLoading ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 600,
+                  display: 'flex',
+                  gap: AdminSpacing.md,
+                  flexWrap: 'wrap',
+                  paddingTop: AdminSpacing.lg,
+                  borderTop: `1px solid ${colors.border}`,
                 }}
               >
-                Clear All
-              </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!currentRole || nextRoles.length === 0 || isSaving || isLoading}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor:
+                      !currentRole || nextRoles.length === 0 || isSaving || isLoading
+                        ? colors.text.secondary
+                        : colors.status.success,
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: AdminBorderRadius.md,
+                    cursor:
+                      !currentRole || nextRoles.length === 0 || isSaving || isLoading
+                        ? 'not-allowed'
+                        : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    opacity: !currentRole || nextRoles.length === 0 || isSaving ? 0.6 : 1,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {saveFlowMappingMutation.isPending || validateFlowMutation.isPending
+                    ? 'Saving...'
+                    : 'Save Mapping'}
+                </button>
+
+                <button
+                  onClick={handleReset}
+                  disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: 'transparent',
+                    color:
+                      !currentRole || !currentFlowMapping || isSaving
+                        ? colors.text.secondary
+                        : '#ef4444',
+                    border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : '#ef4444'}`,
+                    borderRadius: AdminBorderRadius.md,
+                    cursor:
+                      !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
+                  }}
+                >
+                  {resetMappingMutation.isPending ? 'Resetting...' : 'Reset Mapping'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setDuplicateSource(currentRole);
+                    setShowDuplicateModal(true);
+                  }}
+                  disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: 'transparent',
+                    color:
+                      !currentRole || !currentFlowMapping || isSaving
+                        ? colors.text.secondary
+                        : colors.status.info,
+                    border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : colors.status.info}`,
+                    borderRadius: AdminBorderRadius.md,
+                    cursor:
+                      !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
+                  }}
+                >
+                  Duplicate Mapping
+                </button>
+
+                <button
+                  onClick={() => {
+                    setCurrentRole(null);
+                    setNextRoles([]);
+                    setFormErrors({});
+                  }}
+                  disabled={isSaving || isLoading}
+                  style={{
+                    marginLeft: 'auto',
+                    padding: '10px 20px',
+                    backgroundColor: 'transparent',
+                    color: colors.text.secondary,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: AdminBorderRadius.md,
+                    cursor: isSaving || isLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Clear All
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </AdminCard>
 
         {/* Duplicate Modal */}
