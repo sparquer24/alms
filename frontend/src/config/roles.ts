@@ -22,7 +22,11 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   // If a user object is provided, use it directly. Otherwise attempt to read the
   // `user` cookie as a fallback (legacy behavior).
   let parsedUser: any = undefined;
-  if (userRoleOrObject && typeof userRoleOrObject === 'object') {
+
+  // If we get a string role code (e.g. 'ADMIN', 'SHO'), create a minimal user object
+  if (typeof userRoleOrObject === 'string') {
+    parsedUser = { role: { code: userRoleOrObject.toUpperCase() } };
+  } else if (userRoleOrObject && typeof userRoleOrObject === 'object') {
     parsedUser = userRoleOrObject;
   } else {
     const token = jsCookie.get("user");
@@ -99,6 +103,71 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     // Admin role always gets all 4 admin pages
     const adminItems = getAdminMenuItems().map(item => ({ name: item.name }));
     menuItems = adminItems;
+  }
+
+  // Fallback menu items with status IDs for specific roles
+  // Synced from ROLE_MENU_ITEMS_WITH_STATUS_IDS.json
+  const roleSpecificMenuDefaults: Record<string, MenuItem[]> = {
+    // Field Operational Roles
+    'ZS': [
+      { name: 'freshform', statusIds: [9] },
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1, 9] },
+      { name: 'closed', statusIds: [10] },
+      { name: 'drafts', statusIds: [13] },
+      { name: 'finaldisposal', statusIds: [7] },
+    ],
+    'SHO': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'ACP': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'DCP': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+
+    // Administrative & Support Roles
+    'AS': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'ADO': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11] },
+    ],
+    'CADO': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+    'JTCP': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+    'CP': [
+      { name: 'inbox', statusIds: [1, 9, 11] },
+      { name: 'sent', statusIds: [11, 3] },
+    ],
+    'ARMS_SUPDT': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11, 1] },
+    ],
+    'ARMS_SEAT': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11] },
+    ],
+    'ACO': [
+      { name: 'inbox', statusIds: [1, 9] },
+      { name: 'sent', statusIds: [11] },
+    ],
+  };
+
+  // If menu items are empty or missing, use role-specific defaults
+  if (roleCode && menuItems.length === 0 && roleSpecificMenuDefaults[roleCode]) {
+    menuItems = roleSpecificMenuDefaults[roleCode];
   }
 
   // Menu items should be provided by the cookie/backend

@@ -22,6 +22,8 @@ export interface RoleQueryParams {
   status?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 export const AdminRoleService = {

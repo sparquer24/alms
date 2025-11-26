@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { getCookie, setCookie } from 'cookies-next';
 import Header from '../../components/Header';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuthSync } from '../../hooks/useAuthSync';
@@ -14,6 +15,7 @@ function InboxContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const queryType = searchParams?.get('type') || '';
+  const shouldRefresh = searchParams?.get('refresh') === 'true';
 
   const [type, setType] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationData[]>([]);
@@ -22,6 +24,20 @@ function InboxContent() {
   const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { isAuthenticated, isLoading: authLoading } = useAuthSync();
+
+  // Handle refresh parameter - only refresh once per login
+  useEffect(() => {
+    if (shouldRefresh) {
+      const refreshed = getCookie('pageRefreshed');
+      if (!refreshed) {
+        const timer = setTimeout(() => {
+          setCookie('pageRefreshed', 'true', { maxAge: 60 * 5 }); // 5 minute expiry
+          window.location.reload();
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [shouldRefresh]);
 
   useEffect(() => {
     if (!queryType) return;

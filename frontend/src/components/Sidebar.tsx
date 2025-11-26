@@ -31,8 +31,13 @@ import { useSidebarCounts } from '../hooks/useSidebarCounts';
 import { menuMeta, MenuMetaKey } from '../config/menuMeta';
 import { getRoleConfig } from '../config/roles';
 import { getRoleBasedRedirectPath } from '../config/roleRedirections';
+import { isAdminRole } from '../utils/roleUtils';
 import { useAdminMenu } from '../context/AdminMenuContext';
-import { getAdminMenuKeyFromPath, getAdminMenuItems } from '../config/adminMenuService';
+import {
+  getAdminMenuKeyFromPath,
+  getAdminMenuItems,
+  getAdminPathForMenuItem,
+} from '../config/adminMenuService';
 import { preloadAdminPages } from '../utils/adminPagePreloader';
 import { HamburgerButton } from './HamburgerButton';
 
@@ -715,6 +720,17 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   -----------------------------*/
   const handleMenuClick = useCallback(
     async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.log(
+          '[Sidebar] handleMenuClick - item.name:',
+          item.name,
+          'userRole:',
+          userRole,
+          'cookieRole:',
+          cookieRole
+        );
+      }
+
       if (item.name.toLowerCase() !== 'inbox') {
         dispatch(closeInbox());
       }
@@ -726,27 +742,38 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       }
 
       const key = normalizeNavKey(item.name as string);
-      // Use userRole directly from useAuthSync, fall back to cookieRole for consistency
-      let effectiveRole = userRole;
-      if (!effectiveRole) {
-        effectiveRole = cookieRole;
+
+      // Get effective role (use userRole, fall back to cookieRole)
+      const effectiveRole = userRole || cookieRole;
+
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.log(
+          '[Sidebar] effectiveRole:',
+          effectiveRole,
+          'isAdminRole result:',
+          isAdminRole(effectiveRole)
+        );
       }
-      // Normalize role to uppercase for comparison
-      const normalizedRole = effectiveRole ? String(effectiveRole).toUpperCase() : undefined;
 
-      // For ADMIN role: navigate directly to admin page, not inbox
-      if (normalizedRole === 'ADMIN') {
-        // Use the raw item name for the path (e.g., 'userManagement' or 'roleMapping')
-        const pathSegment = item.name.replace(/\s+/g, '');
-        const adminPath = `/admin/${encodeURIComponent(pathSegment)}`;
+      // Check if this is an admin user navigating to an admin menu item
+      if (isAdminRole(effectiveRole)) {
+        // Get the admin path from config using the menu item name
+        const adminPath = getAdminPathForMenuItem(item.name);
 
-        // Set active item to the normalized key (e.g., 'usermanagement')
-        setActiveItem(key);
-        persistActiveNavToLocal(key);
+        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+          console.log('[Sidebar] Admin user detected. adminPath for', item.name, ':', adminPath);
+        }
 
-        // Navigate without any inbox-related logic
-        router.push(adminPath);
-        return;
+        if (adminPath) {
+          // This is a valid admin menu item
+          if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+            console.log('[Sidebar] Navigating to admin path:', adminPath);
+          }
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
+          router.push(adminPath);
+          return;
+        }
       }
 
       // For non-ADMIN roles: use inbox pattern
@@ -837,6 +864,13 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
   const handleInboxSubItemClick = useCallback(
     (subItem: string) => {
+      // Check if admin user is trying to access inbox (should not happen)
+      if (isAdminRole(userRole || cookieRole)) {
+        // Admin users shouldn't be in inbox - redirect to admin dashboard
+        router.push('/admin/userManagement');
+        return;
+      }
+
       const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
       setActiveItem(activeItemKey);
       persistActiveNavToLocal(activeItemKey);
@@ -894,18 +928,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       const forceReload =
         !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
       void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
-      const effectiveRoleInbox = userRole || cookieRole;
-      const normalizedRoleInbox = effectiveRoleInbox
-        ? String(effectiveRoleInbox).toUpperCase()
-        : undefined;
-      const targetBase = normalizedRoleInbox === 'ADMIN' ? '/admin/userManagement' : '/inbox';
+
+      const targetBase = '/inbox';
       const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
 
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-      const isOnInboxBase =
-        normalizedRoleInbox === 'ADMIN'
-          ? currentPath === '/admin/userManagement' || currentPath.startsWith('/admin')
-          : currentPath === '/inbox' || currentPath.startsWith('/inbox');
+      const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox');
 
       if (isOnInboxBase) {
         try {

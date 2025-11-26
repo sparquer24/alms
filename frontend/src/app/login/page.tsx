@@ -203,13 +203,14 @@ function LoginContent() {
         // newly-set cookies and any server components (eg. sidebar) are
         // rendered with the correct data. Use a tiny delay so cookies
         // written by thunks have a chance to flush.
+        const separator = redirectPath.includes('?') ? '&' : '?';
         setTimeout(() => {
-          window.location.assign(redirectPath);
+          window.location.assign(redirectPath + separator + 'refresh=true');
         }, 50);
       } else {
         // Fallback to root (full navigation)
         setTimeout(() => {
-          window.location.assign('/');
+          window.location.assign('/?refresh=true');
         }, 50);
       }
     }
@@ -230,19 +231,19 @@ function LoginContent() {
         try {
           if (String(cRole).toLowerCase() === 'admin') {
             setTimeout(() => {
-              window.location.assign('/admin/userManagement');
+              window.location.assign('/admin/userManagement?refresh=true');
             }, 50);
           } else {
             setTimeout(() => {
-              window.location.assign('/inbox?type=forwarded');
+              window.location.assign('/inbox?type=forwarded&refresh=true');
             }, 50);
           }
         } catch (e) {
           // Fallback: do a direct assign
           window.location.assign(
             String(cRole).toLowerCase() === 'admin'
-              ? '/admin/userManagement'
-              : '/inbox?type=forwarded'
+              ? '/admin/userManagement?refresh=true'
+              : '/inbox?type=forwarded&refresh=true'
           );
         }
       }
@@ -302,16 +303,19 @@ function LoginContent() {
             setTimeout(() => {
               try {
                 if (isAdminLike) {
-                  window.location.assign('/admin/userManagement');
+                  window.location.assign('/admin/userManagement?refresh=true');
                 } else if (redirectPath && typeof redirectPath === 'string') {
-                  window.location.assign(redirectPath);
+                  const separator = redirectPath.includes('?') ? '&' : '?';
+                  window.location.assign(redirectPath + separator + 'refresh=true');
                 } else {
                   // Fallback to inbox or root
-                  window.location.assign('/inbox?type=forwarded');
+                  window.location.assign('/inbox?type=forwarded&refresh=true');
                 }
               } catch (e) {
                 // As final fallback do a direct assign without try/catch
-                window.location.assign(isAdminLike ? '/admin/userManagement' : '/');
+                window.location.assign(
+                  isAdminLike ? '/admin/userManagement?refresh=true' : '/?refresh=true'
+                );
               }
             }, 50);
           }

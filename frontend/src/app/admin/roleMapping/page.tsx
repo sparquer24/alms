@@ -12,6 +12,7 @@ import {
   AdminFilter,
   AdminErrorAlert,
   AdminErrorBoundary,
+  AdminTableSkeleton,
 } from '../../../components/admin';
 import type { ConfirmationDialogConfig } from '../../../components/admin/ConfirmationDialog';
 import { AdminRoleService } from '@/services/admin/roles';
@@ -97,10 +98,10 @@ export default function RoleMappingPage() {
         limit,
       });
 
-      if (response && (response as any).data) {
-        return (response as any).data;
+      if (response && typeof response === 'object' && 'data' in response) {
+        return response;
       }
-      return { data: [], total: 0, page: 1, limit };
+      return { data: [], total: 0, page: currentPage, limit };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -418,20 +419,24 @@ export default function RoleMappingPage() {
                   overflow: 'hidden',
                 }}
               >
-                <RoleTable
-                  roles={roles}
-                  isLoading={isLoadingRoles}
-                  sortBy={sortBy}
-                  sortOrder={sortOrder}
-                  onSort={handleSort}
-                  onEdit={handleEditRole}
-                  onDelete={handleDeleteRole}
-                  onToggleStatus={handleToggleStatus}
-                  onViewPermissions={handleViewPermissions}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
+                {isLoadingRoles ? (
+                  <AdminTableSkeleton rows={5} columns={6} />
+                ) : (
+                  <RoleTable
+                    roles={roles}
+                    isLoading={isLoadingRoles}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSort={handleSort}
+                    onEdit={handleEditRole}
+                    onDelete={handleDeleteRole}
+                    onToggleStatus={handleToggleStatus}
+                    onViewPermissions={handleViewPermissions}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                )}
               </div>
             </div>
           </main>

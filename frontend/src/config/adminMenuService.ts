@@ -191,3 +191,25 @@ export function getMenuItemsForAdminRole(
 
     return [];
 }
+
+/**
+ * Get the full admin path (e.g., '/admin/userManagement') for a menu item name
+ * Handles normalization and returns the correct path from ADMIN_MENU_ITEMS
+ */
+export function getAdminPathForMenuItem(itemName: string): string | null {
+    if (!itemName) return null;
+
+    // Try direct match first
+    const key = itemName as AdminMenuItemKey;
+    if (ADMIN_MENU_ITEMS[key]) {
+        return ADMIN_MENU_ITEMS[key].path;
+    }
+
+    // Try normalized match
+    const normalized = normalizeAdminMenuItem(itemName);
+    if (normalized && ADMIN_MENU_ITEMS[normalized]) {
+        return ADMIN_MENU_ITEMS[normalized].path;
+    }
+
+    return null;
+}

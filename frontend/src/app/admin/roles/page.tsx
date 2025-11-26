@@ -14,6 +14,7 @@ import {
   AdminCardSkeleton,
   AdminErrorAlert,
   AdminErrorBoundary,
+  AdminTableSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
