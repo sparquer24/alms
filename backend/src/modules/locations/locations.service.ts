@@ -322,9 +322,16 @@ export class LocationsService {
 
   async createState(name: string) {
     try {
+      const trimmed = (name || '').trim();
+      if (!trimmed) {
+        throw new Error('State name is required');
+      }
+      const now = new Date();
       return await prisma.states.create({
         data: {
-          name: name.trim(),
+          name: trimmed,
+          createdAt: now,
+          updatedAt: now,
         },
       });
     } catch (error: any) {

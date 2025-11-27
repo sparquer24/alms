@@ -71,6 +71,7 @@ async function bootstrap() {
   // (useful when env overrides or Docker maps ports differently)
   // eslint-disable-next-line no-console
   console.log(`Backend listening on http://localhost:${port}`);
+  console.log(`Swagger API docs available at http://localhost:${port}/api/api-docs`);
 }
 
 bootstrap();
