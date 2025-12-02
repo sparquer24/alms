@@ -95,7 +95,7 @@ export default function FlowMappingPage() {
     if (currentFlowMapping && currentFlowMapping.nextRoleIds.length > 0) {
       const selectedNextRoles = currentFlowMapping.nextRoleIds
         .map(id => {
-          const role = allRoles.find(r => r.id === id);
+          const role = allRoles.find((r: Role) => r.id === id);
           return role ? { value: id, label: `${role.name} (${role.code})`, role } : null;
         })
         .filter(Boolean) as SelectOption[];
@@ -263,7 +263,7 @@ export default function FlowMappingPage() {
   };
 
   // Transform roles to select options
-  const roleOptions: SelectOption[] = allRoles.map(role => ({
+  const roleOptions: SelectOption[] = allRoles.map((role: Role) => ({
     value: role.id,
     label: `${role.name} (${role.code})`,
     role,
@@ -282,7 +282,7 @@ export default function FlowMappingPage() {
 
   // Get next role details for visualization
   const nextRoleDetails = nextRoles
-    .map(r => r.role || allRoles.find(role => role.id === r.value))
+    .map(r => r.role || allRoles.find((role: Role) => role.id === r.value))
     .filter(Boolean) as Role[];
 
   const selectStyles = {
@@ -431,7 +431,7 @@ export default function FlowMappingPage() {
                   isMulti
                   options={availableNextRoleOptions}
                   value={nextRoles}
-                  onChange={selected => setNextRoles(selected || [])}
+                  onChange={selected => setNextRoles(selected ? [...selected] : [])}
                   placeholder='Select next roles...'
                   isDisabled={!currentRole || isLoading}
                   styles={selectStyles}
@@ -655,15 +655,9 @@ export default function FlowMappingPage() {
             }}
             onClick={() => setShowDuplicateModal(false)}
           >
-            <AdminCard
-              title='Duplicate Mapping'
-              style={{
-                maxWidth: '500px',
-                maxHeight: '90vh',
-                overflow: 'auto',
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.lg }}>
+            <div style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
+              <AdminCard title='Duplicate Mapping'>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.lg }}>
                 <p style={{ color: colors.text.secondary, margin: 0 }}>
                   Copy the mapping from <strong>{duplicateSource?.label}</strong> to another role
                 </p>
@@ -737,6 +731,7 @@ export default function FlowMappingPage() {
                 </div>
               </div>
             </AdminCard>
+            </div>
           </div>
         )}
 

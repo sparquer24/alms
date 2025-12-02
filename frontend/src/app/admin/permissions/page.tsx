@@ -307,36 +307,37 @@ export default function PermissionsPage() {
           {isLoading ? (
             <AdminSectionSkeleton />
           ) : (
-          <div className="mb-6">
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleCategoryFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === 'all'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All Categories
-              </button>
-              {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
-                <button
-                  key={category}
-                  onClick={() => handleCategoryFilter(category)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedCategory === category
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
+            <>
+              <div className="mb-6">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleCategoryFilter('all')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedCategory === 'all'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All Categories
+                  </button>
+                  {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
+                    <button
+                      key={category}
+                      onClick={() => handleCategoryFilter(category)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        selectedCategory === category
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Display search information if applied */}
-          {searchQuery && (
+              {/* Display search information if applied */}
+              {searchQuery && (
             <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
               <h3 className="font-semibold text-blue-700">Search Results:</h3>
               <p className="text-sm text-gray-700 mt-1">Searching for: "{searchQuery}"</p>
@@ -434,6 +435,7 @@ export default function PermissionsPage() {
               <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
             </div>
           )}
+            </>
           )}
         </div>
       </main>
