@@ -50,7 +50,6 @@ interface FormData {
   otherStateLicenseUploaded?: boolean;
 
   // New fields from freshFormFilde.md
-  aliceAcknowledgementNumber?: string;
   applicantMiddleName?: string;
   applicantLastName?: string;
   applicationFilledBy?: string;
@@ -347,7 +346,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     hasSubmittedTrueInfo: false,
 
     // New fields from freshFormFilde.md
-    aliceAcknowledgementNumber: '',
     convictionDetails: [],
     previouslyApplied: false,
     previousApplicationDetails: {
@@ -1049,7 +1047,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       hasSubmittedTrueInfo: true,
 
       // New fields from freshFormFilde.md
-      aliceAcknowledgementNumber: 'ALMS1757266946852',
       convictionDetails: [],
       previouslyApplied: false,
       previousApplicationDetails: {
@@ -1725,11 +1722,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Personal Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-6">
-                    {/* Row 1: Alice Ack No, First, Middle, Last Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Alice Acknowledgement Number</label>
-                      <input type="text" name="aliceAcknowledgementNumber" value={formData.aliceAcknowledgementNumber} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
-                    </div>
+                    {/* Row 1: First, Middle, Last Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Applicant First Name<span className="text-red-500">*</span></label>
                       <input type="text" name="applicantName" value={formData.applicantName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />

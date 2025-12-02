@@ -155,16 +155,7 @@ const PersonalInformation: React.FC = () => {
         </div>
       )}
 
-      <div className='mb-12'>
-        <Input
-          className='w-1/3'
-          label='Alice Acknowledgement Number'
-          name='acknowledgementNo'
-          value={form.acknowledgementNo}
-          onChange={handleChange}
-          //placeholder="Enter number"
-        />
-      </div>
+      
       <div className='grid  grid-cols-4 gap-10 mb-4'>
         <Input
           label='1. Applicant First Name'
