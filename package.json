@@ -5,6 +5,10 @@
     "frontend",
     "backend"
   ],
+  "overrides": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
+  },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "concurrently": "^9.1.0",
