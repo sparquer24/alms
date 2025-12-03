@@ -462,9 +462,9 @@ export default function ProceedingsForm({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // Basic validation: 10 files max, each <= 10MB
-    const MAX_FILES = 1;
-    const MAX_SIZE = 1 * 1024 * 1024; // 10MB
+    // Basic validation: 10 files max, each <= 1MB
+    const MAX_FILES = 10;
+    const MAX_SIZE = 1 * 1024 * 1024; // 1MB
 
     const valid: File[] = [];
     for (const f of files) {
@@ -1161,7 +1161,7 @@ Yours faithfully,
                       className='block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
                     />
                     <p className={styles.helpText}>
-                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word.
+                      Max 10 files, each up to 1MB. Allowed: PDF, images, Word.
                     </p>
                   </div>
 

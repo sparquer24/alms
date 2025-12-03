@@ -3,13 +3,13 @@ import { AdminBorderRadius, AdminSpacing } from '@/styles/admin-design-system';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 
 interface Role {
-  id: number;
+  id?: number;
   name: string;
   code: string;
   dashboard_title: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
   description?: string;
 }
 
@@ -55,7 +55,8 @@ export const RoleTable: React.FC<RoleTableProps> = ({
 }) => {
   const { colors } = useAdminTheme();
 
-  const formatDate = (date: string) => {
+  const formatDate = (date?: string) => {
+    if (!date) return '-';
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -200,9 +201,6 @@ export const RoleTable: React.FC<RoleTableProps> = ({
               key={role.id}
               style={{
                 borderBottom: `1px solid ${colors.border}`,
-                '&:hover': {
-                  backgroundColor: colors.background,
-                },
               }}
             >
               <td

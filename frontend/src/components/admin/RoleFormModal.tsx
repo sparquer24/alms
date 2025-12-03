@@ -250,10 +250,6 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
                     color: colors.text.primary,
                     backgroundColor: colors.surface,
                     boxSizing: 'border-box',
-                    ':focus': {
-                      outline: 'none',
-                      borderColor: '#1976d2',
-                    },
                   }}
                 />
                 {validationErrors.name && (

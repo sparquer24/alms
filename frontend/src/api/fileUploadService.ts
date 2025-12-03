@@ -184,8 +184,14 @@ export class FileUploadService {
    */
   static async getFiles(applicationId: string | number): Promise<FileUploadResponse['data'][]> {
     try {
-      const response = await apiClient.get(`/application-form/${applicationId}/files`) as FileUploadResponse['data'][];
-      return response;
+      // The backend exposes application retrieval at GET /application-form?applicationId=:id
+      // which includes `fileUploads` in the returned application object. Some environments
+      // may return an envelope { success, message, data } where data is the application.
+      const resp = await apiClient.get<any>(`/application-form?applicationId=${applicationId}`);
+      // Try multiple shapes defensively
+      const app = resp?.data ?? resp;
+      const files = app?.fileUploads ?? app?.file_uploads ?? app?.fileUploads?.data ?? [];
+      return files as FileUploadResponse['data'][];
     } catch (error) {
       throw error;
     }
