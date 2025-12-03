@@ -1232,19 +1232,20 @@ export class ApplicationFormService {
         const parsedUserId = Number(filter.currentUserId);
         if (!isNaN(parsedUserId)) {
           // Get all workflow history entries where the user took action
-          const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+          const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.groupBy({
+            by: ['applicationId'],
             where: {
               previousUserId: parsedUserId
             },
-            select: {
-              applicationId: true,
-              id: true,
-              createdAt: true,
-              actionTaken: true,
-              remarks: true
-            },
-            orderBy: {
-              createdAt: 'desc'
+            // select: {
+            //   applicationId: true,
+            //   id: true,
+            //   createdAt: true,
+            //   actionTaken: true,
+            //   remarks: true
+            // },
+              _max: {
+              createdAt: true
             }
           });
 
