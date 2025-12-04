@@ -524,15 +524,6 @@ async function main() {
       districtId: district ? district.id : undefined
     },
     {
-      username: 'ZS_ADMIN',
-      email: 'zs-admin@tspolice.gov.in',
-      password: 'password',
-      phoneNo: '8712660505',
-      role: 'ZS',
-      stateId: state ? state.id : undefined,
-      districtId: district ? district.id : undefined
-    },
-    {
       username: 'ADMIN_USER',
       email: 'admin@tspolice.gov.in',
       password: 'password',
@@ -540,6 +531,77 @@ async function main() {
       role: 'ADMIN',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
+    },
+    // ZS - Zonal Superintendents for each zone
+    {
+      username: 'SUPDT-NZ-HYD',
+      email: 'supdt-north-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660501',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'North Zone'
+    },
+    {
+      username: 'SUPDT-CZ-HYD',
+      email: 'supdt-central-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660502',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'Central Zone'
+    },
+    {
+      username: 'SUPDT-SZ-HYD',
+      email: 'supdt-south-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660503',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'South Zone'
+    },
+    {
+      username: 'SUPDT-WZ-HYD',
+      email: 'supdt-west-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660504',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'West Zone'
+    },
+    {
+      username: 'SUPDT-EZ-HYD',
+      email: 'supdt-east-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660505',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'East Zone'
+    },
+    {
+      username: 'SUPDT-SWZ-HYD',
+      email: 'supdt-south-west-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660506',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'South West Zone'
+    },
+    {
+      username: 'SUPDT-SEZ-HYD',
+      email: 'supdt-south-east-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660507',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneName: 'South East Zone'
     },
     {
       username: 'SHO_BEGU_HYD',
