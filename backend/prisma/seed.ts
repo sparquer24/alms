@@ -541,7 +541,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'North Zone'
+      zoneId: zoneMap['North Zone']
     },
     {
       username: 'SUPDT-CZ-HYD',
@@ -551,7 +551,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'Central Zone'
+      zoneId: zoneMap['Central Zone']
     },
     {
       username: 'SUPDT-SZ-HYD',
@@ -561,7 +561,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'South Zone'
+      zoneId: zoneMap['South Zone']
     },
     {
       username: 'SUPDT-WZ-HYD',
@@ -571,7 +571,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'West Zone'
+      zoneId: zoneMap['West Zone']
     },
     {
       username: 'SUPDT-EZ-HYD',
@@ -581,7 +581,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'East Zone'
+      zoneId: zonalId ? zonalId : undefined,
     },
     {
       username: 'SUPDT-SWZ-HYD',
@@ -591,7 +591,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'South West Zone'
+      zoneId: zoneMap['South West Zone']
     },
     {
       username: 'SUPDT-SEZ-HYD',
@@ -601,7 +601,7 @@ async function main() {
       role: 'ZS',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
-      zoneName: 'South East Zone'
+      zoneId: zoneMap['South East Zone']
     },
     {
       username: 'SHO_BEGU_HYD',
