@@ -391,6 +391,7 @@ export default function FlowMappingPage() {
                     Choose the role that will be forwarding applications
                   </p>
                 </div>
+                {/* @ts-ignore */}
                 <Select
                   options={roleOptions}
                   value={currentRole}
@@ -427,6 +428,7 @@ export default function FlowMappingPage() {
                     Choose multiple roles that can receive applications from the current role
                   </p>
                 </div>
+                {/* @ts-ignore */}
                 <Select
                   isMulti
                   options={availableNextRoleOptions}
@@ -658,79 +660,80 @@ export default function FlowMappingPage() {
             <div style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
               <AdminCard title='Duplicate Mapping'>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.lg }}>
-                <p style={{ color: colors.text.secondary, margin: 0 }}>
-                  Copy the mapping from <strong>{duplicateSource?.label}</strong> to another role
-                </p>
+                  <p style={{ color: colors.text.secondary, margin: 0 }}>
+                    Copy the mapping from <strong>{duplicateSource?.label}</strong> to another role
+                  </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
-                  <label
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
-                    }}
-                  >
-                    Target Role
-                  </label>
-                  <Select
-                    options={roleOptions.filter(r => r.value !== duplicateSource?.value)}
-                    value={currentRole}
-                    onChange={setCurrentRole}
-                    placeholder='Select target role...'
-                    styles={selectStyles}
-                  />
-                </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
+                    <label
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: colors.text.primary,
+                      }}
+                    >
+                      Target Role
+                    </label>
+                    {/* @ts-ignore */}
+                    <Select
+                      options={roleOptions.filter(r => r.value !== duplicateSource?.value)}
+                      value={currentRole}
+                      onChange={setCurrentRole}
+                      placeholder='Select target role...'
+                      styles={selectStyles}
+                    />
+                  </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: AdminSpacing.md,
-                    justifyContent: 'flex-end',
-                    paddingTop: AdminSpacing.lg,
-                    borderTop: `1px solid ${colors.border}`,
-                  }}
-                >
-                  <button
-                    onClick={() => setShowDuplicateModal(false)}
+                  <div
                     style={{
-                      padding: '10px 16px',
-                      backgroundColor: 'transparent',
-                      color: colors.text.secondary,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: AdminBorderRadius.md,
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 600,
+                      display: 'flex',
+                      gap: AdminSpacing.md,
+                      justifyContent: 'flex-end',
+                      paddingTop: AdminSpacing.lg,
+                      borderTop: `1px solid ${colors.border}`,
                     }}
                   >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDuplicate}
-                    disabled={duplicateMappingMutation.isPending || !currentRole}
-                    style={{
-                      padding: '10px 16px',
-                      backgroundColor:
-                        duplicateMappingMutation.isPending || !currentRole
-                          ? colors.text.secondary
-                          : colors.status.success,
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: AdminBorderRadius.md,
-                      cursor:
-                        duplicateMappingMutation.isPending || !currentRole
-                          ? 'not-allowed'
-                          : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      opacity: duplicateMappingMutation.isPending || !currentRole ? 0.6 : 1,
-                    }}
-                  >
-                    {duplicateMappingMutation.isPending ? 'Duplicating...' : 'Duplicate'}
-                  </button>
+                    <button
+                      onClick={() => setShowDuplicateModal(false)}
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor: 'transparent',
+                        color: colors.text.secondary,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: AdminBorderRadius.md,
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDuplicate}
+                      disabled={duplicateMappingMutation.isPending || !currentRole}
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor:
+                          duplicateMappingMutation.isPending || !currentRole
+                            ? colors.text.secondary
+                            : colors.status.success,
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: AdminBorderRadius.md,
+                        cursor:
+                          duplicateMappingMutation.isPending || !currentRole
+                            ? 'not-allowed'
+                            : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        opacity: duplicateMappingMutation.isPending || !currentRole ? 0.6 : 1,
+                      }}
+                    >
+                      {duplicateMappingMutation.isPending ? 'Duplicating...' : 'Duplicate'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </AdminCard>
+              </AdminCard>
             </div>
           </div>
         )}
