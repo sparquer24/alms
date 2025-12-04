@@ -1,22 +1,26 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
+
+// Type assertions for Next.js components to fix React 18 compatibility
+const ImageFixed = Image as any;
+const LinkFixed = Link as any;
 import { useDispatch, useSelector } from 'react-redux';
 import { login } from '../../store/thunks/authThunks';
-import { 
-  selectAuthLoading, 
-  selectAuthError, 
-  setError, 
-  selectIsAuthenticated, 
-  selectCurrentUser 
+import {
+  selectAuthLoading,
+  selectAuthError,
+  setError,
+  selectIsAuthenticated,
+  selectCurrentUser,
 } from '../../store/slices/authSlice';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import type { AppDispatch } from '../../store/store';
 import { LoginSkeleton } from '../../components/Skeleton';
-
 
 // Types
 interface LoginFormData {
@@ -33,7 +37,7 @@ const ERROR_MESSAGES: ErrorMapping = {
   invalid_role: 'Your account has an invalid role. Please contact system administrator.',
   unhandled_role: 'Your role is not properly configured. Please contact system administrator.',
   no_role: 'No role assigned to your account. Please contact system administrator.',
-  default: 'Authentication error. Please try logging in again.'
+  default: 'Authentication error. Please try logging in again.',
 } as const;
 
 // const BACKGROUND_IMAGE = '/backgroundIMGALMS.jpeg';
@@ -43,11 +47,11 @@ const LOGO_IMAGE = '/icon-alms.svg';
 const useLoginForm = () => {
   const [formData, setFormData] = useState<LoginFormData>({
     username: '',
-    password: ''
+    password: '',
   });
 
   const updateField = useCallback((field: keyof LoginFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => ({ ...prev, [field]: value.trim() }));
   }, []);
 
   const resetForm = useCallback(() => {
@@ -62,7 +66,7 @@ const useLoginForm = () => {
     formData,
     updateField,
     resetForm,
-    isFormValid
+    isFormValid,
   };
 };
 
@@ -71,7 +75,7 @@ const useUrlErrorHandler = (dispatch: AppDispatch) => {
 
   useEffect(() => {
     const urlError = searchParams?.get('error');
-    
+
     if (urlError) {
       const errorMessage = ERROR_MESSAGES[urlError] || ERROR_MESSAGES.default;
       dispatch(setError(errorMessage));
@@ -81,49 +85,42 @@ const useUrlErrorHandler = (dispatch: AppDispatch) => {
 
 // Components
 const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
-  <div className="bg-red-50 border border-red-400 rounded-md p-4 mb-4 shadow-sm" role="alert">
-    <div className="flex items-center">
-      <div className="flex-shrink-0">
-        <svg 
-          className="h-5 w-5 text-red-500" 
-          viewBox="0 0 20 20" 
-          fill="currentColor"
-          aria-hidden="true"
+  <div className='bg-red-50 border border-red-400 rounded-md p-4 mb-4 shadow-sm' role='alert'>
+    <div className='flex items-center'>
+      <div className='flex-shrink-0'>
+        <svg
+          className='h-5 w-5 text-red-500'
+          viewBox='0 0 20 20'
+          fill='currentColor'
+          aria-hidden='true'
         >
-          <path 
-            fillRule="evenodd" 
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" 
-            clipRule="evenodd" 
+          <path
+            fillRule='evenodd'
+            d='M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
+            clipRule='evenodd'
           />
         </svg>
       </div>
-      <div className="ml-3">
-        <p className="text-sm font-medium text-red-700">{message}</p>
+      <div className='ml-3'>
+        <p className='text-sm font-medium text-red-700'>{message}</p>
       </div>
     </div>
   </div>
 );
 
 const LoadingSpinner: React.FC = () => (
-  <svg 
-    className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900" 
-    xmlns="http://www.w3.org/2000/svg" 
-    fill="none" 
-    viewBox="0 0 24 24"
-    aria-hidden="true"
+  <svg
+    className='animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900'
+    xmlns='http://www.w3.org/2000/svg'
+    fill='none'
+    viewBox='0 0 24 24'
+    aria-hidden='true'
   >
-    <circle 
-      className="opacity-25" 
-      cx="12" 
-      cy="12" 
-      r="10" 
-      stroke="currentColor" 
-      strokeWidth="4"
-    />
-    <path 
-      className="opacity-75" 
-      fill="currentColor" 
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+    <path
+      className='opacity-75'
+      fill='currentColor'
+      d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
     />
   </svg>
 );
@@ -138,19 +135,19 @@ const FormInput: React.FC<{
   autoComplete?: string;
   required?: boolean;
   className?: string;
-}> = ({ 
-  id, 
-  type, 
-  placeholder, 
-  value, 
-  onChange, 
-  disabled = false, 
+}> = ({
+  id,
+  type,
+  placeholder,
+  value,
+  onChange,
+  disabled = false,
   autoComplete,
   required = false,
-  className = ''
+  className = '',
 }) => (
   <div>
-    <label htmlFor={id} className="sr-only">
+    <label htmlFor={id} className='sr-only'>
       {placeholder}
     </label>
     <input
@@ -162,25 +159,30 @@ const FormInput: React.FC<{
       className={`appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] focus:z-10 sm:text-sm bg-white/90 transition-colors duration-200 ${className}`}
       placeholder={placeholder}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={e => onChange(e.target.value)}
+      // Prevent hydration mismatch warnings caused by browser extensions injecting attributes client-side
+      suppressHydrationWarning
       disabled={disabled}
       aria-describedby={disabled ? `${id}-disabled` : undefined}
       suppressHydrationWarning={true}
     />
     {disabled && (
-      <div id={`${id}-disabled`} className="sr-only">
+      <div id={`${id}-disabled`} className='sr-only'>
         This field is disabled while processing your request
       </div>
     )}
   </div>
 );
 
-// Main component
-export default function Login() {
+// Force dynamic rendering to avoid static generation issues with useSearchParams
+export const dynamic = 'force-dynamic';
+
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+function LoginContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
-  
+
   // Redux selectors
   const isLoading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
@@ -195,170 +197,272 @@ export default function Login() {
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
-      const redirectPath = getRoleBasedRedirectPath(currentUser.role);
-      router.push(redirectPath);
+      const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
+      console.log('LoginContent: Redirecting authenticated user to', redirectPath);
+      if (redirectPath && typeof redirectPath === 'string') {
+        // Perform a full navigation so the server middleware/layout sees the
+        // newly-set cookies and any server components (eg. sidebar) are
+        // rendered with the correct data. Use a tiny delay so cookies
+        // written by thunks have a chance to flush.
+        const separator = redirectPath.includes('?') ? '&' : '?';
+        setTimeout(() => {
+          window.location.assign(redirectPath + separator + 'refresh=true');
+        }, 50);
+      } else {
+        // Fallback to root (full navigation)
+        setTimeout(() => {
+          window.location.assign('/?refresh=true');
+        }, 50);
+      }
     }
   }, [isAuthenticated, currentUser, router]);
 
-  // Form submission handler
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!isFormValid) {
-      dispatch(setError('Please enter both username and password'));
-      return;
-    }
-
+  // On initial mount, if auth, role and user cookies already exist then
+  // redirect to root. This keeps users from seeing the login page when a
+  // valid cookie set exists (server or another tab may have established it).
+  useEffect(() => {
     try {
-      const loginPayload = { 
-        username: formData.username.trim(), 
-        password: formData.password 
-      };
-      const result = await dispatch(login(loginPayload)).unwrap();
-      console.log('Login result:', result);
-      if (result && result.user) {
-        console.log('User object:', result.user);
-        console.log('User role:', result.user.role);
-        console.log('User role_id:', result.user.role_id);
-        let role = result.user.role;
-        if (!role && result.user.role_id) {
-          // Example role mapping, adjust as needed
-          const roleMap: { [key: number]: string } = { 1: 'SUPERADMIN', 2: 'ADMIN', 3: 'USER' };
-          const roleId = Number(result.user.role_id);
-          role = roleMap[roleId] || 'USER';
-          console.log('Mapped role from role_id:', role);
+      const cAuth = getCookie('auth');
+      const cRole: any = getCookie('role');
+      const cUser = getCookie('user');
+      console.log({ cAuth, cRole, cUser });
+      if (cAuth && cRole && cUser) {
+        // Use full navigation so server-side layout/middleware reads cookies
+        // and renders the correct navigation/sidebar state immediately.
+        try {
+          if (String(cRole).toLowerCase() === 'admin') {
+            setTimeout(() => {
+              window.location.assign('/admin/userManagement?refresh=true');
+            }, 50);
+          } else {
+            setTimeout(() => {
+              window.location.assign('/inbox?type=forwarded&refresh=true');
+            }, 50);
+          }
+        } catch (e) {
+          // Fallback: do a direct assign
+          window.location.assign(
+            String(cRole).toLowerCase() === 'admin'
+              ? '/admin/userManagement?refresh=true'
+              : '/inbox?type=forwarded&refresh=true'
+          );
         }
-        const redirectPath = getRoleBasedRedirectPath(role);
-        console.log('Redirect path:', redirectPath);
-        dispatch(setError(''));
-        setIsRedirecting(true);
-        window.location.replace(redirectPath);
-      } else {
-        console.warn('No user found in login result:', result);
-        dispatch(setError('No user found after login.'));
       }
-    } catch (err) {
-      // Error is handled by the thunk and stored in Redux state
-      console.error('Login error:', err);
-      resetForm();
+    } catch (e) {
+      // best-effort; ignore errors
+      // console.warn('Cookie check failed on login page:', e);
     }
-  }, [dispatch, formData, isFormValid, resetForm]);
+  }, [router]);
+
+  // Form submission handler
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+
+      if (!isFormValid) {
+        dispatch(setError('Please enter both username and password'));
+        return;
+      }
+
+      try {
+        const loginPayload = {
+          username: formData.username.trim(),
+          password: formData.password,
+        };
+        const result = await dispatch(login(loginPayload)).unwrap();
+        if (result && result.user) {
+          // Normalize role to uppercase string for consistent redirects
+          const extractRole = (u: any): string | undefined => {
+            if (!u) return undefined;
+            const roleObj = u.role ?? u;
+            const candidate =
+              roleObj?.code ||
+              roleObj?.key ||
+              roleObj?.name ||
+              u?.roleCode ||
+              u?.role_id ||
+              u?.roleId ||
+              (typeof roleObj === 'string' ? roleObj : null) ||
+              (Array.isArray(u?.roles) ? u.roles[0] : null);
+            return candidate ? String(candidate).trim().toUpperCase() : undefined;
+          };
+          const normalizedRole = extractRole(result.user);
+          const isAdminLike =
+            normalizedRole &&
+            ['ADMIN', 'ADMINISTRATOR', 'SUPERADMIN'].includes(String(normalizedRole).toUpperCase());
+          if (!normalizedRole) {
+            dispatch(setError('No role assigned to your account.'));
+            setIsRedirecting(false);
+          } else {
+            // Compute role-based redirect and then navigate immediately so the
+            // user lands on the appropriate client route after login.
+            const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+            dispatch(setError(''));
+            setIsRedirecting(true);
+            // Prefer explicit admin route when role is ADMIN to ensure the
+            // user management screen is shown.
+            setTimeout(() => {
+              try {
+                if (isAdminLike) {
+                  window.location.assign('/admin/userManagement?refresh=true');
+                } else if (redirectPath && typeof redirectPath === 'string') {
+                  const separator = redirectPath.includes('?') ? '&' : '?';
+                  window.location.assign(redirectPath + separator + 'refresh=true');
+                } else {
+                  // Fallback to inbox or root
+                  window.location.assign('/inbox?type=forwarded&refresh=true');
+                }
+              } catch (e) {
+                // As final fallback do a direct assign without try/catch
+                window.location.assign(
+                  isAdminLike ? '/admin/userManagement?refresh=true' : '/?refresh=true'
+                );
+              }
+            }, 50);
+          }
+        } else {
+          dispatch(setError('No user found after login.'));
+        }
+      } catch (err) {
+        // Error is handled by the thunk and stored in Redux state
+        resetForm();
+      }
+    },
+    [dispatch, formData, isFormValid, resetForm]
+  );
 
   // Memoized form inputs to prevent unnecessary re-renders
-  const usernameInput = useMemo(() => (
-    <FormInput
-      id="username"
-      type="text"
-      placeholder="Username or Email"
-      value={formData.username}
-      onChange={(value) => updateField('username', value)}
-      disabled={isLoading}
-      autoComplete="username"
-      required
-      className="rounded-t-md"
-    />
-  ), [formData.username, isLoading, updateField]);
+  const usernameInput = useMemo(
+    () => (
+      <FormInput
+        id='username'
+        type='text'
+        placeholder='Username or Email'
+        value={formData.username}
+        onChange={value => updateField('username', value.toLocaleUpperCase())}
+        disabled={isLoading}
+        autoComplete='username'
+        required
+        className='rounded-t-md'
+      />
+    ),
+    [formData.username, isLoading, updateField]
+  );
 
-  const passwordInput = useMemo(() => (
-    <FormInput
-      id="password"
-      type="password"
-      placeholder="Password"
-      value={formData.password}
-      onChange={(value) => updateField('password', value)}
-      disabled={isLoading}
-      autoComplete="current-password"
-      required
-      className="rounded-b-md"
-    />
-  ), [formData.password, isLoading, updateField]);
+  const passwordInput = useMemo(
+    () => (
+      <FormInput
+        id='password'
+        type='password'
+        placeholder='Password'
+        value={formData.password}
+        onChange={value => updateField('password', value)}
+        disabled={isLoading}
+        autoComplete='current-password'
+        required
+        className='rounded-b-md'
+      />
+    ),
+    [formData.password, isLoading, updateField]
+  );
 
-  // Show skeleton while redirecting
-  if (isRedirecting) {
+  // Show LoginSkeleton while loading or redirecting
+  if (isLoading || isRedirecting) {
     return <LoginSkeleton />;
   }
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]" 
-      role="main"
+    <div
+      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
+      role='main'
     >
       {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]" aria-hidden="true" />
-      <div className="relative max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40">
+      <div
+        className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
+        aria-hidden='true'
+      />
+      <div className='relative max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40'>
         {/* Header */}
-        <div className="flex flex-col items-center">
-          <div className="mb-6">
-            <Image
+        <div className='flex flex-col items-center'>
+          <div className='mb-6'>
+            <ImageFixed
               src={LOGO_IMAGE}
-              alt="ALMS Logo"
+              alt='ALMS Logo'
               width={120}
               height={120}
-              className="drop-shadow-md"
+              // Ensure aspect ratio is preserved if CSS changes one dimension
+              className='drop-shadow-md h-auto'
               priority
             />
           </div>
-          <h1 className="mt-2 text-center text-3xl font-extrabold text-black">
+          <h1 className='mt-2 text-center text-3xl font-extrabold text-black'>
             Arms License Management System
           </h1>
-          <p className="mt-2 text-center text-sm text-gray-700">
-            Sign in to access your dashboard
-          </p>
+          <p className='mt-2 text-center text-sm text-gray-700'>Sign in to access your dashboard</p>
         </div>
-        
+
         {/* Error Message */}
         {error && <ErrorMessage message={error} />}
-        
+
         {/* Login Form */}
-        <form 
-          className="mt-8 space-y-6" 
-          onSubmit={handleSubmit}
-          noValidate
-          suppressHydrationWarning={true}
-        >
-          <div className="rounded-md shadow-sm -space-y-px" suppressHydrationWarning={true}>
+        <form className='mt-8 space-y-6' onSubmit={handleSubmit} noValidate>
+          <div className='rounded-md shadow-sm -space-y-px'>
             {usernameInput}
             {passwordInput}
           </div>
 
-          {/* Forgot Password Link */}
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              {/* Placeholder for forgot password link */}
-            </div>
-            <div className="text-sm">
-              <Link 
-                href="/reset-password" 
-                className="font-medium text-[#D4AF37] hover:text-[#C4A02F] transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 rounded"
+          {/* Forgot Password Link 
+          <div className='flex items-center justify-between'>
+            <div className='text-sm'></div>
+            <div className='text-sm'>
+              <LinkFixed
+                href='/reset-password'
+                className='font-medium text-[#D4AF37] hover:text-[#C4A02F] transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 rounded'
               >
                 Forgot your password?
-              </Link>
+              </LinkFixed>
             </div>
-          </div>
+          </div> */}
 
           {/* Submit Button */}
           <div>
             <button
-              type="submit"
+              type='submit'
               disabled={isLoading || !isFormValid}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all duration-200"
-              aria-describedby={!isFormValid ? "form-validation" : undefined}
+              className='group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all duration-200'
+              aria-describedby={!isFormValid ? 'form-validation' : undefined}
             >
               {isLoading && <LoadingSpinner />}
-              <span className="font-semibold">
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </span>
+              <span className='font-semibold'>{isLoading ? 'Signing in...' : 'Sign in'}</span>
             </button>
             {!isFormValid && (
-              <div id="form-validation" className="sr-only">
+              <div id='form-validation' className='sr-only'>
                 Please fill in all required fields
               </div>
             )}
           </div>
         </form>
       </div>
-      
-
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function Login() {
+  // Show a skeleton loading screen for 1-2 seconds on initial mount
+  // to provide a smoother perceived load when navigating to /login.
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  useEffect(() => {
+    // 1.5s chosen as a middle-ground between 1 and 2 seconds
+    const timer = setTimeout(() => setShowSkeleton(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSkeleton) return <LoginSkeleton />;
+
+  return (
+    <Suspense fallback={<LoginSkeleton />}>
+      <LoginContent />
+    </Suspense>
   );
 }

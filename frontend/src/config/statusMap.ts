@@ -3,7 +3,7 @@
 export type StatusKey =
   | 'forwarded'
   | 'returned'
-  | 'redFlagged'
+  | 'redflagged'
   | 'disposed'
   | 'freshform'
   | 'sent'
@@ -14,18 +14,18 @@ export type StatusKey =
   | 'cancelled'
   | 'reEnquiry'
   | 'groundReport'
-  | 'myreports';
+  | 'myreports'
+  | 'drafts';
 
 export type StatusIdMap = Partial<Record<StatusKey, number[]>>;
 
 // Status mapping for numeric status_id (based on actual API status codes)
 // Synchronized with STATUS_MAP from sidebarApiCalls.ts
 export const statusIdMap: StatusIdMap = {
-  forwarded: [1, 9],     // FORWARD + INITIATE (keep all ids in forward including freshform)
-  pending: [1, 9],       // Same as forward for now
-  sent: [11, 1, 9],      // RECOMMEND
-  returned: [2],         // REJECT (treated as returned)
-  redFlagged: [8],       // RED_FLAG
+  forwarded: [1, 9, 3, 11],     // FORWARD + INITIATE (keep all ids in forward including freshform)
+  sent: [],      // RECOMMEND
+  returned: [2, 13],         // REJECT (treated as returned)
+  redflagged: [8],       // RED_FLAG
   disposed: [7],         // DISPOSE
   approved: [11, 3],     // RECOMMEND + APPROVED
   freshform: [9],        // INITIATE (fresh form applications)
@@ -33,9 +33,6 @@ export const statusIdMap: StatusIdMap = {
   closed: [10],          // CLOSE
   cancelled: [4],        // CANCEL
   reEnquiry: [5],        // RE_ENQUIRY
-  groundReport: [6],     // GROUND_REPORT
+  groundReport: [6],     // GROUND_REPORT          // DRAFT
+  drafts: [12],          // DRAFTS (alias for draft)
 };
-
-
-
-

@@ -1,33 +1,36 @@
 import React from 'react';
 import Link from 'next/link';
 
+// Type assertion for Next.js Link to fix React 18 compatibility
+const LinkFixed = Link as any;
+
 const Navbar: React.FC = () => {
   return (
     <nav className="bg-blue-600 p-4 shadow-md" role="navigation" aria-label="Main Navigation">
       <div className="container mx-auto flex justify-between items-center">
         <div className="text-white text-lg font-bold">
-          <Link href="/">ALMS</Link>
+          <LinkFixed href="/">ALMS</LinkFixed>
         </div>
         <ul className="flex space-x-4">
           <li>
-            <Link href="/dashboard" className="text-white hover:underline">
+            <LinkFixed href="/dashboard" className="text-white hover:underline">
               Dashboard
-            </Link>
+            </LinkFixed>
           </li>
           <li>
-            <Link href="/applications" className="text-white hover:underline">
+            <LinkFixed href="/applications" className="text-white hover:underline">
               Applications
-            </Link>
+            </LinkFixed>
           </li>
           <li>
-            <Link href="/reports" className="text-white hover:underline">
+            <LinkFixed href="/reports" className="text-white hover:underline">
               Reports
-            </Link>
+            </LinkFixed>
           </li>
           <li>
-            <Link href="/settings" className="text-white hover:underline">
+            <LinkFixed href="/settings" className="text-white hover:underline">
               Settings
-            </Link>
+            </LinkFixed>
           </li>
         </ul>
       </div>

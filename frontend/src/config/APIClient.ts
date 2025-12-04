@@ -12,7 +12,7 @@ import {
   AUTH_APIS,
   APPLICATION_APIS,
   DOCUMENT_APIS,
-  REPORT_APIS,  USER_APIS,
+  REPORT_APIS, USER_APIS,
   ROLE_APIS,
   NOTIFICATION_APIS,
   DASHBOARD_APIS,
@@ -32,27 +32,17 @@ import {
   getHeaders,
   getMultipartHeaders,
 } from './APIsEndpoints';
+// import the cookes
+import { parse } from 'cookie';
 
 /**
  * Authentication API client - These endpoints don't require authorization headers
  */
 export const AuthApi = {
   login: async (params: LoginParams): Promise<ApiResponse<any>> => {
-    console.log('🌐 APIClient - login called with params:', { 
-      username: params.username, 
-      passwordLength: params.password.length 
-    });
-    
     const url = AUTH_APIS.LOGIN;
     const headers = getHeaders();
     const body = JSON.stringify(params);
-    
-    console.log('🌐 Request details:');
-    console.log('  URL:', url);
-    console.log('  Headers:', headers);
-    console.log('  Body:', body);
-    console.log('  Method: POST');
-    
     try {
       // IMPORTANT: Do NOT use apiClient.post here because it enforces an auth token
       // via ensureAuthHeader(). During login we have no token yet, so using apiClient
@@ -63,12 +53,47 @@ export const AuthApi = {
       const axiosHeaders: Record<string, string> = Array.isArray(headers)
         ? headers.reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {} as Record<string, string>)
         : (headers as Record<string, string>);
-      const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
-      const data = response.data;
-      console.log('🌐 Login response (unauthenticated request) received:', data);
-      return data as any;
+      // Try primary login endpoint first
+      try {
+        const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
+        const data = response.data;
+        return data as any;
+      } catch (primaryErr: any) {
+        // If server responded with 404 or 405 try the alternate `/api` prefixed path
+        const status = primaryErr?.response?.status;
+        // Dev-time debug
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.debug('[AuthApi.login] primary login failed', { url, status, err: primaryErr?.response?.data ?? primaryErr?.message });
+        }
+        if (status === 404 || status === 405) {
+          // Construct alternate URL toggling `/api` segment
+          let alternate = url;
+          if (url.includes('/api/')) {
+            alternate = url.replace('/api/', '/');
+          } else {
+            // insert /api before auth
+            alternate = url.replace('/auth/', '/api/auth/');
+          }
+          try {
+            if (process.env.NODE_ENV === 'development') {
+              // eslint-disable-next-line no-console
+              console.debug('[AuthApi.login] attempting alternate login URL', { alternate });
+            }
+            const resp2 = await axiosInstance.post(alternate, params as any, { headers: axiosHeaders });
+            return resp2.data as any;
+          } catch (altErr: any) {
+            if (process.env.NODE_ENV === 'development') {
+              // eslint-disable-next-line no-console
+              console.debug('[AuthApi.login] alternate login also failed', { alternate, status: altErr?.response?.status, err: altErr?.response?.data ?? altErr?.message });
+            }
+            throw altErr;
+          }
+        }
+        throw primaryErr;
+      }
     } catch (error) {
-      console.error('🌐 APIClient login error:', error);
+      // Re-throw with enriched message for thunks to pick up
       throw error;
     }
   },
@@ -86,7 +111,6 @@ export const AuthApi = {
       }
       return await apiClient.get('/auth/me');
     } catch (error) {
-      console.error('Error getting current user:', error);
       throw error;
     }
   },
@@ -104,7 +128,6 @@ export const AuthApi = {
       }
       return await apiClient.get('/auth/getMe');
     } catch (error) {
-      console.error('Error getting /auth/getMe:', error);
       throw error;
     }
   },
@@ -115,26 +138,24 @@ export const AuthApi = {
       // No-op logout: server endpoint removed. Client will clear auth state/cookies.
       return { statusCode: 200, success: true, body: { message: 'Logged out locally' } } as any;
     } catch (error) {
-      console.error('Error during logout:', error);
       throw error;
     }
   },
-  
+
   changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.post('/auth/change-password', { currentPassword, newPassword });
     } catch (error) {
-      console.error('Error changing password:', error);
       throw error;
     }
   },
-  
+
   resetPassword: async (email: string): Promise<ApiResponse<any>> => {
-  return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
+    return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
   },
-  
+
   refreshToken: async (refreshToken: string): Promise<ApiResponse<any>> => {
-  return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
+    return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
   },
 };
 
@@ -145,10 +166,30 @@ import { Application } from '../types/application';
 
 export const ApplicationApi = {
   getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
+    // Read role from cookies. `parse` is the cookie parser; use it on document.cookie.
+    // Note: document may be undefined during SSR — guard for that.
+    let role: string | undefined;
     try {
-      return await apiClient.get('/application-form',params);
+      if (typeof document !== 'undefined' && document.cookie) {
+        const cookies = parse(document.cookie || '');
+        role = cookies.role || cookies.Roles || cookies.role_code; // try a few common keys
+      }
+    } catch (e) {
+      // ignore cookie parse errors
+      role = undefined;
+    }
+
+    // If the user is a ZS, the backend expects a special param; add it to params.
+    const requestParams = { ...params } as Record<string, any>;
+    if (role === 'ZS' || role === 'zs') {
+      // attach a flag so backend can filter appropriately. Use 'role' param to be explicit.
+      requestParams.isOwned = 'true';
+    }
+    try {
+      // debug: log outgoing params for troubleshooting
+      try { console.debug('[ApplicationApi.getAll] requestParams:', requestParams); } catch (e) { }
+      return await apiClient.get('/application-form', requestParams as any);
     } catch (error) {
-      console.error('Error getting applications:', error);
       throw error;
     }
   },
@@ -157,7 +198,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.get(`/application-form/?applicationId=${id}`);
     } catch (error) {
-      console.error('Error getting application by ID:', error);
       throw error;
     }
   },
@@ -166,7 +206,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.post('/application-form', params);
     } catch (error) {
-      console.error('Error creating application:', error);
       throw error;
     }
   },
@@ -175,7 +214,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.put(`/applications/${id}/status`, params);
     } catch (error) {
-      console.error('Error updating application status:', error);
       throw error;
     }
   },
@@ -184,7 +222,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.post(`/applications/${id}/forward`, params);
     } catch (error) {
-      console.error('Error forwarding application:', error);
       throw error;
     }
   },
@@ -193,7 +230,6 @@ export const ApplicationApi = {
     try {
       return await apiClient.post('/applications/batch', params);
     } catch (error) {
-      console.error('Error batch processing applications:', error);
       throw error;
     }
   },
@@ -206,7 +242,6 @@ export const ApplicationApi = {
       // apiClient.get accepts params object; pass constructed query
       return await apiClient.get(`/application-form`, query as any);
     } catch (error) {
-      console.error('Error getting applications by statuses:', error);
       throw error;
     }
   },
@@ -221,10 +256,25 @@ export const DocumentApi = {
       const formData = new FormData();
       formData.append('document', file);
       formData.append('documentType', documentType);
-      
+
       return await apiClient.uploadFile(`/applications/${applicationId}/documents`, formData);
     } catch (error) {
-      console.error('Error uploading document:', error);
+      throw error;
+    }
+  },
+
+  // New: Store file URL and metadata for application (based on API documentation)
+  storeFileUrl: async (applicationId: string, fileMetadata: {
+    fileType: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    description?: string;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const endpoint = `/application-form/${applicationId}/upload-file`;
+      return await apiClient.post(endpoint, fileMetadata);
+    } catch (error) {
       throw error;
     }
   },
@@ -233,7 +283,6 @@ export const DocumentApi = {
     try {
       return await apiClient.get(`/applications/${applicationId}/documents`);
     } catch (error) {
-      console.error('Error getting documents:', error);
       throw error;
     }
   },
@@ -242,7 +291,6 @@ export const DocumentApi = {
     try {
       return await apiClient.delete(`/applications/${applicationId}/documents/${documentId}`);
     } catch (error) {
-      console.error('Error deleting document:', error);
       throw error;
     }
   },
@@ -256,7 +304,6 @@ export const ReportApi = {
     try {
       return await apiClient.get('/reports/statistics', params);
     } catch (error) {
-      console.error('Error getting statistics:', error);
       throw error;
     }
   },
@@ -265,7 +312,6 @@ export const ReportApi = {
     try {
       return await apiClient.get('/reports/applications-by-status', params);
     } catch (error) {
-      console.error('Error getting applications by status:', error);
       throw error;
     }
   },
@@ -279,17 +325,16 @@ export const ReportApi = {
         throw new Error('Authentication required');
       }
 
-  // Use apiClient which ensures auth headers are set
-  const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
-  // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
-  if (blob instanceof Blob) return blob;
-  // If axios returned data as ArrayBuffer or base64, convert accordingly
-  // Fallback: try requesting via axiosInstance directly
-  const axios = await import('../api/axiosConfig');
-  const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
-  return resp.data as Blob;
+      // Use apiClient which ensures auth headers are set
+      const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
+      // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
+      if (blob instanceof Blob) return blob;
+      // If axios returned data as ArrayBuffer or base64, convert accordingly
+      // Fallback: try requesting via axiosInstance directly
+      const axios = await import('../api/axiosConfig');
+      const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
+      return resp.data as Blob;
     } catch (error) {
-      console.error('Error generating PDF:', error);
       throw error;
     }
   },
@@ -303,25 +348,22 @@ export const UserApi = {
     try {
       return await apiClient.get('/users', { role });
     } catch (error) {
-      console.error('Error getting users by role:', error);
       throw error;
     }
   },
-  
+
   getPreferences: async (): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.get('/users/preferences');
     } catch (error) {
-      console.error('Error getting user preferences:', error);
       throw error;
     }
   },
-  
+
   updatePreferences: async (preferences: UserPreferencesParams): Promise<ApiResponse<any>> => {
     try {
       return await apiClient.put('/users/preferences', preferences);
     } catch (error) {
-      console.error('Error updating user preferences:', error);
       throw error;
     }
   }
@@ -335,7 +377,6 @@ export const RoleApi = {
     try {
       return await apiClient.get('/roles/actions');
     } catch (error) {
-      console.error('Error getting available actions:', error);
       throw error;
     }
   },
@@ -344,7 +385,6 @@ export const RoleApi = {
     try {
       return await apiClient.get('/roles/hierarchy');
     } catch (error) {
-      console.error('Error getting role hierarchy:', error);
       throw error;
     }
   },
@@ -385,27 +425,24 @@ export const NotificationApi = {
       ];
       return { statusCode: 200, success: true, body: { notifications } } as any;
     } catch (error) {
-      console.error('Error getting notifications:', error);
       throw error;
     }
   },
-  
+
   markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
     try {
       // No-op locally, reflect success
       return { statusCode: 200, success: true, body: { id: notificationId } } as any;
     } catch (error) {
-      console.error('Error marking notification as read:', error);
       throw error;
     }
   },
-  
+
   markAllAsRead: async (): Promise<ApiResponse<any>> => {
     try {
       // No-op locally
       return { statusCode: 200, success: true } as any;
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
       throw error;
     }
   }
@@ -435,7 +472,6 @@ export const DashboardApi = {
         },
       } as any;
     } catch (error) {
-      console.error('Error getting dashboard summary:', error);
       throw error;
     }
   }

@@ -3,6 +3,9 @@
 import { ReactNode } from "react";
 import { Key } from "readline";
 
+// Location Types
+export * from './location';
+
 // User and Authentication Types
 export interface User {
   id: string;
@@ -41,6 +44,16 @@ export interface WorkflowHistoryAttachment {
   contentType: string;
 }
 
+export interface WorkflowActiones {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WorkflowHistory {
   id: number;
   applicationId: number;
@@ -53,6 +66,7 @@ export interface WorkflowHistory {
   nextRoleId: number;
   actionesId: number | null;
   attachments: WorkflowHistoryAttachment[] | null;
+  actiones?: WorkflowActiones;
   previousUserName: string;
   previousRoleName: string;
   nextUserName: string;
@@ -61,14 +75,24 @@ export interface WorkflowHistory {
 
 export interface ApplicationData {
   id: string;
+  acknowledgementNo?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   applicantName: string;
   applicantMobile: string;
   applicantEmail?: string;
+  parentOrSpouseName?: string;
   fatherName?: string;
+  sex?: 'MALE' | 'FEMALE' | 'OTHER';
   gender?: 'Male' | 'Female' | 'Other';
+  placeOfBirth?: string;
   dob?: string; // Date of birth
   dateOfBirth?: string; // Alternative field name for date of birth
+  dobInWords?: string;
   age?: string;
+  panNumber?: string;
+  aadharNumber?: string;
   address?: string;
   city?: string;
   state?: string;
@@ -79,9 +103,72 @@ export interface ApplicationData {
   applicationType: string;
   applicationDate: string;
   applicationTime?: string;
-  acknowledgementNo?: string;
   status: ApplicationStatus;
   status_id: string | number; // Numeric status ID for backend compatibility
+  workflowStatus?: {
+    id: number;
+    code: string;
+    name: string;
+  };
+  currentUser?: {
+    id: number;
+    username: string;
+  };
+  previousUser?: {
+    id: number;
+    username: string;
+  } | null;
+  presentAddress?: {
+    addressLine?: string;
+    sinceResiding?: string;
+    state?: string;
+    district?: string;
+    zone?: {
+      id: number;
+      name: string;
+    };
+    division?: {
+      id: number;
+      name: string;
+    };
+    policeStation?: {
+      id: number;
+      name: string;
+    };
+  };
+  permanentAddress?: {
+    addressLine?: string;
+    sinceResiding?: string;
+    state?: string;
+    district?: string;
+    zone?: {
+      id: number;
+      name: string;
+    };
+    division?: {
+      id: number;
+      name: string;
+    };
+    policeStation?: {
+      id: number;
+      name: string;
+    };
+  };
+  occupationAndBusiness?: {
+    id: number;
+    occupation?: string;
+    officeAddress?: string;
+    cropLocation?: string;
+    areaUnderCultivation?: string;
+    state?: {
+      id: number;
+      name: string;
+    };
+    district?: {
+      id: number;
+      name: string;
+    };
+  };
   assignedTo: string;
   forwardedFrom?: string;
   forwardedTo?: string;
@@ -114,8 +201,73 @@ export interface ApplicationData {
     action: string;
     comments?: string;
   }>;
-  // New workflow history field
+  // New workflow history fields
+  workflowHistories?: WorkflowHistory[];
   FreshLicenseApplicationsFormWorkflowHistories?: WorkflowHistory[];
+  licenseHistories?: Array<{
+    id: number;
+    applicationId: number;
+    hasAppliedBefore: boolean;
+    dateAppliedFor?: string | null;
+    previousAuthorityName?: string | null;
+    previousResult?: string;
+    hasLicenceSuspended: boolean;
+    suspensionAuthorityName?: string | null;
+    suspensionReason?: string | null;
+    hasFamilyLicence: boolean;
+    familyMemberName?: string | null;
+    familyLicenceNumber?: string | null;
+    familyWeaponsEndorsed: any[];
+    hasSafePlace: boolean;
+    safePlaceDetails?: string | null;
+    hasTraining: boolean;
+    trainingDetails?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  criminalHistories?: Array<{
+    id: number;
+    applicationId: number;
+    isConvicted: boolean;
+    isBondExecuted: boolean;
+    bondDate?: string | null;
+    bondPeriod?: string | null;
+    isProhibited: boolean;
+    prohibitionDate?: string | null;
+    prohibitionPeriod?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    firDetails?: Array<{
+      unit?: string;
+      state?: string;
+      offence?: string;
+      District?: string;
+      sentence?: string;
+      firNumber?: string;
+      underSection?: string;
+      policeStation?: string;
+      DateOfSentence?: string;
+    }>;
+  }>;
+  licenseDetails?: Array<{
+    id: number;
+    applicationId: number;
+    needForLicense?: string;
+    armsCategory?: string;
+    areaOfValidity?: string;
+    ammunitionDescription?: string;
+    specialConsiderationReason?: string;
+    licencePlaceArea?: string;
+    wildBeastsSpecification?: string;
+    createdAt: string;
+    updatedAt: string;
+    requestedWeapons?: Array<{
+      id: number;
+      name: string;
+      description?: string;
+      imageUrl?: string;
+    }>;
+  }>;
   actions?: {
     canForward: boolean;
     canReport: boolean;
@@ -155,7 +307,8 @@ export type ApplicationStatus =
   | 'recommended'
   | 'under_review'
   | 'forwarded'
-  | 'final_disposal';
+  | 'final_disposal'
+  | 'sent';
 
 export interface DocumentFile {
   id?: string;

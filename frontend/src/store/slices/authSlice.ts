@@ -61,53 +61,74 @@ const authSlice = createSlice({
     },
     restoreAuthState: (state) => {
       // Try to restore from cookies only
+      // Guard against SSR
+      if (typeof document === 'undefined') return;
       try {
-        // Defensive cookie parsing
-        const cookies = document.cookie.split('; ').reduce((acc, row) => {
-          const [key, ...rest] = row.split('=');
-          acc[key] = decodeURIComponent(rest.join('='));
+        // Read cookies defensively: support token-only `auth`, separate `user` and `role` cookies
+        const cookies = document.cookie.split('; ').reduce<Record<string, string>>((acc, cur) => {
+          const idx = cur.indexOf('=');
+          if (idx > -1) {
+            const k = cur.slice(0, idx);
+            const v = cur.slice(idx + 1);
+            acc[k] = decodeURIComponent(v || '');
+          }
           return acc;
-        }, {} as Record<string, string>);
+        }, {});
 
-        const authCookie = cookies['auth'];
-        const userCookie = cookies['user'];
-        const roleCookie = cookies['role'];
+        const authCookieVal = cookies['auth'];
+        const userCookieVal = cookies['user'];
+        const roleCookieVal = cookies['role'];
 
-        if (!authCookie || !userCookie || !roleCookie) {
-          state.user = null;
-          state.token = null;
-          state.isAuthenticated = false;
-          state.error = null;
-          return;
-        }
+        // If we have an auth token, mark authenticated
+        if (authCookieVal) {
+          // If the cookie contains a JSON object with token, try to parse
+          let token: string | null = null;
+          try {
+            const parsed = JSON.parse(authCookieVal);
+            token = parsed?.token ?? parsed?.accessToken ?? null;
+          } catch (e) {
+            // Not JSON — treat as raw token string
+            token = authCookieVal;
+          }
 
-        let authData: any = null;
-        try {
-          authData = JSON.parse(authCookie);
-        } catch (e) {
-          if (authCookie.startsWith('eyJhbGciOi')) {
-            authData = { token: authCookie, isAuthenticated: true };
-          } else {
-            return;
+          if (token) {
+            state.token = token;
+            state.isAuthenticated = true;
           }
         }
 
-        let userData: any = null;
-        try {
-          userData = JSON.parse(userCookie);
-        } catch (e) {
-          userData = null;
-        }
+        // If user cookie exists, parse and set state.user
+        if (userCookieVal) {
+          try {
+            const parsedUser = JSON.parse(userCookieVal);
+            // Normalize role field: support nested role object or role string
+            let normalizedRole: string | undefined;
+            if (parsedUser?.role) {
+              if (typeof parsedUser.role === 'object') {
+                normalizedRole = parsedUser.role.code ?? parsedUser.role.name ?? parsedUser.role.key;
+              } else if (typeof parsedUser.role === 'string') {
+                normalizedRole = parsedUser.role;
+              }
+            }
+            if (!normalizedRole && roleCookieVal) normalizedRole = roleCookieVal;
+            if (normalizedRole) parsedUser.role = String(normalizedRole).toUpperCase();
 
-        state.token = authData.token || null;
-        state.isAuthenticated = !!authData.isAuthenticated;
-        state.user = userData || null;
-        state.error = null;
+            state.user = parsedUser;
+            // Ensure isAuthenticated is true if token exists
+            if (!state.isAuthenticated && state.token) state.isAuthenticated = true;
+          } catch (e) {
+          }
+        } else if (roleCookieVal) {
+          // If only role cookie exists, construct a minimal user object so redirection can use role
+          try {
+            const minimalUser: any = { role: String(roleCookieVal).toUpperCase() };
+            state.user = minimalUser as any;
+            if (!state.isAuthenticated && state.token) state.isAuthenticated = true;
+          } catch (e) {
+            // ignore
+          }
+        }
       } catch (error) {
-        state.user = null;
-        state.token = null;
-        state.isAuthenticated = false;
-        state.error = null;
       }
     },
   },

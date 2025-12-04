@@ -9,6 +9,11 @@ export interface CreateUserInput {
   password?: string;
   phoneNo?: string;
   roleId?: number;
+  policeStationId?: number;
+  stateId?: number;
+  districtId?: number;
+  zoneId?: number;
+  divisionId?: number;
 }
 
 function validateCreateUserInput(data: any): asserts data is Required<CreateUserInput> {
@@ -49,7 +54,28 @@ export class UserService {
         id: true,
         username: true,
         email: true,
-        role: true,
+        phoneNo: true,
+        createdAt: true,
+        updatedAt: true,
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            is_active: true,
+            created_at: true,
+            updated_at: true,
+            dashboard_title: true,
+            menu_items: true,
+            permissions: true,
+            can_access_settings: true,
+            can_forward: true,
+            can_re_enquiry: true,
+            can_generate_ground_report: true,
+            can_FLAF: true,
+            can_create_freshLicence: true,
+          }
+        },
       },
     });
   }
@@ -67,6 +93,12 @@ export class UserService {
         password: hashedPassword,
         phoneNo: data.phoneNo,
         roleId: Number(data.roleId),
+        policeStationId: data.policeStationId,
+        stateId: data.stateId,
+        districtId: data.districtId,
+        zoneId: data.zoneId,
+        divisionId: data.divisionId,
+        
       },
     });
   }
@@ -94,5 +126,50 @@ export class UserService {
         updatedAt: true,
       },
     });
+  }
+
+  /**
+   * Update basic user fields (username, email, phoneNo, roleId)
+   */
+  async updateUser(userId: string | number, data: Partial<CreateUserInput>) {
+    const updateData: any = {};
+    if (data.username !== undefined) updateData.username = data.username;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phoneNo !== undefined) updateData.phoneNo = data.phoneNo;
+    if (data.roleId !== undefined) updateData.roleId = Number(data.roleId);
+    if (Object.keys(updateData).length === 0) {
+      throw new Error('No valid fields provided for update');
+    }
+    return await prisma.users.update({
+      where: { id: Number(userId) },
+      data: updateData,
+      select: { id: true, username: true, email: true, phoneNo: true, role: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          is_active: true,
+          created_at: true,
+          updated_at: true,
+          dashboard_title: true,
+          menu_items: true,
+          permissions: true,
+          can_access_settings: true,
+          can_forward: true,
+          can_re_enquiry: true,
+          can_generate_ground_report: true,
+          can_FLAF: true,
+          can_create_freshLicence: true,
+        }
+      } }
+    });
+  }
+
+  /**
+   * Delete a user by id
+   */
+  async deleteUser(userId: string | number) {
+    await prisma.users.delete({ where: { id: Number(userId) } });
+    return { success: true };
   }
 }

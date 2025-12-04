@@ -22,9 +22,11 @@ async function main() {
     { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
     { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
     { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
-    { code: 'INITIATE', name: 'Initiate', description: 'Application initiated' },
+    { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
     { code: 'CLOSE', name: 'Close', description: 'Application closed' },
     { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
+    { code: 'DRAFT', name: 'Draft', description: 'Draft status' },
+    { code: 'RETURN', name: 'Return', description: 'Application returned for corrections' }
   ];
 
   // Seed statuses if not present
@@ -37,6 +39,7 @@ async function main() {
           name: status.name,
           description: status.description,
           isActive: true,
+          isStarted: false,
         },
       });
     }
@@ -63,22 +66,16 @@ async function main() {
 
   console.log('Seeding roles...');
   const roles = [
-    { code: 'APPLICANT', name: 'Citizen Applicant', dashboardTitle: 'Applicant Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['freshform', 'inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
-    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read'], canAccessSettings: true },
-    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
-    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ARMS_SEAT', name: 'Arms Seat', dashboardTitle: 'ARMS_SEAT Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ACO', name: 'Assistant Compliance Officer', dashboardTitle: 'ACO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
-    { code: 'STORE', name: 'Store Superintendent', dashboardTitle: 'STORE Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'TL', name: 'Traffic License Superintendent', dashboardTitle: 'TL Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
+    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
+    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
+    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
+    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: true },
+    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
+    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
   ];
   for (const role of roles) {
     // Check if role already exists
@@ -433,6 +430,7 @@ async function main() {
 
   // Create location-based users with proper hierarchy mapping
   const locationUsers: any[] = [];
+  let phoneCounter = 1000; // Counter to ensure unique phone numbers
 
   // Zone-level users (DCP role)
   const zonesForUsers = await prisma.zones.findMany();
@@ -442,7 +440,7 @@ async function main() {
       username: `DCP_${zoneShortForm}_HYD`,
       email: `dcp-${zone.name.toLowerCase().replace(/\s+/g, '-')}@tspolice.gov.in`,
       password: 'password',
-      phoneNo: `871266${String(zone.id).padStart(4, '0')}`, // Dynamic phone numbers
+      phoneNo: `8712661${String(phoneCounter++).padStart(5, '0')}`, // Unique phone numbers
       role: 'DCP',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
@@ -458,7 +456,7 @@ async function main() {
       username: `ACP_${divisionShortForm}_HYD`,
       email: `acp-${division.name.toLowerCase().replace(/\s+/g, '-')}@tspolice.gov.in`,
       password: 'password',
-      phoneNo: `872266${String(division.id).padStart(4, '0')}`, // Dynamic phone numbers
+      phoneNo: `8712662${String(phoneCounter++).padStart(5, '0')}`, // Unique phone numbers
       role: 'ACP',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
@@ -485,7 +483,7 @@ async function main() {
       username: `SHO_${psShortForm}_HYD`,
       email: `sho-${policeStation.name.toLowerCase().replace(/\s+/g, '-').replace('-ps', '')}@tspolice.gov.in`,
       password: 'password',
-      phoneNo: `873366${String(policeStation.id).padStart(4, '0')}`, // Dynamic phone numbers
+      phoneNo: `8712663${String(phoneCounter++).padStart(5, '0')}`, // Unique phone numbers
       role: 'SHO',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined,
@@ -540,6 +538,70 @@ async function main() {
       password: 'password',
       phoneNo: '8712660404',
       role: 'ADMIN',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'SHO_BEGU_HYD',
+      email: 'sho-begumpet@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8733660001',
+      role: 'SHO',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      // Will be linked to Begumpet division and police station via dynamic lookup
+    },
+    {
+      username: 'ARMS_SUPDT_HYD',
+      email: 'arms-superintendent@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660301',
+      role: 'AS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A1_HYD',
+      email: 'arms-seat-a1@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660302',
+      role: 'AS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A2_HYD',
+      email: 'arms-seat-a2@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660303',
+      role: 'AS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A3_HYD',
+      email: 'arms-seat-a3@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660304',
+      role: 'AS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ARMS_SEAT_A4_HYD',
+      email: 'arms-seat-a4@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660305',
+      role: 'AS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ADO_HYD',
+      email: 'ado-hyderabad@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660306',
+      role: 'ADO',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -677,6 +739,106 @@ async function main() {
     }
   }
 
+  // --- Role-Action Mappings Seeding ---
+  console.log('Seeding role-action mappings...');
+
+  // Get all roles and actions from database
+  const allRoles = await prisma.roles.findMany();
+  const allActions = await prisma.actiones.findMany();
+
+  // Create mapping of codes to IDs for easier reference
+  const roleCodeToId: Record<string, number> = {};
+  const actionCodeToId: Record<string, number> = {};
+
+  allRoles.forEach(role => {
+    roleCodeToId[role.code] = role.id;
+  });
+
+  allActions.forEach(action => {
+    actionCodeToId[action.code] = action.id;
+  });
+
+  // Define role-action mappings based on role hierarchy and permissions
+  const roleActionMappings = [
+    // SHO - Station House Officer can forward, reject, recommend, close
+    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT', 'RETURN'] },
+
+    // ACP - Assistant Commissioner can do all SHO actions plus approve
+    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // DCP - Deputy Commissioner has broader approval powers
+    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // ZS - Zonal Superintendent can handle all workflow actions
+    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATED', 'RETURN'] },
+
+    // CADO - Chief Administrative Officer
+    { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // AS - Arms Superintendent
+    { roleCode: 'AS', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // ADO - Administrative Officer
+    { roleCode: 'ADO', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // JTCP - Joint Commissioner of Police
+    { roleCode: 'JTCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
+
+    // CP - Commissioner of Police (highest authority) - NO RETURN action
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND'] },
+
+    // ADMIN - System Administrator (can perform all actions for system management)
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'RETURN'] },
+  ];
+
+  // Insert role-action mappings
+  for (const mapping of roleActionMappings) {
+    const roleId = roleCodeToId[mapping.roleCode];
+
+    if (!roleId) {
+      console.warn(`Role '${mapping.roleCode}' not found. Skipping mappings.`);
+      continue;
+    }
+
+    for (const actionCode of mapping.actionCodes) {
+      const actionId = actionCodeToId[actionCode];
+
+      if (!actionId) {
+        console.warn(`Action '${actionCode}' not found. Skipping mapping for role '${mapping.roleCode}'.`);
+        continue;
+      }
+
+      // Check if mapping already exists
+      const existingMapping = await prisma.rolesActionsMapping.findUnique({
+        where: {
+          roleId_actionId: {
+            roleId: roleId,
+            actionId: actionId
+          }
+        }
+      });
+
+      if (existingMapping) {
+        console.log(`Role-Action mapping already exists: ${mapping.roleCode} -> ${actionCode}. Skipping.`);
+        continue;
+      }
+
+      try {
+        await prisma.rolesActionsMapping.create({
+          data: {
+            roleId: roleId,
+            actionId: actionId,
+            isActive: true
+          }
+        });
+        console.log(`Created role-action mapping: ${mapping.roleCode} -> ${actionCode}`);
+      } catch (error) {
+        console.error(`Error creating role-action mapping ${mapping.roleCode} -> ${actionCode}:`, error);
+      }
+    }
+  }
+
+  console.log('Role-action mappings seeding completed!');
   console.log('Seeding completed successfully!');
 }
 

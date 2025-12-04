@@ -32,9 +32,8 @@ export const STATUS_MAP = {
   pending: statusIdMap.pending || [1, 9],       // Same as forward for now
   sent: statusIdMap.sent || [11, 1, 9],         // RECOMMEND
   returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
-  flagged: statusIdMap.redFlagged || [8],       // RED_FLAG
-  redFlagged: statusIdMap.redFlagged || [8],    // Alias for flagged
-  disposed: statusIdMap.disposed || [7],        // DISPOSE
+  flagged: statusIdMap.redflagged || [8],       // RED_FLAG
+  redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
   approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
   freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)
   final: statusIdMap.finaldisposal || [7],      // FINAL DISPOSAL 
@@ -42,20 +41,14 @@ export const STATUS_MAP = {
   closed: statusIdMap.closed || [10],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
-  groundReport: statusIdMap.groundReport || [6] // GROUND_REPORT
+  groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
+  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
 };
 
 /**
  * Transform DetailedApplicationData to ApplicationData format for backward compatibility
  */
 const transformDetailedToApplicationData = (detailedApp: any): ApplicationData => {
-  console.log('🔄 Transforming application data:', {
-    id: detailedApp?.id,
-    applicantFullName: detailedApp?.applicantFullName,
-    acknowledgementNo: detailedApp?.acknowledgementNo,
-    status: detailedApp?.status
-  });
-
   // Handle both old and new API response formats
   const histories = Array.isArray(detailedApp?.FreshLicenseApplicationsFormWorkflowHistories)
     ? detailedApp.FreshLicenseApplicationsFormWorkflowHistories
@@ -70,7 +63,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       action: h.actionTaken || h.action || '',
       by: h.previousUserName + ' (' + h.previousRoleName + ')' || 'Unknown User',
       comments: h.remarks || undefined,
-  attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
+      attachments: Array.isArray(h.attachments) ? h.attachments : (h.attachments ? [h.attachments] : []),
     };
   });
 
@@ -80,8 +73,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     'Unknown Applicant';
 
   // Map status from new API format
-  const statusCode = detailedApp.status?.code || detailedApp.status || 'INITIATE';
-  const statusName = detailedApp.status?.name || statusCode;
+  const statusName = detailedApp.workflowStatus?.name;
 
   return {
     id: String(detailedApp.id || ''),
@@ -103,6 +95,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     forwardComments: detailedApp.remarks || undefined,
     isViewed: !detailedApp.isPending,
     returnReason: undefined,
+    currentUser: detailedApp.currentUser,
     flagReason: undefined,
     disposalReason: undefined,
     lastUpdated: detailedApp.updatedAt || detailedApp.createdAt || new Date().toISOString(),
@@ -112,14 +105,20 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       url: upload.fileUrl
     })) || [],
     history,
+    // Preserve the original workflowHistories for the new Application History display
+    workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || [],
+    // Preserve additional data fields
+    licenseHistories: detailedApp.licenseHistories || [],
+    criminalHistories: detailedApp.criminalHistories || [],
+    licenseDetails: detailedApp.licenseDetails || [],
     actions: {
       canForward: detailedApp.currentRole?.can_forward || false,
       canReport: true,
-      canApprove: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canReject: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canRaiseRedflag: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canReturn: !detailedApp.isApprovied && !detailedApp.isRejected,
-      canDispose: detailedApp.isApprovied,
+      canApprove: !detailedApp.isApproved && !detailedApp.isRejected,
+      canReject: !detailedApp.isApproved && !detailedApp.isRejected,
+      canRaiseRedflag: !detailedApp.isApproved && !detailedApp.isRejected,
+      canReturn: !detailedApp.isApproved && !detailedApp.isRejected,
+      canDispose: detailedApp.isApproved,
     },
     usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
       ? detailedApp.usersInHierarchy
@@ -166,7 +165,7 @@ export interface DetailedApplicationData {
   stateId: number;
   districtId: number;
   updatedAt: string;
-  isApprovied: boolean;
+  isApproved: boolean;
   isFLAFGenerated: boolean;
   isGroundReportGenerated: boolean;
   isPending: boolean;
@@ -325,12 +324,12 @@ export const convertStatusNamesToIds = (statusIds: string | string[] | number | 
     if (typeof status === 'number' || !isNaN(Number(status))) {
       numericIds.push(Number(status));
     } else {
-      // Map status name to numeric IDs
-      const mappedIds = STATUS_MAP[String(status).toLowerCase() as keyof typeof STATUS_MAP];
+      // Map status name to numeric IDs (case-insensitive lookup)
+      const lookup = String(status).toLowerCase();
+      const foundKey = Object.keys(STATUS_MAP).find(k => k.toLowerCase() === lookup) as keyof typeof STATUS_MAP | undefined;
+      const mappedIds = foundKey ? STATUS_MAP[foundKey] : undefined;
       if (mappedIds) {
         numericIds.push(...mappedIds);
-      } else {
-        console.warn(`⚠️ Unknown status name: ${status}`);
       }
     }
   });
@@ -343,18 +342,75 @@ export const convertStatusNamesToIds = (statusIds: string | string[] | number | 
  * Provides a consistent interface for all pages to fetch applications by status
  */
 export const getStatusIdsForKey = (statusKey: string): number[] => {
-  const statusIds = statusIdMap[statusKey as keyof typeof statusIdMap];
+  if (!statusKey) return [];
+  // Do a case-insensitive lookup because callers may use lowercase/uppercase variations
+  const lookup = String(statusKey).toLowerCase();
+  const foundKey = Object.keys(statusIdMap).find(k => k.toLowerCase() === lookup) as keyof typeof statusIdMap | undefined;
+  const statusIds = foundKey ? statusIdMap[foundKey] : undefined;
   return statusIds || [];
 };
 
 /**
- * Utility function to fetch applications by status key (from statusIdMap)
+ * Fetch applications by status key (forwarded, returned, redFlagged, disposed, etc.)
  * This is the recommended way for pages to fetch applications by status
+ * @param statusKey - The status key to fetch applications for
+ * @param customStatusIds - Optional custom status IDs from role-based menu items (cookie)
  */
-export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<ApplicationData[]> => {
-  const statusIds = getStatusIdsForKey(statusKey);
+export const fetchApplicationsByStatusKey = async (statusKey: string, customStatusIds?: number[]): Promise<ApplicationData[]> => {
+  // Normalize statusKey to lowercase to be robust against URL/menu casing
+  const key = String(statusKey || '').toLowerCase();
+
+  // Special handling for 'sent' - use isSent parameter instead of status filtering
+  if (key === 'sent') {
+    try {
+      const response = await ApplicationApi.getAll({ isSent: true });
+
+      if (!response?.success || !response?.data || !Array.isArray(response.data)) {
+        console.warn('⚠️ fetchApplicationsByStatusKey (sent): Invalid response data, returning empty array');
+        return [];
+      }
+
+      // Transform sent applications - they have different structure
+      // Backend returns: applicationId, acknowledgementNo, createdAt, applicantName, 
+      // workflowHistoryId, actionTakenAt, actionTaken, actionRemarks
+      const applications: ApplicationData[] = response.data.map((item: any) => ({
+        id: String(item.applicationId),
+        acknowledgementNo: item.acknowledgementNo,
+        applicantName: item.applicantName,
+        applicationDate: item.createdAt,
+        lastUpdated: item.actionTakenAt || item.createdAt,
+        status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
+        status_id: 999, // Unique ID for sent status (not from database)
+        // Fields not available in sent response - use empty/undefined defaults
+        applicantMobile: '', // Not included in workflow history response
+        applicationType: '', // Not included in workflow history response
+        currentUser: undefined,
+        assignedTo: '', // Not included in workflow history response
+        // Additional sent-specific fields from workflow history
+        actionTaken: item.actionTaken,
+        actionRemarks: item.actionRemarks,
+        actionTakenAt: item.actionTakenAt,
+        workflowHistoryId: item.workflowHistoryId,
+      }));
+
+      return applications;
+    } catch (error) {
+      console.error('❌ fetchApplicationsByStatusKey (sent) error:', error);
+      return [];
+    }
+  }
+
+  // Original logic for other status keys
+  // Use custom statusIds if provided, otherwise use default mapping
+  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
+  // debug: log statusKey -> statusIds mapping
+  try {
+    // eslint-disable-next-line no-console
+    console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
+  } catch (e) { }
   if (statusIds.length === 0) {
-    console.warn(`⚠️ No status IDs mapped for status key: ${statusKey}`);
+    // debug: no status ids found for this key
+    try { console.debug('[sidebarApiCalls] No statusIds for key', statusKey); } catch (e) { }
     return [];
   }
 
@@ -368,32 +424,16 @@ export const fetchApplicationsByStatusKey = async (statusKey: string): Promise<A
  */
 export const fetchAllApplications = async (params: Record<string, any> = {}): Promise<ApplicationData[]> => {
   try {
-    console.log({ params }, '>>>>>>>>>>>>>')
-
-    // Convert status names to numeric IDs if needed
-    if (params.statusIds) {
-      params.statusIds = convertStatusNamesToIds(params.statusIds);
-    }
-
-    console.log({ params }, '<<<<<<<<<<<')
     const response = await ApplicationApi.getAll(params);
 
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      console.warn('⚠️ fetchAllApplications: Invalid response data, returning empty array');
       return [];
     }
 
     // Transform API response to match ApplicationData interface
     const applications = response.data.map(transformApiApplicationToApplicationData);
-
-    console.log('✅ fetchAllApplications: Transformed applications:', {
-      count: applications.length,
-      sample: applications[0]
-    });
-
     return applications;
   } catch (error) {
-    console.error('❌ fetchAllApplications error:', error);
     return [];
   }
 };
@@ -408,46 +448,24 @@ export const fetchApplicationsByStatus = async (status: number[] | string[]): Pr
     // Check cache first
     const cachedData = getCachedData(cacheKey, 30000); // 30 second cache
     if (cachedData) {
-      console.log('📦 fetchApplicationsByStatus: Using cached data for status:', status);
       return cachedData;
     }
-
-    console.log('📡 fetchApplicationsByStatus called with status:', status);
-
     // Convert status names to numeric IDs if needed
     const convertedStatusIds = convertStatusNamesToIds(status);
     const params = { statusIds: convertedStatusIds };
 
     const response = await ApplicationApi.getAll(params);
-
-    console.log('📡 fetchApplicationsByStatus response:', {
-      success: response?.success,
-      message: response?.message,
-      dataType: typeof response?.data,
-      isArray: Array.isArray(response?.data),
-      length: Array.isArray(response?.data) ? response.data.length : 'N/A',
-      pagination: (response as any)?.pagination
-    });
-
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      console.warn('⚠️ fetchApplicationsByStatus: Invalid response data, returning empty array');
       return [];
     }
 
     // Transform API response to match ApplicationData interface
     const applications = response.data.map(transformApiApplicationToApplicationData);
-
-    console.log('✅ fetchApplicationsByStatus: Transformed applications:', {
-      count: applications.length,
-      sample: applications[0]
-    });
-
     // Cache the results
     setCachedData(cacheKey, applications, 30000);
 
     return applications;
   } catch (error) {
-    console.error('❌ fetchApplicationsByStatus error:', error);
     return [];
   }
 };
@@ -459,12 +477,12 @@ export const fetchApplicationCounts = async (): Promise<{
   forwardedCount: number;
   returnedCount: number;
   redFlaggedCount: number;
-  disposedCount: number;
+  reEnquiryCount: number;
+  draftCount: number;
   pendingCount: number;
   approvedCount: number;
   closedCount: number;
   cancelledCount: number;
-  reEnquiryCount: number;
   groundReportCount: number;
 }> => {
   try {
@@ -473,52 +491,45 @@ export const fetchApplicationCounts = async (): Promise<{
     // Check cache first - increased cache time to 5 minutes
     const cachedData = getCachedData(cacheKey, 300000); // 5 minute cache
     if (cachedData) {
-      console.log('📦 fetchApplicationCounts: Using cached data');
       return cachedData;
     }
-
-    console.log('📊 fetchApplicationCounts called - optimized version');
-
     // Only fetch counts for the essential inbox items to reduce API load
-    const [forwarded, returned, redFlagged, disposed] = await Promise.all([
+    const [forwarded, returned, redFlagged, reEnquiry, draft] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
-      fetchApplicationsByStatus(STATUS_MAP.disposed),
+      fetchApplicationsByStatus(STATUS_MAP.reEnquiry),
+      fetchApplicationsByStatus(STATUS_MAP.drafts),
     ]);
 
     const counts = {
       forwardedCount: forwarded.length,
       returnedCount: returned.length,
       redFlaggedCount: redFlagged.length,
-      disposedCount: disposed.length,
+      reEnquiryCount: reEnquiry.length,
+      draftCount: draft.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
       cancelledCount: 0,
-      reEnquiryCount: 0,
       groundReportCount: 0,
     };
-
-    console.log('📊 fetchApplicationCounts result (optimized):', counts);
-
     // Cache the results for longer
     setCachedData(cacheKey, counts, 300000);
 
     return counts;
   } catch (error) {
-    console.error('❌ fetchApplicationCounts error:', error);
     return {
       forwardedCount: 0,
       returnedCount: 0,
       redFlaggedCount: 0,
-      disposedCount: 0,
+      reEnquiryCount: 0,
+      draftCount: 0,
       pendingCount: 0,
       approvedCount: 0,
       closedCount: 0,
       cancelledCount: 0,
-      reEnquiryCount: 0,
       groundReportCount: 0,
     };
   }
@@ -543,8 +554,13 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     applicationType: 'Fresh License', // Default for now, might need to be determined from other fields
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
-    status: mapApiStatusToApplicationStatus(apiApp.status),
+    status: apiApp.status,
     status_id: apiApp.status?.id || STATUS_MAP.pending[0],
+    workflowStatus: apiApp.workflowStatus ? {
+      id: apiApp.workflowStatus.id,
+      code: apiApp.workflowStatus.code,
+      name: apiApp.workflowStatus.name
+    } : undefined,
     assignedTo: String(apiApp.currentUser?.id || ''),
     forwardedFrom: apiApp.previousUser?.id ? String(apiApp.previousUser.id) : undefined,
     forwardedTo: apiApp.currentUser?.id ? String(apiApp.currentUser.id) : undefined,
@@ -557,13 +573,13 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     documents: apiApp.documents || [],
     history: apiApp.workflowHistory || [],
     actions: {
-      canForward: !apiApp.isApprovied && !apiApp.isRejected,
+      canForward: !apiApp.isApproved && !apiApp.isRejected,
       canReport: true,
-      canApprove: !apiApp.isApprovied && !apiApp.isRejected,
-      canReject: !apiApp.isApprovied && !apiApp.isRejected,
-      canRaiseRedflag: !apiApp.isApprovied && !apiApp.isRejected,
-      canReturn: !apiApp.isApprovied && !apiApp.isRejected,
-      canDispose: apiApp.isApprovied,
+      canApprove: !apiApp.isApproved && !apiApp.isRejected,
+      canReject: !apiApp.isApproved && !apiApp.isRejected,
+      canRaiseRedflag: !apiApp.isApproved && !apiApp.isRejected,
+      canReturn: !apiApp.isApproved && !apiApp.isRejected,
+      canDispose: apiApp.isApproved,
     },
     usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
       ? apiApp.usersInHierarchy
@@ -571,49 +587,6 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
   };
 };
 
-/**
- * Map API status to ApplicationData status
- * Based on the actual API response structure
- */
-const mapApiStatusToApplicationStatus = (apiStatus: any): ApplicationData['status'] => {
-  if (!apiStatus) return 'pending';
-
-  // Handle the status object structure: { id: 1, name: "Forward", code: "FORWARD" }
-  const statusStr = (apiStatus.code || apiStatus.name || String(apiStatus)).toLowerCase();
-
-  const statusMapping: Record<string, ApplicationData['status']> = {
-    'forward': 'pending', // Forward status maps to pending in UI
-    'pending': 'pending',
-    'approved': 'approved',
-    'approve': 'approved',
-    'rejected': 'rejected',
-    'reject': 'rejected',
-    'returned': 'returned',
-    'return': 'returned',
-    'red_flagged': 'red-flagged',
-    'red-flagged': 'red-flagged',
-    'flagged': 'red-flagged',
-    'flag': 'red-flagged',
-    'disposed': 'disposed',
-    'dispose': 'disposed',
-    'close': 'closed',
-    'closed': 'closed',
-    'initiated': 'initiated',
-    'initiate': 'initiated',
-    'sent': 'pending',
-    'forwarded': 'pending',
-    'cancelled': 'cancelled',
-    'cancel': 'cancelled',
-    're_enquiry': 're-enquiry',
-    're-enquiry': 're-enquiry',
-    'ground_report': 'ground-report',
-    'ground-report': 'ground-report',
-    'recommend': 'recommended',
-    'recommended': 'recommended',
-  };
-
-  return statusMapping[statusStr] || 'pending';
-};
 
 /**
  * Filter applications based on search query and date range
@@ -679,9 +652,6 @@ export const getApplicationsByStatus = (
     case 'redFlagged':
       filtered = applications.filter(app => STATUS_MAP.flagged.includes(Number(app.status_id)));
       break;
-    case 'disposed':
-      filtered = applications.filter(app => STATUS_MAP.disposed.includes(Number(app.status_id)));
-      break;
     case 'freshform':
       filtered = applications.filter(app => STATUS_MAP.freshform.includes(Number(app.status_id)));
       break;
@@ -699,7 +669,7 @@ export const getApplicationsByStatus = (
       filtered = applications.filter(app => STATUS_MAP.cancelled.includes(Number(app.status_id)));
       break;
     case 'reEnquiry':
-    case 're-enquiry':
+    case 'reenquiry':
       filtered = applications.filter(app => STATUS_MAP.reEnquiry.includes(Number(app.status_id)));
       break;
     case 'groundReport':
@@ -723,21 +693,15 @@ export const getApplicationsByStatus = (
  */
 export const fetchApplicationById = async (id: Number): Promise<ApplicationData | null> => {
   try {
-    console.log('📡 fetchApplicationById called with id:', id);
-
     const response = await ApplicationApi.getById(id);
 
     if (!response?.data) {
-      console.warn('⚠️ fetchApplicationById: No data in response');
       return null;
     }
 
     const application = transformApiApplicationToApplicationData(response.data);
-
-    console.log('✅ fetchApplicationById: Transformed application:', application);
     return application;
   } catch (error) {
-    console.error('❌ fetchApplicationById error:', error);
     return null;
   }
 };
@@ -759,12 +723,9 @@ export const searchApplications = async (searchParams: {
   limit: number;
 }> => {
   try {
-    console.log('🔍 searchApplications called with params:', searchParams);
-
     const response = await ApplicationApi.getAll(searchParams);
 
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
-      console.warn('⚠️ searchApplications: Invalid response data');
       return {
         applications: [],
         total: 0,
@@ -786,7 +747,6 @@ export const searchApplications = async (searchParams: {
 
     return result;
   } catch (error) {
-    console.error('❌ searchApplications error:', error);
     return {
       applications: [],
       total: 0,
@@ -807,46 +767,20 @@ export const searchApplications = async (searchParams: {
  */
 export const getApplicationByApplicationId = async (applicationId: string | number): Promise<ApplicationData | null> => {
   try {
-    console.log('📡 getApplicationByApplicationId called with applicationId:', applicationId);
-
     // Make API call to get specific application by ID
     const response = await ApplicationApi.getById(Number(applicationId));
-
-    console.log('📡 getApplicationByApplicationId response:', {
-      success: response?.success,
-      message: response?.message,
-      hasData: !!response?.data,
-      dataType: typeof response?.data,
-      dataLength: Array.isArray(response?.data) ? response?.data?.length : 'not array'
-    });
-
     if (!response?.success || !response?.data) {
-      console.warn('⚠️ getApplicationByApplicationId: Invalid response data');
       return null;
     }
 
     // The API now returns a single application object (not an array)
     const detailedApplicationData: any = response.data;
-
-    console.log('📡 Single application response:', {
-      id: detailedApplicationData?.id,
-      applicantName: detailedApplicationData?.applicantFullName,
-      acknowledgementNo: detailedApplicationData?.acknowledgementNo
-    });
-
     // Transform the detailed API response to ApplicationData format for backward compatibility
     const applicationData = transformDetailedToApplicationData(detailedApplicationData);
 
     // Return the transformed data that matches the expected ApplicationData interface
-    console.log('✅ getApplicationByApplicationId: Transformed application:', {
-      id: applicationData.id,
-      applicantName: applicationData.applicantName,
-      status: applicationData.status
-    });
-
     return applicationData;
   } catch (error) {
-    console.error('❌ getApplicationByApplicationId error:', error);
     return null;
   }
 };

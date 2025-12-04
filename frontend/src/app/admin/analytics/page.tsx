@@ -1,8 +1,7 @@
-"use client";
+'use client';
 
-import { Sidebar } from "../../../components/Sidebar";
-import TotalReportsWidget from "./TotalReportsWidget";
-import { useMemo } from "react";
+import React, { useState, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
   Bar,
@@ -15,145 +14,432 @@ import {
   Pie,
   Cell,
   Legend,
-} from "recharts";
+} from 'recharts';
+import {
+  analyticsService,
+  AnalyticsFilters,
+  ApplicationsData,
+  RoleLoadData,
+  StateData,
+  AdminActivity,
+} from '@/services/analyticsService';
+import { format } from 'date-fns';
+import {
+  AdminCard,
+  AdminToolbar,
+  AdminFilter,
+  AdminErrorAlert,
+  AdminErrorBoundary,
+  AdminSectionSkeleton,
+  AdminTableSkeleton,
+} from '@/components/admin';
+import { useAdminTheme } from '@/context/AdminThemeContext';
+import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { AdminActivityFeed } from '@/components/analytics/AdminActivityFeed';
 
-// Mock data (reuse from userManagement)
-const roles = ["ZS", "DCP", "SHO", "ADMIN"];
-const mockUsers = [
-  { id: 1, name: "Alice", role: "ZS", office: "Office A", email: "alice@example.com", phone: "1234567890" },
-  { id: 2, name: "Bob", role: "DCP", office: "Office B", email: "bob@example.com", phone: "2345678901" },
-  { id: 3, name: "Charlie", role: "SHO", office: "Office C", email: "charlie@example.com", phone: "3456789012" },
-];
-const mockApplications = [
-  { id: 1, state: "pending", createdAt: "2025-06-01", assignedRole: "ZS" },
-  { id: 2, state: "approved", createdAt: "2025-06-02", assignedRole: "DCP" },
-  { id: 3, state: "pending", createdAt: "2025-06-08", assignedRole: "ZS" },
-  { id: 4, state: "rejected", createdAt: "2025-06-10", assignedRole: "SHO" },
-  { id: 5, state: "approved", createdAt: "2025-06-15", assignedRole: "DCP" },
-  { id: 6, state: "pending", createdAt: "2025-06-15", assignedRole: "ZS" },
-  { id: 7, state: "approved", createdAt: "2025-06-22", assignedRole: "SHO" },
-];
-const applicationStates = ["pending", "approved", "rejected"];
-const mockAdminActivities = [
-  { id: 1, user: "ZS123", action: "forwarded application #15 to ACP", time: "2025-06-28 10:15" },
-  { id: 2, user: "DCP456", action: "approved application #12", time: "2025-06-28 09:50" },
-  { id: 3, user: "SHO789", action: "rejected application #9", time: "2025-06-27 17:30" },
-  { id: 4, user: "ADMIN", action: "created user Bob", time: "2025-06-27 16:00" },
-];
-const pieColors = ["#6366F1", "#F59E42", "#10B981", "#EF4444"];
+// Type assertions for recharts components
+const ResponsiveContainerFixed = ResponsiveContainer as any;
+const BarChartFixed = BarChart as any;
+const BarFixed = Bar as any;
+const XAxisFixed = XAxis as any;
+const YAxisFixed = YAxis as any;
+const TooltipFixed = Tooltip as any;
+const CartesianGridFixed = CartesianGrid as any;
+const PieChartFixed = PieChart as any;
+const PieFixed = Pie as any;
+const CellFixed = Cell as any;
+const LegendFixed = Legend as any;
+
+const COLORS = ['#6366F1', '#F59E42', '#10B981', '#EF4444', '#8B5CF6', '#EC4899'];
 
 export default function AnalyticsPage() {
-  // User counts per role
-  const userCountsByRole = useMemo(() => {
-    const counts: Record<string, number> = {};
-    mockUsers.forEach((u) => {
-      counts[u.role] = (counts[u.role] || 0) + 1;
-    });
-    return counts;
-  }, []);
-  // Application counts per state
-  const applicationCountsByState = useMemo(() => {
-    const counts: Record<string, number> = {};
-    mockApplications.forEach((a) => {
-      counts[a.state] = (counts[a.state] || 0) + 1;
-    });
-    return counts;
-  }, []);
-  // Applications over time (weekly)
-  const applicationsByWeek = useMemo(() => {
-    const weekMap: Record<string, number> = {};
-    mockApplications.forEach((app) => {
-      const date = new Date(app.createdAt);
-      const week = `${date.getFullYear()}-W${Math.ceil((date.getDate() + 6 - date.getDay()) / 7)}`;
-      weekMap[week] = (weekMap[week] || 0) + 1;
-    });
-    return Object.entries(weekMap).map(([week, count]) => ({ week, count }));
-  }, []);
-  // Role-wise application load
-  const appLoadByRole = useMemo(() => {
-    const counts: Record<string, number> = {};
-    mockApplications.forEach((a) => {
-      counts[a.assignedRole] = (counts[a.assignedRole] || 0) + 1;
-    });
-    return roles.map((role) => ({ name: role, value: counts[role] || 0 }));
-  }, []);
+  const { colors } = useAdminTheme();
+
+  // Date range state
+  const [fromDate, setFromDate] = useState<string>(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return format(date, 'yyyy-MM-dd');
+  });
+  const [toDate, setToDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+
+  // Fetch applications data
+  const {
+    data: applicationsByWeek = [],
+    isLoading: appLoading,
+    error: appError,
+    refetch: refetchApps,
+  } = useQuery({
+    queryKey: ['analytics-applications', fromDate, toDate],
+    queryFn: async () => {
+      const filters: AnalyticsFilters = { fromDate, toDate };
+      return analyticsService.getApplicationsByWeek(filters);
+    },
+  });
+
+  // Fetch role load data
+  const {
+    data: roleLoad = [],
+    isLoading: roleLoading,
+    error: roleError,
+  } = useQuery({
+    queryKey: ['analytics-roleload', fromDate, toDate],
+    queryFn: async () => {
+      const filters: AnalyticsFilters = { fromDate, toDate };
+      return analyticsService.getRoleLoad(filters);
+    },
+  });
+
+  // Fetch application states
+  const {
+    data: applicationStates = [],
+    isLoading: stateLoading,
+    error: stateError,
+  } = useQuery({
+    queryKey: ['analytics-states', fromDate, toDate],
+    queryFn: async () => {
+      const filters: AnalyticsFilters = { fromDate, toDate };
+      return analyticsService.getApplicationStates(filters);
+    },
+  });
+
+  // Fetch admin activities
+  const {
+    data: adminActivities = [],
+    isLoading: activitiesLoading,
+    error: activitiesError,
+  } = useQuery({
+    queryKey: ['analytics-activities', fromDate, toDate],
+    queryFn: async () => {
+      const filters: AnalyticsFilters = { fromDate, toDate };
+      return analyticsService.getAdminActivities(filters);
+    },
+  });
+
+  // Calculate summary stats
+  const summaryStats = useMemo(() => {
+    const totalApplications = applicationsByWeek.reduce((sum, item) => sum + item.count, 0);
+    const totalApproved = applicationStates.find(s => s.state === 'approved')?.count || 0;
+    const totalPending = applicationStates.find(s => s.state === 'pending')?.count || 0;
+    const totalRejected = applicationStates.find(s => s.state === 'rejected')?.count || 0;
+
+    return {
+      totalApplications,
+      totalApproved,
+      totalPending,
+      totalRejected,
+      approvalRate:
+        totalApplications > 0 ? ((totalApproved / totalApplications) * 100).toFixed(1) : '0',
+    };
+  }, [applicationsByWeek, applicationStates]);
+
+  // Handle date reset
+  const handleReset30Days = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    setFromDate(format(date, 'yyyy-MM-dd'));
+    setToDate(format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  // Handle export
+  const handleExport = (data: any[], filename: string) => {
+    try {
+      analyticsService.exportToCSV(data, `${filename}.csv`);
+    } catch (error) {
+      console.error('Export error:', error);
+    }
+  };
+
+  const isLoading = appLoading || roleLoading || stateLoading;
 
   return (
-    <div className="flex h-screen w-full bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white shadow">
-          <div className="px-4 py-6 sm:px-6 lg:px-8">
-            <h1 className="text-2xl font-semibold text-gray-900">Analytics Overview</h1>
+    <AdminErrorBoundary>
+      <div
+        style={{
+          padding: AdminLayout.content.padding,
+          gap: AdminLayout.content.gap,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Header Toolbar */}
+        <AdminToolbar sticky>
+          <div style={{ flex: 1 }}>
+            <h1
+              style={{
+                fontSize: '28px',
+                fontWeight: 700,
+                color: colors.text.primary,
+                margin: 0,
+              }}
+            >
+              Analytics Dashboard
+            </h1>
+            <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
+              Track applications and system performance
+            </p>
           </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Applications Over Time</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={applicationsByWeek}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#4F46E5" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Role-wise Application Load</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={appLoadByRole} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
-                  {appLoadByRole.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={pieColors[idx % pieColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold mb-4">Analytics Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">ZS</h3>
-                <p className="text-2xl font-bold text-blue-600">{userCountsByRole["ZS"] || 0}</p>
+          <button
+            onClick={() => refetchApps()}
+            disabled={isLoading}
+            style={{
+              padding: '10px 16px',
+              backgroundColor: colors.status.info,
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: AdminBorderRadius.md,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              opacity: isLoading ? 0.6 : 1,
+            }}
+          >
+            ↻ Refresh
+          </button>
+        </AdminToolbar>
+
+        {/* Date Filters */}
+        <AdminFilter
+          filters={{
+            fromDate: {
+              value: fromDate,
+              label: 'From Date',
+              type: 'date',
+              onChange: setFromDate,
+            },
+            toDate: {
+              value: toDate,
+              label: 'To Date',
+              type: 'date',
+              onChange: setToDate,
+            },
+          }}
+          onClear={handleReset30Days}
+        />
+
+        {/* Error Alerts */}
+        {appError && (
+          <AdminErrorAlert
+            title='Failed to Load Applications'
+            message={appError instanceof Error ? appError.message : 'Unknown error'}
+            onRetry={() => refetchApps()}
+          />
+        )}
+        {roleError && (
+          <AdminErrorAlert
+            title='Failed to Load Role Data'
+            message={roleError instanceof Error ? roleError.message : 'Unknown error'}
+          />
+        )}
+        {stateError && (
+          <AdminErrorAlert
+            title='Failed to Load Application States'
+            message={stateError instanceof Error ? stateError.message : 'Unknown error'}
+          />
+        )}
+
+        {/* Summary Stats */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: AdminSpacing.lg,
+          }}
+        >
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ minHeight: '100px' }}>
+                <AdminSectionSkeleton lines={3} height='100px' />
               </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">DCP</h3>
-                <p className="text-2xl font-bold text-blue-600">{userCountsByRole["DCP"] || 0}</p>
+            ))
+          ) : (
+            <>
+              <AdminCard title='Total Applications'>
+                <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.info }}>
+                  {summaryStats.totalApplications}
+                </div>
+              </AdminCard>
+              <AdminCard title='Approved'>
+                <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.success }}>
+                  {summaryStats.totalApproved}
+                </div>
+              </AdminCard>
+              <AdminCard title='Pending'>
+                <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.warning }}>
+                  {summaryStats.totalPending}
+                </div>
+              </AdminCard>
+              <AdminCard title='Rejected'>
+                <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.error }}>
+                  {summaryStats.totalRejected}
+                </div>
+              </AdminCard>
+              <AdminCard title='Approval Rate'>
+                <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.success }}>
+                  {summaryStats.approvalRate}%
+                </div>
+              </AdminCard>
+            </>
+          )}
+        </div>
+
+        {/* Charts Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+            gap: AdminSpacing.xl,
+          }}
+        >
+          {/* Applications Over Time Chart */}
+          <AdminCard title='Applications Over Time (Weekly)'>
+            {appLoading ? (
+              <AdminSectionSkeleton lines={5} height='300px' />
+            ) : (
+              <div style={{ width: '100%', height: '300px' }}>
+                <ResponsiveContainerFixed width='100%' height='100%'>
+                  <BarChartFixed data={applicationsByWeek}>
+                    <CartesianGridFixed stroke={colors.border} />
+                    <XAxisFixed dataKey='week' stroke={colors.text.secondary} />
+                    <YAxisFixed stroke={colors.text.secondary} />
+                    <TooltipFixed
+                      contentStyle={{
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.text.primary,
+                        borderRadius: AdminBorderRadius.md,
+                      }}
+                    />
+                    <BarFixed dataKey='count' fill={colors.status.info} radius={[8, 8, 0, 0]} />
+                  </BarChartFixed>
+                </ResponsiveContainerFixed>
               </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">SHO</h3>
-                <p className="text-2xl font-bold text-blue-600">{userCountsByRole["SHO"] || 0}</p>
+            )}
+            <button
+              onClick={() => handleExport(applicationsByWeek, 'applications-timeline')}
+              style={{
+                marginTop: AdminSpacing.lg,
+                padding: '8px 12px',
+                backgroundColor: colors.status.success,
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: AdminBorderRadius.sm,
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Export CSV
+            </button>
+          </AdminCard>
+
+          {/* Role-wise Load Chart */}
+          <AdminCard title='Role-wise Application Load'>
+            {roleLoading ? (
+              <AdminSectionSkeleton lines={5} height='300px' />
+            ) : (
+              <div style={{ width: '100%', height: '300px' }}>
+                <ResponsiveContainerFixed width='100%' height='100%'>
+                  <PieChartFixed>
+                    <PieFixed
+                      data={roleLoad}
+                      dataKey='value'
+                      nameKey='name'
+                      cx='50%'
+                      cy='50%'
+                      outerRadius={100}
+                      fill='#8884d8'
+                      label={({ name, value }: any) => `${name}: ${value}`}
+                    >
+                      {roleLoad.map((entry, idx) => (
+                        <CellFixed key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                      ))}
+                    </PieFixed>
+                    <TooltipFixed
+                      contentStyle={{
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.text.primary,
+                        borderRadius: AdminBorderRadius.md,
+                      }}
+                    />
+                    <LegendFixed />
+                  </PieChartFixed>
+                </ResponsiveContainerFixed>
               </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">ADMIN</h3>
-                <p className="text-2xl font-bold text-blue-600">{userCountsByRole["ADMIN"] || 0}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">Pending</h3>
-                <p className="text-2xl font-bold text-blue-600">{applicationCountsByState["pending"] || 0}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">Approved</h3>
-                <p className="text-2xl font-bold text-blue-600">{applicationCountsByState["approved"] || 0}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">Rejected</h3>
-                <p className="text-2xl font-bold text-blue-600">{applicationCountsByState["rejected"] || 0}</p>
-              </div>
-              {/* Placeholder for additional analytics */}
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-medium text-gray-500">Additional Metric</h3>
-                <p className="text-2xl font-bold text-blue-600">N/A</p>
-              </div>
+            )}
+            <button
+              onClick={() => handleExport(roleLoad, 'role-load')}
+              style={{
+                marginTop: AdminSpacing.lg,
+                padding: '8px 12px',
+                backgroundColor: colors.status.success,
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: AdminBorderRadius.sm,
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Export CSV
+            </button>
+          </AdminCard>
+        </div>
+
+        {/* Application States Distribution */}
+        <AdminCard title='Application Status Distribution'>
+          {stateLoading ? (
+            <AdminSectionSkeleton lines={5} height='300px' />
+          ) : (
+            <div style={{ width: '100%', height: '300px' }}>
+              <ResponsiveContainerFixed width='100%' height='100%'>
+                <BarChartFixed data={applicationStates} layout='vertical'>
+                  <CartesianGridFixed stroke={colors.border} />
+                  <XAxisFixed type='number' stroke={colors.text.secondary} />
+                  <YAxisFixed dataKey='state' type='category' stroke={colors.text.secondary} />
+                  <TooltipFixed
+                    contentStyle={{
+                      backgroundColor: colors.surface,
+                      border: `1px solid ${colors.border}`,
+                      color: colors.text.primary,
+                      borderRadius: AdminBorderRadius.md,
+                    }}
+                  />
+                  <BarFixed dataKey='count' fill={colors.status.success} radius={[0, 8, 8, 0]} />
+                </BarChartFixed>
+              </ResponsiveContainerFixed>
             </div>
-          </div>
-        </main>
+          )}
+          <button
+            onClick={() => handleExport(applicationStates, 'application-states')}
+            style={{
+              marginTop: AdminSpacing.lg,
+              padding: '8px 12px',
+              backgroundColor: colors.status.success,
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: AdminBorderRadius.sm,
+              cursor: 'pointer',
+              fontSize: '12px',
+            }}
+          >
+            Export CSV
+          </button>
+        </AdminCard>
+
+        {/* Admin Activity Feed */}
+        <AdminCard title='Recent Activities'>
+          {activitiesLoading ? (
+            <AdminSectionSkeleton lines={5} height='400px' />
+          ) : activitiesError ? (
+            <AdminErrorAlert
+              title='Failed to Load Activities'
+              message={activitiesError instanceof Error ? activitiesError.message : 'Unknown error'}
+            />
+          ) : (
+            <AdminActivityFeed activities={adminActivities} />
+          )}
+        </AdminCard>
       </div>
-    </div>
+    </AdminErrorBoundary>
   );
 }

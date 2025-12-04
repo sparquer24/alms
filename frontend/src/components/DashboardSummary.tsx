@@ -148,7 +148,6 @@ export default function DashboardSummary() {
       }
     } catch (err) {
       setError('An error occurred while fetching dashboard data');
-      console.error('Dashboard error:', err);
     } finally {
       setIsLoading(false);
     }

@@ -8,7 +8,7 @@ type InboxContextValue = {
   selectedType: string | null;
   applications: ApplicationData[];
   isLoading: boolean;
-  loadType: (type: string, force?: boolean) => Promise<void>;
+  loadType: (type: string, force?: boolean, statusIds?: number[]) => Promise<void>;
 };
 
 const InboxContext = createContext<InboxContextValue | undefined>(undefined);
@@ -20,29 +20,42 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
   // request id to ignore stale responses when switching types quickly
   const requestIdRef = useRef(0);
 
-  const loadType = useCallback(async (type: string, force = false) => {
+  // Make `loadType` stable (no changing identity) so consumers can safely
+  // depend on it in useEffect without causing infinite loops. We avoid
+  // reading `selectedType` from closure and instead use a functional
+  // updater to decide whether to fetch.
+  const loadType = useCallback(async (type: string, force = false, statusIds?: number[]) => {
     if (!type) return;
-    const normalized = String(type).toLowerCase();
-    if (normalized === selectedType && !force) return; // already loaded
+    const normalized = String(type);
+
+    // Decide whether we should fetch. We use the functional updater to
+    // synchronously inspect previous selectedType and set the new one.
+    let shouldFetch = false;
+    setSelectedType((prev) => {
+      if (prev === normalized && !force) {
+        shouldFetch = false;
+        return prev;
+      }
+      shouldFetch = true;
+      return normalized;
+    });
+
+    if (!shouldFetch) return;
 
     // bump request id for this load, so we can ignore stale responses
     const requestId = ++requestIdRef.current;
 
     try {
       setIsLoading(true);
-      setSelectedType(normalized);
-      const apps = await fetchApplicationsByStatusKey(normalized);
+      // Use custom statusIds if provided, otherwise use default mapping
+      const apps = await fetchApplicationsByStatusKey(normalized, statusIds);
       // only apply results if this is the latest request
       if (requestId === requestIdRef.current) {
         setApplications(apps ?? []);
-      } else {
-        // stale response - ignore
-        console.debug('Ignored stale inbox response for', normalized);
       }
     } catch (err) {
       // only report/clear if this is the latest request
       if (requestId === requestIdRef.current) {
-        console.error('InboxProvider loadType error', err);
         setApplications([]);
       }
     } finally {
@@ -50,7 +63,7 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoading(false);
       }
     }
-  }, [selectedType]);
+  }, []);
 
   const value = useMemo(() => ({ selectedType, applications, isLoading, loadType }), [selectedType, applications, isLoading, loadType]);
 
@@ -62,7 +75,6 @@ export const useInbox = () => {
   if (!ctx) {
     // Fallback safe implementation so components rendered outside the provider don't crash.
     // This logs so we can find and wrap callers with the provider if needed.
-    if (typeof window !== 'undefined') console.warn('useInbox called outside InboxProvider - returning no-op fallback');
     return {
       selectedType: null,
       applications: [],

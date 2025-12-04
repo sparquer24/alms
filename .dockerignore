@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+npm-debug.log
+Dockerfile
+Dockerfile.*
+.git
+uploads
+
+# Ignore local editor and OS files
+.vscode
+.idea
+*.swp
+Thumbs.db
+.DS_Store

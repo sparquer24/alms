@@ -20,6 +20,33 @@ export default function Home() {
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
 
+  // Synchronous cookie-read fallback for faster role-based redirects.
+  // This mirrors the logic used in Sidebar to avoid waiting for async hydration.
+  const getUserRoleFromCookie = () => {
+    if (typeof window === 'undefined' || !document?.cookie) return undefined;
+    try {
+      const raw = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('user='));
+      if (!raw) return undefined;
+      let value = raw.substring('user='.length);
+      let decoded = decodeURIComponent(value);
+      if (decoded.startsWith('j:')) decoded = decoded.slice(2);
+      if ((decoded.startsWith('"') && decoded.endsWith('"')) || (decoded.startsWith("'") && decoded.endsWith("'"))) {
+        decoded = decoded.slice(1, -1);
+      }
+      const parsed = JSON.parse(decoded);
+      const roleObj = parsed?.role ?? parsed;
+      if (!roleObj) return undefined;
+      if (typeof roleObj === 'string') return roleObj.toUpperCase();
+      if (typeof roleObj === 'object') {
+        if (roleObj.code) return String(roleObj.code).toUpperCase();
+        if (roleObj.name) return String(roleObj.name).toUpperCase();
+      }
+    } catch (err) {
+      // ignore parse errors - fallback to async value from hook
+    }
+    return undefined;
+  };
+
   useEffect(() => {
     // Only redirect if we're done loading and user is not authenticated
     if (!isLoading && !isAuthenticated) {
@@ -29,18 +56,17 @@ export default function Home() {
 
     // If authenticated, check if user should be redirected based on role
     if (!isLoading && isAuthenticated) {
-      if (userRole) {
-        const redirectPath = shouldRedirectOnStartup(userRole, '/');
+      // Prefer role from hook but fall back to cookie-derived role synchronously
+      const effectiveRole = userRole || getUserRoleFromCookie();
+      if (effectiveRole) {
+        const redirectPath = shouldRedirectOnStartup(effectiveRole, '/');
         if (redirectPath) {
-          console.log(`Redirecting ${userRole} user from dashboard to: ${redirectPath}`);
-          router.push(redirectPath);
+          // Use replace to avoid extra history entries when redirecting on load
+          router.replace(redirectPath);
           return;
         }
-      } else {
-        // Fallback: if role isn't available yet, send to inbox by default after login
-        router.push('/home?type=forwarded');
-        return;
       }
+      // If we still don't have a role, wait for hydration (no-op) — avoids redirect loops
     }
   }, [isAuthenticated, isLoading, userRole, router]);
 
@@ -66,7 +92,6 @@ export default function Home() {
             setApplications(tableData);
           }
         } catch (err) {
-          console.error('Failed to load initial applications:', err);
         } finally {
           // Mark initial load as completed regardless of result so UI can show empty state
           setHasLoadedInitialData(true);
@@ -79,7 +104,6 @@ export default function Home() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    console.log("Searching for:", query);
     // Here you would typically fetch data based on the search query
   };
 
@@ -87,7 +111,6 @@ export default function Home() {
     setSearchQuery('');
     setStartDate('');
     setEndDate('');
-    console.log("Reset filters");
     // Here you would typically reset the data to its original state
   };
 

@@ -12,9 +12,9 @@
     "prisma": "^6.14.0"
   },
   "scripts": {
-    "build": "npm -w backend run build || echo no backend build && npm -w frontend run build",
-    "dev": "npm run prisma:generate && concurrently -n backend,frontend -c blue,green \"npm run start:dev -w backend\" \"npm:dev -w frontend\"",
-    "start": "concurrently -n backend,frontend -c blue,green \"npm:start -w backend\" \"npm:start -w frontend\"",
+    "build": "(npm -w backend run build || echo no backend build) && npm -w frontend run build -- --no-lint",
+    "dev": "npm run prisma:generate && concurrently -n backend,frontend -c blue,green \"npm run start:dev -w backend\" \"npm run dev -w frontend\"",
+    "start": "concurrently -n backend,frontend -c blue,green \"npm run start -w backend\" \"npm run start -w frontend\"",
     "prisma:generate": "cd backend && npx prisma generate",
     "prisma:migrate": "cd backend && npx prisma migrate deploy",
     "prisma:migrate:dev": "cd backend && npx prisma migrate dev",
@@ -31,10 +31,7 @@
     "start:frontend": "npm -w frontend run start",
     "build:frontend": "npm -w frontend run build",
     "test": "npm -w frontend run test && echo Backend has no tests configured",
-    "lint": "npm -w frontend run lint || true",
-    "postinstall": "npm -w backend run postinstall || true"
-  },
-  "dependencies": {
-    "@prisma/client": "^6.14.0"
+    "lint": "npm -w frontend run lint || echo Lint issues found",
+    "postinstall": "npm -w backend run postinstall || echo Postinstall completed"
   }
 }

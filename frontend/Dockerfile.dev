@@ -4,7 +4,6 @@ WORKDIR /app
 # Install dependencies (use npm install instead of npm ci to avoid workspace/lockfile incompatibilities
 # and install Alpine build deps so native modules can compile)
 COPY package*.json ./
-COPY package-lock.json ./
 RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
 	&& npm install \
 	&& apk del .build-deps || true

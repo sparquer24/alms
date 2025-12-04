@@ -50,7 +50,6 @@ interface FormData {
   otherStateLicenseUploaded?: boolean;
 
   // New fields from freshFormFilde.md
-  aliceAcknowledgementNumber?: string;
   applicantMiddleName?: string;
   applicantLastName?: string;
   applicationFilledBy?: string;
@@ -144,7 +143,7 @@ const formSteps = [
   { title: 'Occupation & Business', description: 'Enter your occupation and business details' },
   { title: 'Criminal History', description: 'Provide information about any criminal history' },
   { title: 'License Details', description: 'Enter details about the license you are applying for' },
-  { title: 'Biometric Information', description: 'Upload your biometric information' },
+  // { title: 'Biometric Information', description: 'Upload your biometric information' },
   { title: 'Documents Upload', description: 'Upload required documents' },
   { title: 'Preview', description: 'Review your application details' },
   { title: 'Declaration', description: 'Review and submit your application' }
@@ -168,10 +167,18 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Simple helpers for preview rendering
   const YesNo = (v?: any) => (v === true || v === 'yes' || v === 'Yes') ? 'Yes' : (v === false || v === 'no' || v === 'No') ? 'No' : (v ?? '-');
-  const listOrDash = (arr?: any[]) => (Array.isArray(arr) && arr.length > 0 ? arr : ['-']);
-  const Field: React.FC<{ label: string; value: any }> = ({ label, value }) => (
-    <p className="flex"><span className="text-gray-500 min-w-[200px] inline-block">{label}:</span> <span className="ml-1 break-all">{value ?? '-'}</span></p>
-  );
+  const listOrDash = (arr?: any[]) => (Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '-');
+  const Field: React.FC<{ label: string; value: any }> = ({ label, value }) => {
+    const displayValue = (() => {
+      if (value === null || value === undefined) return '-';
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    })();
+    
+    return (
+      <p className="flex"><span className="text-gray-500 min-w-[200px] inline-block">{label}:</span> <span className="ml-1 break-all">{displayValue}</span></p>
+    );
+  };
 
   // Helper to set nested values like `formIVDetails.licenseArea`
   const setValueByPath = (obj: any, path: string, value: any) => {
@@ -192,7 +199,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Add effect to monitor form step changes and scroll to top of scrollable div
   useEffect(() => {
-    console.log("Form step changed to:", formStep);
     if (formContentRef.current) {
       formContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -340,7 +346,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     hasSubmittedTrueInfo: false,
 
     // New fields from freshFormFilde.md
-    aliceAcknowledgementNumber: '',
     convictionDetails: [],
     previouslyApplied: false,
     previousApplicationDetails: {
@@ -390,7 +395,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      console.log(`Checkbox ${name} changed to:`, checked);
       setFormData(prev => setValueByPath(prev, name, checked));
     } else if (type === 'radio') {
       // Radios generally set string values; keep as-is unless we handle booleans separately
@@ -578,7 +582,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         ];
         setDistricts(fallbackDistricts.sort());
       } catch (err) {
-        console.error('Error fetching districts from internal API:', err);
         // Fallback districts in case API fails
         const fallbackDistricts = [
           'Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon',
@@ -607,7 +610,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         const items = (list || []).map(w => ({ id: w.id, name: w.name })) as { id: number, name: string }[];
         setWeapons(items);
       } catch (e) {
-        console.error('Error loading weapons list', e);
         setWeapons([
           { id: 1, name: 'Pistol' },
           { id: 2, name: 'Revolver' },
@@ -665,7 +667,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           setPoliceStations(fallbackStations);
         }
       } catch (err) {
-        console.error('Error fetching police stations:', err);
         // Fallback police stations in case API fails
         const fallbackStations = [
           { id: 1, name: 'Central Police Station' },
@@ -735,13 +736,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   // Validate form fields for current step
   const validateCurrentStep = () => {
     try {
-      console.log("🔍 Validating step:", formStep);
-      console.log("🔍 Step name:", formSteps[formStep].title);
-      console.log("🔍 Current form data:", formData);
       const newErrors: Record<string, string> = {};
 
       if (formStep === 0) {
-        console.log("🔍 Validating personal information step");
         // Personal Information Validation
         if (!formData.applicantName) newErrors.applicantName = 'Applicant name is required';
         if (!formData.applicantMobile) {
@@ -768,7 +765,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 1) {
-        console.log("Validating address information");
         // Address Validation
         if (!formData.applicantAddress) newErrors.applicantAddress = 'Present address is required';
         if (!formData.presentState) newErrors.presentState = 'Present state is required';
@@ -787,13 +783,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 2) {
-        console.log("Validating occupation details");
         // Occupation & Business Validation
         if (!formData.occupation) newErrors.occupation = 'Occupation is required';
       }
 
       if (formStep === 3) {
-        console.log("Validating criminal history");
         // Criminal History Validation
         if (Array.isArray(formData.criminalHistory)) {
           formData.criminalHistory.forEach((record: any, idx: number) => {
@@ -809,7 +803,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 4) {
-        console.log("Validating license details and weapon info");
         // Weapon Details Validation
         if (!formData.weaponType) newErrors.weaponType = 'Weapon type is required';
         if (!formData.weaponReason) newErrors.weaponReason = 'Reason for weapon is required';
@@ -833,13 +826,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 5) {
-        console.log("Validating biometric information");
         // Biometric Validation
         // Add any biometric validation if needed
       }
 
       if (formStep === 6) {
-        console.log("Validating documents upload");
         // Documents Upload Validation
         if (!formData.idProofUploaded) newErrors.idProofUploaded = 'Aadhaar Card is required';
         if (!formData.addressProofUploaded) newErrors.addressProofUploaded = 'Address proof is required';
@@ -848,63 +839,46 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       if (formStep === 7) {
-        console.log("Validating preview step");
         // Preview step - no validation needed, just review
       }
 
       if (formStep === 8) {
-        console.log("Validating final submission");
         if (formData.hasSubmittedTrueInfo !== true) {
           newErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
         }
       }
 
       // Set errors and return validation result
-      setErrors(newErrors);
-      const isValid = Object.keys(newErrors).length === 0;
-      console.log("🔍 Validation errors found:", newErrors);
-      console.log("🔍 Validation errors count:", Object.keys(newErrors).length);
-      console.log("🔍 Validation result (is valid):", isValid);
-
+  setErrors(newErrors);
+  const isValid = Object.keys(newErrors || {}).length === 0;
       if (!isValid) {
-        console.log("❌ Validation failed - form has errors");
       } else {
-        console.log("✅ Validation passed - form is valid");
       }
 
       return isValid;
     } catch (error) {
-      console.error("❌ Error during validation:", error);
       return false;
     }
   };
 
   // Handle next step
   const handleNextStep = () => {
-    console.log("Current form step:", formStep);
-
     try {
       // Validate current step before proceeding
       const isValid = validateCurrentStep();
-      console.log("Form validation result:", isValid);
-
       if (isValid) {
-        console.log("Moving to next step:", formStep + 1);
         // Make sure we don't go beyond the max step
         if (formStep < formSteps.length - 1) {
           setFormStep(prev => prev + 1);
         }
       } else {
-        console.log("Cannot proceed due to validation errors");
       }
     } catch (error) {
-      console.error("Error in handleNextStep:", error);
     }
   };
 
   // Handle previous step
   const handlePreviousStep = () => {
-    console.log("Moving to previous step:", formStep - 1);
     if (formStep > 0) {
       setFormStep(prev => prev - 1);
     }
@@ -926,7 +900,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         setSaveMessage(null);
       }, 3000);
     } catch (error) {
-      console.error('Error saving draft:', error);
       setSaveMessage({ type: 'error', text: 'Failed to save draft. Please try again.' });
 
       // Clear message after 3 seconds
@@ -1074,7 +1047,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       hasSubmittedTrueInfo: true,
 
       // New fields from freshFormFilde.md
-      aliceAcknowledgementNumber: 'ALMS1757266946852',
       convictionDetails: [],
       previouslyApplied: false,
       previousApplicationDetails: {
@@ -1138,7 +1110,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         }
       }
     } catch (error) {
-      console.error('Error loading draft:', error);
     }
   }, []);
 
@@ -1165,7 +1136,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           setDistrictsData(districtsList || []);
         }
       } catch (error) {
-        console.error('Error fetching location data:', error);
       }
     };
 
@@ -1235,8 +1205,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           const img = new Image();
 
           img.onload = () => {
-            console.log(`🖼️ Original image: ${img.width}x${img.height}`);
-
             // ULTRA aggressive compression settings
             const maxWidth = 300;  // Much smaller
             const maxHeight = 300; // Much smaller
@@ -1262,16 +1230,10 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
             canvas.width = width;
             canvas.height = height;
             ctx?.drawImage(img, 0, 0, width, height);
-
-            console.log(`🔄 Ultra compressed to: ${width}x${height}`);
-
             // Convert to base64 with very low quality
             const compressedBase64 = canvas.toDataURL('image/jpeg', 0.3); // Very low quality
-            console.log(`📊 Original size: ${file.size} bytes, Base64 size: ${compressedBase64.length} chars (~${Math.round(compressedBase64.length * 0.75)} bytes)`);
-
             // If STILL too large, make it even smaller
             if (compressedBase64.length > 100000) { // ~75KB base64 limit
-              console.log('🔄 Still too large, making thumbnail...');
               // Make it a tiny thumbnail
               canvas.width = 100;
               canvas.height = 100;
@@ -1284,7 +1246,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           };
 
           img.onerror = () => {
-            console.error(`❌ Failed to load image ${file.name}, using minimal placeholder`);
             // Use minimal placeholder
             resolve('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=');
           };
@@ -1300,7 +1261,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           reader.readAsDataURL(file);
         } else {
           // For non-images, use minimal placeholder to avoid 413 error
-          console.warn(`📄 Non-image file ${file.name} - using placeholder to avoid payload size issues`);
           resolve('data:application/pdf;base64,JVBERi0xLjQKJcfsj6IKCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoKMiAwIG9iago8PAovVHlwZSAvUGFnZXMKL0NvdW50IDEKL0tpZHMgWzMgMCBSXQo+PgplbmRvYmoKCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQo+PgplbmRvYmoKCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA0Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgoxODIKJSVFT0Y=');
         }
       });
@@ -1311,7 +1271,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       if (docFile && docFile.file) {
         try {
           // Convert file to base64 and use as fileUrl (buffer data)
-          console.log(`📄 Converting ${docKey} to base64 buffer data...`);
           const base64Data = await fileToBase64(docFile.file);
 
           fileUploads.push({
@@ -1320,15 +1279,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
             fileType: fileType,
             fileUrl: base64Data // Send buffer data directly in fileUrl
           });
-
-          console.log(`✅ Added ${fileType} with base64 data (${base64Data.length} characters)`);
         } catch (error) {
-          console.error(`❌ Failed to convert ${docKey} to base64:`, error);
         }
       } else {
         // For test data, create smaller placeholder base64 data
         if ((formData as any)[docKey]) {
-          console.log(`📄 Creating small placeholder base64 for ${fileType}...`);
           // Create a very small 1x1 pixel PNG as base64 for test data (minimal size)
           const placeholderBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=';
 
@@ -1338,28 +1293,17 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
             fileType: fileType,
             fileUrl: placeholderBase64 // Very small buffer data
           });
-
-          console.log(`✅ Added minimal test ${fileType} with small base64 data`);
         }
       }
     }
-
-    console.log(`📦 Total file uploads prepared: ${fileUploads.length}`);
-
     // Calculate total payload size estimate
     const totalBase64Size = fileUploads.reduce((sum, upload) => sum + (upload.fileUrl?.length || 0), 0);
     const estimatedSizeKB = Math.round(totalBase64Size * 0.75 / 1024); // Base64 to bytes conversion
-    console.log(`📊 Estimated total payload size: ${estimatedSizeKB} KB`);
-
     // If payload is still too large, remove file uploads to prevent 413 error
     if (estimatedSizeKB > 1000) { // 1MB limit
-      console.warn('🚨 Payload still too large! Removing file uploads to prevent 413 error.');
-      console.warn('📝 Application will be created without file attachments - files can be uploaded separately.');
       return []; // Return empty array to avoid 413 error
     } else if (estimatedSizeKB > 500) { // 500KB warning
-      console.warn('⚠️ Payload is getting large. If 413 error occurs, files will be excluded.');
     } else {
-      console.log('✅ Payload size looks acceptable');
     }
 
     return fileUploads;
@@ -1466,7 +1410,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
   // Validate ALL steps for submission
   const validateAllStepsForSubmission = () => {
-    console.log('🔍 Validating all steps for submission...');
     const allErrors: Record<string, string> = {};
 
     // Step 0: Personal Information
@@ -1524,11 +1467,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     if (formData.hasSubmittedTrueInfo !== true) {
       allErrors.hasSubmittedTrueInfo = 'You must verify that the submitted information is true';
     }
-
-    console.log('🔍 All validation errors:', allErrors);
-    console.log('🔍 Total errors count:', Object.keys(allErrors).length);
-
-    const isValid = Object.keys(allErrors).length === 0;
+  const isValid = Object.keys(allErrors || {}).length === 0;
     if (!isValid) {
       setErrors(allErrors);
     }
@@ -1539,55 +1478,35 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 Form submit triggered');
     setApiError(null);
     setApiErrorDetails(null);
     setShowErrorDetails(false);
 
     // Validate all steps before submission
     const isValid = validateAllStepsForSubmission();
-    console.log('✅ Overall validation result:', isValid);
     if (!isValid) {
-      console.log('❌ Overall validation failed, stopping submission');
       setApiError('Please fill in all required fields correctly across all steps');
       return;
     }
 
     try {
-      console.log('📤 Starting form submission...');
       setIsSubmitting(true);
-
-      console.log('📂 Form data:', formData);
-      console.log('👤 User ID:', userId);
-
       // Upload files first and get URLs
-      console.log('⬆️ Starting file uploads...');
       let fileUploads = await uploadFilesAndGetUrls();
-      console.log('✅ File uploads completed:', fileUploads);
-
       // Build payload for API
       let payload = createPayload(formData, userId ?? "", fileUploads);
-      console.log('📦 API payload:', payload);
-
       let resp;
       try {
-        console.log('🌐 Calling ApplicationApi.create...');
         resp = await ApplicationApi.create(payload as any);
-        console.log('✅ API response:', resp);
       } catch (apiError: any) {
         // If we get 413 error, retry without file uploads
         if (apiError?.response?.status === 413 || apiError?.status === 413 || apiError?.message?.includes('413') || apiError?.message?.includes('too large')) {
-          console.warn('🚨 Got 413 error, retrying without file uploads...');
           setApiError('Request too large. Submitting application without file attachments...');
 
           // Retry with empty file uploads
           fileUploads = [];
           payload = createPayload(formData, userId ?? "", []);
-          console.log('🔄 Retry payload without files:', payload);
-
           resp = await ApplicationApi.create(payload as any);
-          console.log('✅ Retry successful:', resp);
-
           // Update user about missing files
           setApiError('Application submitted successfully, but files were too large to include. Please upload documents separately.');
         } else {
@@ -1596,21 +1515,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
 
       // Log the complete response for debugging
-      console.log('✅ Complete API response:', JSON.stringify(resp, null, 2));
-
       // Try to extract application id and acknowledgement number from various shapes
       const createdApp: any = (resp as any)?.data && typeof (resp as any).data === 'object' ? (resp as any).data : (resp as any).body || (resp as any);
       const applicationId = String(createdApp?.id || createdApp?.applicationId || createdApp?.data?.id || '');
       const acknowledgementNo = String(createdApp?.acknowledgementNo || createdApp?.acknowledgmentNo || createdApp?.data?.acknowledgementNo || createdApp?.data?.acknowledgmentNo || '');
-      console.log('🆔 Extracted application ID:', applicationId);
-      console.log('🎫 Extracted acknowledgement number:', acknowledgementNo);
-
       // Log success details for debugging
       if ((resp as any)?.success !== undefined) {
-        console.log('✅ API Success status:', (resp as any).success);
       }
       if ((resp as any)?.message) {
-        console.log('✅ API Success message:', (resp as any).message);
       }
 
       // Set success message and call parent callback with acknowledgement info
@@ -1642,16 +1554,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           applicationId: applicationId
         } as any);
         setIsSubmitting(false);
-        console.log('🎉 Form submission completed successfully!');
       } catch (callbackError) {
-        console.error('❌ Error in onSubmit callback:', callbackError);
       }
 
     } catch (error: any) {
-      console.error('❌ Form submission error:', error);
       setIsSubmitting(false);
-      console.log('❌ Full error object:', JSON.stringify(error, null, 2));
-
       // Store the full error details for debugging
       setApiErrorDetails({
         fullError: error,
@@ -1666,8 +1573,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       try {
         // Log the complete response structure for debugging
         if (error?.response) {
-          console.log('❌ Error response:', JSON.stringify(error.response, null, 2));
-          console.log('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
         }
 
         if (error?.response?.data) {
@@ -1676,36 +1581,29 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           // Check if it's the nested error structure with details.response.error
           if (errorData.details?.response?.error) {
             errorMessage = errorData.details.response.error;
-            console.log('❌ Using details.response.error:', errorMessage);
           }
           // Check for details.response.message
           else if (errorData.details?.response?.message) {
             errorMessage = errorData.details.response.message;
-            console.log('❌ Using details.response.message:', errorMessage);
           }
           // Fallback to details.message
           else if (errorData.details?.message) {
             errorMessage = errorData.details.message;
-            console.log('❌ Using details.message:', errorMessage);
           }
           // Fallback to top-level error message
           else if (errorData.error) {
             errorMessage = errorData.error;
-            console.log('❌ Using top-level error:', errorMessage);
           }
           // Fallback to message field
           else if (errorData.message) {
             errorMessage = errorData.message;
-            console.log('❌ Using message field:', errorMessage);
           }
         }
         // Direct error message
         else if (error?.message) {
           errorMessage = error.message;
-          console.log('❌ Using direct error message:', errorMessage);
         }
       } catch (parseError) {
-        console.error('❌ Error parsing error response:', parseError);
         errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
@@ -1743,7 +1641,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       }
       pdf.save(`Application_Preview.pdf`);
     } catch (err) {
-      console.error('Preview PDF generation failed', err);
     }
   };
 
@@ -1824,243 +1721,95 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {formStep === 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Personal Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-6">
+                    {/* Row 1: First, Middle, Last Name */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Alice Acknowledgement Number</label>
-                      <input
-                        type="text"
-                        name="aliceAcknowledgementNumber"
-                        value={formData.aliceAcknowledgementNumber}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">First Name<span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="applicantName"
-                        value={formData.applicantName}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Applicant First Name<span className="text-red-500">*</span></label>
+                      <input type="text" name="applicantName" value={formData.applicantName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
                       {errors.applicantName && <p className="text-red-500 text-xs mt-1">{errors.applicantName}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Middle Name</label>
-                      <input
-                        type="text"
-                        name="applicantMiddleName"
-                        value={formData.applicantMiddleName}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Applicant Middle Name</label>
+                      <input type="text" name="applicantMiddleName" value={formData.applicantMiddleName} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Applicant Last Name</label>
+                      <input type="text" name="applicantLastName" value={formData.applicantLastName} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
 
+                    {/* Row 2: Application filled by, Parent/Spouse, Sex, Place of Birth */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                      <input
-                        type="text"
-                        name="applicantLastName"
-                        value={formData.applicantLastName}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Application filled by <span className="text-xs text-gray-400">(Zonal Superintendent name)</span></label>
+                      <input type="text" name="applicationFilledBy" value={formData.applicationFilledBy} onChange={handleChange} placeholder="Self/Agent/Other" className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Father's Name <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="fatherName"
-                        value={formData.fatherName}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Parent/ Spouse Name</label>
+                      <input type="text" name="fatherName" value={formData.fatherName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
                       {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Place of Birth (Nativity)</label>
-                      <input
-                        type="text"
-                        name="placeOfBirth"
-                        value={formData.placeOfBirth}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Date of Birth in Words</label>
-                      <input
-                        type="text"
-                        name="dateOfBirthInWords"
-                        value={formData.dateOfBirthInWords}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Mobile Number <span className="text-red-500">*</span></label>
-                      <input
-                        type="tel"
-                        name="applicantMobile"
-                        value={formData.applicantMobile}
-                        onChange={handleChange}
-                        maxLength={10}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantMobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.applicantMobile && <p className="text-red-500 text-xs mt-1">{errors.applicantMobile}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Email<span className="text-red-500">*</span></label>
-                      <input
-                        type="email"
-                        name="applicantEmail"
-                        value={formData.applicantEmail}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantEmail ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.applicantEmail && <p className="text-red-500 text-xs mt-1">{errors.applicantEmail}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Gender <span className="text-red-500">*</span></label>
-                      <select
-                        name="applicantGender"
-                        value={formData.applicantGender}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantGender ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      >
-                        <option value="">Select Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700">Sex</label>
+                      <div className="flex items-center gap-4 mt-1">
+                        <label className="inline-flex items-center">
+                          <input type="radio" name="applicantGender" value="male" checked={formData.applicantGender === 'male'} onChange={handleChange} className="h-4 w-4 text-[#6366F1]" />
+                          <span className="ml-2">Male</span>
+                        </label>
+                        <label className="inline-flex items-center">
+                          <input type="radio" name="applicantGender" value="female" checked={formData.applicantGender === 'female'} onChange={handleChange} className="h-4 w-4 text-[#6366F1]" />
+                          <span className="ml-2">Female</span>
+                        </label>
+                      </div>
                       {errors.applicantGender && <p className="text-red-500 text-xs mt-1">{errors.applicantGender}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Date of Birth <span className="text-red-500">*</span></label>
-                      <input
-                        type="date"
-                        name="applicantDateOfBirth"
-                        value={formData.applicantDateOfBirth}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantDateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Place of Birth (Nativity)</label>
+                      <input type="text" name="placeOfBirth" value={formData.placeOfBirth} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                    </div>
+
+                    {/* Row 3: Date of Birth, PAN, Aadhar, Date of Birth in Words */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Date of birth in Christian era <span className="text-xs text-gray-400">(Must be 21 years old on the date of application)</span></label>
+                      <input type="date" name="applicantDateOfBirth" value={formData.applicantDateOfBirth} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantDateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
                       {errors.applicantDateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.applicantDateOfBirth}</p>}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Father/Spouse Name <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="fatherName"
-                        value={formData.fatherName}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
+                      <label className="block text-sm font-medium text-gray-700">PAN</label>
+                      <input type="text" name="panNumber" value={formData.panNumber} onChange={handleChange} maxLength={10} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" placeholder="10-character PAN number" style={{ textTransform: 'uppercase' }} />
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Place of Birth</label>
-                      <input
-                        type="text"
-                        name="placeOfBirth"
-                        value={formData.placeOfBirth}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Application Filled By</label>
-                      <input
-                        type="text"
-                        name="applicationFilledBy"
-                        value={formData.applicationFilledBy}
-                        onChange={handleChange}
-                        placeholder="Self/Agent/Other"
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      />
-                    </div>
-
-                    <div className="col-span-1 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Residential Address <span className="text-red-500">*</span></label>
-                      <textarea
-                        name="applicantAddress"
-                        value={formData.applicantAddress}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                        rows={3}
-                      />
-                      {errors.applicantAddress && <p className="text-red-500 text-xs mt-1">{errors.applicantAddress}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">ID Type <span className="text-red-500">*</span></label>
-                      <select
-                        name="applicantIdType"
-                        value={formData.applicantIdType}
-                        onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                      >
-                        <option value="aadhar">Aadhar Card</option>
-                        <option value="pan">PAN Card</option>
-                        <option value="voter">Voter ID</option>
-                        <option value="driving">Driving License</option>
-                        <option value="passport">Passport</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">ID Number <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        name="applicantIdNumber"
-                        value={formData.applicantIdNumber}
-                        onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.applicantIdNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
-                      />
-                      {errors.applicantIdNumber && <p className="text-red-500 text-xs mt-1">{errors.applicantIdNumber}</p>}
-                    </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Aadhar Number</label>
-                      <input
-                        type="text"
-                        name="aadharNumber"
-                        value={formData.aadharNumber}
-                        onChange={handleChange}
-                        maxLength={12}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        placeholder="12-digit Aadhar number"
-                      />
+                      <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} maxLength={12} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" placeholder="12-digit Aadhar number" />
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">PAN Number</label>
-                      <input
-                        type="text"
-                        name="panNumber"
-                        value={formData.panNumber}
-                        onChange={handleChange}
-                        maxLength={10}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
-                        placeholder="10-character PAN number"
-                        style={{ textTransform: 'uppercase' }}
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Date of Birth in Words</label>
+                      <input type="text" name="dateOfBirthInWords" value={formData.dateOfBirthInWords} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
                     </div>
                   </div>
+
+                  {/* Note and navigation buttons */}
+                  <div className="flex flex-col md:flex-row items-center justify-between mt-8">
+                    <div className="text-xs text-blue-700 font-semibold">
+                      SCHEDULE-III Part – II &nbsp;|&nbsp; Application Form &nbsp;|&nbsp; <span className="font-bold text-indigo-700">Form A-1</span> (for individuals) &nbsp;|&nbsp; Form of application for an arms license In <span className="font-bold text-indigo-700">Form II, III and IV</span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-4 md:mt-0">
+                      <span className="text-xs text-red-600 font-bold">NOTE:</span>
+                      <span className="text-xs text-gray-700">Please review the data before submitting your Arms License application</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center gap-4 mt-6">
+                    <button type="button" className="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-md flex items-center gap-2 border border-yellow-300 hover:bg-yellow-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      Save to Draft
+                    </button>
+                    <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700">
+                      Next
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
                 </div>
-              )}        {/* Step 1: Address Details */}
-              {formStep === 1 && (
+              )} 
+               {/* Step 1: Address Details */}
+
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-3 ">Present Address</h3>
@@ -2273,8 +2022,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
                     </div>
                   </div>
-                </div>
-              )}        {/* Step 2: Weapon Details */}
+                </div>    
+              {/* Step 2: Weapon Details */}
               {formStep === 2 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Occupation & Business Details</h3>
@@ -2976,74 +2725,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
                   </div>
                 </div>
-              )}        {/* Step 5: Biometric Information */}
-              {formStep === 5 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-800">Biometric Information</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Signature/Thumb Impression</label>
-                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          name="signature"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="hidden"
-                          id="signature-upload"
-                        />
-                        <label
-                          htmlFor="signature-upload"
-                          className="cursor-pointer text-sm text-gray-600 hover:text-[#6366F1]"
-                        >
-                          {formData.signature ? 'Change signature' : 'Upload signature'}
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Iris Scan</label>
-                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          name="irisScan"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="hidden"
-                          id="iris-scan-upload"
-                        />
-                        <label
-                          htmlFor="iris-scan-upload"
-                          className="cursor-pointer text-sm text-gray-600 hover:text-[#6366F1]"
-                        >
-                          {formData.irisScan ? 'Change iris scan' : 'Upload iris scan'}
-                        </label>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Photograph</label>
-                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          name="photograph"
-                          accept="image/*"
-                          onChange={handleChange}
-                          className="hidden"
-                          id="photograph-upload"
-                        />
-                        <label
-                          htmlFor="photograph-upload"
-                          className="cursor-pointer text-sm text-gray-600 hover:text-[#6366F1]"
-                        >
-                          {formData.photograph ? 'Change photograph' : 'Upload photograph'}
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}        {/* Step 6: Documents Upload */}
+              )}        {/* Step 5: Biometric Information (removed) */}
+              {/* Biometric step removed - skipping to next step */}
+              {false && (
+                <div />
+              )}
+              {/* Step 6: Documents Upload */}
               {formStep === 6 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-gray-800">Documents Upload</h3>

@@ -82,16 +82,10 @@ export default function NotificationsPage() {
         }
       }
     } catch (error) {
-      console.error('Error loading more notifications:', error);
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // Handle search and filters - dummy functions for header
-  const handleSearch = () => {};
-  const handleDateFilter = () => {};
-  const handleReset = () => {};
   
   // Get notifications based on filter
   const getFilteredNotifications = () => {
@@ -177,11 +171,7 @@ export default function NotificationsPage() {
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={handleDateFilter}
-        onReset={handleReset}
-      />
+      <Header />
       
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow-md p-6">

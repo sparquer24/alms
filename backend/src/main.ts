@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
@@ -7,19 +8,28 @@ import { AppModule } from './modules/app.module';
 // Load environment variables before anything else (prefer root .env)
 const rootEnvPath = resolve(__dirname, '../../.env');
 config({ path: rootEnvPath });
-// Fallback to default if root .env not found
-config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
-  // Enable CORS for frontend
+  // Increase body size limit to 10MB for JSON and URL-encoded requests
+  const express = require('express');
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ limit: '2mb', extended: true }));
+
+  // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
+  const defaultOrigins = ['http://localhost:5000', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'];
+  const corsEnv = process.env.CORS_ORIGIN;
+  const origins = corsEnv ? corsEnv.split(',').map(s => s.trim()).filter(Boolean) : defaultOrigins;
+
   app.enableCors({
-    origin: ['http://localhost:5000', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'],
+    origin: origins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
+
+  // Prefix all routes with /api so every API endpoint is under /api
+  app.setGlobalPrefix('api');
 
   // Setup Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
@@ -45,7 +55,8 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api-docs', app, document, {
+  // Serve Swagger UI under /api/api-docs to match global API prefix
+  SwaggerModule.setup('api/api-docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
       docExpansion: 'none',
@@ -53,8 +64,14 @@ async function bootstrap() {
       showRequestDuration: true,
     },
   });
-  
-  await app.listen(3000);
+
+  const port = process.env.PORT || 3000;
+  await app.listen(Number(port));
+  // Helpful startup log so it's obvious which port the server is listening on
+  // (useful when env overrides or Docker maps ports differently)
+  // eslint-disable-next-line no-console
+  console.log(`Backend listening on http://localhost:${port}`);
+  console.log(`Swagger API docs available at http://localhost:${port}/api/api-docs`);
 }
 
 bootstrap();

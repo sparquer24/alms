@@ -24,7 +24,6 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         try {
           return JSON.parse(saved);
         } catch (e) {
-          console.error('Error parsing saved applications:', e);
         }
       }
     }
@@ -32,45 +31,24 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   });
 
   const setApplications = useCallback((newApplications: ApplicationData[]) => {
-    console.log('🔄 Setting applications in context:', {
-      data: newApplications,
-      length: newApplications?.length,
-      type: typeof newApplications,
-      isArray: Array.isArray(newApplications),
-      sample: newApplications?.[0]
-    });
-
-    // Force array type and remove null/undefined items
-    const cleanApplications = (Array.isArray(newApplications) ? newApplications : [])
-      .filter(app => app != null);
-
-    console.log('✨ Cleaned applications:', {
-      length: cleanApplications.length,
-      sample: cleanApplications[0]
-    });
+    // Normalize and remove null/undefined
+    const payload = Array.isArray(newApplications) ? newApplications.filter(app => app != null) : [];
 
     // Update state
-    setApplicationsState(cleanApplications);
+    setApplicationsState(payload);
 
-    // Save to localStorage
+    // Persist
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('applications', JSON.stringify(cleanApplications));
-        console.log('💾 Saved applications to localStorage');
+        localStorage.setItem('applications', JSON.stringify(payload));
       } catch (error) {
-        console.error('❌ Error saving to localStorage:', error);
       }
     }
 
-    // Verify state was updated
+    // Light-weight verification log using the payload (avoids stale closure over `applications`).
     setTimeout(() => {
-      console.log('🔍 Verifying context update:', {
-        contextValue: applications,
-        length: applications?.length,
-        sample: applications?.[0]
-      });
     }, 0);
-  }, [applications]);
+  }, []);
 
   const clearApplications = useCallback(() => {
     setApplicationsState([]);
@@ -79,14 +57,6 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       localStorage.removeItem('applications');
     }
   }, []);
-
-  console.log('ApplicationContext: Providing context value:', { 
-    applications, 
-    applicationsLength: applications?.length,
-    applicationsType: typeof applications,
-    applicationsIsArray: Array.isArray(applications)
-  });
-  
   return (
     <ApplicationContext.Provider value={{ applications, setApplications, clearApplications }}>
       {children}

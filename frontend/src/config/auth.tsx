@@ -78,7 +78,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         return true;
       } catch (err) {
-        console.error('Error fetching current user:', err);
         setIsAuthenticated(false);
         setUserId(null);
         return false;
@@ -107,7 +106,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!storedToken) return false;
       return fetchCurrentUser(storedToken);
     } catch (e) {
-      console.error('Error getting current user from cookie:', e);
       return false;
     }
   };
@@ -123,7 +121,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const data = await postData('/auth/login', { username, password });
       const authToken = data?.data?.token ?? data?.body?.token ?? data?.token ?? null;
       if (!authToken) {
-        console.error('Login succeeded but no token found in response', data);
         return false;
       }
       setAuthToken(authToken);
@@ -160,7 +157,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       return true;
     } catch (err) {
-      console.error('Login error:', err);
       return false;
     }
   };
@@ -169,7 +165,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       // Server logout endpoint removed; perform client-side cleanup only
     } catch (err) {
-      console.error('Error during logout:', err);
     } finally {
       setIsAuthenticated(false);
       setUserRole('APPLICANT');

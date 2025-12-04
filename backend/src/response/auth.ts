@@ -16,14 +16,30 @@ export class LoginResponse {
       id: '1',
       username: 'dcp_user',
       email: 'dcp@example.com',
-      role: 'DCP'
+      role: {
+        id: 8,
+        code: 'CADO',
+        name: 'Chief Administrative Officer',
+        is_active: true,
+        created_at: '2025-09-22T07:31:16.924Z',
+        updated_at: '2025-09-22T07:31:16.924Z',
+        dashboard_title: 'CADO Dashboard',
+        menu_items: '["inbox","sent","finaldisposal"]',
+        permissions: '["read","write"]',
+        can_access_settings: true,
+        can_forward: false,
+        can_re_enquiry: false,
+        can_generate_ground_report: false,
+        can_FLAF: false,
+        can_create_freshLicence: false
+      }
     }
   })
   user!: {
     id: string;
     username: string;
     email?: string;
-    role?: string;
+    role?: any; // keeping flexible for enriched role object
   };
 }
 
@@ -43,11 +59,39 @@ export class UserProfileResponse {
   @ApiProperty({ description: 'Account last update date', example: '2025-08-20T12:00:00.000Z' })
   updatedAt!: Date;
 
-  @ApiProperty({ description: 'User role information', required: false, example: { id: '1', name: 'DCP', code: 'DCP' } })
+  @ApiProperty({ description: 'User role information with permissions and UI configuration', required: false, example: {
+    id: 8,
+    code: 'CADO',
+    name: 'Chief Administrative Officer',
+    is_active: true,
+    created_at: '2025-09-22T07:31:16.924Z',
+    updated_at: '2025-09-22T07:31:16.924Z',
+    dashboard_title: 'CADO Dashboard',
+    menu_items: ['inbox','sent','finaldisposal'],
+    permissions: ['read','write'],
+    can_access_settings: true,
+    can_forward: false,
+    can_re_enquiry: false,
+    can_generate_ground_report: false,
+    can_FLAF: false,
+    can_create_freshLicence: false
+  } })
   role?: {
-    id: string;
+    id: number;
+    code: string;
     name: string;
-    code?: string;
+    is_active: boolean;
+    created_at: Date;
+    updated_at: Date;
+    dashboard_title: string;
+    menu_items?: any; // stored as Json in DB
+    permissions?: any; // stored as Json in DB
+    can_access_settings: boolean;
+    can_forward: boolean;
+    can_re_enquiry: boolean;
+    can_generate_ground_report: boolean;
+    can_FLAF: boolean;
+    can_create_freshLicence: boolean;
   };
 
   @ApiProperty({ description: 'User location hierarchy (state, district, division, zone, policeStation)', required: false, example: { state: { id: '1', name: 'State A' }, district: { id: '2', name: 'District B' } } })

@@ -6,6 +6,7 @@ import { useAuthSync } from '@/hooks/useAuthSync';
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { getCookie } from 'cookies-next';
+import { AdminSectionSkeleton } from '@/components/admin';
 
 // Permission categories for better organization
 const PERMISSION_CATEGORIES = {
@@ -285,11 +286,7 @@ export default function PermissionsPage() {
   return (
     <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
       <Sidebar />
-      <Header
-        onSearch={handleSearch}
-        onDateFilter={() => {}}
-        onReset={handleReset}
-      />
+      <Header />
 
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
         <div className="bg-white rounded-lg shadow p-6">
@@ -307,36 +304,40 @@ export default function PermissionsPage() {
           </div>
 
           {/* Category Filter */}
-          <div className="mb-6">
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleCategoryFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === 'all'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                All Categories
-              </button>
-              {Object.keys(PERMISSION_CATEGORIES).map(category => (
-                <button
-                  key={category}
-                  onClick={() => handleCategoryFilter(category)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedCategory === category
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
+          {isLoading ? (
+            <AdminSectionSkeleton />
+          ) : (
+            <>
+              <div className="mb-6">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleCategoryFilter('all')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedCategory === 'all'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All Categories
+                  </button>
+                  {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
+                    <button
+                      key={category}
+                      onClick={() => handleCategoryFilter(category)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        selectedCategory === category
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Display search information if applied */}
-          {searchQuery && (
+              {/* Display search information if applied */}
+              {searchQuery && (
             <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
               <h3 className="font-semibold text-blue-700">Search Results:</h3>
               <p className="text-sm text-gray-700 mt-1">Searching for: "{searchQuery}"</p>
@@ -433,6 +434,8 @@ export default function PermissionsPage() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">No permissions found</h3>
               <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
             </div>
+          )}
+            </>
           )}
         </div>
       </main>

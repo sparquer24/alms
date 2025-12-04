@@ -4,7 +4,8 @@
  */
 
 // Base API URL
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Normalize and trim trailing slash so constructed endpoints are consistent
+export const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
 
 // Authentication APIs
 export const AUTH_APIS = {
@@ -29,7 +30,7 @@ export const APPLICATION_APIS = {
 export const DOCUMENT_APIS = {
   UPLOAD: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
   GET_ALL: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
-  DELETE: (applicationId: string, documentId: string) => 
+  DELETE: (applicationId: string, documentId: string) =>
     `${BASE_URL}/applications/${applicationId}/documents/${documentId}`,
 };
 
@@ -74,6 +75,7 @@ export type ApplicationQueryParams = {
   statusIds?: string;
   page?: number;
   limit?: number;
+  isSent?: boolean;
 };
 
 export type CreateApplicationParams = {
@@ -185,7 +187,6 @@ export const appendQueryParams = (url: string, params: Record<string, any>): str
  * Common headers for API requests
  */
 export const getHeaders = (token?: string): HeadersInit => {
-  console.log('test 192 : ', token)
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
