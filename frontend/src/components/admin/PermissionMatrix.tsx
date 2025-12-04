@@ -120,7 +120,6 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
     >
       {Object.entries(permissionsByCategory).map(([category, perms]) => {
         const categoryChecked = perms.every(p => localPermissions[p.key]);
-        const categoryIndeterminate = perms.some(p => localPermissions[p.key]) && !categoryChecked;
 
         return (
           <div
@@ -147,7 +146,6 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                 <input
                   type='checkbox'
                   checked={categoryChecked}
-                  indeterminate={categoryIndeterminate}
                   onChange={e => handleSelectAllInCategory(category, e.target.checked)}
                   style={{
                     width: '18px',
