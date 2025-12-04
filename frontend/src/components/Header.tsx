@@ -46,9 +46,9 @@ const Header = (props: HeaderProps) => {
   if (!showHeader) return null;
 
   const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
-
+  
   return (
-    <header className='fixed top-0 left-0 right-0 w-full bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
+    <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         <div className='flex items-center'>
           <div className='relative'>
