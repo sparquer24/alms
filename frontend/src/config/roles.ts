@@ -107,6 +107,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
 
   // Fallback menu items with status IDs for specific roles
   // Synced from ROLE_MENU_ITEMS_WITH_STATUS_IDS.json
+  // Every role includes 'sent' tab by default
   const roleSpecificMenuDefaults: Record<string, MenuItem[]> = {
     // Field Operational Roles
     'ZS': [
@@ -162,7 +163,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     'ACO': [
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11] },
-    ],
+    ]
   };
 
   // If menu items are empty or missing, use role-specific defaults

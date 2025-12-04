@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
+const SelectComponent = Select as any;
 import {
   AdminCard,
   AdminToolbar,
@@ -391,7 +392,7 @@ export default function FlowMappingPage() {
                     Choose the role that will be forwarding applications
                   </p>
                 </div>
-                <Select
+                <SelectComponent
                   options={roleOptions}
                   value={currentRole}
                   onChange={setCurrentRole}
@@ -427,11 +428,11 @@ export default function FlowMappingPage() {
                     Choose multiple roles that can receive applications from the current role
                   </p>
                 </div>
-                <Select
+                <SelectComponent
                   isMulti
                   options={availableNextRoleOptions}
                   value={nextRoles}
-                  onChange={selected => setNextRoles(selected ? [...selected] : [])}
+                  onChange={(selected: any) => setNextRoles(selected ? [...selected] : [])}
                   placeholder='Select next roles...'
                   isDisabled={!currentRole || isLoading}
                   styles={selectStyles}
@@ -672,7 +673,7 @@ export default function FlowMappingPage() {
                   >
                     Target Role
                   </label>
-                  <Select
+                  <SelectComponent
                     options={roleOptions.filter(r => r.value !== duplicateSource?.value)}
                     value={currentRole}
                     onChange={setCurrentRole}
