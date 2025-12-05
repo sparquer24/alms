@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 // Load react-webcam dynamically to avoid SSR/type conflicts
-// @ts-ignore - dynamic import & react-webcam types can conflict with project React types
+// @ts-expect-error - dynamic import & react-webcam types can conflict with project React types
 const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
   ssr: false,
 }) as any;

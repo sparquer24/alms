@@ -1,24 +1,25 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input, TextArea } from '../elements/Input';
 import FormFooter from '../elements/footer';
 import { FileUploadService } from '../../../api/fileUploadService';
-import { getFileTypeFromDisplayName, validateFileForDocumentType } from '../../../config/documentTypes';
+import { getFileTypeFromDisplayName, validateFileForDocumentType, DOCUMENT_TYPE_MAPPING } from '../../../config/documentTypes';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+
+type UploadedFile = {
+	file: File;
+	uploading?: boolean;
+	uploaded?: boolean;
+	uploadId?: string | number;
+	serverSize?: number; // size reported by server in bytes
+	error?: string;
+};
 
 const initialState = {
 	claims: '',
 };
-
-interface UploadedFile {
-   file: File;
-   uploadId?: number;
-   uploading: boolean;
-   uploaded: boolean;
-   error?: string;
-}
 
 const DocumentsUpload = () => {
    const router = useRouter();
@@ -57,6 +58,49 @@ const DocumentsUpload = () => {
    const requiredDocuments = ['Aadhar Card'];
    const [files, setFiles] = useState<{ [key: string]: UploadedFile[] }>({});
    const [fileError, setFileError] = useState<{ [key: string]: string }>({});
+
+	 // Create reverse mapping from backend fileType -> display name
+	 const fileTypeToDisplay: Record<string, string> = {};
+	 documentTypes.forEach(dt => {
+		 const config = DOCUMENT_TYPE_MAPPING[dt];
+		 if (config) {
+			 fileTypeToDisplay[config.fileType] = dt;
+		 }
+	 });
+
+	 // Hydrate files for an application from server when applicationId becomes available
+	 useEffect(() => {
+		 const loadUploadedFiles = async () => {
+			 if (!applicationId) return;
+			 try {
+				 const serverFiles = await FileUploadService.getFiles(applicationId);
+				 console.debug('[DocumentsUpload] loaded server files:', serverFiles);
+				 const grouped: { [key: string]: UploadedFile[] } = {};
+				 (serverFiles || []).forEach((f: any) => {
+					 const displayName = fileTypeToDisplay[f.fileType] || f.fileType || 'Other';
+					 console.debug('[DocumentsUpload] mapping server file', f.id, 'type:', f.fileType, '->', displayName);
+					 // create a lightweight File for UI display (empty blob)
+					 const blob = new Blob([], { type: f.contentType || 'application/octet-stream' });
+					 const fileObj = new File([blob], f.fileName || `file-${f.id}`, { type: f.contentType || 'application/octet-stream' });
+					 const uploadedFile: UploadedFile = {
+						 file: fileObj,
+						 uploadId: f.id,
+						 uploading: false,
+						 uploaded: true,
+						 serverSize: f.fileSize,
+					 };
+					 grouped[displayName] = [...(grouped[displayName] || []), uploadedFile];
+				 });
+
+				 // Merge server-side files with any local (unsaved) files; local wins
+				 setFiles(prev => ({ ...grouped, ...prev }));
+			 } catch (err) {
+				 // swallow errors for now - could set a file loading error state
+			 }
+		 };
+
+		 loadUploadedFiles();
+	 }, [applicationId]);
 
    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 	   const { name, value } = e.target;
@@ -144,7 +188,14 @@ const DocumentsUpload = () => {
 	   // If file was uploaded to server, try to delete it
 	   if (fileToRemove.uploaded && fileToRemove.uploadId) {
 		   try {
-			   await FileUploadService.deleteFile(fileToRemove.uploadId);
+			   // Ensure uploadId is a number before calling deleteFile
+			   const parsedId = typeof fileToRemove.uploadId === 'number'
+				   ? fileToRemove.uploadId
+				   : parseInt(String(fileToRemove.uploadId), 10);
+
+			   if (!isNaN(parsedId)) {
+				   await FileUploadService.deleteFile(parsedId);
+			   }
 		   } catch (error) {
 			   // Continue with local removal even if server deletion fails
 		   }
@@ -304,7 +355,7 @@ const DocumentsUpload = () => {
 										<div className="flex-1">
 											<span className="text-xs">{uploadedFile.file.name}</span>
 											<span className="text-gray-400 ml-2 text-xs">
-												{Math.round(uploadedFile.file.size / 1024)}kb
+												{Math.round(((uploadedFile.serverSize ?? uploadedFile.file.size) || 0) / 1024)}kb
 											</span>
 											{uploadedFile.uploading && (
 												<span className="text-blue-500 ml-2 text-xs">Uploading...</span>

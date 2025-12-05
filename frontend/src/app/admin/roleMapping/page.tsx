@@ -20,15 +20,22 @@ import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
 
 interface Role {
-  id: number;
+  id?: number;
   name: string;
   code: string;
   dashboard_title: string;
   description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
   permissions?: Record<string, boolean>;
+}
+
+interface RolesResponse {
+  data: Role[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export default function RoleMappingPage() {
@@ -78,7 +85,7 @@ export default function RoleMappingPage() {
     isLoading: isLoadingRoles,
     error: fetchError,
     refetch: refetchRoles,
-  } = useQuery({
+  } = useQuery<RolesResponse>({
     queryKey: [
       'admin-roles-mapping',
       searchTerm,
@@ -88,7 +95,7 @@ export default function RoleMappingPage() {
       currentPage,
       limit,
     ],
-    queryFn: async () => {
+    queryFn: async (): Promise<RolesResponse> => {
       const response = await AdminRoleService.getRoles({
         search: searchTerm || undefined,
         status: statusFilter === 'all' ? undefined : statusFilter,
@@ -99,25 +106,24 @@ export default function RoleMappingPage() {
       });
 
       if (response && typeof response === 'object' && 'data' in response) {
-        return response;
+        return response as RolesResponse;
       }
       return { data: [], total: 0, page: currentPage, limit };
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const roles = rolesData?.data || [];
-  const totalPages = rolesData?.total ? Math.ceil(rolesData.total / limit) : 1;
+  const roles: Role[] = rolesData?.data || [];
+  const totalPages = rolesData && 'total' in rolesData ? Math.ceil(rolesData.total / limit) : 1;
 
   // Create Role Mutation
   const createRoleMutation = useMutation({
     mutationFn: async (roleData: Role) => {
       const response = await AdminRoleService.createRole({
         name: roleData.name,
-        code: roleData.code,
-        dashboard_title: roleData.dashboard_title,
+        displayName: roleData.dashboard_title || roleData.name,
         description: roleData.description,
-        permissions: roleData.permissions,
+        permissions: roleData.permissions || {},
       });
       return response;
     },
@@ -138,11 +144,10 @@ export default function RoleMappingPage() {
       if (!roleData.id) throw new Error('Role ID is required');
       const response = await AdminRoleService.updateRole(String(roleData.id), {
         name: roleData.name,
-        code: roleData.code,
-        dashboard_title: roleData.dashboard_title,
+        displayName: roleData.dashboard_title || roleData.name,
         description: roleData.description,
         permissions: roleData.permissions,
-        is_active: roleData.is_active,
+        isActive: roleData.is_active,
       });
       return response;
     },
@@ -175,9 +180,10 @@ export default function RoleMappingPage() {
   // Toggle Role Status Mutation
   const toggleStatusMutation = useMutation({
     mutationFn: async (role: Role) => {
+      if (!role.id) throw new Error('Role ID is required');
       const endpoint = role.is_active ? 'deactivate' : 'activate';
       const response = await AdminRoleService.updateRole(String(role.id), {
-        is_active: !role.is_active,
+        isActive: !role.is_active,
       });
       return response;
     },
@@ -218,6 +224,7 @@ export default function RoleMappingPage() {
   };
 
   const handleDeleteRole = (role: Role) => {
+    if (!role.id) return;
     setSelectedRole(role);
     setConfirmationDialog({
       isOpen: true,
@@ -228,7 +235,7 @@ export default function RoleMappingPage() {
         confirmText: 'Delete',
         cancelText: 'Cancel',
         onConfirm: async () => {
-          await deleteRoleMutation.mutateAsync(role.id);
+          await deleteRoleMutation.mutateAsync(role.id!);
           setConfirmationDialog({ isOpen: false });
         },
         onCancel: () => {
