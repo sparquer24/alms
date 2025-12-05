@@ -47,6 +47,14 @@ const BiometricInformation = () => {
 
   const webcamRef = useRef<any>(null);
 
+  // Map frontend biometric keys to backend `FileType` enum values (Prisma)
+  const FILE_TYPE_MAP = {
+    photograph: 'PHOTOGRAPH',
+    signature: 'SIGNATURE_THUMB',
+    iris: 'IRIS_SCAN',
+    fingerprint: 'SIGNATURE_THUMB', // thumb impression / signature thumb
+  } as const;
+
   /** 🧩 Handle file input changes */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
@@ -122,7 +130,7 @@ const BiometricInformation = () => {
         const fileSize = blobForSize.size || 0;
 
         await postData(`/application-form/${encodeURIComponent(applicantId)}/upload-file`, {
-          fileType: 'OTHER',
+          fileType: FILE_TYPE_MAP.photograph,
           fileUrl: base64DataUrl,
           fileName: 'photograph.jpg',
           fileSize,
@@ -163,12 +171,12 @@ const BiometricInformation = () => {
       try {
         const dataUrl = await fileToDataUrl(form.signature);
         biometricData.signature = {
-          fileType: 'signature',
+          fileType: FILE_TYPE_MAP.signature,
           fileName: form.signature.name,
           url: dataUrl,
           uploadedAt: new Date().toISOString(),
         };
-        filesToUpload.push({ file: form.signature, type: 'OTHER', desc: 'Signature' });
+        filesToUpload.push({ file: form.signature, type: FILE_TYPE_MAP.signature, desc: 'Signature' });
       } catch (err) {
         console.warn('Failed to read signature file as base64', err);
       }
@@ -178,12 +186,12 @@ const BiometricInformation = () => {
       try {
         const dataUrl = await fileToDataUrl(form.photograph);
         biometricData.photo = {
-          fileType: 'photo',
+          fileType: FILE_TYPE_MAP.photograph,
           fileName: form.photograph.name,
           url: dataUrl,
           uploadedAt: new Date().toISOString(),
         };
-        filesToUpload.push({ file: form.photograph, type: 'OTHER', desc: 'Photograph' });
+        filesToUpload.push({ file: form.photograph, type: FILE_TYPE_MAP.photograph, desc: 'Photograph' });
       } catch (err) {
         console.warn('Failed to read photograph file as base64', err);
       }
@@ -193,12 +201,12 @@ const BiometricInformation = () => {
       try {
         const dataUrl = await fileToDataUrl(form.iris);
         biometricData.irisScan = {
-          fileType: 'iris',
+          fileType: FILE_TYPE_MAP.iris,
           fileName: form.iris.name,
           url: dataUrl,
           uploadedAt: new Date().toISOString(),
         };
-        filesToUpload.push({ file: form.iris, type: 'OTHER', desc: 'Iris' });
+        filesToUpload.push({ file: form.iris, type: FILE_TYPE_MAP.iris, desc: 'Iris' });
       } catch (err) {
         console.warn('Failed to read iris file as base64', err);
       }
@@ -208,12 +216,12 @@ const BiometricInformation = () => {
       try {
         const dataUrl = await fileToDataUrl(form.fingerprint);
         biometricData.fingerprint = {
-          fileType: 'fingerprint',
+          fileType: FILE_TYPE_MAP.fingerprint,
           fileName: form.fingerprint.name,
           url: dataUrl,
           uploadedAt: new Date().toISOString(),
         };
-        filesToUpload.push({ file: form.fingerprint, type: 'OTHER', desc: 'Fingerprint' });
+        filesToUpload.push({ file: form.fingerprint, type: FILE_TYPE_MAP.fingerprint, desc: 'Fingerprint' });
       } catch (err) {
         console.warn('Failed to read fingerprint file as base64', err);
       }

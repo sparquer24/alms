@@ -564,7 +564,35 @@ export class ApplicationFormController {
       );
     }
   }
+ @Delete('application/:id')
+  @ApiOperation({
+    summary: 'Delete a draft application',
+    description: 'Delete an entire application and its related records. Only DRAFT applications are deletable.'
+  })
+  @ApiParam({ name: 'id', description: 'Application ID to delete', example: '1' })
+  @ApiResponse({ status: 200, description: 'Application deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - invalid id or not draft' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async deleteApplication(@Param('id') id: string, @Request() req: any) {
+    try {
+      const appIdNum = parseInt(id, 10);
+      if (isNaN(appIdNum)) {
+        throw new HttpException({ success: false, error: 'Invalid application ID format' }, HttpStatus.BAD_REQUEST);
+      }
 
+      const [error, result] = await this.applicationFormService.deleteApplicationById(appIdNum);
+      if (error) {
+        const message = (error as any)?.message || error;
+        throw new HttpException({ success: false, error: message }, HttpStatus.BAD_REQUEST);
+      }
+
+      return { success: true, message: 'Application deleted successfully', data: result };
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      throw new HttpException({ success: false, error: err?.message || 'Failed to delete application' }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
 
   @Get()

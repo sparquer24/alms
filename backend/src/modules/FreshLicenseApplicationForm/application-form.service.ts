@@ -899,6 +899,57 @@ export class ApplicationFormService {
       return [error, false];
     }
   }
+  /**
+   * Delete an entire application and its related child records. Only allowed for DRAFT applications.
+   * Returns [error, true] on success or [error, false] on failure.
+   */
+  async deleteApplicationById(applicationId: number): Promise<[any, boolean]> {
+    try {
+      const existing = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { id: true, workflowStatusId: true, presentAddressId: true, permanentAddressId: true }
+      });
+
+      if (!existing) {
+        return [new BadRequestException(`Application with ID ${applicationId} not found`), false];
+      }
+
+      // Verify application is in DRAFT status
+      const draftStatus = await prisma.statuses.findFirst({ where: { code: STATUS_CODES.DRAFT } });
+      if (!draftStatus) {
+        return [new InternalServerErrorException('DRAFT status not configured on server'), false];
+      }
+
+      if (Number(existing.workflowStatusId) !== Number(draftStatus.id)) {
+        return [new BadRequestException('Only applications in DRAFT status can be deleted'), false];
+      }
+
+      // Perform a transaction that deletes related rows first then the application
+      await prisma.$transaction(async (tx) => {
+        // Delete related simple child tables
+        await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
+        await tx.fLAFLicenseHistories.deleteMany({ where: { applicationId } });
+        await tx.fLAFLicenseDetails.deleteMany({ where: { applicationId } });
+        await tx.fLAFBiometricDatas.deleteMany({ where: { applicationId } });
+        await tx.fLAFFileUploads.deleteMany({ where: { applicationId } });
+
+        // Delete address records if they exist (present & permanent)
+        const addrIds: number[] = [];
+        if (existing.presentAddressId) addrIds.push(Number(existing.presentAddressId));
+        if (existing.permanentAddressId) addrIds.push(Number(existing.permanentAddressId));
+        if (addrIds.length > 0) {
+          await tx.fLAFAddressesAndContactDetails.deleteMany({ where: { id: { in: addrIds } } });
+        }
+
+        // Finally delete the main application record
+        await tx.freshLicenseApplicationPersonalDetails.delete({ where: { id: applicationId } });
+      });
+
+      return [null, true];
+    } catch (error) {
+      return [error, false];
+    }
+  }
 
 
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {

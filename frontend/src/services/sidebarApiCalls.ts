@@ -104,6 +104,41 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       type: upload.fileType,
       url: upload.fileUrl
     })) || [],
+    // Prefer an explicit photoUrl resolved from biometric payloads or fileUploads
+    photoUrl: (() => {
+      try {
+        const resolve = (d: any) => {
+          if (!d) return undefined;
+          // biometric wrappers can be nested
+          const bioRoot = d.biometricData || d.biometric_data || null;
+          let bio = bioRoot;
+          if (bio && bio.biometricData) bio = bio.biometricData;
+          if (bio && bio.photo && typeof bio.photo.url === 'string' && bio.photo.url.trim()) return bio.photo.url.trim();
+
+          // direct top-level photoUrl
+          if (typeof d.photoUrl === 'string' && d.photoUrl.trim()) return d.photoUrl.trim();
+
+          // fileUploads relation fallback
+          const uploads = d.fileUploads || d.file_uploads || [];
+          if (Array.isArray(uploads)) {
+            const byType = uploads.find((f: any) => ((f.fileType || f.type || '') + '').toString().toUpperCase().includes('PHOTOGRAPH') && (f.fileUrl || f.url));
+            if (byType) return (byType.fileUrl || byType.url || '').toString();
+
+            const byName = uploads.find((f: any) => {
+              const name = (f.fileName || f.name || '').toString().toLowerCase();
+              return /(photo|photograph|passport)/.test(name) && (f.fileUrl || f.url);
+            });
+            if (byName) return (byName.fileUrl || byName.url || '').toString();
+          }
+
+          return undefined;
+        };
+
+        return resolve(detailedApp);
+      } catch (e) {
+        return undefined;
+      }
+    })(),
     history,
     // Preserve the original workflowHistories for the new Application History display
     workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || [],

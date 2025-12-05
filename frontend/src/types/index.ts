@@ -189,6 +189,8 @@ export interface ApplicationData {
     uploadedAt?: string;
     size?: number;
   }>;
+  // Optional resolved photo URL (may come from biometricData or fileUploads)
+  photoUrl?: string;
   history?: Array<{
     actionTaken: any;
     attachments: any;
