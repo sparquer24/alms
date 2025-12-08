@@ -1,16 +1,25 @@
 'use client';
 
-import React, { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import React, {
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  startTransition,
+  useRef,
+} from 'react';
 import Image from 'next/image';
 const ImageFixed = Image as any;
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { CornerUpRight, Undo2, Flag, RefreshCcw } from 'lucide-react';
+import { CornerUpRight, Undo2, Flag, FolderCheck, RefreshCcw } from 'lucide-react';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
+const FolderCheckFixed = FolderCheck as any;
 const RefreshCcwFixed = RefreshCcw as any;
 
 import { logoutUser } from '../store/thunks/authThunks';
@@ -24,17 +33,13 @@ import { getRoleConfig } from '../config/roles';
 import { getRoleBasedRedirectPath } from '../config/roleRedirections';
 import { isAdminRole } from '../utils/roleUtils';
 import { useAdminMenu } from '../context/AdminMenuContext';
-import { getAdminMenuKeyFromPath, getAdminPathForMenuItem } from '../config/adminMenuService';
+import {
+  getAdminMenuKeyFromPath,
+  getAdminMenuItems,
+  getAdminPathForMenuItem,
+} from '../config/adminMenuService';
 import { preloadAdminPages } from '../utils/adminPagePreloader';
 import { HamburgerButton } from './HamburgerButton';
-import {
-  extractTabFromRoute,
-  buildActiveItemFromRoute,
-  getValidInboxTypes,
-  clearSkipInboxFlag,
-  routeStateChanged,
-  type RouteTabState,
-} from '../utils/sidebarRouteSync';
 
 /* ----------------------------
   Small helper memo components
@@ -157,65 +162,41 @@ interface SidebarProps {
 }
 
 export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {}) => {
-  // ===========================
-  // HOOKS SECTION - All state first
-  // ===========================
-
-  // Layout hooks
   const { showSidebar } = useLayout();
   const [visible, setVisible] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  // Router/navigation hooks
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  // Auth/user hooks
   const { userRole, token, user } = useAuthSync();
   const { loadType, selectedType } = useInbox();
-  const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen);
-
-  // State management
-  const [activeItem, setActiveItem] = useState<string>('');
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
-  const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
-  const [roleConfig, setRoleConfig] = useState(() => getRoleConfig(userRole));
-
-  // Refs
   const isMountedRef = useRef(false);
-  const refreshTimerRef = useRef<number | null>(null);
+  const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // moved up so other handlers can read it
 
-  // Context
-  const adminMenuContext = useAdminMenu();
-
-  // ===========================
-  // EFFECTS SECTION - All effects after state
-  // ===========================
-
-  // Hydration effect
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  // Restore from localStorage on first mount
+  // Ensure we restore previously-selected active nav from localStorage on first client mount
+  // unless the current URL explicitly sets a type (URL beats localStorage).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const url = new URL(window.location.href);
       const typeParam = url.searchParams.get('type');
-      if (typeParam) return;
+      if (typeParam) return; // URL takes precedence
       const stored = window.localStorage?.getItem('activeNavItem');
       if (!stored) return;
       let key = normalizeNavKey(stored);
       if (!key) return;
+      // If stored value was saved without `inbox-` (e.g. 'drafts'), try prefixing
+      // so we recover inbox-{type} semantics used by the rest of the sidebar.
       if (!key.startsWith('inbox-')) {
         const alt = normalizeNavKey(`inbox-${stored}`);
         if (alt && alt.startsWith('inbox-')) key = alt;
       }
+      // Only set when no active item yet to avoid stomping URL-driven state
       setActiveItem(prev => {
         if (prev && String(prev).trim().length > 0) return prev;
         try {
@@ -227,28 +208,32 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     } catch (e) {
       // ignore
     }
+    // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync admin menu key with pathname
+  // avoid reading window/localStorage during render — init blank and sync on client
+  const [activeItem, setActiveItem] = useState<string>('');
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [activeStatusIds, setActiveStatusIds] = useState<number[] | undefined>(undefined);
+  const [cookieRole, setCookieRole] = useState<string | undefined>(undefined);
+  const [roleConfig, setRoleConfig] = useState(() => getRoleConfig(userRole));
+
+  // Get admin menu context (optional, may not be available)
+  const adminMenuContext = useAdminMenu();
+
+  // Sync active menu key with pathname for admin pages
   useEffect(() => {
     const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
     if (!pathname || !normalizedRole?.includes('ADMIN')) return;
     const adminKey = getAdminMenuKeyFromPath(pathname);
-    if (adminKey) {
-      if (adminMenuContext?.setActiveMenuKey) {
-        try {
-          adminMenuContext.setActiveMenuKey(adminKey);
-        } catch (e) {
-          if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.warn('[Sidebar] Failed to set admin menu key:', e);
-          }
-        }
-      }
+    if (adminKey && adminMenuContext?.setActiveMenuKey) {
+      adminMenuContext.setActiveMenuKey(adminKey);
     }
   }, [pathname, cookieRole, userRole, adminMenuContext]);
 
-  // Preload admin pages
+  // Preload admin pages once on mount
   useEffect(() => {
     const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
     if (normalizedRole?.includes('ADMIN')) {
@@ -256,11 +241,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     }
   }, [cookieRole, userRole]);
 
-  // ===========================
-  // CALLBACKS SECTION
-  // ===========================
-
-  // Persist active nav key
+  // Persist active nav key to localStorage but store inbox types without the `inbox-` prefix
   const persistActiveNavToLocal = useCallback((key?: string) => {
     if (typeof window === 'undefined' || !key) return;
     try {
@@ -271,7 +252,39 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     }
   }, []);
 
-  // Normalize navigation keys
+  // timer for scheduled refresh
+  const refreshTimerRef = useRef<number | null>(null);
+
+  // Sidebar counts hook — only fetch when visible and not admin (keeps existing behavior)
+  const shouldFetchCounts = useMemo(
+    () => visible && !cookieRole?.includes('ADMIN'),
+    [visible, cookieRole]
+  );
+  const {
+    applicationCounts: rawCounts,
+    loading: loadingCounts,
+    refreshCounts,
+  } = useSidebarCounts(shouldFetchCounts);
+
+  // stabilized counts object to avoid re-renders
+  const applicationCounts = useMemo(
+    () => ({
+      forwardedCount: rawCounts?.forwardedCount || 0,
+      returnedCount: rawCounts?.returnedCount || 0,
+      redFlaggedCount: rawCounts?.redFlaggedCount || 0,
+      reEnquiryCount: rawCounts?.reEnquiryCount || 0,
+    }),
+    [
+      rawCounts?.forwardedCount,
+      rawCounts?.returnedCount,
+      rawCounts?.redFlaggedCount,
+      rawCounts?.reEnquiryCount,
+    ]
+  );
+
+  /* ----------------------------
+     Utility: normalize nav key
+  -----------------------------*/
   const normalizeNavKey = useCallback((raw?: string | null) => {
     if (!raw) return '';
     const s = String(raw).trim();
@@ -288,7 +301,9 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     return s.replace(/\s+/g, '').toLowerCase();
   }, []);
 
-  // Read role from cookie
+  /* ----------------------------
+     Client-only: read role cookie once on mount
+  -----------------------------*/
   const getUserRoleFromCookie = useCallback(() => {
     if (typeof window === 'undefined' || !document?.cookie) return undefined;
     try {
@@ -319,7 +334,9 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     return undefined;
   }, []);
 
-  // Schedule inbox forwarded refresh
+  /* ----------------------------
+     scheduleInboxForwardedRefresh (kept but guarded)
+  -----------------------------*/
   const scheduleInboxForwardedRefresh = useCallback((targetUrl?: string) => {
     // client-only
     if (typeof window === 'undefined') return;
@@ -433,101 +450,59 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     return Array.from(map.values());
   }, [roleConfig]);
 
-  // Sidebar counts
-  const shouldFetchCounts = useMemo(
-    () => visible && !cookieRole?.includes('ADMIN'),
-    [visible, cookieRole]
-  );
-  const {
-    applicationCounts: rawCounts,
-    loading: loadingCounts,
-    refreshCounts,
-  } = useSidebarCounts(shouldFetchCounts);
-
-  // Stabilized counts object
-  const applicationCounts = useMemo(
-    () => ({
-      forwardedCount: rawCounts?.forwardedCount || 0,
-      returnedCount: rawCounts?.returnedCount || 0,
-      redFlaggedCount: rawCounts?.redFlaggedCount || 0,
-      reEnquiryCount: rawCounts?.reEnquiryCount || 0,
-    }),
-    [
-      rawCounts?.forwardedCount,
-      rawCounts?.returnedCount,
-      rawCounts?.redFlaggedCount,
-      rawCounts?.reEnquiryCount,
-    ]
-  );
-
-  // State to track previous route for change detection
-  const prevRouteStateRef = useRef<RouteTabState | null>(null);
-
-  // Ref to track when handleMenuClick just set activeItem to prevent race condition
-  const menuClickSetActiveItemRef = useRef<string | null>(null);
-  const menuClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   /* ----------------------------
-     Unified route -> activeItem synchronization
-     - Runs on mount to read URL/localStorage
-     - Runs on pathname/query changes to sync UI
-     - Centralized logic to avoid duplication
+     Client-only initialization and URL -> activeItem sync
+     - runs once on mount and whenever pathname + query change.
+     - centralizes localStorage writes and inbox loading to avoid duplication.
   -----------------------------*/
   useEffect(() => {
+    // client-only initialization on first mount
     if (typeof window === 'undefined') return;
 
-    try {
-      // Parse current route state once
-      const currentRouteState = extractTabFromRoute(pathname, searchParams);
-
-      // Check if route actually changed (not just hash or unrelated query params)
-      const routeChanged = routeStateChanged(prevRouteStateRef.current, currentRouteState);
-      prevRouteStateRef.current = currentRouteState;
-
-      // Skip processing if route didn't meaningfully change
-      if (!routeChanged && isMountedRef.current) return;
-
-      // Only run setup on first mount
-      if (!isMountedRef.current) {
-        isMountedRef.current = true;
-        const r = getUserRoleFromCookie();
-        if (r) setCookieRole(r);
-      }
-
-      const { type, isInboxPage, isAdminPage, shouldSkipInboxOpen } = currentRouteState;
-
-      // If on inbox/admin page with type parameter, process the tab selection
-      if ((isInboxPage || isAdminPage) && type) {
-        // Clear the skip flag and use its value for this navigation
-        const wasSkipFlagSet = shouldSkipInboxOpen || clearSkipInboxFlag();
-
-        if (wasSkipFlagSet) {
-          // Treat as top-level selection (no inbox- prefix)
-          const topKey = normalizeNavKey(type);
-
-          // Only update if this wasn't just set by handleMenuClick
-          if (topKey !== menuClickSetActiveItemRef.current) {
-            setActiveItem(topKey);
-            persistActiveNavToLocal(topKey);
-            if (onTableReload) onTableReload(type);
-          }
-          return;
-        }
-
-        // Build normalized active item key for inbox tabs
-        const newActiveKey = buildActiveItemFromRoute(type, isInboxPage, false, normalizeNavKey);
-
-        // Only update if this is a new selection AND wasn't just set by handleMenuClick
-        if (
-          newActiveKey &&
-          newActiveKey !== activeItem &&
-          newActiveKey !== menuClickSetActiveItemRef.current
-        ) {
-          setActiveItem(newActiveKey);
-          persistActiveNavToLocal(newActiveKey);
-
-          // Load inbox data and optionally open the panel
+    // only run once on mount to read cookie and optionally active item from localStorage or URL
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      const r = getUserRoleFromCookie();
+      if (r) setCookieRole(r);
+      // Read active nav from URL first (query beats localStorage)
+      try {
+        const url = new URL(window.location.href);
+        const pathnameNow = url.pathname;
+        const typeParam = url.searchParams.get('type');
+        if ((pathnameNow === '/inbox' || pathnameNow.startsWith('/admin')) && typeParam) {
+          const skip =
+            typeof window !== 'undefined' && window.sessionStorage
+              ? window.sessionStorage.getItem('skipOpenInbox') === 'true'
+              : false;
+          // clear the flag if present
           try {
+            if (skip && typeof window !== 'undefined' && window.sessionStorage) {
+              window.sessionStorage.removeItem('skipOpenInbox');
+            }
+          } catch (e) {}
+
+          if (skip) {
+            // When the skip flag is set we want the URL to update but keep the
+            // inbox UI closed and treat the clicked item as a top-level active
+            // item (no `inbox-` prefix). Also call onTableReload so parent can
+            // refresh content.
+            try {
+              const topKey = normalizeNavKey(String(typeParam).toLowerCase());
+              setActiveItem(topKey);
+              persistActiveNavToLocal(topKey);
+              if (onTableReload) onTableReload(String(typeParam));
+            } catch (e) {
+              /* swallow */
+            }
+            return;
+          }
+
+          const key = normalizeNavKey(`inbox-${String(typeParam).toLowerCase()}`);
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
+          // ensure inbox open & load
+          try {
+            // Only auto-open the inbox if the user hasn't explicitly closed it
             const desiredOpen =
               typeof window !== 'undefined' && window.localStorage
                 ? window.localStorage.getItem('inboxDesiredOpen')
@@ -535,43 +510,92 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             if (desiredOpen !== 'false') {
               dispatch(openInbox());
             }
-            void loadType(type, false).catch(() => {});
-            if (onTableReload) onTableReload(type);
-
-            // Schedule refresh for forwarded inbox
-            if (type.toLowerCase() === 'forwarded') {
-              scheduleInboxForwardedRefresh();
-            }
+            void loadType(String(typeParam), false).catch(() => {});
+            if (onTableReload) onTableReload(String(typeParam));
+            if (String(typeParam).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
           } catch (e) {
-            if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-              console.warn('[Sidebar] Error loading inbox type:', e);
-            }
+            /* swallow */
           }
+          return;
         }
-      } else if (!isMountedRef.current) {
-        // On first mount with no URL type param, restore from localStorage
-        try {
-          const stored = window.localStorage?.getItem('activeNavItem') ?? '';
-          if (stored) {
-            let key = normalizeNavKey(stored);
-            // Recover inbox-{type} semantics if stored without prefix
-            if (!key.startsWith('inbox-')) {
-              const alt = normalizeNavKey(`inbox-${stored}`);
-              if (alt && alt.startsWith('inbox-')) key = alt;
-            }
-            setActiveItem(key);
-            persistActiveNavToLocal(key);
+      } catch (e) {
+        // ignore
+      }
+
+      // fallback: read previously stored activeNavItem from localStorage (if any)
+      try {
+        const stored = window.localStorage?.getItem('activeNavItem') ?? '';
+        if (stored) {
+          let key = normalizeNavKey(stored);
+          if (!key.startsWith('inbox-')) {
+            const alt = normalizeNavKey(`inbox-${stored}`);
+            if (alt && alt.startsWith('inbox-')) key = alt;
           }
-        } catch (e) {
-          if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.warn('[Sidebar] Error restoring activeItem from localStorage:', e);
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // If pathname or searchParams changed and point to an inbox type -> sync
+    try {
+      if (!pathname) return;
+      const type = searchParams?.get('type');
+      if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
+        // Respect a short-lived session flag indicating we should skip
+        // opening the inbox UI even though the URL changed. This is used
+        // when we want the URL to reflect the selection but keep the
+        // inbox visually closed (Option B behavior).
+        const skip =
+          typeof window !== 'undefined' && window.sessionStorage
+            ? window.sessionStorage.getItem('skipOpenInbox') === 'true'
+            : false;
+        try {
+          if (skip && typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem('skipOpenInbox');
+          }
+        } catch (e) {}
+
+        if (skip) {
+          try {
+            const topKey = normalizeNavKey(String(type).toLowerCase());
+            setActiveItem(topKey);
+            persistActiveNavToLocal(topKey);
+            if (onTableReload) onTableReload(String(type));
+          } catch (e) {
+            /* swallow */
+          }
+          return;
+        }
+
+        const newActive = normalizeNavKey(`inbox-${String(type).toLowerCase()}`);
+        if (newActive !== activeItem) {
+          setActiveItem(newActive);
+          persistActiveNavToLocal(newActive);
+          if (!isMountedRef.current) return;
+          try {
+            if (!((window as any).__REDUX_INBOX_OPEN__ || false)) {
+              /* noop hook for potential global flag */
+            }
+            const desiredOpen =
+              typeof window !== 'undefined' && window.localStorage
+                ? window.localStorage.getItem('inboxDesiredOpen')
+                : null;
+            if (desiredOpen !== 'false') {
+              dispatch(openInbox());
+            }
+            void loadType(String(type), false).catch(() => {});
+            if (onTableReload) onTableReload(String(type));
+            if (String(type).toLowerCase() === 'forwarded') scheduleInboxForwardedRefresh();
+          } catch (e) {
+            /* swallow */
           }
         }
       }
     } catch (e) {
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.warn('[Sidebar] Error in route sync effect:', e);
-      }
+      // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, String(searchParams?.toString())]); // we use stringified params to trigger on query changes
@@ -594,24 +618,18 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
      Update roleConfig each time user/userRole/cookieRole changes
   -----------------------------*/
   useEffect(() => {
-    try {
-      const effectiveInput = cookieRole ?? user ?? userRole ?? 'SHO';
-      const cfg = getRoleConfig(effectiveInput);
-      setRoleConfig(cfg);
-      if (process.env.NODE_ENV !== 'production') {
-        try {
-          console.debug(
-            '[Sidebar] effective role input:',
-            effectiveInput,
-            'roleConfig menuItems:',
-            cfg?.menuItems
-          );
-        } catch (e) {}
-      }
-    } catch (e) {
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.warn('[Sidebar] Failed to update roleConfig:', e);
-      }
+    const effectiveInput = cookieRole ?? user ?? userRole ?? 'SHO';
+    const cfg = getRoleConfig(effectiveInput);
+    setRoleConfig(cfg);
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.debug(
+          '[Sidebar] effective role input:',
+          effectiveInput,
+          'roleConfig menuItems:',
+          cfg?.menuItems
+        );
+      } catch (e) {}
     }
   }, [cookieRole, userRole, user]);
 
@@ -713,153 +731,118 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         );
       }
 
-      try {
-        if (item.name.toLowerCase() !== 'inbox') {
-          dispatch(closeInbox());
-        }
+      if (item.name.toLowerCase() !== 'inbox') {
+        dispatch(closeInbox());
+      }
 
-        if (item.childs?.length) {
-          const k = normalizeNavKey(item.name as string) || item.name;
-          setExpandedMenus(prev => ({ ...prev, [k]: !prev[k] }));
-          return;
-        }
+      if (item.childs?.length) {
+        const k = normalizeNavKey(item.name as string) || item.name;
+        setExpandedMenus(prev => ({ ...prev, [k]: !prev[k] }));
+        return;
+      }
 
-        const key = normalizeNavKey(item.name as string);
+      const key = normalizeNavKey(item.name as string);
 
-        // Get effective role (use userRole, fall back to cookieRole)
-        const effectiveRole = userRole || cookieRole;
+      // Get effective role (use userRole, fall back to cookieRole)
+      const effectiveRole = userRole || cookieRole;
+
+      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+        console.log(
+          '[Sidebar] effectiveRole:',
+          effectiveRole,
+          'isAdminRole result:',
+          isAdminRole(effectiveRole)
+        );
+      }
+
+      // Check if this is an admin user navigating to an admin menu item
+      if (isAdminRole(effectiveRole)) {
+        // Get the admin path from config using the menu item name
+        const adminPath = getAdminPathForMenuItem(item.name);
 
         if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] effectiveRole:',
-            effectiveRole,
-            'isAdminRole result:',
-            isAdminRole(effectiveRole)
-          );
+          console.log('[Sidebar] Admin user detected. adminPath for', item.name, ':', adminPath);
         }
 
-        // Check if this is an admin user navigating to an admin menu item
-        if (isAdminRole(effectiveRole)) {
-          // Get the admin path from config using the menu item name
-          const adminPath = getAdminPathForMenuItem(item.name);
-
+        if (adminPath) {
+          // This is a valid admin menu item
           if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.log('[Sidebar] Admin user detected. adminPath for', item.name, ':', adminPath);
+            console.log('[Sidebar] Navigating to admin path:', adminPath);
           }
-
-          if (adminPath) {
-            // This is a valid admin menu item
-            if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-              console.log('[Sidebar] Navigating to admin path:', adminPath);
-            }
-
-            // Set flag to prevent route sync effect from overwriting this selection
-            menuClickSetActiveItemRef.current = key;
-            if (menuClickTimeoutRef.current) clearTimeout(menuClickTimeoutRef.current);
-            menuClickTimeoutRef.current = setTimeout(() => {
-              menuClickSetActiveItemRef.current = null;
-            }, 100);
-
-            setActiveItem(key);
-            persistActiveNavToLocal(key);
-            router.push(adminPath);
-            return;
-          }
-        }
-
-        // For non-ADMIN roles: use inbox pattern
-        // Special-case: treat certain inbox-like items as top-level selections
-        // so clicking them will close the inbox and make the clicked menu item active
-        // (no `inbox-` prefix). This prevents URL-driven inbox activation when
-        // these are intended to behave as standalone menu entries.
-        const topLevelInboxLike = new Set([
-          'freshform',
-          'sent',
-          'closed',
-          'drafts',
-          'finaldisposal',
-        ]);
-
-        if (key && topLevelInboxLike.has(key)) {
-          try {
-            // ensure inbox is closed immediately in the UI
-            dispatch(closeInbox());
-            try {
-              if (typeof window !== 'undefined' && window.localStorage) {
-                window.localStorage.setItem('inboxDesiredOpen', 'false');
-              }
-            } catch (e) {}
-          } catch (e) {}
-
-          // Set flag to prevent route sync effect from overwriting this selection
-          menuClickSetActiveItemRef.current = key;
-          if (menuClickTimeoutRef.current) clearTimeout(menuClickTimeoutRef.current);
-          menuClickTimeoutRef.current = setTimeout(() => {
-            menuClickSetActiveItemRef.current = null;
-          }, 100);
-
           setActiveItem(key);
           persistActiveNavToLocal(key);
-        } else {
-          // Set flag to prevent route sync effect from overwriting this selection
-          menuClickSetActiveItemRef.current = key;
-          if (menuClickTimeoutRef.current) clearTimeout(menuClickTimeoutRef.current);
-          menuClickTimeoutRef.current = setTimeout(() => {
-            menuClickSetActiveItemRef.current = null;
-          }, 100);
-
-          setActiveItem(key);
-        }
-
-        if (item.statusIds && item.statusIds.length) {
-          setActiveStatusIds(item.statusIds);
-          try {
-            localStorage.setItem('activeStatusIds', JSON.stringify(item.statusIds));
-          } catch (e) {}
-        } else {
-          setActiveStatusIds(undefined);
-          try {
-            localStorage.removeItem('activeStatusIds');
-          } catch (e) {}
-        }
-
-        if (item.name.toLowerCase().includes('dashboard')) {
-          const redirectPath = getRoleBasedRedirectPath(effectiveRole);
-          router.push(redirectPath);
+          router.push(adminPath);
           return;
         }
+      }
 
-        const type = item.name.replace(/\s+/g, '');
-        const wasTopLevel = key && topLevelInboxLike.has(key);
-        const target = `/inbox?type=${encodeURIComponent(type)}`;
-        if (wasTopLevel) {
+      // For non-ADMIN roles: use inbox pattern
+      // Special-case: treat certain inbox-like items as top-level selections
+      // so clicking them will close the inbox and make the clicked menu item active
+      // (no `inbox-` prefix). This prevents URL-driven inbox activation when
+      // these are intended to behave as standalone menu entries.
+      const topLevelInboxLike = new Set(['freshform', 'sent', 'closed', 'drafts', 'finaldisposal']);
+
+      if (key && topLevelInboxLike.has(key)) {
+        try {
+          // ensure inbox is closed immediately in the UI
+          dispatch(closeInbox());
           try {
-            // set a short-lived session flag so the pathname/searchParams sync
-            // effect can detect this navigation and avoid opening the inbox.
-            if (typeof window !== 'undefined' && window.sessionStorage) {
-              window.sessionStorage.setItem('skipOpenInbox', 'true');
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem('inboxDesiredOpen', 'false');
             }
           } catch (e) {}
-          // push the URL so it's reflected in the address bar, but the sync
-          // effect will read the flag and avoid opening the inbox UI.
-          router.push(target);
-          scheduleInboxForwardedRefresh(target);
-          if (onTableReload) onTableReload(key);
-        } else {
-          try {
-            const inboxKey = normalizeNavKey(`inbox-${type}`);
-            if (inboxKey) {
-              setActiveItem(inboxKey);
-              persistActiveNavToLocal(inboxKey);
-            }
-          } catch (e) {}
-          router.push(target);
-          scheduleInboxForwardedRefresh(target);
-        }
-      } catch (e) {
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.warn('[Sidebar] Error in handleMenuClick:', e);
-        }
+        } catch (e) {}
+        setActiveItem(key);
+        persistActiveNavToLocal(key);
+      } else {
+        setActiveItem(key);
+      }
+
+      if (item.statusIds && item.statusIds.length) {
+        setActiveStatusIds(item.statusIds);
+        try {
+          localStorage.setItem('activeStatusIds', JSON.stringify(item.statusIds));
+        } catch (e) {}
+      } else {
+        setActiveStatusIds(undefined);
+        try {
+          localStorage.removeItem('activeStatusIds');
+        } catch (e) {}
+      }
+
+      if (item.name.toLowerCase().includes('dashboard')) {
+        const redirectPath = getRoleBasedRedirectPath(effectiveRole);
+        router.push(redirectPath);
+        return;
+      }
+
+      const type = item.name.replace(/\s+/g, '');
+      const wasTopLevel = key && topLevelInboxLike.has(key);
+      const target = `/inbox?type=${encodeURIComponent(type)}`;
+      if (wasTopLevel) {
+        try {
+          // set a short-lived session flag so the pathname/searchParams sync
+          // effect can detect this navigation and avoid opening the inbox.
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem('skipOpenInbox', 'true');
+          }
+        } catch (e) {}
+        // push the URL so it's reflected in the address bar, but the sync
+        // effect will read the flag and avoid opening the inbox UI.
+        router.push(target);
+        scheduleInboxForwardedRefresh(target);
+        if (onTableReload) onTableReload(key);
+      } else {
+        try {
+          const inboxKey = normalizeNavKey(`inbox-${type}`);
+          if (inboxKey) {
+            setActiveItem(inboxKey);
+            persistActiveNavToLocal(inboxKey);
+          }
+        } catch (e) {}
+        router.push(target);
+        scheduleInboxForwardedRefresh(target);
       }
     },
     [cookieRole, userRole, normalizeNavKey, router, scheduleInboxForwardedRefresh, dispatch]
@@ -881,91 +864,85 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
   const handleInboxSubItemClick = useCallback(
     (subItem: string) => {
+      // Check if admin user is trying to access inbox (should not happen)
+      if (isAdminRole(userRole || cookieRole)) {
+        // Admin users shouldn't be in inbox - redirect to admin dashboard
+        router.push('/admin/userManagement');
+        return;
+      }
+
+      const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
+      setActiveItem(activeItemKey);
+      persistActiveNavToLocal(activeItemKey);
+
       try {
-        // Check if admin user is trying to access inbox (should not happen)
-        if (isAdminRole(userRole || cookieRole)) {
-          // Admin users shouldn't be in inbox - redirect to admin dashboard
-          router.push('/admin/userManagement');
-          return;
-        }
-
-        const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
-        setActiveItem(activeItemKey);
-        persistActiveNavToLocal(activeItemKey);
-
-        try {
-          const desiredOpen =
-            typeof window !== 'undefined' && window.localStorage
-              ? window.localStorage.getItem('inboxDesiredOpen')
-              : null;
-          if (desiredOpen !== 'false') {
-            if (!isInboxOpen) dispatch(openInbox());
-          }
-        } catch (e) {
+        const desiredOpen =
+          typeof window !== 'undefined' && window.localStorage
+            ? window.localStorage.getItem('inboxDesiredOpen')
+            : null;
+        if (desiredOpen !== 'false') {
           if (!isInboxOpen) dispatch(openInbox());
         }
+      } catch (e) {
+        if (!isInboxOpen) dispatch(openInbox());
+      }
 
-        // Resolve statusIds fallback logic
-        let customStatusIds: number[] | undefined = activeStatusIds;
-        try {
-          if (!customStatusIds) {
-            const inboxMenu = menuItems.find(
-              mi =>
-                String(mi.name || '')
-                  .replace(/\s+/g, '')
-                  .toLowerCase() === 'inbox'
-            );
-            if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
-              customStatusIds = inboxMenu.statusIds;
-          }
-          if (!customStatusIds) {
-            const direct = menuItems.find(
-              mi =>
-                String(mi.name || '')
-                  .replace(/\s+/g, '')
-                  .toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase()
-            );
-            if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
-          }
-          // Final fallback: known static mappings for some inbox types
-          if (!customStatusIds) {
-            try {
-              const normalized = String(subItem).replace(/\s+/g, '').toLowerCase();
-              if (normalized === 'reenquiry') {
-                customStatusIds = [5];
-              }
-            } catch (e) {
-              /* ignore */
-            }
-          }
-        } catch (e) {
-          /* ignore */
+      // Resolve statusIds fallback logic
+      let customStatusIds: number[] | undefined = activeStatusIds;
+      try {
+        if (!customStatusIds) {
+          const inboxMenu = menuItems.find(
+            mi =>
+              String(mi.name || '')
+                .replace(/\s+/g, '')
+                .toLowerCase() === 'inbox'
+          );
+          if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
+            customStatusIds = inboxMenu.statusIds;
         }
-
-        // If user clicked the same inbox type that's already selected, force a reload
-        const forceReload =
-          !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
-        void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
-
-        const targetBase = '/inbox';
-        const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
-
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox');
-
-        if (isOnInboxBase) {
+        if (!customStatusIds) {
+          const direct = menuItems.find(
+            mi =>
+              String(mi.name || '')
+                .replace(/\s+/g, '')
+                .toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase()
+          );
+          if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
+        }
+        // Final fallback: known static mappings for some inbox types
+        if (!customStatusIds) {
           try {
-            window.history.replaceState(null, '', targetUrl);
-          } catch (e) {}
-          if (onTableReload) onTableReload(subItem);
-        } else {
-          router.push(targetUrl);
-          scheduleInboxForwardedRefresh(targetUrl);
+            const normalized = String(subItem).replace(/\s+/g, '').toLowerCase();
+            if (normalized === 'reenquiry') {
+              customStatusIds = [5];
+            }
+          } catch (e) {
+            /* ignore */
+          }
         }
       } catch (e) {
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.warn('[Sidebar] Error in handleInboxSubItemClick:', e);
-        }
+        /* ignore */
+      }
+
+      // If user clicked the same inbox type that's already selected, force a reload
+      const forceReload =
+        !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
+      void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
+
+      const targetBase = '/inbox';
+      const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
+
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox');
+
+      if (isOnInboxBase) {
+        try {
+          window.history.replaceState(null, '', targetUrl);
+        } catch (e) {}
+        if (onTableReload) onTableReload(subItem);
+      } else {
+        router.push(targetUrl);
+        scheduleInboxForwardedRefresh(targetUrl);
       }
     },
     [
@@ -983,25 +960,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     ]
   );
 
-  /* ----------------------------
-     Memoize active item checker to avoid recalculation on every render
-  -----------------------------*/
-  const isItemActive = useCallback(
-    (itemName: string) => {
-      if (!itemName || !activeItem) return false;
-      const normalizedKey = normalizeNavKey(itemName);
-
-      // Direct match
-      if (activeItem === normalizedKey) return true;
-
-      // Check if any child of this menu item is active (for hierarchical menus)
-      if (String(activeItem).startsWith(`${normalizedKey}-`)) return true;
-
-      return false;
-    },
-    [activeItem, normalizeNavKey]
-  );
-
   const handleLogout = useCallback(async () => {
     if (token) {
       await dispatch(logoutUser() as any);
@@ -1009,14 +967,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     }
     router.push('/login');
   }, [dispatch, router, token]);
-
-  /* ----------------------------
-     Visible & role guard
-  -----------------------------*/
-  useEffect(() => {
-    if (showSidebar) setVisible(true);
-    else setTimeout(() => setVisible(false), 400);
-  }, [showSidebar]);
 
   /* ----------------------------
      Icons / inboxSubItems
@@ -1039,49 +989,34 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   );
 
   const inboxSubItems = useMemo(() => {
-    // Get valid inbox types (either from menu items or fallback defaults)
-    const validTypes = new Set<string>();
-
-    // First, add any inbox types from menu items
+    const set = new Set<string>();
     menuItems.forEach(mi => {
       try {
         const k = normalizeNavKey(mi.name as string);
         if (k.startsWith('inbox-')) {
-          const typeOnly = k.replace('inbox-', '');
-          validTypes.add(typeOnly);
+          set.add(k.replace('inbox-', ''));
         }
-      } catch (e) {
-        /* ignore */
-      }
+      } catch (e) {}
     });
+    const fallbacks = ['forwarded', 'returned', 'redflagged', 'reenquiry'];
+    if (set.size === 0) fallbacks.forEach(f => set.add(f));
+    else fallbacks.forEach(f => set.add(f)); // ensure common types present
 
-    // If no menu items defined inbox types, use standard defaults
-    if (validTypes.size === 0) {
-      getValidInboxTypes().forEach(t => validTypes.add(t));
-    } else {
-      // Otherwise, ensure common types are also present
-      getValidInboxTypes().forEach(t => validTypes.add(t));
-    }
-
-    // Build display items
     const iconMap: Record<string, React.ReactNode> = {
       forwarded: forwardedIcon,
       returned: returnedIcon,
       redflagged: redFlaggedIcon,
       reenquiry: reenquiryIcon,
     };
-
     const countMap: Record<string, number> = {
       forwarded: applicationCounts?.forwardedCount || 0,
       returned: applicationCounts?.returnedCount || 0,
       redflagged: applicationCounts?.redFlaggedCount || 0,
       reenquiry: applicationCounts?.reEnquiryCount || 0,
     };
-
     const labelFor = (n: string) =>
       n.toLowerCase() === 'redflagged' ? 'Red Flagged' : n.charAt(0).toUpperCase() + n.slice(1);
-
-    return Array.from(validTypes).map(name => ({
+    return Array.from(set).map(name => ({
       name,
       label: labelFor(name),
       icon: iconMap[name] ?? forwardedIcon,
@@ -1101,16 +1036,12 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   ]);
 
   /* ----------------------------
-     Cleanup: Clear timeout when component unmounts
+     Visible & role guard
   -----------------------------*/
   useEffect(() => {
-    return () => {
-      if (menuClickTimeoutRef.current) {
-        clearTimeout(menuClickTimeoutRef.current);
-        menuClickTimeoutRef.current = null;
-      }
-    };
-  }, []);
+    if (showSidebar) setVisible(true);
+    else setTimeout(() => setVisible(false), 400);
+  }, [showSidebar]);
 
   const effectiveRole = cookieRole ?? userRole;
   // During SSR or before hydration we return null to keep server and
@@ -1222,12 +1153,55 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               .map(item => {
                 const normalizedKey = normalizeNavKey(item.name as string);
 
+                // Determine active state for the main menu item.
+                // - active if activeItem matches the normalized key
+                // - also active if any of its children are active (so parent and child can be active simultaneously)
+                // - as a general fallback, consider active if activeItem startsWith `${normalizedKey}-` (covers derived keys)
+                let isActive = activeItem === normalizedKey;
+
+                try {
+                  if (
+                    !isActive &&
+                    Array.isArray((item as any).childs) &&
+                    (item as any).childs.length
+                  ) {
+                    const childs = (item as any).childs as Array<{ name?: string }>;
+                    // If any child normalized key equals activeItem mark parent active
+                    for (const c of childs) {
+                      const childKey = normalizeNavKey(String(c?.name ?? ''));
+                      if (childKey && childKey === activeItem) {
+                        isActive = true;
+                        break;
+                      }
+                      // also check combined keys like `${parent}-${child}` if those conventions are used
+                      const combined = normalizeNavKey(
+                        `${String(item.name)}-${String(c?.name ?? '')}`
+                      );
+                      if (combined && combined === activeItem) {
+                        isActive = true;
+                        break;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // ignore any errors during active determination
+                }
+
+                if (
+                  !isActive &&
+                  normalizedKey &&
+                  activeItem &&
+                  String(activeItem).startsWith(`${normalizedKey}-`)
+                ) {
+                  isActive = true;
+                }
+
                 return (
                   <MenuItem
                     key={`menu-${normalizedKey}`}
                     icon={item.icon}
                     label={item.label}
-                    active={isItemActive(item.name as string)}
+                    active={isActive}
                     onClick={() => handleMenuClick({ name: item.name, statusIds: item.statusIds })}
                     onActivate={() => {
                       try {

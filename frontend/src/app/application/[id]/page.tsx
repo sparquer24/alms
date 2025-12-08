@@ -16,6 +16,7 @@ import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 import { truncateFilename } from '../../../utils/string';
+import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -68,6 +69,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Use sidebar counts hook here so we can trigger an immediate refresh
+  // after actions that move an application between inbox buckets.
+  const { refreshCounts } = useSidebarCounts(true);
 
   // Open attachments from history with a robust viewer (PDF/image) in a new tab
   const openAttachment = (att: any) => {
@@ -358,6 +363,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       setApplication(updatedApplication);
       setIsProcessModalOpen(false);
 
+      // Trigger an immediate sidebar counts refresh so the UI updates
+      // (force = true bypasses the 2-minute rate limit)
+      try {
+        refreshCounts(true);
+      } catch (e) {
+        /* ignore */
+      }
+
       // Redirect to inbox/forwarded after successful processing
       setTimeout(() => {
         router.push('/home?type=forwarded');
@@ -387,6 +400,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       setApplication(updatedApplication);
       setIsForwardModalOpen(false);
       setSuccessMessage(`Application has been forwarded to ${recipient}`);
+      // Trigger an immediate sidebar counts refresh so the UI updates
+      try {
+        refreshCounts(true);
+      } catch (e) {
+        /* ignore */
+      }
 
       // Redirect to inbox/forwarded after successful forwarding
       setTimeout(() => {
@@ -469,6 +488,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           // Error reloading application
         });
     }
+    // Refresh sidebar counts as proceedings may change bucket counts
+    try {
+      refreshCounts(true);
+    } catch (e) {
+      /* ignore */
+    }
 
     // Redirect to inbox/forwarded after successful proceedings action
     setTimeout(() => {
@@ -478,13 +503,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   // Show skeleton loading while authenticating or loading data
   if (authLoading || loading) {
-    return (
-      <div className='min-h-screen w-full bg-white'>
-        <main className='flex-1 p-2 lg:p-6'>
-          <PageLayoutSkeleton />
-        </main>
-      </div>
-    );
+    return <PageLayoutSkeleton />;
   }
   if (!isAuthenticated) {
     // Optionally, you can return null or a redirect message
@@ -1462,10 +1481,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Only show if NOT Draft */}
               {application?.workflowStatus?.name?.toLowerCase() !== 'draft' && (
-                <div
-                  className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
-                0px)]'
-                >
+                  <div className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
+                0px)]'>
                   <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 h-full items-stretch'>
                     {/* Action Buttons - Left Side with Scroll */}
                     <div className='flex flex-col h-full'>
