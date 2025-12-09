@@ -687,153 +687,161 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
                     Applicant Information
                   </h2>
-                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                    {/* Full Name - Spans full width */}
-                    <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2 lg:col-span-4'>
-                      <p className='text-sm text-gray-500 font-medium mb-1'>Full Name</p>
-                      <p className='font-semibold text-gray-900'>
-                        {[application?.firstName, application?.middleName, application?.lastName]
-                          .filter(Boolean)
-                          .join(' ') ||
-                          application?.applicantName ||
-                          'N/A'}
-                      </p>
-                    </div>
 
-                    {/* Parent/Spouse Name */}
-                    {application?.parentOrSpouseName && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Parent/Spouse Name</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.parentOrSpouseName}
-                        </p>
-                      </div>
-                    )}
+                  <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                    {/* Main details - left (spans 2/3) */}
+                    <div className='lg:col-span-2'>
+                      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6'>
+                        {/* Full Name - Spans full width of this column set */}
+                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                          <p className='text-sm text-gray-500 font-medium mb-1'>Full Name</p>
+                          <p className='font-semibold text-gray-900'>
+                            {[application?.firstName, application?.middleName, application?.lastName]
+                              .filter(Boolean)
+                              .join(' ') ||
+                              application?.applicantName ||
+                              'N/A'}
+                          </p>
+                        </div>
 
-                    {/* Gender */}
-                    {application?.sex && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Gender</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.sex.charAt(0) + application.sex.slice(1).toLowerCase()}
-                        </p>
-                      </div>
-                    )}
+                        {application?.parentOrSpouseName && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Parent/Spouse Name</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.parentOrSpouseName}
+                            </p>
+                          </div>
+                        )}
 
-                    {/* Place of Birth */}
-                    {application?.placeOfBirth && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Place of Birth</p>
-                        <p className='font-semibold text-gray-900'>{application.placeOfBirth}</p>
-                      </div>
-                    )}
+                        {application?.sex && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Gender</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.sex.charAt(0) + application.sex.slice(1).toLowerCase()}
+                            </p>
+                          </div>
+                        )}
 
-                    {/* Date of Birth */}
-                    {(application?.dateOfBirth || application?.dob) && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Date of Birth</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application?.dateOfBirth
-                            ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })
-                            : application?.dob
-                              ? new Date(application.dob).toLocaleDateString('en-IN', {
+                        {application?.placeOfBirth && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Place of Birth</p>
+                            <p className='font-semibold text-gray-900'>{application.placeOfBirth}</p>
+                          </div>
+                        )}
+
+                        {(application?.dateOfBirth || application?.dob) && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Date of Birth</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application?.dateOfBirth
+                                ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })
+                                : application?.dob
+                                  ? new Date(application.dob).toLocaleDateString('en-IN', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric',
+                                    })
+                                  : 'N/A'}
+                            </p>
+                            {application?.dobInWords && (
+                              <p className='text-xs text-gray-500 mt-1 italic'>
+                                {application.dobInWords}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {application?.panNumber && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>PAN Number</p>
+                            <p className='font-semibold text-gray-900 font-mono'>
+                              {application.panNumber}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.aadharNumber && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Aadhar Number</p>
+                            <p className='font-semibold text-gray-900 font-mono'>
+                              {application.aadharNumber}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.acknowledgementNo && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>
+                              Acknowledgement Number
+                            </p>
+                            <p className='font-semibold text-gray-900 font-mono'>
+                              {application.acknowledgementNo}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.currentUser && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Current User</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.currentUser.username}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.workflowStatus && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Workflow Status</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.workflowStatus.name}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                          <p className='text-sm text-gray-500 font-medium mb-1'>Application Type</p>
+                          <p className='font-semibold text-gray-900'>
+                            {application?.applicationType || 'Fresh License'}
+                          </p>
+                        </div>
+
+                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                          <p className='text-sm text-gray-500 font-medium mb-1'>
+                            Date & Time of Submission
+                          </p>
+                          <p className='font-semibold text-gray-900'>
+                            {application?.applicationDate
+                              ? new Date(application.applicationDate).toLocaleString('en-IN', {
                                   year: 'numeric',
-                                  month: 'long',
+                                  month: 'short',
                                   day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
                                 })
                               : 'N/A'}
-                        </p>
-                        {application?.dobInWords && (
-                          <p className='text-xs text-gray-500 mt-1 italic'>
-                            {application.dobInWords}
                           </p>
-                        )}
+                        </div>
                       </div>
-                    )}
-
-                    {/* PAN Number */}
-                    {application?.panNumber && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>PAN Number</p>
-                        <p className='font-semibold text-gray-900 font-mono'>
-                          {application.panNumber}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Aadhar Number */}
-                    {application?.aadharNumber && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Aadhar Number</p>
-                        <p className='font-semibold text-gray-900 font-mono'>
-                          {application.aadharNumber}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Acknowledgement Number */}
-                    {application?.acknowledgementNo && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>
-                          Acknowledgement Number
-                        </p>
-                        <p className='font-semibold text-gray-900 font-mono'>
-                          {application.acknowledgementNo}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Current User */}
-                    {application?.currentUser && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Current User</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.currentUser.username}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Workflow Status */}
-                    {application?.workflowStatus && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Workflow Status</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.workflowStatus.name}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Application Type */}
-                    <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                      <p className='text-sm text-gray-500 font-medium mb-1'>Application Type</p>
-                      <p className='font-semibold text-gray-900'>
-                        {application?.applicationType || 'Fresh License'}
-                      </p>
                     </div>
 
-                    {/* Date of Submission */}
-                    <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                      <p className='text-sm text-gray-500 font-medium mb-1'>
-                        Date & Time of Submission
-                      </p>
-                      <p className='font-semibold text-gray-900'>
-                        {application?.applicationDate
-                          ? new Date(application.applicationDate).toLocaleString('en-IN', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : 'N/A'}
-                      </p>
-                    </div>
+                    {/* Right-side card - photo in top-right and form-like summary */}
+                    <aside className='lg:col-span-1 border border-gray-200 rounded-xl p-4 bg-gray-50 shadow-sm h-fit'>
+                          <div className='ml-2 '>
+                            <img
+                              src={(application as any)?.photoUrl as string}
+                              alt='Applicant Photo'
+                              className='w-60 h-60 object-cover rounded-md border'
+                            />
+                          </div>
+                    </aside>
                   </div>
                 </div>
+                
+                {/* Biometric section removed - photo moved to right-side summary card */}
 
                 {/* Present Address Section */}
                 {application?.presentAddress && (

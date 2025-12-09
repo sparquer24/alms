@@ -103,7 +103,7 @@ export default function FlowMappingPage() {
     } else {
       setNextRoles([]);
     }
-  }, [currentFlowMapping, allRoles]);
+  }, [currentFlowMapping?.id, currentFlowMapping?.nextRoleIds?.length, allRoles?.length]);
 
   // Validation function
   const validateForm = useCallback(() => {

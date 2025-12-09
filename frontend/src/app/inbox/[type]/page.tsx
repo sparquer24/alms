@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+
 // Compatibility wrapper: redirect to /inbox?type=... to use the new query-based inbox page
 export default function InboxTypeRedirect({ params }: { params: Promise<{ type: string }> }) {
   const router = useRouter();

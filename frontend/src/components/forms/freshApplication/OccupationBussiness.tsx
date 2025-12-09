@@ -39,6 +39,7 @@ const OccupationBussiness: React.FC = () => {
 		setForm,
 		applicantId,
 		isSubmitting,
+		almsLicenseId,
 		submitError,
 		submitSuccess,
 		isLoading,
@@ -129,14 +130,15 @@ const OccupationBussiness: React.FC = () => {
 		<form className="p-6">
 			<h2 className="text-xl font-bold mb-4">Occupation and Business Details</h2>
 			
-			{/* Display Applicant ID if available */}
-			{applicantId && (
-				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-					<strong>Application ID: {applicantId}</strong>
+		{/* Display Applicant ID and License ID if available */}
+		{(applicantId || almsLicenseId) && (
+			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+				<div className="flex flex-col">
+					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
+					{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
 				</div>
-			)}
-			
-			{/* Display success/error messages */}
+			</div>
+		)}			{/* Display success/error messages */}
 			{submitSuccess && (
 				<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
 					{submitSuccess}

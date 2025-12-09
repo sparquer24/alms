@@ -33,6 +33,7 @@ const LicenseDetails = () => {
     form,
     setForm,
     applicantId,
+    almsLicenseId,
     isSubmitting,
     submitError,
     submitSuccess,
@@ -404,10 +405,23 @@ const LicenseDetails = () => {
     <form className='p-6'>
       <h2 className='text-xl font-bold mb-4'>License Details</h2>
 
-      {/* Display Applicant ID if available */}
-      {applicantId && (
-        <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded'>
-          <strong>Application ID: {applicantId}</strong>
+      {/* Display Applicant ID and License ID if available */}
+      {(applicantId || almsLicenseId) && (
+        <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
+          <div className='flex flex-col'>
+            {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
+            {almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+          </div>
+          {typeof loadExistingData === 'function' && (
+            <button
+              type='button'
+              onClick={() => applicantId && loadExistingData(applicantId)}
+              disabled={isLoading}
+              className='px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'
+            >
+              {isLoading ? 'Loading...' : 'Refresh Data'}
+            </button>
+          )}
         </div>
       )}
 

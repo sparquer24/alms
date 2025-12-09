@@ -245,6 +245,14 @@ export const ApplicationApi = {
       throw error;
     }
   },
+
+  deleteApplication: async (id: string | number): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.delete(`/application-form/application/${id}`);
+    } catch (error) {
+      throw error;
+    }
+  },
 };
 
 /**

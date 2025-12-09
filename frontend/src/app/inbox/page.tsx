@@ -9,6 +9,7 @@ import { useAuthSync } from '../../hooks/useAuthSync';
 import { fetchApplicationsByStatusKey, filterApplications } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
+import { isAdminRole } from '../../utils/roleUtils';
 
 // Component that uses useSearchParams - needs to be wrapped in Suspense
 function InboxContent() {
@@ -23,7 +24,7 @@ function InboxContent() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
 
   // Handle refresh parameter - only refresh once per login
   useEffect(() => {
@@ -38,6 +39,14 @@ function InboxContent() {
       }
     }
   }, [shouldRefresh]);
+
+  // Redirect admin users to admin dashboard
+  useEffect(() => {
+    if (!authLoading && isAdminRole(userRole)) {
+      router.push('/admin/userManagement');
+      return;
+    }
+  }, [authLoading, userRole, router]);
 
   useEffect(() => {
     if (!queryType) return;

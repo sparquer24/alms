@@ -29,6 +29,7 @@ const DocumentsUpload = () => {
        form,
        setForm,
        applicantId,
+		almsLicenseId,
        isSubmitting,
        submitError,
        submitSuccess,
@@ -259,14 +260,25 @@ const DocumentsUpload = () => {
 		<form className="p-6">
 			<h2 className="text-xl font-bold mb-4">Documents Upload</h2>
 			
-			{/* Display Application ID if available */}
-			{applicationId && (
-				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-					<strong>Application ID: {applicationId}</strong>
+		{/* Display Application ID and License ID if available */}
+		{(applicationId || almsLicenseId) && (
+			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
+				<div className="flex flex-col">
+					{/* <strong>Application ID: {applicationId ?? '—'}</strong> */}
+					{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
 				</div>
-			)}
-
-			{/* Display success/error messages */}
+				{typeof loadExistingData === 'function' && (
+					<button
+						type='button'
+						onClick={() => applicationId && loadExistingData(applicationId)}
+						disabled={isLoading}
+						className='px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'
+					>
+						{isLoading ? 'Loading...' : 'Refresh Data'}
+					</button>
+				)}
+			</div>
+		)}			{/* Display success/error messages */}
 			{submitSuccess && (
 				<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
 					{submitSuccess}

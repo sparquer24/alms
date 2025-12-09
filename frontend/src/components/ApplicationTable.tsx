@@ -7,11 +7,13 @@ import { useApplications } from '../context/ApplicationContext';
 import { useAuth } from '../config/auth';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi } from '../config/APIClient';
-import { Edit } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 
 // Type assertion for lucide-react icons to fix React 18 compatibility
 // Lucide icons are React components that accept SVG props. We type it conservatively.
 const EditFixed = Edit as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
+const TrashFixed = Trash2 as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
+
 // Note: Excel export uses dynamic import of 'xlsx' to avoid SSR issues
 
 interface UserData {
@@ -124,7 +126,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
       const base = isSentPage
-        ? ['S.No', 'Acknowledgement No', 'Applicant Name', 'Created At', 'Action Taken']
+        ? ['S.No', 'Acknowledgement No', 'Applicant Name', 'Action Taken At', 'Action Taken']
         : ['S.No', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
       if (showActionColumn) base.push('Action');
       return base;
@@ -201,7 +203,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
         const rows = effectiveApplications.map((app, idx) => {
           const statusName = extractWorkflowStatusName(app);
-          const createdAtVal = (app as any).createdAt || app.applicationDate;
+          const createdAtVal = (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate;
 
           const row: Record<string, string | number> = {};
           exportColumns.forEach(col => {
@@ -220,6 +222,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 break;
               case 'Date & Time':
               case 'Created At':
+              case 'Action Taken At':  
                 row[col] = formatDateTime(createdAtVal || '');
                 break;
               case 'Status':
@@ -378,8 +381,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   <th
                     key={col}
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider'
-                  >
+className={`${styles.tableHeaderCell} text-left text-xs font-medium text-black uppercase tracking-wider`}                  >
                     {col}
                   </th>
                 ))}
@@ -503,11 +505,11 @@ const TableRow: React.FC<{
         className={`${styles.tableRow}`}
         aria-label={`Row for sent application ${app.id}`}
       >
-        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
-        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+       <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+        <td className={`${styles.tableCell} text-sm text-black`}> 
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
-        <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
+         <td className={`${styles.tableCell} text-sm font-medium`}>
           <button
             onClick={e => {
               e.stopPropagation();
@@ -519,14 +521,14 @@ const TableRow: React.FC<{
             {app.applicantName}
           </button>
         </td>
-        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
-          {formatDateTime((app as any).createdAt || app.applicationDate)}
+<td className={`${styles.tableCell} text-sm text-black`}>
+           {formatDateTime((app as any).actionTakenAt || (app as any).createdAt || app.applicationDate)}
         </td>
-        <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+                <td className={`${styles.tableCell} text-sm text-black`}>
           {(app as any).actionTaken || 'N/A'}
         </td>
         {showActionColumn && (
-          <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+ <td className={`${styles.tableCell} text-sm text-gray-500`}>
             <button
               onClick={e => {
                 e.stopPropagation();
@@ -550,8 +552,8 @@ const TableRow: React.FC<{
       className={`${styles.tableRow} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
       aria-label={`Row for application ${app.id}`}
     >
-      <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{index + 1}</td>
-      <td className='px-6 py-4 whitespace-nowrap text-sm font-medium '>
+     <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+      <td className={`${styles.tableCell} text-sm font-medium `}>
         {isDrafts ? (
           <span className='text-gray-900'>{app.applicantName}</span>
         ) : (
@@ -567,11 +569,11 @@ const TableRow: React.FC<{
           </button>
         )}
       </td>
-      <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>{app.applicationType}</td>
-      <td className={`px-6 py-4 whitespace-nowrap text-sm text-black`}>
+     <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+      <td className={`${styles.tableCell} text-sm text-black`}>
         {formatDateTime(app.applicationDate)}
       </td>
-      <td className='px-6 py-4 whitespace-nowrap'>
+     <td className={`${styles.tableCell}`}>
         {(() => {
           const statusStr = extractWorkflowStatusName(app);
           const display = statusStr
@@ -589,19 +591,21 @@ const TableRow: React.FC<{
         })()}
       </td>
       {showActionColumn && (
-        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+         <td className={`${styles.tableCell} text-sm text-gray-500`}>
           {isDrafts ? (
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                handleEditDraft(app.id);
-              }}
-              className='inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors'
-              aria-label={`Edit draft application ${app.id}`}
-            >
-              <EditFixed className='w-4 h-4' />
-              Edit
-            </button>
+            <div className='flex items-center gap-1'>
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  handleEditDraft(app.id);
+                }}
+                className='inline-flex items-center gap-0 px-2 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors'
+                aria-label={`Edit draft application ${app.id}`}
+              >
+                <EditFixed className='w-4 h-4' />
+              </button>
+              <DeleteDraftButton appId={app.id} />
+            </div>
           ) : (
             <button
               onClick={e => {
@@ -621,3 +625,65 @@ const TableRow: React.FC<{
 };
 
 export default ApplicationTable;
+
+// Small helper component for delete action to keep TableRow clean
+const DeleteDraftButton: React.FC<{ appId: string | number }> = ({ appId }) => {
+  const [deleting, setDeleting] = React.useState(false);
+  const [toast, setToast] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setDeleting(true);
+      await ApplicationApi.deleteApplication(String(appId));
+      // Show success toast
+      setToast({
+        type: 'success',
+        message: 'Draft application deleted successfully.',
+      });
+      // Refresh the page after a brief delay to show the toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to delete application', err);
+      setToast({
+        type: 'error',
+        message: 'Failed to delete draft application. Please try again.',
+      });
+      // Auto-hide toast after 4 seconds
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
+        aria-label={`Delete draft application ${appId}`}
+        title='Delete'
+      >
+<TrashFixed className='w-4 h-4' />
+      </button>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg text-white z-50 animate-in fade-in slide-in-from-bottom-4 ${
+            toast.type === 'success' ? 'bg-red-500' : 'bg-red-500'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
+  );
+};
