@@ -180,9 +180,21 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
   // Ensure we restore previously-selected active nav from localStorage on first client mount
   // unless the current URL explicitly sets a type (URL beats localStorage).
+  // Also respect the loginRedirectApplied flag to skip localStorage after fresh login.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
+      // Check if this is a fresh login redirect
+      const isLoginRedirect = sessionStorage?.getItem('loginRedirectApplied') === 'true';
+      if (isLoginRedirect) {
+        // Clear the flag and skip localStorage restoration
+        try {
+          sessionStorage.removeItem('loginRedirectApplied');
+        } catch (e) {}
+        // URL will drive the state instead
+        return;
+      }
+
       const url = new URL(window.location.href);
       const typeParam = url.searchParams.get('type');
       if (typeParam) return; // URL takes precedence
@@ -464,6 +476,20 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       isMountedRef.current = true;
       const r = getUserRoleFromCookie();
       if (r) setCookieRole(r);
+
+      // For admin users, initialize with first admin menu item
+      if (isAdminRole(r || userRole)) {
+        try {
+          const adminItems = getAdminMenuItems();
+          if (adminItems.length > 0) {
+            const firstAdminKey = normalizeNavKey(adminItems[0].name);
+            setActiveItem(firstAdminKey);
+            persistActiveNavToLocal(firstAdminKey);
+          }
+        } catch (e) {}
+        return;
+      }
+
       // Read active nav from URL first (query beats localStorage)
       try {
         const url = new URL(window.location.href);
@@ -542,6 +568,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     // If pathname or searchParams changed and point to an inbox type -> sync
     try {
       if (!pathname) return;
+
+      // For admin users, skip inbox syncing
+      const effectiveRole = cookieRole ?? userRole;
+      if (isAdminRole(effectiveRole)) {
+        // Admin users don't use inbox-based routing
+        return;
+      }
+
       const type = searchParams?.get('type');
       if ((pathname === '/inbox' || pathname.startsWith('/admin')) && type) {
         // Respect a short-lived session flag indicating we should skip
@@ -598,7 +632,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, String(searchParams?.toString())]); // we use stringified params to trigger on query changes
+  }, [pathname, String(searchParams?.toString()), cookieRole, userRole]); // we use stringified params to trigger on query changes
 
   /* ----------------------------
      Persist activeItem -> localStorage when it actually changes
@@ -638,6 +672,30 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   -----------------------------*/
   useEffect(() => {
     if (!activeItem) return;
+
+    const effectiveRole = cookieRole ?? userRole;
+    const isAdmin = isAdminRole(effectiveRole);
+
+    // For admin users, validate against admin menu items
+    if (isAdmin) {
+      const adminMenuItems = getAdminMenuItems();
+      const allowed = new Set<string>();
+      adminMenuItems.forEach(mi => {
+        const k = normalizeNavKey(mi.name as string);
+        if (k) allowed.add(k);
+      });
+
+      const normalizedActive = normalizeNavKey(activeItem);
+      if (!allowed.has(normalizedActive)) {
+        // Fallback to first admin item or userManagement
+        const fallback = normalizeNavKey(adminMenuItems[0]?.name as string) || 'usermanagement';
+        setActiveItem(fallback);
+        persistActiveNavToLocal(fallback);
+      }
+      return;
+    }
+
+    // For non-admin users, validate against regular menu items
     const allowed = new Set<string>();
     menuItems.forEach(mi => {
       const k = normalizeNavKey(mi.name as string);
@@ -660,7 +718,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       setActiveItem(fallback);
       persistActiveNavToLocal(fallback);
     }
-  }, [menuItems, activeItem, normalizeNavKey]);
+  }, [menuItems, activeItem, normalizeNavKey, cookieRole, userRole]);
 
   /* ----------------------------
      Auto-load inbox when activeItem points to inbox-{type}
@@ -769,6 +827,18 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
             console.log('[Sidebar] Navigating to admin path:', adminPath);
           }
+
+          // Only navigate if not already on this path
+          if (typeof window !== 'undefined') {
+            const currentPath = window.location.pathname;
+            if (currentPath === adminPath) {
+              // Already on this page, just update active item
+              setActiveItem(key);
+              persistActiveNavToLocal(key);
+              return;
+            }
+          }
+
           setActiveItem(key);
           persistActiveNavToLocal(key);
           router.push(adminPath);
@@ -813,13 +883,30 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       if (item.name.toLowerCase().includes('dashboard')) {
         const redirectPath = getRoleBasedRedirectPath(effectiveRole);
-        router.push(redirectPath);
+
+        // Only navigate if not already on this path
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname + window.location.search;
+          if (currentPath !== redirectPath) {
+            router.push(redirectPath);
+          }
+        }
         return;
       }
 
       const type = item.name.replace(/\s+/g, '');
       const wasTopLevel = key && topLevelInboxLike.has(key);
       const target = `/inbox?type=${encodeURIComponent(type)}`;
+
+      // Only navigate if not already on this path
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname + window.location.search;
+        if (currentPath === target) {
+          // Already on this page
+          return;
+        }
+      }
+
       if (wasTopLevel) {
         try {
           // set a short-lived session flag so the pathname/searchParams sync

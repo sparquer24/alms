@@ -639,37 +639,37 @@ export class ApplicationFormController {
       const parsedSearchValue = search ?? undefined;
       const parsedApplicationId = applicationId ? Number(applicationId) : undefined;
       const parsedAcknowledgementNo = acknowledgementNo ?? undefined;
-  // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
-  // We'll pass them to the service resolver which will return numeric IDs.
-  const parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+      // Accept status identifiers as comma-separated values which can be numeric ids or textual codes/names.
+      // We'll pass them to the service resolver which will return numeric IDs.
+      const parsedStatusIdentifiers = statusIds ? statusIds.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
 
-  if (parsedApplicationId || parsedAcknowledgementNo) {
-        const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
-        if (error) {
-          const errMsg = (error as any)?.message || 'Failed to fetch applications';
-          throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
-        }
-        if (!dataApplication) {
-          return { success: true, message: 'Application not found', data: [] };
-        }
+      if (parsedApplicationId || parsedAcknowledgementNo) {
+          const [error, dataApplication] = await this.applicationFormService.getApplicationById(parsedApplicationId, parsedAcknowledgementNo);
+          if (error) {
+            const errMsg = (error as any)?.message || 'Failed to fetch applications';
+            throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
+          }
+          if (!dataApplication) {
+            return { success: true, message: 'Application not found', data: [] };
+          }
 
-        // Build applicant name
-        let buildApplicantName  = (app: any) =>[app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ');
+          // Build applicant name
+          let buildApplicantName  = (app: any) =>[app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ');
 
-        const transformed: any = {
-          ...dataApplication,
-          applicantName: buildApplicantName(dataApplication),
-        };
+          const transformed: any = {
+            ...dataApplication,
+            applicantName: buildApplicantName(dataApplication),
+          };
 
-        // Remove raw id fields that should not be returned
-        ['presentAddressId','permanentAddressId','contactInfoId','occupationInfoId','biometricDataId','statusId','currentRoleId','previousRoleId','currentUserId','previousUserId','stateId','districtId'].forEach(k => delete transformed[k]);
+          // Remove raw id fields that should not be returned
+          ['presentAddressId','permanentAddressId','contactInfoId','occupationInfoId','biometricDataId','statusId','currentRoleId','previousRoleId','currentUserId','previousUserId','stateId','districtId'].forEach(k => delete transformed[k]);
 
-        return {
-          success: true,
-          message: 'Applications retrieved successfully',
-          data: transformed,
-        }
+          return {
+            success: true,
+            message: 'Applications retrieved successfully',
+            data: transformed,
+          }
       }
       // Always use getFilteredApplications so usersInHierarchy is included
       const [error, result] = await this.applicationFormService.getFilteredApplications({
