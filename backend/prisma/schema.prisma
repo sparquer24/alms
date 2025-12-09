@@ -240,6 +240,8 @@ model FreshLicenseApplicationPersonalDetails {
   isReEnquiry                Boolean?                        @default(false)
   isReEnquiryDone            Boolean?                        @default(false)
   isRejected                 Boolean?                        @default(false)
+  isRecommended              Boolean?                        @default(false)
+  isNotRecommended           Boolean?                        @default(false)
   biometricData              FLAFBiometricDatas?             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]         @relation("CriminalHistories")
   fileUploads                FLAFFileUploads[]               @relation("FileUploads")

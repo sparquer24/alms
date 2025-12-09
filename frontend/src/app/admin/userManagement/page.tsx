@@ -112,6 +112,7 @@ export default function UserManagementPage() {
   }>({ username: '', email: '', phoneNo: '', roleCode: '' });
   const [editUser, setEditUser] = useState<UiUser | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
   const { userRole } = useAuthSync();
@@ -233,6 +234,7 @@ export default function UserManagementPage() {
   };
 
   const handleAddUser = async () => {
+    if (addError) return; // block submit when inline add validation shows error
     const err = validateUser(addUser);
     if (err) return setAddError(err);
     const role = apiRoles.find(r => r.code === addUser.roleCode);
@@ -360,6 +362,7 @@ export default function UserManagementPage() {
     if (!editUser) return;
     setEditLoading(true);
     setActionMessage('');
+    
     try {
       // find roleId from code
       const role = apiRoles.find(r => r.code === editUser.role);
@@ -831,8 +834,19 @@ export default function UserManagementPage() {
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   placeholder='Enter username'
                   value={addUser.username}
-                  onChange={e => setAddUser({ ...addUser, username: e.target.value })}
+                  onChange={e => {
+                    const raw = e.target.value || '';
+                    const value = raw.toUpperCase();
+                    // allow empty while typing (validation will run on submit)
+                    setAddUser({ ...addUser, username: value });
+                    if (value && !/^[A-Z_]*$/.test(value)) {
+                      setAddError('Username invalid. Only A-Z and underscore allowed, no spaces.');
+                    } else {
+                      setAddError('');
+                    }
+                  }}
                 />
+                {addError && <p className='text-red-600 text-sm mt-1'>{addError}</p>}
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Password</label>
@@ -1444,11 +1458,22 @@ export default function UserManagementPage() {
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Username</label>
                 <input
-                  value={editUser.username}
-                  onChange={e => setEditUser({ ...editUser, username: e.target.value })}
-                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                value={editUser.username}
+                onChange={e => {
+                  const raw = e.target.value || '';
+                    const value = raw.toUpperCase();
+                    // allow empty while typing (validation will run on submit)
+                    setEditUser({ ...editUser, username: value });
+                    if (value && !/^[A-Z_]*$/.test(value)) {
+                      setEditError('Username invalid. Only A-Z and underscore allowed, no spaces.');
+                    } else {
+                      setEditError('');
+                    }
+                  }}
                 />
-              </div>
+                {editError && <p className='text-red-600 text-sm mt-1'>{editError}</p>}
+                </div>
                 <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>password</label>
                 <input
