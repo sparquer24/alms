@@ -1278,21 +1278,32 @@ export class ApplicationFormService {
       const limit = Math.max(Number(filter.limit ?? 10), 1);
       const skip = (page - 1) * limit;
 
-      // Handle isSent parameter - fetch applications from workflow history
+      // Handle isSent parameter - fetch latest action per application from workflow history
       if (filter.isSent === true && filter.currentUserId) {
         const parsedUserId = Number(filter.currentUserId);
         if (!isNaN(parsedUserId)) {
-          // Get all workflow history entries where the user took action
+          // We'll get the latest action per application
           const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
             where: {
               previousUserId: parsedUserId
             },
             select: {
-              applicationId: true,
               id: true,
+              applicationId: true,
               createdAt: true,
               actionTaken: true,
-              remarks: true
+              remarks: true,
+              application: {
+                select: {
+                  id: true,
+                  almsLicenseId: true,
+                  acknowledgementNo: true,
+                  createdAt: true,
+                  firstName: true,
+                  middleName: true,
+                  lastName: true,
+                }
+              }
             },
             orderBy: {
               createdAt: 'desc'
@@ -1300,78 +1311,47 @@ export class ApplicationFormService {
           });
 
           if (workflowHistories.length === 0) {
-            // No workflow history found for this user
             return [null, { total: 0, page, limit, data: [] }];
           }
 
-          // Group histories by applicationId and count occurrences
-          const applicationMap = new Map<number, any[]>();
+          // Group by applicationId and keep only the latest action per application
+          const latestActionsMap = new Map<number, any>();
           for (const history of workflowHistories) {
-            if (!applicationMap.has(history.applicationId)) {
-              applicationMap.set(history.applicationId, []);
-            }
-            applicationMap.get(history.applicationId)!.push(history);
-          }
-
-          // Fetch all unique application IDs
-          const applicationIds = Array.from(applicationMap.keys());
-
-          // Apply pagination on the grouped results
-          // Since we need to duplicate applications based on action count, we need special handling
-          let allResults: any[] = [];
-
-          // Fetch all applications - only select required fields
-          const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-            where: {
-              id: { in: applicationIds }
-            },
-            select: {
-              id: true, // Keep id for mapping
-              almsLicenseId: true,
-              acknowledgementNo: true,
-              createdAt: true,
-              firstName: true,
-              middleName: true,
-              lastName: true,
-            }
-          });
-
-          // Create a map for quick application lookup
-          const appMap = new Map(applications.map(app => [app.id, app]));
-
-          // Build results array with duplicates based on action count
-          for (const [applicationId, histories] of applicationMap.entries()) {
-            const application = appMap.get(applicationId);
-            if (application) {
-              // Build applicant name
-              const applicantName = [application.firstName, application.middleName, application.lastName]
-                .filter(Boolean)
-                .join(' ');
-
-              // Add the application once for each action taken by the user
-              for (const history of histories) {
-                allResults.push({
-                  applicationId: application.id,
-                  acknowledgementNo: application.acknowledgementNo,
-                  createdAt: application.createdAt,
-                  applicantName: applicantName,
-                  workflowHistoryId: history.id,
-                  actionTakenAt: history.createdAt,
-                  actionTaken: history.actionTaken,
-                  actionRemarks: history.remarks
-                });
-              }
+            if (!latestActionsMap.has(history.applicationId)) {
+              latestActionsMap.set(history.applicationId, history);
             }
           }
+
+          // Convert to array
+          let latestActions = Array.from(latestActionsMap.values());
 
           // Apply ordering if specified
           const allowedOrderFields = ['applicationId', 'acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
           const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
           const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-          allResults.sort((a, b) => {
-            const aValue = a[orderByField];
-            const bValue = b[orderByField];
+          latestActions.sort((a, b) => {
+            let aValue, bValue;
+            
+            if (orderByField === 'actionTakenAt') {
+              aValue = a.createdAt;
+              bValue = b.createdAt;
+            } else if (orderByField === 'applicationId') {
+              aValue = a.application?.id;
+              bValue = b.application?.id;
+            } else if (orderByField === 'acknowledgementNo') {
+              aValue = a.application?.acknowledgementNo;
+              bValue = b.application?.acknowledgementNo;
+            } else if (orderByField === 'createdAt') {
+              aValue = a.application?.createdAt;
+              bValue = b.application?.createdAt;
+            } else if (orderByField === 'applicantName') {
+              aValue = a.application?.firstName;
+              bValue = b.application?.firstName;
+            } else {
+              aValue = a.createdAt;
+              bValue = b.createdAt;
+            }
 
             if (aValue < bValue) return orderDirection === 'asc' ? -1 : 1;
             if (aValue > bValue) return orderDirection === 'asc' ? 1 : -1;
@@ -1379,8 +1359,28 @@ export class ApplicationFormService {
           });
 
           // Apply pagination
-          const total = allResults.length;
-          const paginatedResults = allResults.slice(skip, skip + limit);
+          const total = latestActions.length;
+          const paginatedActions = latestActions.slice(skip, skip + limit);
+
+          // Transform the data to match the expected output format
+          const paginatedResults = paginatedActions.map(history => {
+            const applicantName = [
+              history.application?.firstName,
+              history.application?.middleName,
+              history.application?.lastName
+            ].filter(Boolean).join(' ');
+
+            return {
+              applicationId: history.application?.id,
+              acknowledgementNo: history.application?.acknowledgementNo,
+              createdAt: history.application?.createdAt,
+              applicantName: applicantName,
+              workflowHistoryId: history.id,
+              actionTakenAt: history.createdAt,
+              actionTaken: history.actionTaken,
+              actionRemarks: history.remarks
+            };
+          });
 
           return [null, { total, page, limit, data: paginatedResults }];
         }
