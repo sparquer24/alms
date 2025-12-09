@@ -629,42 +629,61 @@ export default ApplicationTable;
 // Small helper component for delete action to keep TableRow clean
 const DeleteDraftButton: React.FC<{ appId: string | number }> = ({ appId }) => {
   const [deleting, setDeleting] = React.useState(false);
+  const [toast, setToast] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const ok = window.confirm(
-      'Are you sure you want to delete this draft application? This action cannot be undone.'
-    );
-    if (!ok) return;
     try {
       setDeleting(true);
       await ApplicationApi.deleteApplication(String(appId));
-      // Refresh the page to reflect deletion
-      window.location.reload();
+      // Show success toast
+      setToast({
+        type: 'success',
+        message: 'Draft application deleted successfully.',
+      });
+      // Refresh the page after a brief delay to show the toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to delete application', err);
-      window.alert('Failed to delete draft application. Please try again.');
+      setToast({
+        type: 'error',
+        message: 'Failed to delete draft application. Please try again.',
+      });
+      // Auto-hide toast after 4 seconds
+      setTimeout(() => setToast(null), 4000);
     } finally {
       setDeleting(false);
     }
   };
 
   return (
-    <button
-      onClick={handleDelete}
-      disabled={deleting}
-      className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
-      aria-label={`Delete draft application ${appId}`}
-      title='Delete'
-    >
-      {deleting ? (
-        'Deleting...'
-      ) : (
-        <>
-          <TrashFixed className='w-4 h-4' />
-        </>
+    <>
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
+        aria-label={`Delete draft application ${appId}`}
+        title='Delete'
+      >
+<TrashFixed className='w-4 h-4' />
+      </button>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg text-white z-50 animate-in fade-in slide-in-from-bottom-4 ${
+            toast.type === 'success' ? 'bg-red-500' : 'bg-red-500'
+          }`}
+        >
+          {toast.message}
+        </div>
       )}
-    </button>
+    </>
   );
 };

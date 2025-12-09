@@ -6,6 +6,7 @@ import { Frown } from 'lucide-react';
 // Type assertion for lucide-react icons to fix React 18 compatibility
 const FrownFixed = Frown as any;
 import FormFooter from '../elements/footer';
+import { ApplicationService } from '../../../api/applicationService';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { patchData } from '../../../api/axiosConfig';
 import { FORM_ROUTES } from '../../../config/formRoutes';
@@ -20,11 +21,28 @@ const initialState = {
 const Declaration = () => {
 	const router = useRouter();
 	const [form, setForm] = useState(initialState);
+	const [almsLicenseId, setAlmsLicenseId] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [showSuccessModal, setShowSuccessModal] = useState(false);
 	const searchParams = useSearchParams();
 	const applicantId = searchParams?.get('applicantId') || searchParams?.get('id');
+
+	// Load license id for display (if available)
+	React.useEffect(() => {
+		const loadLicense = async () => {
+			if (!applicantId) return;
+			try {
+				const resp = await ApplicationService.getApplication(applicantId);
+				const data = resp?.data || resp;
+				const licenseId = data?.almsLicenseId ?? data?.alms_license_id ?? data?.licenseId ?? null;
+				if (licenseId) setAlmsLicenseId(licenseId);
+			} catch (err) {
+				// ignore
+			}
+		};
+		loadLicense();
+	}, [applicantId]);
 
 	// Debug logging
 	const handleCheck = (name: string, checked: boolean) => {
@@ -108,14 +126,15 @@ const Declaration = () => {
 						<div className="w-24 h-1 bg-blue-600 mx-auto rounded-full mb-4"></div>
 					</div>
 					<form onSubmit={(e) => e.preventDefault()} className="">
-						{/* Display Application ID if available */}
-						{applicantId && (
-							<div className="mb-6 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-lg font-semibold max-w-md mx-auto text-center">
-								Application ID: <span className="font-bold">{applicantId}</span>
-							</div>
-						)}
-
-						{error && (
+					{/* Display Application ID and License ID if available */}
+					{(applicantId || almsLicenseId) && (
+						<div className="mb-6 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-lg font-semibold max-w-md mx-auto text-center">
+							{/* <div>Application ID: <span className="font-bold">{applicantId ?? '—'}</span></div> */}
+							{almsLicenseId && (
+								<strong className='text-sm mt-1'>License ID: {almsLicenseId}</strong>
+							)}
+						</div>
+					)}						{error && (
 							<div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-auto">
 								<div className="flex items-start">
                                                                         <FrownFixed className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />

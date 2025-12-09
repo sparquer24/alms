@@ -72,21 +72,20 @@ export class FileUploadService {
   }
 
   /**
-   * Simulate uploading file to storage service
-   * In production, this would upload to AWS S3, Cloudinary, or similar service
-   * @param file - The file to upload
-   * @returns Promise<string> - The file URL
+   * Simulate uploading file to storage service.
+   * Uses a configurable base URL instead of an unreachable example.com host.
+   * In production, replace with real upload (S3/Blob/etc.) and return the real URL.
    */
   private static async uploadToStorageService(file: File): Promise<string> {
-    return new Promise((resolve) => {
-      // Simulate upload delay
+    return new Promise(resolve => {
       setTimeout(() => {
-        // Generate a mock file URL
         const timestamp = Date.now();
-        const fileExtension = file.name.split('.').pop();
-        const mockUrl = `https://storage.example.com/uploads/${timestamp}_${file.name}`;
+        const base =
+          (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FILE_BASE_URL) ||
+          (typeof window !== 'undefined' ? window.location.origin : '');
+        const mockUrl = `${base}/uploads/${timestamp}_${file.name}`;
         resolve(mockUrl);
-      }, 1000); // 1 second delay to simulate upload
+      }, 1000);
     });
   }
 

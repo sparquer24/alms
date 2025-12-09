@@ -1,9 +1,11 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { ApplicationService } from '../../../api/applicationService';
 import { locationAPI } from '../../../api/locationApi';
 import { WeaponsService, Weapon } from '../../../services/weapons';
+import { openDocumentFile } from '../../../services/fileHandler';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import FormFooter from '../elements/footer';
 
@@ -192,6 +194,7 @@ const Preview = () => {
     return weaponNames.join(', ');
   };
 
+
   // Render field with label and value - Enhanced design with compact width
   const renderField = (label: string, value: any) => {
     // Handle various empty states - always show field, never return null
@@ -246,6 +249,14 @@ const Preview = () => {
             </span>
             <div className='text-lg font-semibold text-gray-800 mt-1'>
               {applicationData.acknowledgementNo || 'Not Generated'}
+            </div>
+          </div>
+          <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
+            <span className='text-xs font-medium text-gray-500 uppercase tracking-wide'>
+              License ID
+            </span>
+            <div className='text-lg font-semibold text-gray-800 mt-1'>
+              {applicationData.almsLicenseId ?? applicationData.alms_license_id ?? applicationData.licenseId ?? 'Not Assigned'}
             </div>
           </div>
           <div className='bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow duration-200'>
@@ -1246,26 +1257,19 @@ const Preview = () => {
                     </span>
                   </div>
                   <div>
-                    {file.fileName ? (
-                      <a
-                        href={
-                          file.fileUrl &&
-                          (file.fileUrl.startsWith('http') || file.fileUrl.startsWith('data:'))
-                            ? file.fileUrl
-                            : `https://${file.fileUrl || '#'}`
-                        }
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='text-blue-600 hover:text-blue-800 underline break-words cursor-pointer mb-1'
-                        title="Click to open file - if file doesn't open, the URL may be invalid or require authentication"
-                      >
-                        {file.fileName.length > 30
-                          ? file.fileName.substring(0, 30) + '...'
-                          : file.fileName}
-                      </a>
-                    ) : (
-                      <span className='text-gray-400 italic'>Not Available</span>
-                    )}
+                      {file.fileName && file.fileUrl ? (
+                        <button
+                          onClick={() => openDocumentFile(file.fileUrl, file.fileName)}
+                          className='text-blue-600 hover:text-blue-800 underline break-words cursor-pointer mb-1 text-left bg-none border-none p-0'
+                          title='Click to download and open file'
+                        >
+                          {file.fileName.length > 30
+                            ? file.fileName.substring(0, 30) + '...'
+                            : file.fileName}
+                        </button>
+                      ) : (
+                        <span className='text-gray-400 italic'>Not Available</span>
+                      )}
                   </div>
                 </div>
               ))}

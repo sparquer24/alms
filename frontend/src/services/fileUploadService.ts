@@ -109,12 +109,16 @@ export class FileUploadService {
 
   /**
    * Generate a mock file URL for demonstration purposes
-   * In production, this would be replaced with actual file storage logic
+   * Uses a configurable base URL to avoid unreachable example.com.
+   * Replace with actual storage URL generation in production.
    */
   private static generateMockFileUrl(applicationId: number, file: File, fileType: string): string {
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    return `https://example.com/files/${fileType}_${timestamp}_${sanitizedFileName}`;
+    const base =
+      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FILE_BASE_URL) ||
+      (typeof window !== 'undefined' ? window.location.origin : '');
+    return `${base}/files/${fileType}_${timestamp}_${sanitizedFileName}`;
   }
 
   /**
