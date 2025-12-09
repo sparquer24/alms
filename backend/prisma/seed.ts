@@ -25,6 +25,7 @@ async function main() {
     { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
     { code: 'CLOSE', name: 'Close', description: 'Application closed' },
     { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
+    { code: 'NOT_RECOMMEND', name: 'Not Recommend', description: 'Application not recommended' },
     { code: 'DRAFT', name: 'Draft', description: 'Draft status' },
     { code: 'RETURN', name: 'Return', description: 'Application returned for corrections' }
   ];
@@ -976,10 +977,10 @@ async function main() {
     { roleCode: 'JTCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // CP - Commissioner of Police (highest authority) - NO RETURN action
-    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND'] },
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND', 'NOT_RECOMMEND'] },
 
     // ADMIN - System Administrator (can perform all actions for system management)
-    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'RETURN'] },
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'NOT_RECOMMEND', 'RETURN'] },
   ];
 
   // Insert role-action mappings

@@ -92,6 +92,7 @@ export const ACTION_CODES = {
   RE_ENQUIRY: 'RE_ENQUIRY',
   GROUND_REPORT: 'GROUND_REPORT',
   RECOMMEND: 'RECOMMEND',
+  NOT_RECOMMEND: 'NOT_RECOMMEND',
   APPROVED: 'APPROVED',
   REJECT: 'REJECT',
   CLOSE: 'CLOSE',
@@ -151,4 +152,18 @@ export function isGroundReportAction(actionCode: string): boolean {
  */
 export function isReEnquiryAction(actionCode: string): boolean {
   return actionCode.toUpperCase() === ACTION_CODES.RE_ENQUIRY;
+}
+
+/**
+ * Check if action is recommend
+ */
+export function isRecommendAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.RECOMMEND;
+}
+
+/**
+ * check if action is not recommend
+*/
+export function isNotRecommendAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.NOT_RECOMMEND;
 }
