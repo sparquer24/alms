@@ -1346,8 +1346,11 @@ export class ApplicationFormService {
           });
           userRole = user?.role?.code;
 
-        // For filter by currentUserId
+          // For non-ZS users, filter by currentUserId
+          // ZS users can see all applications
+          // if (userRole && userRole !== ROLE_CODES.ZS) {
           where.currentUserId = parsedUserId;
+          // }
         }
       }
 

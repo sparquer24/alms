@@ -197,9 +197,10 @@ export class FlowMappingService {
                     }
                 } else if (recursionStack.has(neighbor)) {
                     // Cycle detected
-                    const cycleStart = result.path.indexOf(neighbor);
-                    const circlePath = [...path, neighbor].slice(cycleStart).join(' → ');
-                    return { has: true, path: [...path, neighbor] };
+                    const cycleStart = path.indexOf(neighbor);
+                    const cycleEnd = path.length;
+                    const circlePath = [...path.slice(cycleStart), neighbor].join(' → ');
+                    return { has: true, path: [...path.slice(cycleStart), neighbor] };
                 }
             }
 
