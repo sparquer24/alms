@@ -9,6 +9,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { fetchData, postData, putData, deleteData } from '../../../api/axiosConfig';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
+import EditUserPage from '../users/[id]/edit/page';
 
 // Types representing API user + transformed UI user
 interface ApiRole {
@@ -47,6 +48,12 @@ interface UiUser {
   updatedAt?: string;
   roleName?: string;
   roleFull?: ApiRole; // full role object for details modal
+  password?: string;
+  state: string | number | readonly string[] | undefined;
+  district: string | number | readonly string[] | undefined;
+  zone: string | number | readonly string[] | undefined;
+  division: string | number | readonly string[] | undefined;
+  policeStation: string | number | readonly string[] | undefined;
 }
 
 export default function UserManagementPage() {
@@ -133,6 +140,11 @@ export default function UserManagementPage() {
         updatedAt: (u as any).updatedAt,
         roleName: (u as any).role?.name,
         roleFull: u.role,
+        state: (u as any).stateId || (u as any).state || '',
+        district: (u as any).districtId || (u as any).district || '',
+        zone: (u as any).zoneId || (u as any).zone || '',
+        division: (u as any).divisionId || (u as any).division || '',
+        policeStation: (u as any).policeStationId || (u as any).policeStation || '',
       }));
       setUsers(ui);
       const unique: Record<string, ApiRole> = {};
@@ -898,7 +910,7 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+             {(addUser.roleCode == 'JTCP' || addUser.roleCode == 'CP' || addUser.roleCode == 'CADO' || addUser.roleCode == 'ADO' || addUser.roleCode == 'ZS' || addUser.roleCode === 'DCP' || addUser.roleCode === 'ACP' || addUser.roleCode === 'SHO') && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
                 <select
@@ -925,7 +937,8 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+              )}
+              {(addUser.roleCode === 'DCP' || addUser.roleCode === 'ZS' || addUser.roleCode === 'ACP' || addUser.roleCode === 'SHO') && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
                 <select
@@ -946,7 +959,8 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+              )}
+              {(addUser.roleCode == 'ACP' || addUser.roleCode == 'SHO') && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Division</label>
                 <select
@@ -967,11 +981,10 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+              )}
+              {addUser.roleCode == 'SHO' && ( 
               <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>
-                  Police Station
-                </label>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
                 <select
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.policeStation}
@@ -990,6 +1003,7 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
+              )}
               {addError && (
                 <div className='rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700'>
                   {addError}
@@ -1426,12 +1440,20 @@ export default function UserManagementPage() {
                 </svg>
               </button>
             </div>
-            <div className='space-y-4'>
+              <div className='space-y-4 overflow-y-auto max-h-[70vh] pr-1'>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Username</label>
                 <input
                   value={editUser.username}
                   onChange={e => setEditUser({ ...editUser, username: e.target.value })}
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                />
+              </div>
+                <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>password</label>
+                <input
+                  value={editUser.password}
+                  onChange={e => setEditUser({ ...editUser, password: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 />
               </div>
@@ -1454,7 +1476,7 @@ export default function UserManagementPage() {
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Role</label>
                 <select
-                  value={editUser.role}
+                  value={editUser.role }
                   onChange={e => setEditUser({ ...editUser, role: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 >
@@ -1465,11 +1487,128 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-              {actionMessage && (
-                <div className='rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700'>
-                  {actionMessage}
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>State</label>
+                <select
+                 className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.state}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedState(v);
+                    setEditUser({
+                      ...editUser,
+                      state: v,
+                      district: '',
+                      zone: '',
+                      division: '',
+                      policeStation: '',
+                    });
+                  }}
+                  disabled={locationState.loadingStates}
+                >
+                  <option value=''>Select a state</option>
+                  {locationOptions.stateOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {(editUser.role == 'JTCP' || editUser.role == 'CP' || editUser.role == 'CADO' || editUser.role == 'ADO' || editUser.role == 'ZS' || editUser.role === 'DCP' || editUser.role === 'ACP' || editUser.role === 'SHO') && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.district}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedDistrict(v);
+                    setEditUser({
+                      ...editUser,
+                      district: v,
+                      zone: '',
+                      division: '',
+                      policeStation: '',
+                    });
+                  }}
+                  disabled={!editUser.state || locationState.loadingDistricts}
+                >
+                  <option value=''>Select a district</option>
+                  {locationOptions.districtOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              )} 
+             {(editUser.role === 'DCP' || editUser.role === 'ZS' || editUser.role === 'ACP' || editUser.role === 'SHO') && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.zone}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedZone(v);
+                    setEditUser({ ...editUser, zone: v, division: '', policeStation: '' });
+                  }}
+                  disabled={!editUser.district || locationState.loadingZones}
+                >
+                  <option value=''>Select a zone</option>
+                  {locationOptions.zoneOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+               )} 
+              {(editUser.role == 'ACP' || editUser.role == 'SHO') && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Division</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.division}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedDivision(v);
+                    setEditUser({ ...editUser, division: v, policeStation: '' });
+                  }}
+                  disabled={!editUser.zone || locationState.loadingDivisions}
+                >
+                  <option value=''>Select a division</option>
+                  {locationOptions.divisionOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              )}
+              {editUser.role == 'SHO' && (
+                <div>
+                  <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
+                  <select
+                    className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                    value={editUser.policeStation}
+                    onChange={e => {
+                      const v = e.target.value;
+                      locationActions.setSelectedPoliceStation(v);
+                      setEditUser({ ...editUser, policeStation: v });
+                    }}
+                    disabled={!editUser.division || locationState.loadingPoliceStations}
+                  >
+                    <option value=''>Select a police station</option>
+                    {locationOptions.policeStationOptions.map(o => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
+                
               <div className='flex justify-end gap-3 pt-2'>
                 <button
                   disabled={editLoading}
