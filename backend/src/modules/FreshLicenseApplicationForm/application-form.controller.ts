@@ -940,30 +940,6 @@ export class ApplicationFormController {
       success: true,
       message: 'Users in hierarchy fetched successfully',
       data: [
-        // {
-        //   id: 5,
-        //   username: 'officer_ps1',
-        //   email: 'officer@ps1.gov.in',
-        //   roleId: 3,
-        //   policeStationId: 1,
-        //   divisionId: 1,
-        //   zoneId: 1,
-        //   districtId: 1,
-        //   stateId: 1,
-        //   role: {
-        //     id: 3,
-        //     code: 'PS',
-        //     name: 'Police Station'
-        //   },
-        //   state: {
-        //     id: 1,
-        //     name: 'West Bengal'
-        //   },
-        //   district: {
-        //     id: 1,
-        //     name: 'Kolkata'
-        //   }
-        // }
       ]
     }
   })
