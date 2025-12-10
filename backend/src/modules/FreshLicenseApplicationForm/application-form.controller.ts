@@ -922,4 +922,100 @@ export class ApplicationFormController {
       );
     }
   }*/
+
+  @Get('users-in-hierarchy/:applicationId')
+  @ApiOperation({
+    summary: 'Get Users in Hierarchy for Application',
+    description: 'Get list of users to whom the current user can forward the application based on role flow mapping and the application\'s location hierarchy'
+  })
+  @ApiParam({
+    name: 'applicationId',
+    description: 'Application ID',
+    example: '123'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Users fetched successfully',
+    example: {
+      success: true,
+      message: 'Users in hierarchy fetched successfully',
+      data: [
+        // {
+        //   id: 5,
+        //   username: 'officer_ps1',
+        //   email: 'officer@ps1.gov.in',
+        //   roleId: 3,
+        //   policeStationId: 1,
+        //   divisionId: 1,
+        //   zoneId: 1,
+        //   districtId: 1,
+        //   stateId: 1,
+        //   role: {
+        //     id: 3,
+        //     code: 'PS',
+        //     name: 'Police Station'
+        //   },
+        //   state: {
+        //     id: 1,
+        //     name: 'West Bengal'
+        //   },
+        //   district: {
+        //     id: 1,
+        //     name: 'Kolkata'
+        //   }
+        // }
+      ]
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  @ApiResponse({ status: 400, description: 'Bad request - Application not found or invalid data' })
+  @ApiResponse({ status: 404, description: 'Application not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async getUsersInHierarchy(@Param('applicationId') applicationId: string, @Request() req: any) {
+    try {
+      const applicationIdNum = parseInt(applicationId, 10);
+      if (isNaN(applicationIdNum)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Invalid application ID format',
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      const [error, users] = await this.applicationFormService.getUsersInHierarchy(applicationIdNum);
+
+      if (error) {
+        const errorMessage = typeof error === 'object' && error.message ? error.message : error;
+        throw new HttpException(
+          {
+            success: false,
+            message: errorMessage,
+            error: errorMessage,
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      return {
+        success: true,
+        message: 'Users in hierarchy fetched successfully',
+        data: users,
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to fetch users in hierarchy',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 }
