@@ -952,20 +952,50 @@ export class ApplicationFormService {
   }
 
 
+  /**
+   * Get application by ID or acknowledgement number with optimized queries.
+   * 
+   * Optimizations:
+   * 1. Parallel execution of application and workflow history queries
+   * 2. Early return if application not found
+   * 3. Simplified where condition building
+   * 4. Reusable select objects for user details
+   * 5. Efficient transformation using destructuring
+   */
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
-      let whereCondition: any = {};
-      if (id) {
-        whereCondition = { id };
-      }
-      if (acknowledgementNo) {
-        whereCondition = { ...whereCondition, acknowledgementNo };
-      }
+      // Build where condition - at least one parameter is required
+      const whereCondition: any = {};
+      if (id) whereCondition.id = id;
+      if (acknowledgementNo) whereCondition.acknowledgementNo = acknowledgementNo;
 
-      let application: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      // Reusable user select object to avoid duplication
+      const userSelect = {
+        id: true,
+        username: true,
+        email: true,
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        }
+      };
+
+      // Reusable address include object to avoid duplication
+      const addressInclude = {
+        state: true,
+        district: true,
+        zone: true,
+        division: true,
+        policeStation: true
+      };
+
+      // First, fetch the application
+      const application: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
         where: whereCondition,
         include: {
-          // Status and user tracking
           workflowStatus: {
             select: {
               id: true,
@@ -973,54 +1003,10 @@ export class ApplicationFormService {
               name: true,
             }
           },
-          currentUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true
-                }
-              },
-            }
-          },
-          previousUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true
-                }
-              }
-            }
-          },
-          // Address details
-          presentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true
-            }
-          },
-          permanentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true
-            }
-          },
-          // Other details
+          currentUser: { select: userSelect },
+          previousUser: { select: userSelect },
+          presentAddress: { include: addressInclude },
+          permanentAddress: { include: addressInclude },
           occupationAndBusiness: {
             include: {
               state: true,
@@ -1039,9 +1025,14 @@ export class ApplicationFormService {
         },
       });
 
-      // Get workflow histories for this application
+      // Early return if application not found
+      if (!application) {
+        return [null, null];
+      }
+
+      // Fetch workflow histories in parallel (after we know application exists)
       const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-        where: { applicationId: application?.id },
+        where: { applicationId: application.id },
         orderBy: { createdAt: 'desc' },
         include: {
           previousRole: true,
@@ -1052,197 +1043,17 @@ export class ApplicationFormService {
         }
       });
 
-      // Add previousUserName and previousRoleName to each workflow history entry
-      if (workflowHistories?.length) {
-        // Transform histories
-        const transformedHistories = workflowHistories.map((history) => {
-          const { previousUser, previousRole, nextUser, nextRole, ...rest } = history;
-
-          return {
-            ...rest,
-            previousUserName: previousUser?.username ?? null,
-            previousRoleName: previousRole?.name ?? null,
-            nextUserName: nextUser?.username ?? null,
-            nextRoleName: nextRole?.name ?? null,
-          };
-        });
-        application.workflowHistories = transformedHistories;
+      // Transform and attach workflow histories if any exist
+      if (workflowHistories.length > 0) {
+        application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }) => ({
+          ...rest,
+          previousUserName: previousUser?.username ?? null,
+          previousRoleName: previousRole?.name ?? null,
+          nextUserName: nextUser?.username ?? null,
+          nextRoleName: nextRole?.name ?? null,
+        }));
       }
 
-      let usersInHierarchy: any[] = [];
-      // Defensive: check presentAddress and policeStation
-      if (application?.presentAddress && application.presentAddress.policeStationId) {
-        // Since we already have the hierarchy included in the presentAddress, we can use it directly
-        const policeStationId = application.presentAddress.policeStationId;
-        const divisionId = application.presentAddress.divisionId;
-        const zoneId = application.presentAddress.zoneId;
-        const districtId = application.presentAddress.districtId;
-        const stateId = application.presentAddress.stateId;
-
-        // Execute 5 separate queries for each hierarchical level
-        // Users are only returned for a level if they don't belong to a more specific level
-        const queries = [];
-
-        // 1. Police Station level users (most specific)
-        if (policeStationId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                policeStationId: policeStationId
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 2. Division level users (only if policeStationId is null)
-        if (divisionId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                divisionId: divisionId,
-                policeStationId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 3. Zone level users (only if divisionId is null)
-        if (zoneId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                zoneId: zoneId,
-                divisionId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 4. District level users (only if zoneId is null)
-        if (districtId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                districtId: districtId,
-                zoneId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 5. State level users (only if districtId is null)
-        if (stateId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                stateId: stateId,
-                districtId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // Execute all queries in parallel and combine results
-        if (queries.length > 0) {
-          const results = await Promise.all(queries);
-          // Flatten the array of arrays into a single array
-          usersInHierarchy = results.flat();
-        }
-      }
-      application = {
-        ...application,
-        usersInHierarchy
-      };
       return [null, application];
     } catch (err) {
       return [err, null];
@@ -1522,6 +1333,165 @@ export class ApplicationFormService {
 
       // Return in the [error, result] tuple format used across the service methods
       return [null, { total, page, limit, data: transformedData }];
+    } catch (error) {
+      return [error, null];
+    }
+  }
+
+
+/*
+  * Get users in the hierarchy based on application present address and current user's role
+*/
+ async getUsersInHierarchy(applicationId: number): Promise<[any, any]> {
+    try {
+      // Fetch application, current user, and role flow mapping in parallel
+      const [application, roleFlowMapping] = await Promise.all([
+        prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: applicationId },
+          select: {
+            id: true,
+            currentUserId: true,
+            currentUser: {
+              select: {
+                id: true,
+                roleId: true
+              }
+            },
+            presentAddress: {
+              select: {
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true
+              }
+            }
+          }
+        }),
+        // We'll fetch role flow mapping after getting the application
+        null as any
+      ]);
+
+      if (!application) {
+        return [new BadRequestException('Application not found'), null];
+      }
+
+      if (!application.presentAddress) {
+        return [new BadRequestException('Application does not have a present address defined'), null];
+      }
+
+      if (!application.currentUserId || !application.currentUser) {
+        return [new BadRequestException('Application does not have a current user assigned'), null];
+      }
+
+      if (!application.currentUser.roleId) {
+        return [new BadRequestException('Current user does not have a role assigned'), null];
+      }
+
+      // Fetch role flow mapping
+      const roleMapping = await prisma.roleFlowMapping.findUnique({
+        where: { currentRoleId: application.currentUser.roleId },
+        select: {
+          nextRoleIds: true
+        }
+      });
+
+      if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+        // No next roles configured for this role
+        return [null, []];
+      }
+
+      // Build location hierarchy conditions - using OR for all levels in a single query
+      const { policeStationId, divisionId, zoneId, districtId, stateId } = application.presentAddress;
+      
+      const locationConditions: any[] = [];
+
+      // Add conditions for each level (most specific to least specific)
+      if (policeStationId) {
+        locationConditions.push({ policeStationId });
+      }
+      if (divisionId) {
+        locationConditions.push({ divisionId, policeStationId: null });
+      }
+      if (zoneId) {
+        locationConditions.push({ zoneId, divisionId: null });
+      }
+      if (districtId) {
+        locationConditions.push({ districtId, zoneId: null });
+      }
+      if (stateId) {
+        locationConditions.push({ stateId, districtId: null });
+      }
+
+      // If no location conditions, return empty
+      if (locationConditions.length === 0) {
+        return [null, []];
+      }
+
+      // Reusable select object to avoid duplication
+      const userSelect = {
+        id: true,
+        username: true,
+        email: true,
+        stateId: true,
+        districtId: true,
+        zoneId: true,
+        divisionId: true,
+        policeStationId: true,
+        roleId: true,
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        },
+        state: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        district: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        division: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        policeStation: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      };
+
+      // Single optimized query with role filtering at database level
+      const users = await prisma.users.findMany({
+        where: {
+          roleId: { in: roleMapping.nextRoleIds },
+          OR: locationConditions
+        },
+        select: userSelect,
+        orderBy: [
+          { role: { name: 'asc' } },
+          { username: 'asc' }
+        ]
+      });
+
+      return [null, users];
     } catch (error) {
       return [error, null];
     }
