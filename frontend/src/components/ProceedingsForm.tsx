@@ -7,7 +7,7 @@ import Select from 'react-select';
 const SelectFixed = Select as any;
 import styles from './ProceedingsForm.module.css';
 import { fetchData, postData, setAuthToken } from '../api/axiosConfig';
-import { EnhancedTextEditor } from './RichTextEditor';
+import { TiptapRichTextEditor } from './TiptapRichTextEditor';
 import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
@@ -45,36 +45,6 @@ const FALLBACK_ACTIONS: ActionOption[] = [
   { value: -4, label: 'Red Flag', code: 'RED_FLAG' },
   { value: -5, label: 'Request More Info', code: 'REQUEST_MORE_INFO' },
 ];
-
-// Simple TextArea Component as Rich Text Editor Replacement
-function SimpleTextArea({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  dataTestId,
-  inputRef,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  dataTestId?: string;
-  inputRef?: React.Ref<HTMLTextAreaElement>;
-}) {
-  return (
-    <textarea
-      ref={inputRef}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      data-testid={dataTestId}
-      className='w-full min-h-[120px] p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y'
-      style={{ fontFamily: 'inherit', fontSize: '0.875rem' }}
-    />
-  );
-}
 
 // Loading Spinner Component
 function LoadingSpinner({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
@@ -212,13 +182,14 @@ export default function ProceedingsForm({
     }
     if (errors.remarks && remarksRef.current) {
       remarksRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const ta = remarksRef.current.querySelector('textarea');
-      (ta as HTMLTextAreaElement | null)?.focus?.();
+      // Focus Tiptap editor's editable content area
+      const editable = remarksRef.current.querySelector('[contenteditable], .tiptap');
+      (editable as HTMLElement | null)?.focus?.();
       return;
     }
     if (errors.draftLetter && draftRef.current) {
       draftRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const el = draftRef.current.querySelector('textarea, [contenteditable]');
+      const el = draftRef.current.querySelector('[contenteditable], .tiptap');
       (el as HTMLElement | null)?.focus?.();
       return;
     }
@@ -244,7 +215,9 @@ export default function ProceedingsForm({
           }
         } catch (e) {}
 
-        const data = await fetchData(`/actiones${applicationId ? `?applicationId=${applicationId}` : ''}`);
+        const data = await fetchData(
+          `/actiones${applicationId ? `?applicationId=${applicationId}` : ''}`
+        );
         // data is expected to be an array of BackendAction
         const humanizeCode = (c: string) =>
           String(c || '')
@@ -385,7 +358,9 @@ export default function ProceedingsForm({
     // Include ground report as PDF (Base64) for SHO
     if (roleFromCookie === 'SHO' && draftLetter.trim()) {
       try {
-        const base64Pdf = generatePdfBase64(draftLetter.trim());
+        // Strip HTML tags before generating PDF to avoid HTML tags in PDF
+        const cleanedContent = htmlToPlainText(draftLetter.trim());
+        const base64Pdf = generatePdfBase64(cleanedContent);
         const today = new Date().toISOString().split('T')[0];
         payload.attachments.push({
           name: `ground_report_${applicationId}_${today}.pdf`,
@@ -395,11 +370,13 @@ export default function ProceedingsForm({
         });
         payload.isGroundReportGenerated = true;
       } catch (err) {
+        // Fallback: send as text if PDF generation fails (still strip HTML)
+        const cleanedContent = htmlToPlainText(draftLetter.trim());
         payload.attachments.push({
           name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
           type: 'GROUND_REPORT',
           contentType: 'text/plain',
-          url: `data:text/plain;base64,${btoa(unescape(encodeURIComponent(draftLetter.trim())))}`,
+          url: `data:text/plain;base64,${btoa(unescape(encodeURIComponent(cleanedContent)))}`,
         });
         payload.isGroundReportGenerated = true;
       }
@@ -513,12 +490,51 @@ export default function ProceedingsForm({
     };
   }, [showDownloadDropdown]);
 
+  // Helper: Strip HTML tags and decode HTML entities
+  const stripHtmlTags = (html: string): string => {
+    // Create a temporary element to use browser's HTML parser
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    // Get text content (removes all HTML tags)
+    return temp.textContent || temp.innerText || '';
+  };
+
+  // Helper: Convert HTML content to plain text for PDF export
+  const htmlToPlainText = (html: string): string => {
+    // First, strip all HTML tags
+    let text = stripHtmlTags(html);
+    // Decode HTML entities
+    text = text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x2F;/g, '/');
+    return text;
+  };
+
   const formatContentForExport = (content: string) => {
-    return content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/__(.*?)__/g, '<u>$1</u>')
-      .replace(/\n/g, '<br/>');
+    // Check if content is already HTML (contains HTML tags)
+    const isHtml = /<[^>]*>/.test(content);
+
+    if (isHtml) {
+      // Already HTML from Tiptap - convert to plain text then re-format for display
+      const plainText = htmlToPlainText(content);
+      return plainText
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/__(.*)__/g, '<u>$1</u>')
+        .replace(/\n/g, '<br/>');
+    } else {
+      // Markdown-style content - convert to HTML
+      return content
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/__(.*)__/g, '<u>$1</u>')
+        .replace(/\n/g, '<br/>');
+    }
   };
 
   const downloadAsPDF = async (content: string, filename: string) => {
@@ -530,9 +546,7 @@ export default function ProceedingsForm({
         return;
       }
 
-      const formattedContent = formatContentForExport(content);
-
-      // A4 paper CSS styling
+      // Use the HTML content directly from Tiptap editor (it's already formatted)
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -544,36 +558,103 @@ export default function ProceedingsForm({
               size: A4;
               margin: 2.5cm 2cm 2cm 2cm;
             }
+            * {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
             body {
-              font-family: 'Times New Roman', serif;
-              font-size: 12pt;
+              font-family: 'Arial', 'Helvetica', sans-serif;
+              font-size: 11pt;
               line-height: 1.6;
-              color: #000;
+              color: #1f2937;
               background: white;
               margin: 0;
               padding: 0;
             }
-            .letterhead {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #000;
-              padding-bottom: 15px;
-            }
             .content {
               font-family: inherit;
             }
-            .footer {
-              margin-top: 40px;
-              page-break-inside: avoid;
+            .content h1 {
+              font-size: 24pt;
+              font-weight: 700;
+              margin: 1em 0 0.67em 0;
+              line-height: 1.2;
+              color: #1f2937;
             }
-            strong {
+            .content h2 {
+              font-size: 20pt;
+              font-weight: 700;
+              margin: 0.83em 0 0.67em 0;
+              line-height: 1.2;
+              color: #374151;
+            }
+            .content h3 {
+              font-size: 16pt;
+              font-weight: 700;
+              margin: 1em 0 0.5em 0;
+              line-height: 1.2;
+              color: #4b5563;
+            }
+            .content h4, .content h5, .content h6 {
+              font-size: 13pt;
+              font-weight: 700;
+              margin: 1em 0 0.5em 0;
+              line-height: 1.2;
+            }
+            .content p {
+              margin: 0.5em 0;
+              line-height: 1.6;
+            }
+            .content ul {
+              margin: 0.5em 0;
+              padding-left: 2em;
+            }
+            .content ol {
+              margin: 0.5em 0;
+              padding-left: 2em;
+            }
+            .content li {
+              margin: 0.25em 0;
+              line-height: 1.6;
+            }
+            .content blockquote {
+              margin: 1em 0;
+              padding-left: 1em;
+              border-left: 4px solid #d1d5db;
+              color: #6b7280;
+            }
+            .content strong {
               font-weight: bold;
             }
-            em {
+            .content em {
               font-style: italic;
             }
-            u {
+            .content u {
               text-decoration: underline;
+            }
+            .content table {
+              border-collapse: collapse;
+              width: 100%;
+              margin: 1em 0;
+            }
+            .content table td,
+            .content table th {
+              border: 1px solid #d1d5db;
+              padding: 0.5em;
+            }
+            .content table th {
+              background-color: #f3f4f6;
+              font-weight: bold;
+            }
+            .content hr {
+              border: none;
+              border-top: 1px solid #d1d5db;
+              margin: 1em 0;
+            }
+            .content div[style*="background"] {
+              padding: 1em;
+              margin: 0.5em 0;
+              border-radius: 0.375rem;
             }
             @media print {
               body { 
@@ -584,7 +665,7 @@ export default function ProceedingsForm({
           </style>
         </head>
         <body>
-          <div class="content">${formattedContent}</div>
+          <div class="content">${content}</div>
         </body>
         </html>
       `;
@@ -611,49 +692,122 @@ export default function ProceedingsForm({
 
   const downloadAsWord = (content: string, filename: string) => {
     try {
-      const formattedContent = formatContentForExport(content);
+      // Create proper Office Open XML format for Word
+      const htmlContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
+            xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing">
+<w:body>
+<w:sectPr>
+<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+<w:pgSz w:w="12240" w:h="15840"/>
+</w:sectPr>
+</w:body>
+</w:document>`;
 
-      // Create HTML content formatted for Word
-      const htmlContent = `
-        <html xmlns:o='urn:schemas-microsoft-com:office:office' 
-              xmlns:w='urn:schemas-microsoft-com:office:word' 
-              xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-          <meta charset='utf-8'>
-          <title>Ground Report</title>
-          <style>
-            @page {
-              size: 8.5in 11in;
-              margin: 1in 0.8in 0.8in 0.8in;
-            }
-            body {
-              font-family: 'Times New Roman', serif;
-              font-size: 12pt;
-              line-height: 1.6;
-              margin: 0;
-            }
-            .content {
-              font-family: inherit;
-            }
-            strong {
-              font-weight: bold;
-            }
-            em {
-              font-style: italic;
-            }
-            u {
-              text-decoration: underline;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="content">${formattedContent}</div>
-        </body>
-        </html>
-      `;
+      // Alternative: Use a simpler, more compatible HTML format
+      const simpleHtmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="ProgId" content="Word.Document">
+  <meta name="Generator" content="Microsoft Word 15">
+  <meta name="Originator" content="Microsoft Word 15">
+  <link rel="File-List" href="file:///C|/TEMP/filelist.xml">
+  <link rel="themeColor" href="file:///C|/TEMP/themecolor.xml">
+  <!--[if gte mso 9]><xml>
+    <o:OfficeDocumentSettings>
+      <o:AllowPNG/>
+      <o:TargetScreenSize>1024x768</o:TargetScreenSize>
+    </o:OfficeDocumentSettings>
+  </xml><![endif]-->
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #1f2937;
+      margin: 1in;
+    }
+    h1 {
+      font-size: 26pt;
+      font-weight: bold;
+      margin: 12pt 0 6pt 0;
+      color: #1f2937;
+    }
+    h2 {
+      font-size: 20pt;
+      font-weight: bold;
+      margin: 10pt 0 6pt 0;
+      color: #374151;
+    }
+    h3 {
+      font-size: 16pt;
+      font-weight: bold;
+      margin: 10pt 0 6pt 0;
+      color: #4b5563;
+    }
+    h4, h5, h6 {
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 10pt 0 6pt 0;
+    }
+    p {
+      margin: 0 0 6pt 0;
+      line-height: 1.5;
+    }
+    ul, ol {
+      margin: 6pt 0 6pt 40pt;
+    }
+    li {
+      margin: 3pt 0;
+      line-height: 1.5;
+    }
+    blockquote {
+      margin: 6pt 40pt;
+      padding: 6pt;
+      border-left: 4px solid #d1d5db;
+      background-color: #f9fafb;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 6pt 0;
+    }
+    table td, table th {
+      border: 1px solid #d1d5db;
+      padding: 4pt;
+    }
+    table th {
+      background-color: #f3f4f6;
+      font-weight: bold;
+    }
+    strong {
+      font-weight: bold;
+    }
+    em {
+      font-style: italic;
+    }
+    u {
+      text-decoration: underline;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #d1d5db;
+      margin: 12pt 0;
+    }
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
 
-      const blob = new Blob([htmlContent], {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      const blob = new Blob([simpleHtmlContent], {
+        type: 'application/msword',
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -675,7 +829,9 @@ export default function ProceedingsForm({
     const pageHeight = doc.internal.pageSize.getHeight();
     const usableWidth = pageWidth - margin * 2;
 
-    const normalized = (content || '').replace(/\r/g, '').replace(/\t/g, '    ');
+    // Strip HTML tags from content for proper PDF text
+    const plainText = htmlToPlainText(content);
+    const normalized = (plainText || '').replace(/\r/g, '').replace(/\t/g, '    ');
     const paragraphs = normalized.split('\n');
 
     doc.setFont('Times', 'Normal');
@@ -716,8 +872,8 @@ export default function ProceedingsForm({
         downloadAsWord(draftLetter, baseFilename);
         break;
       case 'txt':
-        // Strip formatting for plain text
-        const plainText = draftLetter
+        // Strip all formatting and HTML tags for plain text
+        const plainText = htmlToPlainText(draftLetter)
           .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
           .replace(/\*(.*?)\*/g, '$1') // Remove italic
           .replace(/__(.*?)__/g, '$1'); // Remove underline
@@ -737,81 +893,68 @@ export default function ProceedingsForm({
   };
 
   const generateDraftLetter = () => {
-    const currentDate = new Date().toLocaleDateString('en-GB');
-    return `**[On Official Letterhead]**
+    // Render the Arms License Verification template from TiptapRichTextEditor
+    return `<div style="font-family: Georgia, 'Times New Roman', serif; color: #1f2937; line-height: 1.8;">
+  <div style="max-width: 8.5in; margin: 0 auto; padding: 2rem; background: white;">
+    <div style="text-align: center; padding-bottom: 1.5rem; border-bottom: 2px solid #1f2937; margin-bottom: 2rem;">
+      <p style="margin: 0; font-weight: bold; font-size: 0.9rem;">**[On Official Letterhead]**</p>
+      <p style="margin: 0.75rem 0 0 0; font-weight: bold;">Police Station / Law Enforcement Agency</p>
+      <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">[Station Name & Address]</p>
+    </div>
 
-Date: ${currentDate}
+    <div style="margin-bottom: 2rem;">
+      <p style="margin: 0;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+    </div>
 
-To,
-The Station House Officer (SHO)
-[Police Station Name]
-[Full Address]
+    <div style="background: #f3f4f6; padding: 1.5rem; border-radius: 0.375rem; margin-bottom: 2rem; border-left: 4px solid #1f2937;">
+      <p style="margin: 0; font-weight: 600; margin-bottom: 0.75rem;">To,</p>
+      <p style="margin: 0.25rem 0; font-weight: 600;">The Station House Officer (SHO)</p>
+      <p style="margin: 0.25rem 0;">[Police Station Name]</p>
+      <p style="margin: 0.25rem 0;">[Full Address]</p>
+      <p style="margin: 0.25rem 0;">[City, State]</p>
+    </div>
 
-Subject: Verification of Antecedents and Character for Arms License Application
+    <div style="background: #fffbeb; padding: 1rem; border-left: 4px solid #d97706; border-radius: 0.375rem; margin-bottom: 2rem;">
+      <p style="margin: 0;"><strong>Subject:</strong> Verification of Antecedents and Character for Arms License Application</p>
+    </div>
 
-Respected Sir/Madam,
+    <p style="margin-bottom: 1.5rem;">Respected Sir/Madam,</p>
 
-In compliance with the instructions received from the ARMS Branch, this office has undertaken a detailed verification of the antecedents, character, and background of [Applicant Name], who has applied for issuance/renewal of an arms license.
+    <p style="margin-bottom: 1.5rem; text-align: justify;">In compliance with the instructions received from the ARMS Branch, this office has undertaken a detailed verification of the antecedents, character, and background of <strong>[Applicant Name]</strong>, who has applied for issuance/renewal of an arms license.</p>
 
-1. Personal & Residential Verification
+    <div style="background: #ecfdf5; border-left: 4px solid #059669; padding: 1.5rem; border-radius: 0.375rem; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0 0 1rem 0; color: #065f46;">📋 Verification Summary</h3>
+      <ol style="margin: 0; padding-left: 1.5rem; color: #047857;">
+        <li style="margin-bottom: 0.75rem;"><strong>Personal & Residential Verification</strong><br/>The applicant is a permanent resident of the given address. Enquiries confirm continuous residence at the location for the past [X years], along with family members.</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Criminal Record Verification</strong><br/>A comprehensive check of the police station records, crime registers, and state crime bureau records reveals [findings].</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Neighborhood & Local Inquiry</strong><br/>A door-to-door inquiry was conducted with neighbors, shopkeepers, and other responsible members of the locality. [findings]</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Financial & Social Background</strong><br/>The applicant is reported to be financially [status], engaged in [occupation/profession].</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Risk Assessment</strong><br/>No intelligence input, local report, or community feedback suggests any risk concerns. [additional details]</li>
+        <li style="margin-bottom: 0;"><strong>General Character</strong><br/>The applicant enjoys a [reputation] reputation in the society. [character assessment]</li>
+      </ol>
+    </div>
 
-The applicant is a permanent resident of the given address. Enquiries confirm continuous residence at the location for the past [X years], along with family members.
+    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 1.5rem; border-radius: 0.375rem; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0 0 1rem 0; color: #0c4a6e;">✓ Conclusion & Recommendation</h3>
+      <p style="margin: 0; text-align: justify; color: #0c4a6e;">On the basis of the above inquiries and verification conducted by this police station, it is concluded that <strong>[recommendation]</strong>.</p>
+    </div>
 
-2. Criminal Record Verification
+    <p style="margin-bottom: 2rem;">Thanking you,</p>
 
-A comprehensive check of the police station records, crime registers, and state crime bureau records reveals [findings].
-
-3. Neighborhood & Local Inquiry
-
-A door-to-door inquiry was conducted with neighbors, shopkeepers, and other responsible members of the locality. [findings]
-
-4. Financial & Social Background
-
-The applicant is reported to be financially [status], engaged in [occupation/profession].
-
-5. Risk Assessment
-
-No intelligence input, local report, or community feedback suggests any risk concerns. [additional details]
-
-6. General Character
-
-The applicant enjoys a [reputation] reputation in the society. [character assessment]
-
-Conclusion & Recommendation
-
-On the basis of the above inquiries and verification conducted by this police station, it is concluded that [recommendation].
-
-Thanking you,
-
-Yours faithfully,
-[Signature & Seal]
-[Name & Designation]
-[Police Station/Unit]`;
+    <div style="margin-top: 3rem;">
+      <p style="margin: 0; color: #6b7280;">Yours faithfully,</p>
+      <p style="margin: 2rem 0 0 0; border-top: 1px solid #1f2937; padding-top: 0.5rem;">___________________________</p>
+      <p style="margin: 0.25rem 0;"><strong>[Signature & Seal]</strong></p>
+      <p style="margin: 0.25rem 0;"><strong>[Name & Designation]</strong></p>
+      <p style="margin: 0.25rem 0;">[Police Station/Unit]</p>
+      <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #6b7280;">Date: ${new Date().toLocaleDateString()}</p>
+    </div>
+  </div>
+</div>`;
   };
 
   return (
     <div className={`${styles.formContainer} thin-scrollbar`}>
-      {/* Header */}
-      <div className={styles.formHeader}>
-        <h2>
-          <svg
-            className='w-6 h-6 mr-2 text-blue-600'
-            fill='none'
-            stroke='currentColor'
-            viewBox='0 0 24 24'
-          >
-            <path
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth={2}
-              d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-            />
-          </svg>
-          Application Processing
-        </h2>
-        <p>Process application #{applicationId}</p>
-      </div>
-
       {/* Proceedings Form */}
       <div className={styles.scrollPanel}>
         <div className={styles.proceedingsPanel}>
@@ -925,40 +1068,30 @@ Yours faithfully,
             {/* Remarks/Text Area */}
             <div
               className={`${styles.formSection} ${missingFields.remarks ? styles.invalidField : ''}`}
+              ref={remarksRef}
             >
               <div className='flex items-center justify-between'>
                 <label className={styles.formLabel}>
                   Remarks <span className={styles.required}>*</span>
                 </label>
-                <button
-                  type='button'
-                  onClick={() => setRemarksVisible(v => !v)}
-                  className='ml-3 text-blue-600 hover:underline text-sm'
-                  aria-pressed={remarksVisible}
-                  aria-label={remarksVisible ? 'Hide' : 'Show'}
-                >
-                  {remarksVisible ? 'Hide' : 'Show'}
-                </button>
               </div>
-              {remarksVisible && (
-                <>
-                  <div className={styles.richTextContainer}>
-                    <SimpleTextArea
-                      value={remarks}
-                      onChange={setRemarks}
-                      placeholder='Enter your remarks here...'
-                      disabled={isSubmitting}
-                      dataTestId='rich-text-editor'
-                    />
-                  </div>
-                  <p className={styles.helpText}>
-                    Enter your detailed remarks about this action. You can use multiple lines for
-                    better formatting.
-                  </p>
-                  {missingFields.remarks && (
-                    <p className={styles.fieldError}>{missingFields.remarks}</p>
-                  )}
-                </>
+              <div className={styles.richTextContainer} style={{ marginTop: '12px' }}>
+                <TiptapRichTextEditor
+                  value={remarks}
+                  onChange={setRemarks}
+                  placeholder='Enter your remarks here. You can add tables (paste from Excel/Word), formatted lists, and styled text...'
+                  disabled={isSubmitting}
+                  minHeight='300px'
+                  maxHeight='600px'
+                />
+              </div>
+              <p className={styles.helpText}>
+                Advanced formatting: Bold, italic, underline, headings, bullet points, numbered
+                lists, block quotes, code blocks, and tables. You can paste tables directly from
+                Excel or Word.
+              </p>
+              {missingFields.remarks && (
+                <p className={styles.fieldError}>{missingFields.remarks}</p>
               )}
             </div>
 
@@ -978,15 +1111,16 @@ Yours faithfully,
                   className={`${styles.formSection} ${missingFields.draftLetter ? styles.invalidField : ''}`}
                   ref={draftRef}
                 >
-                  <EnhancedTextEditor
-                    content={draftLetter}
+                  <TiptapRichTextEditor
+                    value={draftLetter}
                     onChange={setDraftLetter}
                     placeholder='Draft letter will appear here...'
-                    className='min-h-[300px] w-full max-w-[900px]'
+                    minHeight='300px'
+                    maxHeight='700px'
                   />
                   <p className={styles.helpText}>
-                    This letter is required. Edit as needed. Use **bold**, *italic*, __underline__
-                    for formatting. Click Preview to see formatted output.
+                    This letter is required. Edit as needed. Use the toolbar for formatting (bold,
+                    italic, underline, headings, lists, etc.).
                   </p>
                 </div>
                 {missingFields.draftLetter && (
@@ -1268,15 +1402,16 @@ Yours faithfully,
             {success && <SuccessMessage message={success} onDismiss={handleDismissSuccess} />}
 
             <div className={styles.formSection}>
-              <EnhancedTextEditor
-                content={draftLetter}
+              <TiptapRichTextEditor
+                value={draftLetter}
                 onChange={setDraftLetter}
                 placeholder='Draft letter will appear here...'
-                className='min-h-[500px] w-full max-w-[900px]'
+                minHeight='400px'
+                maxHeight='700px'
               />
               <p className={styles.helpText}>
-                Edit the draft letter content as needed. Use **bold**, *italic*, __underline__ for
-                formatting. Click Preview to see formatted output.
+                Edit the draft letter content as needed. Use the toolbar for formatting (bold,
+                italic, underline, headings, lists, tables, etc.).
               </p>
             </div>
 
