@@ -391,7 +391,6 @@ export default function FlowMappingPage() {
                     Choose the role that will be forwarding applications
                   </p>
                 </div>
-                {/* @ts-expect-error react-select type mismatch */}
                 <Select
                   options={roleOptions}
                   value={currentRole}
@@ -428,7 +427,6 @@ export default function FlowMappingPage() {
                     Choose multiple roles that can receive applications from the current role
                   </p>
                 </div>
-                {/* @ts-expect-error react-select type mismatch */}
                 <Select
                   isMulti
                   options={availableNextRoleOptions}
@@ -674,7 +672,6 @@ export default function FlowMappingPage() {
                     >
                       Target Role
                     </label>
-                    {/* @ts-expect-error react-select type mismatch */}
                     <Select
                       options={roleOptions.filter(r => r.value !== duplicateSource?.value)}
                       value={currentRole}
