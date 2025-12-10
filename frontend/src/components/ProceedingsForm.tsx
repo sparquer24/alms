@@ -292,30 +292,42 @@ export default function ProceedingsForm({
     }
   }, [roleFromCookie]);
 
-  // Load users when application data is available (not dependent on action type)
+  // Load users from API endpoint when component mounts
   useEffect(() => {
-    if (applicationData?.usersInHierarchy) {
-      setFetchingUsers(true);
-      setError(null);
+    let mounted = true;
+    setFetchingUsers(true);
+    setError(null);
 
-      const timer = setTimeout(() => {
-        // Use real application data from usersInHierarchy
-        const usersToUse = applicationData.usersInHierarchy || [];
+    (async () => {
+      try {
+        // Fetch users in hierarchy from API
+        const response = await fetchData(`/application-form/users-in-hierarchy/${applicationId}`);
 
-        const formatted = usersToUse.map(u => ({
-          value: String(u.id),
-          label: `${u.username || u.userName || 'Unknown User'} (${u.id})`,
-        }));
-        setUserOptions(formatted);
-        setFetchingUsers(false);
-      }, 300);
+        if (mounted) {
+          // Handle response - could be direct array or wrapped in data property
+          const usersData = Array.isArray(response) ? response : response?.data || [];
 
-      return () => clearTimeout(timer);
-    } else {
-      setUserOptions([]);
-      setFetchingUsers(false);
-    }
-  }, [applicationData?.usersInHierarchy]);
+          const formatted = usersData.map((u: any) => ({
+            value: String(u.id),
+            label: `${u.username || 'Unknown User'} (${u.roleCode || 'N/A'})`,
+          }));
+
+          setUserOptions(formatted);
+        }
+      } catch (err: any) {
+        if (mounted) {
+          setError(err.message || 'Failed to load users in hierarchy');
+          setUserOptions([]);
+        }
+      } finally {
+        if (mounted) setFetchingUsers(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [applicationId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
