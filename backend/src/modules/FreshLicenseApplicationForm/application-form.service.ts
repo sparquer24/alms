@@ -1345,8 +1345,7 @@ export class ApplicationFormService {
  async getUsersInHierarchy(applicationId: number): Promise<[any, any]> {
     try {
       // Fetch application, current user, and role flow mapping in parallel
-      const [application, roleFlowMapping] = await Promise.all([
-        prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
           where: { id: applicationId },
           select: {
             id: true,
@@ -1367,10 +1366,7 @@ export class ApplicationFormService {
               }
             }
           }
-        }),
-        // We'll fetch role flow mapping after getting the application
-        null as any
-      ]);
+        });
 
       if (!application) {
         return [new BadRequestException('Application not found'), null];
@@ -1428,52 +1424,14 @@ export class ApplicationFormService {
         return [null, []];
       }
 
-      // Reusable select object to avoid duplication
+      // Reusable select object to return only essential fields
       const userSelect = {
         id: true,
         username: true,
-        email: true,
-        stateId: true,
-        districtId: true,
-        zoneId: true,
-        divisionId: true,
-        policeStationId: true,
         roleId: true,
         role: {
           select: {
-            id: true,
-            code: true,
-            name: true
-          }
-        },
-        state: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        district: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        zone: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        division: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        policeStation: {
-          select: {
-            id: true,
-            name: true
+            code: true
           }
         }
       };
@@ -1491,7 +1449,15 @@ export class ApplicationFormService {
         ]
       });
 
-      return [null, users];
+      // Transform to flatten roleCode
+      const transformedUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        roleId: user.roleId,
+        roleCode: user.role?.code || null
+      }));
+
+      return [null, transformedUsers];
     } catch (error) {
       return [error, null];
     }
