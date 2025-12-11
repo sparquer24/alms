@@ -358,7 +358,9 @@ export const login = createAsyncThunk(
         user = response.body.user;
       } else {
         if (response.statusCode === 401) {
-          throw new Error(response.message || 'Invalid username or password');
+          const errorMessage = response.message || 'Invalid username or password';
+          dispatch(setError(errorMessage));
+          throw new Error(errorMessage);
         }
         throw new Error('Login succeeded but no token was returned.');
       }
@@ -480,8 +482,19 @@ export const login = createAsyncThunk(
       // redirects (including admin routes) work reliably.
 
       return { token, user };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+    } catch (error: any) {
+      // Extract error message from axios error response
+      let errorMessage = 'Login failed';
+      
+      // Check for axios error response structure
+      if (error?.response?.data) {
+        const data = error.response.data;
+        // Handle the 401 error format: { statusCode: 401, message: "...", error: "Unauthorized" }
+        errorMessage = data.message || data.error || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       dispatch(setError(errorMessage));
       throw error;
     } finally {
