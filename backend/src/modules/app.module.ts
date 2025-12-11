@@ -11,8 +11,9 @@ import { WeaponsModule } from './weapons/weapons.module'
 import { RolesModule } from './roles/roles.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FlowMappingModule } from './flowMapping/flow-mapping.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
-  imports: [UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule],
 })
 export class AppModule { }

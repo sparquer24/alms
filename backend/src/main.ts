@@ -4,13 +4,55 @@ import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './modules/app.module';
+import { AllExceptionsFilter } from './filters/all-exceptions.filter';
+import { ErrorsInterceptor } from './interceptors/errors.interceptor';
+import { LoggingInterceptor } from './interceptors/logging.interceptor';
+import { Logger } from '@nestjs/common';
 
 // Load environment variables before anything else (prefer root .env)
 const rootEnvPath = resolve(__dirname, '../../.env');
 config({ path: rootEnvPath });
 
+const logger = new Logger('Bootstrap');
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: process.env.NODE_ENV === 'production' 
+      ? ['error', 'warn', 'log']
+      : ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
+  
+  // Apply global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter());
+  
+  // Apply global interceptors
+  app.useGlobalInterceptors(new LoggingInterceptor()); // Must be first for accurate timing
+  app.useGlobalInterceptors(new ErrorsInterceptor());
+  
+  // Global exception handlers to prevent crashes
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception:', error.stack || error);
+    // Don't exit immediately - allow graceful shutdown
+  });
+  
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit - log and continue
+  });
+  
+  // Graceful shutdown handlers
+  process.on('SIGTERM', async () => {
+    logger.log('SIGTERM signal received: closing HTTP server');
+    await app.close();
+    process.exit(0);
+  });
+  
+  process.on('SIGINT', async () => {
+    logger.log('SIGINT signal received: closing HTTP server');
+    await app.close();
+    process.exit(0);
+  });
+
   // Increase body size limit to 10MB for JSON and URL-encoded requests
   const express = require('express');
   app.use(express.json({ limit: '2mb' }));
@@ -67,11 +109,14 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(Number(port));
-  // Helpful startup log so it's obvious which port the server is listening on
-  // (useful when env overrides or Docker maps ports differently)
-  // eslint-disable-next-line no-console
-  console.log(`Backend listening on http://localhost:${port}`);
-  console.log(`Swagger API docs available at http://localhost:${port}/api/api-docs`);
+  
+  logger.log(`Backend listening on http://localhost:${port}`);
+  logger.log(`Swagger API docs available at http://localhost:${port}/api/api-docs`);
+  logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.log(`Process ID: ${process.pid}`);
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  logger.error('Failed to start application:', error.stack || error);
+  process.exit(1);
+});

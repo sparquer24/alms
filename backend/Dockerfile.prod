@@ -23,6 +23,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 # Keep package metadata (node_modules will be copied from builder)
 COPY package*.json ./
 
@@ -32,4 +35,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3000
+
+# Run with Node.js directly - exception handlers prevent crashes
 CMD ["node", "dist/main.js"]

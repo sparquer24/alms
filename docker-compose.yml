@@ -5,6 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     container_name: alms-backend
+    restart: unless-stopped
     env_file:
       - ./backend/.env
       - ./.env
@@ -13,8 +14,20 @@ services:
       NODE_ENV: production
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - alms-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   frontend:
     build:
@@ -23,19 +36,28 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: alms-frontend
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NODE_ENV: production
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - alms-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
   nginx:
     image: nginx:stable-alpine
     container_name: alms-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -44,8 +66,10 @@ services:
       - /etc/letsencrypt/live/dev.alms.sparquer.com/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
       - /etc/letsencrypt/live/dev.alms.sparquer.com/privkey.pem:/etc/ssl/private/privkey.pem:ro
     depends_on:
-      - frontend
-      - backend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     networks:
       - alms-net
 
