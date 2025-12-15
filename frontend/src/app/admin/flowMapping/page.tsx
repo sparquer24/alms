@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
+const ReactSelectFixed = Select as any;
 import {
   AdminCard,
   AdminToolbar,
-  AdminErrorAlert,
   AdminErrorBoundary,
   WorkflowGraphPreview,
   AdminSectionSkeleton,
@@ -65,7 +65,7 @@ export default function FlowMappingPage() {
         if (!response.ok) throw new Error('Failed to fetch roles');
         const data = await response.json();
         return Array.isArray(data) ? data : data.data || [];
-      } catch (error) {
+      } catch {
         toast.error('Failed to load roles');
         return [];
       }
@@ -103,7 +103,7 @@ export default function FlowMappingPage() {
     } else {
       setNextRoles([]);
     }
-  }, [currentFlowMapping?.id, currentFlowMapping?.nextRoleIds?.length, allRoles?.length]);
+  }, [currentFlowMapping, allRoles]);
 
   // Validation function
   const validateForm = useCallback(() => {
@@ -242,12 +242,6 @@ export default function FlowMappingPage() {
     }
   };
 
-  const handleReset = () => {
-    if (window.confirm('Are you sure you want to reset this mapping?')) {
-      resetMappingMutation.mutate();
-    }
-  };
-
   const handleDuplicate = async () => {
     if (!duplicateSource || !currentRole) {
       toast.error('Please select both source and target roles');
@@ -351,7 +345,7 @@ export default function FlowMappingPage() {
                 margin: 0,
               }}
             >
-              Role Flow Mapping
+              Flow Mapping
             </h1>
             <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
               Configure workflow routing between roles with circular dependency validation
@@ -391,7 +385,7 @@ export default function FlowMappingPage() {
                     Choose the role that will be forwarding applications
                   </p>
                 </div>
-                <Select
+                <ReactSelectFixed
                   options={roleOptions}
                   value={currentRole}
                   onChange={setCurrentRole}
@@ -427,11 +421,11 @@ export default function FlowMappingPage() {
                     Choose multiple roles that can receive applications from the current role
                   </p>
                 </div>
-                <Select
+                <ReactSelectFixed
                   isMulti
                   options={availableNextRoleOptions}
                   value={nextRoles}
-                  onChange={selected => setNextRoles(selected ? [...selected] : [])}
+                  onChange={(selected: any) => setNextRoles(selected ? [...selected] : [])}
                   placeholder='Select next roles...'
                   isDisabled={!currentRole || isLoading}
                   styles={selectStyles}
@@ -566,28 +560,6 @@ export default function FlowMappingPage() {
                 </button>
 
                 <button
-                  onClick={handleReset}
-                  disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: 'transparent',
-                    color:
-                      !currentRole || !currentFlowMapping || isSaving
-                        ? colors.text.secondary
-                        : '#ef4444',
-                    border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : '#ef4444'}`,
-                    borderRadius: AdminBorderRadius.md,
-                    cursor:
-                      !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
-                  }}
-                >
-                  {resetMappingMutation.isPending ? 'Resetting...' : 'Reset Mapping'}
-                </button>
-
-                <button
                   onClick={() => {
                     setDuplicateSource(currentRole);
                     setShowDuplicateModal(true);
@@ -672,7 +644,7 @@ export default function FlowMappingPage() {
                     >
                       Target Role
                     </label>
-                    <Select
+                    <ReactSelectFixed
                       options={roleOptions.filter(r => r.value !== duplicateSource?.value)}
                       value={currentRole}
                       onChange={setCurrentRole}

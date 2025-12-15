@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAdminTheme } from '../../context/AdminThemeContext';
 import {
-  AdminLayout,
   AdminBorderRadius,
   AdminShadows,
   AdminSpacing,
@@ -58,7 +57,14 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
               backgroundColor: colors.surface,
             }}
           >
-            <thead>
+            <thead
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 1,
+                backgroundColor: colors.background,
+              }}
+            >
               <tr
                 style={{
                   backgroundColor: colors.background,
@@ -66,9 +72,9 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
                   height: AdminComponentSizes.table.headerHeight,
                 }}
               >
-                {columns.map(col => (
+                {columns.map((col, idx) => (
                   <th
-                    key={String(col.key)}
+                    key={`header-${idx}-${col.header}`}
                     style={{
                       padding: AdminComponentSizes.table.cellPadding,
                       textAlign: 'left',
@@ -76,6 +82,11 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
                       fontWeight: 600,
                       fontSize: '14px',
                       width: col.width,
+                      position: idx === 0 ? 'sticky' : undefined,
+                      left: idx === 0 ? 0 : undefined,
+                      backgroundColor: colors.background,
+                      zIndex: idx === 0 ? 2 : 1,
+                      boxShadow: idx === 0 ? '2px 0 0 rgba(0,0,0,0.05)' : undefined,
                     }}
                   >
                     {col.header}
@@ -111,7 +122,7 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
                   </td>
                 </tr>
               ) : (
-                data.map(row => (
+                data.map((row, rowIdx) => (
                   <tr
                     key={String(row[rowKey])}
                     onClick={() => onRowClick?.(row)}
@@ -119,7 +130,7 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
                       borderBottom: `1px solid ${colors.border}`,
                       height: AdminComponentSizes.table.rowHeight,
                       cursor: onRowClick ? 'pointer' : 'default',
-                      backgroundColor: colors.surface,
+                      backgroundColor: rowIdx % 2 === 0 ? colors.surface : colors.background,
                       transition: `background-color 150ms`,
                     }}
                     onMouseEnter={e => {
@@ -128,17 +139,22 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
                       }
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.backgroundColor = colors.surface;
+                      e.currentTarget.style.backgroundColor = rowIdx % 2 === 0 ? colors.surface : colors.background;
                     }}
                   >
-                    {columns.map(col => (
+                    {columns.map((col, idx) => (
                       <td
-                        key={String(col.key)}
+                        key={`cell-${idx}-${String(col.key)}`}
                         style={{
                           padding: AdminComponentSizes.table.cellPadding,
                           color: colors.text.primary,
                           fontSize: '14px',
                           width: col.width,
+                          position: idx === 0 ? 'sticky' : undefined,
+                          left: idx === 0 ? 0 : undefined,
+                          backgroundColor: rowIdx % 2 === 0 ? colors.surface : colors.background,
+                          zIndex: idx === 0 ? 1 : 0,
+                          boxShadow: idx === 0 ? '2px 0 0 rgba(0,0,0,0.05)' : undefined,
                         }}
                       >
                         {col.render ? col.render(row[col.key], row) : String(row[col.key])}
@@ -151,6 +167,7 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
           </table>
         </div>
       </div>
+      
     );
   }
 );

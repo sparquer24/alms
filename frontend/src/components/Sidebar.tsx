@@ -240,8 +240,19 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
     if (!pathname || !normalizedRole?.includes('ADMIN')) return;
     const adminKey = getAdminMenuKeyFromPath(pathname);
-    if (adminKey && adminMenuContext?.setActiveMenuKey) {
-      adminMenuContext.setActiveMenuKey(adminKey);
+    if (adminKey) {
+      // Update activeItem to match the current admin page
+      setActiveItem(adminKey);
+      if (typeof window === 'undefined' || !adminKey) return;
+      try {
+        const toStore = adminKey.startsWith('inbox-') ? adminKey.slice('inbox-'.length) : adminKey;
+        localStorage.setItem('activeNavItem', toStore);
+      } catch (e) {
+        /* ignore */
+      }
+      if (adminMenuContext?.setActiveMenuKey) {
+        adminMenuContext.setActiveMenuKey(adminKey);
+      }
     }
   }, [pathname, cookieRole, userRole, adminMenuContext]);
 

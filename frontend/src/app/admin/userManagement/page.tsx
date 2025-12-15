@@ -1179,17 +1179,6 @@ export default function UserManagementPage() {
                 User Details
               </h2>
               <div className='flex items-center gap-2'>
-                {isAdmin && (
-                  <button
-                    onClick={() => {
-                      setDetailsEditMode(e => !e);
-                      setDetailsMessage('');
-                    }}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium shadow-sm border transition-colors ${detailsEditMode ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
-                  >
-                    {detailsEditMode ? 'Cancel Edit' : 'Edit'}
-                  </button>
-                )}
                 <button
                   onClick={() => setDetailsUser(null)}
                   className='rounded-lg bg-white/10 hover:bg-white/20 w-8 h-8 flex items-center justify-center transition-colors'

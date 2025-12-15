@@ -76,6 +76,9 @@ export default function LocationsManagementPage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingItem, setEditingItem] = useState<LocationEntity | null>(null);
   const [formData, setFormData] = useState({ name: '' });
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Reset form
   const resetForm = () => {
@@ -122,7 +125,7 @@ export default function LocationsManagementPage() {
   }
 
   const {
-    data: items = [],
+    data: allItems = [],
     isLoading,
     error,
     refetch,
@@ -136,6 +139,14 @@ export default function LocationsManagementPage() {
     },
     enabled: currentLevel === 'state' || (parentId !== undefined && parentId !== null),
   });
+
+  // Filtered items based on search query
+  const items = useMemo(() => {
+    if (!searchQuery.trim()) return allItems;
+    return allItems.filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allItems, searchQuery]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -271,12 +282,12 @@ export default function LocationsManagementPage() {
 
   // Export to Excel
   const handleExportExcel = () => {
-    if (items.length === 0) {
+    if (allItems.length === 0) {
       toast.error('No data to export');
       return;
     }
 
-    const exportData = items.map(item => ({
+    const exportData = allItems.map(item => ({
       ID: item.id,
       Name: item.name,
       'Created At': new Date(item.createdAt).toLocaleDateString(),
@@ -399,8 +410,8 @@ export default function LocationsManagementPage() {
 
       {/* Main Content Card */}
       <AdminCard title={levelConfig.label}>
-        {/* Toolbar with buttons */}
-        <div style={{ marginBottom: AdminSpacing.lg, display: 'flex', gap: AdminSpacing.md }}>
+        {/* Toolbar with buttons and search */}
+        <div style={{ marginBottom: AdminSpacing.lg, display: 'flex', gap: AdminSpacing.md, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => {
               resetForm();
@@ -423,7 +434,7 @@ export default function LocationsManagementPage() {
           </button>
           <button
             onClick={handleExportExcel}
-            disabled={items.length === 0}
+            disabled={allItems.length === 0}
             style={{
               padding: '10px 20px',
               backgroundColor: colors.status.info,
@@ -433,12 +444,79 @@ export default function LocationsManagementPage() {
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: 600,
-              opacity: items.length === 0 ? 0.6 : 1,
+              opacity: allItems.length === 0 ? 0.6 : 1,
             }}
           >
             ⬇ Excel Download
           </button>
+          
+          {/* Search Bar */}
+          <div style={{ marginLeft: 'auto', position: 'relative', minWidth: '300px' }}>
+            <input
+              type="text"
+              placeholder={`Search ${levelConfig.label.toLowerCase()}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 40px 10px 16px',
+                border: `1px solid ${colors.border}`,
+                borderRadius: AdminBorderRadius.md,
+                fontSize: '14px',
+                outline: 'none',
+                backgroundColor: colors.background,
+                color: colors.text.primary,
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: colors.text.secondary,
+                  fontSize: '18px',
+                  padding: '0',
+                  lineHeight: '1',
+                }}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+            {!searchQuery && (
+              <span
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: colors.text.secondary,
+                  fontSize: '18px',
+                  pointerEvents: 'none',
+                }}
+              >
+                🔍
+              </span>
+            )}
+          </div>
         </div>
+        
+        {/* Search Results Info */}
+        {searchQuery && (
+          <div style={{ marginBottom: AdminSpacing.md, fontSize: '14px', color: colors.text.secondary }}>
+            {items.length > 0 ? (
+              <span>Found {items.length} result{items.length !== 1 ? 's' : ''} for "{searchQuery}"</span>
+            ) : (
+              <span>No results found for "{searchQuery}"</span>
+            )}
+          </div>
+        )}
 
         {/* Loading State */}
         {isLoading && <AdminTableSkeleton />}
