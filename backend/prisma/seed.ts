@@ -558,6 +558,67 @@ async function main() {
     return; // Exit early if we can't even create a simple user
   }
 
+  // Helper function to generate state code from state name
+  const generateStateCode = (stateName: string): string => {
+    // Extract first letters of each word or use initials for well-known abbreviations
+    const stateAbbreviations: Record<string, string> = {
+      'Andhra Pradesh': 'AP',
+      'Arunachal Pradesh': 'AR',
+      'Assam': 'AS',
+      'Bihar': 'BR',
+      'Chhattisgarh': 'CG',
+      'Goa': 'GA',
+      'Gujarat': 'GJ',
+      'Haryana': 'HR',
+      'Himachal Pradesh': 'HP',
+      'Jharkhand': 'JH',
+      'Karnataka': 'KA',
+      'Kerala': 'KL',
+      'Madhya Pradesh': 'MP',
+      'Maharashtra': 'MH',
+      'Manipur': 'MN',
+      'Meghalaya': 'ML',
+      'Mizoram': 'MZ',
+      'Nagaland': 'NL',
+      'Odisha': 'OD',
+      'Punjab': 'PB',
+      'Rajasthan': 'RJ',
+      'Sikkim': 'SK',
+      'Tamil Nadu': 'TN',
+      'Telangana': 'TG',
+      'Tripura': 'TR',
+      'Uttar Pradesh': 'UP',
+      'Uttarakhand': 'UT',
+      'West Bengal': 'WB',
+      'Andaman and Nicobar Islands (UT)': 'AN',
+      'Chandigarh': 'CH',
+      'Dadra and Nagar Haveli and Daman and Diu': 'DD',
+      'Delhi (NCT)': 'DL',
+      'Jammu and Kashmir': 'JK',
+      'Ladakh': 'LD',
+      'Lakshadweep': 'LS',
+      'Puducherry': 'PY'
+    };
+    return stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
+  };
+
+  // Create state-level ADMIN users
+  const stateAdminUsers: any[] = [];
+  const allStates = await prisma.states.findMany();
+  
+  for (let i = 0; i < allStates.length; i++) {
+    const stateRecord = allStates[i];
+    const stateCode = generateStateCode(stateRecord.name);
+    stateAdminUsers.push({
+      username: `${stateCode}_ADMIN_ALMS`,
+      email: `admin-${stateRecord.name.toLowerCase().replace(/\s+/g, '-')}@tspolice.gov.in`,
+      password: 'password',
+      phoneNo: `8712670${String(1000 + i).padStart(3, '0')}`,
+      role: 'ADMIN',
+      stateId: stateRecord.id,
+    });
+  }
+
   // Create location-based users with proper hierarchy mapping
   const locationUsers: any[] = [];
   let phoneCounter = 1000; // Counter to ensure unique phone numbers
@@ -623,7 +684,7 @@ async function main() {
     });
   }
 
-  // Users array and creation loop - keep existing admin users + add location users
+  // Users array and creation loop - keep existing admin users + add state admin users + location users
   const users: any[] = [
     // Existing administrative users
     {
@@ -662,6 +723,8 @@ async function main() {
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
+    // Add all state-level ADMIN users
+    ...stateAdminUsers,
     // ZS - Zonal Superintendents for each zone
     {
       username: 'SUPDT_NZ_HYD',
