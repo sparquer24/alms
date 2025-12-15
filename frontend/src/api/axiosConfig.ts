@@ -22,12 +22,16 @@ const extractErrorMessage = (error: any): string => {
   if (error?.response?.data?.details?.response?.message) {
     return error.response.data.details.response.message;
   }
-  // Try standard error paths
+  // Try standard error paths - check message first as it's more descriptive
+  if (error?.response?.data?.message) {
+    return error.response.data.message;
+  }
   if (error?.response?.data?.error) {
     return error.response.data.error;
   }
-  if (error?.response?.data?.message) {
-    return error.response.data.message;
+  // Check for plain data string
+  if (typeof error?.response?.data === 'string') {
+    return error.response.data;
   }
   if (error?.message) {
     return error.message;
