@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AdminCard, AdminTable } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import {
@@ -88,10 +89,19 @@ const cardPalette = {
 
 export default function ApplicationsDetailsPage() {
   const { colors } = useAdminTheme();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
+
+  useEffect(() => {
+    const qp = (searchParams?.get('status') || '').trim();
+    const validStatuses: ApplicationStatus[] = ['Approved', 'Pending', 'Rejected'];
+    if (validStatuses.includes(qp as ApplicationStatus)) {
+      setStatus(qp);
+    }
+  }, [searchParams]);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -271,7 +281,7 @@ export default function ApplicationsDetailsPage() {
           }}
           aria-label='Status filter'
         >
-          <option value=''>All Roles</option>
+          <option value=''>All Statuses</option>
           <option value='Approved'>Approved</option>
           <option value='Pending'>Pending</option>
           <option value='Rejected'>Rejected</option>
