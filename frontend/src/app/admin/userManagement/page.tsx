@@ -353,9 +353,77 @@ export default function UserManagementPage() {
     }
   };
 
-  const openEdit = (u: UiUser) => {
-    setEditUser({ ...u });
+  const openEdit = async (u: UiUser) => {
+    setEditLoading(true);
     setActionMessage('');
+    setEditError('');
+    try {
+      // Fetch fresh user data from API
+      const data = await fetchData(`/users/${u.id}`);
+      
+      // Extract location IDs from nested objects or direct ID fields
+      const stateId = data.stateId || '';
+      const districtId = data.districtId || '';
+      const zoneId = data.zoneId || '';
+      const divisionId = data.divisionId || '';
+      const policeStationId = data.policeStationId || '';
+      
+      // Map the API response to UiUser format
+      const fetchedUser: UiUser = {
+        id: Number(data.id),
+        username: data.username || '',
+        role: data.role?.code ||'',
+        email: data.email || '',
+        phoneNo: data.phoneNo || '',
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        roleName: data.role?.name,
+        roleFull: data.role,
+        password: '', // Don't populate password - it's hashed in DB
+        state: stateId,
+        district: districtId,
+        zone: zoneId,
+        division: divisionId,
+        policeStation: policeStationId,
+      };
+      
+      // Set location hierarchy in sequence to load cascading dropdowns
+      // Each setSelected function triggers loading of the next level
+      if (stateId && stateId !== '' && !isNaN(Number(stateId))) {
+        locationActions.setSelectedState(String(stateId));
+        
+        // Wait a bit for districts to load, then set district
+        if (districtId && districtId !== '' && !isNaN(Number(districtId))) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          locationActions.setSelectedDistrict(String(districtId));
+          
+          // Wait for zones to load, then set zone
+          if (zoneId && zoneId !== '' && !isNaN(Number(zoneId))) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            locationActions.setSelectedZone(String(zoneId));
+            
+            // Wait for divisions to load, then set division
+            if (divisionId && divisionId !== '' && !isNaN(Number(divisionId))) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              locationActions.setSelectedDivision(String(divisionId));
+              
+              // Wait for police stations to load, then set police station
+              if (policeStationId && policeStationId !== '' && !isNaN(Number(policeStationId))) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                locationActions.setSelectedPoliceStation(String(policeStationId));
+              }
+            }
+          }
+        }
+      }
+      
+      setEditUser(fetchedUser);
+    } catch (e: any) {
+      setActionMessage(e.message || 'Failed to load user details');
+      setEditUser(null);
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -370,7 +438,13 @@ export default function UserManagementPage() {
         username: editUser.username,
         email: editUser.email || undefined,
         phoneNo: editUser.phoneNo || undefined,
+        password: editUser.password || undefined,
         roleId: role?.id,
+        stateId: editUser.state ? Number(editUser.state) : undefined,
+        districtId: editUser.district ? Number(editUser.district) : undefined,
+        zoneId: editUser.zone ? Number(editUser.zone) : undefined,
+        divisionId: editUser.division ? Number(editUser.division) : undefined,
+        policeStationId: editUser.policeStation ? Number(editUser.policeStation) : undefined,
       });
       setActionMessage('Updated successfully');
       setTimeout(() => setEditUser(null), 600);
@@ -544,7 +618,7 @@ export default function UserManagementPage() {
                 </svg>
               </div>
               <div>
-                <h3 className='text-sm font-medium text-red-800'>Error loading users</h3>
+                <h3 className='text-sm font-medium text-red-800'>No users found</h3>
                 <p className='text-sm text-red-600 mt-1'>{error}</p>
               </div>
             </div>
@@ -1435,7 +1509,7 @@ export default function UserManagementPage() {
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
           <div
             className='absolute inset-0 bg-slate-900/40 backdrop-blur-sm'
-            onClick={() => setEditUser(null)}
+            onClick={() => !editLoading && setEditUser(null)}
           />
           <div className='relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl'>
             <div className='flex items-center justify-between mb-4'>
@@ -1454,6 +1528,11 @@ export default function UserManagementPage() {
                 </svg>
               </button>
             </div>
+            {actionMessage && (
+              <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${actionMessage.includes('success') || actionMessage.includes('Updated') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {actionMessage}
+              </div>
+            )}
               <div className='space-y-4 overflow-y-auto max-h-[70vh] pr-1'>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Username</label>
@@ -1475,12 +1554,15 @@ export default function UserManagementPage() {
                 {editError && <p className='text-red-600 text-sm mt-1'>{editError}</p>}
                 </div>
                 <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>password</label>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>New Password (Optional)</label>
                 <input
-                  value={editUser.password}
+                  type='password'
+                  placeholder='Enter new password'
+                  value={editUser.password || ''}
                   onChange={e => setEditUser({ ...editUser, password: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 />
+                <p className='text-xs text-slate-500 mt-1'>Only fill this if you want to change the password</p>
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Email</label>
