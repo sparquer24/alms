@@ -92,8 +92,17 @@ export const AuthApi = {
         }
         throw primaryErr;
       }
-    } catch (error) {
-      // Re-throw with enriched message for thunks to pick up
+    } catch (error: any) {
+      // Extract and re-throw with proper error message from response
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        // Create a new error with the message from the API response
+        const errorMessage = errorData.message || errorData.error || error.message || 'Login failed';
+        const enrichedError = new Error(errorMessage);
+        // Preserve the original response for additional context
+        (enrichedError as any).response = error.response;
+        throw enrichedError;
+      }
       throw error;
     }
   },

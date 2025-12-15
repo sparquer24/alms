@@ -117,7 +117,13 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 && typeof window !== 'undefined') {
+    const requestUrl = error?.config?.url || '';
+    
+    // Only redirect on 401 if it's NOT a login request
+    // Login requests should handle their own 401 errors to display messages
+    const isLoginRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/login');
+    
+    if (status === 401 && !isLoginRequest && typeof window !== 'undefined') {
       try {
         jsCookie.remove('auth');
         jsCookie.remove('user');
