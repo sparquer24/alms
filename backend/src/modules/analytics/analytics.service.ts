@@ -193,7 +193,7 @@ export class AnalyticsService {
     }
 
     /**
-     * Get admin activities
+     * Get admin activities - Returns the 2 most recent entries for each user
      */
     async getAdminActivities(
         fromDate?: string,
@@ -236,23 +236,49 @@ export class AnalyticsService {
                 orderBy: {
                     createdAt: 'desc',
                 },
-                take: 100,
             });
 
-            // Format the results
-            const result = workflows.map((workflow) => ({
-                id: workflow.id,
-                user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
-                action: `${workflow.actionTaken || 'Updated'} application #${workflow.applicationId}`,
-                time: new Date(workflow.createdAt).toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                }),
-                timestamp: new Date(workflow.createdAt).getTime(),
-            }));
+            // Group by user and take only the 2 most recent entries for each user
+            const userActivitiesMap = new Map<string, any[]>();
+
+            workflows.forEach((workflow) => {
+                const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
+                
+                if (!userActivitiesMap.has(user)) {
+                    userActivitiesMap.set(user, []);
+                }
+
+                const userActivities = userActivitiesMap.get(user);
+                
+                // Only add if we have less than 2 entries for this user
+                if (userActivities && userActivities.length < 2) {
+                    userActivities.push(workflow);
+                }
+            });
+
+            // Flatten the map and format the results
+            const result: AdminActivityDto[] = [];
+            
+            userActivitiesMap.forEach((activities) => {
+                activities.forEach((workflow) => {
+                    result.push({
+                        id: workflow.id,
+                        user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
+                        action: `${workflow.actionTaken || 'Updated'} application #${workflow.applicationId}`,
+                        time: new Date(workflow.createdAt).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        }),
+                        timestamp: new Date(workflow.createdAt).getTime(),
+                    });
+                });
+            });
+
+            // Sort by timestamp descending to maintain chronological order
+            result.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
             return result;
         } catch (error) {
