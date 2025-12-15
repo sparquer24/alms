@@ -10,7 +10,8 @@ export type AdminMenuItemKey =
     | 'roleMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement';
+    | 'locationsManagement'
+    | 'applicationsDetails';
 
 export interface AdminMenuItem extends MenuItem {
     path: string;
@@ -34,7 +35,7 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
     roleMapping: {
         name: 'roleMapping',
         key: 'roleMapping',
-        label: 'Role Mapping',
+        label: 'Role Management',
         path: '/admin/roleMapping',
         order: 2,
     },
@@ -58,6 +59,13 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         label: 'Locations Management',
         path: '/admin/locationsManagement',
         order: 5,
+    },
+    applicationsDetails: {
+        name: 'applicationsDetails',
+        key: 'applicationsDetails',
+        label: 'Applications Details',
+        path: '/admin/applicationsDetails',
+        order: 6,
     },
 };
 
@@ -111,6 +119,9 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'rolemapping': 'roleMapping',
         'role_mapping': 'roleMapping',
         'role-mapping': 'roleMapping',
+        'rolemanagement': 'roleMapping',
+        'role_management': 'roleMapping',
+        'role-management': 'roleMapping',
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
@@ -118,6 +129,9 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',
+        // 'flowmanagement': 'flowMapping',
+        // 'flow_management': 'flowMapping',
+        // 'flow-management': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
         'locationsmanagement': 'locationsManagement',
@@ -127,6 +141,12 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'location_management': 'locationsManagement',
         'location-management': 'locationsManagement',
         'locations': 'locationsManagement',
+        'applicationsdetails': 'applicationsDetails',
+        'applications_details': 'applicationsDetails',
+        'applications-details': 'applicationsDetails',
+        'applicationdetails': 'applicationsDetails',
+        'application_details': 'applicationsDetails',
+        'application-details': 'applicationsDetails',
     };
 
     // Try direct match first

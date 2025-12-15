@@ -12,6 +12,7 @@ import {
   GitBranch,
   RefreshCcw,
   MapPin,
+  FileText,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -28,6 +29,7 @@ const ShieldFixed = Shield as any;
 const GitBranchFixed = GitBranch as any;
 const RefreshCcwFixed = RefreshCcw as any;
 const MapPinFixed = MapPin as any;
+const FileTextFixed = FileText as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
@@ -46,6 +48,7 @@ export type MenuMetaKey =
   | 'roleMapping'
   | 'flowMapping'
   | 'locationsManagement'
+  | 'applicationsDetails'
   | 'rejected';
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
@@ -97,8 +100,8 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
     icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
   },
   roleMapping: {
-    label: 'Role Mapping',
-    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Mapping' />,
+    label: 'Role Management',
+    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
   },
   flowMapping: {
     label: 'Flow Mapping',
@@ -107,5 +110,9 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   locationsManagement: {
     label: 'Locations Management',
     icon: () => <MapPinFixed className='w-6 h-6 mr-2' aria-label='Locations Management' />,
+  },
+  applicationsDetails: {
+    label: 'Applications Details',
+    icon: () => <FileTextFixed className='w-6 h-6 mr-2' aria-label='Applications Details' />,
   },
 };

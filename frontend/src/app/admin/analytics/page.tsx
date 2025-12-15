@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
@@ -54,6 +55,7 @@ const COLORS = ['#6366F1', '#F59E42', '#10B981', '#EF4444', '#8B5CF6', '#EC4899'
 
 export default function AnalyticsPage() {
   const { colors } = useAdminTheme();
+  const router = useRouter();
 
   // Date range state
   const [fromDate, setFromDate] = useState<string>(() => {
@@ -254,22 +256,34 @@ export default function AnalyticsPage() {
             ))
           ) : (
             <>
-              <AdminCard title='Total Applications'>
+              <AdminCard
+                title='Total Applications'
+                onClick={() => router.push('/admin/applicationsDetails')}
+              >
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.info }}>
                   {summaryStats.totalApplications}
                 </div>
               </AdminCard>
-              <AdminCard title='Approved'>
+              <AdminCard
+                title='Approved'
+                onClick={() => router.push('/admin/applicationsDetails?status=Approved')}
+              >
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.success }}>
                   {summaryStats.totalApproved}
                 </div>
               </AdminCard>
-              <AdminCard title='Pending'>
+              <AdminCard
+                title='Pending'
+                onClick={() => router.push('/admin/applicationsDetails?status=Pending')}
+              >
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.warning }}>
                   {summaryStats.totalPending}
                 </div>
               </AdminCard>
-              <AdminCard title='Rejected'>
+              <AdminCard
+                title='Rejected'
+                onClick={() => router.push('/admin/applicationsDetails?status=Rejected')}
+              >
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.error }}>
                   {summaryStats.totalRejected}
                 </div>
