@@ -1,6 +1,7 @@
 export const ERROR_MESSAGES = {
   CREDENTIALS_REQUIRED: 'Username and password are required',
   INVALID_CREDENTIALS: 'Invalid username or password',
+  ROLE_INACTIVE: 'Login failed - role inactive ',
   USER_NOT_FOUND: 'User not found',
   INTERNAL_SERVER_ERROR: 'Internal server error',
   UNAUTHORIZED: 'Unauthorized access',

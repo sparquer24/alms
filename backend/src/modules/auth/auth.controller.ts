@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request, Res } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request, Res, UnauthorizedException } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
@@ -33,7 +33,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async login(@Body() loginData: LoginRequest, @Res({ passthrough: true }) res: Response): Promise<LoginResponse> {
+  async login(@Body() loginData: LoginRequest, @Res({ passthrough: true }) res: Response): Promise<any> {
     try {
       const result = await this.authService.authenticateUser(loginData);
 
@@ -56,6 +56,11 @@ export class AuthController {
 
       return result;
     } catch (error) {
+      // If login failed due to Unauthorized (bad creds or role inactive),
+      // return a clean JSON response without Nest's default path/method fields.
+      if (error instanceof UnauthorizedException) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({ success: false, message: error.message });
+      }
       throw error;
     }
   }

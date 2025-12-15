@@ -53,6 +53,13 @@ export class AuthService {
         throw new UnauthorizedException(ERROR_MESSAGES.INVALID_CREDENTIALS);
       }
 
+      // If the user's role exists but is not active, reject login
+      if (user.role && typeof user.role.is_active !== 'undefined' && !user.role.is_active) {
+        // Build a helpful identifier for the inactive role (prefer code, then name, then id)
+        const roleIdent = user.role.code ?? user.role.name ?? (user.role.id ? String(user.role.id) : 'unknown');
+        throw new UnauthorizedException(`${ERROR_MESSAGES.ROLE_INACTIVE}: ${roleIdent}`);
+      }
+
       // Generate JWT token
       const token = this.generateToken(user);
 
