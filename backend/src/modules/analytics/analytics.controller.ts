@@ -7,6 +7,7 @@ import {
     StateDataDto,
     AdminActivityDto,
     AnalyticsResponseDto,
+    ApplicationRecordDto,
 } from './dto/analytics.dto';
 
 @ApiTags('Analytics')
@@ -245,6 +246,41 @@ export class AnalyticsController {
             console.error('Error in getAdminActivities:', error);
             throw new HttpException(
                 error.message || 'Failed to fetch admin activities',
+                error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('applications/details')
+    @ApiOperation({
+        summary: 'Get Applications Details',
+        description:
+            'Get applications summary counts and a list of applications. Supports optional status filter (APPROVED, PENDING, REJECTED).',
+    })
+    @ApiQuery({
+        name: 'status',
+        required: false,
+        type: String,
+        description: 'Optional status filter: APPROVED | PENDING | REJECTED',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved applications details',
+        // data contains summary + array of records
+    })
+    async getApplicationsDetails(
+        @Query('status') status?: string,
+    ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
+        try {
+            const data = await this.analyticsService.getApplicationsDetails(status);
+            return {
+                success: true,
+                data:data.data,
+            };
+        } catch (error: any) {
+            console.error('Error in getApplicationsDetails:', error);
+            throw new HttpException(
+                error.message || 'Failed to fetch applications details',
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }

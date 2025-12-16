@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { ApplicationsDataDto, RoleLoadDataDto, StateDataDto, AdminActivityDto } from './dto/analytics.dto';
+import {
+    ApplicationsDataDto,
+    RoleLoadDataDto,
+    StateDataDto,
+    AdminActivityDto,
+    ApplicationRecordDto,
+} from './dto/analytics.dto';
 import { getISOWeek, getISOWeekYear, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 
 @Injectable()
@@ -193,7 +199,7 @@ export class AnalyticsService {
     }
 
     /**
-     * Get admin activities - Returns the 2 most recent entries for each user
+     * Get admin activities
      */
     async getAdminActivities(
         fromDate?: string,
@@ -236,55 +242,109 @@ export class AnalyticsService {
                 orderBy: {
                     createdAt: 'desc',
                 },
+                take: 100,
             });
 
-            // Group by user and take only the 2 most recent entries for each user
-            const userActivitiesMap = new Map<string, any[]>();
-
-            workflows.forEach((workflow) => {
-                const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
-                
-                if (!userActivitiesMap.has(user)) {
-                    userActivitiesMap.set(user, []);
-                }
-
-                const userActivities = userActivitiesMap.get(user);
-                
-                // Only add if we have less than 2 entries for this user
-                if (userActivities && userActivities.length < 2) {
-                    userActivities.push(workflow);
-                }
-            });
-
-            // Flatten the map and format the results
-            const result: AdminActivityDto[] = [];
-            
-            userActivitiesMap.forEach((activities) => {
-                activities.forEach((workflow) => {
-                    result.push({
-                        id: workflow.id,
-                        user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
-                        action: `${workflow.actionTaken || 'Updated'} application #${workflow.applicationId}`,
-                        time: new Date(workflow.createdAt).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        }),
-                        timestamp: new Date(workflow.createdAt).getTime(),
-                    });
-                });
-            });
-
-            // Sort by timestamp descending to maintain chronological order
-            result.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            // Format the results
+            const result = workflows.map((workflow) => ({
+                id: workflow.id,
+                user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
+                action: `${workflow.actionTaken || 'Updated'} application #${workflow.applicationId}`,
+                time: new Date(workflow.createdAt).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                }),
+                timestamp: new Date(workflow.createdAt).getTime(),
+            }));
 
             return result;
         } catch (error) {
             console.error('Error fetching admin activities:', error);
             // Return empty array if workflow history table doesn't exist or is empty
             return [];
+        }
+    }
+
+    /**
+     * Get applications summary and list for admin analytics
+     * Supports optional status filter (APPROVED | REJECTED | PENDING)
+     */
+    async getApplicationsDetails(status?: string): Promise<{data: ApplicationRecordDto[] }> {
+        try {
+            const where: any = {};
+
+            if (status) {
+                const s = String(status).toUpperCase();
+                if (s === 'APPROVED') {
+                    where.isApproved = true;
+                } else if (s === 'REJECTED') {
+                    where.isRejected = true;
+                } else if (s === 'PENDING') {
+                    where.isPending = true;
+                }
+            }
+
+            // Counts (respect the provided filter)
+            const approved = await prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...where, isApproved: true } });
+            const rejected = await prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...where, isRejected: true } });
+            const pending = await prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...where, isPending: true } });
+
+            // Fetch recent applications with their latest workflow history
+            const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
+                where,
+                select: {
+                    id: true,
+                    almsLicenseId: true,
+                    updatedAt: true,
+                    createdAt: true,
+                    currentUser: {
+                        select: {
+                            id: true,
+                            username: true,
+                        },
+                    },
+                    isApproved: true,
+                    isRejected: true,
+                    isPending: true,
+                    workflowHistories: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                        select: {
+                            createdAt: true,
+                        },
+                    },
+                },
+                orderBy: { updatedAt: 'desc' },
+                take: 200,
+            });
+
+            const now = Date.now();
+
+            const data: any[] = applications.map((app) => {
+                const latest = app.workflowHistories && app.workflowHistories[0];
+                const actionDate = latest?.createdAt ? new Date(latest.createdAt) : app.updatedAt ? new Date(app.updatedAt) : new Date(app.createdAt);
+                const actionTakenAt = actionDate ? actionDate.toISOString() : null;
+                const daysTillToday = actionDate ? Math.floor((now - actionDate.getTime()) / (24 * 60 * 60 * 1000)) : null;
+
+                const statusStr = app.isApproved ? 'APPROVED' : app.isRejected ? 'REJECTED' : 'PENDING';
+
+                return {
+                    applicationId: app.id,
+                    licenseId: app.almsLicenseId || null,
+                    currentUser: app.currentUser ? { id: app.currentUser.id, name: app.currentUser.username } : null,
+                    status: statusStr,
+                    actionTakenAt,
+                    daysTillToday,
+                };
+            });
+
+            return { data };
+        } catch (error) {
+            console.error('Error fetching applications details:', error);
+            return { data: [] };
         }
     }
 }

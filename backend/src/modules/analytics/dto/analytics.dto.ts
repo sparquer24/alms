@@ -27,3 +27,13 @@ export class AnalyticsResponseDto<T> {
     data!: T;
     message?: string;
 }
+
+export class ApplicationRecordDto {
+    applicationId!: number;
+    licenseId?: string | null;
+    currentUser?: { id: number; name: string } | null;
+    status!: string;
+    actionTakenAt?: string | null;
+    daysTillToday?: number | null;
+}
+
