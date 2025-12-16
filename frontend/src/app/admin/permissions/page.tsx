@@ -289,55 +289,126 @@ export default function PermissionsPage() {
       <Header />
 
   <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Permission Management</h1>
-              <p className="text-gray-600 mt-1">Manage system permissions and their assignments</p>
+        {/* Header Section with Gradient Background */}
+        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6'>
+          <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>
+            <div className='text-white'>
+              <h1 className='text-3xl font-bold mb-2'>Permission Management</h1>
+              <p className='text-blue-100 text-lg'>
+                Manage system permissions and their assignments
+              </p>
             </div>
-            <button
-              onClick={() => router.push('/admin/permissions/create')}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Create Permission
-            </button>
           </div>
+          <div className='p-6 bg-white'>
+            <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4'>
+              <div className='flex flex-col sm:flex-row gap-3 flex-1'>
+                <div className='relative flex-1 max-w-md'>
+                  <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
+                    <svg
+                      className='h-4 w-4 text-slate-400'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+                      />
+                    </svg>
+                  </div>
+                  <input
+                    aria-label='Search permissions'
+                    className='w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-300 bg-white text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                    placeholder='Search permissions...'
+                    value={searchQuery}
+                    onChange={e => handleSearch(e.target.value)}
+                  />
+                  {/* Clear search button */}
+                  {searchQuery && (
+                    <button
+                      aria-label='Clear search'
+                      title='Clear search'
+                      onClick={() => handleSearch('')}
+                      className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    >
+                      <svg
+                        className='w-4 h-4'
+                        fill='none'
+                        stroke='currentColor'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth={2}
+                          d='M6 18L18 6M6 6l12 12'
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/admin/permissions/create')}
+                className='inline-flex items-center justify-center rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors whitespace-nowrap'
+              >
+                <svg
+                  className='w-4 h-4 mr-2'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M12 4v16m8-8H4'
+                  />
+                </svg>
+                Create Permission
+              </button>
+            </div>
+          </div>
+          </div>
+        </div>
 
-          {/* Category Filter */}
-          {isLoading ? (
-            <AdminSectionSkeleton />
-          ) : (
-            <>
-              <div className="mb-6">
-                <div className="flex space-x-2">
+        {/* Category Filter */}
+        {!isLoading && (
+          <div className="mb-6">
+            <div className="flex space-x-2 flex-wrap gap-2">
+              <button
+                onClick={() => handleCategoryFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedCategory === 'all'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                  All Categories
+                </button>
+                {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
                   <button
-                    onClick={() => handleCategoryFilter('all')}
+                    key={category}
+                    onClick={() => handleCategoryFilter(category)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      selectedCategory === 'all'
+                      selectedCategory === category
                         ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    All Categories
+                    {category}
                   </button>
-                  {Object.keys(PERMISSION_CATEGORIES || {}).map(category => (
-                    <button
-                      key={category}
-                      onClick={() => handleCategoryFilter(category)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        selectedCategory === category
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
+                ))}
               </div>
+            </div>
+        )}
 
-              {/* Display search information if applied */}
-              {searchQuery && (
+        <div className="bg-white rounded-lg shadow p-6">
+
+          {/* Display search information if applied */}
+          {searchQuery && (
             <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
               <h3 className="font-semibold text-blue-700">Search Results:</h3>
               <p className="text-sm text-gray-700 mt-1">Searching for: "{searchQuery}"</p>
@@ -434,8 +505,6 @@ export default function PermissionsPage() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">No permissions found</h3>
               <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
             </div>
-          )}
-            </>
           )}
         </div>
       </main>

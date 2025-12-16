@@ -17,6 +17,7 @@ export type { ConfirmationDialogConfig } from './ConfirmationDialog';
 export { AdminTableSkeleton } from './AdminTableSkeleton';
 export { AdminCardSkeleton } from './AdminCardSkeleton';
 export { AdminSectionSkeleton } from './AdminSectionSkeleton';
+export { AdminFormSkeleton } from './AdminFormSkeleton';
 
 // Error Handling
 export { AdminErrorAlert } from './AdminErrorAlert';

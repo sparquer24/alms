@@ -334,24 +334,17 @@ export default function FlowMappingPage() {
           flexDirection: 'column',
         }}
       >
-        {/* Header */}
-        <AdminToolbar sticky>
-          <div>
-            <h1
-              style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: colors.text.primary,
-                margin: 0,
-              }}
-            >
-              Flow Mapping
-            </h1>
-            <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
-              Configure workflow routing between roles with circular dependency validation
-            </p>
+        {/* Header Section with Gradient Background */}
+        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
+          <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>
+            <div className='text-white'>
+              <h1 className='text-3xl font-bold mb-2'>Flow Mapping</h1>
+              <p className='text-blue-100 text-lg'>
+                Configure workflow routing between roles with circular dependency validation
+              </p>
+            </div>
           </div>
-        </AdminToolbar>
+        </div>
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>

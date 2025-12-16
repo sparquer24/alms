@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { useRouter } from "next/navigation";
+import { AdminFormSkeleton } from "@/components/admin";
 
 const mockLocations = ["HQ", "District 1", "District 2", "District 3"];
 const mockMappings = [
@@ -17,10 +18,16 @@ export default function ForwardingPage() {
   const [locations, setLocations] = useState<string[]>([]);
   const [mappings, setMappings] = useState(mockMappings);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!isLoggedIn) router.push("/admin/login");
-    setLocations(mockLocations);
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setLocations(mockLocations);
+      setIsLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
   }, [isLoggedIn, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,6 +57,10 @@ export default function ForwardingPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
       <div className="bg-white p-8 rounded shadow-md w-full max-w-xl">
         <h1 className="text-2xl font-bold mb-6 text-[#001F54]">Location Forwarding Master Data</h1>
+        {isLoading ? (
+          <AdminFormSkeleton fields={3} showButton={true} />
+        ) : (
+          <>
         <form onSubmit={handleSubmit} className="mb-8">
           <div className="mb-4">
             <label className="block mb-1 font-semibold text-[#001F54]">Source Location</label>
@@ -90,6 +101,8 @@ export default function ForwardingPage() {
             ))}
           </tbody>
         </table>
+          </>
+        )}
       </div>
     </div>
   );
