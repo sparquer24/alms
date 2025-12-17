@@ -15,6 +15,8 @@ interface SuccessModalProps {
   message?: string;
   applicationId?: string;
   onNavigateHome?: () => void;
+  autoRedirectSeconds?: number; // If set, auto-redirects after this many seconds
+  hideCloseButton?: boolean; // If true, hides the close button
 }
 
 const SuccessModal: React.FC<SuccessModalProps> = ({
@@ -23,9 +25,12 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
   title = "Success!",
   message = "Your application has been submitted successfully.",
   applicationId,
-  onNavigateHome
+  onNavigateHome,
+  autoRedirectSeconds,
+  hideCloseButton = false
 }) => {
   const [showContent, setShowContent] = useState(false);
+  const [countdown, setCountdown] = useState(autoRedirectSeconds || 0);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,9 +42,34 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
     }
   }, [isOpen]);
 
+  // Auto-redirect countdown effect
+  useEffect(() => {
+    if (isOpen && autoRedirectSeconds && autoRedirectSeconds > 0) {
+      setCountdown(autoRedirectSeconds);
+      
+      const interval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            // Trigger redirect
+            if (onNavigateHome) {
+              onNavigateHome();
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, autoRedirectSeconds, onNavigateHome]);
+
   if (!isOpen) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
+    // Don't allow closing by clicking backdrop if hideCloseButton is true
+    if (hideCloseButton) return;
     if (e.target === e.currentTarget) {
       onClose();
     }
@@ -64,14 +94,16 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
           <AwardFixed className="w-5 h-5 animate-pulse" style={{ animationDelay: '0.5s' }} />
         </div>
 
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 z-10"
-          aria-label="Close modal"
-        >
-          <XFixed className="w-5 h-5" />
-        </button>
+        {/* Close button - hidden if hideCloseButton is true */}
+        {!hideCloseButton && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-all duration-200 z-10"
+            aria-label="Close modal"
+          >
+            <XFixed className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Success icon with animation */}
         <div className="flex justify-center mb-6">
@@ -124,7 +156,19 @@ const SuccessModal: React.FC<SuccessModalProps> = ({
         <div className={`flex flex-col gap-3 transform transition-all duration-500 delay-500 ${
           showContent ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
         }`}>
-          {onNavigateHome && (
+          {/* Auto-redirect countdown message */}
+          {autoRedirectSeconds && countdown > 0 && (
+            <div className="text-center text-gray-600 text-sm mb-2">
+              <div className="flex items-center justify-center gap-2">
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Redirecting to dashboard in <strong>{countdown}</strong> second{countdown !== 1 ? 's' : ''}...</span>
+              </div>
+            </div>
+          )}
+          {onNavigateHome && !autoRedirectSeconds && (
             <button
               onClick={onNavigateHome}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"

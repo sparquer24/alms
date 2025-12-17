@@ -51,3 +51,43 @@ export class BiometricVerificationDto {
     @Max(100)
     matchThreshold?: number; // Default 65
 }
+
+/**
+ * Request to validate fingerprint uniqueness before enrollment
+ * If unique, stores the fingerprint automatically
+ */
+export class FingerprintValidationDto {
+    @Type(() => BiometricTemplateDto)
+    @ValidateNested()
+    fingerTemplate!: BiometricTemplateDto;
+
+    @IsString()
+    fingerPosition!: string; // e.g., 'RIGHT_THUMB', 'LEFT_INDEX' - required for storage
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(100)
+    matchThreshold?: number; // Default 65 - threshold for considering fingerprints as matching
+
+    @IsOptional()
+    @IsString()
+    description?: string;
+}
+
+/**
+ * Response for fingerprint validation
+ */
+export interface FingerprintValidationResponse {
+    exists: boolean;
+    message: string;
+    fingerprintId?: string; // Returned when fingerprint is stored
+    enrolledAt?: string; // Returned when fingerprint is stored
+    existingApplication?: {
+        applicationId: number;
+        almsLicenseId?: string;
+        applicantName?: string;
+        fingerPosition?: string;
+        enrolledAt?: string;
+    };
+}

@@ -3,13 +3,14 @@
  * Handles communication between frontend and NestJS backend for biometric operations
  */
 
-import { postData } from '../api/axiosConfig';
+import { postData, fetchData } from '../api/axiosConfig';
 
 export interface BiometricTemplate {
     template: string; // Base64 or binary-safe template
     quality: number; // 0-100 quality score
     isoTemplate?: string; // Optional ISO template
     captureTime: string; // ISO timestamp
+    bitmapData?: string; // Base64 fingerprint image for display
 }
 
 export interface BiometricEnrollmentRequest {
@@ -36,6 +37,32 @@ export interface BiometricStorageResponse {
     fingerprintId?: string;
     message: string;
     enrolledAt?: string;
+    exists?: boolean;
+    existingApplication?: {
+        applicationId: number;
+        almsLicenseId?: string;
+        applicantName?: string;
+        fingerPosition?: string;
+        enrolledAt?: string;
+    };
+}
+
+/**
+ * Response for fingerprint validation (also includes storage result if unique)
+ */
+export interface FingerprintValidationResponse {
+    success: boolean;
+    exists: boolean;
+    message: string;
+    fingerprintId?: string; // Returned when fingerprint is stored
+    enrolledAt?: string; // Returned when fingerprint is stored
+    existingApplication?: {
+        applicationId: number;
+        almsLicenseId?: string;
+        applicantName?: string;
+        fingerPosition?: string;
+        enrolledAt?: string;
+    };
 }
 
 /**
@@ -57,12 +84,13 @@ export class BiometricAPIService {
             const response = await postData(`${this.BASE_PATH}/device/status`, {
                 applicantId,
             });
-            return response.data || { isConnected: false, message: 'Device check failed' };
+            // postData already returns response.data
+            return response || { isConnected: false, message: 'Device check failed' };
         } catch (error: any) {
-            console.error('Failed to check biometric device status:', error);
             return { isConnected: false, message: error.message };
         }
     }
+
 
     /**
      * Enroll fingerprint for an application
@@ -90,12 +118,22 @@ export class BiometricAPIService {
                 payload
             );
 
-            return response.data || { success: false, message: 'Enrollment failed' };
+            // postData already returns response.data
+            return response || { success: false, message: 'Enrollment failed' };
         } catch (error: any) {
-            console.error('Fingerprint enrollment failed:', error);
+            // Handle conflict response (duplicate fingerprint detected)
+            if (error.response?.status === 409 && error.response?.data) {
+                return {
+                    success: false,
+                    exists: error.response.data.exists,
+                    existingApplication: error.response.data.existingApplication,
+                    message: error.response.data.message || 'Duplicate fingerprint detected',
+                };
+            }
+
             return {
                 success: false,
-                message: error.message || 'Fingerprint enrollment failed',
+                message: error.response?.data?.message || error.message || 'Fingerprint enrollment failed',
             };
         }
     }
@@ -123,37 +161,20 @@ export class BiometricAPIService {
                 payload
             );
 
-            return response.data || {
+            // postData already returns response.data
+            return response || {
                 success: false,
                 isMatch: false,
                 matchScore: 0,
                 message: 'Verification failed',
             };
         } catch (error: any) {
-            console.error('Fingerprint verification failed:', error);
             return {
                 success: false,
                 isMatch: false,
                 matchScore: 0,
                 message: error.message || 'Verification failed',
             };
-        }
-    }
-
-    /**
-     * Get enrolled fingerprints for an application
-     * @param applicantId - Application ID
-     * @returns Promise with list of enrolled fingerprints
-     */
-    static async getEnrolledFingerprints(applicantId: string): Promise<any[]> {
-        try {
-            const response = await fetch(`/api${this.BASE_PATH}/enrolled/${encodeURIComponent(applicantId)}`);
-            if (!response.ok) throw new Error('Failed to fetch enrolled fingerprints');
-            const data = await response.json();
-            return data.data || [];
-        } catch (error: any) {
-            console.error('Failed to fetch enrolled fingerprints:', error);
-            return [];
         }
     }
 
@@ -176,7 +197,6 @@ export class BiometricAPIService {
             const data = await response.json();
             return data || { success: false, message: 'Delete failed' };
         } catch (error: any) {
-            console.error('Failed to delete fingerprint:', error);
             return { success: false, message: error.message };
         }
     }
@@ -201,7 +221,6 @@ export class BiometricAPIService {
             const data = await response.json();
             return data.data || [];
         } catch (error: any) {
-            console.error('Failed to fetch audit logs:', error);
             return [];
         }
     }
@@ -219,8 +238,81 @@ export class BiometricAPIService {
             });
             return response.ok;
         } catch (error) {
-            console.warn('Mantra SDK service not available at localhost:8030');
             return false;
+        }
+    }
+
+    /**
+     * Get all stored templates for client-side matching using Mantra SDK
+     * @param excludeApplicationId - Optional application ID to exclude (for re-enrollment)
+     * @returns Promise with array of stored templates
+     */
+    static async getTemplatesForMatching(
+        excludeApplicationId?: string
+    ): Promise<{
+        success: boolean;
+        templates: Array<{
+            applicationId: number;
+            almsLicenseId?: string;
+            applicantName?: string;
+            fingerPosition: string;
+            template: string;
+            enrolledAt?: string;
+        }>;
+        message: string;
+    }> {
+        try {
+            const params = excludeApplicationId
+                ? { excludeApplicationId }
+                : {};
+
+            const response = await fetchData(`${this.BASE_PATH}/templates/for-matching`, params);
+
+            return response || { success: false, templates: [], message: 'Failed to get templates' };
+        } catch (error: any) {
+            return {
+                success: false,
+                templates: [],
+                message: error.message || 'Failed to get templates for matching',
+            };
+        }
+    }
+
+    /**
+     * Store fingerprint directly (after client-side validation passes)
+     * @param applicantId - Application ID
+     * @param fingerPosition - Finger position
+     * @param template - Biometric template
+     * @param description - Optional description
+     * @returns Promise with storage result
+     */
+    static async storeFingerprint(
+        applicantId: string,
+        fingerPosition: string,
+        template: BiometricTemplate,
+        description?: string
+    ): Promise<{
+        success: boolean;
+        fingerprintId?: string;
+        enrolledAt?: string;
+        message: string;
+    }> {
+        try {
+            const response = await postData(
+                `${this.BASE_PATH}/store/${encodeURIComponent(applicantId)}`,
+                {
+                    fingerPosition,
+                    fingerTemplate: template,
+                    description: description || `Fingerprint - ${fingerPosition}`,
+                }
+            );
+
+            return response || { success: false, message: 'Storage failed' };
+        } catch (error: any) {
+            return {
+                success: false,
+                message: error.message || 'Failed to store fingerprint',
+            };
         }
     }
 }

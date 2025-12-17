@@ -9,8 +9,6 @@
  * - No raw fingerprint data is stored in browser
  */
 
-import { Console } from "console";
-
 export interface MantraDeviceStatus {
     isConnected: boolean;
     deviceName?: string;
@@ -54,7 +52,6 @@ export class MantraSDKService {
      */
     static async initialize(): Promise<boolean> {
         if (typeof window === 'undefined') {
-            console.warn('[MantraSDK] Cannot initialize SDK on server-side');
             return false;
         }
 
@@ -67,22 +64,18 @@ export class MantraSDKService {
             // First, check device connectivity
             const deviceStatus = await this.isDeviceConnected();
             if (!deviceStatus.isConnected) {
-                console.error('[MantraSDK] Device not connected');
                 return false;
             }
 
             // Then verify device info and initialization
             const deviceInfo = await this.getDeviceInfo();
             if (!deviceInfo) {
-                console.error('[MantraSDK] Failed to get device information');
                 return false;
             }
 
             this.sdkReady = true;
-            console.log('[MantraSDK] Initialized successfully - Device is ready');
             return true;
         } catch (error: any) {
-            console.error('[MantraSDK] Initialization failed:', error.message);
             return false;
         }
     }
@@ -108,21 +101,13 @@ export class MantraSDKService {
         }
 
         try {
-            console.log('[MantraSDK] ===== CHECK DEVICE START =====');
-            console.log('[MantraSDK] Calling:', `${this.MANTRA_SERVICE_URL}/checkdevice`);
-
             const response = await fetch(`${this.MANTRA_SERVICE_URL}/checkdevice`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ConnectedDvc: 'MFS500' }),
             });
 
-            console.log('[MantraSDK] Response status:', response.status, response.statusText);
-
             if (!response.ok) {
-                console.error('[MantraSDK] ❌ HTTP Error! Status:', response.status);
-                const errorText = await response.text();
-                console.error('[MantraSDK] Error response body:', errorText);
                 return {
                     isConnected: false,
                     errorCode: response.status,
@@ -131,23 +116,13 @@ export class MantraSDKService {
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] ✓ Response received and parsed');
-            console.log('[MantraSDK] isDeviceConnected full response:', JSON.stringify(data, null, 2));
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
             const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
 
-            console.log('[MantraSDK] isDeviceConnected response parsed:', {
-                errorCode: errorCode,
-                errorDescription: errorDesc,
-                DeviceInfo: data.DeviceInfo,
-                allKeys: Object.keys(data)
-            });
-
             // Check if errorCode is "0" or 0 (both possible)
             const isConnected = errorCode === '0' || errorCode === 0;
-            console.log('[MantraSDK] Device connection status:', isConnected ? '✓ Connected' : '❌ Not connected');
 
             return {
                 isConnected,
@@ -158,9 +133,6 @@ export class MantraSDKService {
                 errorMessage: errorDesc || (isConnected ? 'Connected' : 'Not connected'),
             };
         } catch (error: any) {
-            console.error('[MantraSDK] ❌ DEVICE CHECK ERROR - Exception thrown:', error);
-            console.error('[MantraSDK] Error message:', error?.message);
-            console.error('[MantraSDK] Error stack:', error?.stack);
             return {
                 isConnected: false,
                 errorCode: -2,
@@ -190,15 +162,10 @@ export class MantraSDKService {
         }
 
         try {
-            console.log('[MantraSDK] ===== CAPTURE FINGER START =====');
-            console.log('[MantraSDK] Parameters:', { quality, timeout });
-
             const requestBody = {
                 Quality: String(quality),
                 TimeOut: String(Math.floor(timeout / 1000)),
             };
-            console.log('[MantraSDK] Request body:', JSON.stringify(requestBody, null, 2));
-            console.log('[MantraSDK] Calling:', `${this.MANTRA_SERVICE_URL}/capture`);
 
             const response = await fetch(`${this.MANTRA_SERVICE_URL}/capture`, {
                 method: 'POST',
@@ -206,16 +173,8 @@ export class MantraSDKService {
                 body: JSON.stringify(requestBody),
             });
 
-            console.log('[MantraSDK] Response status:', response.status, response.statusText);
-            console.log('[MantraSDK] Response headers:', {
-                contentType: response.headers.get('content-type'),
-                contentLength: response.headers.get('content-length')
-            });
-
             if (!response.ok) {
-                console.error('[MantraSDK] ❌ HTTP Error! Status:', response.status);
                 const errorText = await response.text();
-                console.error('[MantraSDK] Error response body:', errorText);
                 return {
                     success: false,
                     template: '',
@@ -226,39 +185,52 @@ export class MantraSDKService {
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] ✓ Response received and parsed');
-            console.log('[MantraSDK] captureFinger full response:', JSON.stringify(data, null, 2));
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
             const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
 
-            console.log('[MantraSDK] captureFinger response parsed:', {
-                errorCode: errorCode,
-                errorDescription: errorDesc,
-                Quality: data.Quality,
-                Nfiq: data.Nfiq,
-                hasImgData: 'BitmapData' in data,
-                ImgDataLength: data.BitmapData ? String(data.BitmapData).length : 0,
-                ImgDataType: typeof data.BitmapData,
-                allKeys: Object.keys(data)
-            });
-
             // Check for errorCode === "0" (string) or 0 (number)
             if (errorCode === "0" || errorCode === 0) {
-                // Capture successful
-                const imgData = data.BitmapData || '';
-                if (!imgData) {
-                    console.warn('[MantraSDK] ⚠️ Capture returned ErrorCode 0 but ImgData is empty');
+                // Capture successful - now get template and image separately
+                const bitmapData = data.BitmapData || '';
+
+                // The BitmapData from capture is the IMAGE (starts with Qk2... for BMP)
+                // We need to call /gettemplate to get the proper template for matching (starts with Rk1S...)
+                let templateForMatching = '';
+
+                // Try to get the template using gettemplate API (returns proper template format)
+                try {
+                    const templateResponse = await fetch(`${this.MANTRA_SERVICE_URL}/gettemplate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ TmpFormat: 1 }),
+                    });
+
+                    if (templateResponse.ok) {
+                        const templateData = await templateResponse.json();
+                        const templateErrorCode = templateData.ErrorCode !== undefined ? templateData.ErrorCode : templateData.errorCode;
+
+                        if (templateErrorCode === "0" || templateErrorCode === 0) {
+                            templateForMatching = templateData.ImgData || '';
+                        }
+                    }
+                } catch (templateError) {
+                    // Failed to get template, will use fallback
                 }
-                console.log('[MantraSDK] ✓ Capture successful - Quality:', data.Quality, 'ImgData length:', String(imgData).length);
+
+                // Fallback to IsoTemplate/AnsiTemplate if gettemplate failed
+                if (!templateForMatching) {
+                    templateForMatching = data.IsoTemplate || data.AnsiTemplate || bitmapData;
+                }
+
                 return {
                     success: true,
-                    template: imgData,  // Template is in BitmapData field
+                    template: templateForMatching,  // Template for matching (from /gettemplate)
                     quality: data.Quality || quality,
                     nfiq: data.Nfiq,  // NFIQ quality score
-                    bitmapData: imgData,  // Image data (bitmap)
-                    isoTemplate: imgData,  // ISO template format (same as BitmapData)
+                    bitmapData: bitmapData,  // Image data (from capture - for display only)
+                    isoTemplate: templateForMatching,  // Same as template (for matching)
                     captureTime: new Date().toISOString(),
                     errorCode: 0,
                 };
@@ -270,7 +242,6 @@ export class MantraSDKService {
                 if (errorCode === "-2027") errorMessage = 'Device not connected';
                 else if (errorCode === "-2029") errorMessage = 'Fingerprint quality too low';
 
-                console.error('[MantraSDK] ❌ Capture failed with ErrorCode:', errorCode, 'Message:', errorMessage, 'Full response:', JSON.stringify(data, null, 2));
                 return {
                     success: false,
                     template: '',
@@ -280,9 +251,6 @@ export class MantraSDKService {
                 };
             }
         } catch (error: any) {
-            console.error('[MantraSDK] ❌ CAPTURE ERROR - Exception thrown:', error);
-            console.error('[MantraSDK] Error message:', error?.message);
-            console.error('[MantraSDK] Error stack:', error?.stack);
             return {
                 success: false,
                 template: '',
@@ -304,7 +272,13 @@ export class MantraSDKService {
         liveTemplate: string,
         threshold: number = 65
     ): Promise<{ isMatch: boolean; score: number; errorMessage?: string }> {
+        console.log('[verifyTemplate] START - Verifying fingerprint templates');
+        console.log('[verifyTemplate] Threshold:', threshold);
+        console.log('[verifyTemplate] Stored template length:', storedTemplate?.length || 0);
+        console.log('[verifyTemplate] Live template length:', liveTemplate?.length || 0);
+
         if (typeof window === 'undefined') {
+            console.log('[verifyTemplate] ERROR - Running on server-side');
             return {
                 isMatch: false,
                 score: 0,
@@ -312,54 +286,45 @@ export class MantraSDKService {
             };
         }
 
+        // Verify templates
         try {
-            const response = await fetch(`${this.MANTRA_SERVICE_URL}/verify`, {
+            const requestBody = {
+                ProbTemplate: liveTemplate,
+                GalleryTemplate: storedTemplate,
+                TmpFormat: "1",
+            };
+            console.log('[verifyTemplate] Request body prepared');
+            console.log('[verifyTemplate] Calling Mantra verify API:', `${this.MANTRA_SERVICE_URL}/verify`);
+
+            const response: any = await fetch(`${this.MANTRA_SERVICE_URL}/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ProbTemplate: liveTemplate,
-                    GalleryTemplate: storedTemplate,
-                    TmpFormat: '2',
-                }),
+                body: JSON.stringify(requestBody),
             });
 
-            if (!response.ok) {
-                return {
-                    isMatch: false,
-                    score: 0,
-                    errorMessage: `HTTP ${response.status}`,
-                };
-            }
-
+            console.log('[verifyTemplate] Response status:', response.status);
             const data = await response.json();
-            console.log('[MantraSDK] verifyTemplate full response:', JSON.stringify(data, null, 2));
-            console.log('[MantraSDK] verifyTemplate response parsed:', {
-                statusCode: data.statusCode,
-                ErrorCode: data.ErrorCode,
-                statusMessage: data.statusMessage,
-                ErrorDescription: data.ErrorDescription,
-                bIsMatched: data.bIsMatched,
-                IsMatched: data.IsMatched,
-                nScore: data.nScore,
-                Score: data.Score,
-                allKeys: Object.keys(data)
-            });
+            console.log('[verifyTemplate] Response data:', JSON.stringify(data, null, 2));
 
-            // Handle both old format (statusCode, bIsMatched, nScore) and new format (ErrorCode, IsMatched, Score)
+            // Handle ErrorCode check first
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.statusCode;
-            const statusCode = data.statusCode;
+            console.log('[verifyTemplate] Parsed errorCode:', errorCode);
 
-            if (errorCode === "0" || errorCode === 0 || statusCode === 0) {
-                const isMatched = data.IsMatched !== undefined ? (data.IsMatched === true || data.IsMatched === "true") : (data.bIsMatched === true);
+            if (errorCode === "0" || errorCode === 0) {
+                // Check Status field: if Status is true -> matched, if Status is not present or false -> not matched
+                const isMatched = data.Status === true;
                 const score = parseInt(data.Score !== undefined ? data.Score : (data.nScore || '0'), 10);
-                console.log('[MantraSDK] Verify result:', { isMatched, score });
+                console.log('[verifyTemplate] Status field:', data.Status);
+                console.log('[verifyTemplate] isMatched:', isMatched, 'score:', score);
+                console.log('[verifyTemplate] END - Verification completed');
                 return {
                     isMatch: isMatched,
                     score: score,
                 };
             } else {
                 const errorMsg = data.ErrorDescription || data.statusMessage || 'Verification failed';
-                console.error('[MantraSDK] verifyTemplate failed with error:', errorCode, 'Message:', errorMsg);
+                console.log('[verifyTemplate] FAILED - errorCode:', errorCode, 'errorMsg:', errorMsg);
+                console.log('[verifyTemplate] END - Verification failed');
                 return {
                     isMatch: false,
                     score: 0,
@@ -367,7 +332,8 @@ export class MantraSDKService {
                 };
             }
         } catch (error: any) {
-            console.error('[MantraSDK] Verify template error:', error);
+            console.log('[verifyTemplate] EXCEPTION:', error?.message || error);
+            console.log('[verifyTemplate] END - Verification failed with exception');
             return {
                 isMatch: false,
                 score: 0,
@@ -381,7 +347,7 @@ export class MantraSDKService {
      * @param templateType - Template type: 'ISO' or 'ANSI'
      * @returns Promise<string | null>
      */
-    static async getTemplate(templateType: string = '2'): Promise<string | null> {
+    static async getTemplate(templateType: number = 1): Promise<string | null> {
         if (typeof window === 'undefined') {
             return null;
         }
@@ -394,40 +360,24 @@ export class MantraSDKService {
             });
 
             if (!response.ok) {
-                console.error('[MantraSDK] Failed to get template:', response.status);
                 return null;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] getTemplate full response:', JSON.stringify(data, null, 2));
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
-            const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
-
-            console.log('[MantraSDK] getTemplate response parsed:', {
-                errorCode: errorCode,
-                errorDescription: errorDesc,
-                ImgData: data.ImgData ? 'Present' : 'Missing',
-                ImgDataType: typeof data.ImgData,
-                ImgDataLength: data.ImgData ? String(data.ImgData).length : 0,
-                allKeys: Object.keys(data)
-            });
 
             // Check for errorCode === "0" (string) or 0 (number)
             if (errorCode === "0" || errorCode === 0) {
                 const imgData = data.ImgData || '';
                 if (!imgData) {
-                    console.warn('[MantraSDK] Template returned ErrorCode 0 but ImgData is empty or missing');
                     return null;
                 }
-                console.log('[MantraSDK] Template data retrieved successfully, length:', String(imgData).length);
-                return imgData;  // ← Correct field: ImgData
+                return imgData;
             }
-            console.error('[MantraSDK] getTemplate failed with ErrorCode:', errorCode, 'Full response:', JSON.stringify(data, null, 2));
             return null;
         } catch (error) {
-            console.error('[MantraSDK] Get template error:', error);
             return null;
         }
     }
@@ -443,58 +393,31 @@ export class MantraSDKService {
         }
 
         try {
-            console.log('[MantraSDK] ===== GET IMAGE START =====');
-            console.log('[MantraSDK] Image format:', format);
-            console.log('[MantraSDK] Calling:', `${this.MANTRA_SERVICE_URL}/getimage`);
-
             const response = await fetch(`${this.MANTRA_SERVICE_URL}/getimage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ImgFormat: format }),
             });
 
-            console.log('[MantraSDK] Response status:', response.status, response.statusText);
-
             if (!response.ok) {
-                console.error('[MantraSDK] ❌ HTTP Error! Status:', response.status);
-                const errorText = await response.text();
-                console.error('[MantraSDK] Error response body:', errorText);
                 return null;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] ✓ Response received and parsed');
-            console.log('[MantraSDK] getImage full response:', JSON.stringify(data, null, 2));
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
-            const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
-
-            console.log('[MantraSDK] getImage response parsed:', {
-                errorCode: errorCode,
-                errorDescription: errorDesc,
-                hasImgData: 'ImgData' in data,
-                ImgDataLength: data.ImgData ? String(data.ImgData).length : 0,
-                ImgDataType: typeof data.ImgData,
-                allKeys: Object.keys(data)
-            });
 
             // Check for errorCode === "0" (string) or 0 (number)
             if (errorCode === "0" || errorCode === 0) {
                 const imgData = data.ImgData || '';
                 if (!imgData) {
-                    console.warn('[MantraSDK] ⚠️ Image returned ErrorCode 0 but ImgData is empty or missing');
                     return null;
                 }
-                console.log('[MantraSDK] ✓ Image data retrieved successfully, length:', String(imgData).length);
-                return imgData;  // ← Correct field: ImgData
+                return imgData;
             }
-            console.error('[MantraSDK] ❌ getImage failed with ErrorCode:', errorCode, 'Full response:', JSON.stringify(data, null, 2));
             return null;
         } catch (error: any) {
-            console.error('[MantraSDK] ❌ GET IMAGE ERROR - Exception thrown:', error);
-            console.error('[MantraSDK] Error message:', error?.message);
-            console.error('[MantraSDK] Error stack:', error?.stack);
             return null;
         }
     }
@@ -520,41 +443,27 @@ export class MantraSDKService {
             });
 
             if (!response.ok) {
-                console.error('[MantraSDK] Get device info HTTP error:', response.status);
                 return null;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] getDeviceInfo full response:', JSON.stringify(data, null, 2));
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
-            const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
-
-            console.log('[MantraSDK] getDeviceInfo response parsed:', {
-                errorCode: errorCode,
-                errorDescription: errorDesc,
-                DeviceInfo: data.DeviceInfo,
-                allKeys: Object.keys(data)
-            });
 
             // Check if errorCode is "0" or 0 (device initialized and ready)
             const isReady = errorCode === '0' || errorCode === 0;
-            console.log('[MantraSDK] Device ready status:', isReady);
 
             if (!isReady) {
-                console.error('[MantraSDK] Device not ready. ErrorCode:', errorCode, 'Description:', errorDesc);
                 return null;
             }
 
             // Parse the DeviceInfo object
             const deviceInfo = data.DeviceInfo;
             if (!deviceInfo) {
-                console.error('[MantraSDK] No DeviceInfo in response');
                 return null;
             }
 
-            console.log('[MantraSDK] Device info retrieved:', deviceInfo);
             return {
                 deviceName: deviceInfo.Model || 'MFS500',
                 serialNumber: deviceInfo.SerialNo || 'Unknown',
@@ -563,7 +472,6 @@ export class MantraSDKService {
                 modelName: `${deviceInfo.Make} ${deviceInfo.Model}`,
             };
         } catch (error) {
-            console.error('[MantraSDK] Get device info error:', error);
             return null;
         }
     }
@@ -588,25 +496,14 @@ export class MantraSDKService {
             });
 
             if (!response.ok) {
-                console.error('[MantraSDK] initDevice HTTP error:', response.status);
                 return false;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] initDevice full response:', JSON.stringify(data, null, 2));
-            console.log('[MantraSDK] initDevice parsed:', {
-                statusCode: data.statusCode,
-                ErrorCode: data.ErrorCode,
-                statusMessage: data.statusMessage,
-                ErrorDescription: data.ErrorDescription,
-                allKeys: Object.keys(data)
-            });
 
             const success = data.ErrorCode === "0" || data.ErrorCode === 0 || data.statusCode === 0;
-            console.log('[MantraSDK] initDevice result:', { success });
             return success;
         } catch (error) {
-            console.error('[MantraSDK] Init device error:', error);
             return false;
         }
     }
@@ -628,25 +525,14 @@ export class MantraSDKService {
             });
 
             if (!response.ok) {
-                console.error('[MantraSDK] uninitDevice HTTP error:', response.status);
                 return false;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] uninitDevice full response:', JSON.stringify(data, null, 2));
-            console.log('[MantraSDK] uninitDevice parsed:', {
-                statusCode: data.statusCode,
-                ErrorCode: data.ErrorCode,
-                statusMessage: data.statusMessage,
-                ErrorDescription: data.ErrorDescription,
-                allKeys: Object.keys(data)
-            });
 
             const success = data.ErrorCode === "0" || data.ErrorCode === 0 || data.statusCode === 0;
-            console.log('[MantraSDK] uninitDevice result:', { success });
             return success;
         } catch (error) {
-            console.error('[MantraSDK] Uninit device error:', error);
             return false;
         }
     }
@@ -668,21 +554,12 @@ export class MantraSDKService {
             });
 
             if (!response.ok) {
-                console.error('[MantraSDK] getSupportedDeviceList HTTP error:', response.status);
                 return null;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] getSupportedDeviceList full response:', JSON.stringify(data, null, 2));
-            console.log('[MantraSDK] getSupportedDeviceList parsed:', {
-                allKeys: Object.keys(data),
-                dataType: typeof data,
-                isArray: Array.isArray(data),
-                length: Array.isArray(data) ? data.length : 'N/A'
-            });
             return data;
         } catch (error) {
-            console.error('[MantraSDK] Get supported device list error:', error);
             return null;
         }
     }
@@ -704,21 +581,12 @@ export class MantraSDKService {
             });
 
             if (!response.ok) {
-                console.error('[MantraSDK] getConnectedDeviceList HTTP error:', response.status);
                 return null;
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] getConnectedDeviceList full response:', JSON.stringify(data, null, 2));
-            console.log('[MantraSDK] getConnectedDeviceList parsed:', {
-                allKeys: Object.keys(data),
-                dataType: typeof data,
-                isArray: Array.isArray(data),
-                length: Array.isArray(data) ? data.length : 'N/A'
-            });
             return data;
         } catch (error) {
-            console.error('[MantraSDK] Get connected device list error:', error);
             return null;
         }
     }
@@ -734,7 +602,7 @@ export class MantraSDKService {
         quality: number = 60,
         timeout: number = 10000,
         galleryTemplate: string = '',
-        templateFormat: string = '2'
+        templateFormat: number = 1
     ): Promise<{ isMatch: boolean; score: number; errorMessage?: string }> {
         if (typeof window === 'undefined') {
             return {
@@ -765,40 +633,26 @@ export class MantraSDKService {
             }
 
             const data = await response.json();
-            console.log('[MantraSDK] matchFinger full response:', JSON.stringify(data, null, 2));
 
             // Handle both ErrorCode (uppercase) and errorCode (lowercase) field names
             const errorCode = data.ErrorCode !== undefined ? data.ErrorCode : data.errorCode;
             const errorDesc = data.ErrorDescription !== undefined ? data.ErrorDescription : data.errorDescription;
 
-            console.log('[MantraSDK] matchFinger response parsed:', {
-                errorCode: errorCode,
-                errorDescription: errorDesc,
-                IsMatched: data.IsMatched,
-                Score: data.Score,
-                hasIsMatched: 'IsMatched' in data,
-                hasScore: 'Score' in data,
-                allKeys: Object.keys(data)
-            });
-
             // Check for errorCode === "0" (string) or 0 (number)
             if (errorCode === "0" || errorCode === 0) {
                 const score = parseInt(data.Score || data.nScore || '0', 10);
                 const isMatched = data.IsMatched === true || data.IsMatched === "true" || data.bIsMatched === true;
-                console.log('[MantraSDK] Match result:', { isMatched, score });
                 return {
                     isMatch: isMatched,
                     score: score,
                 };
             }
-            console.error('[MantraSDK] matchFinger failed with ErrorCode:', errorCode, 'Full response:', JSON.stringify(data, null, 2));
             return {
                 isMatch: false,
                 score: 0,
                 errorMessage: errorDesc || 'Match failed',
             };
         } catch (error: any) {
-            console.error('[MantraSDK] Match finger error:', error);
             return {
                 isMatch: false,
                 score: 0,

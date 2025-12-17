@@ -49,6 +49,50 @@ export class BiometricController {
     }
 
     /**
+     * Get all stored templates for client-side matching
+     * Frontend will use Mantra SDK's verify endpoint to compare
+     * NOTE: This route MUST be before parameterized routes to avoid conflicts
+     */
+    @Get('templates/for-matching')
+    @ApiOperation({ summary: 'Get all stored templates for client-side matching' })
+    @ApiResponse({
+        status: 200,
+        description: 'Templates retrieved for matching',
+        example: {
+            success: true,
+            templates: [
+                {
+                    applicationId: 123,
+                    almsLicenseId: 'ALMS-2025-001',
+                    applicantName: 'John Doe',
+                    fingerPosition: 'RIGHT_THUMB',
+                    template: 'base64-encoded-template...',
+                    enrolledAt: '2025-12-15T10:30:00Z',
+                },
+            ],
+            message: 'Found 5 stored templates',
+        },
+    })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    async getTemplatesForMatching(
+        @Query('excludeApplicationId') excludeApplicationId?: string,
+    ) {
+        try {
+            const excludeId = excludeApplicationId ? parseInt(excludeApplicationId) : undefined;
+            const result = await this.biometricService.getAllStoredTemplatesForMatching(excludeId);
+            return result;
+        } catch (error: any) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new HttpException(
+                { success: false, message: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    /**
      * Enroll Fingerprint
      */
     @Post('enroll/:applicantId')
@@ -76,6 +120,55 @@ export class BiometricController {
             const result = await this.biometricService.enrollFingerprint(
                 applicantId,
                 enrollmentData,
+                req.user?.sub || 0,
+            );
+            return result;
+        } catch (error: any) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new HttpException(
+                { success: false, message: error.message },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    /**
+     * Store fingerprint directly (after client-side validation)
+     */
+    @Post('store/:applicantId')
+    @ApiParam({ name: 'applicantId', description: 'Application ID' })
+    @ApiOperation({ summary: 'Store fingerprint after client-side validation' })
+    @ApiResponse({
+        status: 201,
+        description: 'Fingerprint stored successfully',
+        example: {
+            success: true,
+            fingerprintId: 'abc123def456',
+            enrolledAt: '2025-12-15T10:30:00Z',
+            message: 'Fingerprint enrolled successfully at position RIGHT_THUMB',
+        },
+    })
+    @ApiResponse({ status: 400, description: 'Bad request' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiResponse({ status: 404, description: 'Application not found' })
+    async storeFingerprint(
+        @Param('applicantId') applicantId: string,
+        @Body() body: {
+            fingerPosition: string;
+            fingerTemplate: { template: string; quality: number; captureTime: string };
+            description?: string;
+        },
+        @Request() req: any,
+    ) {
+        try {
+            const appId = parseInt(applicantId);
+            const result = await this.biometricService.storeFingerprint(
+                appId,
+                body.fingerPosition,
+                body.fingerTemplate,
+                body.description || `Fingerprint - ${body.fingerPosition}`,
                 req.user?.sub || 0,
             );
             return result;

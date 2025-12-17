@@ -7,7 +7,7 @@ import { AppModule } from './modules/app.module';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { ErrorsInterceptor } from './interceptors/errors.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 // Load environment variables before anything else (prefer root .env)
 const rootEnvPath = resolve(__dirname, '../../.env');
@@ -24,6 +24,18 @@ async function bootstrap() {
 
   // Apply global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Apply global validation pipe for DTO validation and transformation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true, // Enable transformation of plain objects to class instances
+      whitelist: true, // Strip properties that don't have decorators
+      forbidNonWhitelisted: false, // Don't throw on extra properties
+      transformOptions: {
+        enableImplicitConversion: true, // Allow implicit type conversion
+      },
+    }),
+  );
 
   // Apply global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor()); // Must be first for accurate timing

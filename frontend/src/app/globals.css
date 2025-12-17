@@ -110,3 +110,38 @@ body::-webkit-scrollbar-thumb,
 .animate-fade-out {
   animation: fadeOut 0.3s ease-out;
 }
+
+/* Fingerprint Scanner Animations */
+@keyframes scanLine {
+  0% {
+    top: 0;
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 100%;
+    opacity: 1;
+  }
+}
+
+@keyframes progressBar {
+  0% {
+    width: 0%;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    width: 95%;
+  }
+}
+
+.animate-scan-line {
+  animation: scanLine 1.5s ease-in-out infinite;
+}
+
+.animate-progress-bar {
+  animation: progressBar 3s ease-in-out infinite;
+}

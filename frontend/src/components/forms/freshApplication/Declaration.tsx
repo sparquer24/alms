@@ -184,6 +184,8 @@ const Declaration = () => {
 				onClose={handleCloseSuccessModal}
 				title="Application Submitted Successfully!"
 				onNavigateHome={handleNavigateHome}
+				autoRedirectSeconds={5}
+				hideCloseButton={true}
 			/>
 		</div>
 	);
