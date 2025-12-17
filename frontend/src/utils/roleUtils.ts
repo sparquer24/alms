@@ -27,52 +27,29 @@ export const normalizeRole = (role: RoleValue): string | undefined => {
     // Check if it's a numeric role ID
     if (/^[0-9]+$/.test(trimmed)) {
       const mapped = NUMERIC_ROLE_MAP[trimmed];
-      const result = mapped || trimmed;
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.log('[roleUtils] normalizeRole numeric string:', role, '-> ', result);
-      }
-      return result;
+      return mapped || trimmed;
     }
-    const normalized = trimmed.toUpperCase();
-    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      console.log('[roleUtils] normalizeRole string:', role, '-> ', normalized);
-    }
-    return normalized;
+    return trimmed.toUpperCase();
   }
 
   if (typeof role === 'number') {
     const asString = String(role);
     const mapped = NUMERIC_ROLE_MAP[asString];
-    const result = mapped || asString;
-    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      console.log('[roleUtils] normalizeRole numeric:', role, '-> ', result);
-    }
-    return result;
+    return mapped || asString;
   }
 
   if (typeof role === 'object') {
     const roleObj = role as any;
     // Try code property first (most common)
     if (roleObj.code && typeof roleObj.code === 'string') {
-      const normalized = roleObj.code.toUpperCase();
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.log('[roleUtils] normalizeRole object.code:', roleObj, '-> ', normalized);
-      }
-      return normalized;
+      return roleObj.code.toUpperCase();
     }
     // Fall back to name property
     if (roleObj.name && typeof roleObj.name === 'string') {
-      const normalized = roleObj.name.toUpperCase();
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.log('[roleUtils] normalizeRole object.name:', roleObj, '-> ', normalized);
-      }
-      return normalized;
+      return roleObj.name.toUpperCase();
     }
   }
 
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-    console.log('[roleUtils] normalizeRole failed for:', role);
-  }
   return undefined;
 };
 
@@ -81,11 +58,7 @@ export const normalizeRole = (role: RoleValue): string | undefined => {
  */
 export const isAdminRole = (role: RoleValue): boolean => {
   const normalized = normalizeRole(role);
-  const isAdmin = normalized === 'ADMIN';
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-    console.log('[roleUtils] isAdminRole - role:', role, 'normalized:', normalized, 'isAdmin:', isAdmin);
-  }
-  return isAdmin;
+  return normalized === 'ADMIN';
 };
 
 /**

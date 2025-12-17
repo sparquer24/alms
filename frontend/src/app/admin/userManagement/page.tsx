@@ -9,6 +9,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { fetchData, postData, putData, deleteData } from '../../../api/axiosConfig';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
+import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../../constants';
 import EditUserPage from '../users/[id]/edit/page';
 
 // Types representing API user + transformed UI user
@@ -116,7 +117,7 @@ export default function UserManagementPage() {
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
   const { userRole } = useAuthSync();
-  const isAdmin = (userRole || '').toUpperCase() === 'ADMIN';
+  const isAdmin = (userRole || '').toUpperCase() === ROLE_CODES.ADMIN;
 
   // Location hierarchy hook (loads states and manages dependent lists)
   const [locationState, locationActions] = useLocationHierarchy();
@@ -141,11 +142,11 @@ export default function UserManagementPage() {
         updatedAt: (u as any).updatedAt,
         roleName: (u as any).role?.name,
         roleFull: u.role,
-        state: (u as any).stateId || (u as any).state || '',
-        district: (u as any).districtId || (u as any).district || '',
-        zone: (u as any).zoneId || (u as any).zone || '',
-        division: (u as any).divisionId || (u as any).division || '',
-        policeStation: (u as any).policeStationId || (u as any).policeStation || '',
+        state: (u as any).state?.id || (u as any).stateId || '',
+        district: (u as any).district?.id || (u as any).districtId || '',
+        zone: (u as any).zone?.id || (u as any).zoneId || '',
+        division: (u as any).division?.id || (u as any).divisionId || '',
+        policeStation: (u as any).policeStation?.id || (u as any).policeStationId || '',
       }));
       setUsers(ui);
       const unique: Record<string, ApiRole> = {};
@@ -361,18 +362,18 @@ export default function UserManagementPage() {
       // Fetch fresh user data from API
       const data = await fetchData(`/users/${u.id}`);
       
-      // Extract location IDs from nested objects or direct ID fields
-      const stateId = data.stateId || '';
-      const districtId = data.districtId || '';
-      const zoneId = data.zoneId || '';
-      const divisionId = data.divisionId || '';
-      const policeStationId = data.policeStationId || '';
+      // Extract location IDs from nested objects (consistent with getUsers response)
+      const stateId = data.state?.id || data.stateId || '';
+      const districtId = data.district?.id || data.districtId || '';
+      const zoneId = data.zone?.id || data.zoneId || '';
+      const divisionId = data.division?.id || data.divisionId || '';
+      const policeStationId = data.policeStation?.id || data.policeStationId || '';
       
       // Map the API response to UiUser format
       const fetchedUser: UiUser = {
         id: Number(data.id),
         username: data.username || '',
-        role: data.role?.code ||'',
+        role: data.role?.code || '',
         email: data.email || '',
         phoneNo: data.phoneNo || '',
         createdAt: data.createdAt,
@@ -387,34 +388,21 @@ export default function UserManagementPage() {
         policeStation: policeStationId,
       };
       
-      // Set location hierarchy in sequence to load cascading dropdowns
-      // Each setSelected function triggers loading of the next level
-      if (stateId && stateId !== '' && !isNaN(Number(stateId))) {
+      // Set location hierarchy - cascade will happen automatically via useEffect in hook
+      if (stateId) {
         locationActions.setSelectedState(String(stateId));
-        
-        // Wait a bit for districts to load, then set district
-        if (districtId && districtId !== '' && !isNaN(Number(districtId))) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-          locationActions.setSelectedDistrict(String(districtId));
-          
-          // Wait for zones to load, then set zone
-          if (zoneId && zoneId !== '' && !isNaN(Number(zoneId))) {
-            await new Promise(resolve => setTimeout(resolve, 300));
-            locationActions.setSelectedZone(String(zoneId));
-            
-            // Wait for divisions to load, then set division
-            if (divisionId && divisionId !== '' && !isNaN(Number(divisionId))) {
-              await new Promise(resolve => setTimeout(resolve, 300));
-              locationActions.setSelectedDivision(String(divisionId));
-              
-              // Wait for police stations to load, then set police station
-              if (policeStationId && policeStationId !== '' && !isNaN(Number(policeStationId))) {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                locationActions.setSelectedPoliceStation(String(policeStationId));
-              }
-            }
-          }
-        }
+      }
+      if (districtId) {
+        locationActions.setSelectedDistrict(String(districtId));
+      }
+      if (zoneId) {
+        locationActions.setSelectedZone(String(zoneId));
+      }
+      if (divisionId) {
+        locationActions.setSelectedDivision(String(divisionId));
+      }
+      if (policeStationId) {
+        locationActions.setSelectedPoliceStation(String(policeStationId));
       }
       
       setEditUser(fetchedUser);
@@ -998,7 +986,7 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-             {(addUser.roleCode == 'JTCP' || addUser.roleCode == 'CP' || addUser.roleCode == 'CADO' || addUser.roleCode == 'ADO' || addUser.roleCode == 'ZS' || addUser.roleCode === 'DCP' || addUser.roleCode === 'ACP' || addUser.roleCode === 'SHO') && (
+             {LOCATION_HIERARCHY_ROLES.DISTRICT_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
                 <select
@@ -1026,7 +1014,7 @@ export default function UserManagementPage() {
                 </select>
               </div>
               )}
-              {(addUser.roleCode === 'DCP' || addUser.roleCode === 'ZS' || addUser.roleCode === 'ACP' || addUser.roleCode === 'SHO') && (
+              {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
                 <select
@@ -1048,7 +1036,7 @@ export default function UserManagementPage() {
                 </select>
               </div>
               )}
-              {(addUser.roleCode == 'ACP' || addUser.roleCode == 'SHO') && (
+              {LOCATION_HIERARCHY_ROLES.DIVISION_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Division</label>
                 <select
@@ -1070,7 +1058,7 @@ export default function UserManagementPage() {
                 </select>
               </div>
               )}
-              {addUser.roleCode == 'SHO' && ( 
+              {LOCATION_HIERARCHY_ROLES.POLICE_STATION_REQUIRED.includes(addUser.roleCode) && ( 
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
                 <select
@@ -1576,7 +1564,7 @@ export default function UserManagementPage() {
                   onChange={e => setEditUser({ ...editUser, role: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 >
-                  {apiRoles.map(r => (
+                  {apiRoles.filter(r => r.code !== ROLE_CODES.SUPER_ADMIN && r.code !== ROLE_CODES.ADMIN).map(r => (
                     <option key={r.code} value={r.code}>
                       {r.code}
                     </option>
@@ -1610,7 +1598,7 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-              {(editUser.role == 'JTCP' || editUser.role == 'CP' || editUser.role == 'CADO' || editUser.role == 'ADO' || editUser.role == 'ZS' || editUser.role === 'DCP' || editUser.role === 'ACP' || editUser.role === 'SHO') && (
+              {LOCATION_HIERARCHY_ROLES.DISTRICT_REQUIRED.includes(editUser.role) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
                 <select
@@ -1638,7 +1626,7 @@ export default function UserManagementPage() {
                 </select>
               </div>
               )} 
-             {(editUser.role === 'DCP' || editUser.role === 'ZS' || editUser.role === 'ACP' || editUser.role === 'SHO') && (
+             {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(editUser.role) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
                 <select
@@ -1660,7 +1648,7 @@ export default function UserManagementPage() {
                 </select>
               </div>
                )} 
-              {(editUser.role == 'ACP' || editUser.role == 'SHO') && (
+              {LOCATION_HIERARCHY_ROLES.DIVISION_REQUIRED.includes(editUser.role) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Division</label>
                 <select
@@ -1682,7 +1670,7 @@ export default function UserManagementPage() {
                 </select>
               </div>
               )}
-              {editUser.role == 'SHO' && (
+              {LOCATION_HIERARCHY_ROLES.POLICE_STATION_REQUIRED.includes(editUser.role) && (
                 <div>
                   <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
                   <select

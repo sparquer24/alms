@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuthSync } from '@/hooks/useAuthSync';
 import {
   AdminCard,
   AdminTable,
@@ -12,6 +13,7 @@ import {
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminBorderRadius } from '@/styles/admin-design-system';
+import { ROLE_CODES } from '@/constants';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -41,6 +43,8 @@ interface PoliceStation extends Location {
 type LocationLevel = 'state' | 'district' | 'zone' | 'division' | 'station';
 type LocationEntity = State | District | Zone | Division | PoliceStation;
 
+const HIERARCHY_ORDER: LocationLevel[] = ['state', 'district', 'zone', 'division', 'station'];
+
 const LOCATION_HIERARCHY: Record<
   LocationLevel,
   { label: string; singular: string; endpoint: string }
@@ -60,9 +64,71 @@ export default function LocationsManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
+  const { userRole, user } = useAuthSync();
 
-  // Navigation state
+  // Get user's stateId - prioritize user object, fallback to cookies
+  const getUserStateId = (): number | undefined => {
+    // First check user object from auth hook
+    if (user?.location?.state?.id) return user.location.state.id;
+    if (user?.stateId) return user.stateId;
+    
+    // Fallback: parse cookies directly
+    if (typeof document === 'undefined') return undefined;
+    
+    const getCookieValue = (name: string): string | undefined => {
+      return document.cookie
+        .split('; ')
+        .find(row => row.startsWith(`${name}=`))
+        ?.split('=')[1];
+    };
+    
+    // Try user cookie (contains full user object with location data)
+    const userCookie = getCookieValue('user');
+    if (userCookie) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(userCookie));
+        return userData?.location?.state?.id;
+      } catch {}
+    }
+    
+    // Try auth cookie (may be JSON or JWT)
+    const authCookie = getCookieValue('auth');
+    if (authCookie) {
+      try {
+        const cookieValue = decodeURIComponent(authCookie);
+        
+        // Try JSON parse
+        try {
+          const authData = JSON.parse(cookieValue);
+          return authData?.location?.state?.id || authData?.user?.location?.state?.id;
+        } catch {
+          // Try JWT decode
+          if (cookieValue.startsWith('eyJ') && cookieValue.split('.').length >= 2) {
+            const payload = JSON.parse(atob(cookieValue.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            return payload?.state_id || payload?.stateId;
+          }
+        }
+      } catch {}
+    }
+    
+    return undefined;
+  };
+
+  const userStateId = getUserStateId();
+  const isSuperAdmin = userRole?.toUpperCase() === ROLE_CODES.SUPER_ADMIN;
+  const isAdmin = userRole?.toUpperCase() === ROLE_CODES.ADMIN;
+
+  // Navigation state - start with state by default, update based on role
   const [currentLevel, setCurrentLevel] = useState<LocationLevel>('state');
+  
+  // Update current level when role and user are loaded
+  useEffect(() => {
+    if (isAdmin && userStateId) {
+      setCurrentLevel('district');
+    } else if (isSuperAdmin) {
+      setCurrentLevel('state');
+    }
+  }, [isAdmin, isSuperAdmin, userStateId]);
   const [selectedPath, setSelectedPath] = useState<Record<LocationLevel, Location | null>>({
     state: null,
     district: null,
@@ -89,18 +155,14 @@ export default function LocationsManagementPage() {
 
   // Get parent ID based on current level
   const getParentId = (): number | undefined => {
-    switch (currentLevel) {
-      case 'district':
-        return selectedPath.state?.id;
-      case 'zone':
-        return selectedPath.district?.id;
-      case 'division':
-        return selectedPath.zone?.id;
-      case 'station':
-        return selectedPath.division?.id;
-      default:
-        return undefined;
-    }
+    const parentMap = {
+      district: selectedPath.state?.id,
+      zone: selectedPath.district?.id,
+      division: selectedPath.zone?.id,
+      station: selectedPath.division?.id,
+      state: undefined,
+    };
+    return parentMap[currentLevel];
   };
 
   const parentId = getParentId();
@@ -110,7 +172,11 @@ export default function LocationsManagementPage() {
 
   // Build fetch URL with correct query parameter names based on level
   let fetchUrl = `${API_BASE_URL}/${levelConfig.endpoint}`;
-  if (parentId) {
+  
+  // Special handling for ADMIN users - they start at district level with their stateId
+  if (isAdmin && currentLevel === 'district' && userStateId) {
+    fetchUrl += `?stateId=${userStateId}`;
+  } else if (parentId) {
     const paramMap: Record<LocationLevel, string> = {
       state: '',
       district: 'stateId',
@@ -130,14 +196,19 @@ export default function LocationsManagementPage() {
     error,
     refetch,
   } = useQuery<LocationEntity[]>({
-    queryKey: [`locations-${currentLevel}`, parentId],
+    queryKey: [`locations-${currentLevel}`, parentId, userStateId],
     queryFn: async () => {
       const response = await fetch(fetchUrl);
-      if (!response.ok) throw new Error(`Failed to fetch ${levelConfig.label}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${levelConfig.label}`);
+      }
       const data = await response.json();
       return Array.isArray(data) ? data : data.data || [];
     },
-    enabled: currentLevel === 'state' || (parentId !== undefined && parentId !== null),
+    enabled: 
+      (currentLevel === 'state' && isSuperAdmin) || 
+      (isAdmin && currentLevel === 'district' && !!userStateId) ||
+      (parentId !== undefined && parentId !== null),
   });
 
   // Filtered items based on search query
@@ -249,34 +320,20 @@ export default function LocationsManagementPage() {
 
   // Handle navigation to child level
   const handleNavigateToChild = (item: LocationEntity) => {
-    const nextLevels: Record<LocationLevel, LocationLevel> = {
-      state: 'district',
-      district: 'zone',
-      zone: 'division',
-      division: 'station',
-      station: 'station',
-    };
+    const currentIndex = HIERARCHY_ORDER.indexOf(currentLevel);
+    const nextLevel = HIERARCHY_ORDER[currentIndex + 1];
 
-    setSelectedPath(prev => ({
-      ...prev,
-      [currentLevel]: item,
-    }));
-    setCurrentLevel(nextLevels[currentLevel]);
+    if (nextLevel) {
+      setSelectedPath(prev => ({ ...prev, [currentLevel]: item }));
+      setCurrentLevel(nextLevel);
+    }
   };
 
   // Handle navigate back
   const handleNavigateBack = () => {
-    const prevLevels: Record<LocationLevel, LocationLevel | null> = {
-      state: null,
-      district: 'state',
-      zone: 'district',
-      division: 'zone',
-      station: 'division',
-    };
-
-    const prevLevel = prevLevels[currentLevel];
-    if (prevLevel) {
-      setCurrentLevel(prevLevel);
+    const currentIndex = HIERARCHY_ORDER.indexOf(currentLevel);
+    if (currentIndex > 0) {
+      setCurrentLevel(HIERARCHY_ORDER[currentIndex - 1]);
     }
   };
 
@@ -306,25 +363,13 @@ export default function LocationsManagementPage() {
     setCurrentLevel(level);
   };
 
-  // Breadcrumb path
+  // Breadcrumb path - build hierarchy dynamically
   const breadcrumbPath = useMemo(() => {
-    const path = [{ level: 'state' as LocationLevel, item: selectedPath.state }];
-    if (currentLevel !== 'state' && selectedPath.state) {
-      path.push({ level: 'district' as LocationLevel, item: selectedPath.district });
-    }
-    if (
-      (currentLevel === 'zone' || currentLevel === 'division' || currentLevel === 'station') &&
-      selectedPath.district
-    ) {
-      path.push({ level: 'zone' as LocationLevel, item: selectedPath.zone });
-    }
-    if ((currentLevel === 'division' || currentLevel === 'station') && selectedPath.zone) {
-      path.push({ level: 'division' as LocationLevel, item: selectedPath.division });
-    }
-    if (currentLevel === 'station' && selectedPath.division) {
-      path.push({ level: 'station' as LocationLevel, item: selectedPath.station });
-    }
-    return path;
+    const currentIndex = HIERARCHY_ORDER.indexOf(currentLevel);
+    return HIERARCHY_ORDER.slice(0, currentIndex + 1).map(level => ({
+      level,
+      item: selectedPath[level]
+    }));
   }, [currentLevel, selectedPath]);
 
   const isSaving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;

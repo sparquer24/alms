@@ -1,4 +1,4 @@
-import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query, HttpException, HttpStatus, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import {
@@ -225,6 +225,7 @@ export class AnalyticsController {
     async getAdminActivities(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<AdminActivityDto[]>> {
         try {
             // Validate date format if provided
@@ -235,7 +236,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getAdminActivities(fromDate, toDate);
+            // Extract user info from JWT
+            const user = req ? (req as any).user : null;
+            const userId = user?.user_id;
+            const roleId = user?.role_id;
+
+            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId);
 
             return {
                 success: true,

@@ -15,45 +15,25 @@ export default function AdminLayout({ children }: { children: any }) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      console.log(
-        '[AdminLayout] - userRole:',
-        userRole,
-        'token exists:',
-        !!token,
-        'isLoading:',
-        isLoading,
-        'checked:',
-        checked
-      );
-    }
-
     // Only check auth once and don't redirect immediately
     if (checked || isLoading) return;
 
     // Check token
     if (!token) {
-      console.warn('[AdminLayout] No token found, redirecting to /login');
       router.replace('/login');
       return;
     }
 
     // Check role exists
     if (!userRole) {
-      console.warn('[AdminLayout] No userRole found, redirecting to /login');
       router.replace('/login?error=no_role');
       return;
     }
 
     // Check if user has admin access
     if (!canAccessAdmin(userRole)) {
-      console.warn('[AdminLayout] User is not ADMIN, redirecting to /');
       router.replace('/');
       return;
-    }
-
-    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      console.log('[AdminLayout] Auth checks passed, allowing access');
     }
 
     setChecked(true);

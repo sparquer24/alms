@@ -194,10 +194,13 @@ export class AnalyticsService {
 
     /**
      * Get admin activities - Returns the 2 most recent entries for each user
+     * Filters based on logged-in admin's state (only shows activities where they are involved)
      */
     async getAdminActivities(
         fromDate?: string,
         toDate?: string,
+        userId?: number,
+        roleId?: number,
     ): Promise<AdminActivityDto[]> {
         try {
             const where: any = {};
@@ -213,7 +216,26 @@ export class AnalyticsService {
                 }
             }
 
-            // Fetch workflow history (admin actions)
+            // Filter by logged-in admin's state
+            // Show activities where the admin is either the previous user, next user, or has the same role
+            if (userId || roleId) {
+                where.OR = [];
+                if (userId) {
+                    where.OR.push(
+                        { nextUserId: userId },
+                        { previousUserId: userId }
+                    );
+                }
+                if (roleId) {
+                    where.OR.push(
+                        { nextRoleId: roleId },
+                        { previousRoleId: roleId }
+                    );
+                }
+            }
+
+            // Fetch workflow history (admin actions) with application details
+            // Also filter by applications assigned to the logged-in user if no direct workflow match
             const workflows = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
                 where,
                 select: {
@@ -230,6 +252,14 @@ export class AnalyticsService {
                     nextUser: {
                         select: {
                             username: true,
+                        },
+                    },
+                    application: {
+                        select: {
+                            almsLicenseId: true,
+                            firstName: true,
+                            middleName: true,
+                            lastName: true,
                         },
                     },
                 },
@@ -261,10 +291,19 @@ export class AnalyticsService {
             
             userActivitiesMap.forEach((activities) => {
                 activities.forEach((workflow) => {
+                    // Construct applicant name
+                    const applicantName = [
+                        workflow.application?.firstName,
+                        workflow.application?.middleName,
+                        workflow.application?.lastName,
+                    ]
+                        .filter(Boolean)
+                        .join(' ') || 'N/A';
+
                     result.push({
                         id: workflow.id,
                         user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
-                        action: `${workflow.actionTaken || 'Updated'} application #${workflow.applicationId}`,
+                        action: workflow.actionTaken || 'Updated',
                         time: new Date(workflow.createdAt).toLocaleString('en-US', {
                             year: 'numeric',
                             month: 'short',
@@ -273,6 +312,8 @@ export class AnalyticsService {
                             minute: '2-digit',
                         }),
                         timestamp: new Date(workflow.createdAt).getTime(),
+                        almsLicenseId: workflow.application?.almsLicenseId || undefined,
+                        applicantName,
                     });
                 });
             });

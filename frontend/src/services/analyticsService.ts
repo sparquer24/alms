@@ -29,6 +29,8 @@ export interface AdminActivity {
     action: string;
     time: string;
     timestamp?: number;
+    almsLicenseId?: string;
+    applicantName?: string;
 }
 
 export interface AnalyticsResponse<T> {
@@ -50,8 +52,6 @@ class AnalyticsService {
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
             const url = `${this.baseURL}/admin/analytics/applications?${params.toString()}`;
-            console.log('Fetching applications from:', url);
-
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -61,7 +61,6 @@ class AnalyticsService {
             }
 
             const text = await response.text();
-            console.log('Raw response:', text);
 
             if (!text) {
                 console.warn('Empty response from applications endpoint');
@@ -86,7 +85,6 @@ class AnalyticsService {
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
             const url = `${this.baseURL}/admin/analytics/role-load?${params.toString()}`;
-            console.log('Fetching role load from:', url);
 
             const response = await fetch(url);
 
@@ -120,8 +118,6 @@ class AnalyticsService {
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
             const url = `${this.baseURL}/admin/analytics/states?${params.toString()}`;
-            console.log('Fetching states from:', url);
-
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -154,8 +150,6 @@ class AnalyticsService {
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
             const url = `${this.baseURL}/admin/analytics/admin-activities?${params.toString()}`;
-            console.log('Fetching admin activities from:', url);
-
             const response = await fetch(url);
 
             if (!response.ok) {

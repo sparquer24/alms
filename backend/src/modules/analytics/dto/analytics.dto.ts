@@ -20,6 +20,8 @@ export class AdminActivityDto {
     action!: string;
     time!: string;
     timestamp?: number;
+    almsLicenseId?: string;
+    applicantName?: string;
 }
 
 export class AnalyticsResponseDto<T> {
