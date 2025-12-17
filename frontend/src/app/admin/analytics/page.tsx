@@ -239,7 +239,7 @@ export default function AnalyticsPage() {
       >
         {/* Header Section with Gradient Background */}
         <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
-          <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>
+          <div className='bg-[#001F54] text-white px-6 py-8'>
             <div className='text-white'>
               <h1 className='text-3xl font-bold mb-2'>Analytics Dashboard</h1>
               <p className='text-blue-100 text-lg'>
@@ -373,6 +373,149 @@ export default function AnalyticsPage() {
             </>
           )}
         </div>
+
+        {/* Charts Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+            gap: AdminSpacing.xl,
+          }}
+        >
+          {/* Applications Over Time Chart */}
+          <AdminCard title='Applications Over Time (Weekly)'>
+            {appLoading ? (
+              <AdminSectionSkeleton lines={5} height='300px' />
+            ) : (
+              <div style={{ width: '100%', height: '350px' }}>
+                <ResponsiveContainerFixed width='100%' height='100%'>
+                  <BarChartFixed data={applicationsByWeek}>
+                    <CartesianGridFixed stroke={colors.border} />
+                    <XAxisFixed dataKey='week' stroke={colors.text.secondary} />
+                    <YAxisFixed stroke={colors.text.secondary} />
+                    <TooltipFixed
+                      contentStyle={{
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.text.primary,
+                        borderRadius: AdminBorderRadius.md,
+                      }}
+                    />
+                    <BarFixed dataKey='count' fill={colors.status.info} radius={[8, 8, 0, 0]} />
+                  </BarChartFixed>
+                </ResponsiveContainerFixed>
+              </div>
+            )}
+            <button
+              onClick={() => handleExport(applicationsByWeek, 'applications-timeline')}
+              style={{
+                marginTop: AdminSpacing.lg,
+                padding: '8px 12px',
+                backgroundColor: colors.status.success,
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: AdminBorderRadius.sm,
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Export CSV
+            </button>
+          </AdminCard>
+
+          {/* Role-wise Load Chart */}
+          <AdminCard title='Role-wise Application Load'>
+            {roleLoading ? (
+              <AdminSectionSkeleton lines={5} height='400px' />
+            ) : (
+              <div style={{ width: '100%', height: '350px' }}>
+                <ResponsiveContainerFixed width='100%' height='100%'>
+                  <PieChartFixed>
+                    <PieFixed
+                      data={roleLoad}
+                      dataKey='value'
+                      nameKey='name'
+                      cx='50%'
+                      cy='50%'
+                      outerRadius={100}
+                      fill='#8884d8'
+                      label={({ name, value }: any) => `${name}: ${value}`}
+                    >
+                      {roleLoad.map((entry, idx) => (
+                        <CellFixed key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                      ))}
+                    </PieFixed>
+                    <TooltipFixed
+                      contentStyle={{
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.text.primary,
+                        borderRadius: AdminBorderRadius.md,
+                      }}
+                    />
+                    <LegendFixed />
+                  </PieChartFixed>
+                </ResponsiveContainerFixed>
+              </div>
+            )}
+            <button
+              onClick={() => handleExport(roleLoad, 'role-load')}
+              style={{
+                marginTop: AdminSpacing.lg,
+                padding: '8px 12px',
+                backgroundColor: colors.status.success,
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: AdminBorderRadius.sm,
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              Export CSV
+            </button>
+          </AdminCard>
+        </div>
+
+        {/* Application States Distribution */}
+        <AdminCard title='Application Status Distribution'>
+          {stateLoading ? (
+            <AdminSectionSkeleton lines={5} height='300px' />
+          ) : (
+            <div style={{ width: '100%', height: '350px' }}>
+              <ResponsiveContainerFixed width='100%' height='100%'>
+                <BarChartFixed data={applicationStates} layout='vertical'>
+                  <CartesianGridFixed stroke={colors.border} />
+                  <XAxisFixed type='number' stroke={colors.text.secondary} />
+                  <YAxisFixed dataKey='state' type='category' stroke={colors.text.secondary} />
+                  <TooltipFixed
+                    contentStyle={{
+                      backgroundColor: colors.surface,
+                      border: `1px solid ${colors.border}`,
+                      color: colors.text.primary,
+                      borderRadius: AdminBorderRadius.md,
+                    }}
+                  />
+                  <BarFixed dataKey='count' fill={colors.status.success} radius={[0, 8, 8, 0]} />
+                </BarChartFixed>
+              </ResponsiveContainerFixed>
+            </div>
+          )}
+          <button
+            onClick={() => handleExport(applicationStates, 'application-states')}
+            style={{
+              marginTop: AdminSpacing.lg,
+              padding: '8px 12px',
+              backgroundColor: colors.status.success,
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: AdminBorderRadius.sm,
+              cursor: 'pointer',
+              fontSize: '12px',
+            }}
+          >
+            Export CSV
+          </button>
+        </AdminCard>
                  {/* Applications Details Section */}
         <div
           style={{
@@ -479,7 +622,7 @@ export default function AnalyticsPage() {
           </div>
           <div
             style={{
-              maxHeight: 520,
+              height: 350,
               overflowY: 'auto',
               borderRadius: AdminBorderRadius.lg,
               border: `1px solid ${colors.border}`,
@@ -537,162 +680,23 @@ export default function AnalyticsPage() {
             }}
           />
         </AdminCard>
-        {/* Charts Grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-            gap: AdminSpacing.xl,
-          }}
-        >
-          {/* Applications Over Time Chart */}
-          <AdminCard title='Applications Over Time (Weekly)'>
-            {appLoading ? (
-              <AdminSectionSkeleton lines={5} height='300px' />
-            ) : (
-              <div style={{ width: '100%', height: '300px' }}>
-                <ResponsiveContainerFixed width='100%' height='100%'>
-                  <BarChartFixed data={applicationsByWeek}>
-                    <CartesianGridFixed stroke={colors.border} />
-                    <XAxisFixed dataKey='week' stroke={colors.text.secondary} />
-                    <YAxisFixed stroke={colors.text.secondary} />
-                    <TooltipFixed
-                      contentStyle={{
-                        backgroundColor: colors.surface,
-                        border: `1px solid ${colors.border}`,
-                        color: colors.text.primary,
-                        borderRadius: AdminBorderRadius.md,
-                      }}
-                    />
-                    <BarFixed dataKey='count' fill={colors.status.info} radius={[8, 8, 0, 0]} />
-                  </BarChartFixed>
-                </ResponsiveContainerFixed>
-              </div>
-            )}
-            <button
-              onClick={() => handleExport(applicationsByWeek, 'applications-timeline')}
-              style={{
-                marginTop: AdminSpacing.lg,
-                padding: '8px 12px',
-                backgroundColor: colors.status.success,
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: AdminBorderRadius.sm,
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              Export CSV
-            </button>
-          </AdminCard>
-
-          {/* Role-wise Load Chart */}
-          <AdminCard title='Role-wise Application Load'>
-            {roleLoading ? (
-              <AdminSectionSkeleton lines={5} height='300px' />
-            ) : (
-              <div style={{ width: '100%', height: '300px' }}>
-                <ResponsiveContainerFixed width='100%' height='100%'>
-                  <PieChartFixed>
-                    <PieFixed
-                      data={roleLoad}
-                      dataKey='value'
-                      nameKey='name'
-                      cx='50%'
-                      cy='50%'
-                      outerRadius={100}
-                      fill='#8884d8'
-                      label={({ name, value }: any) => `${name}: ${value}`}
-                    >
-                      {roleLoad.map((entry, idx) => (
-                        <CellFixed key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
-                      ))}
-                    </PieFixed>
-                    <TooltipFixed
-                      contentStyle={{
-                        backgroundColor: colors.surface,
-                        border: `1px solid ${colors.border}`,
-                        color: colors.text.primary,
-                        borderRadius: AdminBorderRadius.md,
-                      }}
-                    />
-                    <LegendFixed />
-                  </PieChartFixed>
-                </ResponsiveContainerFixed>
-              </div>
-            )}
-            <button
-              onClick={() => handleExport(roleLoad, 'role-load')}
-              style={{
-                marginTop: AdminSpacing.lg,
-                padding: '8px 12px',
-                backgroundColor: colors.status.success,
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: AdminBorderRadius.sm,
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              Export CSV
-            </button>
-          </AdminCard>
-        </div>
-
-        {/* Application States Distribution */}
-        <AdminCard title='Application Status Distribution'>
-          {stateLoading ? (
-            <AdminSectionSkeleton lines={5} height='300px' />
-          ) : (
-            <div style={{ width: '100%', height: '300px' }}>
-              <ResponsiveContainerFixed width='100%' height='100%'>
-                <BarChartFixed data={applicationStates} layout='vertical'>
-                  <CartesianGridFixed stroke={colors.border} />
-                  <XAxisFixed type='number' stroke={colors.text.secondary} />
-                  <YAxisFixed dataKey='state' type='category' stroke={colors.text.secondary} />
-                  <TooltipFixed
-                    contentStyle={{
-                      backgroundColor: colors.surface,
-                      border: `1px solid ${colors.border}`,
-                      color: colors.text.primary,
-                      borderRadius: AdminBorderRadius.md,
-                    }}
-                  />
-                  <BarFixed dataKey='count' fill={colors.status.success} radius={[0, 8, 8, 0]} />
-                </BarChartFixed>
-              </ResponsiveContainerFixed>
-            </div>
-          )}
-          <button
-            onClick={() => handleExport(applicationStates, 'application-states')}
-            style={{
-              marginTop: AdminSpacing.lg,
-              padding: '8px 12px',
-              backgroundColor: colors.status.success,
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: AdminBorderRadius.sm,
-              cursor: 'pointer',
-              fontSize: '12px',
-            }}
-          >
-            Export CSV
-          </button>
-        </AdminCard>
-
+        
         {/* Admin Activity Feed */}
         <AdminCard title='Recent Activities'>
-          {activitiesLoading ? (
-            <AdminSectionSkeleton lines={5} height='400px' />
-          ) : activitiesError ? (
-            <AdminErrorAlert
-              title='Failed to Load Activities'
-              message={activitiesError instanceof Error ? activitiesError.message : 'Unknown error'}
-            />
-          ) : (
-            <AdminActivityFeed activities={adminActivities} />
-          )}
+          <div style={{ height: 450, overflowY: 'auto' }}>
+            {activitiesLoading ? (
+              <AdminSectionSkeleton lines={5} height='300px' />
+            ) : activitiesError ? (
+              <AdminErrorAlert
+                title='Failed to Load Activities'
+                message={activitiesError instanceof Error ? activitiesError.message : 'Unknown error'}
+              />
+            ) : (
+              <AdminActivityFeed activities={adminActivities} />
+            )}
+          </div>
         </AdminCard>
+        
       </div>
     </AdminErrorBoundary>
   );

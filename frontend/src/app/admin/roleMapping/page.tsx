@@ -284,7 +284,7 @@ export default function RoleMappingPage() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Header Section with Gradient Background */}
           <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden' style={{ margin: AdminLayout.content.padding }}>
-            <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>
+            <div className='bg-[#001F54] text-white px-6 py-8'>
               <div className='text-white'>
                 <h1 className='text-3xl font-bold mb-2'>Role Management</h1>
                 <p className='text-blue-100 text-lg'>
