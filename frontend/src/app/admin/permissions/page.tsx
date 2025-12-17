@@ -371,7 +371,6 @@ export default function PermissionsPage() {
               </button>
             </div>
           </div>
-          </div>
         </div>
 
         {/* Category Filter */}

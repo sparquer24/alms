@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -90,20 +90,29 @@ export default function FlowMappingPage() {
     enabled: !!currentRole,
   });
 
-  // Update UI when flow mapping is loaded
-  useEffect(() => {
+  // Memoize selectedNextRoles to prevent infinite loops
+  const selectedNextRoles = useMemo(() => {
     if (currentFlowMapping && currentFlowMapping.nextRoleIds.length > 0) {
-      const selectedNextRoles = currentFlowMapping.nextRoleIds
+      return currentFlowMapping.nextRoleIds
         .map(id => {
           const role = allRoles.find((r: Role) => r.id === id);
           return role ? { value: id, label: `${role.name} (${role.code})`, role } : null;
         })
         .filter(Boolean) as SelectOption[];
-      setNextRoles(selectedNextRoles);
-    } else {
-      setNextRoles([]);
     }
+    return [];
   }, [currentFlowMapping, allRoles]);
+
+  // Update UI when flow mapping is loaded
+  useEffect(() => {
+    const currentIds = nextRoles.map(r => r.value).sort().join(',');
+    const newIds = selectedNextRoles.map(r => r.value).sort().join(',');
+    
+    // Only update if the IDs actually changed
+    if (currentIds !== newIds) {
+      setNextRoles(selectedNextRoles);
+    }
+  }, [selectedNextRoles]);
 
   // Validation function
   const validateForm = useCallback(() => {
