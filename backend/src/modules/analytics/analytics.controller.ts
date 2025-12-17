@@ -7,6 +7,7 @@ import {
     StateDataDto,
     AdminActivityDto,
     AnalyticsResponseDto,
+    ApplicationRecordDto,
 } from './dto/analytics.dto';
 
 @ApiTags('Analytics')
@@ -245,6 +246,81 @@ export class AnalyticsController {
             console.error('Error in getAdminActivities:', error);
             throw new HttpException(
                 error.message || 'Failed to fetch admin activities',
+                error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('applications/details')
+    @ApiOperation({
+        summary: 'Get Applications Details',
+        description:
+            'Get applications summary counts and a list of applications. Supports optional status filter (APPROVED, PENDING, REJECTED).',
+    })
+    @ApiQuery({
+        name: 'status',
+        required: false,
+        type: String,
+        description: 'Optional status filter: APPROVED | PENDING | REJECTED',
+    })
+    @ApiQuery({
+        name: 'page',
+        required: false,
+        type: Number,
+        description: 'Page number for pagination (1-based)',
+    })
+    @ApiQuery({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Number of items per page',
+    })
+    @ApiQuery({
+        name: 'q',
+        required: false,
+        type: String,
+        description: 'Optional search string to match license id or username',
+    })
+    @ApiQuery({
+        name: 'sort',
+        required: false,
+        type: String,
+        description: "Optional sort field, prefix with '-' for desc (e.g. '-updatedAt')",
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved applications details',
+        // data contains summary + array of records
+    })
+    async getApplicationsDetails(
+        @Query('status') status?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('q') q?: string,
+        @Query('sort') sort?: string,
+    ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
+        try {
+            const pageNum = page ? parseInt(page, 10) : undefined;
+            const limitNum = limit ? parseInt(limit, 10) : undefined;
+
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort);
+
+            const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
+
+            return {
+                success: true,
+                data: result.data,
+                meta: {
+                    total: result.total,
+                    page: result.page ?? 1,
+                    limit: result.limit ?? result.data.length,
+                    pages,
+                },
+            };
+        } catch (error: any) {
+            console.error('Error in getApplicationsDetails:', error);
+            throw new HttpException(
+                error.message || 'Failed to fetch applications details',
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
