@@ -622,7 +622,7 @@ export default function AnalyticsPage() {
           </div>
           <div
             style={{
-              height: 350,
+              height: 300,
               overflowY: 'auto',
               borderRadius: AdminBorderRadius.lg,
               border: `1px solid ${colors.border}`,
