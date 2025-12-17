@@ -272,7 +272,7 @@ export class AnalyticsService {
      * Get applications summary and list for admin analytics
      * Supports optional status filter (APPROVED | REJECTED | PENDING)
      */
-    async getApplicationsDetails(status?: string): Promise<{data: ApplicationRecordDto[] }> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
@@ -287,12 +287,51 @@ export class AnalyticsService {
                 }
             }
 
-            // Counts (respect the provided filter)
-            const approved = await prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...where, isApproved: true } });
-            const rejected = await prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...where, isRejected: true } });
-            const pending = await prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...where, isPending: true } });
+            // Apply text search if provided (search almsLicenseId or currentUser.username)
+            if (q) {
+                const qStr = String(q);
+                // search license id or currentUser.username
+                where.OR = [
+                    { almsLicenseId: { contains: qStr, mode: 'insensitive' } },
+                    { currentUser: { is: { username: { contains: qStr, mode: 'insensitive' } } } },
+                ];
+            }
 
-            // Fetch recent applications with their latest workflow history
+            // Total matching records
+            const total = await prisma.freshLicenseApplicationPersonalDetails.count({ where });
+
+            // pagination defaults: default to 5 items per page when no limit provided
+            const DEFAULT_LIMIT = 5;
+            let take: number | undefined = undefined;
+            let skip: number | undefined = undefined;
+            let pageNum: number | undefined = undefined;
+
+            if (page !== undefined && page !== null) {
+                // page provided; use provided limit or default
+                pageNum = Math.max(1, Math.floor(page));
+                const lim = (limit !== undefined && limit !== null) ? Math.max(1, Math.floor(limit)) : DEFAULT_LIMIT;
+                take = lim;
+                skip = (pageNum - 1) * lim;
+            } else if (limit !== undefined && limit !== null) {
+                // only limit provided
+                const lim = Math.max(1, Math.floor(limit));
+                take = lim;
+                pageNum = 1;
+            } else {
+                // neither page nor limit provided -> default to first page with DEFAULT_LIMIT
+                take = DEFAULT_LIMIT;
+                pageNum = 1;
+            }
+
+            // sorting
+            let orderBy: any = { updatedAt: 'desc' };
+            if (sort) {
+                const desc = String(sort).startsWith('-');
+                const key = desc ? String(sort).slice(1) : String(sort);
+                orderBy = { [key]: desc ? 'desc' : 'asc' };
+            }
+
+            // Fetch matching applications with related personal fields (name parts) and workflow
             const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
                 where,
                 select: {
@@ -300,6 +339,10 @@ export class AnalyticsService {
                     almsLicenseId: true,
                     updatedAt: true,
                     createdAt: true,
+                    firstName: true,
+                    middleName: true,
+                    lastName: true,
+                    filledBy: true,
                     currentUser: {
                         select: {
                             id: true,
@@ -317,8 +360,9 @@ export class AnalyticsService {
                         },
                     },
                 },
-                orderBy: { updatedAt: 'desc' },
-                take: 200,
+                orderBy,
+                skip,
+                take: take ?? 200,
             });
 
             const now = Date.now();
@@ -331,20 +375,26 @@ export class AnalyticsService {
 
                 const statusStr = app.isApproved ? 'APPROVED' : app.isRejected ? 'REJECTED' : 'PENDING';
 
+                const applicantName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
+
                 return {
                     applicationId: app.id,
                     licenseId: app.almsLicenseId || null,
+                    applicantName: applicantName || null,
+                    applicantType: app.filledBy || null,
                     currentUser: app.currentUser ? { id: app.currentUser.id, name: app.currentUser.username } : null,
                     status: statusStr,
                     actionTakenAt,
                     daysTillToday,
+                    createdAt: app.createdAt,
+                    updatedAt: app.updatedAt,
                 };
             });
 
-            return { data };
+            return { data, total, page: pageNum, limit: take };
         } catch (error) {
             console.error('Error fetching applications details:', error);
-            return { data: [] };
+            return { data: [], total: 0 };
         }
     }
 }

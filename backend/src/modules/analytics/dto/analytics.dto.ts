@@ -26,12 +26,15 @@ export class AnalyticsResponseDto<T> {
     success!: boolean;
     data!: T;
     message?: string;
+    meta?: any;
 }
 
 export class ApplicationRecordDto {
     applicationId!: number;
     licenseId?: string | null;
     currentUser?: { id: number; name: string } | null;
+    applicantName?: string | null;
+    applicantType?: string | null;
     status!: string;
     actionTakenAt?: string | null;
     daysTillToday?: number | null;
