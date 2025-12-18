@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminActivity } from '@/services/analyticsService';
 
 interface AdminActivityFeedProps {
@@ -7,49 +8,50 @@ interface AdminActivityFeedProps {
   error?: string;
 }
 
-// Helper function to get action color and icon
-const getActionStyle = (action: string) => {
+type StatusPalette = { success: string; error: string; warning: string; info: string };
+
+// Convert hex color to rgba string with opacity
+const withOpacity = (hex: string, alpha: number) => {
+  const sanitized = hex.replace('#', '');
+  const value = sanitized.length === 3
+    ? sanitized
+        .split('')
+        .map(ch => ch + ch)
+        .join('')
+    : sanitized;
+
+  const int = parseInt(value, 16);
+  if (Number.isNaN(int)) return hex;
+
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+// Helper function to get action color and icon aligned with analytics palette
+const getActionStyle = (action: string, palette: StatusPalette, neutral: string) => {
+  const baseStyle = (color: string, icon: string) => ({
+    textColor: color,
+    bgColor: withOpacity(color, 0.1),
+    borderColor: withOpacity(color, 0.35),
+    icon,
+    iconBg: color,
+    chipBg: withOpacity(color, 0.16),
+    chipText: color,
+  });
+
   const actionUpper = action.toUpperCase();
   if (actionUpper.includes('APPROVED')) {
-    return {
-      color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-100 dark:bg-green-900/30',
-      borderColor: 'border-green-300 dark:border-green-600',
-      icon: '✓',
-      iconBg: 'bg-green-500',
-    };
+    return baseStyle(palette.success, '✓');
   } else if (actionUpper.includes('REJECTED')) {
-    return {
-      color: 'text-red-600 dark:text-red-400',
-      bgColor: 'bg-red-100 dark:bg-red-900/30',
-      borderColor: 'border-red-300 dark:border-red-600',
-      icon: '✕',
-      iconBg: 'bg-red-500',
-    };
+    return baseStyle(palette.error, '✕');
   } else if (actionUpper.includes('FORWARD')) {
-    return {
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-      borderColor: 'border-blue-300 dark:border-blue-600',
-      icon: '→',
-      iconBg: 'bg-blue-500',
-    };
+    return baseStyle(palette.info, '→');
   } else if (actionUpper.includes('INITIATED')) {
-    return {
-      color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-      borderColor: 'border-purple-300 dark:border-purple-600',
-      icon: '⚡',
-      iconBg: 'bg-purple-500',
-    };
+    return baseStyle(palette.warning, '⚡');
   }
-  return {
-    color: 'text-gray-600 dark:text-gray-400',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30',
-    borderColor: 'border-gray-300 dark:border-gray-600',
-    icon: '●',
-    iconBg: 'bg-gray-500',
-  };
+  return baseStyle(neutral, '●');
 };
 
 // Helper function to format relative time
@@ -68,8 +70,12 @@ const getRelativeTime = (timestamp: number): string => {
 };
 
 export function AdminActivityFeed({ activities, isLoading, error }: AdminActivityFeedProps) {
+  const { colors } = useAdminTheme();
   const [viewMode, setViewMode] = useState<'timeline' | 'grouped'>('grouped');
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+
+  const neutralText = colors.text.secondary;
+  const palette = colors.status;
 
   // Group activities by user
   const groupedActivities = useMemo(() => {
@@ -148,24 +154,44 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
   return (
     <div>
       {/* View Mode Toggle */}
-      <div className='flex gap-2 mb-6 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit'>
+      <div
+        className='flex gap-2 mb-6 rounded-lg p-1 w-fit border'
+        style={{
+          backgroundColor: withOpacity(palette.info, 0.08),
+          borderColor: withOpacity(palette.info, 0.2),
+        }}
+      >
         <button
           onClick={() => setViewMode('grouped')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className='px-4 py-2 rounded-md text-sm font-medium transition-all'
+          style={
             viewMode === 'grouped'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
+              ? {
+                  backgroundColor: colors.background,
+                  color: palette.info,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                }
+              : {
+                  color: neutralText,
+                }
+          }
         >
           👥 Grouped by User
         </button>
         <button
           onClick={() => setViewMode('timeline')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+          className='px-4 py-2 rounded-md text-sm font-medium transition-all'
+          style={
             viewMode === 'timeline'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
+              ? {
+                  backgroundColor: colors.background,
+                  color: palette.info,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                }
+              : {
+                  color: neutralText,
+                }
+          }
         >
           📅 Timeline View
         </button>
@@ -178,23 +204,32 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
             const isExpanded = expandedUsers.has(user);
             const latestActivity = userActivities[0];
             const activityCount = userActivities.length;
-            const style = getActionStyle(latestActivity.action);
+            const style = getActionStyle(latestActivity.action, palette, neutralText);
 
             return (
               <div
                 key={user}
-                className='border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white dark:bg-gray-800'
+                className='border rounded-lg overflow-hidden hover:shadow-lg transition-shadow'
+                style={{
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                }}
               >
                 {/* User Header */}
                 <div
-                  className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors ${style.bgColor}`}
+                  className='p-4 cursor-pointer transition-colors'
+                  style={{
+                    backgroundColor: style.bgColor,
+                    borderBottom: `1px solid ${style.borderColor}`,
+                  }}
                   onClick={() => toggleUser(user)}
                 >
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-3 flex-1'>
                       {/* User Avatar */}
                       <div
-                        className={`w-10 h-10 rounded-full ${style.iconBg} flex items-center justify-center text-white font-bold text-lg shadow-md`}
+                        className='w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md'
+                        style={{ backgroundColor: style.iconBg }}
                       >
                         {user.charAt(0).toUpperCase()}
                       </div>
@@ -203,19 +238,27 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                       <div className='flex-1'>
                         <div className='flex items-center gap-2'>
                           <h3 className='font-semibold text-gray-900 dark:text-white'>{user}</h3>
-                          <span className='px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium'>
+                          <span
+                            className='px-2 py-0.5 rounded-full text-xs font-medium'
+                            style={{
+                              backgroundColor: withOpacity(palette.info, 0.16),
+                              color: palette.info,
+                            }}
+                          >
                             {activityCount} {activityCount === 1 ? 'activity' : 'activities'}
                           </span>
                         </div>
-                        <p className={`text-sm mt-1 ${style.color}`}>{latestActivity.action}</p>
+                        <p className='text-sm mt-1' style={{ color: style.textColor }}>
+                          {latestActivity.action}
+                        </p>
                       </div>
 
                       {/* Time */}
                       <div className='text-right'>
-                        <p className='text-xs text-gray-500 dark:text-gray-400'>
+                        <p className='text-xs' style={{ color: neutralText }}>
                           {getRelativeTime(latestActivity.timestamp || Date.now())}
                         </p>
-                        <p className='text-xs text-gray-400 dark:text-gray-500 mt-0.5'>
+                        <p className='text-xs mt-0.5' style={{ color: colors.text.tertiary }}>
                           {latestActivity.time}
                         </p>
                       </div>
@@ -244,31 +287,44 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
 
                 {/* Expanded Activities */}
                 {isExpanded && userActivities.length > 1 && (
-                  <div className='border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50'>
+                  <div
+                    className='border-t'
+                    style={{
+                      borderColor: colors.border,
+                      backgroundColor: withOpacity(colors.border, 0.08),
+                    }}
+                  >
                     {userActivities.slice(1).map((activity) => {
-                      const activityStyle = getActionStyle(activity.action);
+                      const activityStyle = getActionStyle(activity.action, palette, neutralText);
                       return (
                         <div
                           key={activity.id}
-                          className='px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 hover:bg-white dark:hover:bg-gray-850 transition-colors'
+                          className='px-4 py-3 border-b last:border-b-0 transition-colors'
+                          style={{
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                          }}
                         >
                           <div className='flex items-center gap-3'>
                             <div
-                              className={`w-8 h-8 rounded-full ${activityStyle.iconBg} flex items-center justify-center text-white text-sm flex-shrink-0`}
+                              className='w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0'
+                              style={{ backgroundColor: activityStyle.iconBg }}
                             >
                               {activityStyle.icon}
                             </div>
                             <div className='flex-1'>
-                              <p className={`text-sm ${activityStyle.color}`}>{activity.action}</p>
-                              <p className='text-xs text-gray-400 dark:text-gray-500 mt-0.5'>
+                              <p className='text-sm' style={{ color: activityStyle.textColor }}>
+                                {activity.action}
+                              </p>
+                              <p className='text-xs mt-0.5' style={{ color: colors.text.tertiary }}>
                                 Activity #{activity.id}
                               </p>
                             </div>
                             <div className='text-right'>
-                              <p className='text-xs text-gray-500 dark:text-gray-400'>
+                              <p className='text-xs' style={{ color: neutralText }}>
                                 {getRelativeTime(activity.timestamp || Date.now())}
                               </p>
-                              <p className='text-xs text-gray-400 dark:text-gray-500'>
+                              <p className='text-xs' style={{ color: colors.text.tertiary }}>
                                 {activity.time}
                               </p>
                             </div>
@@ -286,22 +342,35 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
         // Timeline View
         <div className='space-y-4 relative'>
           {/* Timeline line */}
-          <div className='absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-transparent dark:from-blue-600 dark:via-purple-600'></div>
+          <div
+            className='absolute left-5 top-0 bottom-0 w-0.5'
+            style={{
+              background: `linear-gradient(to bottom, ${palette.info}, ${palette.warning}, transparent)`,
+            }}
+          ></div>
 
-          {activities.map((activity, idx) => {
-            const style = getActionStyle(activity.action);
+          {activities.map((activity) => {
+            const style = getActionStyle(activity.action, palette, neutralText);
             return (
               <div key={activity.id} className='flex gap-4 relative pl-12'>
                 {/* Timeline dot */}
                 <div
-                  className={`absolute left-0 w-10 h-10 ${style.iconBg} rounded-full border-4 border-white dark:border-gray-900 flex items-center justify-center text-white font-bold shadow-lg z-10`}
+                  className='absolute left-0 w-10 h-10 rounded-full border-4 flex items-center justify-center text-white font-bold shadow-lg z-10'
+                  style={{
+                    backgroundColor: style.iconBg,
+                    borderColor: colors.background,
+                  }}
                 >
                   {style.icon}
                 </div>
 
                 {/* Content Card */}
                 <div
-                  className={`flex-1 rounded-lg p-4 border ${style.borderColor} ${style.bgColor} hover:shadow-lg transition-all hover:scale-[1.01]`}
+                  className='flex-1 rounded-lg p-4 border hover:shadow-lg transition-all hover:scale-[1.01]'
+                  style={{
+                    borderColor: style.borderColor,
+                    backgroundColor: style.bgColor,
+                  }}
                 >
                   <div className='flex items-start justify-between mb-2'>
                     <div className='flex-1'>
@@ -313,13 +382,15 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                           #{activity.id}
                         </span>
                       </div>
-                      <p className={`text-sm font-medium ${style.color}`}>{activity.action}</p>
+                      <p className='text-sm font-medium' style={{ color: style.textColor }}>
+                        {activity.action}
+                      </p>
                     </div>
                     <div className='text-right ml-4'>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                      <p className='text-xs font-medium' style={{ color: neutralText }}>
                         {getRelativeTime(activity.timestamp || Date.now())}
                       </p>
-                      <p className='text-xs text-gray-500 dark:text-gray-500 mt-0.5'>
+                      <p className='text-xs mt-0.5' style={{ color: colors.text.tertiary }}>
                         {activity.time}
                       </p>
                     </div>

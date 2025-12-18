@@ -9,6 +9,7 @@ import {
   AdminToolbar,
   AdminTableSkeleton,
   AdminErrorAlert,
+  AdminSectionSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminBorderRadius } from '@/styles/admin-design-system';
@@ -332,17 +333,17 @@ export default function LocationsManagementPage() {
 
   return (
     <div style={{ padding: AdminSpacing.lg }}>
-      {/* Toolbar */}
-      <AdminToolbar sticky>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, color: colors.text.primary, margin: 0 }}>
-            Locations Management
-          </h1>
-          <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
-            Manage the hierarchical location structure
-          </p>
+      {/* Header Section with Gradient Background */}
+      <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6'>
+        <div className='bg-[#001F54] text-white px-6 py-8'>
+          <div className='text-white'>
+            <h1 className='text-3xl font-bold mb-2'>Locations Management</h1>
+            <p className='text-blue-100 text-lg'>
+              Manage the hierarchical location structure
+            </p>
+          </div>
         </div>
-      </AdminToolbar>
+      </div>
 
       {/* Breadcrumb Navigation */}
       {breadcrumbPath.length > 1 && (
