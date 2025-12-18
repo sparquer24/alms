@@ -9,8 +9,11 @@ export type RoleValue = string | number | { code?: string; name?: string;[key: s
  * Numeric role ID to role code mapping
  */
 const NUMERIC_ROLE_MAP: Record<string, string> = {
+  '12': 'SUPER_ADMIN',  // Super Admin role ID
   '14': 'ADMIN',
   '3': 'ADMIN',
+  '15': 'SUPER_ADMIN',  // Alternative Super Admin role ID
+  '16': 'SUPER_ADMIN',  // Alternative Super Admin role ID
   '7': 'ZS',
   '2': 'ZS',
 };
@@ -54,11 +57,11 @@ export const normalizeRole = (role: RoleValue): string | undefined => {
 };
 
 /**
- * Check if a role is ADMIN
+ * Check if a role is ADMIN or SUPER_ADMIN
  */
 export const isAdminRole = (role: RoleValue): boolean => {
   const normalized = normalizeRole(role);
-  return normalized === 'ADMIN';
+  return normalized === 'ADMIN' || normalized === 'SUPER_ADMIN';
 };
 
 /**
@@ -102,6 +105,20 @@ export const getRoleHierarchy = (): Record<string, string[]> => ({
     RoleTypes.CADO,
     RoleTypes.JTCP,
     RoleTypes.CP
+  ],
+  [RoleTypes.SUPER_ADMIN]: [
+    RoleTypes.ZS,
+    RoleTypes.DCP,
+    RoleTypes.ACP,
+    RoleTypes.SHO,
+    RoleTypes.AS,
+    RoleTypes.ARMS_SUPDT,
+    RoleTypes.ARMS_SEAT,
+    RoleTypes.ADO,
+    RoleTypes.CADO,
+    RoleTypes.JTCP,
+    RoleTypes.CP,
+    RoleTypes.ADMIN
   ]
 });
 
@@ -118,7 +135,8 @@ export const getRoleDisplayNames = (): Record<string, string> => ({
   [RoleTypes.ARMS_SEAT]: 'ARMS Seat',
   [RoleTypes.AS]: 'Arms Superintendent (AS)',
   [RoleTypes.ACO]: 'Assistant Compliance Officer (ACO)',
-  [RoleTypes.ADMIN]: 'System Administrator'
+  [RoleTypes.ADMIN]: 'System Administrator',
+  [RoleTypes.SUPER_ADMIN]: 'Super Administrator'
 });
 
 export const getRoleBasedActions = (role: string): { value: string; label: string }[] => {
@@ -164,6 +182,13 @@ export const getRoleBasedActions = (role: string): { value: string; label: strin
       ...common,
     ],
     ADMIN: [
+      { value: 'approve', label: 'Approve' },
+      { value: 'reject', label: 'Reject' },
+      { value: 'recommend', label: 'Recommend' },
+      { value: 'not-recommend', label: 'Not Recommend' },
+      ...common,
+    ],
+    SUPER_ADMIN: [
       { value: 'approve', label: 'Approve' },
       { value: 'reject', label: 'Reject' },
       { value: 'recommend', label: 'Recommend' },

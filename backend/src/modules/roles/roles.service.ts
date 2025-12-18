@@ -10,6 +10,7 @@ interface GetRolesParams {
     limit?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    requestingRoleCode?: string;
 }
 
 @Injectable()
@@ -38,6 +39,7 @@ export class RolesService {
             limit = 10,
             sortBy = 'created_at',
             sortOrder = 'desc',
+            requestingRoleCode,
         } = params;
 
         const where: any = {};
@@ -57,6 +59,15 @@ export class RolesService {
             where.is_active = true;
         } else if (status === 'inactive') {
             where.is_active = false;
+        }
+
+        // If requesting user is ADMIN, exclude ADMIN and SUPER_ADMIN roles
+        // SUPER_ADMIN can see all roles
+        if (requestingRoleCode === 'ADMIN') {
+            where.code = {
+                notIn: ['ADMIN', 'SUPER_ADMIN']
+            };
+            console.log('[Roles Service] Filtering out ADMIN and SUPER_ADMIN roles for ADMIN user');
         }
 
         try {

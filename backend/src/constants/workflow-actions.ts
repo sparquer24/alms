@@ -22,7 +22,8 @@ export const ROLE_CODES = {
   JTCP: 'JTCP',                // Joint Commissioner of Police
   CP: 'CP',                    // Commissioner of Police
   APPLICANT: 'APPLICANT',      // Citizen Applicant
-  ADMIN: 'ADMIN'               // System Administrator
+  ADMIN: 'ADMIN',              // System Administrator
+  SUPER_ADMIN: 'SUPER_ADMIN'   // Super Administrator
 } as const;
 
 // ============================================

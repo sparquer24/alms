@@ -133,7 +133,7 @@ export const AdminMenuProvider: React.FC<AdminMenuProviderProps> = ({
   }, [activeMenuKey]);
 
   const isAdminUser = useCallback(() => {
-    return cachedUserRole === 'ADMIN';
+    return cachedUserRole === 'ADMIN' || cachedUserRole === 'SUPER_ADMIN';
   }, [cachedUserRole]);
 
   const getMenuItemPath = useCallback(

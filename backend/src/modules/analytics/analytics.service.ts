@@ -201,12 +201,15 @@ export class AnalyticsService {
     /**
      * Get admin activities - Returns the 2 most recent entries for each user
      * Filters based on logged-in admin's state (only shows activities where they are involved)
+     * SUPER_ADMIN sees all activities, ADMIN sees only activities from their assigned state
      */
     async getAdminActivities(
         fromDate?: string,
         toDate?: string,
         userId?: number,
         roleId?: number,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<AdminActivityDto[]> {
         try {
             const where: any = {};
@@ -222,23 +225,35 @@ export class AnalyticsService {
                 }
             }
 
-            // Filter by logged-in admin's state
-            // Show activities where the admin is either the previous user, next user, or has the same role
-            if (userId || roleId) {
-                where.OR = [];
-                if (userId) {
-                    where.OR.push(
-                        { nextUserId: userId },
-                        { previousUserId: userId }
-                    );
-                }
-                if (roleId) {
-                    where.OR.push(
-                        { nextRoleId: roleId },
-                        { previousRoleId: roleId }
-                    );
-                }
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter applications by state to ensure admin only sees activities from their state
+            if (stateId && roleCode !== 'SUPER_ADMIN') {
+                where.application = {
+                    stateId: stateId,
+                };
+                console.log('[Analytics Service] Applying state filter:', { stateId, roleCode });
+            } else {
+                console.log('[Analytics Service] No state filter applied:', { stateId, roleCode, reason: roleCode === 'SUPER_ADMIN' ? 'SUPER_ADMIN role' : 'No stateId' });
             }
+
+            // Optional: Filter by logged-in admin's involvement
+            // Show activities where the admin is either the previous user, next user, or has the same role
+            // This can be commented out if you want to show ALL activities from the state
+            // if (userId || roleId) {
+            //     where.OR = [];
+            //     if (userId) {
+            //         where.OR.push(
+            //             { nextUserId: userId },
+            //             { previousUserId: userId }
+            //         );
+            //     }
+            //     if (roleId) {
+            //         where.OR.push(
+            //             { nextRoleId: roleId },
+            //             { previousRoleId: roleId }
+            //         );
+            //     }
+            // }
 
             // Fetch workflow history (admin actions) with application details
             // Also filter by applications assigned to the logged-in user if no direct workflow match

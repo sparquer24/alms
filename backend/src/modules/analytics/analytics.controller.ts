@@ -1,5 +1,6 @@
-import { Controller, Get, Query, HttpException, HttpStatus, Req } from '@nestjs/common';
+import { Controller, Get, Query, HttpException, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { AnalyticsService } from './analytics.service';
 import {
     ApplicationsDataDto,
@@ -12,6 +13,7 @@ import {
 
 @ApiTags('Analytics')
 @Controller('admin/analytics')
+@UseGuards(JwtAuthGuard)
 export class AnalyticsController {
     constructor(private readonly analyticsService: AnalyticsService) { }
 
@@ -241,8 +243,20 @@ export class AnalyticsController {
             const user = req ? (req as any).user : null;
             const userId = user?.user_id;
             const roleId = user?.role_id;
+            const stateId = user?.state_id;
+            const roleCode = user?.role_code;
 
-            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId);
+            // Debug logging
+            console.log('[Analytics] Admin Activities Request - User Info:', {
+                userId,
+                roleId,
+                stateId,
+                roleCode,
+                fromDate,
+                toDate
+            });
+
+            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode);
 
             return {
                 success: true,

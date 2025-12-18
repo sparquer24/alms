@@ -95,7 +95,7 @@ async function persistAuthCookies(token: string, user: any) {
   // If auth cookie already exists, don't rewrite it here (we may have written it earlier)
   const authAlready = verifyCookieWrittenTop('auth');
   // Persist auth, role, and user cookies robustly and save snapshot
-  const numericRoleToCode: Record<string, string> = { '14': 'ADMIN', '7': 'ZS', '2': 'ZS' };
+  const numericRoleToCode: Record<string, string> = { '12': 'SUPER_ADMIN', '14': 'ADMIN', '15': 'SUPER_ADMIN', '16': 'SUPER_ADMIN', '7': 'ZS', '2': 'ZS' };
 
   // Compute normalized role
   const extractRoleString = (u: any): string | null => {
@@ -266,7 +266,10 @@ export const initializeAuth = createAsyncThunk(
             // Compute a minimal user and role similar to login flow.
             try {
               const numericRoleToCode: Record<string, string> = {
+                '12': 'SUPER_ADMIN',
                 '14': 'ADMIN',
+                '15': 'SUPER_ADMIN',
+                '16': 'SUPER_ADMIN',
                 '7': 'ZS',
                 '2': 'ZS',
               };
@@ -309,7 +312,7 @@ export const initializeAuth = createAsyncThunk(
                 if (cAuth && cRole && cUser) {
                   // Normalize role
                   const roleStr = String(cRole).replace(/"/g, '').trim().toUpperCase();
-                  const isAdmin = roleStr === 'ADMIN' || roleStr === 'ADMINISTRATOR' || roleStr === 'SUPERADMIN';
+                  const isAdmin = roleStr === 'ADMIN' || roleStr === 'ADMINISTRATOR' || roleStr === 'SUPERADMIN' || roleStr === 'SUPER_ADMIN';
                   const target = isAdmin ? '/admin/userManagement' : '/inbox?type=freshform';
                   // Only redirect if not already on the target to avoid loops
                   try {

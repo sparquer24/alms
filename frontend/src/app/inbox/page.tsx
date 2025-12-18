@@ -10,6 +10,7 @@ import { fetchApplicationsByStatusKey, filterApplications } from '../../services
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { isAdminRole } from '../../utils/roleUtils';
+import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 
 // Component that uses useSearchParams - needs to be wrapped in Suspense
 function InboxContent() {
@@ -43,7 +44,8 @@ function InboxContent() {
   // Redirect admin users to admin dashboard
   useEffect(() => {
     if (!authLoading && isAdminRole(userRole)) {
-      router.push('/admin/userManagement');
+      const redirectPath = getRoleBasedRedirectPath(userRole);
+      router.push(redirectPath);
       return;
     }
   }, [authLoading, userRole, router]);

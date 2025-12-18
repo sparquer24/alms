@@ -101,6 +101,9 @@ export class AuthService {
           username: true,
           email: true,
           password: true,
+          stateId: true,
+          districtId: true,
+          zoneId: true,
           role: {
             select: {
               id: true,
@@ -160,7 +163,11 @@ export class AuthService {
       username: user.username,
       email: user.email,
       user_id: user.id,
-      role_id: user.role?.id // Add role_id to JWT payload
+      role_id: user.role?.id,
+      role_code: user.role?.code, // Add role_code for permission checks
+      state_id: user.stateId, // Add state_id for state-based filtering
+      district_id: user.districtId, // Add district_id for location context
+      zone_id: user.zoneId // Add zone_id for location context
     };
 
     return jwt.sign(payload, this.jwtSecret!, {

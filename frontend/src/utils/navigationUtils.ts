@@ -43,7 +43,8 @@ export function navigateToDefaultMenu(
         let targetPath: string | null = null;
 
         // Admin role - special handling
-        if (role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'ADMINISTRATOR') {
+        const upperRole = role.toUpperCase();
+        if (upperRole === 'ADMIN' || upperRole === 'ADMINISTRATOR' || upperRole === 'SUPER_ADMIN') {
             // Admin menu items map to specific paths
             const adminMenuPath = getAdminMenuPath(menuItemName as AdminMenuItemKey);
             if (adminMenuPath) {
