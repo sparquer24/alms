@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { locationAPI, toSelectOptions } from '@/api/locationApi';
+import { AdminFormSkeleton } from '@/components/admin';
 
 const roles = ['Admin', 'User', 'Manager'];
 
@@ -19,7 +20,13 @@ const CreateUserPage: React.FC = () => {
   const [divisionId, setDivisionId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    // Simulate initial page load
+    setTimeout(() => setIsLoading(false), 800);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +57,17 @@ const CreateUserPage: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-4">Create User</h1>
+      {isLoading ? (
+        <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
+          <div className="h-8 w-48 bg-gray-200 rounded mb-6 animate-pulse"></div>
+          <AdminFormSkeleton fields={6} showButton={true} />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-full max-w-md">
+          <h1 className="text-2xl font-bold mb-4">Create User</h1>
 
-        {error && <div className="mb-4 text-red-600">{error}</div>}
-        {success && <div className="mb-4 text-green-600">{success}</div>}
+          {error && <div className="mb-4 text-red-600">{error}</div>}
+          {success && <div className="mb-4 text-green-600">{success}</div>}
 
         <div className="mb-4">
           <label className="block mb-1">Username</label>
@@ -122,6 +135,7 @@ const CreateUserPage: React.FC = () => {
           Create User
         </button>
       </form>
+      )}
     </div>
   );
 };

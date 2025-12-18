@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -90,20 +90,29 @@ export default function FlowMappingPage() {
     enabled: !!currentRole,
   });
 
-  // Update UI when flow mapping is loaded
-  useEffect(() => {
+  // Memoize selectedNextRoles to prevent infinite loops
+  const selectedNextRoles = useMemo(() => {
     if (currentFlowMapping && currentFlowMapping.nextRoleIds.length > 0) {
-      const selectedNextRoles = currentFlowMapping.nextRoleIds
+      return currentFlowMapping.nextRoleIds
         .map(id => {
           const role = allRoles.find((r: Role) => r.id === id);
           return role ? { value: id, label: `${role.name} (${role.code})`, role } : null;
         })
         .filter(Boolean) as SelectOption[];
-      setNextRoles(selectedNextRoles);
-    } else {
-      setNextRoles([]);
     }
+    return [];
   }, [currentFlowMapping, allRoles]);
+
+  // Update UI when flow mapping is loaded
+  useEffect(() => {
+    const currentIds = nextRoles.map(r => r.value).sort().join(',');
+    const newIds = selectedNextRoles.map(r => r.value).sort().join(',');
+    
+    // Only update if the IDs actually changed
+    if (currentIds !== newIds) {
+      setNextRoles(selectedNextRoles);
+    }
+  }, [selectedNextRoles]);
 
   // Validation function
   const validateForm = useCallback(() => {
@@ -334,24 +343,17 @@ export default function FlowMappingPage() {
           flexDirection: 'column',
         }}
       >
-        {/* Header */}
-        <AdminToolbar sticky>
-          <div>
-            <h1
-              style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: colors.text.primary,
-                margin: 0,
-              }}
-            >
-              Flow Mapping
-            </h1>
-            <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
-              Configure workflow routing between roles with circular dependency validation
-            </p>
+        {/* Header Section with Gradient Background */}
+        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
+          <div className='bg-[#001F54] text-white px-6 py-8'>
+            <div className='text-white'>
+              <h1 className='text-3xl font-bold mb-2'>Flow Mapping</h1>
+              <p className='text-blue-100 text-lg'>
+                Configure workflow routing between roles with circular dependency validation
+              </p>
+            </div>
           </div>
-        </AdminToolbar>
+        </div>
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>
