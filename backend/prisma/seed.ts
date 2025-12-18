@@ -19,7 +19,6 @@ async function main() {
     { code: 'APPROVED', name: 'Approved', description: 'Application approved' },
     { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled' },
     { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required' },
-    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
     { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
     { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
     { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
@@ -1087,16 +1086,16 @@ async function main() {
   // Define role-action mappings based on role hierarchy and permissions
   const roleActionMappings = [
     // SHO - Station House Officer can forward, reject, recommend, close
-    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT', 'RETURN'] },
+    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RETURN'] },
 
     // ACP - Assistant Commissioner can do all SHO actions plus approve
-    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RETURN'] },
+    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // DCP - Deputy Commissioner has broader approval powers
-    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RETURN'] },
+    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATED', 'RETURN'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD','RE_ENQUIRY', 'RETURN'] },
 
     // CADO - Chief Administrative Officer
     { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
@@ -1114,10 +1113,10 @@ async function main() {
     { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND', 'NOT_RECOMMEND'] },
 
     // ADMIN - System Administrator (can perform all actions for system management)
-    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'NOT_RECOMMEND', 'RETURN'] },
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD'] },
 
     // SUPER_ADMIN - Super Administrator (can perform all actions for system management)
-    { roleCode: 'SUPER_ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'NOT_RECOMMEND', 'RETURN'] },
+    { roleCode: 'SUPER_ADMIN', actionCodes: ['FORWARD'] },
   ];
 
   // Insert role-action mappings
