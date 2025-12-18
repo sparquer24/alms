@@ -248,7 +248,7 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                             {activityCount} {activityCount === 1 ? 'activity' : 'activities'}
                           </span>
                         </div>
-                        <p className={`text-sm mt-1 ${style.color}`}>{latestActivity.action}</p>
+                        <p className={`text-sm mt-1 ${style.textColor}`}>{latestActivity.action}</p>
                         <div className='flex flex-wrap items-center gap-3 mt-2'>
                           {latestActivity.applicantName && (
                             <div className='flex items-center gap-1.5'>
@@ -333,7 +333,7 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                               {activityStyle.icon}
                             </div>
                             <div className='flex-1'>
-                              <p className={`text-sm font-medium ${activityStyle.color}`}>{activity.action}</p>
+                            <p className={`text-sm font-medium ${activityStyle.textColor}`}>{activity.action}</p>
                               <div className='flex flex-wrap items-center gap-3 mt-1.5'>
                                 {activity.applicantName && (
                                   <div className='flex items-center gap-1'>
@@ -419,7 +419,7 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                           #{activity.id}
                         </span>
                       </div>
-                      <p className={`text-sm font-medium ${style.color}`}>{activity.action}</p>
+                      <p className={`text-sm font-medium ${style.textColor}`}>{activity.action}</p>
                       <div className='flex flex-wrap items-center gap-3 mt-2'>
                         {activity.applicantName && (
                           <div className='flex items-center gap-1.5'>
