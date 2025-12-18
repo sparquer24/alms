@@ -31,6 +31,39 @@ export interface AdminActivity {
     timestamp?: number;
 }
 
+export interface ApplicationRecord {
+    applicationId: number;
+    licenseId?: string | null;
+    applicantName?: string | null;
+    applicantType?: string | null;
+    currentUser?: { id: number; name: string } | null;
+    status: string;
+    actionTakenAt?: string | null;
+    daysTillToday?: number | null;
+}
+
+export interface ApplicationsDetailsMeta {
+    total?: number;
+    page?: number;
+    limit?: number;
+    pages?: number;
+}
+
+export interface ApplicationsDetailsResult {
+    success?: boolean;
+    data: ApplicationRecord[];
+    meta?: ApplicationsDetailsMeta;
+    message?: string;
+}
+
+export interface ApplicationDetailsOptions {
+    status?: string;
+    page?: number;
+    limit?: number;
+    q?: string;
+    sort?: string;
+}
+
 export interface AnalyticsResponse<T> {
     data: T;
     success: boolean;
@@ -39,6 +72,7 @@ export interface AnalyticsResponse<T> {
 
 class AnalyticsService {
     private baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    private clientBaseURL = process.env.NEXT_PUBLIC_CLIENT_API_URL || 'http://localhost:3000/api';
 
     /**
      * Fetch applications data aggregated by week
@@ -175,6 +209,53 @@ class AnalyticsService {
         } catch (error) {
             console.error('Error fetching admin activities:', error);
             return []; // Return empty array instead of throwing
+        }
+    }
+
+    /**
+     * Fetch applications list for admin analytics table
+     */
+    async getApplicationsDetails(options?: ApplicationDetailsOptions): Promise<ApplicationsDetailsResult> {
+        try {
+            const params = new URLSearchParams();
+
+            if (options?.page) params.append('page', String(options.page));
+            if (options?.limit) params.append('limit', String(options.limit));
+            if (options?.status) params.append('status', options.status);
+            if (options?.q) params.append('q', options.q);
+            if (options?.sort) params.append('sort', options.sort);
+
+            const query = params.toString();
+            const url = `${this.clientBaseURL}/admin/analytics/applications/details${query ? `?${query}` : ''}`;
+            console.log('Fetching application details from:', url);
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error Response:', errorText);
+                throw new Error(`Failed to fetch applications: ${response.status}`);
+            }
+
+            const result = (await response.json()) as ApplicationsDetailsResult;
+            return {
+                success: result.success,
+                data: result.data || [],
+                meta: result.meta,
+                message: result.message,
+            };
+        } catch (error) {
+            console.error('Error fetching application details:', error);
+            return {
+                data: [],
+                meta: {
+                    total: 0,
+                    page: options?.page,
+                    limit: options?.limit,
+                },
+                success: false,
+                message: error instanceof Error ? error.message : 'Unknown error',
+            };
         }
     }
 
