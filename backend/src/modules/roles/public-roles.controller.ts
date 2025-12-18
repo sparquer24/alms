@@ -1,9 +1,10 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { RolesService } from './roles.service';
 
 @ApiTags('Public - Roles')
+@ApiBearerAuth('JWT-auth')
 @Controller('roles')
 @UseGuards(JwtAuthGuard)
 export class PublicRolesController {
@@ -75,9 +76,9 @@ export class PublicRolesController {
         @Query('sortOrder') sortOrder?: string,
         @Req() req?: any,
     ) {
-        // Extract role_code from JWT
+        // Extract roleCode from JWT (mapped by JwtAuthGuard)
         const user = req ? (req as any).user : null;
-        const roleCode = user?.role_code;
+        const roleCode = user?.roleCode;
 
         return await this.rolesService.getRoles({
             id: id ? Number(id) : undefined,

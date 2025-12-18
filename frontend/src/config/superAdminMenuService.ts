@@ -13,8 +13,7 @@ export type SuperAdminMenuItemKey =
     | 'roleMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement'
-    | 'applicationsDetails';
+    | 'locationsManagement';
 
 export interface SuperAdminMenuItem extends MenuItem {
     path: string;
@@ -31,7 +30,7 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
     userManagement: {
         name: 'userManagement',
         key: 'userManagement',
-        label: '🌐 Global User Management',
+        label: 'User Management',
         path: '/superAdmin/userManagement',
         order: 1,
     },
@@ -62,14 +61,7 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         label: 'Locations Management',
         path: '/superAdmin/locationsManagement',
         order: 5,
-    },
-    applicationsDetails: {
-        name: 'applicationsDetails',
-        key: 'applicationsDetails',
-        label: 'Global Applications',
-        path: '/superAdmin/applicationsDetails',
-        order: 6,
-    },
+    }
 };
 
 /**
@@ -141,13 +133,7 @@ export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey
         'locationmanagement': 'locationsManagement',
         'location_management': 'locationsManagement',
         'location-management': 'locationsManagement',
-        'locations': 'locationsManagement',
-        'applicationsdetails': 'applicationsDetails',
-        'applications_details': 'applicationsDetails',
-        'applications-details': 'applicationsDetails',
-        'applicationdetails': 'applicationsDetails',
-        'application_details': 'applicationsDetails',
-        'application-details': 'applicationsDetails',
+        'locations': 'locationsManagement'
     };
 
     return candidates[normalized] || null;

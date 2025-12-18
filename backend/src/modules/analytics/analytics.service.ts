@@ -8,15 +8,19 @@ import {
     ApplicationRecordDto,
 } from './dto/analytics.dto';
 import { getISOWeek, getISOWeekYear, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { ROLE_CODES } from '../../constants/auth';
 
 @Injectable()
 export class AnalyticsService {
     /**
      * Get applications aggregated by ISO week
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationsByWeek(
         fromDate?: string,
         toDate?: string,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<ApplicationsDataDto[]> {
         try {
             const where: any = {};
@@ -30,6 +34,14 @@ export class AnalyticsService {
                 if (toDate) {
                     where.createdAt.lte = endOfDay(parseISO(toDate));
                 }
+            }
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
             }
 
             // Fetch all applications within date range
@@ -71,10 +83,13 @@ export class AnalyticsService {
 
     /**
      * Get application load by role
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getRoleLoad(
         fromDate?: string,
         toDate?: string,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<RoleLoadDataDto[]> {
         try {
             const where: any = {
@@ -92,6 +107,14 @@ export class AnalyticsService {
                 if (toDate) {
                     where.createdAt.lte = endOfDay(parseISO(toDate));
                 }
+            }
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
             }
 
             // Get applications with their assigned roles
@@ -137,10 +160,13 @@ export class AnalyticsService {
 
     /**
      * Get application state distribution
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationStates(
         fromDate?: string,
         toDate?: string,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<StateDataDto[]> {
         try {
             const where: any = {};
@@ -154,6 +180,14 @@ export class AnalyticsService {
                 if (toDate) {
                     where.createdAt.lte = endOfDay(parseISO(toDate));
                 }
+            }
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
             }
 
             // Get all applications with their status
@@ -226,34 +260,15 @@ export class AnalyticsService {
             }
 
             // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
-            // Filter applications by state to ensure admin only sees activities from their state
-            if (stateId && roleCode !== 'SUPER_ADMIN') {
+            // Filter applications by permanent address state to ensure admin only sees activities from their state
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
                 where.application = {
-                    stateId: stateId,
+                    permanentAddress: {
+                        stateId: stateId
+                    }
                 };
-                console.log('[Analytics Service] Applying state filter:', { stateId, roleCode });
             } else {
-                console.log('[Analytics Service] No state filter applied:', { stateId, roleCode, reason: roleCode === 'SUPER_ADMIN' ? 'SUPER_ADMIN role' : 'No stateId' });
             }
-
-            // Optional: Filter by logged-in admin's involvement
-            // Show activities where the admin is either the previous user, next user, or has the same role
-            // This can be commented out if you want to show ALL activities from the state
-            // if (userId || roleId) {
-            //     where.OR = [];
-            //     if (userId) {
-            //         where.OR.push(
-            //             { nextUserId: userId },
-            //             { previousUserId: userId }
-            //         );
-            //     }
-            //     if (roleId) {
-            //         where.OR.push(
-            //             { nextRoleId: roleId },
-            //             { previousRoleId: roleId }
-            //         );
-            //     }
-            // }
 
             // Fetch workflow history (admin actions) with application details
             // Also filter by applications assigned to the logged-in user if no direct workflow match

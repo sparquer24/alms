@@ -1647,14 +1647,12 @@ export class ApplicationFormService {
       // For PHOTOGRAPH and SIGNATURE_THUMB types, delete existing files to keep only the latest
       const singleFileTypes = ['PHOTOGRAPH', 'SIGNATURE_THUMB', 'IRIS_SCAN'];
       if (singleFileTypes.includes(dto.fileType)) {
-        console.log(`\uD83D\uDDD1\uFE0F Deleting existing ${dto.fileType} files for application ${applicationId}`);
         await prisma.fLAFFileUploads.deleteMany({
           where: {
             applicationId: applicationId,
             fileType: dto.fileType
           }
         });
-        console.log("deleted existing files if any, proceeding to save new file metadata");
       }
 
       // Save file record to database

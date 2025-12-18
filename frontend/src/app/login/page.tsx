@@ -197,7 +197,6 @@ function LoginContent() {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
       const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
-      console.log('LoginContent: Redirecting authenticated user to', redirectPath);
       if (redirectPath && typeof redirectPath === 'string') {
         // Perform a full navigation so the server middleware/layout sees the
         // newly-set cookies and any server components (eg. sidebar) are
@@ -224,7 +223,6 @@ function LoginContent() {
       const cAuth = getCookie('auth');
       const cRole: any = getCookie('role');
       const cUser = getCookie('user');
-      console.log({ cAuth, cRole, cUser });
       if (cAuth && cRole && cUser) {
         // Use full navigation so server-side layout/middleware reads cookies
         // and renders the correct navigation/sidebar state immediately.

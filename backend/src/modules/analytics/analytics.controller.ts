@@ -1,5 +1,5 @@
 import { Controller, Get, Query, HttpException, HttpStatus, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { AnalyticsService } from './analytics.service';
 import {
@@ -12,6 +12,7 @@ import {
 } from './dto/analytics.dto';
 
 @ApiTags('Analytics')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/analytics')
 @UseGuards(JwtAuthGuard)
 export class AnalyticsController {
@@ -51,6 +52,7 @@ export class AnalyticsController {
     async getApplicationsByWeek(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationsDataDto[]>> {
         try {
             // Validate date format if provided
@@ -61,7 +63,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode);
 
             return {
                 success: true,
@@ -110,6 +117,7 @@ export class AnalyticsController {
     async getRoleLoad(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<RoleLoadDataDto[]>> {
         try {
             // Validate date format if provided
@@ -120,7 +128,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getRoleLoad(fromDate, toDate);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode);
 
             return {
                 success: true,
@@ -169,6 +182,7 @@ export class AnalyticsController {
     async getApplicationStates(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<StateDataDto[]>> {
         try {
             // Validate date format if provided
@@ -179,7 +193,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getApplicationStates(fromDate, toDate);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode);
 
             return {
                 success: true,
@@ -241,20 +260,10 @@ export class AnalyticsController {
 
             // Extract user info from JWT
             const user = req ? (req as any).user : null;
-            const userId = user?.user_id;
-            const roleId = user?.role_id;
-            const stateId = user?.state_id;
-            const roleCode = user?.role_code;
-
-            // Debug logging
-            console.log('[Analytics] Admin Activities Request - User Info:', {
-                userId,
-                roleId,
-                stateId,
-                roleCode,
-                fromDate,
-                toDate
-            });
+            const userId = user?.userId;
+            const roleId = user?.roleId;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
 
             const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode);
 

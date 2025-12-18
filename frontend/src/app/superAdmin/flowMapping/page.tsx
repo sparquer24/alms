@@ -24,6 +24,7 @@ import {
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { apiClient } from '@/config/authenticatedApiClient';
 
 interface Role {
   id: number;
@@ -71,10 +72,8 @@ export default function FlowMappingPage() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/roles`);
-        if (!response.ok) throw new Error('Failed to fetch roles');
-        const data = await response.json();
-        return Array.isArray(data) ? data : data.data || [];
+        const response = await apiClient.get<{ data: any[] }>('/roles');
+        return Array.isArray(response) ? response : response.data || [];
       } catch {
         toast.error('Failed to load roles');
         return [];
@@ -344,24 +343,17 @@ export default function FlowMappingPage() {
           flexDirection: 'column',
         }}
       >
-        {/* Header */}
-        <AdminToolbar sticky>
-          <div>
-            <h1
-              style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: colors.text.primary,
-                margin: 0,
-              }}
-            >
-              Flow Mapping
-            </h1>
-            <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
-              Configure workflow routing between roles with circular dependency validation
-            </p>
+        {/* Header Section with Gradient Background */}
+        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
+          <div className='bg-[#001F54] text-white px-6 py-8'>
+            <div className='text-white'>
+              <h1 className='text-3xl font-bold mb-2'>Flow Mapping</h1>
+              <p className='text-blue-100 text-lg'>
+                Configure workflow routing between roles with circular dependency validation
+              </p>
+            </div>
           </div>
-        </AdminToolbar>
+        </div>
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>

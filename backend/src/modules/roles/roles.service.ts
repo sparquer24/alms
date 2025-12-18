@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Roles } from '@prisma/client';
+import { ROLE_CODES } from '../../constants/auth';
 
 interface GetRolesParams {
     id?: number;
@@ -61,13 +62,12 @@ export class RolesService {
             where.is_active = false;
         }
 
-        // If requesting user is ADMIN, exclude ADMIN and SUPER_ADMIN roles
+        // If requesting user is ADMIN, exclude privileged roles
         // SUPER_ADMIN can see all roles
-        if (requestingRoleCode === 'ADMIN') {
+        if (requestingRoleCode === ROLE_CODES.ADMIN) {
             where.code = {
-                notIn: ['ADMIN', 'SUPER_ADMIN']
+                notIn: [ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]
             };
-            console.log('[Roles Service] Filtering out ADMIN and SUPER_ADMIN roles for ADMIN user');
         }
 
         try {

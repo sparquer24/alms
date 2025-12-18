@@ -14,6 +14,7 @@ import {
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { apiClient } from '@/config/authenticatedApiClient';
 
 interface Role {
   id: number;
@@ -61,10 +62,8 @@ export default function FlowMappingPage() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/roles`);
-        if (!response.ok) throw new Error('Failed to fetch roles');
-        const data = await response.json();
-        return Array.isArray(data) ? data : data.data || [];
+        const response = await apiClient.get<{ data: any[] }>('/roles');
+        return Array.isArray(response) ? response : response.data || [];
       } catch {
         toast.error('Failed to load roles');
         return [];
