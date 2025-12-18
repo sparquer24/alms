@@ -18,14 +18,13 @@ import {
 import {
   analyticsService,
   AnalyticsFilters,
-  ApplicationsData,
-  RoleLoadData,
-  StateData,
-  AdminActivity,
+  ApplicationRecord,
+  ApplicationsDetailsResult,
 } from '@/services/analyticsService';
 import { format } from 'date-fns';
 import {
   AdminCard,
+  
   AdminToolbar,
   AdminFilter,
   AdminErrorAlert,
@@ -53,31 +52,13 @@ const LegendFixed = Legend as any;
 
 const COLORS = ['#6366F1', '#F59E42', '#10B981', '#EF4444', '#8B5CF6', '#EC4899'];
 
-type ApplicationStatus = 'Approved' | 'Pending' | 'Rejected';
-
-interface ApplicationRow {
-  id: number;
-  acknowledgementNo: string;
-  applicantName: string;
-  applicationType: string;
-  status: ApplicationStatus;
-  actionTakenAt: string;
-}
+type ApplicationStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
 
 const statusPalette: Record<ApplicationStatus, { bg: string; text: string }> = {
-  Approved: { bg: '#ECFDF3', text: '#16A34A' },
-  Pending: { bg: '#FFFBEB', text: '#CA8A04' },
-  Rejected: { bg: '#FEF2F2', text: '#DC2626' },
+  APPROVED: { bg: '#ECFDF3', text: '#16A34A' },
+  PENDING: { bg: '#FFFBEB', text: '#CA8A04' },
+  REJECTED: { bg: '#FEF2F2', text: '#DC2626' },
 };
-
-const mockApplications: ApplicationRow[] = [
-  { id: 1, acknowledgementNo: 'ACK-2024-0001', applicantName: 'Aarav Sharma', applicationType: 'New License', status: 'Approved', actionTakenAt: '2024-11-18 10:20' },
-  { id: 2, acknowledgementNo: 'ACK-2024-0002', applicantName: 'Meera Patel', applicationType: 'Renewal', status: 'Pending', actionTakenAt: '2024-11-19 14:05' },
-  { id: 3, acknowledgementNo: 'ACK-2024-0003', applicantName: 'Rahul Singh', applicationType: 'Transfer', status: 'Rejected', actionTakenAt: '2024-11-17 09:40' },
-  { id: 4, acknowledgementNo: 'ACK-2024-0004', applicantName: 'Sanya Iyer', applicationType: 'New License', status: 'Approved', actionTakenAt: '2024-11-16 16:20' },
-  { id: 5, acknowledgementNo: 'ACK-2024-0005', applicantName: 'Kabir Narang', applicationType: 'Renewal', status: 'Pending', actionTakenAt: '2024-11-20 11:05' },
-  { id: 6, acknowledgementNo: 'ACK-2024-0006', applicantName: 'Nikita Rao', applicationType: 'Duplicate', status: 'Approved', actionTakenAt: '2024-11-15 13:10' },
-];
 
 export default function AnalyticsPage() {
   const { colors } = useAdminTheme();
@@ -95,26 +76,6 @@ export default function AnalyticsPage() {
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return mockApplications.filter(row => {
-      const matchesText = q
-        ? row.applicantName.toLowerCase().includes(q) ||
-          row.acknowledgementNo.toLowerCase().includes(q) ||
-          row.applicationType.toLowerCase().includes(q)
-        : true;
-      const matchesStatus = status ? row.status === status : true;
-      return matchesText && matchesStatus;
-    });
-  }, [search, status]);
-
-  const paginated = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
-
-  const start = (page - 1) * pageSize;
 
   // Fetch applications data
   const {
@@ -169,6 +130,33 @@ export default function AnalyticsPage() {
     },
   });
 
+  // Fetch application details list
+  const {
+    data: applicationsDetails,
+    isLoading: applicationsDetailsLoading,
+    error: applicationsDetailsError,
+    refetch: refetchApplicationsDetails,
+  } = useQuery<ApplicationsDetailsResult>({
+    queryKey: ['analytics-applications-details', page, pageSize, search, status],
+    queryFn: async () => {
+      const result = await analyticsService.getApplicationsDetails({
+        page,
+        limit: pageSize,
+        status: status || undefined,
+        q: search.trim() || undefined,
+        sort: '-updatedAt',
+      });
+      return result;
+    },
+    keepPreviousData: true,
+  });
+
+  const applications = applicationsDetails?.data || [];
+  const totalApplicationsCount = applicationsDetails?.meta?.total ?? applications.length;
+  const currentPage = applicationsDetails?.meta?.page ?? page;
+  const currentLimit = applicationsDetails?.meta?.limit ?? pageSize;
+  const start = (currentPage - 1) * currentLimit;
+
   // Calculate summary stats
   const summaryStats = useMemo(() => {
     const totalApplications = applicationsByWeek.reduce((sum, item) => sum + item.count, 0);
@@ -204,15 +192,38 @@ export default function AnalyticsPage() {
   };
 
   const handleDownload = () => {
-    const header = ['S.No', 'Application IDs', 'Applicant Name', 'Application Type', 'Status', 'Action Taken At'];
-    const rows = filtered.map((row, idx) => [
-      String(idx + 1),
-      row.acknowledgementNo,
-      row.applicantName,
-      row.applicationType,
-      row.status,
-      row.actionTakenAt,
-    ]);
+    if (!applications || applications.length === 0) {
+      return;
+    }
+
+    const header = ['S.No', 'License ID', 'Application Name', 'Status', 'Pending Details', 'Action Taken At'];
+    const rows = applications.map((row, idx) => {
+      const actionDate = row.actionTakenAt ? new Date(row.actionTakenAt) : null;
+      const formattedDate = actionDate && !Number.isNaN(actionDate.valueOf()) ? format(actionDate, 'yyyy-MM-dd HH:mm') : '--';
+      const pendingParts = [] as string[];
+
+      if (row.currentUser?.name) pendingParts.push(row.currentUser.name);
+      if (row.daysTillToday !== null && row.daysTillToday !== undefined) {
+        const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
+        const daysText = `(${row.daysTillToday} ${dayLabel})`;
+        if (pendingParts.length) {
+          pendingParts[pendingParts.length - 1] = `${pendingParts[pendingParts.length - 1]} ${daysText}`;
+        } else {
+          pendingParts.push(daysText);
+        }
+      }
+
+      const pendingDetails = pendingParts.length ? pendingParts.join(' ') : '--';
+
+      return [
+        String(start + idx + 1),
+        row.licenseId || '',
+        row.applicantName || '',
+        row.status || '',
+        pendingDetails,
+        formattedDate,
+      ];
+    });
     const csv = [header, ...rows]
       .map(r => r.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
       .join('\n');
@@ -225,7 +236,7 @@ export default function AnalyticsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const isLoading = appLoading || roleLoading || stateLoading;
+  const isLoading = appLoading || roleLoading || stateLoading || applicationsDetailsLoading;
 
   return (
     <AdminErrorBoundary>
@@ -277,7 +288,10 @@ export default function AnalyticsPage() {
                   Reset 30 Days
                 </button>
                 <button
-                  onClick={() => refetchApps()}
+                  onClick={() => {
+                    refetchApps();
+                    refetchApplicationsDetails();
+                  }}
                   disabled={isLoading}
                   className='inline-flex items-center justify-center rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap'
                 >
@@ -318,6 +332,13 @@ export default function AnalyticsPage() {
           <AdminErrorAlert
             title='Failed to Load Application States'
             message={stateError instanceof Error ? stateError.message : 'Unknown error'}
+          />
+        )}
+        {applicationsDetailsError && (
+          <AdminErrorAlert
+            title='Failed to Load Application Details'
+            message={applicationsDetailsError instanceof Error ? applicationsDetailsError.message : 'Unknown error'}
+            onRetry={() => refetchApplicationsDetails()}
           />
         )}
 
@@ -532,7 +553,7 @@ export default function AnalyticsPage() {
         >
           <input
             type='text'
-            placeholder='Search username, email, or phone...'
+            placeholder='Search license ID or user...'
             value={search}
             onChange={e => {
               setPage(1);
@@ -572,9 +593,9 @@ export default function AnalyticsPage() {
             aria-label='Status filter'
           >
             <option value=''>All Statuses</option>
-            <option value='Approved'>Approved</option>
-            <option value='Pending'>Pending</option>
-            <option value='Rejected'>Rejected</option>
+            <option value='APPROVED'>Approved</option>
+            <option value='PENDING'>Pending</option>
+            <option value='REJECTED'>Rejected</option>
           </select>
 
           <button
@@ -617,7 +638,7 @@ export default function AnalyticsPage() {
               Applications
             </h2>
             <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
-              Showing {paginated.length} of {filtered.length}
+              Showing {applications.length} of {totalApplicationsCount}
             </span>
           </div>
           <div
@@ -628,45 +649,84 @@ export default function AnalyticsPage() {
               border: `1px solid ${colors.border}`,
             }}
           >
-            {isLoading ? (
+            {applicationsDetailsLoading ? (
               <AdminTableSkeleton rows={6} columns={6} />
             ) : (
               <AdminTable
                 columns={[
                   {
-                    key: 'id',
+                    key: 'applicationId',
                     header: 'S.No',
-                    render: (_value, row, idx) => start + (idx + 1),
+                    render: (_value, _row, idx) => start + (idx + 1),
                     width: '80px',
                   },
                   {
-                    key: 'acknowledgementNo',
-                    header: 'Application IDs',
+                    key: 'licenseId',
+                    header: 'License ID',
+                    render: value => value || '--',
                   },
-                  { key: 'applicantName', header: 'Applicant Name' },
-                  { key: 'applicationType', header: 'Application Type' },
+                  {
+                    key: 'applicantName',
+                    header: 'Application Name',
+                    render: value => value || '--',
+                  },
                   {
                     key: 'status',
                     header: 'Status',
-                    render: value => (
-                      <span
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: AdminBorderRadius.full,
-                          backgroundColor: statusPalette[value as ApplicationStatus].bg,
-                          color: statusPalette[value as ApplicationStatus].text,
-                          fontWeight: 600,
-                          fontSize: '13px',
-                        }}
-                      >
-                        {value}
-                      </span>
-                    ),
+                    render: value => {
+                      const normalized = (value || '').toUpperCase() as ApplicationStatus;
+                      const palette = statusPalette[normalized] || { bg: '#F3F4F6', text: '#111827' };
+                      const label = normalized ? `${normalized.charAt(0)}${normalized.slice(1).toLowerCase()}` : 'Unknown';
+
+                      return (
+                        <span
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: AdminBorderRadius.full,
+                            backgroundColor: palette.bg,
+                            color: palette.text,
+                            fontWeight: 600,
+                            fontSize: '13px',
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    },
                   },
-                  { key: 'actionTakenAt', header: 'Action Taken At' },
+                  {
+                    key: 'pendingDetails',
+                    header: 'Pending Details',
+                    render: (_value, row: ApplicationRecord) => {
+                      const parts: string[] = [];
+
+                      if (row.currentUser?.name) parts.push(row.currentUser.name);
+                      if (row.daysTillToday !== null && row.daysTillToday !== undefined) {
+                        const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
+                        const daysText = `(${row.daysTillToday} ${dayLabel})`;
+                        if (parts.length) {
+                          parts[parts.length - 1] = `${parts[parts.length - 1]} ${daysText}`;
+                        } else {
+                          parts.push(daysText);
+                        }
+                      }
+
+                      return parts.length ? parts.join(' ') : '--';
+                    },
+                  },
+                  {
+                    key: 'actionTakenAt',
+                    header: 'Action Taken At',
+                    render: value => {
+                      if (!value) return '--';
+                      const date = new Date(value as string);
+                      if (Number.isNaN(date.valueOf())) return '--';
+                      return format(date, 'yyyy-MM-dd HH:mm');
+                    },
+                  },
                 ]}
-                data={paginated}
-                rowKey='id'
+                data={applications}
+                rowKey='applicationId'
                 emptyMessage='No applications found'
               />
             )}
