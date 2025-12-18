@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: any }) {
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{(function(){var k='floatingSidebar';if(typeof localStorage!=='undefined'){var r=localStorage.getItem(k);if(r===null||r==='null'||r==='undefined'){localStorage.setItem(k,JSON.stringify({}));}}try{if(typeof window!=='undefined'){window.floatingSidebar=window.floatingSidebar||{}}}catch(e){} })()}catch(e){};`,
+            __html: `try{(function(){if(typeof window==='undefined')return;var k='floatingSidebar';if(typeof localStorage!=='undefined'){try{var r=localStorage.getItem(k);if(r===null||r==='null'||r==='undefined'){localStorage.setItem(k,JSON.stringify({}))}}catch(e){}}try{window.floatingSidebar=window.floatingSidebar||{}}catch(e){}})()}catch(e){};`,
           }}
         />
       </head>

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcrypt';
 import { LoginRequest } from '../../request/auth';
@@ -9,6 +9,7 @@ import prisma from '../../db/prismaClient';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly jwtSecret = process.env.JWT_SECRET;
   private readonly saltRounds = 12;
 
@@ -45,10 +46,10 @@ export class AuthService {
   async authenticateUser(loginData: LoginRequest): Promise<LoginResponse> {
     const { username, password } = loginData;
 
-    try {   
+    try {
       // For now, using dummy validation
       const user = await this.validateUser(username, password);
-      
+
       if (!user) {
         throw new UnauthorizedException(ERROR_MESSAGES.INVALID_CREDENTIALS);
       }
@@ -73,14 +74,15 @@ export class AuthService {
           role: user.role
         }
       };
-      
+
       return response;
-    } catch (error) {
+    } catch (error: any) {
       // Log the real error for debugging
+      this.logger.error(`Authentication failed for user: ${username}`, error?.stack || error);
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new Error(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+      throw new Error(error?.message || ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -142,7 +144,7 @@ export class AuthService {
         email: user.email,
         role: user.role
       };
-      
+
       return userData;
     } catch (error) {
       throw error;

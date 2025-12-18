@@ -7,7 +7,7 @@ import { AppModule } from './modules/app.module';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { ErrorsInterceptor } from './interceptors/errors.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 // Load environment variables before anything else (prefer root .env)
 const rootEnvPath = resolve(__dirname, '../../.env');
@@ -17,36 +17,48 @@ const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production' 
+    logger: process.env.NODE_ENV === 'production'
       ? ['error', 'warn', 'log']
       : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
-  
+
   // Apply global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
-  
+
+  // Apply global validation pipe for DTO validation and transformation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true, // Enable transformation of plain objects to class instances
+      whitelist: true, // Strip properties that don't have decorators
+      forbidNonWhitelisted: false, // Don't throw on extra properties
+      transformOptions: {
+        enableImplicitConversion: true, // Allow implicit type conversion
+      },
+    }),
+  );
+
   // Apply global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor()); // Must be first for accurate timing
   app.useGlobalInterceptors(new ErrorsInterceptor());
-  
+
   // Global exception handlers to prevent crashes
   process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception:', error.stack || error);
     // Don't exit immediately - allow graceful shutdown
   });
-  
+
   process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
     // Don't exit - log and continue
   });
-  
+
   // Graceful shutdown handlers
   process.on('SIGTERM', async () => {
     logger.log('SIGTERM signal received: closing HTTP server');
     await app.close();
     process.exit(0);
   });
-  
+
   process.on('SIGINT', async () => {
     logger.log('SIGINT signal received: closing HTTP server');
     await app.close();
@@ -67,7 +79,7 @@ async function bootstrap() {
     origin: origins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'authorization'],
   });
 
   // Prefix all routes with /api so every API endpoint is under /api
@@ -109,7 +121,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(Number(port));
-  
+
   logger.log(`Backend listening on http://localhost:${port}`);
   logger.log(`Swagger API docs available at http://localhost:${port}/api/api-docs`);
   logger.log(`Environment: ${process.env.NODE_ENV || 'development'}`);

@@ -116,6 +116,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'closed', statusIds: [10] },
       { name: 'drafts', statusIds: [13] },
       { name: 'finaldisposal', statusIds: [7] },
+      { name: 'analytics' },
     ],
     'SHO': [
       { name: 'inbox', statusIds: [1, 9] },
@@ -146,10 +147,12 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     'JTCP': [
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
+      { name: 'analytics' },
     ],
     'CP': [
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
+      { name: 'analytics' },
     ],
     'ARMS_SUPDT': [
       { name: 'inbox', statusIds: [1, 9] },

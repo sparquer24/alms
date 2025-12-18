@@ -12,8 +12,9 @@ import { RolesModule } from './roles/roles.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FlowMappingModule } from './flowMapping/flow-mapping.module';
 import { HealthModule } from './health/health.module';
+import { BiometricModule } from './biometric/biometric.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule],
 })
 export class AppModule { }

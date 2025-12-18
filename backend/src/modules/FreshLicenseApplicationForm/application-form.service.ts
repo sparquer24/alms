@@ -376,7 +376,7 @@ export class ApplicationFormService {
         if (!draftStatus) {
           throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
         }
-        const almsLicenseId = `ALMS${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0,8)}${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(8,14)}`;
+        const almsLicenseId = `ALMS${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 8)}${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(8, 14)}`;
 
         const draftStatusId = draftStatus.id;
 
@@ -698,7 +698,7 @@ export class ApplicationFormService {
         // 7. Handle Biometric Data
         if (data.biometricData) {
           const biometricDataObject = data.biometricData;
-          
+
           // Check if biometric data already exists for this application
           const existingBiometric = await tx.fLAFBiometricDatas.findUnique({
             where: { applicationId }
@@ -725,7 +725,7 @@ export class ApplicationFormService {
               } as any
             });
           }
-          
+
           updatedSections.push('biometricData');
         }
 
@@ -734,7 +734,7 @@ export class ApplicationFormService {
           // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
             where: { isStarted: true, isActive: true } as any
-          });   
+          });
 
           // Get current application details to know the current user
           const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
@@ -1080,7 +1080,7 @@ export class ApplicationFormService {
     isOwned?: boolean;
     isSent?: boolean;
   }) {
-     // Build a compact, frontend-friendly query: include necessary relations
+    // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
 
@@ -1143,7 +1143,7 @@ export class ApplicationFormService {
 
           latestActions.sort((a, b) => {
             let aValue, bValue;
-            
+
             if (orderByField === 'actionTakenAt') {
               aValue = a.createdAt;
               bValue = b.createdAt;
@@ -1339,34 +1339,34 @@ export class ApplicationFormService {
   }
 
 
-/*
-  * Get users in the hierarchy based on application present address and current user's role
-*/
- async getUsersInHierarchy(applicationId: number): Promise<[any, any]> {
+  /*
+    * Get users in the hierarchy based on application present address and current user's role
+  */
+  async getUsersInHierarchy(applicationId: number): Promise<[any, any]> {
     try {
       // Fetch application, current user, and role flow mapping in parallel
       const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-          where: { id: applicationId },
-          select: {
-            id: true,
-            currentUserId: true,
-            currentUser: {
-              select: {
-                id: true,
-                roleId: true
-              }
-            },
-            presentAddress: {
-              select: {
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true
-              }
+        where: { id: applicationId },
+        select: {
+          id: true,
+          currentUserId: true,
+          currentUser: {
+            select: {
+              id: true,
+              roleId: true
+            }
+          },
+          presentAddress: {
+            select: {
+              stateId: true,
+              districtId: true,
+              zoneId: true,
+              divisionId: true,
+              policeStationId: true
             }
           }
-        });
+        }
+      });
 
       if (!application) {
         return [new BadRequestException('Application not found'), null];
@@ -1399,7 +1399,7 @@ export class ApplicationFormService {
 
       // Build location hierarchy conditions - using OR for all levels in a single query
       const { policeStationId, divisionId, zoneId, districtId, stateId } = application.presentAddress;
-      
+
       const locationConditions: any[] = [];
 
       // Add conditions for each level (most specific to least specific)
@@ -1625,6 +1625,7 @@ export class ApplicationFormService {
 
   /**
    * Upload file for application
+   * For certain file types (PHOTOGRAPH, SIGNATURE_THUMB, etc.), only keep the latest file
    */
   async uploadFile(applicationId: number, dto: UploadFileDto): Promise<[any, any]> {
     try {
@@ -1641,6 +1642,19 @@ export class ApplicationFormService {
       const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
       if (dto.fileSize > maxFileSize) {
         return ['File size too large. Maximum allowed size is 10MB', null];
+      }
+
+      // For PHOTOGRAPH and SIGNATURE_THUMB types, delete existing files to keep only the latest
+      const singleFileTypes = ['PHOTOGRAPH', 'SIGNATURE_THUMB', 'IRIS_SCAN'];
+      if (singleFileTypes.includes(dto.fileType)) {
+        console.log(`\uD83D\uDDD1\uFE0F Deleting existing ${dto.fileType} files for application ${applicationId}`);
+        await prisma.fLAFFileUploads.deleteMany({
+          where: {
+            applicationId: applicationId,
+            fileType: dto.fileType
+          }
+        });
+        console.log("deleted existing files if any, proceeding to save new file metadata");
       }
 
       // Save file record to database
