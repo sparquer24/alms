@@ -2,11 +2,9 @@ import { Controller, Post, Body, HttpException, HttpStatus, Get, Param, UseGuard
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ApplicationFormService } from './application-form.service';
 import { AuthGuard } from '../../middleware/auth.middleware';
-// import { CreateApplicationDto } from './dto/create-application.dto';
 import { CreatePersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchApplicationDetailsDto } from './dto/patch-application-details.dto';
 import { UploadFileDto, UploadFileResponseDto } from './dto/upload-file.dto';
-// import { LicensePurpose, FileType, Sex } from '@prisma/client';
 
 @ApiTags('Application Form')
 @Controller('application-form')
