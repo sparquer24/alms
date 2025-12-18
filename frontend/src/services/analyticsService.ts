@@ -89,7 +89,7 @@ class AnalyticsService {
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/applications${queryString ? `?${queryString}` : ''}`;
-            
+
             const response = await apiClient.get<AnalyticsResponse<ApplicationsData[]>>(endpoint);
             return response.data || [];
         } catch (error) {
@@ -129,7 +129,7 @@ class AnalyticsService {
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/states${queryString ? `?${queryString}` : ''}`;
-            
+
             const response = await apiClient.get<AnalyticsResponse<StateData[]>>(endpoint);
             return response.data || [];
         } catch (error) {
@@ -149,7 +149,7 @@ class AnalyticsService {
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/admin-activities${queryString ? `?${queryString}` : ''}`;
-            
+
             const response = await apiClient.get<AnalyticsResponse<AdminActivity[]>>(endpoint);
             return response.data || [];
         } catch (error) {
@@ -172,18 +172,11 @@ class AnalyticsService {
             if (options?.sort) params.append('sort', options.sort);
 
             const query = params.toString();
-            const url = `${this.clientBaseURL}/admin/analytics/applications/details${query ? `?${query}` : ''}`;
-            console.log('Fetching application details from:', url);
+            const endpoint = `/admin/analytics/applications/details${query ? `?${query}` : ''}`;
+            console.log('Fetching application details from:', endpoint);
 
-            const response = await fetch(url);
+            const result = await apiClient.get<ApplicationsDetailsResult>(endpoint);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error Response:', errorText);
-                throw new Error(`Failed to fetch applications: ${response.status}`);
-            }
-
-            const result = (await response.json()) as ApplicationsDetailsResult;
             return {
                 success: result.success,
                 data: result.data || [],

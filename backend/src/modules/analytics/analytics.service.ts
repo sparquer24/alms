@@ -135,19 +135,25 @@ export class AnalyticsService {
                 },
             });
 
-            // Group by role
-            const roleMap = new Map<string, number>();
+            // Group by role we need to return the name, code and count
+            const roleMap = new Map<string, { name: string; code: string; count: number }>();
             applications.forEach((app) => {
-                if (app.currentUser?.role) {
-                    const roleName = app.currentUser.role.name;
-                    roleMap.set(roleName, (roleMap.get(roleName) || 0) + 1);
+                const role = app.currentUser?.role;
+                if (role) {
+                    const existing = roleMap.get(role.code);
+                    if (existing) {
+                        existing.count += 1;
+                    } else {
+                        roleMap.set(role.code, { name: role.name, code: role.code, count: 1 });
+                    }
                 }
             });
 
             // Convert to array
-            const result = Array.from(roleMap.entries()).map(([name, value]) => ({
-                name,
-                value,
+            const result: RoleLoadDataDto[] = Array.from(roleMap.values()).map((role) => ({
+                name: role.name,
+                value: role.count,
+                code: role.code,
             }));
 
             return result;
@@ -310,13 +316,13 @@ export class AnalyticsService {
 
             workflows.forEach((workflow) => {
                 const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
-                
+
                 if (!userActivitiesMap.has(user)) {
                     userActivitiesMap.set(user, []);
                 }
 
                 const userActivities = userActivitiesMap.get(user);
-                
+
                 // Only add if we have less than 2 entries for this user
                 if (userActivities && userActivities.length < 2) {
                     userActivities.push(workflow);
@@ -325,7 +331,7 @@ export class AnalyticsService {
 
             // Flatten the map and format the results
             const result: AdminActivityDto[] = [];
-            
+
             userActivitiesMap.forEach((activities) => {
                 activities.forEach((workflow) => {
                     // Construct applicant name
@@ -370,7 +376,7 @@ export class AnalyticsService {
      * Get applications summary and list for admin analytics
      * Supports optional status filter (APPROVED | REJECTED | PENDING)
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string): Promise<{ data: ApplicationRecordDto[]; total: number; page?: number; limit?: number }> {
         try {
             const where: any = {};
 

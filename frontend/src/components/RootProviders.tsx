@@ -14,6 +14,7 @@ import { UserProvider } from '../context/UserContext';
 import { ApplicationProvider } from '../context/ApplicationContext';
 import { InboxProvider } from '../context/InboxContext';
 import { AdminThemeProvider } from '../context/AdminThemeContext';
+import { GlobalActionProvider } from '../context/GlobalActionContext';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -39,8 +40,10 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                     <UserProvider>
                       <ApplicationProvider>
                         <InboxProvider>
-                          <AuthInitializer />
-                          {children}
+                          <GlobalActionProvider>
+                            <AuthInitializer />
+                            {children}
+                          </GlobalActionProvider>
                         </InboxProvider>
                       </ApplicationProvider>
                     </UserProvider>

@@ -18,6 +18,7 @@ import { RichTextDisplay } from '../../../components/RichTextDisplay';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
+import QRCodeDisplay from '../../../components/QRCodeDisplay';
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -225,14 +226,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   }, [isAuthenticated, authLoading, router]);
 
+  // Show header and sidebar like other pages (Settings, etc.)
   useEffect(() => {
-    // Hide header and sidebar on the Application Detail page
-    setShowHeader(false);
-    setShowSidebar(false);
+    setShowHeader(true);
+    setShowSidebar(false); // Hide sidebar on Application Details page
 
+    // Cleanup: reset sidebar visibility when leaving this page
     return () => {
-      // Reset visibility when unmounting
-      setShowHeader(true);
       setShowSidebar(true);
     };
   }, [setShowHeader, setShowSidebar]);
@@ -563,14 +563,82 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }
 
   return (
-    <div
-      className='min-h-screen w-full bg-cover bg-center'
-      style={{ backgroundImage: 'url("/backgroundIMGALMS.jpeg")' }}
-    >
-      <Sidebar />
-      <Header />
-      <main className='flex-1 p-2 lg:p-6'>
-        <div className='max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4'>
+    <div className='flex flex-col min-h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
+      {/* Custom Header with Breadcrumb, Title and Status */}
+      <header className='fixed top-0 left-0 right-0 bg-[#001F54] shadow-lg z-10'>
+        <div className='px-6 py-4'>
+          {/* Breadcrumb Navigation */}
+          <nav className='mb-2' aria-label='Breadcrumb'>
+            <ol className='flex items-center space-x-2 text-sm'>
+              <li>
+                <button
+                  onClick={() => router.push('/inbox/forwarded')}
+                  className='text-white text-opacity-70 hover:text-opacity-100 transition-colors'
+                >
+                  Home
+                </button>
+              </li>
+              <li className='text-white text-opacity-50'>/</li>
+              <li>
+                <span className='text-white text-opacity-70'>Application Details</span>
+              </li>
+              <li className='text-white text-opacity-50'>/</li>
+              <li>
+                <span className='font-medium text-white'>
+                  Application ID: {applicationId || '...'}
+                </span>
+              </li>
+            </ol>
+          </nav>
+
+          {/* Title and Status Row */}
+          <div className='flex items-center justify-between'>
+            <div>
+              <h1 className='text-2xl font-bold text-white'>Arms License</h1>
+              <p className='text-white text-opacity-80 mt-1'>Application ID: {applicationId || '...'}</p>
+            </div>
+            
+            {/* Current Status */}
+            <div className='flex items-center space-x-3'>
+              <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
+                <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center'>
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className='text-xs text-white text-opacity-70'>Current Status</p>
+                  <span
+                    className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${getStatusBadgeClass(
+                      application ? (application.status ?? application.status_id) : undefined
+                    )}`}
+                  >
+                    {application
+                      ? application.workflowStatus?.name ||
+                        (typeof application.status === 'string'
+                          ? application.status.charAt(0).toUpperCase() + application.status.slice(1)
+                          : String(application.status ?? application.status_id))
+                      : 'Loading'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className='flex-1 p-6 overflow-y-auto mt-[120px]'>
+        <div className='bg-white rounded-lg shadow'>
           {/* Success Message - Fixed Position at Top */}
           {successMessage && (
             <div className='fixed top-4 right-4 z-50 max-w-md animate-slide-in'>
@@ -646,88 +714,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           )}
         </div>
 
-        {/* Header Section */}
-        <div className='bg-white rounded-2xl shadow-sm border border-gray-100 mb-2 overflow-hidden'>
-          {/* New Header with #001F54 background */}
-          <div className='bg-[#001F54] p-2 lg:p-8 flex items-center justify-between'>
-            <div className='flex items-center'>
-              <button
-                onClick={() => router.back()}
-                className='mr-4 p-2 text-white hover:bg-white hover:bg-opacity-20 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#001F54]'
-                aria-label='Go back'
-              >
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  className='h-5 w-5'
-                  viewBox='0 0 20 20'
-                  fill='currentColor'
-                >
-                  <path
-                    fillRule='evenodd'
-                    d='M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z'
-                    clipRule='evenodd'
-                  />
-                </svg>
-              </button>
-
-              <div className='flex items-center'>
-                <div className='w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mr-3'>
-                  <svg
-                    className='w-6 h-6 text-white'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className='text-2xl font-bold text-white'>Arms License</h1>
-                  <p className='text-white text-opacity-80 mt-1'>
-                    {application ? `Application ID: ${application.id}` : 'Loading Application...'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className='flex items-center space-x-4'>
-              <span
-                className={`px-4 py-2 text-sm font-semibold rounded-full border-2 ${getStatusBadgeClass(
-                  application ? (application.status ?? application.status_id) : undefined
-                )}`}
-              >
-                {application
-                  ? application.workflowStatus?.name ||
-                    (typeof application.status === 'string'
-                      ? application.status.charAt(0).toUpperCase() + application.status.slice(1)
-                      : String(application.status ?? application.status_id))
-                  : 'Loading'}
-              </span>
-
-              {/* Profile Logo */}
-              <div className='w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center'>
-                <svg
-                  className='w-6 h-6 text-white'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
+        {/* Application Content Card */}
+        <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
           {(() => {
             return application;
           })() ? (
@@ -899,6 +887,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           className='w-60 h-60 object-cover rounded-md border'
                         />
                       </div>
+                      
+                      {/* QR Code Section - Only visible to ZS role */}
+                      {application && (
+                        <div className='mt-4'>
+                          <QRCodeDisplay
+                            applicationId={application.id}
+                            userRole={userRole}
+                          />
+                        </div>
+                      )}
                     </aside>
                   </div>
                 </div>

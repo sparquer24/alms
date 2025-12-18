@@ -62,6 +62,17 @@ export const ROLE_APIS = {
   GET_HIERARCHY: `${BASE_URL}/roles/hierarchy`,
 };
 
+// QR Code APIs
+export const QRCODE_APIS = {
+  GENERATE: (applicationId: string) => `${BASE_URL}/qrcode/generate/${applicationId}`,
+  CHECK_PERMISSION: (applicationId: string) => `${BASE_URL}/qrcode/check/${applicationId}`,
+};
+
+// Public APIs (no authentication required)
+export const PUBLIC_APIS = {
+  GET_APPLICATION: (applicationId: string) => `${BASE_URL}/public/application/${applicationId}`,
+};
+
 // API Request Parameter Types
 export type LoginParams = {
   username: string;

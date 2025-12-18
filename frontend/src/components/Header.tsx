@@ -16,7 +16,7 @@ interface HeaderProps {
 
 const Header = (props: HeaderProps) => {
   const { onCreateApplication, onShowMessage } = props;
-  const { showHeader } = useLayout();
+  const { showHeader, showSidebar } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const { unreadCount } = useNotifications();
@@ -47,17 +47,22 @@ const Header = (props: HeaderProps) => {
 
   const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
   
+  // Adjust header position based on sidebar visibility
+  const headerLeftClass = showSidebar ? 'left-[80px] md:left-[18%]' : 'left-0';
+  
   return (
-    <header className='fixed top-0 right-0 left-[80px] md:left-[18%] min-w-[200px] bg-white h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between border-b border-gray-200 z-10 transition-all duration-300'>
+    <header className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between shadow-lg z-10 transition-all duration-300`}>
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         <div className='flex items-center'>
-          <div className='relative'>
-            {isZSUser && (
-              <>
-                <button
-                  className='px-4 py-2 bg-[#6366F1] text-white rounded-md hover:bg-[#4F46E5] flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap'
-                  onClick={() => setShowDropdown(v => !v)}
-                >
+          {/* Show Create Form only when sidebar is visible */}
+          {showSidebar && (
+            <div className='relative'>
+              {isZSUser && (
+                <>
+                  <button
+                    className='px-4 py-2 bg-white text-[#001F54] rounded-md hover:bg-gray-100 flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap shadow-sm'
+                    onClick={() => setShowDropdown(v => !v)}
+                  >
                   <span className='mr-2'>Create Form</span>
                   <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                     <path
@@ -85,13 +90,14 @@ const Header = (props: HeaderProps) => {
               </>
             )}
           </div>
+          )}
         </div>
 
         <div className='flex items-center space-x-4 justify-end w-full'>
           <div className='relative'>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className='p-2 text-gray-600 hover:bg-gray-100 rounded-full'
+              className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full'
               aria-label='Toggle notifications'
               aria-expanded={showNotifications}
             >
@@ -122,9 +128,9 @@ const Header = (props: HeaderProps) => {
           {hasValidUserName && (
             <Link
               href='/settings'
-              className='flex items-center hover:bg-gray-100 rounded-full p-1 transition-colors'
+              className='flex items-center hover:bg-white hover:bg-opacity-10 rounded-full p-1 transition-colors'
             >
-              <div className='bg-indigo-100 text-indigo-700 rounded-full w-8 h-8 flex items-center justify-center font-medium'>
+              <div className='bg-white text-[#001F54] rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm'>
                 {displayName!.charAt(0).toUpperCase()}
               </div>
             </Link>
