@@ -8,3 +8,8 @@ export const ERROR_MESSAGES = {
   TOKEN_EXPIRED: 'Token has expired',
   INVALID_TOKEN: 'Invalid token provided'
 } as const;
+
+export const ROLE_CODES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  ADMIN: 'ADMIN'
+} as const;

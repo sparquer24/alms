@@ -1,5 +1,14 @@
 'use client';
-
+/**
+ * SUPER ADMIN LOCATIONS MANAGEMENT PAGE
+ * This page is exclusively for SUPER_ADMIN role users.
+ * Key Features:
+ * - ✅ GLOBAL LOCATION ACCESS: Manage ALL states, districts, zones, divisions, and stations
+ * - ✅ NO STATE FILTERING: Start from state level (unlike ADMIN who starts from district)
+ * - ✅ FULL CRUD PERMISSIONS: Create, edit, delete locations at any level
+ * - ✅ Backend automatically bypasses state restrictions for SUPER_ADMIN role
+ * - ✅ ADMIN users are restricted to their assigned state's districts and below
+ */
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +19,6 @@ import {
   AdminToolbar,
   AdminTableSkeleton,
   AdminErrorAlert,
-  AdminSectionSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminBorderRadius } from '@/styles/admin-design-system';

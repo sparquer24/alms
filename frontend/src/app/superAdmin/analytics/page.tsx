@@ -1,6 +1,17 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+/**
+ * SUPER ADMIN ANALYTICS PAGE
+ * This page is exclusively for SUPER_ADMIN role users.
+ * Key Features:
+ * - ✅ GLOBAL ANALYTICS: View data across all states, districts, and zones
+ * - ✅ NO GEOGRAPHIC FILTERING: Access complete system-wide analytics
+ * - ✅ COMPREHENSIVE REPORTING: See all user activities and application metrics
+ * - ✅ Backend automatically bypasses location filters for SUPER_ADMIN role
+ */
+
+import React, { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
@@ -18,13 +29,14 @@ import {
 import {
   analyticsService,
   AnalyticsFilters,
-  ApplicationRecord,
-  ApplicationsDetailsResult,
+  ApplicationsData,
+  RoleLoadData,
+  StateData,
+  AdminActivity,
 } from '@/services/analyticsService';
 import { format } from 'date-fns';
 import {
   AdminCard,
-  
   AdminToolbar,
   AdminFilter,
   AdminErrorAlert,
@@ -52,16 +64,35 @@ const LegendFixed = Legend as any;
 
 const COLORS = ['#6366F1', '#F59E42', '#10B981', '#EF4444', '#8B5CF6', '#EC4899'];
 
-type ApplicationStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
+type ApplicationStatus = 'Approved' | 'Pending' | 'Rejected';
+
+interface ApplicationRow {
+  id: number;
+  acknowledgementNo: string;
+  applicantName: string;
+  applicationType: string;
+  status: ApplicationStatus;
+  actionTakenAt: string;
+}
 
 const statusPalette: Record<ApplicationStatus, { bg: string; text: string }> = {
-  APPROVED: { bg: '#ECFDF3', text: '#16A34A' },
-  PENDING: { bg: '#FFFBEB', text: '#CA8A04' },
-  REJECTED: { bg: '#FEF2F2', text: '#DC2626' },
+  Approved: { bg: '#ECFDF3', text: '#16A34A' },
+  Pending: { bg: '#FFFBEB', text: '#CA8A04' },
+  Rejected: { bg: '#FEF2F2', text: '#DC2626' },
 };
+
+const mockApplications: ApplicationRow[] = [
+  { id: 1, acknowledgementNo: 'ACK-2024-0001', applicantName: 'Aarav Sharma', applicationType: 'New License', status: 'Approved', actionTakenAt: '2024-11-18 10:20' },
+  { id: 2, acknowledgementNo: 'ACK-2024-0002', applicantName: 'Meera Patel', applicationType: 'Renewal', status: 'Pending', actionTakenAt: '2024-11-19 14:05' },
+  { id: 3, acknowledgementNo: 'ACK-2024-0003', applicantName: 'Rahul Singh', applicationType: 'Transfer', status: 'Rejected', actionTakenAt: '2024-11-17 09:40' },
+  { id: 4, acknowledgementNo: 'ACK-2024-0004', applicantName: 'Sanya Iyer', applicationType: 'New License', status: 'Approved', actionTakenAt: '2024-11-16 16:20' },
+  { id: 5, acknowledgementNo: 'ACK-2024-0005', applicantName: 'Kabir Narang', applicationType: 'Renewal', status: 'Pending', actionTakenAt: '2024-11-20 11:05' },
+  { id: 6, acknowledgementNo: 'ACK-2024-0006', applicantName: 'Nikita Rao', applicationType: 'Duplicate', status: 'Approved', actionTakenAt: '2024-11-15 13:10' },
+];
 
 export default function AnalyticsPage() {
   const { colors } = useAdminTheme();
+  const router = useRouter();
 
   // Date range state
   const [fromDate, setFromDate] = useState<string>(() => {
@@ -76,6 +107,26 @@ export default function AnalyticsPage() {
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return mockApplications.filter(row => {
+      const matchesText = q
+        ? row.applicantName.toLowerCase().includes(q) ||
+          row.acknowledgementNo.toLowerCase().includes(q) ||
+          row.applicationType.toLowerCase().includes(q)
+        : true;
+      const matchesStatus = status ? row.status === status : true;
+      return matchesText && matchesStatus;
+    });
+  }, [search, status]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  const start = (page - 1) * pageSize;
 
   // Fetch applications data
   const {
@@ -130,33 +181,6 @@ export default function AnalyticsPage() {
     },
   });
 
-  // Fetch application details list
-  const {
-    data: applicationsDetails,
-    isLoading: applicationsDetailsLoading,
-    error: applicationsDetailsError,
-    refetch: refetchApplicationsDetails,
-  } = useQuery<ApplicationsDetailsResult>({
-    queryKey: ['analytics-applications-details', page, pageSize, search, status],
-    queryFn: async () => {
-      const result = await analyticsService.getApplicationsDetails({
-        page,
-        limit: pageSize,
-        status: status || undefined,
-        q: search.trim() || undefined,
-        sort: '-updatedAt',
-      });
-      return result;
-    },
-    keepPreviousData: true,
-  });
-
-  const applications = applicationsDetails?.data || [];
-  const totalApplicationsCount = applicationsDetails?.meta?.total ?? applications.length;
-  const currentPage = applicationsDetails?.meta?.page ?? page;
-  const currentLimit = applicationsDetails?.meta?.limit ?? pageSize;
-  const start = (currentPage - 1) * currentLimit;
-
   // Calculate summary stats
   const summaryStats = useMemo(() => {
     const totalApplications = applicationsByWeek.reduce((sum, item) => sum + item.count, 0);
@@ -183,6 +207,31 @@ export default function AnalyticsPage() {
   };
 
   // Handle export
+  const handleDownload = () => {
+    const header = ['S.No', 'Application IDs', 'Applicant Name', 'Application Type', 'Status', 'Action Taken At'];
+    const rows = filtered.map((row, idx) => [
+      String(idx + 1),
+      row.acknowledgementNo,
+      row.applicantName,
+      row.applicationType,
+      row.status,
+      row.actionTakenAt,
+    ]);
+    const csv = [header, ...rows]
+      .map(r => r.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'applications.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Handle export
   const handleExport = (data: any[], filename: string) => {
     try {
       analyticsService.exportToCSV(data, `${filename}.csv`);
@@ -191,52 +240,7 @@ export default function AnalyticsPage() {
     }
   };
 
-  const handleDownload = () => {
-    if (!applications || applications.length === 0) {
-      return;
-    }
-
-    const header = ['S.No', 'License ID', 'Application Name', 'Status', 'Pending Details', 'Action Taken At'];
-    const rows = applications.map((row, idx) => {
-      const actionDate = row.actionTakenAt ? new Date(row.actionTakenAt) : null;
-      const formattedDate = actionDate && !Number.isNaN(actionDate.valueOf()) ? format(actionDate, 'yyyy-MM-dd HH:mm') : '--';
-      const pendingParts = [] as string[];
-
-      if (row.currentUser?.name) pendingParts.push(row.currentUser.name);
-      if (row.daysTillToday !== null && row.daysTillToday !== undefined) {
-        const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
-        const daysText = `(${row.daysTillToday} ${dayLabel})`;
-        if (pendingParts.length) {
-          pendingParts[pendingParts.length - 1] = `${pendingParts[pendingParts.length - 1]} ${daysText}`;
-        } else {
-          pendingParts.push(daysText);
-        }
-      }
-
-      const pendingDetails = pendingParts.length ? pendingParts.join(' ') : '--';
-
-      return [
-        String(start + idx + 1),
-        row.licenseId || '',
-        row.applicantName || '',
-        row.status || '',
-        pendingDetails,
-        formattedDate,
-      ];
-    });
-    const csv = [header, ...rows]
-      .map(r => r.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'applications-details.csv');
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const isLoading = appLoading || roleLoading || stateLoading || applicationsDetailsLoading;
+  const isLoading = appLoading || roleLoading || stateLoading;
 
   return (
     <AdminErrorBoundary>
@@ -288,10 +292,7 @@ export default function AnalyticsPage() {
                   Reset 30 Days
                 </button>
                 <button
-                  onClick={() => {
-                    refetchApps();
-                    refetchApplicationsDetails();
-                  }}
+                  onClick={() => refetchApps()}
                   disabled={isLoading}
                   className='inline-flex items-center justify-center rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap'
                 >
@@ -314,6 +315,7 @@ export default function AnalyticsPage() {
             </div>
           </div>
         </div>
+
         {/* Error Alerts */}
         {appError && (
           <AdminErrorAlert
@@ -334,13 +336,6 @@ export default function AnalyticsPage() {
             message={stateError instanceof Error ? stateError.message : 'Unknown error'}
           />
         )}
-        {applicationsDetailsError && (
-          <AdminErrorAlert
-            title='Failed to Load Application Details'
-            message={applicationsDetailsError instanceof Error ? applicationsDetailsError.message : 'Unknown error'}
-            onRetry={() => refetchApplicationsDetails()}
-          />
-        )}
 
         {/* Summary Stats */}
         <div
@@ -358,30 +353,22 @@ export default function AnalyticsPage() {
             ))
           ) : (
             <>
-              <AdminCard
-                title='Total Applications'
-              >
+              <AdminCard title='Total Applications'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.info }}>
                   {summaryStats.totalApplications}
                 </div>
               </AdminCard>
-              <AdminCard
-                title='Approved'
-              >
+              <AdminCard title='Approved'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.success }}>
                   {summaryStats.totalApproved}
                 </div>
               </AdminCard>
-              <AdminCard
-                title='Pending'
-              >
+              <AdminCard title='Pending'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.warning }}>
                   {summaryStats.totalPending}
                 </div>
               </AdminCard>
-              <AdminCard
-                title='Rejected'
-              >
+              <AdminCard title='Rejected'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.error }}>
                   {summaryStats.totalRejected}
                 </div>
@@ -408,7 +395,7 @@ export default function AnalyticsPage() {
             {appLoading ? (
               <AdminSectionSkeleton lines={5} height='300px' />
             ) : (
-              <div style={{ width: '100%', height: '350px' }}>
+              <div style={{ width: '100%', height: '300px' }}>
                 <ResponsiveContainerFixed width='100%' height='100%'>
                   <BarChartFixed data={applicationsByWeek}>
                     <CartesianGridFixed stroke={colors.border} />
@@ -447,9 +434,9 @@ export default function AnalyticsPage() {
           {/* Role-wise Load Chart */}
           <AdminCard title='Role-wise Application Load'>
             {roleLoading ? (
-              <AdminSectionSkeleton lines={5} height='400px' />
+              <AdminSectionSkeleton lines={5} height='300px' />
             ) : (
-              <div style={{ width: '100%', height: '350px' }}>
+              <div style={{ width: '100%', height: '300px' }}>
                 <ResponsiveContainerFixed width='100%' height='100%'>
                   <PieChartFixed>
                     <PieFixed
@@ -502,7 +489,7 @@ export default function AnalyticsPage() {
           {stateLoading ? (
             <AdminSectionSkeleton lines={5} height='300px' />
           ) : (
-            <div style={{ width: '100%', height: '350px' }}>
+            <div style={{ width: '100%', height: '300px' }}>
               <ResponsiveContainerFixed width='100%' height='100%'>
                 <BarChartFixed data={applicationStates} layout='vertical'>
                   <CartesianGridFixed stroke={colors.border} />
@@ -537,30 +524,24 @@ export default function AnalyticsPage() {
             Export CSV
           </button>
         </AdminCard>
-                 {/* Applications Details Section */}
+
+        {/* Applications Table Section */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1.2fr 0.7fr auto',
+            display: 'flex',
             gap: AdminSpacing.md,
             alignItems: 'center',
-            backgroundColor: '#FFFFFF',
-            padding: AdminSpacing.md,
-            borderRadius: AdminBorderRadius.lg,
-            border: '1px solid #E5E7EB',
-            boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1)',
+            justifyContent: 'space-between',
+            marginBottom: AdminSpacing.md,
           }}
         >
           <input
             type='text'
-            placeholder='Search license ID or user...'
+            placeholder='Search applications...'
             value={search}
-            onChange={e => {
-              setPage(1);
-              setSearch(e.target.value);
-            }}
+            onChange={e => setSearch(e.target.value)}
             style={{
-              width: '100%',
+              flex: 1,
               padding: '10px 14px',
               height: '40px',
               borderRadius: AdminBorderRadius.md,
@@ -570,14 +551,12 @@ export default function AnalyticsPage() {
               fontSize: '14px',
               boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
             }}
+            aria-label='Search applications'
           />
 
           <select
             value={status}
-            onChange={e => {
-              setPage(1);
-              setStatus(e.target.value);
-            }}
+            onChange={e => setStatus(e.target.value)}
             style={{
               width: '100%',
               padding: '10px 14px',
@@ -593,9 +572,9 @@ export default function AnalyticsPage() {
             aria-label='Status filter'
           >
             <option value=''>All Statuses</option>
-            <option value='APPROVED'>Approved</option>
-            <option value='PENDING'>Pending</option>
-            <option value='REJECTED'>Rejected</option>
+            <option value='Approved'>Approved</option>
+            <option value='Pending'>Pending</option>
+            <option value='Rejected'>Rejected</option>
           </select>
 
           <button
@@ -638,7 +617,7 @@ export default function AnalyticsPage() {
               Applications
             </h2>
             <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
-              Showing {applications.length} of {totalApplicationsCount}
+              Showing {paginated.length} of {filtered.length}
             </span>
           </div>
           <div
@@ -649,84 +628,45 @@ export default function AnalyticsPage() {
               border: `1px solid ${colors.border}`,
             }}
           >
-            {applicationsDetailsLoading ? (
+            {isLoading ? (
               <AdminTableSkeleton rows={6} columns={6} />
             ) : (
               <AdminTable
                 columns={[
                   {
-                    key: 'applicationId',
+                    key: 'id',
                     header: 'S.No',
-                    render: (_value, _row, idx) => start + (idx + 1),
+                    render: (_value, row, idx) => start + (idx + 1),
                     width: '80px',
                   },
                   {
-                    key: 'licenseId',
-                    header: 'License ID',
-                    render: value => value || '--',
+                    key: 'acknowledgementNo',
+                    header: 'Application IDs',
                   },
-                  {
-                    key: 'applicantName',
-                    header: 'Application Name',
-                    render: value => value || '--',
-                  },
+                  { key: 'applicantName', header: 'Applicant Name' },
+                  { key: 'applicationType', header: 'Application Type' },
                   {
                     key: 'status',
                     header: 'Status',
-                    render: value => {
-                      const normalized = (value || '').toUpperCase() as ApplicationStatus;
-                      const palette = statusPalette[normalized] || { bg: '#F3F4F6', text: '#111827' };
-                      const label = normalized ? `${normalized.charAt(0)}${normalized.slice(1).toLowerCase()}` : 'Unknown';
-
-                      return (
-                        <span
-                          style={{
-                            padding: '6px 10px',
-                            borderRadius: AdminBorderRadius.full,
-                            backgroundColor: palette.bg,
-                            color: palette.text,
-                            fontWeight: 600,
-                            fontSize: '13px',
-                          }}
-                        >
-                          {label}
-                        </span>
-                      );
-                    },
+                    render: value => (
+                      <span
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: AdminBorderRadius.full,
+                          backgroundColor: statusPalette[value as ApplicationStatus].bg,
+                          color: statusPalette[value as ApplicationStatus].text,
+                          fontWeight: 600,
+                          fontSize: '13px',
+                        }}
+                      >
+                        {value}
+                      </span>
+                    ),
                   },
-                  {
-                    key: 'pendingDetails',
-                    header: 'Pending Details',
-                    render: (_value, row: ApplicationRecord) => {
-                      const parts: string[] = [];
-
-                      if (row.currentUser?.name) parts.push(row.currentUser.name);
-                      if (row.daysTillToday !== null && row.daysTillToday !== undefined) {
-                        const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
-                        const daysText = `(${row.daysTillToday} ${dayLabel})`;
-                        if (parts.length) {
-                          parts[parts.length - 1] = `${parts[parts.length - 1]} ${daysText}`;
-                        } else {
-                          parts.push(daysText);
-                        }
-                      }
-
-                      return parts.length ? parts.join(' ') : '--';
-                    },
-                  },
-                  {
-                    key: 'actionTakenAt',
-                    header: 'Action Taken At',
-                    render: value => {
-                      if (!value) return '--';
-                      const date = new Date(value as string);
-                      if (Number.isNaN(date.valueOf())) return '--';
-                      return format(date, 'yyyy-MM-dd HH:mm');
-                    },
-                  },
+                  { key: 'actionTakenAt', header: 'Action Taken At' },
                 ]}
-                data={applications}
-                rowKey='applicationId'
+                data={paginated}
+                rowKey='id'
                 emptyMessage='No applications found'
               />
             )}

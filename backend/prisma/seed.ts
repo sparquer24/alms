@@ -19,7 +19,6 @@ async function main() {
     { code: 'APPROVED', name: 'Approved', description: 'Application approved' },
     { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled' },
     { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required' },
-    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
     { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
     { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
     { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
@@ -67,9 +66,10 @@ async function main() {
 
   console.log('Seeding roles...');
   const roles = [
+    { code: 'SUPER_ADMIN', name: 'Super Administrator', dashboardTitle: 'Super Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping', 'locationsManagement'], permissions: ['read', 'write', 'admin', 'super_admin'], canAccessSettings: true },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
     { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
     { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
     { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
@@ -1086,16 +1086,16 @@ async function main() {
   // Define role-action mappings based on role hierarchy and permissions
   const roleActionMappings = [
     // SHO - Station House Officer can forward, reject, recommend, close
-    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT', 'RETURN'] },
+    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RETURN'] },
 
     // ACP - Assistant Commissioner can do all SHO actions plus approve
-    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RETURN'] },
+    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // DCP - Deputy Commissioner has broader approval powers
-    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RETURN'] },
+    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATED', 'RETURN'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD','RE_ENQUIRY', 'RETURN'] },
 
     // CADO - Chief Administrative Officer
     { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
@@ -1113,7 +1113,10 @@ async function main() {
     { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND', 'NOT_RECOMMEND'] },
 
     // ADMIN - System Administrator (can perform all actions for system management)
-    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'NOT_RECOMMEND', 'RETURN'] },
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD'] },
+
+    // SUPER_ADMIN - Super Administrator (can perform all actions for system management)
+    { roleCode: 'SUPER_ADMIN', actionCodes: ['FORWARD'] },
   ];
 
   // Insert role-action mappings

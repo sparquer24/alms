@@ -94,7 +94,7 @@ export class CreateUserDto {
   @ApiProperty({ 
     description: 'User role', 
     example: 'DCP',
-    enum: ['APPLICANT', 'SHO', 'ZS', 'ACP', 'DCP', 'CP', 'ADMIN', 'ARMS_SUPDT']
+    enum: ['APPLICANT', 'SHO', 'ZS', 'ACP', 'DCP', 'CP', 'ADMIN', 'SUPER_ADMIN', 'ARMS_SUPDT']
   })
   role!: string;
 }

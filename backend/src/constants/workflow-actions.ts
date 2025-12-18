@@ -22,7 +22,8 @@ export const ROLE_CODES = {
   JTCP: 'JTCP',                // Joint Commissioner of Police
   CP: 'CP',                    // Commissioner of Police
   APPLICANT: 'APPLICANT',      // Citizen Applicant
-  ADMIN: 'ADMIN'               // System Administrator
+  ADMIN: 'ADMIN',              // System Administrator
+  SUPER_ADMIN: 'SUPER_ADMIN'   // Super Administrator
 } as const;
 
 // ============================================
@@ -138,13 +139,6 @@ export function isApprovalAction(actionCode: string): boolean {
  */
 export function isRejectionAction(actionCode: string): boolean {
   return actionCode.toUpperCase() === ACTION_CODES.REJECT;
-}
-
-/**
- * Check if action is ground report
- */
-export function isGroundReportAction(actionCode: string): boolean {
-  return actionCode.toUpperCase() === ACTION_CODES.GROUND_REPORT;
 }
 
 /**

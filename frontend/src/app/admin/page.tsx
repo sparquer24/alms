@@ -141,7 +141,7 @@ export default function AdminDashboard() {
     };
 
     const isAdminLike =
-      userRole === 'ADMIN' || userRole === 'ADMINISTRATOR' || userRole === 'SUPERADMIN';
+      userRole === 'ADMIN' || userRole === 'ADMINISTRATOR' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN';
     if (token && isAdminLike) {
       fetchDashboardData();
     } else {

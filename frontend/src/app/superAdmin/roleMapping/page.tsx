@@ -1,5 +1,15 @@
 'use client';
 
+/**
+ * SUPER ADMIN ROLE MAPPING PAGE
+ * This page is exclusively for SUPER_ADMIN role users.
+ * Key Features:
+ * - ✅ GLOBAL ACCESS: Manages roles across all states and jurisdictions
+ * - ✅ NO STATE-BASED FILTERING: Can view and edit all roles system-wide
+ * - ✅ FULL PERMISSIONS: Create, edit, delete any role including ADMIN and SUPER_ADMIN
+ * - ✅ Backend automatically provides unrestricted access for SUPER_ADMIN role
+ */
+
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sidebar } from '../../../components/Sidebar';
@@ -436,7 +446,7 @@ export default function RoleMappingPage() {
                 </div>
               )}
 
-              {/* Roles Table */}
+              {/* Role Table */}
               <div
                 style={{
                   backgroundColor: colors.surface,

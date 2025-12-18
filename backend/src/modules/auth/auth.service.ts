@@ -102,6 +102,9 @@ export class AuthService {
           username: true,
           email: true,
           password: true,
+          stateId: true,
+          districtId: true,
+          zoneId: true,
           role: {
             select: {
               id: true,
@@ -121,6 +124,24 @@ export class AuthService {
               can_create_freshLicence: true,
             }
           },
+          state: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          district: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          zone: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
         }
       } as any);
 
@@ -136,12 +157,20 @@ export class AuthService {
         return null;
       }
 
+      // Extract location IDs from relations (use relation objects if available, fallback to direct ID fields)
+      const stateId = user.state?.id || user.stateId;
+      const districtId = user.district?.id || user.districtId;
+      const zoneId = user.zone?.id || user.zoneId;
+
       // Return user data (excluding password)
       const userData = {
         id: user.id,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: user.role,
+        stateId: stateId ? Number(stateId) : undefined,
+        districtId: districtId ? Number(districtId) : undefined,
+        zoneId: zoneId ? Number(zoneId) : undefined
       };
 
       return userData;
@@ -161,7 +190,11 @@ export class AuthService {
       username: user.username,
       email: user.email,
       user_id: user.id,
-      role_id: user.role?.id // Add role_id to JWT payload
+      role_id: user.role?.id,
+      role_code: user.role?.code, // Add role_code for permission checks
+      state_id: user.stateId, // Add state_id for state-based filtering
+      district_id: user.districtId, // Add district_id for location context
+      zone_id: user.zoneId // Add zone_id for location context
     };
 
     return jwt.sign(payload, this.jwtSecret!, {

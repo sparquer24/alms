@@ -1,6 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+/**
+ * SUPER ADMIN FLOW MAPPING PAGE
+ * This page is exclusively for SUPER_ADMIN role users.
+ * Key Features:
+ * - ✅ GLOBAL WORKFLOW MANAGEMENT: Configure workflows across all jurisdictions
+ * - ✅ NO LOCATION RESTRICTIONS: Manage role transitions system-wide
+ * - ✅ FULL WORKFLOW ACCESS: Create and modify any role flow without constraints
+ * - ✅ Backend automatically provides unrestricted access for SUPER_ADMIN role
+ */
+
+import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -89,29 +99,20 @@ export default function FlowMappingPage() {
     enabled: !!currentRole,
   });
 
-  // Memoize selectedNextRoles to prevent infinite loops
-  const selectedNextRoles = useMemo(() => {
+  // Update UI when flow mapping is loaded
+  useEffect(() => {
     if (currentFlowMapping && currentFlowMapping.nextRoleIds.length > 0) {
-      return currentFlowMapping.nextRoleIds
+      const selectedNextRoles = currentFlowMapping.nextRoleIds
         .map(id => {
           const role = allRoles.find((r: Role) => r.id === id);
           return role ? { value: id, label: `${role.name} (${role.code})`, role } : null;
         })
         .filter(Boolean) as SelectOption[];
-    }
-    return [];
-  }, [currentFlowMapping, allRoles]);
-
-  // Update UI when flow mapping is loaded
-  useEffect(() => {
-    const currentIds = nextRoles.map(r => r.value).sort().join(',');
-    const newIds = selectedNextRoles.map(r => r.value).sort().join(',');
-    
-    // Only update if the IDs actually changed
-    if (currentIds !== newIds) {
       setNextRoles(selectedNextRoles);
+    } else {
+      setNextRoles([]);
     }
-  }, [selectedNextRoles]);
+  }, [currentFlowMapping, allRoles]);
 
   // Validation function
   const validateForm = useCallback(() => {

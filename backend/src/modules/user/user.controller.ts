@@ -105,7 +105,8 @@ export class UserController {
       const adminStateId = req?.user?.stateId;
       const adminUsername = req?.user?.username;
       const adminUserId = req?.user?.sub;
-      const users = await this.userService.getUsers(role, adminStateId);
+      const adminRoleCode = req?.user?.role_code;
+      const users = await this.userService.getUsers(role, adminStateId, adminRoleCode);
       
       // Exclude the logged-in admin user from the results
       const filteredUsers = users.filter(user => user.id !== adminUserId);

@@ -10,7 +10,7 @@ import {
 interface Column<T> {
   key: keyof T;
   header: string;
-  render?: (value: any, row: T) => React.ReactNode;
+  render?: (value: any, row: T, rowIndex: number) => React.ReactNode;
   width?: string;
 }
 
@@ -157,7 +157,7 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
                           boxShadow: idx === 0 ? '2px 0 0 rgba(0,0,0,0.05)' : undefined,
                         }}
                       >
-                        {col.render ? col.render(row[col.key], row) : String(row[col.key])}
+                        {col.render ? col.render(row[col.key], row, rowIdx) : String(row[col.key])}
                       </td>
                     ))}
                   </tr>

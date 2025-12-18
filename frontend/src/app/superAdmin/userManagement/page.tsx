@@ -1,6 +1,20 @@
 'use client';
 
-import { Sidebar } from '../../../components/Sidebar';
+/**
+ * SUPER ADMIN USER MANAGEMENT PAGE
+ * 
+ * This page provides GLOBAL, UNRESTRICTED access to user management.
+ * 
+ * KEY DIFFERENCES from /admin/userManagement:
+ * - ✅ NO STATE-BASED FILTERING: Sees ALL users across all states
+ * - ✅ FULL ROLE ACCESS: Can create/edit ADMIN and SUPER_ADMIN roles
+ * - ✅ GLOBAL PERMISSIONS: No location or jurisdiction restrictions
+ * - ✅ Backend automatically bypasses state filters for SUPER_ADMIN role
+ * 
+ * The backend (user.service.ts) checks: if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN)
+ * This ensures SUPER_ADMIN sees all users regardless of state assignment.
+ */
+
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuthSync } from '../../../hooks/useAuthSync';
 import { useSearchParams } from 'next/navigation';
@@ -10,7 +24,6 @@ import * as XLSX from 'xlsx';
 import { fetchData, postData, putData, deleteData } from '../../../api/axiosConfig';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
 import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../../constants';
-import EditUserPage from '../users/[id]/edit/page';
 
 // Types representing API user + transformed UI user
 interface ApiRole {
@@ -117,7 +130,8 @@ export default function UserManagementPage() {
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
   const { userRole } = useAuthSync();
-  const isAdmin = (userRole || '').toUpperCase() === ROLE_CODES.ADMIN;
+  // SUPER_ADMIN check - has full administrative privileges
+  const isSuperAdmin = (userRole || '').toUpperCase() === ROLE_CODES.SUPER_ADMIN;
 
   // Location hierarchy hook (loads states and manages dependent lists)
   const [locationState, locationActions] = useLocationHierarchy();
@@ -466,10 +480,9 @@ export default function UserManagementPage() {
   const skeletonRows = Array.from({ length: 6 });
 
   return (
-    <div className='flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
-      <Sidebar />
-      <div className='flex-1 p-4 md:p-8'>
-        <div className='mx-auto w-full max-w-7xl flex flex-col gap-6'>
+    <>
+    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-4 md:p-8'>
+      <div className='mx-auto w-full max-w-7xl flex flex-col gap-6'>
           {/* Header Section */}
           <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
             <div className='bg-[#001F54] text-white px-6 py-8'>
@@ -687,7 +700,7 @@ export default function UserManagementPage() {
                             <p className='text-sm mt-1'>
                               Try adjusting your search or filter criteria
                             </p>
-                            {isAdmin ? (
+                            {isSuperAdmin && (
                               <button
                                 onClick={() => setShowAddModal(true)}
                                 className='mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300'
@@ -707,10 +720,6 @@ export default function UserManagementPage() {
                                 </svg>
                                 Add your first user
                               </button>
-                            ) : (
-                              <p className='text-sm mt-3 text-slate-500'>
-                                Contact an administrator to add users.
-                              </p>
                             )}
                           </div>
                         </td>
@@ -858,7 +867,7 @@ export default function UserManagementPage() {
           </div>
         </div>
       </div>
-
+    
       {/* Add User Modal */}
       {showAddModal && (
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
@@ -1465,7 +1474,7 @@ export default function UserManagementPage() {
                   >
                     Close
                   </button>
-                  {isAdmin && detailsEditMode && (
+                  {isSuperAdmin && detailsEditMode && (
                     <button
                       disabled={detailsSaving}
                       onClick={handleDetailsSave}
@@ -1564,7 +1573,8 @@ export default function UserManagementPage() {
                   onChange={e => setEditUser({ ...editUser, role: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 >
-                  {apiRoles.filter(r => r.code !== ROLE_CODES.SUPER_ADMIN && r.code !== ROLE_CODES.ADMIN).map(r => (
+                  {/* Super Admin can assign ANY role including ADMIN and SUPER_ADMIN */}
+                  {apiRoles.map(r => (
                     <option key={r.code} value={r.code}>
                       {r.code}
                     </option>
@@ -1772,6 +1782,6 @@ export default function UserManagementPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

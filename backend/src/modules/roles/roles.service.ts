@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { Roles } from '@prisma/client';
+import { ROLE_CODES } from '../../constants/auth';
 
 interface GetRolesParams {
     id?: number;
@@ -10,6 +11,7 @@ interface GetRolesParams {
     limit?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    requestingRoleCode?: string;
 }
 
 @Injectable()
@@ -38,6 +40,7 @@ export class RolesService {
             limit = 10,
             sortBy = 'created_at',
             sortOrder = 'desc',
+            requestingRoleCode,
         } = params;
 
         const where: any = {};
@@ -57,6 +60,14 @@ export class RolesService {
             where.is_active = true;
         } else if (status === 'inactive') {
             where.is_active = false;
+        }
+
+        // If requesting user is ADMIN, exclude privileged roles
+        // SUPER_ADMIN can see all roles
+        if (requestingRoleCode === ROLE_CODES.ADMIN) {
+            where.code = {
+                notIn: [ROLE_CODES.ADMIN, ROLE_CODES.SUPER_ADMIN]
+            };
         }
 
         try {

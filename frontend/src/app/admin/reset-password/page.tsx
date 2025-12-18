@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { AdminFormSkeleton } from '@/components/admin';
 
 // Type assertions for Next.js components to fix React 18 compatibility
 const ImageFixed = Image as any;
@@ -17,7 +18,13 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    // Simulate initial page load
+    setTimeout(() => setPageLoading(false), 800);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +81,12 @@ export default function ResetPassword() {
             Enter your email address and we'll send you instructions to reset your password
           </p>
         </div>
-          {error && (
+
+        {pageLoading ? (
+          <AdminFormSkeleton fields={1} showButton={true} />
+        ) : (
+          <>
+            {error && (
           <div className="bg-red-50 border border-red-400 rounded-md p-4 mb-4 shadow-sm">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -141,6 +153,8 @@ export default function ResetPassword() {
             </LinkFixed>
           </div>
         </form>
+          </>
+        )}
       </div>
     </div>
   );

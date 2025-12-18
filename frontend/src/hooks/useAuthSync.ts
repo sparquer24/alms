@@ -74,7 +74,10 @@ function normalizeRoleValue(value: any): string | undefined {
 
   // If backend returned a numeric role id, map it to known role codes
   const numericRoleMap: Record<string, string> = {
+    '12': 'SUPER_ADMIN',
     '14': 'ADMIN',
+    '15': 'SUPER_ADMIN',
+    '16': 'SUPER_ADMIN',
     '3': 'ADMIN',
     '7': 'ZS',
     '2': 'ZS',

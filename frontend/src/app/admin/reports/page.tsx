@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { useLayout } from "@/config/layoutContext";
 import { fetchAllApplications } from "@/services/sidebarApiCalls";
+import { AdminCardSkeleton, AdminTableSkeleton } from "@/components/admin";
 import type { ApplicationData } from "@/types";
 
 interface Application {
@@ -109,8 +110,11 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold mb-6">My Reports</h1>
 
           {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#6366F1]"></div>
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <AdminCardSkeleton count={4} />
+              </div>
+              <AdminTableSkeleton rows={8} columns={5} />
             </div>
           ) : (
             <div className="space-y-8">
