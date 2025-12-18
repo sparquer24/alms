@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
-import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction, isGroundReportAction, isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 
 @Injectable()
 export class WorkflowService {
@@ -108,18 +108,20 @@ export class WorkflowService {
     // Set approval/rejection/recommendation flags based on action code
     if (isApprovalAction(actionCode)) {
       updateData.isApproved = true;
+      updateData.isPending = false;
     } else if (isRejectionAction(actionCode)) {
       updateData.isRejected = true;
+      updateData.isPending = false;
     } else if (isRecommendAction(actionCode)) {
       updateData.isRecommended = true;
+      updateData.isPending = false;
     } else if (isNotRecommendAction(actionCode)) {
       updateData.isNotRecommended = true;
+      updateData.isPending = false;
     }
 
     // Set flags based on specific action codes
-    if (isGroundReportAction(actionCode)) {
-      updateData.isGroundReportGenerated = true;
-    } else if (isReEnquiryAction(actionCode)) {
+     if (isReEnquiryAction(actionCode)) {
       updateData.isGroundReportGenerated = false;
       updateData.isReEnquiry = true;
     }

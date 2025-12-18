@@ -435,6 +435,8 @@ export class ApplicationFormService {
       const updatedSections: string[] = [];
 
       await prisma.$transaction(async (tx) => {
+
+
         // 1. Handle Present Address
         if (data.presentAddress) {
           const presentAddressData = {
@@ -760,6 +762,7 @@ export class ApplicationFormService {
           };
           // mark submitted flag so it's written as part of the same update
           updateData.isSubmit = true;
+          updateData.isPending = true;
 
           // Update currentUserId if it was passed from auth token and is different from what's stored
           if (currentUserId && currentApp?.currentUserId !== currentUserId) {
