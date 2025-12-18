@@ -897,6 +897,15 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         return;
       }
 
+      // Handle analytics menu item - navigate to /inbox/analytics for non-admin users
+      if (item.name.toLowerCase() === 'analytics') {
+        setActiveItem(key);
+        persistActiveNavToLocal(key);
+        dispatch(closeInbox());
+        router.push('/inbox/analytics');
+        return;
+      }
+
       const type = item.name.replace(/\s+/g, '');
       const wasTopLevel = key && topLevelInboxLike.has(key);
       const target = `/inbox?type=${encodeURIComponent(type)}`;
@@ -1259,8 +1268,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                 // - active if activeItem matches the normalized key (case-insensitive for admin items)
                 // - also active if any of its children are active (so parent and child can be active simultaneously)
                 // - as a general fallback, consider active if activeItem startsWith `${normalizedKey}-` (covers derived keys)
-                let isActive = 
-                  activeItem === normalizedKey || 
+                let isActive =
+                  activeItem === normalizedKey ||
                   String(activeItem).toLowerCase() === normalizedKey.toLowerCase() ||
                   activeItem === String(item.name);
 

@@ -42,18 +42,18 @@ export class FileUploadService {
       if (!applicationId || applicationId.trim() === '') {
         throw new Error('Application ID is required for file upload');
       }
-      
+
       if (!file) {
         throw new Error('File is required for upload');
       }
-      
+
       if (file.size === 0) {
         throw new Error('File cannot be empty');
       }
       // Step 1: Simulate file upload to storage service
       // In a real implementation, you would upload to AWS S3, Cloudinary, etc.
       const fileUrl = await this.uploadToStorageService(file);
-      
+
       // Step 2: Send file metadata to backend
       const fileMetadata: FileUploadData = {
         fileType: fileType as any,
@@ -72,20 +72,22 @@ export class FileUploadService {
   }
 
   /**
-   * Simulate uploading file to storage service.
-   * Uses a configurable base URL instead of an unreachable example.com host.
-   * In production, replace with real upload (S3/Blob/etc.) and return the real URL.
+   * Convert file to base64 data URL for storage
+   * This stores the actual image data instead of a URL reference
    */
   private static async uploadToStorageService(file: File): Promise<string> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const timestamp = Date.now();
-        const base =
-          (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FILE_BASE_URL) ||
-          (typeof window !== 'undefined' ? window.location.origin : '');
-        const mockUrl = `${base}/uploads/${timestamp}_${file.name}`;
-        resolve(mockUrl);
-      }, 1000);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        console.log('📸 [FileUploadService] Converted file to base64, length:', base64?.length);
+        resolve(base64);
+      };
+      reader.onerror = () => {
+        console.error('❌ [FileUploadService] FileReader error');
+        reject(new Error('Failed to convert file to base64'));
+      };
+      reader.readAsDataURL(file);
     });
   }
 
@@ -103,7 +105,7 @@ export class FileUploadService {
     fileType: string = "OTHER",
     description: string = ""
   ): Promise<FileUploadResponse[]> {
-    const uploadPromises = files.map(file => 
+    const uploadPromises = files.map(file =>
       this.uploadFile(applicationId, file, fileType, description)
     );
 
