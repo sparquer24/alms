@@ -2,6 +2,8 @@
  * Analytics Service - Handles all API calls for analytics data
  */
 
+import { apiClient } from '../config/authenticatedApiClient';
+
 export interface AnalyticsFilters {
     fromDate?: string;
     toDate?: string;
@@ -29,6 +31,8 @@ export interface AdminActivity {
     action: string;
     time: string;
     timestamp?: number;
+    almsLicenseId?: string;
+    applicantName?: string;
 }
 
 export interface ApplicationRecord {
@@ -83,27 +87,11 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/admin/analytics/applications?${params.toString()}`;
-            console.log('Fetching applications from:', url);
-
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error Response:', errorText);
-                throw new Error(`Failed to fetch applications data: ${response.status}`);
-            }
-
-            const text = await response.text();
-            console.log('Raw response:', text);
-
-            if (!text) {
-                console.warn('Empty response from applications endpoint');
-                return [];
-            }
-
-            const result: AnalyticsResponse<ApplicationsData[]> = JSON.parse(text);
-            return result.data || [];
+            const queryString = params.toString();
+            const endpoint = `/admin/analytics/applications${queryString ? `?${queryString}` : ''}`;
+            
+            const response = await apiClient.get<AnalyticsResponse<ApplicationsData[]>>(endpoint);
+            return response.data || [];
         } catch (error) {
             console.error('Error fetching applications by week:', error);
             return []; // Return empty array instead of throwing
@@ -119,25 +107,11 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/admin/analytics/role-load?${params.toString()}`;
-            console.log('Fetching role load from:', url);
+            const queryString = params.toString();
+            const endpoint = `/admin/analytics/role-load${queryString ? `?${queryString}` : ''}`;
 
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error Response:', errorText);
-                throw new Error(`Failed to fetch role load data: ${response.status}`);
-            }
-
-            const text = await response.text();
-            if (!text) {
-                console.warn('Empty response from role-load endpoint');
-                return [];
-            }
-
-            const result: AnalyticsResponse<RoleLoadData[]> = JSON.parse(text);
-            return result.data || [];
+            const response = await apiClient.get<AnalyticsResponse<RoleLoadData[]>>(endpoint);
+            return response.data || [];
         } catch (error) {
             console.error('Error fetching role load:', error);
             return []; // Return empty array instead of throwing
@@ -153,25 +127,11 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/admin/analytics/states?${params.toString()}`;
-            console.log('Fetching states from:', url);
-
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error Response:', errorText);
-                throw new Error(`Failed to fetch states data: ${response.status}`);
-            }
-
-            const text = await response.text();
-            if (!text) {
-                console.warn('Empty response from states endpoint');
-                return [];
-            }
-
-            const result: AnalyticsResponse<StateData[]> = JSON.parse(text);
-            return result.data || [];
+            const queryString = params.toString();
+            const endpoint = `/admin/analytics/states${queryString ? `?${queryString}` : ''}`;
+            
+            const response = await apiClient.get<AnalyticsResponse<StateData[]>>(endpoint);
+            return response.data || [];
         } catch (error) {
             console.error('Error fetching application states:', error);
             return []; // Return empty array instead of throwing
@@ -187,25 +147,11 @@ class AnalyticsService {
             if (filters?.fromDate) params.append('fromDate', filters.fromDate);
             if (filters?.toDate) params.append('toDate', filters.toDate);
 
-            const url = `${this.baseURL}/admin/analytics/admin-activities?${params.toString()}`;
-            console.log('Fetching admin activities from:', url);
-
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error Response:', errorText);
-                throw new Error(`Failed to fetch admin activities: ${response.status}`);
-            }
-
-            const text = await response.text();
-            if (!text) {
-                console.warn('Empty response from admin-activities endpoint');
-                return [];
-            }
-
-            const result: AnalyticsResponse<AdminActivity[]> = JSON.parse(text);
-            return result.data || [];
+            const queryString = params.toString();
+            const endpoint = `/admin/analytics/admin-activities${queryString ? `?${queryString}` : ''}`;
+            
+            const response = await apiClient.get<AnalyticsResponse<AdminActivity[]>>(endpoint);
+            return response.data || [];
         } catch (error) {
             console.error('Error fetching admin activities:', error);
             return []; // Return empty array instead of throwing

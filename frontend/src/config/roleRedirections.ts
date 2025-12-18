@@ -6,7 +6,7 @@
 import { RoleTypes } from './roles';
 import { normalizeRole } from '../utils/roleUtils';
 
-export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'ARMS_SUPDT' | 'SHO' | 'ZS' | 'APPLICANT' | 'ADO' | 'CADO' | 'AS';
+export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'SUPER_ADMIN' | 'ARMS_SUPDT' | 'SHO' | 'ZS' | 'APPLICANT' | 'ADO' | 'CADO' | 'AS';
 
 /**
  * Configuration for role-based redirections
@@ -14,6 +14,7 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'ARMS_SUPDT' | 
  */
 const ROLE_REDIRECT_CONFIG: Record<string, string> = {
   [RoleTypes.ADMIN]: '/admin/userManagement',
+  [RoleTypes.SUPER_ADMIN]: '/superAdmin/userManagement',  // Super Admin has separate global routes
   [RoleTypes.ARMS_SUPDT]: '/inbox?type=forwarded',
   [RoleTypes.SHO]: '/inbox?type=forwarded',
   [RoleTypes.ZS]: '/inbox?type=forwarded',
@@ -50,8 +51,15 @@ const OFFICER_ROLES = new Set<string>([
 export function getRoleBasedRedirectPath(userRole?: any): string {
   // Use the centralized normalizeRole utility which handles both string and object roles
   const normalizedRole = normalizeRole(userRole);
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-    console.log('[roleRedirections] getRoleBasedRedirectPath - userRole:', userRole, 'normalized:', normalizedRole);
+  
+  // Enhanced debugging - always log for SUPER_ADMIN issues
+  const shouldLog = typeof window !== 'undefined' && 
+    (process.env.NODE_ENV !== 'production' || normalizedRole === 'SUPER_ADMIN');
+  
+  if (shouldLog) {
+    console.log('[roleRedirections] getRoleBasedRedirectPath - Input:', userRole);
+    console.log('[roleRedirections] Normalized role:', normalizedRole);
+    console.log('[roleRedirections] Available keys:', Object.keys(ROLE_REDIRECT_CONFIG));
   }
 
   if (!normalizedRole) {
@@ -60,8 +68,10 @@ export function getRoleBasedRedirectPath(userRole?: any): string {
 
   // Look up role in configuration
   const redirectPath = ROLE_REDIRECT_CONFIG[normalizedRole];
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  
+  if (shouldLog) {
     console.log('[roleRedirections] Redirect path for', normalizedRole, ':', redirectPath);
+    console.log('[roleRedirections] Config entry:', ROLE_REDIRECT_CONFIG[normalizedRole]);
   }
 
   // Return configured path or fallback default
@@ -81,6 +91,14 @@ export function shouldRedirectOnStartup(userRole?: any, currentPath?: string): s
 
   // Don't redirect if user is already on login page or auth-related pages
   if (currentPath === '/login' || currentPath.startsWith('/auth')) {
+    return null;
+  }
+
+  // Don't redirect if user is already on their role-specific admin/superAdmin routes
+  if (normalizedRole === RoleTypes.ADMIN && currentPath.startsWith('/admin')) {
+    return null;
+  }
+  if (normalizedRole === RoleTypes.SUPER_ADMIN && currentPath.startsWith('/superAdmin')) {
     return null;
   }
 
@@ -111,7 +129,7 @@ export function isOfficerRole(userRole?: any): boolean {
  */
 export function isAdminRole(userRole?: any): boolean {
   const normalizedRole = normalizeRole(userRole);
-  return normalizedRole === RoleTypes.ADMIN;
+  return normalizedRole === RoleTypes.ADMIN || normalizedRole === RoleTypes.SUPER_ADMIN;
 }
 
 /**

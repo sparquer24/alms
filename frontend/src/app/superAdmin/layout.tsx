@@ -1,17 +1,16 @@
 'use client';
 
 import { useAuthSync } from '../../hooks/useAuthSync';
-import { PageLayoutSkeleton } from '../../components/Skeleton';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { LayoutProvider } from '@/config/layoutContext';
-import { canAccessAdmin } from '@/utils/roleUtils';
+import { isAdminRole } from '@/utils/roleUtils';
+import { ROLE_CODES } from '@/constants';
 
-export default function AdminLayout({ children }: { children: any }) {
+export default function SuperAdminLayout({ children }: { children: any }) {
   const { userRole, token, isLoading } = useAuthSync();
   const router = useRouter();
-  const pathname = usePathname();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -30,9 +29,15 @@ export default function AdminLayout({ children }: { children: any }) {
       return;
     }
 
-    // Check if user has admin access
-    if (!canAccessAdmin(userRole)) {
-      router.replace('/');
+    // Check if user is SUPER_ADMIN
+    const normalizedRole = String(userRole).toUpperCase();
+    if (normalizedRole !== ROLE_CODES.SUPER_ADMIN) {
+      // Not a super admin, redirect to appropriate page
+      if (isAdminRole(userRole)) {
+        router.replace('/admin/userManagement');
+      } else {
+        router.replace('/');
+      }
       return;
     }
 
@@ -51,8 +56,9 @@ export default function AdminLayout({ children }: { children: any }) {
     );
   }
 
-  // Don't render anything if user is not authenticated as admin
-  if (!token || !userRole || !canAccessAdmin(userRole)) {
+  // Don't render anything if user is not authenticated as super admin
+  const normalizedRole = String(userRole).toUpperCase();
+  if (!token || !userRole || normalizedRole !== ROLE_CODES.SUPER_ADMIN) {
     return null; // Don't render anything while redirecting
   }
 

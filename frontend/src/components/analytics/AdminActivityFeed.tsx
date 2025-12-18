@@ -248,9 +248,29 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                             {activityCount} {activityCount === 1 ? 'activity' : 'activities'}
                           </span>
                         </div>
-                        <p className='text-sm mt-1' style={{ color: style.textColor }}>
-                          {latestActivity.action}
-                        </p>
+                        <p className={`text-sm mt-1 ${style.textColor}`}>{latestActivity.action}</p>
+                        <div className='flex flex-wrap items-center gap-3 mt-2'>
+                          {latestActivity.applicantName && (
+                            <div className='flex items-center gap-1.5'>
+                              <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
+                                Applicant Name:
+                              </span>
+                              <span className='text-xs text-gray-700 dark:text-gray-300 font-medium'>
+                                {latestActivity.applicantName}
+                              </span>
+                            </div>
+                          )}
+                          {latestActivity.almsLicenseId && (
+                            <div className='flex items-center gap-1.5'>
+                              <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
+                                Application Id:
+                              </span>
+                              <span className='px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded text-xs font-semibold'>
+                                {latestActivity.almsLicenseId}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Time */}
@@ -313,12 +333,29 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                               {activityStyle.icon}
                             </div>
                             <div className='flex-1'>
-                              <p className='text-sm' style={{ color: activityStyle.textColor }}>
-                                {activity.action}
-                              </p>
-                              <p className='text-xs mt-0.5' style={{ color: colors.text.tertiary }}>
-                                Activity #{activity.id}
-                              </p>
+                            <p className={`text-sm font-medium ${activityStyle.textColor}`}>{activity.action}</p>
+                              <div className='flex flex-wrap items-center gap-3 mt-1.5'>
+                                {activity.applicantName && (
+                                  <div className='flex items-center gap-1'>
+                                    <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
+                                      Applicant Name:
+                                    </span>
+                                    <span className='text-xs text-gray-700 dark:text-gray-300'>
+                                      {activity.applicantName}
+                                    </span>
+                                  </div>
+                                )}
+                                {activity.almsLicenseId && (
+                                  <div className='flex items-center gap-1'>
+                                    <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
+                                      Application Id:
+                                    </span>
+                                    <span className='px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded text-xs font-semibold'>
+                                      {activity.almsLicenseId}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             <div className='text-right'>
                               <p className='text-xs' style={{ color: neutralText }}>
@@ -382,9 +419,29 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                           #{activity.id}
                         </span>
                       </div>
-                      <p className='text-sm font-medium' style={{ color: style.textColor }}>
-                        {activity.action}
-                      </p>
+                      <p className={`text-sm font-medium ${style.textColor}`}>{activity.action}</p>
+                      <div className='flex flex-wrap items-center gap-3 mt-2'>
+                        {activity.applicantName && (
+                          <div className='flex items-center gap-1.5'>
+                            <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
+                              Applicant Name:
+                            </span>
+                            <span className='text-xs text-gray-700 dark:text-gray-300 font-medium'>
+                              {activity.applicantName}
+                            </span>
+                          </div>
+                        )}
+                        {activity.almsLicenseId && (
+                          <div className='flex items-center gap-1.5'>
+                            <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
+                              Application Id:
+                            </span>
+                            <span className='px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded text-xs font-semibold'>
+                              {activity.almsLicenseId}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className='text-right ml-4'>
                       <p className='text-xs font-medium' style={{ color: neutralText }}>

@@ -183,10 +183,11 @@ export function getMenuItemsForAdminRole(
     roleCode?: string,
     menuItemsFromRole?: (string | MenuItem)[]
 ): AdminMenuItem[] {
-    const isAdmin = roleCode?.toUpperCase() === 'ADMIN';
+    const upperRoleCode = roleCode?.toUpperCase();
+    const isAdmin = upperRoleCode === 'ADMIN' || upperRoleCode === 'SUPER_ADMIN';
 
     if (isAdmin) {
-        // Admin always gets all menu items
+        // Admin and Super Admin always get all menu items
         return getAdminMenuItems();
     }
 

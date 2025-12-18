@@ -8,15 +8,19 @@ import {
     ApplicationRecordDto,
 } from './dto/analytics.dto';
 import { getISOWeek, getISOWeekYear, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { ROLE_CODES } from '../../constants/auth';
 
 @Injectable()
 export class AnalyticsService {
     /**
      * Get applications aggregated by ISO week
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationsByWeek(
         fromDate?: string,
         toDate?: string,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<ApplicationsDataDto[]> {
         try {
             const where: any = {};
@@ -30,6 +34,14 @@ export class AnalyticsService {
                 if (toDate) {
                     where.createdAt.lte = endOfDay(parseISO(toDate));
                 }
+            }
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
             }
 
             // Fetch all applications within date range
@@ -71,10 +83,13 @@ export class AnalyticsService {
 
     /**
      * Get application load by role
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getRoleLoad(
         fromDate?: string,
         toDate?: string,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<RoleLoadDataDto[]> {
         try {
             const where: any = {
@@ -92,6 +107,14 @@ export class AnalyticsService {
                 if (toDate) {
                     where.createdAt.lte = endOfDay(parseISO(toDate));
                 }
+            }
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
             }
 
             // Get applications with their assigned roles
@@ -137,10 +160,13 @@ export class AnalyticsService {
 
     /**
      * Get application state distribution
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationStates(
         fromDate?: string,
         toDate?: string,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<StateDataDto[]> {
         try {
             const where: any = {};
@@ -154,6 +180,14 @@ export class AnalyticsService {
                 if (toDate) {
                     where.createdAt.lte = endOfDay(parseISO(toDate));
                 }
+            }
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
             }
 
             // Get all applications with their status
@@ -199,11 +233,17 @@ export class AnalyticsService {
     }
 
     /**
-     * Get admin activities
+     * Get admin activities - Returns the 2 most recent entries for each user
+     * Filters based on logged-in admin's state (only shows activities where they are involved)
+     * SUPER_ADMIN sees all activities, ADMIN sees only activities from their assigned state
      */
     async getAdminActivities(
         fromDate?: string,
         toDate?: string,
+        userId?: number,
+        roleId?: number,
+        stateId?: number,
+        roleCode?: string,
     ): Promise<AdminActivityDto[]> {
         try {
             const where: any = {};
@@ -219,7 +259,19 @@ export class AnalyticsService {
                 }
             }
 
-            // Fetch workflow history (admin actions)
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter applications by permanent address state to ensure admin only sees activities from their state
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.application = {
+                    permanentAddress: {
+                        stateId: stateId
+                    }
+                };
+            } else {
+            }
+
+            // Fetch workflow history (admin actions) with application details
+            // Also filter by applications assigned to the logged-in user if no direct workflow match
             const workflows = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
                 where,
                 select: {
@@ -238,6 +290,14 @@ export class AnalyticsService {
                             username: true,
                         },
                     },
+                    application: {
+                        select: {
+                            almsLicenseId: true,
+                            firstName: true,
+                            middleName: true,
+                            lastName: true,
+                        },
+                    },
                 },
                 orderBy: {
                     createdAt: 'desc',
@@ -245,20 +305,58 @@ export class AnalyticsService {
                 take: 100,
             });
 
-            // Format the results
-            const result = workflows.map((workflow) => ({
-                id: workflow.id,
-                user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
-                action: `${workflow.actionTaken || 'Updated'} application #${workflow.applicationId}`,
-                time: new Date(workflow.createdAt).toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                }),
-                timestamp: new Date(workflow.createdAt).getTime(),
-            }));
+            // Group by user and take only the 2 most recent entries for each user
+            const userActivitiesMap = new Map<string, any[]>();
+
+            workflows.forEach((workflow) => {
+                const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
+                
+                if (!userActivitiesMap.has(user)) {
+                    userActivitiesMap.set(user, []);
+                }
+
+                const userActivities = userActivitiesMap.get(user);
+                
+                // Only add if we have less than 2 entries for this user
+                if (userActivities && userActivities.length < 2) {
+                    userActivities.push(workflow);
+                }
+            });
+
+            // Flatten the map and format the results
+            const result: AdminActivityDto[] = [];
+            
+            userActivitiesMap.forEach((activities) => {
+                activities.forEach((workflow) => {
+                    // Construct applicant name
+                    const applicantName = [
+                        workflow.application?.firstName,
+                        workflow.application?.middleName,
+                        workflow.application?.lastName,
+                    ]
+                        .filter(Boolean)
+                        .join(' ') || 'N/A';
+
+                    result.push({
+                        id: workflow.id,
+                        user: workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown',
+                        action: workflow.actionTaken || 'Updated',
+                        time: new Date(workflow.createdAt).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                        }),
+                        timestamp: new Date(workflow.createdAt).getTime(),
+                        almsLicenseId: workflow.application?.almsLicenseId || undefined,
+                        applicantName,
+                    });
+                });
+            });
+
+            // Sort by timestamp descending to maintain chronological order
+            result.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
             return result;
         } catch (error) {

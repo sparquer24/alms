@@ -19,8 +19,20 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const decoded = jwt.verify(token, secret);
-      request.user = decoded;
+      const decoded = jwt.verify(token, secret) as any;
+      
+      // Attach decoded JWT payload with mapped fields for easier access
+      request.user = {
+        ...decoded,
+        // Map JWT payload fields to controller-friendly names
+        userId: decoded.user_id,
+        roleId: decoded.role_id,
+        stateId: decoded.state_id,
+        districtId: decoded.district_id,
+        zoneId: decoded.zone_id,
+        roleCode: decoded.role_code,
+      };
+      
       return true;
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired token');

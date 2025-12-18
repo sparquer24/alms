@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
+import { ROLE_CODES } from '../../constants/auth';
 
 export interface CreateUserInput {
   username?: string;
@@ -43,13 +44,14 @@ export class UserService {
     return await bcrypt.hash(password, this.saltRounds);
   }
 
-  async getUsers(role?: string, stateId?: number): Promise<any[]> {
+  async getUsers(role?: string, stateId?: number, roleCode?: string): Promise<any[]> {
     const where: any = {};
     if (role) {
       where.role = { code: role };
     }
-    // Filter by stateId if provided (logged-in admin's state)
-    if (stateId) {
+    // SUPER_ADMIN has no stateId and should see all users
+    // ADMIN should only see users in their state
+    if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
       where.stateId = stateId;
     }
     return await prisma.users.findMany({
@@ -134,10 +136,41 @@ export class UserService {
         zoneId: true,
         divisionId: true,
         policeStationId: true,
+        state: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        division: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        policeStation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
         role: {
           select: {
             id: true,
             code: true,
+            name: true,
           }
         },
         createdAt: true,

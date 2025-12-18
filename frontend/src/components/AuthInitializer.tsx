@@ -56,10 +56,16 @@ export const AuthInitializer = () => {
 
   useEffect(() => {
     // Handle role-based redirection after auth state is restored
+    // Only run on initial mount and pathname changes, not on every auth state change
     const handleRedirection = async () => {
       try {
         if (!pathname) {
           logError('AuthInitializer: Missing pathname for redirection');
+          return;
+        }
+
+        // Don't redirect if we're not authenticated yet
+        if (!isAuthenticated) {
           return;
         }
 
@@ -68,13 +74,15 @@ export const AuthInitializer = () => {
         const roleFromCookie = getCookie('role') as string | undefined;
         const effectiveRole = roleFromState || (roleFromCookie ? String(roleFromCookie).toUpperCase() : undefined);
 
-  logDebug(`AuthInitializer: isAuthenticated=${isAuthenticated} roleFromState=${roleFromState} roleFromCookie=${roleFromCookie} pathname=${pathname}`);
+        logDebug(`AuthInitializer: isAuthenticated=${isAuthenticated} roleFromState=${roleFromState} roleFromCookie=${roleFromCookie} pathname=${pathname}`);
 
-        if (isAuthenticated && effectiveRole) {
+        if (effectiveRole) {
           const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname);
           if (redirectPath) {
             logDebug(`AuthInitializer: Redirecting ${effectiveRole} user to: ${redirectPath}`);
             await router.push(redirectPath);
+          } else {
+            logDebug(`AuthInitializer: No redirect needed for ${effectiveRole} at ${pathname}`);
           }
         }
       } catch (error) {
@@ -83,7 +91,7 @@ export const AuthInitializer = () => {
     };
 
     handleRedirection();
-  }, [isAuthenticated, currentUser?.role, pathname, router]);
+  }, [pathname, router]);
 
   return null; // This component doesn't render anything
 }

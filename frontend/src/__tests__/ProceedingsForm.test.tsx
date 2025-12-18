@@ -21,7 +21,7 @@ jest.mock('next/dynamic', () => () => {
 
 // Mock react-select
 jest.mock('react-select', () => {
-  return function MockSelect({ options, value, onChange, placeholder, isLoading, isDisabled }: any) {
+  return function MockSelect({ options, value, onChange, placeholder, isLoading: _isLoading, isDisabled }: any) {
     return (
       <select
         data-testid="select"

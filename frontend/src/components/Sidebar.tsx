@@ -38,6 +38,9 @@ import {
   getAdminMenuItems,
   getAdminPathForMenuItem,
 } from '../config/adminMenuService';
+import {
+  getSuperAdminPathForMenuItem,
+} from '../config/superAdminMenuService';
 import { preloadAdminPages } from '../utils/adminPagePreloader';
 import { HamburgerButton } from './HamburgerButton';
 
@@ -812,11 +815,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       // Check if this is an admin user navigating to an admin menu item
       if (isAdminRole(effectiveRole)) {
-        // Get the admin path from config using the menu item name
-        const adminPath = getAdminPathForMenuItem(item.name);
+        // Check if SUPER_ADMIN or ADMIN and get appropriate path
+        const isSuperAdmin = effectiveRole === 'SUPER_ADMIN';
+        const adminPath = isSuperAdmin 
+          ? getSuperAdminPathForMenuItem(item.name)
+          : getAdminPathForMenuItem(item.name);
 
         if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log('[Sidebar] Admin user detected. adminPath for', item.name, ':', adminPath);
+          console.log('[Sidebar] Admin user detected. Role:', effectiveRole, 'Path for', item.name, ':', adminPath);
         }
 
         if (adminPath) {
@@ -969,8 +975,9 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       freezeActive(2500);
       // Check if admin user is trying to access inbox (should not happen)
       if (isAdminRole(userRole || cookieRole)) {
-        // Admin users shouldn't be in inbox - redirect to admin dashboard
-        router.push('/admin/userManagement');
+        // Admin users shouldn't be in inbox - redirect to role-appropriate dashboard
+        const redirectPath = getRoleBasedRedirectPath(userRole || cookieRole);
+        router.push(redirectPath);
         return;
       }
 
@@ -1198,7 +1205,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
         <nav className='flex-1 overflow-y-auto py-2 px-2'>
           <ul className='space-y-1'>
-            {effectiveRole !== 'ADMIN' && (
+            {!isAdminRole(effectiveRole) && (
               <li>
                 {/* highlight Inbox when any inbox-{type} is active, not only when the panel is expanded */}
                 <button
