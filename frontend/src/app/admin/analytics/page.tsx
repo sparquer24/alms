@@ -24,7 +24,6 @@ import {
 import { format } from 'date-fns';
 import {
   AdminCard,
-  
   AdminToolbar,
   AdminFilter,
   AdminErrorAlert,
@@ -34,7 +33,12 @@ import {
   AdminTable,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout, AdminBorderRadius, AdminTransitions } from '@/styles/admin-design-system';
+import {
+  AdminSpacing,
+  AdminLayout,
+  AdminBorderRadius,
+  AdminTransitions,
+} from '@/styles/admin-design-system';
 import { AdminActivityFeed } from '@/components/analytics/AdminActivityFeed';
 
 // Type assertions for recharts components
@@ -148,7 +152,6 @@ export default function AnalyticsPage() {
       });
       return result;
     },
-    keepPreviousData: true,
   });
 
   const applications = applicationsDetails?.data || [];
@@ -196,10 +199,20 @@ export default function AnalyticsPage() {
       return;
     }
 
-    const header = ['S.No', 'License ID', 'Application Name', 'Status', 'Pending Details', 'Action Taken At'];
+    const header = [
+      'S.No',
+      'License ID',
+      'Application Name',
+      'Status',
+      'Pending Details',
+      'Action Taken At',
+    ];
     const rows = applications.map((row, idx) => {
       const actionDate = row.actionTakenAt ? new Date(row.actionTakenAt) : null;
-      const formattedDate = actionDate && !Number.isNaN(actionDate.valueOf()) ? format(actionDate, 'yyyy-MM-dd HH:mm') : '--';
+      const formattedDate =
+        actionDate && !Number.isNaN(actionDate.valueOf())
+          ? format(actionDate, 'yyyy-MM-dd HH:mm')
+          : '--';
       const pendingParts = [] as string[];
 
       if (row.currentUser?.name) pendingParts.push(row.currentUser.name);
@@ -207,7 +220,8 @@ export default function AnalyticsPage() {
         const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
         const daysText = `(${row.daysTillToday} ${dayLabel})`;
         if (pendingParts.length) {
-          pendingParts[pendingParts.length - 1] = `${pendingParts[pendingParts.length - 1]} ${daysText}`;
+          pendingParts[pendingParts.length - 1] =
+            `${pendingParts[pendingParts.length - 1]} ${daysText}`;
         } else {
           pendingParts.push(daysText);
         }
@@ -253,9 +267,7 @@ export default function AnalyticsPage() {
           <div className='bg-[#001F54] text-white px-6 py-8'>
             <div className='text-white'>
               <h1 className='text-3xl font-bold mb-2'>Analytics Dashboard</h1>
-              <p className='text-blue-100 text-lg'>
-                Track applications and system performance
-              </p>
+              <p className='text-blue-100 text-lg'>Track applications and system performance</p>
             </div>
           </div>
           <div className='p-6 bg-white'>
@@ -337,7 +349,11 @@ export default function AnalyticsPage() {
         {applicationsDetailsError && (
           <AdminErrorAlert
             title='Failed to Load Application Details'
-            message={applicationsDetailsError instanceof Error ? applicationsDetailsError.message : 'Unknown error'}
+            message={
+              applicationsDetailsError instanceof Error
+                ? applicationsDetailsError.message
+                : 'Unknown error'
+            }
             onRetry={() => refetchApplicationsDetails()}
           />
         )}
@@ -358,30 +374,22 @@ export default function AnalyticsPage() {
             ))
           ) : (
             <>
-              <AdminCard
-                title='Total Applications'
-              >
+              <AdminCard title='Total Applications'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.info }}>
                   {summaryStats.totalApplications}
                 </div>
               </AdminCard>
-              <AdminCard
-                title='Approved'
-              >
+              <AdminCard title='Approved'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.success }}>
                   {summaryStats.totalApproved}
                 </div>
               </AdminCard>
-              <AdminCard
-                title='Pending'
-              >
+              <AdminCard title='Pending'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.warning }}>
                   {summaryStats.totalPending}
                 </div>
               </AdminCard>
-              <AdminCard
-                title='Rejected'
-              >
+              <AdminCard title='Rejected'>
                 <div style={{ fontSize: '32px', fontWeight: 700, color: colors.status.error }}>
                   {summaryStats.totalRejected}
                 </div>
@@ -537,7 +545,7 @@ export default function AnalyticsPage() {
             Export CSV
           </button>
         </AdminCard>
-                 {/* Applications Details Section */}
+        {/* Applications Details Section */}
         <div
           style={{
             display: 'grid',
@@ -634,7 +642,9 @@ export default function AnalyticsPage() {
               marginBottom: AdminSpacing.md,
             }}
           >
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: colors.text.primary }}>
+            <h2
+              style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: colors.text.primary }}
+            >
               Applications
             </h2>
             <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
@@ -675,8 +685,13 @@ export default function AnalyticsPage() {
                     header: 'Status',
                     render: value => {
                       const normalized = (value || '').toUpperCase() as ApplicationStatus;
-                      const palette = statusPalette[normalized] || { bg: '#F3F4F6', text: '#111827' };
-                      const label = normalized ? `${normalized.charAt(0)}${normalized.slice(1).toLowerCase()}` : 'Unknown';
+                      const palette = statusPalette[normalized] || {
+                        bg: '#F3F4F6',
+                        text: '#111827',
+                      };
+                      const label = normalized
+                        ? `${normalized.charAt(0)}${normalized.slice(1).toLowerCase()}`
+                        : 'Unknown';
 
                       return (
                         <span
@@ -740,7 +755,7 @@ export default function AnalyticsPage() {
             }}
           />
         </AdminCard>
-        
+
         {/* Admin Activity Feed */}
         <AdminCard title='Recent Activities'>
           <div style={{ height: 450, overflowY: 'auto' }}>
@@ -749,14 +764,15 @@ export default function AnalyticsPage() {
             ) : activitiesError ? (
               <AdminErrorAlert
                 title='Failed to Load Activities'
-                message={activitiesError instanceof Error ? activitiesError.message : 'Unknown error'}
+                message={
+                  activitiesError instanceof Error ? activitiesError.message : 'Unknown error'
+                }
               />
             ) : (
               <AdminActivityFeed activities={adminActivities} />
             )}
           </div>
         </AdminCard>
-        
       </div>
     </AdminErrorBoundary>
   );
