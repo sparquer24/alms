@@ -4,7 +4,6 @@ import * as bcrypt from 'bcrypt';
 import { LoginRequest } from '../../request/auth';
 import { LoginResponse } from '../../response/auth';
 import { ERROR_MESSAGES } from '../../constants/auth';
-// If you have already set up Prisma, import it from the correct path:
 import prisma from '../../db/prismaClient';
 
 @Injectable()

@@ -777,9 +777,6 @@ export class ApplicationFormService {
           // If there's something other than updatedAt to save, perform the update
           const hasUpdatableKeys = Object.keys(updateData).some(k => k !== 'updatedAt');
           if (hasUpdatableKeys) {
-            // small debug to help trace why an update may not happen in future
-            console.debug('Updating workflow/personal acceptance fields for application', applicationId, updateData);
-
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
               data: updateData
@@ -1647,14 +1644,12 @@ export class ApplicationFormService {
       // For PHOTOGRAPH and SIGNATURE_THUMB types, delete existing files to keep only the latest
       const singleFileTypes = ['PHOTOGRAPH', 'SIGNATURE_THUMB', 'IRIS_SCAN'];
       if (singleFileTypes.includes(dto.fileType)) {
-        console.log(`\uD83D\uDDD1\uFE0F Deleting existing ${dto.fileType} files for application ${applicationId}`);
         await prisma.fLAFFileUploads.deleteMany({
           where: {
             applicationId: applicationId,
             fileType: dto.fileType
           }
         });
-        console.log("deleted existing files if any, proceeding to save new file metadata");
       }
 
       // Save file record to database
@@ -1721,7 +1716,6 @@ export class ApplicationFormService {
       try {
         statusMap[code] = await this.getStatusIdByCode(code);
       } catch (error) {
-        console.warn(`Status '${code}' not found in database`);
         // Don't throw error, just skip missing statuses
       }
     }

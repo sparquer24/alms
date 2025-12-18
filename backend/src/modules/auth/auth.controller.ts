@@ -51,7 +51,6 @@ export class AuthController {
         }
       } catch (cookieErr) {
         // Best-effort: don't fail login if cookie setting fails
-        console.warn('Failed to set server-side role cookie:', cookieErr);
       }
 
       return result;
