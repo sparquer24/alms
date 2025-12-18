@@ -32,7 +32,6 @@ import {
   getHeaders,
   getMultipartHeaders,
 } from './APIsEndpoints';
-// import the cookes
 import { parse } from 'cookie';
 
 /**
