@@ -17,6 +17,12 @@ interface LocationHierarchyProps {
   disabled?: boolean;
   required?: boolean;
   className?: string;
+  // Disable specific fields
+  disabledFields?: {
+    state?: boolean;
+    district?: boolean;
+    zone?: boolean;
+  };
 }
 
 export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
@@ -26,6 +32,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
   disabled = false,
   required = false,
   className = '',
+  disabledFields = {},
 }) => {
   const [locationState, locationActions] = useLocationHierarchy();
   
@@ -120,7 +127,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         options={options.stateOptions}
         placeholder={locationState.loadingStates ? "Loading states..." : "Select state"}
         required={required}
-        disabled={disabled || locationState.loadingStates}
+        disabled={disabled || disabledFields.state || locationState.loadingStates}
       />
       
       <Select
@@ -137,7 +144,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
             : "Select district"
         }
         required={required}
-        disabled={disabled || !values.state || locationState.loadingDistricts}
+        disabled={disabled || disabledFields.district || !values.state || locationState.loadingDistricts}
       />
       
       <Select
@@ -154,7 +161,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
             : "Select zone"
         }
         required={required}
-        disabled={disabled || !values.district || locationState.loadingZones}
+        disabled={disabled || disabledFields.zone || !values.district || locationState.loadingZones}
       />
       
       <Select
