@@ -75,7 +75,6 @@ export interface AnalyticsResponse<T> {
 }
 
 class AnalyticsService {
-    private baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     /**
      * Fetch applications data aggregated by week
      */
