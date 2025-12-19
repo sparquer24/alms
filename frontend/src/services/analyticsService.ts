@@ -76,8 +76,6 @@ export interface AnalyticsResponse<T> {
 
 class AnalyticsService {
     private baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    private clientBaseURL = process.env.NEXT_PUBLIC_CLIENT_API_URL || 'http://localhost:3000/api';
-
     /**
      * Fetch applications data aggregated by week
      */
@@ -171,24 +169,16 @@ class AnalyticsService {
             if (options?.q) params.append('q', options.q);
             if (options?.sort) params.append('sort', options.sort);
 
-            const query = params.toString();
-            const url = `${this.clientBaseURL}/admin/analytics/applications/details${query ? `?${query}` : ''}`;
-            console.log('Fetching application details from:', url);
+            const queryString = params.toString();
+            const endpoint = `/admin/analytics/applications/details${queryString ? `?${queryString}` : ''}`;
 
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('API Error Response:', errorText);
-                throw new Error(`Failed to fetch applications: ${response.status}`);
-            }
-
-            const result = (await response.json()) as ApplicationsDetailsResult;
+            const response = await apiClient.get<ApplicationsDetailsResult>(endpoint);
+            
             return {
-                success: result.success,
-                data: result.data || [],
-                meta: result.meta,
-                message: result.message,
+                success: response.success ?? true,
+                data: response.data || [],
+                meta: response.meta,
+                message: response.message,
             };
         } catch (error) {
             console.error('Error fetching application details:', error);

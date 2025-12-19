@@ -327,12 +327,18 @@ export class AnalyticsController {
         @Query('limit') limit?: string,
         @Query('q') q?: string,
         @Query('sort') sort?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
         try {
             const pageNum = page ? parseInt(page, 10) : undefined;
             const limitNum = limit ? parseInt(limit, 10) : undefined;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, stateId, roleCode);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 

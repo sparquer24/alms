@@ -64,31 +64,14 @@ const LegendFixed = Legend as any;
 
 const COLORS = ['#6366F1', '#F59E42', '#10B981', '#EF4444', '#8B5CF6', '#EC4899'];
 
-type ApplicationStatus = 'Approved' | 'Pending' | 'Rejected';
-
-interface ApplicationRow {
-  id: number;
-  acknowledgementNo: string;
-  applicantName: string;
-  applicationType: string;
-  status: ApplicationStatus;
-  actionTakenAt: string;
-}
-
-const statusPalette: Record<ApplicationStatus, { bg: string; text: string }> = {
+const statusPalette: Record<string, { bg: string; text: string }> = {
+  APPROVED: { bg: '#ECFDF3', text: '#16A34A' },
   Approved: { bg: '#ECFDF3', text: '#16A34A' },
+  PENDING: { bg: '#FFFBEB', text: '#CA8A04' },
   Pending: { bg: '#FFFBEB', text: '#CA8A04' },
+  REJECTED: { bg: '#FEF2F2', text: '#DC2626' },
   Rejected: { bg: '#FEF2F2', text: '#DC2626' },
 };
-
-const mockApplications: ApplicationRow[] = [
-  { id: 1, acknowledgementNo: 'ACK-2024-0001', applicantName: 'Aarav Sharma', applicationType: 'New License', status: 'Approved', actionTakenAt: '2024-11-18 10:20' },
-  { id: 2, acknowledgementNo: 'ACK-2024-0002', applicantName: 'Meera Patel', applicationType: 'Renewal', status: 'Pending', actionTakenAt: '2024-11-19 14:05' },
-  { id: 3, acknowledgementNo: 'ACK-2024-0003', applicantName: 'Rahul Singh', applicationType: 'Transfer', status: 'Rejected', actionTakenAt: '2024-11-17 09:40' },
-  { id: 4, acknowledgementNo: 'ACK-2024-0004', applicantName: 'Sanya Iyer', applicationType: 'New License', status: 'Approved', actionTakenAt: '2024-11-16 16:20' },
-  { id: 5, acknowledgementNo: 'ACK-2024-0005', applicantName: 'Kabir Narang', applicationType: 'Renewal', status: 'Pending', actionTakenAt: '2024-11-20 11:05' },
-  { id: 6, acknowledgementNo: 'ACK-2024-0006', applicantName: 'Nikita Rao', applicationType: 'Duplicate', status: 'Approved', actionTakenAt: '2024-11-15 13:10' },
-];
 
 export default function AnalyticsPage() {
   const { colors } = useAdminTheme();
@@ -102,31 +85,11 @@ export default function AnalyticsPage() {
   });
   const [toDate, setToDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
-  // Applications table state (moved from applicationsDetails)
+  // Applications table state
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return mockApplications.filter(row => {
-      const matchesText = q
-        ? row.applicantName.toLowerCase().includes(q) ||
-          row.acknowledgementNo.toLowerCase().includes(q) ||
-          row.applicationType.toLowerCase().includes(q)
-        : true;
-      const matchesStatus = status ? row.status === status : true;
-      return matchesText && matchesStatus;
-    });
-  }, [search, status]);
-
-  const paginated = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
-
-  const start = (page - 1) * pageSize;
 
   // Fetch applications data
   const {
@@ -181,6 +144,29 @@ export default function AnalyticsPage() {
     },
   });
 
+  // Fetch applications details with pagination
+  const {
+    data: applicationsDetails,
+    isLoading: detailsLoading,
+    error: detailsError,
+    refetch: refetchDetails,
+  } = useQuery({
+    queryKey: ['analytics-applications-details', page, pageSize, status, search],
+    queryFn: async () => {
+      return analyticsService.getApplicationsDetails({
+        page,
+        limit: pageSize,
+        status: status || undefined,
+        q: search || undefined,
+        sort: '-updatedAt',
+      });
+    },
+  });
+
+  const applicationsData = applicationsDetails?.data || [];
+  const totalRecords = applicationsDetails?.meta?.total || 0;
+  const totalPages = applicationsDetails?.meta?.pages || 1;
+
   // Calculate summary stats
   const summaryStats = useMemo(() => {
     const totalApplications = applicationsByWeek.reduce((sum, item) => sum + item.count, 0);
@@ -208,14 +194,18 @@ export default function AnalyticsPage() {
 
   // Handle export
   const handleDownload = () => {
-    const header = ['S.No', 'Application IDs', 'Applicant Name', 'Application Type', 'Status', 'Action Taken At'];
-    const rows = filtered.map((row, idx) => [
+    if (!applicationsData || applicationsData.length === 0) {
+      console.warn('No data to export');
+      return;
+    }
+    const header = ['S.No', 'License ID', 'Applicant Name', 'Current User', 'Status', 'Action Taken At'];
+    const rows = applicationsData.map((row, idx) => [
       String(idx + 1),
-      row.acknowledgementNo,
-      row.applicantName,
-      row.applicationType,
+      row.licenseId || 'N/A',
+      row.applicantName || 'N/A',
+      row.currentUser?.name || 'N/A',
       row.status,
-      row.actionTakenAt,
+      row.actionTakenAt || 'N/A',
     ]);
     const csv = [header, ...rows]
       .map(r => r.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
@@ -241,6 +231,7 @@ export default function AnalyticsPage() {
   };
 
   const isLoading = appLoading || roleLoading || stateLoading;
+  const isTableLoading = detailsLoading;
 
   return (
     <AdminErrorBoundary>
@@ -334,6 +325,13 @@ export default function AnalyticsPage() {
           <AdminErrorAlert
             title='Failed to Load Application States'
             message={stateError instanceof Error ? stateError.message : 'Unknown error'}
+          />
+        )}
+        {detailsError && (
+          <AdminErrorAlert
+            title='Failed to Load Application Details'
+            message={detailsError instanceof Error ? detailsError.message : 'Unknown error'}
+            onRetry={() => refetchDetails()}
           />
         )}
 
@@ -617,7 +615,7 @@ export default function AnalyticsPage() {
               Applications
             </h2>
             <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
-              Showing {paginated.length} of {filtered.length}
+              Showing {applicationsData.length} of {totalRecords}
             </span>
           </div>
           <div
@@ -628,23 +626,32 @@ export default function AnalyticsPage() {
               border: `1px solid ${colors.border}`,
             }}
           >
-            {isLoading ? (
-              <AdminTableSkeleton rows={6} columns={6} />
+            {isTableLoading ? (
+              <AdminTableSkeleton rows={6} columns={5} />
             ) : (
               <AdminTable
                 columns={[
                   {
-                    key: 'id',
+                    key: 'applicationId',
                     header: 'S.No',
-                    render: (_value, row, idx) => start + (idx + 1),
+                    render: (_value, row, idx) => (page - 1) * pageSize + (idx + 1),
                     width: '80px',
                   },
                   {
-                    key: 'acknowledgementNo',
-                    header: 'Application IDs',
+                    key: 'licenseId',
+                    header: 'License ID',
+                    render: value => value || 'N/A',
                   },
-                  { key: 'applicantName', header: 'Applicant Name' },
-                  { key: 'applicationType', header: 'Application Type' },
+                  { 
+                    key: 'applicantName', 
+                    header: 'Applicant Name',
+                    render: value => value || 'N/A',
+                  },
+                  {
+                    key: 'currentUser',
+                    header: 'Current User',
+                    render: value => value?.name || 'N/A',
+                  },
                   {
                     key: 'status',
                     header: 'Status',
@@ -653,8 +660,8 @@ export default function AnalyticsPage() {
                         style={{
                           padding: '6px 10px',
                           borderRadius: AdminBorderRadius.full,
-                          backgroundColor: statusPalette[value as ApplicationStatus].bg,
-                          color: statusPalette[value as ApplicationStatus].text,
+                          backgroundColor: statusPalette[value as string]?.bg || '#F3F4F6',
+                          color: statusPalette[value as string]?.text || '#6B7280',
                           fontWeight: 600,
                           fontSize: '13px',
                         }}
@@ -663,10 +670,14 @@ export default function AnalyticsPage() {
                       </span>
                     ),
                   },
-                  { key: 'actionTakenAt', header: 'Action Taken At' },
+                  { 
+                    key: 'actionTakenAt', 
+                    header: 'Action Taken At',
+                    render: value => value || 'N/A',
+                  },
                 ]}
-                data={paginated}
-                rowKey='id'
+                data={applicationsData}
+                rowKey='applicationId'
                 emptyMessage='No applications found'
               />
             )}
@@ -674,11 +685,49 @@ export default function AnalyticsPage() {
           <div
             style={{
               display: 'flex',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               alignItems: 'center',
               marginTop: AdminSpacing.lg,
             }}
-          />
+          >
+            <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
+              Page {page} of {totalPages}
+            </span>
+            <div style={{ display: 'flex', gap: AdminSpacing.sm }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: AdminBorderRadius.md,
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: page === 1 ? colors.surface : colors.background,
+                  color: page === 1 ? colors.text.secondary : colors.text.primary,
+                  cursor: page === 1 ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                }}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: AdminBorderRadius.md,
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: page === totalPages ? colors.surface : colors.background,
+                  color: page === totalPages ? colors.text.secondary : colors.text.primary,
+                  cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </AdminCard>
         
         {/* Admin Activity Feed */}
