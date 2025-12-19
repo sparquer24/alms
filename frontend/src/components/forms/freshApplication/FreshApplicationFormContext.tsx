@@ -10,7 +10,6 @@ export interface FreshApplicationFormData {
   licenseDetails: Record<string, any>;
   licenseHistory: Record<string, any>;
   documentsUpload: Record<string, any>;
-  
 }
 
 const defaultFormData: FreshApplicationFormData = {

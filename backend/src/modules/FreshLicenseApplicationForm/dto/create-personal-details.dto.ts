@@ -65,15 +65,15 @@ export class CreatePersonalDetailsDto {
   @IsString()
   panNumber?: string;
 
-  @ApiProperty({ example: true, description: 'Whether the declaration is accepted' })
-  @IsNotEmpty()
-  isDeclarationAccepted!: boolean;
+  @ApiPropertyOptional({ example: true, description: 'Whether the declaration is accepted' })
+  @IsOptional()
+  isDeclarationAccepted?: boolean;
 
-  @ApiProperty({ example: true, description: 'Whether the applicant is aware of legal consequences' })
-  @IsNotEmpty()
-  isAwareOfLegalConsequences!: boolean;
+  @ApiPropertyOptional({ example: true, description: 'Whether the applicant is aware of legal consequences' })
+  @IsOptional()
+  isAwareOfLegalConsequences?: boolean;
 
-  @ApiProperty({ example: true, description: 'Whether the terms are accepted' })
-  @IsNotEmpty()
-  isTermsAccepted!: boolean;
+  @ApiPropertyOptional({ example: true, description: 'Whether the terms are accepted' })
+  @IsOptional()
+  isTermsAccepted?: boolean;
 }
