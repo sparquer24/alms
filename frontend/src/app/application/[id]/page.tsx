@@ -19,6 +19,61 @@ import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 import QRCodeDisplay from '../../../components/QRCodeDisplay';
+import { useGlobalAction } from '../../../context/GlobalActionContext';
+
+// --- Small UI formatting helpers to present user-readable data ---
+const humanize = (val?: any) => {
+  if (val === null || val === undefined) return '—';
+  const s = String(val);
+  if (!s) return '—';
+  return s
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
+const formatGender = (g?: string) => {
+  if (!g) return '—';
+  const s = String(g).trim().toLowerCase();
+  if (s === 'm' || s === 'male') return 'Male';
+  if (s === 'f' || s === 'female') return 'Female';
+  if (s === 'o' || s === 'other') return 'Other';
+  return humanize(s);
+};
+
+const formatStatusLabel = (statusOrObj?: any) => {
+  if (!statusOrObj) return '—';
+  if (typeof statusOrObj === 'string' || typeof statusOrObj === 'number')
+    return humanize(statusOrObj);
+  // If object with name property (workflowStatus), use that
+  if (statusOrObj.name) return humanize(statusOrObj.name);
+  return humanize(JSON.stringify(statusOrObj));
+};
+
+const formatApplicationType = (t?: any) => {
+  if (!t) return 'Fresh License';
+  const map: Record<string, string> = {
+    fresh: 'Fresh License',
+    renewal: 'Renewal',
+    duplicate: 'Duplicate',
+  };
+  const key = String(t).trim().toLowerCase();
+  return map[key] || humanize(key);
+};
+
+const formatPhone = (p?: string) => {
+  if (!p) return '—';
+  const digits = String(p).replace(/[^0-9+]/g, '');
+  if (digits.length >= 10 && digits.length <= 13) {
+    return digits.replace(/(\+?\d{0,3})(\d{3})(\d{3})(\d{2,4})/, (m, c1, a, b, c) => {
+      return [c1, a, b, c].filter(Boolean).join(' ');
+    });
+  }
+  return p;
+};
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -79,6 +134,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   // Use sidebar counts hook here so we can trigger an immediate refresh
   // after actions that move an application between inbox buckets.
   const { refreshCounts } = useSidebarCounts(true);
+  const { executeAction, setActiveNavigationPath } = useGlobalAction();
 
   // Open attachments from history with a robust viewer (PDF/image) in a new tab
   const openAttachment = (att: any) => {
@@ -327,113 +383,124 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const handleProcessApplication = async (action: string, reason: string) => {
     if (!application) return;
 
-    setIsProcessing(true);
+    const actionId = `process-application-${application.id}`;
 
-    try {
-      // In a real app, this would be an API call
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+    const result = await executeAction(actionId, async () => {
+      setIsProcessing(true);
 
-      // For now, we'll just update the local state to simulate the change
-      const updatedApplication = { ...application };
-
-      switch (action) {
-        case 'approve':
-          updatedApplication.status = 'approved';
-          setSuccessMessage('Application has been approved successfully');
-          break;
-        case 'reject':
-          updatedApplication.status = 'rejected';
-          setSuccessMessage('Application has been rejected');
-          break;
-        case 'return':
-          updatedApplication.status = 'returned';
-          updatedApplication.returnReason = reason;
-          setSuccessMessage('Application has been returned to the applicant');
-          break;
-        case 'flag':
-          updatedApplication.status = 'red-flagged';
-          updatedApplication.flagReason = reason;
-          setSuccessMessage('Application has been red-flagged');
-          break;
-        case 'dispose':
-          updatedApplication.status = 'disposed';
-          updatedApplication.disposalReason = reason;
-          setSuccessMessage('Application has been disposed');
-          break;
-        case 'recommend':
-          // In a real app, this would change the status differently based on the role
-          updatedApplication.status = 'pending';
-          setSuccessMessage('Application has been recommended for approval');
-          break;
-        case 'not-recommend':
-          // In a real app, this would change the status differently based on the role
-          updatedApplication.status = 'pending';
-          setSuccessMessage('Application has been marked as not recommended');
-          break;
-        case 're-enquiry':
-          updatedApplication.status = 'pending';
-          setSuccessMessage('Application has been marked for re-enquiry');
-          break;
-      }
-
-      updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
-      setApplication(updatedApplication);
-      setIsProcessModalOpen(false);
-
-      // Trigger an immediate sidebar counts refresh so the UI updates
-      // (force = true bypasses the 2-minute rate limit)
       try {
-        refreshCounts(true);
-      } catch (e) {
-        /* ignore */
-      }
+        // In a real app, this would be an API call
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Redirect to inbox/forwarded after successful processing
-      setTimeout(() => {
-        router.push('/inbox/forwarded');
-      }, 2000);
-    } catch (error) {
-      setErrorMessage('Failed to process application. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
+        // For now, we'll just update the local state to simulate the change
+        const updatedApplication = { ...application };
+
+        switch (action) {
+          case 'approve':
+            updatedApplication.status = 'approved';
+            setSuccessMessage('Application has been approved successfully');
+            break;
+          case 'reject':
+            updatedApplication.status = 'rejected';
+            setSuccessMessage('Application has been rejected');
+            break;
+          case 'return':
+            updatedApplication.status = 'returned';
+            updatedApplication.returnReason = reason;
+            setSuccessMessage('Application has been returned to the applicant');
+            break;
+          case 'flag':
+            updatedApplication.status = 'red-flagged';
+            updatedApplication.flagReason = reason;
+            setSuccessMessage('Application has been red-flagged');
+            break;
+          case 'dispose':
+            updatedApplication.status = 'disposed';
+            updatedApplication.disposalReason = reason;
+            setSuccessMessage('Application has been disposed');
+            break;
+          case 'recommend':
+            // In a real app, this would change the status differently based on the role
+            updatedApplication.status = 'pending';
+            setSuccessMessage('Application has been recommended for approval');
+            break;
+          case 'not-recommend':
+            // In a real app, this would change the status differently based on the role
+            updatedApplication.status = 'pending';
+            setSuccessMessage('Application has been marked as not recommended');
+            break;
+          case 're-enquiry':
+            updatedApplication.status = 'pending';
+            setSuccessMessage('Application has been marked for re-enquiry');
+            break;
+        }
+
+        updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
+        setApplication(updatedApplication);
+        setIsProcessModalOpen(false);
+
+        // Trigger an immediate sidebar counts refresh so the UI updates
+        try {
+          refreshCounts(true);
+        } catch (e) {
+          /* ignore */
+        }
+
+        // Navigate to inbox/forwarded after successful processing
+        setActiveNavigationPath('/inbox/forwarded');
+        await router.push('/inbox/forwarded');
+      } catch (error) {
+        setErrorMessage('Failed to process application. Please try again.');
+        throw error;
+      } finally {
+        setIsProcessing(false);
+      }
+    });
+
+    if (result === null) return; // action was blocked as duplicate
   };
   const handleForwardApplication = async (recipient: string, comments: string) => {
     if (!application) return;
 
-    setIsForwarding(true);
+    const actionId = `forward-application-${application.id}`;
 
-    try {
-      // In a real app, this would be an API call
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+    const result = await executeAction(actionId, async () => {
+      setIsForwarding(true);
 
-      const updatedApplication = { ...application };
-      updatedApplication.forwardedFrom = userRole;
-      updatedApplication.forwardedTo = recipient;
-      updatedApplication.forwardComments = comments; // Store comments
-      updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
-
-      setApplication(updatedApplication);
-      setIsForwardModalOpen(false);
-      setSuccessMessage(`Application has been forwarded to ${recipient}`);
-      // Trigger an immediate sidebar counts refresh so the UI updates
       try {
-        refreshCounts(true);
-      } catch (e) {
-        /* ignore */
-      }
+        // In a real app, this would be an API call
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Redirect to inbox/forwarded after successful forwarding
-      setTimeout(() => {
-        router.push('/inbox/forwarded');
-      }, 2000);
-    } catch (error) {
-      setErrorMessage('Failed to forward application. Please try again.');
-    } finally {
-      setIsForwarding(false);
-    }
+        const updatedApplication = { ...application };
+        updatedApplication.forwardedFrom = userRole;
+        updatedApplication.forwardedTo = recipient;
+        updatedApplication.forwardComments = comments; // Store comments
+        updatedApplication.lastUpdated = new Date().toISOString().split('T')[0];
+
+        setApplication(updatedApplication);
+        setIsForwardModalOpen(false);
+        setSuccessMessage(`Application has been forwarded to ${recipient}`);
+        // Trigger an immediate sidebar counts refresh so the UI updates
+        try {
+          refreshCounts(true);
+        } catch (e) {
+          /* ignore */
+        }
+
+        // Navigate to inbox/forwarded after successful forwarding
+        setActiveNavigationPath('/inbox/forwarded');
+        await router.push('/inbox/forwarded');
+      } catch (error) {
+        setErrorMessage('Failed to forward application. Please try again.');
+        throw error;
+      } finally {
+        setIsForwarding(false);
+      }
+    });
+
+    if (result === null) return; // action was blocked as duplicate
   };
 
   // Enhanced print function using our PDF utility
@@ -454,40 +521,231 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   };
 
-  // Simple print method using browser's print dialog
+  // Print attached documents (not UI chrome). Excludes processing UI; includes application history.
   const handleBrowserPrint = () => {
-    // Create a new window for printing
-    const printWindow = window.open('', '_blank');
-    if (!printWindow || !application) return;
+    if (!application) {
+      alert('No application loaded to print.');
+      return;
+    }
 
-    // Use our HTML generator function for consistent formatting
-    // TODO: Fix print content with correct ApplicationData interface
-    const printContent = `<div>Application Details for ${application?.id}</div>`;
+    try {
+      // Collect attachments from top-level `documents` (UI) and workflow histories
+      const attachments: Array<any> = [];
+      if ((application as any).documents && Array.isArray((application as any).documents)) {
+        attachments.push(...(application as any).documents);
+      }
+      // Backwards-compat: accept `attachments` field if present
+      if ((application as any).attachments && Array.isArray((application as any).attachments)) {
+        attachments.push(...(application as any).attachments);
+      }
+      if (
+        (application as any).workflowHistories &&
+        Array.isArray((application as any).workflowHistories)
+      ) {
+        (application as any).workflowHistories.forEach((h: any) => {
+          if (h.attachments && Array.isArray(h.attachments)) attachments.push(...h.attachments);
+        });
+      }
 
-    printWindow.document.open();
-    printWindow.document.write(`
-      <!DOCTYPE html>
+      if (attachments.length === 0) {
+        // If there are no attachments, still provide history-only printable document
+        if (!confirm('No attached documents found. Print application history only?')) {
+          setShowPrintOptions(false);
+          return;
+        }
+      }
+
+      // Build application header
+      const appTitle = `Application ${String(application.id)}`;
+      const applicantName =
+        (application as any).applicantName || (application as any).fullName || '';
+
+      // Build history HTML
+      let historyHtml = '';
+      if (
+        (application as any).workflowHistories &&
+        Array.isArray((application as any).workflowHistories)
+      ) {
+        historyHtml += `<section class="history"><h2>Application History</h2>`;
+        historyHtml += `<ol class="history-list">`;
+        (application as any).workflowHistories.forEach((h: any) => {
+          const when = h?.createdAt || h?.date || '';
+          const who = h?.performedBy || h?.user || h?.actor || '';
+          const action = h?.action || h?.status || '';
+          const comment = h?.comments || h?.comment || h?.notes || '';
+          historyHtml += `<li class="history-item"><div class="meta"><div class="when">${String(when)}</div><div class="who">${String(who)}</div><div class="action">${String(action)}</div></div>`;
+          if (comment) historyHtml += `<div class="comment">${String(comment)}</div>`;
+          historyHtml += `</li>`;
+        });
+        historyHtml += `</ol></section>`;
+      }
+
+      // Build attachments HTML — each attachment on its own page-break block
+      let attachmentsHtml = '';
+      attachments.forEach((att: any, idx: number) => {
+        const name = att?.name || att?.fileName || `attachment-${idx + 1}`;
+        const url = att?.url || att?.path || att?.downloadUrl;
+        const type = att?.contentType || att?.mime || '';
+        if (!url) return;
+
+        // Normalize a human friendly label for the document type/category
+        const label = (att?.type || att?.category || '').toString();
+        attachmentsHtml += `<section class="doc-block" data-attachment-index="${idx}">
+            <h3 class="doc-title">${String(name)}</h3>
+            ${label ? `<div class="doc-label" style="font-size:12px;color:#374151;margin-bottom:6px;">${label.toUpperCase()}</div>` : ''}`;
+
+        // Embed PDFs and other embeddable types using object/iframe; images with img tag
+        if (/pdf/i.test(type) || name.toLowerCase().endsWith('.pdf')) {
+          attachmentsHtml += `<object data="${url}" type="application/pdf" class="embedded-doc">`;
+          attachmentsHtml += `<p>Unable to display PDF. <a href="${url}" target="_blank" rel="noopener">Open or download</a></p>`;
+          attachmentsHtml += `</object>`;
+        } else if (/^image\//i.test(type) || /\.(png|jpe?g|gif|svg)$/i.test(name)) {
+          attachmentsHtml += `<img src="${url}" alt="${String(name)}" class="embedded-image" />`;
+        } else {
+          // Fallback: provide a download link and attempt iframe
+          attachmentsHtml += `<iframe src="${url}" class="embedded-doc-iframe"></iframe>`;
+          attachmentsHtml += `<p><a href="${url}" target="_blank" rel="noopener">Open ${String(name)}</a></p>`;
+        }
+
+        attachmentsHtml += `</section>`;
+      });
+
+      // Compose full HTML for the print window — styled to match the public application page
+      const statusLabel = formatStatusLabel(
+        (application as any).workflowStatus || (application as any).status
+      );
+      const html = `<!doctype html>
       <html>
         <head>
-          <title>Application ${application.id} - Print</title>
           <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <title>${appTitle} - Documents</title>
+          <style>
+            html,body{height:100%;}
+            body{font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:#111; margin:0; background:#f8fafc}
+            .page{max-width:900px;margin:24px auto;background:#fff;border:1px solid #e6eef8;border-radius:10px;overflow:hidden}
+            .print-header{background:#001F54;color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center}
+            .brand{display:flex;gap:12px;align-items:center}
+            .brand .logo{width:44px;height:44px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;border-radius:8px}
+            .brand h1{margin:0;font-size:18px}
+            .brand p{margin:0;font-size:12px;opacity:0.9}
+            .status-badge{background:#fff;color:#001F54;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px}
+            .content{padding:20px 28px}
+            .card{background:#fff;padding:18px;border-radius:8px;border:1px solid #eef2f7;margin-bottom:18px}
+            .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+            .photo{width:140px;height:180px;object-fit:cover;border:1px solid #e6eef8;border-radius:6px}
+            h2{font-size:16px;margin:0 0 8px}
+            .muted{color:#6b7280;font-size:13px}
+            .label{font-size:12px;color:#6b7280}
+            .value{font-weight:600;color:#111}
+            .documents{margin-top:8px}
+            .doc-item{padding:12px;border:1px solid #eef2f7;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+            .doc-meta{display:flex;gap:12px;align-items:center}
+            .doc-type{font-size:12px;color:#065f46;font-weight:700}
+            .doc-name{font-size:13px;color:#0f172a}
+            .doc-actions button{margin-left:8px;padding:8px 12px;border-radius:6px;border:1px solid #e6eef8;background:#fff;cursor:pointer}
+            .history{margin-top:12px}
+            .history-item{padding:12px;border-left:4px solid #e6eef8;background:#fbfdff;margin-bottom:8px;border-radius:4px}
+            .history-meta{display:flex;gap:12px;color:#374151;font-size:13px}
+            @media print{ body{background:#fff} .print-header{page-break-after:avoid} .doc-item{page-break-inside:avoid} .history-item{page-break-inside:avoid} }
+          </style>
         </head>
         <body>
-          ${printContent}
-          <div style="margin-top: 30px; text-align: center;">
-            <button onclick="window.print();">Print</button>
-            <button onclick="window.close();">Close</button>
+          <div class="page">
+            <div class="print-header">
+              <div class="brand">
+                <div class="logo">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C7.03 2 3 6.03 3 11c0 5.86 5.06 10.48 9 11 3.94-.52 9-5.14 9-11 0-4.97-4.03-9-9-9z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div>
+                  <h1>Arms License Application</h1>
+                  <p>Public / Official Printout</p>
+                </div>
+              </div>
+              <div class="status-badge">${String(statusLabel).toUpperCase()}</div>
+            </div>
+
+            <div class="content">
+              <div class="card">
+                <div style="display:flex;gap:18px;align-items:flex-start">
+                  <div style="flex:1">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <div>
+                        <div class="label">Application ID</div>
+                        <div class="value">${String((application as any).id || applicationId || (application as any).applicationId || '')}</div>
+                      </div>
+                      <div style="text-align:right">
+                        ${(application as any).acknowledgementNo || (application as any).acknowledgement_no ? `<div class="label">Acknowledgement No.</div><div class="value">${String((application as any).acknowledgementNo || (application as any).acknowledgement_no)}</div>` : ''}
+                      </div>
+                    </div>
+
+                    <h2 style="margin-top:12px">Applicant Information</h2>
+                    <div class="grid" style="grid-template-columns:2fr 140px;">
+                      <div>
+                        <div class="label">Full Name</div>
+                        <div class="value">${String(applicantName || (application as any).applicantName || '')}</div>
+                        <div style="height:8px"></div>
+                        <div class="label">Date of Birth</div>
+                        <div class="value">${String((application as any).dateOfBirth || (application as any).dob || '')}</div>
+                        <div style="height:8px"></div>
+                        <div class="label">Gender</div>
+                        <div class="value">${String((application as any).sex || (application as any).gender || '')}</div>
+                      </div>
+                      <div style="text-align:right">
+                        ${(application as any).photoUrl || (application as any).photo ? `<img src="${(application as any).photoUrl || (application as any).photo}" class="photo"/>` : `<div class="photo" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;background:#f3f4f6">No Photo</div>`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <h2>Documents Uploaded</h2>
+                <div class="documents">
+                  ${attachmentsHtml || '<div class="muted">No documents uploaded</div>'}
+                </div>
+              </div>
+
+              <div class="card">
+                <h2>Application History</h2>
+                <div class="history">
+                  ${historyHtml || '<div class="muted">No history available</div>'}
+                </div>
+              </div>
+
+              <div style="text-align:center;margin-top:12px;color:#6b7280;font-size:12px">Generated: ${new Date().toLocaleString()}</div>
+
+              <div style="margin-top:18px;text-align:center;">
+                <button onclick="window.print();" style="padding:8px 14px;margin-right:8px;border-radius:6px;border:1px solid #e6eef8;background:#fff">Print</button>
+                <button onclick="window.close();" style="padding:8px 14px;border-radius:6px;border:1px solid #e6eef8;background:#fff">Close</button>
+              </div>
+            </div>
           </div>
           <script>
-            setTimeout(() => { window.print(); }, 500);
+            function tryPrint(){ try{ window.focus(); window.print(); }catch(e){} }
+            window.addEventListener('load', function(){ setTimeout(tryPrint, 500); });
           </script>
         </body>
-      </html>
-    `);
+      </html>`;
 
-    printWindow.document.close();
-    setShowPrintOptions(false);
+      const w = window.open('', '_blank');
+      if (!w) {
+        alert('Popup blocked. Please allow popups for this site to print documents.');
+        setShowPrintOptions(false);
+        return;
+      }
+
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+
+      setShowPrintOptions(false);
+    } catch (err) {
+      console.error('Print failed', err);
+      // Fallback: inform user and do not print the UI
+      alert('Unable to produce printable document. Please try downloading attachments manually.');
+      setShowPrintOptions(false);
+    }
   };
 
   // Handle divider drag start
@@ -567,37 +825,30 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       {/* Custom Header with Breadcrumb, Title and Status */}
       <header className='fixed top-0 left-0 right-0 bg-[#001F54] shadow-lg z-10'>
         <div className='px-6 py-4'>
-          {/* Breadcrumb Navigation */}
-          <nav className='mb-2' aria-label='Breadcrumb'>
-            <ol className='flex items-center space-x-2 text-sm'>
-              <li>
-                <button
-                  onClick={() => router.push('/inbox/forwarded')}
-                  className='text-white text-opacity-70 hover:text-opacity-100 transition-colors'
-                >
-                  Home
-                </button>
-              </li>
-              <li className='text-white text-opacity-50'>/</li>
-              <li>
-                <span className='text-white text-opacity-70'>Application Details</span>
-              </li>
-              <li className='text-white text-opacity-50'>/</li>
-              <li>
-                <span className='font-medium text-white'>
-                  Application ID: {applicationId || '...'}
-                </span>
-              </li>
-            </ol>
-          </nav>
-
           {/* Title and Status Row */}
           <div className='flex items-center justify-between'>
-            <div>
-              <h1 className='text-2xl font-bold text-white'>Arms License</h1>
-              <p className='text-white text-opacity-80 mt-1'>Application ID: {applicationId || '...'}</p>
-            </div>
-            
+            <nav className='mb-2' aria-label='Breadcrumb'>
+              <ol className='flex items-center space-x-2 text-sm'>
+                <li>
+                  <button
+                    onClick={() => router.push('/inbox/forwarded')}
+                    className='text-white text-opacity-70 hover:text-opacity-100 transition-colors'
+                  >
+                    Home
+                  </button>
+                </li>
+                <li className='text-white text-opacity-50'>/</li>
+                <li>
+                  <span className='text-white text-opacity-70'>Application Details</span>
+                </li>
+                <li className='text-white text-opacity-50'>/</li>
+                <li>
+                  <span className='font-medium text-white'>
+                    Application ID: {applicationId || '...'}
+                  </span>
+                </li>
+              </ol>
+            </nav>
             {/* Current Status */}
             <div className='flex items-center space-x-3'>
               <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
@@ -617,17 +868,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   </svg>
                 </div>
                 <div>
-                  <p className='text-xs text-white text-opacity-70'>Current Status</p>
                   <span
                     className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${getStatusBadgeClass(
                       application ? (application.status ?? application.status_id) : undefined
                     )}`}
                   >
                     {application
-                      ? application.workflowStatus?.name ||
-                        (typeof application.status === 'string'
-                          ? application.status.charAt(0).toUpperCase() + application.status.slice(1)
-                          : String(application.status ?? application.status_id))
+                      ? formatStatusLabel(
+                          application.workflowStatus || application.status || application.status_id
+                        )
                       : 'Loading'}
                   </span>
                 </div>
@@ -715,7 +964,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         </div>
 
         {/* Application Content Card */}
-        <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+        <div
+          data-printable='application-card'
+          className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden avoid-break'
+        >
           {(() => {
             return application;
           })() ? (
@@ -723,9 +975,21 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               {/* Applicant Information Block */}
               <div className='p-6 lg:p-8' ref={printRef}>
                 <div className='mb-8'>
-                  <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center'>
-                    <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
-                    Applicant Information
+                  <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center justify-between'>
+                    <span className='flex items-center'>
+                      <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
+                      Applicant Information
+                    </span>
+                    <div className='flex items-center space-x-2'>
+                      <button
+                        type='button'
+                        onClick={() => handleBrowserPrint()}
+                        className='inline-flex items-center px-3 py-1.5 bg-white text-[#001F54] border border-gray-200 rounded-md shadow-sm text-sm hover:bg-gray-50'
+                        title='Print application details'
+                      >
+                        Print
+                      </button>
+                    </div>
                   </h2>
 
                   <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
@@ -763,7 +1027,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
                             <p className='text-sm text-gray-500 font-medium mb-1'>Gender</p>
                             <p className='font-semibold text-gray-900'>
-                              {application.sex.charAt(0) + application.sex.slice(1).toLowerCase()}
+                              {formatGender(application.sex)}
                             </p>
                           </div>
                         )}
@@ -847,7 +1111,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               Workflow Status
                             </p>
                             <p className='font-semibold text-gray-900'>
-                              {application.workflowStatus.name}
+                              {formatStatusLabel(application.workflowStatus)}
                             </p>
                           </div>
                         )}
@@ -855,7 +1119,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                         <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
                           <p className='text-sm text-gray-500 font-medium mb-1'>Application Type</p>
                           <p className='font-semibold text-gray-900'>
-                            {application?.applicationType || 'Fresh License'}
+                            {formatApplicationType(application?.applicationType)}
                           </p>
                         </div>
 
@@ -887,16 +1151,150 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           className='w-60 h-60 object-cover rounded-md border'
                         />
                       </div>
-                      
+
                       {/* QR Code Section - Only visible to ZS role */}
                       {application && (
                         <div className='mt-4'>
-                          <QRCodeDisplay
-                            applicationId={application.id}
-                            userRole={userRole}
-                          />
+                          <QRCodeDisplay applicationId={application.id} userRole={userRole} />
                         </div>
                       )}
+
+                      {/* Profile summary - compact, printable */}
+                      <div className='mt-6 bg-white rounded-lg p-4 border border-gray-100'>
+                        <h3 className='text-sm font-semibold text-gray-700 mb-3'>Profile</h3>
+                        <dl className='grid grid-cols-1 gap-y-2 text-sm text-gray-700'>
+                          <div className='flex justify-between'>
+                            <dt className='text-gray-500'>Application ID</dt>
+                            <dd className='font-medium'>
+                              {application?.id || applicationId || '—'}
+                            </dd>
+                          </div>
+                          <div className='flex justify-between'>
+                            <dt className='text-gray-500'>Name</dt>
+                            <dd className='font-medium'>
+                              {[
+                                application?.firstName,
+                                application?.middleName,
+                                application?.lastName,
+                              ]
+                                .filter(Boolean)
+                                .join(' ') ||
+                                application?.applicantName ||
+                                '—'}
+                            </dd>
+                          </div>
+                          {application?.parentOrSpouseName && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Parent / Spouse</dt>
+                              <dd className='font-medium'>{application.parentOrSpouseName}</dd>
+                            </div>
+                          )}
+                          {application?.mobileNumber && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Mobile</dt>
+                              <dd className='font-medium'>
+                                {formatPhone(application.mobileNumber)}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.email && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Email</dt>
+                              <dd className='font-medium truncate'>{application.email}</dd>
+                            </div>
+                          )}
+                          {(application?.dateOfBirth || application?.dob) && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>DOB</dt>
+                              <dd className='font-medium'>
+                                {application?.dateOfBirth
+                                  ? new Date(application.dateOfBirth).toLocaleDateString('en-IN')
+                                  : application?.dob
+                                    ? new Date(application.dob).toLocaleDateString('en-IN')
+                                    : '—'}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.sex && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Gender</dt>
+                              <dd className='font-medium'>{formatGender(application.sex)}</dd>
+                            </div>
+                          )}
+                          {application?.aadharNumber && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Aadhar</dt>
+                              <dd className='font-medium font-mono'>{application.aadharNumber}</dd>
+                            </div>
+                          )}
+                          {application?.panNumber && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>PAN</dt>
+                              <dd className='font-medium font-mono'>{application.panNumber}</dd>
+                            </div>
+                          )}
+                          {application?.presentAddress?.addressLine && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Present Address</dt>
+                              <dd className='font-medium text-right max-w-[220px] truncate'>
+                                {application.presentAddress.addressLine}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.permanentAddress?.addressLine && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Permanent Address</dt>
+                              <dd className='font-medium text-right max-w-[220px] truncate'>
+                                {application.permanentAddress.addressLine}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.occupationAndBusiness?.occupation && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Occupation</dt>
+                              <dd className='font-medium'>
+                                {application.occupationAndBusiness.occupation}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.applicationType && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Application Type</dt>
+                              <dd className='font-medium'>
+                                {formatApplicationType(application.applicationType)}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.applicationDate && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Submitted</dt>
+                              <dd className='font-medium'>
+                                {new Date(application.applicationDate).toLocaleString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </dd>
+                            </div>
+                          )}
+                          {application?.currentUser && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Current Handler</dt>
+                              <dd className='font-medium'>{application.currentUser.username}</dd>
+                            </div>
+                          )}
+                          {application?.workflowStatus?.name && (
+                            <div className='flex justify-between'>
+                              <dt className='text-gray-500'>Status</dt>
+                              <dd className='font-medium'>
+                                {formatStatusLabel(application.workflowStatus)}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                      </div>
                     </aside>
                   </div>
                 </div>
@@ -1459,9 +1857,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             <div className='flex items-center'>
                               <div
                                 className={`p-2 rounded-lg mr-3 ${
-                                  doc.type === 'image'
+                                  String(doc.type || '')
+                                    .toLowerCase()
+                                    .includes('image')
                                     ? 'bg-green-100 text-green-600'
-                                    : doc.type === 'pdf'
+                                    : String(doc.type || '')
+                                          .toLowerCase()
+                                          .includes('pdf')
                                       ? 'bg-red-100 text-red-600'
                                       : 'bg-blue-100 text-blue-600'
                                 }`}
@@ -1473,7 +1875,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   viewBox='0 0 24 24'
                                   stroke='currentColor'
                                 >
-                                  {doc.type === 'image' ? (
+                                  {String(doc.type || '')
+                                    .toLowerCase()
+                                    .includes('image') ? (
                                     <path
                                       strokeLinecap='round'
                                       strokeLinejoin='round'
@@ -1491,9 +1895,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 </svg>
                               </div>
                               <div>
-                                <span className='font-medium text-gray-900'>{doc.type}</span>
-                                <p className='text-xs text-gray-500 mt-1'>
-                                  {(doc.name || 'file').toString().toLowerCase()}
+                                <span className='font-medium text-gray-900'>
+                                  {String(doc.type || '').toUpperCase() || 'DOCUMENT'}
+                                </span>
+                                <p className='text-xs text-gray-500 mt-1 break-words'>
+                                  {String(doc.name || 'file')}
                                 </p>
                               </div>
                             </div>

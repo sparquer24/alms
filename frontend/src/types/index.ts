@@ -82,6 +82,9 @@ export interface ApplicationData {
   applicantName: string;
   applicantMobile: string;
   applicantEmail?: string;
+  // Legacy / alternate field names used by some API transforms
+  mobileNumber?: string;
+  email?: string;
   parentOrSpouseName?: string;
   fatherName?: string;
   sex?: 'MALE' | 'FEMALE' | 'OTHER';
@@ -168,6 +171,12 @@ export interface ApplicationData {
       id: number;
       name: string;
     };
+  };
+  // Raw contact object from API (kept for compatibility)
+  contactInfo?: {
+    mobileNumber?: string;
+    email?: string;
+    [key: string]: any;
   };
   assignedTo: string;
   forwardedFrom?: string;

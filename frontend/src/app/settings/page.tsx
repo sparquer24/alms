@@ -1,16 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { useAuthSync } from '../../hooks/useAuthSync';
+import { useDispatch } from 'react-redux';
+import { logoutUser } from '../../store/thunks/authThunks';
 import { getUserFromCookie } from '../../utils/authCookies';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function SettingsPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, token } = useAuthSync();
+  const dispatch = useDispatch();
+
   const router = useRouter();
+  const handleLogout = useCallback(async () => {
+    try {
+      if (token) {
+        // Call shared logout thunk to clear state/cookies
+        await dispatch(logoutUser() as any);
+        // small delay to ensure cleanup
+        await new Promise(res => setTimeout(res, 250));
+      }
+    } finally {
+      router.push('/login');
+    }
+  }, [dispatch, router, token]);
 
   const [cookieUser, setCookieUser] = useState<any | null>(null);
 
@@ -248,6 +264,15 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+        {/* Logout Button */}
+        <div className='mt-8'>
+          <button
+            onClick={handleLogout}
+            className='w-full md:w-1/3 px-4 py-2 bg-red-600 text-white rounded-md shadow hover:bg-red-700'
+          >
+            Logout
+          </button>
         </div>
       </main>
     </div>
