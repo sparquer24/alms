@@ -3,7 +3,7 @@ import jsCookie from 'js-cookie';
 
 // Normalize base URL to avoid accidental duplicate '/api' segments when
 // callers pass endpoints that also contain '/api'. Trim any trailing slash.
-const NORMALIZED_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+const NORMALIZED_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
 
 const axiosInstance = axios.create({
   baseURL: NORMALIZED_BASE_URL,

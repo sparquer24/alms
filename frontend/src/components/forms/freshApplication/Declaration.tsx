@@ -52,9 +52,16 @@ const Declaration = () => {
   };
 
   const validateForm = (): boolean => {
-    // All checkboxes must be checked to proceed
-    if (!form.declareTrue || !form.declareFalseInfo || !form.declareTerms) {
-      setError('Please accept all declarations to proceed with submission.');
+    if (!form.declareTrue) {
+      setError('Please confirm that you declare the information to be true and correct.');
+      return false;
+    }
+    if (!form.declareFalseInfo) {
+      setError('Please confirm that you are aware of legal consequences.');
+      return false;
+    }
+    if (!form.declareTerms) {
+      setError('Please agree to the terms and conditions.');
       return false;
     }
     return true;
@@ -74,25 +81,19 @@ const Declaration = () => {
     setError(null);
 
     try {
-      // Prepare PATCH payload with declaration fields
       const payload = {
         isDeclarationAccepted: form.declareTrue,
         isAwareOfLegalConsequences: form.declareFalseInfo,
         isTermsAccepted: form.declareTerms,
       };
-      // Make PATCH request to submit application with isSubmit=true parameter
       const response = await patchData(
         `/application-form?applicationId=${applicantId}&isSubmit=true`,
         payload
       );
-      // Show success modal instead of alert
       setShowSuccessModal(true);
     } catch (err: any) {
-      setError(
-        err?.message ||
-          err?.response?.data?.error ||
-          'Failed to submit application. Please try again.'
-      );
+      const errorMsg = err?.message || 'Failed to submit application. Please try again.';
+      setError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

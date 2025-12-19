@@ -375,10 +375,19 @@ export class AnalyticsService {
     /**
      * Get applications summary and list for admin analytics
      * Supports optional status filter (APPROVED | REJECTED | PENDING)
+     * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string): Promise<{ data: ApplicationRecordDto[]; total: number; page?: number; limit?: number }> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, stateId?: number, roleCode?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
+
+            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
+            // Filter by permanent address state since applications don't have direct stateId
+            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                where.permanentAddress = {
+                    stateId: stateId
+                };
+            }
 
             if (status) {
                 const s = String(status).toUpperCase();

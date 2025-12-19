@@ -5,7 +5,7 @@
 
 // Base API URL
 // Normalize and trim trailing slash so constructed endpoints are consistent
-export const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+export const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
 
 // Authentication APIs
 export const AUTH_APIS = {
