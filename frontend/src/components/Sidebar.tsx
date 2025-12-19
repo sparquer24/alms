@@ -1449,7 +1449,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           <button
             type='button'
             onClick={handleLogout}
-            className='flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150 hover:bg-gray-100 text-gray-700'
+            className='flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150 bg-[#001F54] hover:bg-[#001F54] text-white'
           >
             <span
               className='inline-flex items-center justify-center w-6 h-6 mr-2'
