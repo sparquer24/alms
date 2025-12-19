@@ -432,6 +432,26 @@ export class ApplicationFormService {
         return [new BadRequestException(`Application with ID ${applicationId} not found`), null];
       }
 
+      // Validate declaration fields only when submitting
+      if (isSubmit === true) {
+        const flags = this.extractAcceptanceFlagsFromPayload(data);
+        const missingFlags = [];
+        
+        if (flags.isDeclarationAccepted !== true) {
+          missingFlags.push('isDeclarationAccepted should not be empty');
+        }
+        if (flags.isAwareOfLegalConsequences !== true) {
+          missingFlags.push('isAwareOfLegalConsequences should not be empty');
+        }
+        if (flags.isTermsAccepted !== true) {
+          missingFlags.push('isTermsAccepted should not be empty');
+        }
+        
+        if (missingFlags.length > 0) {
+          return [new BadRequestException(missingFlags.join(',')), null];
+        }
+      }
+
       const updatedSections: string[] = [];
 
       await prisma.$transaction(async (tx) => {
