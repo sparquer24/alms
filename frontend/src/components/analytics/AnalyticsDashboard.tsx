@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
@@ -40,9 +40,36 @@ export default function AnalyticsDashboard() {
   const [toDate, setToDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
   const [search, setSearch] = useState('');
+  // Local input for license search to debounce network requests
+  const [licenseInput, setLicenseInput] = useState('');
   const [status, setStatus] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 6;
+
+  // Debounce license input -> update `search` after a short delay
+  useEffect(() => {
+    const t = setTimeout(() => {
+      // only update and trigger refetch when trimmed value changes
+      const trimmed = licenseInput.trim();
+      if (trimmed !== search) {
+        setSearch(trimmed);
+        setPage(1);
+        if (trimmed) {
+          // when filtering by license, remove date range filters
+          setFromDate('');
+          setToDate('');
+        } else {
+          // restore default 30-day window when search cleared
+          const date = new Date();
+          date.setDate(date.getDate() - 30);
+          setFromDate(format(date, 'yyyy-MM-dd'));
+          setToDate(format(new Date(), 'yyyy-MM-dd'));
+        }
+      }
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [licenseInput]);
 
   const {
     data: applicationsByWeek = [],
@@ -92,12 +119,38 @@ export default function AnalyticsDashboard() {
   } = useQuery<ApplicationsDetailsResult>({
     queryKey: ['analytics-applications-details', page, pageSize, search, status, fromDate, toDate],
     queryFn: async () => {
-      // include fromDate/toDate in API params so backend can filter table results
+      const qStr = search.trim();
+      // If user is searching by license id, fetch all (no date-filter) and client-filter
+      if (qStr) {
+        const res = await analyticsService.getApplicationsDetails({
+          page: 1,
+          limit: 100000,
+          status: status || undefined,
+          q: undefined,
+          fromDate: undefined,
+          toDate: undefined,
+          sort: '-updatedAt',
+        });
+        const filtered = (res.data || []).filter(r =>
+          (r.licenseId || '').toLowerCase().includes(qStr.toLowerCase())
+        );
+        return {
+          success: true,
+          data: filtered,
+          meta: {
+            total: filtered.length,
+            page: 1,
+            limit: filtered.length,
+          },
+        } as ApplicationsDetailsResult;
+      }
+
+      // default: include fromDate/toDate so backend can filter server-side
       return analyticsService.getApplicationsDetails({
         page,
         limit: pageSize,
         status: status || undefined,
-        q: search.trim() || undefined,
+        q: undefined,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
         sort: '-updatedAt',
@@ -279,39 +332,27 @@ export default function AnalyticsDashboard() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
               gap: AdminSpacing.lg,
             }}
           >
             <div>
-              <h3
-                style={{
-                  margin: 0,
-                  marginBottom: AdminSpacing.sm,
-                  color: 'black',
-                  fontSize: 20,
-                  fontWeight: 800,
-                }}
+              <h2
+                style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}
               >
                 Applications by Week
-              </h3>
+              </h2>
               <AdminCard>
                 <TimelineChart data={applicationsByWeek} colors={colors} loading={isLoading} />
               </AdminCard>
             </div>
 
             <div>
-              <h3
-                style={{
-                  margin: 0,
-                  marginBottom: AdminSpacing.sm,
-                  color: 'black',
-                  fontSize: 20,
-                  fontWeight: 800,
-                }}
+              <h2
+                style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}
               >
                 Role Load
-              </h3>
+              </h2>
               <AdminCard>
                 <RoleLoadChart data={roleLoad} colors={colors} loading={isLoading} />
               </AdminCard>
@@ -319,17 +360,11 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div>
-            <h3
-              style={{
-                margin: 0,
-                marginBottom: AdminSpacing.sm,
-                color: 'black',
-                fontSize: 20,
-                fontWeight: 800,
-              }}
+            <h2
+              style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}
             >
               Status Distribution
-            </h3>
+            </h2>
             <AdminCard>
               <StatusDistributionChart
                 data={applicationStates}
@@ -343,81 +378,141 @@ export default function AnalyticsDashboard() {
         {/* Spacer */}
         <div style={{ height: AdminSpacing.lg }} />
 
-        {/* Bottom row removed — applications table shown below; activities moved to end */}
-
         {/* Applications Table */}
         <div style={{ marginTop: AdminSpacing.lg }}>
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: AdminSpacing.sm,
+              alignItems: 'end',
+              marginBottom: AdminSpacing.md,
+              flexWrap: 'wrap',
+              gap: AdminSpacing.md,
             }}
           >
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <button
-                onClick={() => handleExport(applications, 'applications_details')}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  border: '1px solid ' + colors.border,
-                  background: colors.surface,
-                  color: colors.text.primary,
-                  fontWeight: 700,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                }}
-              >
-                Export CSV
-              </button>
-              <button
-                onClick={handleDownload}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  border: '1px solid ' + colors.border,
-                  background: colors.surface,
-                  color: colors.text.primary,
-                  fontWeight: 700,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                }}
-              >
-                Download Visible
-              </button>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}>
+                Applications Details
+              </h2>
+              <div style={{ color: colors.text.secondary, fontSize: 13, marginTop: 4 }}>
+                {totalApplicationsCount === 0 ? (
+                  'No applications'
+                ) : (
+                  <>
+                    Showing {start + 1} - {start + applications.length} of {totalApplicationsCount}
+                  </>
+                )}
+              </div>
             </div>
-            <div
-              style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: AdminSpacing.sm }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label style={{ fontSize: 12, color: colors.text.secondary, marginBottom: 6 }}>
-                  License ID
-                </label>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative' }}>
                 <input
-                  value={search}
-                  onChange={e => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
+                  value={licenseInput}
+                  onChange={e => setLicenseInput(e.target.value)}
                   placeholder='Search by License ID'
                   style={{
-                    padding: '8px 10px',
+                    padding: '8px 12px',
+                    paddingLeft: '36px',
                     borderRadius: 8,
                     border: '1px solid ' + colors.border,
-                    minWidth: 200,
+                    minWidth: 240,
+                    height: 38,
+                    fontSize: 14,
                   }}
                 />
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  strokeWidth={1.5}
+                  stroke='currentColor'
+                  style={{
+                    position: 'absolute',
+                    left: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 18,
+                    height: 18,
+                    color: colors.text.secondary,
+                  }}
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    d='M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 005.196 5.196z'
+                  />
+                </svg>
               </div>
 
-              {/* Note: From/To filters are centralized in FiltersHeader; keep only main search here */}
-            </div>
-            <div style={{ color: colors.text.secondary, fontSize: 13 }}>
-              {totalApplicationsCount === 0 ? (
-                'No applications'
-              ) : (
-                <>
-                  Showing {start + 1} - {start + applications.length} of {totalApplicationsCount}
-                </>
-              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => handleExport(applications, 'applications_details')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: '1px solid ' + colors.border,
+                    background: colors.surface,
+                    color: colors.text.primary,
+                    fontWeight: 600,
+                    fontSize: 13,
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    height: 38,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <svg
+                    xmlns='http://www.w3.org/2000/svg'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    strokeWidth={1.5}
+                    stroke='currentColor'
+                    style={{ width: 16, height: 16 }}
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3'
+                    />
+                  </svg>
+                  Export CSV
+                </button>
+                <button
+                  onClick={handleDownload}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: '1px solid ' + colors.border,
+                    background: colors.surface,
+                    color: colors.text.primary,
+                    fontWeight: 600,
+                    fontSize: 13,
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    height: 38,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <svg
+                    xmlns='http://www.w3.org/2000/svg'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    strokeWidth={1.5}
+                    stroke='currentColor'
+                    style={{ width: 16, height: 16 }}
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12l4.5 4.5m0 0l4.5-4.5m-4.5 4.5V3'
+                    />
+                  </svg>
+                  Download Visible
+                </button>
+              </div>
             </div>
           </div>
 
@@ -478,39 +573,24 @@ export default function AnalyticsDashboard() {
 
         {/* Admin Activities moved to end */}
         <div style={{ marginTop: AdminSpacing.lg }}>
-          <h2 style={{ margin: 0, marginBottom: AdminSpacing.sm, color: 'black' }}>
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'black' }}>
             Admin Activities
           </h2>
-          <div style={{ display: 'flex', gap: 8, marginBottom: AdminSpacing.sm }}>
-            <button
-              style={{
-                padding: '6px 10px',
-                borderRadius: 6,
-                border: '1px solid ' + colors.border,
-                background: colors.surface,
-                color: colors.text.primary,
-              }}
-            >
-              👥 Grouped by User
-            </button>
-            <button
-              style={{
-                padding: '6px 10px',
-                borderRadius: 6,
-                border: '1px solid ' + colors.border,
-                background: colors.surface,
-                color: colors.text.primary,
-              }}
-            >
-              📅 Timeline View
-            </button>
-          </div>
           <AdminCard>
-            <AdminActivityFeed
-              activities={adminActivities}
-              isLoading={activitiesLoading}
-              error={activitiesError ? String(activitiesError) : undefined}
-            />
+            <div
+              style={{
+                maxHeight: '420px',
+                overflowY: 'auto',
+                // small right padding so native scrollbar doesn't overlap content
+                paddingRight: AdminSpacing.sm,
+              }}
+            >
+              <AdminActivityFeed
+                activities={adminActivities}
+                isLoading={activitiesLoading}
+                error={activitiesError ? String(activitiesError) : undefined}
+              />
+            </div>
           </AdminCard>
         </div>
       </div>

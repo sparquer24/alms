@@ -327,6 +327,8 @@ export class AnalyticsController {
         @Query('limit') limit?: string,
         @Query('q') q?: string,
         @Query('sort') sort?: string,
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
         @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
         try {
@@ -338,7 +340,7 @@ export class AnalyticsController {
             const stateId = user?.stateId;
             const roleCode = user?.roleCode;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, stateId, roleCode);
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 

@@ -377,7 +377,7 @@ export class AnalyticsService {
      * Supports optional status filter (APPROVED | REJECTED | PENDING)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, stateId?: number, roleCode?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
@@ -408,6 +408,17 @@ export class AnalyticsService {
                     { almsLicenseId: { contains: qStr, mode: 'insensitive' } },
                     { currentUser: { is: { username: { contains: qStr, mode: 'insensitive' } } } },
                 ];
+            }
+
+            // Add date filtering if provided
+            if (fromDate || toDate) {
+                where.createdAt = {};
+                if (fromDate) {
+                    where.createdAt.gte = startOfDay(parseISO(fromDate));
+                }
+                if (toDate) {
+                    where.createdAt.lte = endOfDay(parseISO(toDate));
+                }
             }
 
             // Total matching records

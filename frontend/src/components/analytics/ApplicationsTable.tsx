@@ -1,7 +1,7 @@
 import React from 'react';
 import { AdminTable, AdminTableSkeleton } from '@/components/admin';
 import { format } from 'date-fns';
-import { AdminBorderRadius, AdminSpacing } from '@/styles/admin-design-system';
+import { AdminBorderRadius } from '@/styles/admin-design-system';
 import { ApplicationRecord } from '@/services/analyticsService';
 
 export const ApplicationsTable: React.FC<{
@@ -10,26 +10,11 @@ export const ApplicationsTable: React.FC<{
   start: number;
   total: number;
   colors: any;
-}> = ({ applications, loading, start, total, colors }) => {
+}> = ({ applications, loading, start, colors }) => {
   if (loading) return <AdminTableSkeleton rows={6} columns={6} />;
 
   return (
     <>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: AdminSpacing.md,
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'black' }}>
-          Applications
-        </h2>
-        <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
-          {total === 0 ? 'No applications' : `Showing ${start + 1} - ${start + applications.length} of ${total}`}
-        </span>
-      </div>
       <div
         style={{
           height: 300,
