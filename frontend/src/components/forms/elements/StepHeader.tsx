@@ -39,19 +39,15 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
   };
 
   return (
-    <header className='flex flex-col sm:flex-row sm:items-center w-full fixed top-0 left-0 z-40'>
+      <header className='w-full fixed top-0 left-0 z-40 h-20' aria-hidden={false}>
       <div className='w-full flex justify-center py-2 px-3'>
         <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase'>
           FRESH APPLICATION FORM
         </h1>
       </div>
-
-      <div
-        className='w-full sm:static sm:mt-0'
-        style={{ background: 'linear-gradient(90deg, #0d2977 0%, #23408e 100%)' }}
-      >
-        <div className='max-w-7xl mx-auto rounded-sm shadow px-2 py-1 mt-0 sm:mt-2'>
-          <div className='flex space-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-blue-100 px-2 py-1 justify-center items-center'>
+        <div
+          className='max-w-7xl mx-auto rounded-lg shadow px-2 py-1 mt-0  bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
+          <div className='flex space-x-2  px-2 py-1 justify-center items-center'>
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const pressed = pressedIndex === idx;
@@ -77,7 +73,9 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                       minWidth: 88,
                     }}
                   >
-                    <span className={`text-xs ${active ? 'font-bold' : 'font-semibold'}`}>{stepName}</span>
+                    <span className={`text-xs ${active ? 'font-bold' : 'font-semibold'}`}>
+                      {stepName}
+                    </span>
                   </button>
                   {active && (
                     <div className='w-0 h-0 border-l-6 border-r-6 border-t-6 border-transparent border-t-white mt-[-2px]' />
@@ -95,7 +93,6 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
             </div>
           )}
         </div>
-      </div>
     </header>
   );
 };

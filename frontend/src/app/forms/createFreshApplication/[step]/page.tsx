@@ -349,14 +349,14 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       <div
         className=' flex max-w-8xl px-4  justify-center sm:px-8 '
         style={{
-          paddingTop: 100, // This creates the space between header and form
+          paddingTop: 100, // match header height (80px)
           minHeight: '100vh',
         }}
       >
         <div
           className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0'
           style={{
-            maxHeight: 'calc(100vh - 100px )',
+            maxHeight: 'calc(100vh - 80px )',
             overflowY: 'auto',
           }}
         >
