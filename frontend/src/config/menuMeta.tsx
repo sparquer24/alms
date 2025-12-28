@@ -97,8 +97,8 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
     icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
   },
   roleMapping: {
-    label: 'Role Mapping',
-    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Mapping' />,
+    label: 'Role Management',
+    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
   },
   flowMapping: {
     label: 'Flow Mapping',

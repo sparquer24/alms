@@ -136,17 +136,33 @@ export class FlowMappingService {
         });
 
         if (nextRolesCheck.length !== nextRoleIds.length) {
-            const foundIds = nextRolesCheck.map(r => r.id);
-            const invalidIds = nextRoleIds.filter(id => !foundIds.includes(id));
-            throw new BadRequestException(`Invalid role IDs: ${invalidIds.join(', ')}`);
+            throw new NotFoundException(`One or more next roles IDs are invalid`);
+
+            // const foundIds = nextRolesCheck.map(r => r.id);
+            // const invalidIds = nextRoleIds.filter(id => !foundIds.includes(id));
+            // throw new BadRequestException(`Invalid role IDs: ${invalidIds.join(', ')}`);
+        }
+        if (nextRoleIds.includes(currentRoleId)) {
+            throw new BadRequestException(`A roleIds cannot map to itself as the next role.`);
         }
 
+        const savedMapping = await this.prisma.roleFlowMapping.upsert({
+            where: { currentRoleId },
+            update: {
+                nextRoleIds,
+                updatedBy: null,
+            },
+            create: {
+                currentRoleId,
+                nextRoleIds,
+            },
+        });
         // Detect circular dependency
         const circularity = await this.detectCircularDependency(currentRoleId, nextRoleIds);
 
         return {
             isValid: !circularity.hasCircle,
-            hasCircularDependency: circularity.hasCircle,
+            hasCircularDependency: circularity.hasCircle,  
             circlePath: circularity.circlePath || null,
             message: circularity.hasCircle
                 ? `Circular workflow detected: ${circularity.circlePath}`
@@ -197,9 +213,10 @@ export class FlowMappingService {
                     }
                 } else if (recursionStack.has(neighbor)) {
                     // Cycle detected
-                    const cycleStart = result.path.indexOf(neighbor);
-                    const circlePath = [...path, neighbor].slice(cycleStart).join(' → ');
-                    return { has: true, path: [...path, neighbor] };
+                    const cycleStart = path.indexOf(neighbor);
+                    const cycleEnd = path.length;
+                    const circlePath = [...path.slice(cycleStart), neighbor].join(' → ');
+                    return { has: true, path: [...path.slice(cycleStart), neighbor] };
                 }
             }
 

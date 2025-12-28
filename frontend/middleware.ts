@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Middleware to protect admin routes
- * Checks for authentication before allowing access to /admin/* routes
+ * Middleware to protect admin and super admin routes
+ * Checks for authentication before allowing access to /admin/* and /superAdmin/* routes
  */
 export function middleware(request: NextRequest) {
     const pathname = request.nextUrl.pathname;
 
-    // Only apply middleware to admin routes
-    if (!pathname.startsWith('/admin')) {
+    // Apply middleware to both admin and super admin routes
+    const isProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superAdmin');
+    
+    if (!isProtectedRoute) {
         return NextResponse.next();
     }
 
@@ -24,7 +26,7 @@ export function middleware(request: NextRequest) {
     }
 
     // Token exists - allow the request to proceed
-    // Final role validation will be done in the admin layout component
+    // Final role validation will be done in the layout component
     return NextResponse.next();
 }
 

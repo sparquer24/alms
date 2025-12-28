@@ -3,7 +3,7 @@ import jsCookie from 'js-cookie';
 
 // Normalize base URL to avoid accidental duplicate '/api' segments when
 // callers pass endpoints that also contain '/api'. Trim any trailing slash.
-const NORMALIZED_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+const NORMALIZED_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
 
 const axiosInstance = axios.create({
   baseURL: NORMALIZED_BASE_URL,
@@ -22,12 +22,16 @@ const extractErrorMessage = (error: any): string => {
   if (error?.response?.data?.details?.response?.message) {
     return error.response.data.details.response.message;
   }
-  // Try standard error paths
+  // Try standard error paths - check message first as it's more descriptive
+  if (error?.response?.data?.message) {
+    return error.response.data.message;
+  }
   if (error?.response?.data?.error) {
     return error.response.data.error;
   }
-  if (error?.response?.data?.message) {
-    return error.response.data.message;
+  // Check for plain data string
+  if (typeof error?.response?.data === 'string') {
+    return error.response.data;
   }
   if (error?.message) {
     return error.message;
@@ -117,7 +121,13 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 && typeof window !== 'undefined') {
+    const requestUrl = error?.config?.url || '';
+    
+    // Only redirect on 401 if it's NOT a login request
+    // Login requests should handle their own 401 errors to display messages
+    const isLoginRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/login');
+    
+    if (status === 401 && !isLoginRequest && typeof window !== 'undefined') {
       try {
         jsCookie.remove('auth');
         jsCookie.remove('user');

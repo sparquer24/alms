@@ -376,7 +376,7 @@ export class ApplicationFormService {
         if (!draftStatus) {
           throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
         }
-        const almsLicenseId = `ALMS${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0,8)}${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(8,14)}`;
+        const almsLicenseId = `ALMS${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 8)}${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(8, 14)}`;
 
         const draftStatusId = draftStatus.id;
 
@@ -432,9 +432,31 @@ export class ApplicationFormService {
         return [new BadRequestException(`Application with ID ${applicationId} not found`), null];
       }
 
+      // Validate declaration fields only when submitting
+      if (isSubmit === true) {
+        const flags = this.extractAcceptanceFlagsFromPayload(data);
+        const missingFlags = [];
+        
+        if (flags.isDeclarationAccepted !== true) {
+          missingFlags.push('isDeclarationAccepted should not be empty');
+        }
+        if (flags.isAwareOfLegalConsequences !== true) {
+          missingFlags.push('isAwareOfLegalConsequences should not be empty');
+        }
+        if (flags.isTermsAccepted !== true) {
+          missingFlags.push('isTermsAccepted should not be empty');
+        }
+        
+        if (missingFlags.length > 0) {
+          return [new BadRequestException(missingFlags.join(',')), null];
+        }
+      }
+
       const updatedSections: string[] = [];
 
       await prisma.$transaction(async (tx) => {
+
+
         // 1. Handle Present Address
         if (data.presentAddress) {
           const presentAddressData = {
@@ -698,7 +720,7 @@ export class ApplicationFormService {
         // 7. Handle Biometric Data
         if (data.biometricData) {
           const biometricDataObject = data.biometricData;
-          
+
           // Check if biometric data already exists for this application
           const existingBiometric = await tx.fLAFBiometricDatas.findUnique({
             where: { applicationId }
@@ -725,7 +747,7 @@ export class ApplicationFormService {
               } as any
             });
           }
-          
+
           updatedSections.push('biometricData');
         }
 
@@ -734,7 +756,7 @@ export class ApplicationFormService {
           // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
             where: { isStarted: true, isActive: true } as any
-          });   
+          });
 
           // Get current application details to know the current user
           const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
@@ -760,6 +782,7 @@ export class ApplicationFormService {
           };
           // mark submitted flag so it's written as part of the same update
           updateData.isSubmit = true;
+          updateData.isPending = true;
 
           // Update currentUserId if it was passed from auth token and is different from what's stored
           if (currentUserId && currentApp?.currentUserId !== currentUserId) {
@@ -899,22 +922,103 @@ export class ApplicationFormService {
       return [error, false];
     }
   }
+  /**
+   * Delete an entire application and its related child records. Only allowed for DRAFT applications.
+   * Returns [error, true] on success or [error, false] on failure.
+   */
+  async deleteApplicationById(applicationId: number): Promise<[any, boolean]> {
+    try {
+      const existing = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { id: true, workflowStatusId: true, presentAddressId: true, permanentAddressId: true }
+      });
+
+      if (!existing) {
+        return [new BadRequestException(`Application with ID ${applicationId} not found`), false];
+      }
+
+      // Verify application is in DRAFT status
+      const draftStatus = await prisma.statuses.findFirst({ where: { code: STATUS_CODES.DRAFT } });
+      if (!draftStatus) {
+        return [new InternalServerErrorException('DRAFT status not configured on server'), false];
+      }
+
+      if (Number(existing.workflowStatusId) !== Number(draftStatus.id)) {
+        return [new BadRequestException('Only applications in DRAFT status can be deleted'), false];
+      }
+
+      // Perform a transaction that deletes related rows first then the application
+      await prisma.$transaction(async (tx) => {
+        // Delete related simple child tables
+        await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
+        await tx.fLAFLicenseHistories.deleteMany({ where: { applicationId } });
+        await tx.fLAFLicenseDetails.deleteMany({ where: { applicationId } });
+        await tx.fLAFBiometricDatas.deleteMany({ where: { applicationId } });
+        await tx.fLAFFileUploads.deleteMany({ where: { applicationId } });
+
+        // Delete address records if they exist (present & permanent)
+        const addrIds: number[] = [];
+        if (existing.presentAddressId) addrIds.push(Number(existing.presentAddressId));
+        if (existing.permanentAddressId) addrIds.push(Number(existing.permanentAddressId));
+        if (addrIds.length > 0) {
+          await tx.fLAFAddressesAndContactDetails.deleteMany({ where: { id: { in: addrIds } } });
+        }
+
+        // Finally delete the main application record
+        await tx.freshLicenseApplicationPersonalDetails.delete({ where: { id: applicationId } });
+      });
+
+      return [null, true];
+    } catch (error) {
+      return [error, false];
+    }
+  }
 
 
+  /**
+   * Get application by ID or acknowledgement number with optimized queries.
+   * 
+   * Optimizations:
+   * 1. Parallel execution of application and workflow history queries
+   * 2. Early return if application not found
+   * 3. Simplified where condition building
+   * 4. Reusable select objects for user details
+   * 5. Efficient transformation using destructuring
+   */
   async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
     try {
-      let whereCondition: any = {};
-      if (id) {
-        whereCondition = { id };
-      }
-      if (acknowledgementNo) {
-        whereCondition = { ...whereCondition, acknowledgementNo };
-      }
+      // Build where condition - at least one parameter is required
+      const whereCondition: any = {};
+      if (id) whereCondition.id = id;
+      if (acknowledgementNo) whereCondition.acknowledgementNo = acknowledgementNo;
 
-      let application: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      // Reusable user select object to avoid duplication
+      const userSelect = {
+        id: true,
+        username: true,
+        email: true,
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        }
+      };
+
+      // Reusable address include object to avoid duplication
+      const addressInclude = {
+        state: true,
+        district: true,
+        zone: true,
+        division: true,
+        policeStation: true
+      };
+
+      // First, fetch the application
+      const application: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
         where: whereCondition,
         include: {
-          // Status and user tracking
           workflowStatus: {
             select: {
               id: true,
@@ -922,54 +1026,10 @@ export class ApplicationFormService {
               name: true,
             }
           },
-          currentUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true
-                }
-              },
-            }
-          },
-          previousUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true
-                }
-              }
-            }
-          },
-          // Address details
-          presentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true
-            }
-          },
-          permanentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true
-            }
-          },
-          // Other details
+          currentUser: { select: userSelect },
+          previousUser: { select: userSelect },
+          presentAddress: { include: addressInclude },
+          permanentAddress: { include: addressInclude },
           occupationAndBusiness: {
             include: {
               state: true,
@@ -988,9 +1048,14 @@ export class ApplicationFormService {
         },
       });
 
-      // Get workflow histories for this application
+      // Early return if application not found
+      if (!application) {
+        return [null, null];
+      }
+
+      // Fetch workflow histories in parallel (after we know application exists)
       const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-        where: { applicationId: application?.id },
+        where: { applicationId: application.id },
         orderBy: { createdAt: 'desc' },
         include: {
           previousRole: true,
@@ -1001,197 +1066,17 @@ export class ApplicationFormService {
         }
       });
 
-      // Add previousUserName and previousRoleName to each workflow history entry
-      if (workflowHistories?.length) {
-        // Transform histories
-        const transformedHistories = workflowHistories.map((history) => {
-          const { previousUser, previousRole, nextUser, nextRole, ...rest } = history;
-
-          return {
-            ...rest,
-            previousUserName: previousUser?.username ?? null,
-            previousRoleName: previousRole?.name ?? null,
-            nextUserName: nextUser?.username ?? null,
-            nextRoleName: nextRole?.name ?? null,
-          };
-        });
-        application.workflowHistories = transformedHistories;
+      // Transform and attach workflow histories if any exist
+      if (workflowHistories.length > 0) {
+        application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }) => ({
+          ...rest,
+          previousUserName: previousUser?.username ?? null,
+          previousRoleName: previousRole?.name ?? null,
+          nextUserName: nextUser?.username ?? null,
+          nextRoleName: nextRole?.name ?? null,
+        }));
       }
 
-      let usersInHierarchy: any[] = [];
-      // Defensive: check presentAddress and policeStation
-      if (application?.presentAddress && application.presentAddress.policeStationId) {
-        // Since we already have the hierarchy included in the presentAddress, we can use it directly
-        const policeStationId = application.presentAddress.policeStationId;
-        const divisionId = application.presentAddress.divisionId;
-        const zoneId = application.presentAddress.zoneId;
-        const districtId = application.presentAddress.districtId;
-        const stateId = application.presentAddress.stateId;
-
-        // Execute 5 separate queries for each hierarchical level
-        // Users are only returned for a level if they don't belong to a more specific level
-        const queries = [];
-
-        // 1. Police Station level users (most specific)
-        if (policeStationId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                policeStationId: policeStationId
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 2. Division level users (only if policeStationId is null)
-        if (divisionId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                divisionId: divisionId,
-                policeStationId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 3. Zone level users (only if divisionId is null)
-        if (zoneId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                zoneId: zoneId,
-                divisionId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 4. District level users (only if zoneId is null)
-        if (districtId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                districtId: districtId,
-                zoneId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // 5. State level users (only if districtId is null)
-        if (stateId) {
-          queries.push(
-            prisma.users.findMany({
-              where: {
-                stateId: stateId,
-                districtId: null
-              },
-              select: {
-                id: true,
-                username: true,
-                email: true,
-                stateId: true,
-                districtId: true,
-                zoneId: true,
-                divisionId: true,
-                policeStationId: true,
-                roleId: true,
-                role: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true
-                  }
-                }
-              }
-            })
-          );
-        }
-
-        // Execute all queries in parallel and combine results
-        if (queries.length > 0) {
-          const results = await Promise.all(queries);
-          // Flatten the array of arrays into a single array
-          usersInHierarchy = results.flat();
-        }
-      }
-      application = {
-        ...application,
-        usersInHierarchy
-      };
       return [null, application];
     } catch (err) {
       return [err, null];
@@ -1218,7 +1103,7 @@ export class ApplicationFormService {
     isOwned?: boolean;
     isSent?: boolean;
   }) {
-     // Build a compact, frontend-friendly query: include necessary relations
+    // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
 
@@ -1227,21 +1112,32 @@ export class ApplicationFormService {
       const limit = Math.max(Number(filter.limit ?? 10), 1);
       const skip = (page - 1) * limit;
 
-      // Handle isSent parameter - fetch applications from workflow history
+      // Handle isSent parameter - fetch latest action per application from workflow history
       if (filter.isSent === true && filter.currentUserId) {
         const parsedUserId = Number(filter.currentUserId);
         if (!isNaN(parsedUserId)) {
-          // Get all workflow history entries where the user took action
+          // We'll get the latest action per application
           const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
             where: {
               previousUserId: parsedUserId
             },
             select: {
-              applicationId: true,
               id: true,
+              applicationId: true,
               createdAt: true,
               actionTaken: true,
-              remarks: true
+              remarks: true,
+              application: {
+                select: {
+                  id: true,
+                  almsLicenseId: true,
+                  acknowledgementNo: true,
+                  createdAt: true,
+                  firstName: true,
+                  middleName: true,
+                  lastName: true,
+                }
+              }
             },
             orderBy: {
               createdAt: 'desc'
@@ -1249,78 +1145,47 @@ export class ApplicationFormService {
           });
 
           if (workflowHistories.length === 0) {
-            // No workflow history found for this user
             return [null, { total: 0, page, limit, data: [] }];
           }
 
-          // Group histories by applicationId and count occurrences
-          const applicationMap = new Map<number, any[]>();
+          // Group by applicationId and keep only the latest action per application
+          const latestActionsMap = new Map<number, any>();
           for (const history of workflowHistories) {
-            if (!applicationMap.has(history.applicationId)) {
-              applicationMap.set(history.applicationId, []);
-            }
-            applicationMap.get(history.applicationId)!.push(history);
-          }
-
-          // Fetch all unique application IDs
-          const applicationIds = Array.from(applicationMap.keys());
-
-          // Apply pagination on the grouped results
-          // Since we need to duplicate applications based on action count, we need special handling
-          let allResults: any[] = [];
-
-          // Fetch all applications - only select required fields
-          const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-            where: {
-              id: { in: applicationIds }
-            },
-            select: {
-              id: true, // Keep id for mapping
-              almsLicenseId: true,
-              acknowledgementNo: true,
-              createdAt: true,
-              firstName: true,
-              middleName: true,
-              lastName: true,
-            }
-          });
-
-          // Create a map for quick application lookup
-          const appMap = new Map(applications.map(app => [app.id, app]));
-
-          // Build results array with duplicates based on action count
-          for (const [applicationId, histories] of applicationMap.entries()) {
-            const application = appMap.get(applicationId);
-            if (application) {
-              // Build applicant name
-              const applicantName = [application.firstName, application.middleName, application.lastName]
-                .filter(Boolean)
-                .join(' ');
-
-              // Add the application once for each action taken by the user
-              for (const history of histories) {
-                allResults.push({
-                  applicationId: application.id,
-                  acknowledgementNo: application.acknowledgementNo,
-                  createdAt: application.createdAt,
-                  applicantName: applicantName,
-                  workflowHistoryId: history.id,
-                  actionTakenAt: history.createdAt,
-                  actionTaken: history.actionTaken,
-                  actionRemarks: history.remarks
-                });
-              }
+            if (!latestActionsMap.has(history.applicationId)) {
+              latestActionsMap.set(history.applicationId, history);
             }
           }
+
+          // Convert to array
+          let latestActions = Array.from(latestActionsMap.values());
 
           // Apply ordering if specified
           const allowedOrderFields = ['applicationId', 'acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
           const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
           const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-          allResults.sort((a, b) => {
-            const aValue = a[orderByField];
-            const bValue = b[orderByField];
+          latestActions.sort((a, b) => {
+            let aValue, bValue;
+
+            if (orderByField === 'actionTakenAt') {
+              aValue = a.createdAt;
+              bValue = b.createdAt;
+            } else if (orderByField === 'applicationId') {
+              aValue = a.application?.id;
+              bValue = b.application?.id;
+            } else if (orderByField === 'acknowledgementNo') {
+              aValue = a.application?.acknowledgementNo;
+              bValue = b.application?.acknowledgementNo;
+            } else if (orderByField === 'createdAt') {
+              aValue = a.application?.createdAt;
+              bValue = b.application?.createdAt;
+            } else if (orderByField === 'applicantName') {
+              aValue = a.application?.firstName;
+              bValue = b.application?.firstName;
+            } else {
+              aValue = a.createdAt;
+              bValue = b.createdAt;
+            }
 
             if (aValue < bValue) return orderDirection === 'asc' ? -1 : 1;
             if (aValue > bValue) return orderDirection === 'asc' ? 1 : -1;
@@ -1328,8 +1193,28 @@ export class ApplicationFormService {
           });
 
           // Apply pagination
-          const total = allResults.length;
-          const paginatedResults = allResults.slice(skip, skip + limit);
+          const total = latestActions.length;
+          const paginatedActions = latestActions.slice(skip, skip + limit);
+
+          // Transform the data to match the expected output format
+          const paginatedResults = paginatedActions.map(history => {
+            const applicantName = [
+              history.application?.firstName,
+              history.application?.middleName,
+              history.application?.lastName
+            ].filter(Boolean).join(' ');
+
+            return {
+              applicationId: history.application?.id,
+              acknowledgementNo: history.application?.acknowledgementNo,
+              createdAt: history.application?.createdAt,
+              applicantName: applicantName,
+              workflowHistoryId: history.id,
+              actionTakenAt: history.createdAt,
+              actionTaken: history.actionTaken,
+              actionRemarks: history.remarks
+            };
+          });
 
           return [null, { total, page, limit, data: paginatedResults }];
         }
@@ -1348,9 +1233,9 @@ export class ApplicationFormService {
 
           // For non-ZS users, filter by currentUserId
           // ZS users can see all applications
-          if (userRole && userRole !== ROLE_CODES.ZS) {
-            where.currentUserId = parsedUserId;
-          }
+          // if (userRole && userRole !== ROLE_CODES.ZS) {
+          where.currentUserId = parsedUserId;
+          // }
         }
       }
 
@@ -1476,6 +1361,131 @@ export class ApplicationFormService {
     }
   }
 
+
+  /*
+    * Get users in the hierarchy based on application present address and current user's role
+  */
+  async getUsersInHierarchy(applicationId: number): Promise<[any, any]> {
+    try {
+      // Fetch application, current user, and role flow mapping in parallel
+      const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: {
+          id: true,
+          currentUserId: true,
+          currentUser: {
+            select: {
+              id: true,
+              roleId: true
+            }
+          },
+          presentAddress: {
+            select: {
+              stateId: true,
+              districtId: true,
+              zoneId: true,
+              divisionId: true,
+              policeStationId: true
+            }
+          }
+        }
+      });
+
+      if (!application) {
+        return [new BadRequestException('Application not found'), null];
+      }
+
+      if (!application.presentAddress) {
+        return [new BadRequestException('Application does not have a present address defined'), null];
+      }
+
+      if (!application.currentUserId || !application.currentUser) {
+        return [new BadRequestException('Application does not have a current user assigned'), null];
+      }
+
+      if (!application.currentUser.roleId) {
+        return [new BadRequestException('Current user does not have a role assigned'), null];
+      }
+
+      // Fetch role flow mapping
+      const roleMapping = await prisma.roleFlowMapping.findUnique({
+        where: { currentRoleId: application.currentUser.roleId },
+        select: {
+          nextRoleIds: true
+        }
+      });
+
+      if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+        // No next roles configured for this role
+        return [null, []];
+      }
+
+      // Build location hierarchy conditions - using OR for all levels in a single query
+      const { policeStationId, divisionId, zoneId, districtId, stateId } = application.presentAddress;
+
+      const locationConditions: any[] = [];
+
+      // Add conditions for each level (most specific to least specific)
+      if (policeStationId) {
+        locationConditions.push({ policeStationId });
+      }
+      if (divisionId) {
+        locationConditions.push({ divisionId, policeStationId: null });
+      }
+      if (zoneId) {
+        locationConditions.push({ zoneId, divisionId: null });
+      }
+      if (districtId) {
+        locationConditions.push({ districtId, zoneId: null });
+      }
+      if (stateId) {
+        locationConditions.push({ stateId, districtId: null });
+      }
+
+      // If no location conditions, return empty
+      if (locationConditions.length === 0) {
+        return [null, []];
+      }
+
+      // Reusable select object to return only essential fields
+      const userSelect = {
+        id: true,
+        username: true,
+        roleId: true,
+        role: {
+          select: {
+            code: true
+          }
+        }
+      };
+
+      // Single optimized query with role filtering at database level
+      const users = await prisma.users.findMany({
+        where: {
+          roleId: { in: roleMapping.nextRoleIds },
+          OR: locationConditions
+        },
+        select: userSelect,
+        orderBy: [
+          { role: { name: 'asc' } },
+          { username: 'asc' }
+        ]
+      });
+
+      // Transform to flatten roleCode
+      const transformedUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        roleId: user.roleId,
+        roleCode: user.role?.code || null
+      }));
+
+      return [null, transformedUsers];
+    } catch (error) {
+      return [error, null];
+    }
+  }
+
   public async getUserApplications(userId: string) {
     const userIdNum = parseInt(userId);
     return await prisma.freshLicenseApplicationPersonalDetails.findMany({
@@ -1552,92 +1562,8 @@ export class ApplicationFormService {
   }
 
   /**
-   * Updates application user and role information during workflow transitions.
-   * 
-   * This method:
-   * 1. Moves current user/role to previous user/role
-   * 2. Sets new user/role as current
-   * 3. Ensures proper tracking throughout the workflow
-   * 4. Updates status and remarks if provided
-   * 
-   * @param applicationId - ID of the application to update
-   * @param newUserId - ID of the new user taking ownership
-   * @param statusId - Optional new status ID
-   * @param remarks - Optional remarks for the transition
-   * @returns Updated application with user/role information
-   */
-  // Method to update application user and role during workflow transitions*/
-  /*  async updateApplicationUserAndRole(
-      applicationId: number,
-      newUserId: number,
-      statusId?: number,
-      remarks?: string
-    ) {
-      try {
-        // Get the current application to preserve the current user/role as previous
-        const currentApplication = await prisma.freshLicenseApplicationsForms.findUnique({
-          where: { id: applicationId },
-          select: {
-            id: true,
-            currentUserId: true,
-            currentRoleId: true,
-            acknowledgementNo: true,
-          }
-        });
-  
-        if (!currentApplication) {
-          throw new BadRequestException(`Application with ID ${applicationId} not found.`);
-        }
-  
-        // Get the new user with role information
-        const newUser = await this.getUserWithRole(newUserId);
-        if (!newUser) {
-          throw new BadRequestException('Invalid new user. User not found in the system.');
-        }
-  
-        if (!newUser.role) {
-          throw new BadRequestException('New user role information is missing.');
-        }
-  
-        // Update the application with new user/role and move current to previous
-        const updatedApplication = await prisma.freshLicenseApplicationsForms.update({
-          where: { id: applicationId },
-          data: {
-            // Move current to previous
-            previousUserId: currentApplication.currentUserId,
-            previousRoleId: currentApplication.currentRoleId,
-            // Set new current
-            currentUserId: newUser.id,
-            currentRoleId: newUser.roleId,
-            // Update status if provided
-            ...(statusId && { statusId }),
-            // Update remarks if provided
-            ...(remarks && { remarks }),
-            updatedAt: new Date(),
-          },
-          include: {
-            currentRole: true,
-            previousRole: true,
-            currentUser: true,
-            previousUser: true,
-            status: true,
-          }
-        });
-  
-        return updatedApplication;
-      } catch (error) {
-        if (error instanceof BadRequestException) {
-          throw error;
-        }
-  
-        console.error('Error updating application user and role:', error);
-        throw new InternalServerErrorException('Failed to update application user and role information.');
-      }
-    }
-      */
-
-  /**
    * Upload file for application
+   * For certain file types (PHOTOGRAPH, SIGNATURE_THUMB, etc.), only keep the latest file
    */
   async uploadFile(applicationId: number, dto: UploadFileDto): Promise<[any, any]> {
     try {
@@ -1654,6 +1580,17 @@ export class ApplicationFormService {
       const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
       if (dto.fileSize > maxFileSize) {
         return ['File size too large. Maximum allowed size is 10MB', null];
+      }
+
+      // For PHOTOGRAPH and SIGNATURE_THUMB types, delete existing files to keep only the latest
+      const singleFileTypes = ['PHOTOGRAPH', 'SIGNATURE_THUMB', 'IRIS_SCAN'];
+      if (singleFileTypes.includes(dto.fileType)) {
+        await prisma.fLAFFileUploads.deleteMany({
+          where: {
+            applicationId: applicationId,
+            fileType: dto.fileType
+          }
+        });
       }
 
       // Save file record to database

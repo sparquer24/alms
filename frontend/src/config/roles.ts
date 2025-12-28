@@ -2,6 +2,7 @@
 // Roles include Applicant, Zonal Superintendent, DCP, ACP, SHO, etc.
 import jsCookie from "js-cookie";
 import { getMenuItemsForAdminRole, getAdminMenuItems } from "./adminMenuService";
+import { getSuperAdminMenuItems } from "./superAdminMenuService";
 
 // New role config structure for dynamic sidebar
 export type MenuItem = {
@@ -97,10 +98,14 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     return { name: String(it) } as MenuItem;
   });
 
-  // For ADMIN role, ensure all admin menu items are included
+  // For ADMIN and SUPER_ADMIN roles, ensure all menu items are included
   const roleCode = code?.toUpperCase();
-  if (roleCode === 'ADMIN') {
-    // Admin role always gets all 4 admin pages
+  if (roleCode === 'SUPER_ADMIN') {
+    // Super Admin gets Super Admin menu items (global access)
+    const superAdminItems = getSuperAdminMenuItems().map(item => ({ name: item.name }));
+    menuItems = superAdminItems;
+  } else if (roleCode === 'ADMIN') {
+    // Admin gets regular admin menu items (state-scoped)
     const adminItems = getAdminMenuItems().map(item => ({ name: item.name }));
     menuItems = adminItems;
   }
@@ -116,6 +121,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'closed', statusIds: [10] },
       { name: 'drafts', statusIds: [13] },
       { name: 'finaldisposal', statusIds: [7] },
+      { name: 'analytics' },
     ],
     'SHO': [
       { name: 'inbox', statusIds: [1, 9] },
@@ -146,10 +152,12 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     'JTCP': [
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
+      { name: 'analytics' },
     ],
     'CP': [
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
+      { name: 'analytics' },
     ],
     'ARMS_SUPDT': [
       { name: 'inbox', statusIds: [1, 9] },
@@ -190,6 +198,9 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
         case roleIdentifier === 'SHO' || roleIdentifier.includes('SHO'):
           dashboardTitle = 'SHO Dashboard';
           break;
+        case roleIdentifier === 'SUPER_ADMIN' || roleIdentifier.includes('SUPER_ADMIN'):
+          dashboardTitle = 'Super Admin Dashboard';
+          break;
         case roleIdentifier === 'ADMIN' || roleIdentifier.includes('ADMIN'):
           dashboardTitle = 'Admin Dashboard';
           break;
@@ -227,6 +238,7 @@ export const RoleTypes = {
   JTCP: "JTCP",
   CP: "CP",
   ADMIN: "ADMIN",
+  SUPER_ADMIN: "SUPER_ADMIN",
   ARMS_SUPDT: "ARMS_SUPDT",
   ARMS_SEAT: "ARMS_SEAT",
   ACO: "ACO",

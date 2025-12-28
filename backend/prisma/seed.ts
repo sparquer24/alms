@@ -19,12 +19,12 @@ async function main() {
     { code: 'APPROVED', name: 'Approved', description: 'Application approved' },
     { code: 'CANCEL', name: 'Cancel', description: 'Application cancelled' },
     { code: 'RE_ENQUIRY', name: 'Re-Enquiry', description: 'Re-enquiry required' },
-    { code: 'GROUND_REPORT', name: 'Ground Report', description: 'Ground report required' },
     { code: 'DISPOSE', name: 'Dispose', description: 'Application disposed' },
     { code: 'RED_FLAG', name: 'Red-Flag', description: 'Red-flagged application' },
     { code: 'INITIATED', name: 'Initiated', description: 'Application initiated' },
     { code: 'CLOSE', name: 'Close', description: 'Application closed' },
     { code: 'RECOMMEND', name: 'Recommend', description: 'Application recommended' },
+    { code: 'NOT_RECOMMEND', name: 'Not Recommend', description: 'Application not recommended' },
     { code: 'DRAFT', name: 'Draft', description: 'Draft status' },
     { code: 'RETURN', name: 'Return', description: 'Application returned for corrections' }
   ];
@@ -66,9 +66,10 @@ async function main() {
 
   console.log('Seeding roles...');
   const roles = [
+    { code: 'SUPER_ADMIN', name: 'Super Administrator', dashboardTitle: 'Super Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping', 'locationsManagement'], permissions: ['read', 'write', 'admin', 'super_admin'], canAccessSettings: true },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
     { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
     { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
     { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
@@ -107,113 +108,183 @@ async function main() {
 
   // Master mapping of states/UTs to their districts (partial — based on provided data)
   const statesWithDistricts: Array<{ name: string; districts: string[] }> = [
-    { name: 'Andhra Pradesh', districts: [
-      'Alluri Sitharama Raju','Anakapalli','Anantapur','Annamayya','Bapatla','Chittoor','East Godavari','Eluru','Guntur','Kakinada','Konaseema','Krishna','Kurnool','Nandyal','NTR','Palnadu','Prakasam','Sri Potti Sriramulu Nellore','Sri Sathya Sai','Srikakulam','Tirupati','Visakhapatnam','Vizianagaram','West Godavari','YSR','YSR Kadapa'
-    ]},
-    { name: 'Arunachal Pradesh', districts: [
-      'Tawang','West Kameng','East Kameng','Pakke-Kessang','Papum Pare','Kurung Kumey','Kra Daadi','Lower Subansiri','Upper Subansiri','West Siang','Lepa Rada','Lower Siang','Upper Siang','East Siang','Siang','Upper Dibang Valley','Lower Dibang Valley','Lohit','Namsai','Anjaw','Changlang','Tirap','Longding','Itanagar Capital Complex','Kamle','Shi-Yomi'
-    ]},
-    { name: 'Assam', districts: [
-      'Bajali','Baksa','Barpeta','Biswanath','Bongaigaon','Cachar','Charaideo','Chirang','Darrang','Dhemaji','Dhubri','Dibrugarh','Goalpara','Golaghat','Hailakandi','Hojai','Jorhat','Kamrup','Kamrup Metropolitan','Karbi Anglong','Karimganj','Kokrajhar','Lakhimpur','Majuli','Morigaon','Nagaon','Nalbari','Sivasagar','Sonitpur','South Salmara-Mankachar','Tinsukia','Udalguri','West Karbi Anglong','Tamulpur'
-    ]},
-    { name: 'Bihar', districts: [
-      'Araria','Arwal','Aurangabad','Banka','Begusarai','Bhagalpur','Bhojpur','Buxar','Darbhanga','East Champaran','Gaya','Gopalganj','Jamui','Jehanabad','Kaimur','Katihar','Khagaria','Kishanganj','Lakhisarai','Madhepura','Madhubani','Munger','Muzaffarpur','Nalanda','Nawada','Patna','Purnea','Rohtas','Saharsa','Samastipur','Saran','Sheikhpura','Sheohar','Sitamarhi','Siwan','Supaul','Vaishali','West Champaran'
-    ]},
-    { name: 'Chhattisgarh', districts: [
-      'Balod','Baloda Bazar','Balrampur','Bastar','Bemetara','Bijapur','Bilaspur','Dantewada','Dhamtari','Durg','Gariaband','Gaurella-Pendra-Marwahi','Janjgir-Champa','Jashpur','Kabirdham','Kanker','Khairagarh-Chhuikhadan-Gandai','Kondagaon','Korba','Koriya','Mahasamund','Manendragarh-Chirmiri-Bharatpur','Mungeli','Narayanpur','Raigarh','Raipur','Rajnandgaon','Sukma','Surajpur','Surguja'
-    ]},
-    { name: 'Goa', districts: ['North Goa','South Goa'] },
-    { name: 'Gujarat', districts: [
-      'Ahmedabad','Amreli','Anand','Aravalli','Banaskantha','Bharuch','Bhavnagar','Botad','Chhota Udaipur','Dahod','Dang','Devbhoomi Dwarka','Gandhinagar','Gir Somnath','Jamnagar','Junagadh','Kheda','Kutch','Mahisagar','Mehsana','Morbi','Narmada','Navsari','Panchmahal','Patan','Porbandar','Rajkot','Sabarkantha','Surat','Surendranagar','Tapi','Vadodara','Valsad'
-    ]},
-    { name: 'Haryana', districts: [
-      'Ambala','Bhiwani','Charkhi Dadri','Faridabad','Fatehabad','Gurugram','Hisar','Jhajjar','Jind','Kaithal','Karnal','Kurukshetra','Mahendragarh','Nuh','Palwal','Panchkula','Panipat','Rewari','Rohtak','Sirsa','Sonipat','Yamunanagar'
-    ]},
-    { name: 'Himachal Pradesh', districts: [
-      'Bilaspur','Chamba','Hamirpur','Kangra','Kinnaur','Kullu','Lahaul and Spiti','Mandi','Shimla','Sirmaur','Solan','Una'
-    ]},
-    { name: 'Jharkhand', districts: [
-      'Bokaro','Chatra','Deoghar','Dhanbad','Dumka','East Singhbhum','Garhwa','Giridih','Godda','Gumla','Hazaribagh','Jamtara','Khunti','Koderma','Latehar','Lohardaga','Pakur','Palamu','Ramgarh','Ranchi','Sahebganj','Saraikela-Kharsawan','Simdega','West Singhbhum'
-    ]},
-    { name: 'Karnataka', districts: [
-      'Bagalkot','Ballari','Belagavi','Bengaluru Rural','Bengaluru Urban','Bidar','Chamarajanagar','Chikballapur','Chikkamagaluru','Chitradurga','Dakshina Kannada','Davanagere','Dharwad','Gadag','Hassan','Haveri','Kalaburagi','Kodagu','Kolar','Koppal','Mandya','Mysuru','Raichur','Ramanagara','Shivamogga','Tumakuru','Udupi','Uttara Kannada','Vijayapura','Yadgir','Vijayanagara'
-    ]},
-    { name: 'Kerala', districts: [
-      'Alappuzha','Ernakulam','Idukki','Kannur','Kasargod','Kollam','Kottayam','Kozhikode','Malappuram','Palakkad','Pathanamthitta','Thiruvananthapuram','Thrissur','Wayanad'
-    ]},
-    { name: 'Madhya Pradesh', districts: [
-      'Agar Malwa','Alirajpur','Anuppur','Ashoknagar','Balaghat','Barwani','Betul','Bhind','Bhopal','Burhanpur','Chhatarpur','Chhindwara','Damoh','Datia','Dewas','Dhar','Dindori','Guna','Gwalior','Harda','Hoshangabad','Indore','Jabalpur','Jhabua','Katni','Khandwa','Khargone','Mandla','Mandsaur','Morena','Narsinghpur','Neemuch','Niwari','Panna','Raisen','Rajgarh','Ratlam','Rewa','Sagar','Satna','Sehore','Seoni','Shahdol','Shajapur','Sheopur','Shivpuri','Sidhi','Singrauli','Tikamgarh','Ujjain','Umaria','Vidisha'
-    ]},
-    { name: 'Maharashtra', districts: [
-      'Ahmednagar','Akola','Amravati','Aurangabad','Beed','Bhandara','Buldhana','Chandrapur','Dhule','Gadchiroli','Gondia','Hingoli','Jalgaon','Jalna','Kolhapur','Latur','Mumbai City','Mumbai Suburban','Nagpur','Nanded','Nandurbar','Nashik','Osmanabad','Palghar','Parbhani','Pune','Raigad','Ratnagiri','Sangli','Satara','Sindhudurg','Solapur','Thane','Wardha','Washim','Yavatmal'
-    ]},
-    { name: 'Manipur', districts: [
-      'Bishnupur','Chandel','Churachandpur','Imphal East','Imphal West','Jiribam','Kakching','Kamjong','Kangpokpi','Noney','Pherzawl','Senapati','Tamenglong','Tengnoupal','Thoubal','Ukhrul'
-    ]},
-    { name: 'Meghalaya', districts: [
-      'East Garo Hills','West Garo Hills','South Garo Hills','South West Garo Hills','North Garo Hills','East Khasi Hills','West Khasi Hills','South West Khasi Hills','Ri-Bhoi','Eastern West Khasi Hills','West Jaintia Hills','East Jaintia Hills'
-    ]},
-    { name: 'Mizoram', districts: [
-      'Aizawl','Champhai','Kolasib','Lawngtlai','Lunglei','Mamit','Saiha','Serchhip','Hnahthial','Khawzawl','Saitual'
-    ]},
-    { name: 'Nagaland', districts: [
-      'Chümoukedima','Dimapur','Kiphire','Kohima','Longleng','Mokokchung','Mon','Niuland','Noklak','Peren','Phek','Tuensang','Tseminyü','Wokha','Zünheboto'
-    ]},
-    { name: 'Odisha', districts: [
-      'Angul','Balangir','Balasore','Bargarh','Bhadrak','Boudh','Cuttack','Deogarh','Dhenkanal','Gajapati','Ganjam','Jagatsinghpur','Jajpur','Jharsuguda','Kalahandi','Kandhamal','Kendrapara','Kendujhar','Khordha','Koraput','Malkangiri','Mayurbhanj','Nabarangpur','Nayagarh','Nuapada','Puri','Rayagada','Sambalpur','Subarnapur','Sundargarh'
-    ]},
-    { name: 'Punjab', districts: [
-      'Amritsar','Barnala','Bathinda','Faridkot','Fatehgarh Sahib','Ferozepur','Fazilka','Gurdaspur','Hoshiarpur','Jalandhar','Kapurthala','Ludhiana','Mansa','Moga','Muktsar','Pathankot','Patiala','Rupnagar','Sahibzada Ajit Singh Nagar','Sangrur','Shahid Bhagat Singh Nagar','Tarn Taran','Malerkotla'
-    ]},
-    { name: 'Rajasthan', districts: [
-      'Ajmer','Alwar','Balotra','Banswara','Baran','Barmer','Beawar','Bharatpur','Bhilwara','Bikaner','Bundi','Chittorgarh','Churu','Dausa','Deeg','Dholpur','Didwana-Kuchaman','Dudu','Dungarpur','Ganganagar','Hanumangarh','Jaipur','Jaipur Rural','Jaisalmer','Jalore','Jhalawar','Jhunjhunu','Jodhpur','Jodhpur Rural','Karauli','Kekri','Kota','Lalsot','Nagaur','Neem Ka Thana','Pali','Phalodi','Pratapgarh','Rajsamand','Sanchore','Sawai Madhopur','Shahpura','Sikar','Sirohi','Tonk','Udaipur'
-    ]},
-    { name: 'Sikkim', districts: [
-      'Gangtok','Gyalshing','Namchi','Mangan','Pakyong','Soreng'
-    ]},
-    { name: 'Tamil Nadu', districts: [
-      'Ariyalur','Chengalpattu','Chennai','Coimbatore','Cuddalore','Dharmapuri','Dindigul','Erode','Kallakurichi','Kanchipuram','Kanyakumari','Karur','Krishnagiri','Madurai','Mayiladuthurai','Nagapattinam','Namakkal','Nilgiris','Perambalur','Pudukkottai','Ramanathapuram','Ranipet','Salem','Sivaganga','Tenkasi','Thanjavur','Theni','Thoothukudi','Tiruchirappalli','Tirunelveli','Tirupathur','Tiruppur','Tiruvallur','Tiruvannamalai','Tiruvarur','Vellore','Viluppuram','Virudhunagar'
-    ]},
-    { name: 'Telangana', districts: [
-      'Adilabad','Bhadradri Kothagudem','Hanumakonda','Hyderabad','Jagtial','Jangoan','Jayashankar Bhupalpally','Jogulamba Gadwal','Kamareddy','Karimnagar','Khammam','Komaram Bheem Asifabad','Mahabubabad','Mahbubnagar','Mancherial','Medak','Medchal-Malkajgiri','Mulugu','Nagarkurnool','Nalgonda','Narayanpet','Nirmal','Nizamabad','Peddapalli','Rajanna Sircilla','Rangareddy','Sangareddy','Siddipet','Suryapet','Vikarabad','Wanaparthy','Warangal','Yadadri Bhuvanagiri'
-    ]},
-    { name: 'Tripura', districts: [
-      'Dhalai','Gomati','Khowai','North Tripura','Sipahijala','South Tripura','Unakoti','West Tripura'
-    ]},
-    { name: 'Uttar Pradesh', districts: [
-      'Agra','Aligarh','Ambedkar Nagar','Amethi','Amroha','Auraiya','Ayodhya','Azamgarh','Badaun','Baghpat','Bahraich','Ballia','Balrampur','Banda','Barabanki','Bareilly','Basti','Bhadohi','Bijnor','Budaun','Bulandshahr','Chandauli','Chitrakoot','Deoria','Etah','Etawah','Farrukhabad','Fatehpur','Firozabad','Gautam Buddha Nagar','Ghaziabad','Ghazipur','Gonda','Gorakhpur','Hamirpur','Hapur','Hardoi','Hathras','Jalaun','Jaunpur','Jhansi','Kannauj','Kanpur Dehat','Kanpur Nagar','Kasganj','Kaushambi','Kheri','Kushinagar','Lalitpur','Lucknow','Maharajganj','Mahoba','Mainpuri','Mathura','Mau','Meerut','Mirzapur','Moradabad','Muzaffarnagar','Pilibhit','Pratapgarh','Prayagraj','Rae Bareli','Rampur','Saharanpur','Sambhal','Sant Kabir Nagar','Shahjahanpur','Shamli','Shravasti','Siddharthnagar','Sitapur','Sonbhadra','Sultanpur','Unnao','Varanasi'
-    ]},
-    { name: 'Uttarakhand', districts: [
-      'Almora','Bageshwar','Chamoli','Champawat','Dehradun','Haridwar','Nainital','Pauri Garhwal','Pithoragarh','Rudraprayag','Tehri Garhwal','Udham Singh Nagar','Uttarkashi'
-    ]},
-    { name: 'West Bengal', districts: [
-      'Alipurduar','Bankura','Birbhum','Cooch Behar','Dakshin Dinajpur','Darjeeling','Hooghly','Howrah','Jalpaiguri','Jhargram','Kalimpong','Kolkata','Malda','Murshidabad','Nadia','North 24 Parganas','Paschim Bardhaman','Paschim Medinipur','Purba Bardhaman','Purba Medinipur','Purulia','South 24 Parganas','Uttar Dinajpur'
-    ]},
-    { name: 'Andaman and Nicobar Islands (UT)', districts: [
-      'Nicobar','North and Middle Andaman','South Andaman'
-    ]}
+    {
+      name: 'Andhra Pradesh', districts: [
+        'Alluri Sitharama Raju', 'Anakapalli', 'Anantapur', 'Annamayya', 'Bapatla', 'Chittoor', 'East Godavari', 'Eluru', 'Guntur', 'Kakinada', 'Konaseema', 'Krishna', 'Kurnool', 'Nandyal', 'NTR', 'Palnadu', 'Prakasam', 'Sri Potti Sriramulu Nellore', 'Sri Sathya Sai', 'Srikakulam', 'Tirupati', 'Visakhapatnam', 'Vizianagaram', 'West Godavari', 'YSR', 'YSR Kadapa'
+      ]
+    },
+    {
+      name: 'Arunachal Pradesh', districts: [
+        'Tawang', 'West Kameng', 'East Kameng', 'Pakke-Kessang', 'Papum Pare', 'Kurung Kumey', 'Kra Daadi', 'Lower Subansiri', 'Upper Subansiri', 'West Siang', 'Lepa Rada', 'Lower Siang', 'Upper Siang', 'East Siang', 'Siang', 'Upper Dibang Valley', 'Lower Dibang Valley', 'Lohit', 'Namsai', 'Anjaw', 'Changlang', 'Tirap', 'Longding', 'Itanagar Capital Complex', 'Kamle', 'Shi-Yomi'
+      ]
+    },
+    {
+      name: 'Assam', districts: [
+        'Bajali', 'Baksa', 'Barpeta', 'Biswanath', 'Bongaigaon', 'Cachar', 'Charaideo', 'Chirang', 'Darrang', 'Dhemaji', 'Dhubri', 'Dibrugarh', 'Goalpara', 'Golaghat', 'Hailakandi', 'Hojai', 'Jorhat', 'Kamrup', 'Kamrup Metropolitan', 'Karbi Anglong', 'Karimganj', 'Kokrajhar', 'Lakhimpur', 'Majuli', 'Morigaon', 'Nagaon', 'Nalbari', 'Sivasagar', 'Sonitpur', 'South Salmara-Mankachar', 'Tinsukia', 'Udalguri', 'West Karbi Anglong', 'Tamulpur'
+      ]
+    },
+    {
+      name: 'Bihar', districts: [
+        'Araria', 'Arwal', 'Aurangabad', 'Banka', 'Begusarai', 'Bhagalpur', 'Bhojpur', 'Buxar', 'Darbhanga', 'East Champaran', 'Gaya', 'Gopalganj', 'Jamui', 'Jehanabad', 'Kaimur', 'Katihar', 'Khagaria', 'Kishanganj', 'Lakhisarai', 'Madhepura', 'Madhubani', 'Munger', 'Muzaffarpur', 'Nalanda', 'Nawada', 'Patna', 'Purnea', 'Rohtas', 'Saharsa', 'Samastipur', 'Saran', 'Sheikhpura', 'Sheohar', 'Sitamarhi', 'Siwan', 'Supaul', 'Vaishali', 'West Champaran'
+      ]
+    },
+    {
+      name: 'Chhattisgarh', districts: [
+        'Balod', 'Baloda Bazar', 'Balrampur', 'Bastar', 'Bemetara', 'Bijapur', 'Bilaspur', 'Dantewada', 'Dhamtari', 'Durg', 'Gariaband', 'Gaurella-Pendra-Marwahi', 'Janjgir-Champa', 'Jashpur', 'Kabirdham', 'Kanker', 'Khairagarh-Chhuikhadan-Gandai', 'Kondagaon', 'Korba', 'Koriya', 'Mahasamund', 'Manendragarh-Chirmiri-Bharatpur', 'Mungeli', 'Narayanpur', 'Raigarh', 'Raipur', 'Rajnandgaon', 'Sukma', 'Surajpur', 'Surguja'
+      ]
+    },
+    { name: 'Goa', districts: ['North Goa', 'South Goa'] },
+    {
+      name: 'Gujarat', districts: [
+        'Ahmedabad', 'Amreli', 'Anand', 'Aravalli', 'Banaskantha', 'Bharuch', 'Bhavnagar', 'Botad', 'Chhota Udaipur', 'Dahod', 'Dang', 'Devbhoomi Dwarka', 'Gandhinagar', 'Gir Somnath', 'Jamnagar', 'Junagadh', 'Kheda', 'Kutch', 'Mahisagar', 'Mehsana', 'Morbi', 'Narmada', 'Navsari', 'Panchmahal', 'Patan', 'Porbandar', 'Rajkot', 'Sabarkantha', 'Surat', 'Surendranagar', 'Tapi', 'Vadodara', 'Valsad'
+      ]
+    },
+    {
+      name: 'Haryana', districts: [
+        'Ambala', 'Bhiwani', 'Charkhi Dadri', 'Faridabad', 'Fatehabad', 'Gurugram', 'Hisar', 'Jhajjar', 'Jind', 'Kaithal', 'Karnal', 'Kurukshetra', 'Mahendragarh', 'Nuh', 'Palwal', 'Panchkula', 'Panipat', 'Rewari', 'Rohtak', 'Sirsa', 'Sonipat', 'Yamunanagar'
+      ]
+    },
+    {
+      name: 'Himachal Pradesh', districts: [
+        'Bilaspur', 'Chamba', 'Hamirpur', 'Kangra', 'Kinnaur', 'Kullu', 'Lahaul and Spiti', 'Mandi', 'Shimla', 'Sirmaur', 'Solan', 'Una'
+      ]
+    },
+    {
+      name: 'Jharkhand', districts: [
+        'Bokaro', 'Chatra', 'Deoghar', 'Dhanbad', 'Dumka', 'East Singhbhum', 'Garhwa', 'Giridih', 'Godda', 'Gumla', 'Hazaribagh', 'Jamtara', 'Khunti', 'Koderma', 'Latehar', 'Lohardaga', 'Pakur', 'Palamu', 'Ramgarh', 'Ranchi', 'Sahebganj', 'Saraikela-Kharsawan', 'Simdega', 'West Singhbhum'
+      ]
+    },
+    {
+      name: 'Karnataka', districts: [
+        'Bagalkot', 'Ballari', 'Belagavi', 'Bengaluru Rural', 'Bengaluru Urban', 'Bidar', 'Chamarajanagar', 'Chikballapur', 'Chikkamagaluru', 'Chitradurga', 'Dakshina Kannada', 'Davanagere', 'Dharwad', 'Gadag', 'Hassan', 'Haveri', 'Kalaburagi', 'Kodagu', 'Kolar', 'Koppal', 'Mandya', 'Mysuru', 'Raichur', 'Ramanagara', 'Shivamogga', 'Tumakuru', 'Udupi', 'Uttara Kannada', 'Vijayapura', 'Yadgir', 'Vijayanagara'
+      ]
+    },
+    {
+      name: 'Kerala', districts: [
+        'Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasargod', 'Kollam', 'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad', 'Pathanamthitta', 'Thiruvananthapuram', 'Thrissur', 'Wayanad'
+      ]
+    },
+    {
+      name: 'Madhya Pradesh', districts: [
+        'Agar Malwa', 'Alirajpur', 'Anuppur', 'Ashoknagar', 'Balaghat', 'Barwani', 'Betul', 'Bhind', 'Bhopal', 'Burhanpur', 'Chhatarpur', 'Chhindwara', 'Damoh', 'Datia', 'Dewas', 'Dhar', 'Dindori', 'Guna', 'Gwalior', 'Harda', 'Hoshangabad', 'Indore', 'Jabalpur', 'Jhabua', 'Katni', 'Khandwa', 'Khargone', 'Mandla', 'Mandsaur', 'Morena', 'Narsinghpur', 'Neemuch', 'Niwari', 'Panna', 'Raisen', 'Rajgarh', 'Ratlam', 'Rewa', 'Sagar', 'Satna', 'Sehore', 'Seoni', 'Shahdol', 'Shajapur', 'Sheopur', 'Shivpuri', 'Sidhi', 'Singrauli', 'Tikamgarh', 'Ujjain', 'Umaria', 'Vidisha'
+      ]
+    },
+    {
+      name: 'Maharashtra', districts: [
+        'Ahmednagar', 'Akola', 'Amravati', 'Aurangabad', 'Beed', 'Bhandara', 'Buldhana', 'Chandrapur', 'Dhule', 'Gadchiroli', 'Gondia', 'Hingoli', 'Jalgaon', 'Jalna', 'Kolhapur', 'Latur', 'Mumbai City', 'Mumbai Suburban', 'Nagpur', 'Nanded', 'Nandurbar', 'Nashik', 'Osmanabad', 'Palghar', 'Parbhani', 'Pune', 'Raigad', 'Ratnagiri', 'Sangli', 'Satara', 'Sindhudurg', 'Solapur', 'Thane', 'Wardha', 'Washim', 'Yavatmal'
+      ]
+    },
+    {
+      name: 'Manipur', districts: [
+        'Bishnupur', 'Chandel', 'Churachandpur', 'Imphal East', 'Imphal West', 'Jiribam', 'Kakching', 'Kamjong', 'Kangpokpi', 'Noney', 'Pherzawl', 'Senapati', 'Tamenglong', 'Tengnoupal', 'Thoubal', 'Ukhrul'
+      ]
+    },
+    {
+      name: 'Meghalaya', districts: [
+        'East Garo Hills', 'West Garo Hills', 'South Garo Hills', 'South West Garo Hills', 'North Garo Hills', 'East Khasi Hills', 'West Khasi Hills', 'South West Khasi Hills', 'Ri-Bhoi', 'Eastern West Khasi Hills', 'West Jaintia Hills', 'East Jaintia Hills'
+      ]
+    },
+    {
+      name: 'Mizoram', districts: [
+        'Aizawl', 'Champhai', 'Kolasib', 'Lawngtlai', 'Lunglei', 'Mamit', 'Saiha', 'Serchhip', 'Hnahthial', 'Khawzawl', 'Saitual'
+      ]
+    },
+    {
+      name: 'Nagaland', districts: [
+        'Chümoukedima', 'Dimapur', 'Kiphire', 'Kohima', 'Longleng', 'Mokokchung', 'Mon', 'Niuland', 'Noklak', 'Peren', 'Phek', 'Tuensang', 'Tseminyü', 'Wokha', 'Zünheboto'
+      ]
+    },
+    {
+      name: 'Odisha', districts: [
+        'Angul', 'Balangir', 'Balasore', 'Bargarh', 'Bhadrak', 'Boudh', 'Cuttack', 'Deogarh', 'Dhenkanal', 'Gajapati', 'Ganjam', 'Jagatsinghpur', 'Jajpur', 'Jharsuguda', 'Kalahandi', 'Kandhamal', 'Kendrapara', 'Kendujhar', 'Khordha', 'Koraput', 'Malkangiri', 'Mayurbhanj', 'Nabarangpur', 'Nayagarh', 'Nuapada', 'Puri', 'Rayagada', 'Sambalpur', 'Subarnapur', 'Sundargarh'
+      ]
+    },
+    {
+      name: 'Punjab', districts: [
+        'Amritsar', 'Barnala', 'Bathinda', 'Faridkot', 'Fatehgarh Sahib', 'Ferozepur', 'Fazilka', 'Gurdaspur', 'Hoshiarpur', 'Jalandhar', 'Kapurthala', 'Ludhiana', 'Mansa', 'Moga', 'Muktsar', 'Pathankot', 'Patiala', 'Rupnagar', 'Sahibzada Ajit Singh Nagar', 'Sangrur', 'Shahid Bhagat Singh Nagar', 'Tarn Taran', 'Malerkotla'
+      ]
+    },
+    {
+      name: 'Rajasthan', districts: [
+        'Ajmer', 'Alwar', 'Balotra', 'Banswara', 'Baran', 'Barmer', 'Beawar', 'Bharatpur', 'Bhilwara', 'Bikaner', 'Bundi', 'Chittorgarh', 'Churu', 'Dausa', 'Deeg', 'Dholpur', 'Didwana-Kuchaman', 'Dudu', 'Dungarpur', 'Ganganagar', 'Hanumangarh', 'Jaipur', 'Jaipur Rural', 'Jaisalmer', 'Jalore', 'Jhalawar', 'Jhunjhunu', 'Jodhpur', 'Jodhpur Rural', 'Karauli', 'Kekri', 'Kota', 'Lalsot', 'Nagaur', 'Neem Ka Thana', 'Pali', 'Phalodi', 'Pratapgarh', 'Rajsamand', 'Sanchore', 'Sawai Madhopur', 'Shahpura', 'Sikar', 'Sirohi', 'Tonk', 'Udaipur'
+      ]
+    },
+    {
+      name: 'Sikkim', districts: [
+        'Gangtok', 'Gyalshing', 'Namchi', 'Mangan', 'Pakyong', 'Soreng'
+      ]
+    },
+    {
+      name: 'Tamil Nadu', districts: [
+        'Ariyalur', 'Chengalpattu', 'Chennai', 'Coimbatore', 'Cuddalore', 'Dharmapuri', 'Dindigul', 'Erode', 'Kallakurichi', 'Kanchipuram', 'Kanyakumari', 'Karur', 'Krishnagiri', 'Madurai', 'Mayiladuthurai', 'Nagapattinam', 'Namakkal', 'Nilgiris', 'Perambalur', 'Pudukkottai', 'Ramanathapuram', 'Ranipet', 'Salem', 'Sivaganga', 'Tenkasi', 'Thanjavur', 'Theni', 'Thoothukudi', 'Tiruchirappalli', 'Tirunelveli', 'Tirupathur', 'Tiruppur', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvarur', 'Vellore', 'Viluppuram', 'Virudhunagar'
+      ]
+    },
+    {
+      name: 'Telangana', districts: [
+        'Adilabad', 'Bhadradri Kothagudem', 'Hanumakonda', 'Hyderabad', 'Jagtial', 'Jangoan', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar', 'Khammam', 'Komaram Bheem Asifabad', 'Mahabubabad', 'Mahbubnagar', 'Mancherial', 'Medak', 'Medchal-Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal', 'Yadadri Bhuvanagiri'
+      ]
+    },
+    {
+      name: 'Tripura', districts: [
+        'Dhalai', 'Gomati', 'Khowai', 'North Tripura', 'Sipahijala', 'South Tripura', 'Unakoti', 'West Tripura'
+      ]
+    },
+    {
+      name: 'Uttar Pradesh', districts: [
+        'Agra', 'Aligarh', 'Ambedkar Nagar', 'Amethi', 'Amroha', 'Auraiya', 'Ayodhya', 'Azamgarh', 'Badaun', 'Baghpat', 'Bahraich', 'Ballia', 'Balrampur', 'Banda', 'Barabanki', 'Bareilly', 'Basti', 'Bhadohi', 'Bijnor', 'Budaun', 'Bulandshahr', 'Chandauli', 'Chitrakoot', 'Deoria', 'Etah', 'Etawah', 'Farrukhabad', 'Fatehpur', 'Firozabad', 'Gautam Buddha Nagar', 'Ghaziabad', 'Ghazipur', 'Gonda', 'Gorakhpur', 'Hamirpur', 'Hapur', 'Hardoi', 'Hathras', 'Jalaun', 'Jaunpur', 'Jhansi', 'Kannauj', 'Kanpur Dehat', 'Kanpur Nagar', 'Kasganj', 'Kaushambi', 'Kheri', 'Kushinagar', 'Lalitpur', 'Lucknow', 'Maharajganj', 'Mahoba', 'Mainpuri', 'Mathura', 'Mau', 'Meerut', 'Mirzapur', 'Moradabad', 'Muzaffarnagar', 'Pilibhit', 'Pratapgarh', 'Prayagraj', 'Rae Bareli', 'Rampur', 'Saharanpur', 'Sambhal', 'Sant Kabir Nagar', 'Shahjahanpur', 'Shamli', 'Shravasti', 'Siddharthnagar', 'Sitapur', 'Sonbhadra', 'Sultanpur', 'Unnao', 'Varanasi'
+      ]
+    },
+    {
+      name: 'Uttarakhand', districts: [
+        'Almora', 'Bageshwar', 'Chamoli', 'Champawat', 'Dehradun', 'Haridwar', 'Nainital', 'Pauri Garhwal', 'Pithoragarh', 'Rudraprayag', 'Tehri Garhwal', 'Udham Singh Nagar', 'Uttarkashi'
+      ]
+    },
+    {
+      name: 'West Bengal', districts: [
+        'Alipurduar', 'Bankura', 'Birbhum', 'Cooch Behar', 'Dakshin Dinajpur', 'Darjeeling', 'Hooghly', 'Howrah', 'Jalpaiguri', 'Jhargram', 'Kalimpong', 'Kolkata', 'Malda', 'Murshidabad', 'Nadia', 'North 24 Parganas', 'Paschim Bardhaman', 'Paschim Medinipur', 'Purba Bardhaman', 'Purba Medinipur', 'Purulia', 'South 24 Parganas', 'Uttar Dinajpur'
+      ]
+    },
+    {
+      name: 'Andaman and Nicobar Islands (UT)', districts: [
+        'Nicobar', 'North and Middle Andaman', 'South Andaman'
+      ]
+    }
     ,
-    { name: 'Chandigarh', districts: [
-      'Chandigarh'
-    ]},
-    { name: 'Dadra and Nagar Haveli and Daman and Diu', districts: [
-      'Dadra and Nagar Haveli','Daman','Diu'
-    ]},
-    { name: 'Delhi (NCT)', districts: [
-      'Central Delhi','East Delhi','New Delhi','North Delhi','North East Delhi','North West Delhi','Shahdara','South Delhi','South East Delhi','South West Delhi','West Delhi'
-    ]},
-    { name: 'Jammu and Kashmir', districts: [
-      'Anantnag','Bandipora','Baramulla','Budgam','Doda','Ganderbal','Jammu','Kathua','Kishtwar','Kulgam','Kupwara','Poonch','Pulwama','Rajouri','Ramban','Reasi','Samba','Shopian','Srinagar','Udhampur'
-    ]},
-    { name: 'Ladakh', districts: [
-      'Kargil','Leh'
-    ]},
-    { name: 'Lakshadweep', districts: [
-      'Agatti','Amini','Andrott','Bitra','Chetlat','Kadmat','Kalpeni','Kavaratti','Minicoy'
-    ]},
-    { name: 'Puducherry', districts: [
-      'Karaikal','Mahe','Puducherry','Yanam'
-    ]}
+    {
+      name: 'Chandigarh', districts: [
+        'Chandigarh'
+      ]
+    },
+    {
+      name: 'Dadra and Nagar Haveli and Daman and Diu', districts: [
+        'Dadra and Nagar Haveli', 'Daman', 'Diu'
+      ]
+    },
+    {
+      name: 'Delhi (NCT)', districts: [
+        'Central Delhi', 'East Delhi', 'New Delhi', 'North Delhi', 'North East Delhi', 'North West Delhi', 'Shahdara', 'South Delhi', 'South East Delhi', 'South West Delhi', 'West Delhi'
+      ]
+    },
+    {
+      name: 'Jammu and Kashmir', districts: [
+        'Anantnag', 'Bandipora', 'Baramulla', 'Budgam', 'Doda', 'Ganderbal', 'Jammu', 'Kathua', 'Kishtwar', 'Kulgam', 'Kupwara', 'Poonch', 'Pulwama', 'Rajouri', 'Ramban', 'Reasi', 'Samba', 'Shopian', 'Srinagar', 'Udhampur'
+      ]
+    },
+    {
+      name: 'Ladakh', districts: [
+        'Kargil', 'Leh'
+      ]
+    },
+    {
+      name: 'Lakshadweep', districts: [
+        'Agatti', 'Amini', 'Andrott', 'Bitra', 'Chetlat', 'Kadmat', 'Kalpeni', 'Kavaratti', 'Minicoy'
+      ]
+    },
+    {
+      name: 'Puducherry', districts: [
+        'Karaikal', 'Mahe', 'Puducherry', 'Yanam'
+      ]
+    }
     // Add more states/UTs here if you have the data ready
   ];
 
@@ -557,6 +628,67 @@ async function main() {
     return; // Exit early if we can't even create a simple user
   }
 
+  // Helper function to generate state code from state name
+  const generateStateCode = (stateName: string): string => {
+    // Extract first letters of each word or use initials for well-known abbreviations
+    const stateAbbreviations: Record<string, string> = {
+      'Andhra Pradesh': 'AP',
+      'Arunachal Pradesh': 'AR',
+      'Assam': 'AS',
+      'Bihar': 'BR',
+      'Chhattisgarh': 'CG',
+      'Goa': 'GA',
+      'Gujarat': 'GJ',
+      'Haryana': 'HR',
+      'Himachal Pradesh': 'HP',
+      'Jharkhand': 'JH',
+      'Karnataka': 'KA',
+      'Kerala': 'KL',
+      'Madhya Pradesh': 'MP',
+      'Maharashtra': 'MH',
+      'Manipur': 'MN',
+      'Meghalaya': 'ML',
+      'Mizoram': 'MZ',
+      'Nagaland': 'NL',
+      'Odisha': 'OD',
+      'Punjab': 'PB',
+      'Rajasthan': 'RJ',
+      'Sikkim': 'SK',
+      'Tamil Nadu': 'TN',
+      'Telangana': 'TG',
+      'Tripura': 'TR',
+      'Uttar Pradesh': 'UP',
+      'Uttarakhand': 'UT',
+      'West Bengal': 'WB',
+      'Andaman and Nicobar Islands (UT)': 'AN',
+      'Chandigarh': 'CH',
+      'Dadra and Nagar Haveli and Daman and Diu': 'DD',
+      'Delhi (NCT)': 'DL',
+      'Jammu and Kashmir': 'JK',
+      'Ladakh': 'LD',
+      'Lakshadweep': 'LS',
+      'Puducherry': 'PY'
+    };
+    return stateAbbreviations[stateName] || stateName.substring(0, 2).toUpperCase();
+  };
+
+  // Create state-level ADMIN users
+  const stateAdminUsers: any[] = [];
+  const allStates = await prisma.states.findMany();
+
+  for (let i = 0; i < allStates.length; i++) {
+    const stateRecord = allStates[i];
+    const stateCode = generateStateCode(stateRecord.name);
+    stateAdminUsers.push({
+      username: `${stateCode}_ADMIN_ALMS`,
+      email: `admin-${stateRecord.name.toLowerCase().replace(/\s+/g, '-')}@tspolice.gov.in`,
+      password: 'password',
+      phoneNo: `8712670${String(1000 + i).padStart(3, '0')}`,
+      role: 'ADMIN',
+      stateId: stateRecord.id,
+    });
+  }
+
   // Create location-based users with proper hierarchy mapping
   const locationUsers: any[] = [];
   let phoneCounter = 1000; // Counter to ensure unique phone numbers
@@ -622,7 +754,7 @@ async function main() {
     });
   }
 
-  // Users array and creation loop - keep existing admin users + add location users
+  // Users array and creation loop - keep existing admin users + add state admin users + location users
   const users: any[] = [
     // Existing administrative users
     {
@@ -653,15 +785,6 @@ async function main() {
       districtId: district ? district.id : undefined
     },
     {
-      username: 'ZS_ADMIN',
-      email: 'zs-admin@tspolice.gov.in',
-      password: 'password',
-      phoneNo: '8712660505',
-      role: 'ZS',
-      stateId: state ? state.id : undefined,
-      districtId: district ? district.id : undefined
-    },
-    {
       username: 'ADMIN_USER',
       email: 'admin@tspolice.gov.in',
       password: 'password',
@@ -669,6 +792,79 @@ async function main() {
       role: 'ADMIN',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
+    },
+    // Add all state-level ADMIN users
+    ...stateAdminUsers,
+    // ZS - Zonal Superintendents for each zone
+    {
+      username: 'SUPDT_NZ_HYD',
+      email: 'supdt-north-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660501',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zoneMap['North Zone']
+    },
+    {
+      username: 'SUPDT_CZ_HYD',
+      email: 'supdt-central-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660502',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zoneMap['Central Zone']
+    },
+    {
+      username: 'SUPDT_SZ_HYD',
+      email: 'supdt-south-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660503',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zoneMap['South Zone']
+    },
+    {
+      username: 'SUPDT_WZ_HYD',
+      email: 'supdt-west-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660504',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zoneMap['West Zone']
+    },
+    {
+      username: 'SUPDT_EZ_HYD',
+      email: 'supdt-east-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660505',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zonalId ? zonalId : undefined,
+    },
+    {
+      username: 'SUPDT_SWZ_HYD',
+      email: 'supdt-south-west-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660506',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zoneMap['South West Zone']
+    },
+    {
+      username: 'SUPDT_SEZ_HYD',
+      email: 'supdt-south-east-zone@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660507',
+      role: 'ZS',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined,
+      zoneId: zoneMap['South East Zone']
     },
     {
       username: 'SHO_BEGU_HYD',
@@ -890,16 +1086,16 @@ async function main() {
   // Define role-action mappings based on role hierarchy and permissions
   const roleActionMappings = [
     // SHO - Station House Officer can forward, reject, recommend, close
-    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'GROUND_REPORT', 'RETURN'] },
+    { roleCode: 'SHO', actionCodes: ['FORWARD', 'RETURN'] },
 
     // ACP - Assistant Commissioner can do all SHO actions plus approve
-    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RETURN'] },
+    { roleCode: 'ACP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // DCP - Deputy Commissioner has broader approval powers
-    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RETURN'] },
+    { roleCode: 'DCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // ZS - Zonal Superintendent can handle all workflow actions
-    { roleCode: 'ZS', actionCodes: ['FORWARD', 'INITIATED', 'RETURN'] },
+    { roleCode: 'ZS', actionCodes: ['FORWARD','RE_ENQUIRY', 'RETURN'] },
 
     // CADO - Chief Administrative Officer
     { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
@@ -914,10 +1110,13 @@ async function main() {
     { roleCode: 'JTCP', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // CP - Commissioner of Police (highest authority) - NO RETURN action
-    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND'] },
+    { roleCode: 'CP', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RECOMMEND', 'NOT_RECOMMEND'] },
 
     // ADMIN - System Administrator (can perform all actions for system management)
-    { roleCode: 'ADMIN', actionCodes: ['FORWARD', 'REJECT', 'APPROVED', 'CANCEL', 'RE_ENQUIRY', 'GROUND_REPORT', 'DISPOSE', 'RED_FLAG', 'INITIATE', 'CLOSE', 'RECOMMEND', 'RETURN'] },
+    { roleCode: 'ADMIN', actionCodes: ['FORWARD'] },
+
+    // SUPER_ADMIN - Super Administrator (can perform all actions for system management)
+    { roleCode: 'SUPER_ADMIN', actionCodes: ['FORWARD'] },
   ];
 
   // Insert role-action mappings

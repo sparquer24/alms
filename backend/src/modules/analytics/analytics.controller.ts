@@ -1,5 +1,6 @@
-import { Controller, Get, Query, HttpException, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Query, HttpException, HttpStatus, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { AnalyticsService } from './analytics.service';
 import {
     ApplicationsDataDto,
@@ -7,10 +8,13 @@ import {
     StateDataDto,
     AdminActivityDto,
     AnalyticsResponseDto,
+    ApplicationRecordDto,
 } from './dto/analytics.dto';
 
 @ApiTags('Analytics')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/analytics')
+@UseGuards(JwtAuthGuard)
 export class AnalyticsController {
     constructor(private readonly analyticsService: AnalyticsService) { }
 
@@ -48,6 +52,7 @@ export class AnalyticsController {
     async getApplicationsByWeek(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationsDataDto[]>> {
         try {
             // Validate date format if provided
@@ -58,7 +63,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode);
 
             return {
                 success: true,
@@ -107,6 +117,7 @@ export class AnalyticsController {
     async getRoleLoad(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<RoleLoadDataDto[]>> {
         try {
             // Validate date format if provided
@@ -117,7 +128,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getRoleLoad(fromDate, toDate);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode);
 
             return {
                 success: true,
@@ -166,6 +182,7 @@ export class AnalyticsController {
     async getApplicationStates(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<StateDataDto[]>> {
         try {
             // Validate date format if provided
@@ -176,7 +193,12 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getApplicationStates(fromDate, toDate);
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode);
 
             return {
                 success: true,
@@ -225,6 +247,7 @@ export class AnalyticsController {
     async getAdminActivities(
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Req() req?: any,
     ): Promise<AnalyticsResponseDto<AdminActivityDto[]>> {
         try {
             // Validate date format if provided
@@ -235,7 +258,14 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            const data = await this.analyticsService.getAdminActivities(fromDate, toDate);
+            // Extract user info from JWT
+            const user = req ? (req as any).user : null;
+            const userId = user?.userId;
+            const roleId = user?.roleId;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode);
 
             return {
                 success: true,
@@ -245,6 +275,87 @@ export class AnalyticsController {
             console.error('Error in getAdminActivities:', error);
             throw new HttpException(
                 error.message || 'Failed to fetch admin activities',
+                error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+    @Get('applications/details')
+    @ApiOperation({
+        summary: 'Get Applications Details',
+        description:
+            'Get applications summary counts and a list of applications. Supports optional status filter (APPROVED, PENDING, REJECTED).',
+    })
+    @ApiQuery({
+        name: 'status',
+        required: false,
+        type: String,
+        description: 'Optional status filter: APPROVED | PENDING | REJECTED',
+    })
+    @ApiQuery({
+        name: 'page',
+        required: false,
+        type: Number,
+        description: 'Page number for pagination (1-based)',
+    })
+    @ApiQuery({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Number of items per page',
+    })
+    @ApiQuery({
+        name: 'q',
+        required: false,
+        type: String,
+        description: 'Optional search string to match license id or username',
+    })
+    @ApiQuery({
+        name: 'sort',
+        required: false,
+        type: String,
+        description: "Optional sort field, prefix with '-' for desc (e.g. '-updatedAt')",
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved applications details',
+        // data contains summary + array of records
+    })
+    async getApplicationsDetails(
+        @Query('status') status?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('q') q?: string,
+        @Query('sort') sort?: string,
+        @Req() req?: any,
+    ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
+        try {
+            const pageNum = page ? parseInt(page, 10) : undefined;
+            const limitNum = limit ? parseInt(limit, 10) : undefined;
+
+            // Extract user info from JWT for state filtering
+            const user = req ? (req as any).user : null;
+            const stateId = user?.stateId;
+            const roleCode = user?.roleCode;
+
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, stateId, roleCode);
+
+            const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
+
+            return {
+                success: true,
+                data: result.data,
+                meta: {
+                    total: result.total,
+                    page: result.page ?? 1,
+                    limit: result.limit ?? result.data.length,
+                    pages,
+                },
+            };
+        } catch (error: any) {
+            console.error('Error in getApplicationsDetails:', error);
+            throw new HttpException(
+                error.message || 'Failed to fetch applications details',
                 error.status || HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }

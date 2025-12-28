@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart,
@@ -18,10 +18,8 @@ import {
 import {
   analyticsService,
   AnalyticsFilters,
-  ApplicationsData,
-  RoleLoadData,
-  StateData,
-  AdminActivity,
+  ApplicationRecord,
+  ApplicationsDetailsResult,
 } from '@/services/analyticsService';
 import { format } from 'date-fns';
 import {
@@ -32,9 +30,15 @@ import {
   AdminErrorBoundary,
   AdminSectionSkeleton,
   AdminTableSkeleton,
+  AdminTable,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import {
+  AdminSpacing,
+  AdminLayout,
+  AdminBorderRadius,
+  AdminTransitions,
+} from '@/styles/admin-design-system';
 import { AdminActivityFeed } from '@/components/analytics/AdminActivityFeed';
 
 // Type assertions for recharts components
@@ -52,6 +56,14 @@ const LegendFixed = Legend as any;
 
 const COLORS = ['#6366F1', '#F59E42', '#10B981', '#EF4444', '#8B5CF6', '#EC4899'];
 
+type ApplicationStatus = 'APPROVED' | 'PENDING' | 'REJECTED';
+
+const statusPalette: Record<ApplicationStatus, { bg: string; text: string }> = {
+  APPROVED: { bg: '#ECFDF3', text: '#16A34A' },
+  PENDING: { bg: '#FFFBEB', text: '#CA8A04' },
+  REJECTED: { bg: '#FEF2F2', text: '#DC2626' },
+};
+
 export default function AnalyticsPage() {
   const { colors } = useAdminTheme();
 
@@ -62,6 +74,12 @@ export default function AnalyticsPage() {
     return format(date, 'yyyy-MM-dd');
   });
   const [toDate, setToDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+
+  // Applications table state (moved from applicationsDetails)
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const pageSize = 6;
 
   // Fetch applications data
   const {
@@ -116,6 +134,32 @@ export default function AnalyticsPage() {
     },
   });
 
+  // Fetch application details list
+  const {
+    data: applicationsDetails,
+    isLoading: applicationsDetailsLoading,
+    error: applicationsDetailsError,
+    refetch: refetchApplicationsDetails,
+  } = useQuery<ApplicationsDetailsResult>({
+    queryKey: ['analytics-applications-details', page, pageSize, search, status],
+    queryFn: async () => {
+      const result = await analyticsService.getApplicationsDetails({
+        page,
+        limit: pageSize,
+        status: status || undefined,
+        q: search.trim() || undefined,
+        sort: '-updatedAt',
+      });
+      return result;
+    },
+  });
+
+  const applications = applicationsDetails?.data || [];
+  const totalApplicationsCount = applicationsDetails?.meta?.total ?? applications.length;
+  const currentPage = applicationsDetails?.meta?.page ?? page;
+  const currentLimit = applicationsDetails?.meta?.limit ?? pageSize;
+  const start = (currentPage - 1) * currentLimit;
+
   // Calculate summary stats
   const summaryStats = useMemo(() => {
     const totalApplications = applicationsByWeek.reduce((sum, item) => sum + item.count, 0);
@@ -150,7 +194,63 @@ export default function AnalyticsPage() {
     }
   };
 
-  const isLoading = appLoading || roleLoading || stateLoading;
+  const handleDownload = () => {
+    if (!applications || applications.length === 0) {
+      return;
+    }
+
+    const header = [
+      'S.No',
+      'License ID',
+      'Application Name',
+      'Status',
+      'Pending Details',
+      'Action Taken At',
+    ];
+    const rows = applications.map((row, idx) => {
+      const actionDate = row.actionTakenAt ? new Date(row.actionTakenAt) : null;
+      const formattedDate =
+        actionDate && !Number.isNaN(actionDate.valueOf())
+          ? format(actionDate, 'yyyy-MM-dd HH:mm')
+          : '--';
+      const pendingParts = [] as string[];
+
+      if (row.currentUser?.name) pendingParts.push(row.currentUser.name);
+      if (row.daysTillToday !== null && row.daysTillToday !== undefined) {
+        const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
+        const daysText = `(${row.daysTillToday} ${dayLabel})`;
+        if (pendingParts.length) {
+          pendingParts[pendingParts.length - 1] =
+            `${pendingParts[pendingParts.length - 1]} ${daysText}`;
+        } else {
+          pendingParts.push(daysText);
+        }
+      }
+
+      const pendingDetails = pendingParts.length ? pendingParts.join(' ') : '--';
+
+      return [
+        String(start + idx + 1),
+        row.licenseId || '',
+        row.applicantName || '',
+        row.status || '',
+        pendingDetails,
+        formattedDate,
+      ];
+    });
+    const csv = [header, ...rows]
+      .map(r => r.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'applications-details.csv');
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const isLoading = appLoading || roleLoading || stateLoading || applicationsDetailsLoading;
 
   return (
     <AdminErrorBoundary>
@@ -162,61 +262,70 @@ export default function AnalyticsPage() {
           flexDirection: 'column',
         }}
       >
-        {/* Header Toolbar */}
-        <AdminToolbar sticky>
-          <div style={{ flex: 1 }}>
-            <h1
-              style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: colors.text.primary,
-                margin: 0,
-              }}
-            >
-              Analytics Dashboard
-            </h1>
-            <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
-              Track applications and system performance
-            </p>
+        {/* Header Section with Gradient Background */}
+        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
+          <div className='bg-[#001F54] text-white px-6 py-8'>
+            <div className='text-white'>
+              <h1 className='text-3xl font-bold mb-2'>Analytics Dashboard</h1>
+              <p className='text-blue-100 text-lg'>Track applications and system performance</p>
+            </div>
           </div>
-          <button
-            onClick={() => refetchApps()}
-            disabled={isLoading}
-            style={{
-              padding: '10px 16px',
-              backgroundColor: colors.status.info,
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: AdminBorderRadius.md,
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              opacity: isLoading ? 0.6 : 1,
-            }}
-          >
-            ↻ Refresh
-          </button>
-        </AdminToolbar>
-
-        {/* Date Filters */}
-        <AdminFilter
-          filters={{
-            fromDate: {
-              value: fromDate,
-              label: 'From Date',
-              type: 'date',
-              onChange: setFromDate,
-            },
-            toDate: {
-              value: toDate,
-              label: 'To Date',
-              type: 'date',
-              onChange: setToDate,
-            },
-          }}
-          onClear={handleReset30Days}
-        />
-
+          <div className='p-6 bg-white'>
+            <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4'>
+              <div className='flex flex-col sm:flex-row gap-3 flex-1'>
+                <div className='relative flex-1'>
+                  <label className='block text-sm font-medium text-gray-700 mb-2'>From Date</label>
+                  <input
+                    type='date'
+                    value={fromDate}
+                    onChange={e => setFromDate(e.target.value)}
+                    className='w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                  />
+                </div>
+                <div className='relative flex-1'>
+                  <label className='block text-sm font-medium text-gray-700 mb-2'>To Date</label>
+                  <input
+                    type='date'
+                    value={toDate}
+                    onChange={e => setToDate(e.target.value)}
+                    className='w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                  />
+                </div>
+              </div>
+              <div className='flex gap-2 items-end'>
+                <button
+                  onClick={handleReset30Days}
+                  className='inline-flex items-center justify-center rounded-lg bg-slate-200 text-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-300 transition-colors whitespace-nowrap'
+                >
+                  Reset 30 Days
+                </button>
+                <button
+                  onClick={() => {
+                    refetchApps();
+                    refetchApplicationsDetails();
+                  }}
+                  disabled={isLoading}
+                  className='inline-flex items-center justify-center rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap'
+                >
+                  <svg
+                    className='w-4 h-4 mr-2'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.581 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                    />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         {/* Error Alerts */}
         {appError && (
           <AdminErrorAlert
@@ -235,6 +344,17 @@ export default function AnalyticsPage() {
           <AdminErrorAlert
             title='Failed to Load Application States'
             message={stateError instanceof Error ? stateError.message : 'Unknown error'}
+          />
+        )}
+        {applicationsDetailsError && (
+          <AdminErrorAlert
+            title='Failed to Load Application Details'
+            message={
+              applicationsDetailsError instanceof Error
+                ? applicationsDetailsError.message
+                : 'Unknown error'
+            }
+            onRetry={() => refetchApplicationsDetails()}
           />
         )}
 
@@ -296,7 +416,7 @@ export default function AnalyticsPage() {
             {appLoading ? (
               <AdminSectionSkeleton lines={5} height='300px' />
             ) : (
-              <div style={{ width: '100%', height: '300px' }}>
+              <div style={{ width: '100%', height: '350px' }}>
                 <ResponsiveContainerFixed width='100%' height='100%'>
                   <BarChartFixed data={applicationsByWeek}>
                     <CartesianGridFixed stroke={colors.border} />
@@ -335,9 +455,9 @@ export default function AnalyticsPage() {
           {/* Role-wise Load Chart */}
           <AdminCard title='Role-wise Application Load'>
             {roleLoading ? (
-              <AdminSectionSkeleton lines={5} height='300px' />
+              <AdminSectionSkeleton lines={5} height='400px' />
             ) : (
-              <div style={{ width: '100%', height: '300px' }}>
+              <div style={{ width: '100%', height: '350px' }}>
                 <ResponsiveContainerFixed width='100%' height='100%'>
                   <PieChartFixed>
                     <PieFixed
@@ -390,7 +510,7 @@ export default function AnalyticsPage() {
           {stateLoading ? (
             <AdminSectionSkeleton lines={5} height='300px' />
           ) : (
-            <div style={{ width: '100%', height: '300px' }}>
+            <div style={{ width: '100%', height: '350px' }}>
               <ResponsiveContainerFixed width='100%' height='100%'>
                 <BarChartFixed data={applicationStates} layout='vertical'>
                   <CartesianGridFixed stroke={colors.border} />
@@ -425,19 +545,233 @@ export default function AnalyticsPage() {
             Export CSV
           </button>
         </AdminCard>
+        {/* Applications Details Section */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1.2fr 0.7fr auto',
+            gap: AdminSpacing.md,
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+            padding: AdminSpacing.md,
+            borderRadius: AdminBorderRadius.lg,
+            border: '1px solid #E5E7EB',
+            boxShadow: '0 1px 3px 0 rgba(0,0,0,0.1)',
+          }}
+        >
+          <input
+            type='text'
+            placeholder='Search license ID or user...'
+            value={search}
+            onChange={e => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              height: '40px',
+              borderRadius: AdminBorderRadius.md,
+              border: '1px solid #E5E7EB',
+              backgroundColor: '#FFFFFF',
+              color: colors.text.primary,
+              fontSize: '14px',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+            }}
+          />
+
+          <select
+            value={status}
+            onChange={e => {
+              setPage(1);
+              setStatus(e.target.value);
+            }}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              height: '40px',
+              borderRadius: AdminBorderRadius.md,
+              border: '1px solid #E5E7EB',
+              backgroundColor: '#FFFFFF',
+              color: colors.text.primary,
+              fontSize: '14px',
+              appearance: 'auto',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+            }}
+            aria-label='Status filter'
+          >
+            <option value=''>All Statuses</option>
+            <option value='APPROVED'>Approved</option>
+            <option value='PENDING'>Pending</option>
+            <option value='REJECTED'>Rejected</option>
+          </select>
+
+          <button
+            type='button'
+            onClick={handleDownload}
+            style={{
+              padding: '0 16px',
+              height: '40px',
+              borderRadius: AdminBorderRadius.md,
+              border: 'none',
+              backgroundColor: '#374151',
+              color: '#FFFFFF',
+              fontWeight: 600,
+              fontSize: '14px',
+              boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)',
+              transition: `all ${AdminTransitions.fast}`,
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1F2937';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#374151';
+            }}
+          >
+            ↓ Download Excel
+          </button>
+        </div>
+
+        <AdminCard>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: AdminSpacing.md,
+            }}
+          >
+            <h2
+              style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: colors.text.primary }}
+            >
+              Applications
+            </h2>
+            <span style={{ color: colors.text.secondary, fontSize: '13px' }}>
+              Showing {applications.length} of {totalApplicationsCount}
+            </span>
+          </div>
+          <div
+            style={{
+              height: 300,
+              overflowY: 'auto',
+              borderRadius: AdminBorderRadius.lg,
+              border: `1px solid ${colors.border}`,
+            }}
+          >
+            {applicationsDetailsLoading ? (
+              <AdminTableSkeleton rows={6} columns={6} />
+            ) : (
+              <AdminTable
+                columns={[
+                  {
+                    key: 'applicationId',
+                    header: 'S.No',
+                    render: (_value, _row, idx) => start + (idx + 1),
+                    width: '80px',
+                  },
+                  {
+                    key: 'licenseId',
+                    header: 'License ID',
+                    render: value => value || '--',
+                  },
+                  {
+                    key: 'applicantName',
+                    header: 'Application Name',
+                    render: value => value || '--',
+                  },
+                  {
+                    key: 'status',
+                    header: 'Status',
+                    render: value => {
+                      const normalized = (value || '').toUpperCase() as ApplicationStatus;
+                      const palette = statusPalette[normalized] || {
+                        bg: '#F3F4F6',
+                        text: '#111827',
+                      };
+                      const label = normalized
+                        ? `${normalized.charAt(0)}${normalized.slice(1).toLowerCase()}`
+                        : 'Unknown';
+
+                      return (
+                        <span
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: AdminBorderRadius.full,
+                            backgroundColor: palette.bg,
+                            color: palette.text,
+                            fontWeight: 600,
+                            fontSize: '13px',
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: 'pendingDetails',
+                    header: 'Pending Details',
+                    render: (_value, row: ApplicationRecord) => {
+                      const parts: string[] = [];
+
+                      if (row.currentUser?.name) parts.push(row.currentUser.name);
+                      if (row.daysTillToday !== null && row.daysTillToday !== undefined) {
+                        const dayLabel = row.daysTillToday === 1 ? 'day' : 'days';
+                        const daysText = `(${row.daysTillToday} ${dayLabel})`;
+                        if (parts.length) {
+                          parts[parts.length - 1] = `${parts[parts.length - 1]} ${daysText}`;
+                        } else {
+                          parts.push(daysText);
+                        }
+                      }
+
+                      return parts.length ? parts.join(' ') : '--';
+                    },
+                  },
+                  {
+                    key: 'actionTakenAt',
+                    header: 'Action Taken At',
+                    render: value => {
+                      if (!value) return '--';
+                      const date = new Date(value as string);
+                      if (Number.isNaN(date.valueOf())) return '--';
+                      return format(date, 'yyyy-MM-dd HH:mm');
+                    },
+                  },
+                ]}
+                data={applications}
+                rowKey='applicationId'
+                emptyMessage='No applications found'
+              />
+            )}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              marginTop: AdminSpacing.lg,
+            }}
+          />
+        </AdminCard>
 
         {/* Admin Activity Feed */}
         <AdminCard title='Recent Activities'>
-          {activitiesLoading ? (
-            <AdminSectionSkeleton lines={5} height='400px' />
-          ) : activitiesError ? (
-            <AdminErrorAlert
-              title='Failed to Load Activities'
-              message={activitiesError instanceof Error ? activitiesError.message : 'Unknown error'}
-            />
-          ) : (
-            <AdminActivityFeed activities={adminActivities} />
-          )}
+          <div style={{ height: 450, overflowY: 'auto' }}>
+            {activitiesLoading ? (
+              <AdminSectionSkeleton lines={5} height='300px' />
+            ) : activitiesError ? (
+              <AdminErrorAlert
+                title='Failed to Load Activities'
+                message={
+                  activitiesError instanceof Error ? activitiesError.message : 'Unknown error'
+                }
+              />
+            ) : (
+              <AdminActivityFeed activities={adminActivities} />
+            )}
+          </div>
         </AdminCard>
       </div>
     </AdminErrorBoundary>

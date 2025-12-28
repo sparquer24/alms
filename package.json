@@ -33,5 +33,8 @@
     "test": "npm -w frontend run test && echo Backend has no tests configured",
     "lint": "npm -w frontend run lint || echo Lint issues found",
     "postinstall": "npm -w backend run postinstall || echo Postinstall completed"
+  },
+  "dependencies": {
+    "react-toastify": "^11.0.5"
   }
 }

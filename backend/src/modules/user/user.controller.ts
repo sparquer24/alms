@@ -1,7 +1,6 @@
-import { Controller, Post, Body, HttpException, HttpStatus, Get, Query, Param, Patch, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
-import { UserService } from './user.service';
-import { stat } from 'fs';
+import { Controller, Post, Body, HttpException, HttpStatus, Get, Query, Param, Patch, Put, Delete, Request, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { UserService } from './user.service';import { AuthGuard } from '../../middleware/auth.middleware';import { stat } from 'fs';
 import { CreateUsersDto } from './dto/create-users.dto';
 
 @ApiTags('Users')
@@ -76,27 +75,63 @@ export class UserController {
     ]
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid role filter' })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Unauthorized - Authentication required',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Authorization header is missing. Please include "Authorization: Bearer <token>" in your request headers.',
+        error: 'Unauthorized'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Forbidden - Insufficient permissions',
+    schema: {
+      example: {
+        statusCode: 403,
+        message: 'Access denied. Required role(s): ADMIN. Your role: USER',
+        error: 'Forbidden'
+      }
+    }
+  })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async getUsers(@Query('role') role?: string) {
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard)
+  async getUsers(@Query('role') role?: string, @Request() req?: any) {
     try {
-      const users = await this.userService.getUsers(role);
-      // Format response as required, but return role code if present
-      return users
-      // .map((u: any) => ({
-      //   id: u.id,
-      //   username: u.username,
-      //   email: u.email,
-      //   role: u.role?.code || null,
-      // }));
+      const adminStateId = req?.user?.stateId;
+      const adminUsername = req?.user?.username;
+      const adminUserId = req?.user?.sub;
+      const adminRoleCode = req?.user?.role_code;
+      const users = await this.userService.getUsers(role, adminStateId, adminRoleCode);
+      
+      // Exclude the logged-in admin user from the results
+      const filteredUsers = users.filter(user => user.id !== adminUserId);
+      
+      if (filteredUsers.length === 0) {
+        const stateInfo = adminStateId ? `state ID ${adminStateId}` : 'any state (no state assigned)';
+        throw new HttpException(
+          `No users found for admin '${adminUsername}' in ${stateInfo}${role ? ` with role '${role}'` : ''}`,
+          HttpStatus.NOT_FOUND
+        );
+      }
+      
+      return filteredUsers;
     } catch (error: any) {
-      throw new HttpException(error.message || 'Failed to fetch users', HttpStatus.BAD_REQUEST);
+      throw new HttpException(error.message || 'Failed to fetch users', error.status || HttpStatus.BAD_REQUEST);
     }
   }
 
   @Get(':id')
-  async getUser(@Param('id') id: string) {
+  async getUserById(@Param('id') id: string) {
     try {
-      const [user] = await this.userService.getUsers();
+      const user = await this.userService.getUserById(id);
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
       // Note: For optimization implement dedicated service method; placeholder for now
       return user; // would filter by id in real scenario
     } catch (error: any) {
@@ -104,12 +139,47 @@ export class UserController {
     }
   }
 
-  @Patch(':id')
+  @Put(':id')
+  @ApiOperation({ 
+    summary: 'Update User', 
+    description: 'Update an existing user by ID' 
+  })
+  @ApiBody({
+    description: 'User fields to update',
+    schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', example: 'updated_user' },
+        email: { type: 'string', example: 'updated@example.com' },
+        phoneNo: { type: 'string', example: '1234567890' },
+        password: { type: 'string', example: 'NewPassword123!' },
+        roleId: { type: 'number', example: 1 },
+        stateId: { type: 'number', example: 1 },
+        districtId: { type: 'number', example: 1 },
+        zoneId: { type: 'number', example: 1 },
+        divisionId: { type: 'number', example: 1 },
+        policeStationId: { type: 'number', example: 1 }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'User updated successfully'
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard)
   async updateUser(@Param('id') id: string, @Body() body: any) {
     try {
       return await this.userService.updateUser(id, body);
     } catch (error: any) {
-      throw new HttpException(error.message || 'Failed to update user', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        error.message || 'Failed to update user', 
+        error.status || HttpStatus.BAD_REQUEST
+      );
     }
   }
 

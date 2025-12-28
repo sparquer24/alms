@@ -22,7 +22,8 @@ export const ROLE_CODES = {
   JTCP: 'JTCP',                // Joint Commissioner of Police
   CP: 'CP',                    // Commissioner of Police
   APPLICANT: 'APPLICANT',      // Citizen Applicant
-  ADMIN: 'ADMIN'               // System Administrator
+  ADMIN: 'ADMIN',              // System Administrator
+  SUPER_ADMIN: 'SUPER_ADMIN'   // Super Administrator
 } as const;
 
 // ============================================
@@ -92,6 +93,7 @@ export const ACTION_CODES = {
   RE_ENQUIRY: 'RE_ENQUIRY',
   GROUND_REPORT: 'GROUND_REPORT',
   RECOMMEND: 'RECOMMEND',
+  NOT_RECOMMEND: 'NOT_RECOMMEND',
   APPROVED: 'APPROVED',
   REJECT: 'REJECT',
   CLOSE: 'CLOSE',
@@ -140,15 +142,22 @@ export function isRejectionAction(actionCode: string): boolean {
 }
 
 /**
- * Check if action is ground report
- */
-export function isGroundReportAction(actionCode: string): boolean {
-  return actionCode.toUpperCase() === ACTION_CODES.GROUND_REPORT;
-}
-
-/**
  * Check if action is re-enquiry
  */
 export function isReEnquiryAction(actionCode: string): boolean {
   return actionCode.toUpperCase() === ACTION_CODES.RE_ENQUIRY;
+}
+
+/**
+ * Check if action is recommend
+ */
+export function isRecommendAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.RECOMMEND;
+}
+
+/**
+ * check if action is not recommend
+*/
+export function isNotRecommendAction(actionCode: string): boolean {
+  return actionCode.toUpperCase() === ACTION_CODES.NOT_RECOMMEND;
 }

@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
-import { TERMINAL_ACTIONS, FORWARD_ACTIONS, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction, isGroundReportAction, isReEnquiryAction } from '../../constants/workflow-actions';
+import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 
 @Injectable()
 export class WorkflowService {
@@ -50,6 +50,8 @@ export class WorkflowService {
     isReEnquiry?: boolean;
     isReEnquiryDone?: boolean;
     isRejected?: boolean;
+    isRecommended?: boolean;
+    isNotRecommended?: boolean;
   }) {
     // 1. Fetch Application Data
     const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -103,17 +105,23 @@ export class WorkflowService {
       currentUserId: nextUserId,
     };
 
-    // Set approval/rejection flags based on action code
+    // Set approval/rejection/recommendation flags based on action code
     if (isApprovalAction(actionCode)) {
       updateData.isApproved = true;
+      updateData.isPending = false;
     } else if (isRejectionAction(actionCode)) {
       updateData.isRejected = true;
+      updateData.isPending = false;
+    } else if (isRecommendAction(actionCode)) {
+      updateData.isRecommended = true;
+      updateData.isPending = false;
+    } else if (isNotRecommendAction(actionCode)) {
+      updateData.isNotRecommended = true;
+      updateData.isPending = false;
     }
 
     // Set flags based on specific action codes
-    if (isGroundReportAction(actionCode)) {
-      updateData.isGroundReportGenerated = true;
-    } else if (isReEnquiryAction(actionCode)) {
+     if (isReEnquiryAction(actionCode)) {
       updateData.isGroundReportGenerated = false;
       updateData.isReEnquiry = true;
     }
@@ -126,6 +134,12 @@ export class WorkflowService {
     if (payload.isReEnquiry !== undefined) updateData.isReEnquiry = payload.isReEnquiry;
     if (payload.isReEnquiryDone !== undefined) updateData.isReEnquiryDone = payload.isReEnquiryDone;
     if (payload.isRejected !== undefined) updateData.isRejected = payload.isRejected;
+    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
+    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
+    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
+    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
+    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
+    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
 
     const updatedApplication = await this.prisma.freshLicenseApplicationPersonalDetails.update({
       where: { id: payload.applicationId },
@@ -135,11 +149,23 @@ export class WorkflowService {
     // 6. Add workflow history log
     const previousUserIdForHistory = application.currentUserId || payload.currentUserId; // Who had it before
     
+    // Determine actionTaken: preserve terminal action states (approved, rejected, recommended, not recommended)
+    let actionTaken = payload.action.code;
+    if (application.isApproved || updateData.isApproved) {
+      actionTaken = ACTION_CODES.APPROVED;
+    } else if (application.isRejected || updateData.isRejected) {
+      actionTaken = ACTION_CODES.REJECT;
+    } else if (application.isRecommended || updateData.isRecommended) {
+      actionTaken = ACTION_CODES.RECOMMEND;
+    } else if (application.isNotRecommended || updateData.isNotRecommended) {
+      actionTaken = ACTION_CODES.NOT_RECOMMEND;
+    }
+    
     const workflowHistoryData: any = {
       applicationId: payload.applicationId,
       previousUserId: previousUserIdForHistory, // Who had the application before this action
       nextUserId: nextUserId, // Who has it after (or who completed it)
-      actionTaken: payload.action.code,
+      actionTaken: actionTaken,
       remarks: payload.remarks || '',
       previousRoleId: previousUserIdForHistory ? (await this.prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
       nextRoleId: nextUserRoleId?.roleId ,

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Query, Body, Param, ParseIntPipe, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Query, Body, Param, ParseIntPipe, HttpException, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
 
@@ -11,7 +11,7 @@ export class LocationsController {
   @Get('states')
   @ApiOperation({
     summary: 'Get States',
-    description: 'Retrieve all states or a specific state by ID'
+    description: 'Retrieve all states or a specific state by ID. SUPER_ADMIN sees all states, ADMIN sees empty list (starts from district)'
   })
   @ApiQuery({
     name: 'id',
@@ -35,7 +35,7 @@ export class LocationsController {
   @ApiResponse({ status: 400, description: 'Invalid state ID' })
   @ApiResponse({ status: 404, description: 'State not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async getStates(@Query('id') id?: string) {
+  async getStates(@Query('id') id?: string, @Request() req?: any) {
     try {
       const stateId = id ? parseInt(id, 10) : undefined;
 

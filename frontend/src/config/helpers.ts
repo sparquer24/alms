@@ -6,6 +6,7 @@ export const ROLE_DCP = 'DCP';
 export const ROLE_ACP = 'ACP';
 export const ROLE_SHO = 'SHO';
 export const ROLE_ADMIN = 'ADMIN';
+export const ROLE_SUPER_ADMIN = 'SUPER_ADMIN';
 
 export const CAN_VIEW_FRESH_FORM = 'canViewFreshForm';
 

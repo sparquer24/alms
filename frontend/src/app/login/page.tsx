@@ -198,7 +198,6 @@ function LoginContent() {
     if (isAuthenticated && currentUser) {
       setIsRedirecting(true);
       const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
-      console.log('LoginContent: Redirecting authenticated user to', redirectPath);
       if (redirectPath && typeof redirectPath === 'string') {
         // Perform a full navigation so the server middleware/layout sees the
         // newly-set cookies and any server components (eg. sidebar) are
@@ -225,27 +224,21 @@ function LoginContent() {
       const cAuth = getCookie('auth');
       const cRole: any = getCookie('role');
       const cUser = getCookie('user');
-      console.log({ cAuth, cRole, cUser });
       if (cAuth && cRole && cUser) {
         // Use full navigation so server-side layout/middleware reads cookies
         // and renders the correct navigation/sidebar state immediately.
+        const roleUpper = String(cRole).toUpperCase();
+        const redirectPath = getRoleBasedRedirectPath(roleUpper);
+        
         try {
-          if (String(cRole).toLowerCase() === 'admin') {
-            setTimeout(() => {
-              window.location.assign('/admin/userManagement?refresh=true');
-            }, 50);
-          } else {
-            setTimeout(() => {
-              window.location.assign('/inbox?type=forwarded&refresh=true');
-            }, 50);
-          }
+          setTimeout(() => {
+            const separator = redirectPath.includes('?') ? '&' : '?';
+            window.location.assign(redirectPath + separator + 'refresh=true');
+          }, 50);
         } catch (e) {
           // Fallback: do a direct assign
-          window.location.assign(
-            String(cRole).toLowerCase() === 'admin'
-              ? '/admin/userManagement?refresh=true'
-              : '/inbox?type=forwarded&refresh=true'
-          );
+          const separator = redirectPath.includes('?') ? '&' : '?';
+          window.location.assign(redirectPath + separator + 'refresh=true');
         }
       }
     } catch (e) {
@@ -287,9 +280,6 @@ function LoginContent() {
             return candidate ? String(candidate).trim().toUpperCase() : undefined;
           };
           const normalizedRole = extractRole(result.user);
-          const isAdminLike =
-            normalizedRole &&
-            ['ADMIN', 'ADMINISTRATOR', 'SUPERADMIN'].includes(String(normalizedRole).toUpperCase());
           if (!normalizedRole) {
             dispatch(setError('No role assigned to your account.'));
             setIsRedirecting(false);
@@ -299,24 +289,23 @@ function LoginContent() {
             const redirectPath = getRoleBasedRedirectPath(normalizedRole);
             dispatch(setError(''));
             setIsRedirecting(true);
-            // Prefer explicit admin route when role is ADMIN to ensure the
-            // user management screen is shown.
+            // Use role-based redirect path for all users including ADMIN and SUPER_ADMIN
             setTimeout(() => {
               try {
-                if (isAdminLike) {
-                  window.location.assign('/admin/userManagement?refresh=true');
-                } else if (redirectPath && typeof redirectPath === 'string') {
+                if (redirectPath && typeof redirectPath === 'string') {
                   const separator = redirectPath.includes('?') ? '&' : '?';
                   window.location.assign(redirectPath + separator + 'refresh=true');
                 } else {
-                  // Fallback to inbox or root
-                  window.location.assign('/inbox?type=forwarded&refresh=true');
+                  // Fallback to role-based redirect or root
+                  const fallbackPath = getRoleBasedRedirectPath(normalizedRole) || '/';
+                  const separator = fallbackPath.includes('?') ? '&' : '?';
+                  window.location.assign(fallbackPath + separator + 'refresh=true');
                 }
               } catch (e) {
                 // As final fallback do a direct assign without try/catch
-                window.location.assign(
-                  isAdminLike ? '/admin/userManagement?refresh=true' : '/?refresh=true'
-                );
+                const fallbackPath = getRoleBasedRedirectPath(normalizedRole) || '/';
+                const separator = fallbackPath.includes('?') ? '&' : '?';
+                window.location.assign(fallbackPath + separator + 'refresh=true');
               }
             }, 50);
           }

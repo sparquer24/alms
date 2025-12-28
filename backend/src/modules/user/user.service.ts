@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
+import { ROLE_CODES } from '../../constants/auth';
 
 export interface CreateUserInput {
   username?: string;
@@ -43,10 +44,15 @@ export class UserService {
     return await bcrypt.hash(password, this.saltRounds);
   }
 
-  async getUsers(role?: string): Promise<any[]> {
+  async getUsers(role?: string, stateId?: number, roleCode?: string): Promise<any[]> {
     const where: any = {};
     if (role) {
       where.role = { code: role };
+    }
+    // SUPER_ADMIN has no stateId and should see all users
+    // ADMIN should only see users in their state
+    if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
+      where.stateId = stateId;
     }
     return await prisma.users.findMany({
       where,
@@ -55,6 +61,37 @@ export class UserService {
         username: true,
         email: true,
         phoneNo: true,
+        state:{
+          select: {
+            id:true,
+            name:true,
+          }
+        },
+        district:{
+          select: {
+            id:true,
+            name:true,
+          }
+        },
+        zone:{
+          select: {
+            id:true,
+            name:true,
+          }
+        },
+        division:{
+          select: {
+            id:true,
+            name:true,
+          }
+        },
+        policeStation:{
+          select: {
+            id:true,
+            name:true,
+          }
+        },
+        roleId: true,
         createdAt: true,
         updatedAt: true,
         role: {
@@ -76,6 +113,68 @@ export class UserService {
             can_create_freshLicence: true,
           }
         },
+      },
+    });
+  }
+
+  /**
+   * get User by ID
+   * @param userId - User ID
+   * @returns User object
+   */ 
+
+  async getUserById(userId: string | number) {
+    return await prisma.users.findUnique({
+      where: { id: Number(userId) },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        phoneNo: true,
+        stateId: true,
+        districtId: true,
+        zoneId: true,
+        divisionId: true,
+        policeStationId: true,
+        state: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        zone: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        division: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        policeStation: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }
@@ -129,7 +228,7 @@ export class UserService {
   }
 
   /**
-   * Update basic user fields (username, email, phoneNo, roleId)
+   * Update user fields including optional password change and locations
    */
   async updateUser(userId: string | number, data: Partial<CreateUserInput>) {
     const updateData: any = {};
@@ -137,6 +236,19 @@ export class UserService {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.phoneNo !== undefined) updateData.phoneNo = data.phoneNo;
     if (data.roleId !== undefined) updateData.roleId = Number(data.roleId);
+    
+    // Update password only if provided
+    if (data.password && data.password.trim() !== '') {
+      updateData.password = await this.hashPassword(data.password);
+    }
+    
+    // Update location fields
+    if (data.stateId !== undefined) updateData.stateId = data.stateId ? Number(data.stateId) : null;
+    if (data.districtId !== undefined) updateData.districtId = data.districtId ? Number(data.districtId) : null;
+    if (data.zoneId !== undefined) updateData.zoneId = data.zoneId ? Number(data.zoneId) : null;
+    if (data.divisionId !== undefined) updateData.divisionId = data.divisionId ? Number(data.divisionId) : null;
+    if (data.policeStationId !== undefined) updateData.policeStationId = data.policeStationId ? Number(data.policeStationId) : null;
+    
     if (Object.keys(updateData).length === 0) {
       throw new Error('No valid fields provided for update');
     }

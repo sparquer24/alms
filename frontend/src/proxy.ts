@@ -92,7 +92,10 @@ function parseAuthCookie(authCookie: string | undefined): { isAuthenticated: boo
 
     // Map known numeric role ids to role codes for robust handling
     const numericRoleMap: Record<string, string> = {
+      '12': 'SUPER_ADMIN',
       '14': 'ADMIN',
+      '15': 'SUPER_ADMIN',
+      '16': 'SUPER_ADMIN',
       '7': 'ZS',
       '2': 'ZS', // backend sometimes uses 2 for ZS role_id in JWT payloads
       // add other mappings as needed

@@ -14,6 +14,7 @@ import ConfirmationModal from '../../../components/ConfirmationModal';
 import EnhancedApplicationTimeline from '../../../components/EnhancedApplicationTimeline';
 import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
+import { RichTextDisplay } from '../../../components/RichTextDisplay';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
@@ -69,6 +70,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const printRef = useRef<HTMLDivElement>(null);
+  const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage (2 of 3 columns)
+  const [isDragging, setIsDragging] = useState(false);
+  const dividerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Use sidebar counts hook here so we can trigger an immediate refresh
   // after actions that move an application between inbox buckets.
@@ -100,20 +105,33 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         }
         const isPdf = /pdf/i.test(contentType);
         const isImage = /^image\//i.test(contentType);
+        const isHtml = /html|text\//i.test(contentType) || fileName.toLowerCase().endsWith('.html');
         const safeTitle = fileName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const body = isPdf
-          ? `<object data="${objectUrl}" type="application/pdf" style="width:100%;height:100vh;">` +
+
+        let body = '';
+        if (isPdf) {
+          body =
+            `<object data="${objectUrl}" type="application/pdf" style="width:100%;height:100vh;">` +
             `<p>PDF preview unavailable. <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a></p>` +
-            `</object>`
-          : isImage
-            ? `<img src="${objectUrl}" alt="${safeTitle}" style="max-width:100%;height:auto;display:block;margin:0 auto;padding:16px;" />`
-            : `<div style="padding:16px;font-family:system-ui,Segoe UI,Arial;">
-               <p>Preview not supported for this file type (${contentType}).</p>
-               <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a>
-             </div>`;
+            `</object>`;
+        } else if (isImage) {
+          body = `<img src="${objectUrl}" alt="${safeTitle}" style="max-width:100%;height:auto;display:block;margin:0 auto;padding:16px;" />`;
+        } else if (isHtml || contentType.includes('plain')) {
+          // For ground reports and HTML content, try to render as iframe
+          body = `<iframe src="${objectUrl}" style="width:100%;height:100vh;border:none;"></iframe>
+                  <div style="position:fixed;bottom:20px;right:20px;">
+                    <a href="${objectUrl}" target="_self" download="${safeTitle}" style="padding:10px 20px;background:#3b82f6;color:white;text-decoration:none;border-radius:6px;">Download</a>
+                  </div>`;
+        } else {
+          body = `<div style="padding:16px;font-family:system-ui,Segoe UI,Arial;">
+             <p>Preview not supported for this file type (${contentType}).</p>
+             <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a>
+           </div>`;
+        }
+
         viewer.document.open();
         viewer.document.write(
-          `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${safeTitle}</title></head><body style="margin:0;">${body}</body></html>`
+          `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${safeTitle}</title><style>body{margin:0;padding:0;}</style></head><body style="margin:0;">${body}</body></html>`
         );
         viewer.document.close();
       };
@@ -472,6 +490,40 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     setShowPrintOptions(false);
   };
 
+  // Handle divider drag start
+  const handleDividerMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    e.preventDefault();
+  };
+
+  // Handle divider dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+
+      const container = containerRef.current;
+      const rect = container.getBoundingClientRect();
+      const newPosition = ((e.clientX - rect.left) / rect.width) * 100;
+
+      // Constrain position between 40% and 80%
+      if (newPosition >= 40 && newPosition <= 80) {
+        setDividerPosition(newPosition);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   const handleProceedingsSuccess = (message?: string) => {
     setShowProceedingsForm(false);
     setSuccessMessage(message || 'Proceedings action completed successfully');
@@ -687,153 +739,171 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
                     Applicant Information
                   </h2>
-                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                    {/* Full Name - Spans full width */}
-                    <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2 lg:col-span-4'>
-                      <p className='text-sm text-gray-500 font-medium mb-1'>Full Name</p>
-                      <p className='font-semibold text-gray-900'>
-                        {[application?.firstName, application?.middleName, application?.lastName]
-                          .filter(Boolean)
-                          .join(' ') ||
-                          application?.applicantName ||
-                          'N/A'}
-                      </p>
-                    </div>
 
-                    {/* Parent/Spouse Name */}
-                    {application?.parentOrSpouseName && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Parent/Spouse Name</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.parentOrSpouseName}
-                        </p>
-                      </div>
-                    )}
+                  <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                    {/* Main details - left (spans 2/3) */}
+                    <div className='lg:col-span-2'>
+                      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6'>
+                        {/* Full Name - Spans full width of this column set */}
+                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                          <p className='text-sm text-gray-500 font-medium mb-1'>Full Name</p>
+                          <p className='font-semibold text-gray-900'>
+                            {[
+                              application?.firstName,
+                              application?.middleName,
+                              application?.lastName,
+                            ]
+                              .filter(Boolean)
+                              .join(' ') ||
+                              application?.applicantName ||
+                              'N/A'}
+                          </p>
+                        </div>
 
-                    {/* Gender */}
-                    {application?.sex && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Gender</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.sex.charAt(0) + application.sex.slice(1).toLowerCase()}
-                        </p>
-                      </div>
-                    )}
+                        {application?.parentOrSpouseName && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>
+                              Parent/Spouse Name
+                            </p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.parentOrSpouseName}
+                            </p>
+                          </div>
+                        )}
 
-                    {/* Place of Birth */}
-                    {application?.placeOfBirth && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Place of Birth</p>
-                        <p className='font-semibold text-gray-900'>{application.placeOfBirth}</p>
-                      </div>
-                    )}
+                        {application?.sex && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Gender</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.sex.charAt(0) + application.sex.slice(1).toLowerCase()}
+                            </p>
+                          </div>
+                        )}
 
-                    {/* Date of Birth */}
-                    {(application?.dateOfBirth || application?.dob) && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Date of Birth</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application?.dateOfBirth
-                            ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })
-                            : application?.dob
-                              ? new Date(application.dob).toLocaleDateString('en-IN', {
+                        {application?.placeOfBirth && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Place of Birth</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.placeOfBirth}
+                            </p>
+                          </div>
+                        )}
+
+                        {(application?.dateOfBirth || application?.dob) && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Date of Birth</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application?.dateOfBirth
+                                ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })
+                                : application?.dob
+                                  ? new Date(application.dob).toLocaleDateString('en-IN', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric',
+                                    })
+                                  : 'N/A'}
+                            </p>
+                            {application?.dobInWords && (
+                              <p className='text-xs text-gray-500 mt-1 italic'>
+                                {application.dobInWords}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {application?.panNumber && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>PAN Number</p>
+                            <p className='font-semibold text-gray-900 font-mono'>
+                              {application.panNumber}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.aadharNumber && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Aadhar Number</p>
+                            <p className='font-semibold text-gray-900 font-mono'>
+                              {application.aadharNumber}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.acknowledgementNo && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>
+                              Acknowledgement Number
+                            </p>
+                            <p className='font-semibold text-gray-900 font-mono'>
+                              {application.acknowledgementNo}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.currentUser && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>Current User</p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.currentUser.username}
+                            </p>
+                          </div>
+                        )}
+
+                        {application?.workflowStatus && (
+                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                            <p className='text-sm text-gray-500 font-medium mb-1'>
+                              Workflow Status
+                            </p>
+                            <p className='font-semibold text-gray-900'>
+                              {application.workflowStatus.name}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                          <p className='text-sm text-gray-500 font-medium mb-1'>Application Type</p>
+                          <p className='font-semibold text-gray-900'>
+                            {application?.applicationType || 'Fresh License'}
+                          </p>
+                        </div>
+
+                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
+                          <p className='text-sm text-gray-500 font-medium mb-1'>
+                            Date & Time of Submission
+                          </p>
+                          <p className='font-semibold text-gray-900'>
+                            {application?.applicationDate
+                              ? new Date(application.applicationDate).toLocaleString('en-IN', {
                                   year: 'numeric',
-                                  month: 'long',
+                                  month: 'short',
                                   day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
                                 })
                               : 'N/A'}
-                        </p>
-                        {application?.dobInWords && (
-                          <p className='text-xs text-gray-500 mt-1 italic'>
-                            {application.dobInWords}
                           </p>
-                        )}
+                        </div>
                       </div>
-                    )}
-
-                    {/* PAN Number */}
-                    {application?.panNumber && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>PAN Number</p>
-                        <p className='font-semibold text-gray-900 font-mono'>
-                          {application.panNumber}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Aadhar Number */}
-                    {application?.aadharNumber && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Aadhar Number</p>
-                        <p className='font-semibold text-gray-900 font-mono'>
-                          {application.aadharNumber}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Acknowledgement Number */}
-                    {application?.acknowledgementNo && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>
-                          Acknowledgement Number
-                        </p>
-                        <p className='font-semibold text-gray-900 font-mono'>
-                          {application.acknowledgementNo}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Current User */}
-                    {application?.currentUser && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Current User</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.currentUser.username}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Workflow Status */}
-                    {application?.workflowStatus && (
-                      <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                        <p className='text-sm text-gray-500 font-medium mb-1'>Workflow Status</p>
-                        <p className='font-semibold text-gray-900'>
-                          {application.workflowStatus.name}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Application Type */}
-                    <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                      <p className='text-sm text-gray-500 font-medium mb-1'>Application Type</p>
-                      <p className='font-semibold text-gray-900'>
-                        {application?.applicationType || 'Fresh License'}
-                      </p>
                     </div>
 
-                    {/* Date of Submission */}
-                    <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                      <p className='text-sm text-gray-500 font-medium mb-1'>
-                        Date & Time of Submission
-                      </p>
-                      <p className='font-semibold text-gray-900'>
-                        {application?.applicationDate
-                          ? new Date(application.applicationDate).toLocaleString('en-IN', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : 'N/A'}
-                      </p>
-                    </div>
+                    {/* Right-side card - photo in top-right and form-like summary */}
+                    <aside className='lg:col-span-1 border border-gray-200 rounded-xl p-4 bg-gray-50 shadow-sm h-fit'>
+                      <div className='ml-2 '>
+                        <img
+                          src={(application as any)?.photoUrl as string}
+                          alt='Applicant Photo'
+                          className='w-60 h-60 object-cover rounded-md border'
+                        />
+                      </div>
+                    </aside>
                   </div>
                 </div>
+
+                {/* Biometric section removed - photo moved to right-side summary card */}
 
                 {/* Present Address Section */}
                 {application?.presentAddress && (
@@ -1481,18 +1551,34 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Only show if NOT Draft */}
               {application?.workflowStatus?.name?.toLowerCase() !== 'draft' && (
-                  <div className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
-                0px)]'>
-                  <div className='grid grid-cols-1 lg:grid-cols-2 gap-6 h-full items-stretch'>
-                    {/* Action Buttons - Left Side with Scroll */}
-                    <div className='flex flex-col h-full'>
-                      <div className='flex items-center mb-4'>
-                        <h3 className='text-lg font-semibold text-gray-900 flex items-center'>
-                          <div className='w-1 h-5 bg-blue-600 rounded-full mr-3'></div>
-                          Actions
-                        </h3>
+                <div
+                  className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
+                0px)]'
+                >
+                  <div
+                    ref={containerRef}
+                    className='flex h-screen items-stretch gap-0 relative'
+                    style={{
+                      display: 'flex',
+                    }}
+                  >
+                    {/* Action Buttons - Full Width Editor (2 columns) */}
+                    <div
+                      className='flex flex-col h-screen overflow-hidden'
+                      style={{
+                        width: `${dividerPosition}%`,
+                        transition: isDragging ? 'none' : 'width 0.1s ease',
+                      }}
+                    >
+                      <div className='flex items-center justify-between mb-4'>
+                        <div>
+                          <h3 className='text-2xl font-bold text-gray-900 flex items-center'>
+                            <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
+                            Application Processing
+                          </h3>
+                        </div>
                       </div>
-                      <div className='flex flex-col gap-4 flex-1'>
+                      <div className='flex flex-col gap-4 flex-1 overflow-hidden'>
                         {/* Check if current logged-in user can take action */}
                         {(() => {
                           // Read `user_data` from cookies (if present) and parse it safely.
@@ -1535,8 +1621,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           <>
                             {/* Proceedings Form - Always Open */}
                             <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
-                              <div className='p-4 bg-gray-50 flex-1 overflow-auto'>
-                                <div className='p-4 h-full'>
+                              <div className='p-2 bg-gray-50 flex-1 overflow-auto'>
+                                <div className='p-2 h-full'>
                                   <ProceedingsForm
                                     applicationId={applicationId!}
                                     onSuccess={handleProceedingsSuccess}
@@ -1585,8 +1671,28 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       </div>
                     </div>
 
+                    {/* Resizable Divider */}
+                    <div
+                      ref={dividerRef}
+                      onMouseDown={handleDividerMouseDown}
+                      className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
+                      style={{
+                        cursor: 'col-resize',
+                        userSelect: 'none',
+                      }}
+                    >
+                      {/* Hover indicator */}
+                      <div className='absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400/10 transition-colors duration-200'></div>
+                    </div>
+
                     {/* Application Timeline/History - Right Side with Scroll */}
-                    <div className='flex flex-col h-full'>
+                    <div
+                      className='flex flex-col h-screen overflow-hidden'
+                      style={{
+                        width: `${100 - dividerPosition}%`,
+                        transition: isDragging ? 'none' : 'width 0.1s ease',
+                      }}
+                    >
                       <div className='flex items-center justify-between mb-4'>
                         <h3 className='text-lg font-semibold text-gray-900 flex items-center'>
                           <div className='w-1 h-5 bg-green-600 rounded-full mr-3'></div>
@@ -1594,8 +1700,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                         </h3>
                       </div>
 
-                      <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full'>
-                        <div className='max-h-[calc(100vh-270px)] overflow-y-auto p-6 custom-scrollbar'>
+                      <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
+                        <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
                           {application &&
                           application.workflowHistories &&
                           application.workflowHistories.length > 0 ? (
@@ -1680,19 +1786,25 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       {hasDetails && (
                                         <button
                                           type='button'
-                                          onClick={() =>
-                                            setExpandedHistory(prev => ({
-                                              ...prev,
-                                              [idx]: !prev[idx],
-                                            }))
-                                          }
-                                          className='ml-4 text-blue-600 hover:text-blue-800 text-sm font-medium px-2 py-1 rounded-md hover:bg-blue-100 transition-colors duration-200 flex items-center'
+                                          onMouseEnter={() => {
+                                            if (!isExpanded) {
+                                              setExpandedHistory(prev => ({
+                                                ...prev,
+                                                [idx]: true,
+                                              }));
+                                            }
+                                          }}
+                                          className={`ml-4 text-sm font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 flex items-center group relative ${
+                                            isExpanded
+                                              ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700 hover:shadow-lg'
+                                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 hover:shadow-md'
+                                          }`}
                                           aria-expanded={isExpanded}
                                           aria-controls={`history-remarks-${idx}`}
                                           aria-label={isExpanded ? 'Hide details' : 'Show details'}
                                         >
                                           <svg
-                                            className={`w-4 h-4 mr-1 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                            className={`w-4 h-4 mr-2 transform transition-all duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                                             fill='none'
                                             stroke='currentColor'
                                             viewBox='0 0 24 24'
@@ -1705,20 +1817,26 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                             />
                                           </svg>
                                           {isExpanded ? 'Hide' : 'Show more'}
+
+                                          {/* Tooltip on hover */}
+                                          <div className='absolute right-0 bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap z-50'>
+                                            {isExpanded ? 'Click to hide' : 'Hover to view details'}
+                                            <div className='absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900'></div>
+                                          </div>
                                         </button>
                                       )}
                                     </div>
                                     {hasRemarks && isExpanded && (
                                       <div
                                         id={`history-remarks-${idx}`}
-                                        className='mt-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm'
+                                        className='mt-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm'
                                       >
-                                        <div className='text-base font-semibold text-gray-800 mb-2'>
+                                        <div className='text-base font-semibold text-gray-800 mb-3'>
                                           Remarks
                                         </div>
-                                        <div className='flex items-start'>
+                                        <div className='flex'>
                                           <svg
-                                            className='w-5 h-5 mr-2 text-indigo-500 mt-0.5 flex-shrink-0'
+                                            className='w-5 h-5 mr-3 text-indigo-500 mt-0.5 flex-shrink-0'
                                             fill='none'
                                             stroke='currentColor'
                                             viewBox='0 0 24 24'
@@ -1730,9 +1848,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                               d='M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z'
                                             />
                                           </svg>
-                                          <p className='text-sm text-gray-700 leading-relaxed'>
-                                            {h.remarks}
-                                          </p>
+                                          <div className='flex-1 overflow-auto'>
+                                            <RichTextDisplay
+                                              content={h.remarks}
+                                              className='text-sm text-gray-700'
+                                            />
+                                          </div>
                                         </div>
                                       </div>
                                     )}

@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Input } from '../elements/Input';
 import { TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
@@ -9,6 +9,30 @@ import { AddressFormData } from '../../../types/location';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { getUserFromCookie } from '../../../utils/authCookies';
+
+// Get user location data for pre-filling
+const getUserLocationDefaults = () => {
+	const userData = getUserFromCookie();
+	if (userData && userData.location) {
+		return {
+			presentState: userData.location.state?.id ? String(userData.location.state.id) : '',
+			presentDistrict: userData.location.district?.id ? String(userData.location.district.id) : '',
+			presentZone: userData.location.zone?.id ? String(userData.location.zone.id) : '',
+			presentStateName: userData.location.state?.name || '',
+			presentDistrictName: userData.location.district?.name || '',
+			presentZoneName: userData.location.zone?.name || '',
+		};
+	}
+	return {
+		presentState: '',
+		presentDistrict: '',
+		presentZone: '',
+		presentStateName: '',
+		presentDistrictName: '',
+		presentZoneName: '',
+	};
+};
 
 const initialState: AddressFormData = {
 	presentAddress: '',
@@ -58,6 +82,7 @@ const AddressDetails: React.FC = () => {
 		form,
 		setForm,
 		applicantId,
+		almsLicenseId,
 		isSubmitting,
 		submitError,
 		submitSuccess,
@@ -71,6 +96,26 @@ const AddressDetails: React.FC = () => {
 		formSection: 'address',
 		validationRules: validateAddressInfo,
 	});
+
+	// Pre-fill Present Address location fields only if they're empty (no existing data)
+	useEffect(() => {
+		// Wait for loading to complete
+		if (isLoading) return;
+		
+		// Only pre-fill if all three fields are empty (no existing data)
+		if (!form.presentState && !form.presentDistrict && !form.presentZone) {
+			const locationDefaults = getUserLocationDefaults();
+			
+			if (locationDefaults.presentState) {
+				setForm((prev: any) => ({
+					...prev,
+					presentState: locationDefaults.presentState,
+					presentDistrict: locationDefaults.presentDistrict,
+					presentZone: locationDefaults.presentZone,
+				}));
+			}
+		}
+	}, [isLoading, form.presentState, form.presentDistrict, form.presentZone]);
 
 	// Enhanced handleChange to support both input and textarea
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -135,10 +180,23 @@ const AddressDetails: React.FC = () => {
 		<form className="p-6">
 			<h2 className="text-xl font-bold mb-4">Address Details</h2>
 			
-			{/* Display Applicant ID if available */}
-			{applicantId && (
-				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-					<strong>Application ID: {applicantId}</strong>
+			{/* Display Applicant ID and License ID if available */}
+			{(applicantId || almsLicenseId) && (
+				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
+					<div className="flex flex-col">
+						{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
+						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+					</div>
+					{typeof loadExistingData === 'function' && (
+						<button
+							type='button'
+							onClick={() => applicantId && loadExistingData(applicantId)}
+							disabled={isLoading}
+							className='px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'
+						>
+							{isLoading ? 'Loading...' : 'Refresh Data'}
+						</button>
+					)}
 				</div>
 			)}
 			
@@ -178,6 +236,11 @@ const AddressDetails: React.FC = () => {
 					onChange={handleLocationChange}
 					required={true}
 					className="col-span-2"
+					disabledFields={{
+						state: true,
+						district: true,
+						zone: true,
+					}}
 				/>
 				
 				<Input

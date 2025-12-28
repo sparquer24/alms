@@ -34,7 +34,7 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
     roleMapping: {
         name: 'roleMapping',
         key: 'roleMapping',
-        label: 'Role Mapping',
+        label: 'Role Management',
         path: '/admin/roleMapping',
         order: 2,
     },
@@ -111,6 +111,9 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'rolemapping': 'roleMapping',
         'role_mapping': 'roleMapping',
         'role-mapping': 'roleMapping',
+        'rolemanagement': 'roleMapping',
+        'role_management': 'roleMapping',
+        'role-management': 'roleMapping',
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
@@ -118,6 +121,9 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',
+        // 'flowmanagement': 'flowMapping',
+        // 'flow_management': 'flowMapping',
+        // 'flow-management': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
         'locationsmanagement': 'locationsManagement',
@@ -177,10 +183,11 @@ export function getMenuItemsForAdminRole(
     roleCode?: string,
     menuItemsFromRole?: (string | MenuItem)[]
 ): AdminMenuItem[] {
-    const isAdmin = roleCode?.toUpperCase() === 'ADMIN';
+    const upperRoleCode = roleCode?.toUpperCase();
+    const isAdmin = upperRoleCode === 'ADMIN' || upperRoleCode === 'SUPER_ADMIN';
 
     if (isAdmin) {
-        // Admin always gets all menu items
+        // Admin and Super Admin always get all menu items
         return getAdminMenuItems();
     }
 

@@ -14,11 +14,17 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
 
+    // Get token from Authorization header
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid or missing authorization header');
+      throw new UnauthorizedException('Authorization header is missing. Please include "Authorization: Bearer <token>" in your request headers.');
     }
 
     const token = authHeader.replace('Bearer ', '');
+    
+    if (!token || token.trim() === '') {
+      throw new UnauthorizedException('Authorization token is empty. Please provide a valid JWT token.');
+    }
+
     const secret = process.env.JWT_SECRET;
 
     if (!secret) {
@@ -35,13 +41,18 @@ export class AuthGuard implements CanActivate {
         },
       });
       if (!user) {
-        throw new UnauthorizedException('User not found');
+        throw new UnauthorizedException('User account not found. The user associated with this token may have been deleted.');
       }
 
       // Attach user info to request so controllers can access req.user
       request.user = {
         ...decoded,
         roleCode: user.role?.code,
+        stateId: user.stateId,
+        districtId: user.districtId,
+        zoneId: user.zoneId,
+        divisionId: user.divisionId,
+        policeStationId: user.policeStationId,
         // Add more user info if needed
       };
 
@@ -54,7 +65,7 @@ export class AuthGuard implements CanActivate {
       if (requiredRoles && requiredRoles.length > 0) {
         const hasRole = requiredRoles.includes(user.role?.code || '');
         if (!hasRole) {
-          throw new ForbiddenException('Insufficient role permissions');
+          throw new ForbiddenException(`Access denied. Required role(s): ${requiredRoles.join(', ')}. Your role: ${user.role?.code || 'none'}`);
         }
       }
 
@@ -65,11 +76,26 @@ export class AuthGuard implements CanActivate {
       ]);
 
       return true;
-    } catch (error) {
-      if (error instanceof ForbiddenException) {
+    } catch (error: any) {
+      if (error instanceof ForbiddenException || error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException('Invalid or expired token');
+      
+      // Handle specific JWT errors with descriptive messages
+      if (error?.name === 'TokenExpiredError') {
+        throw new UnauthorizedException('Your session has expired. Please login again to get a new token.');
+      }
+      
+      if (error?.name === 'JsonWebTokenError') {
+        throw new UnauthorizedException('Invalid token format. The token may be malformed or corrupted. Please login again.');
+      }
+      
+      if (error?.name === 'NotBeforeError') {
+        throw new UnauthorizedException('Token is not yet valid. Please check your system time or wait a moment.');
+      }
+      
+      // Generic fallback for other errors
+      throw new UnauthorizedException(`Authentication failed: ${error?.message || 'Invalid or expired token'}`);
     }
   }
 }

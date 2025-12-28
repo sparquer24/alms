@@ -92,8 +92,17 @@ export const AuthApi = {
         }
         throw primaryErr;
       }
-    } catch (error) {
-      // Re-throw with enriched message for thunks to pick up
+    } catch (error: any) {
+      // Extract and re-throw with proper error message from response
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        // Create a new error with the message from the API response
+        const errorMessage = errorData.message || errorData.error || error.message || 'Login failed';
+        const enrichedError = new Error(errorMessage);
+        // Preserve the original response for additional context
+        (enrichedError as any).response = error.response;
+        throw enrichedError;
+      }
       throw error;
     }
   },
@@ -241,6 +250,14 @@ export const ApplicationApi = {
       const query = { ...params, statusIds: ids };
       // apiClient.get accepts params object; pass constructed query
       return await apiClient.get(`/application-form`, query as any);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteApplication: async (id: string | number): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.delete(`/application-form/application/${id}`);
     } catch (error) {
       throw error;
     }

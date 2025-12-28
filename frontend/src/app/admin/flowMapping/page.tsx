@@ -1,19 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
+const ReactSelectFixed = Select as any;
 import {
   AdminCard,
   AdminToolbar,
-  AdminErrorAlert,
   AdminErrorBoundary,
   WorkflowGraphPreview,
   AdminSectionSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { apiClient } from '@/config/authenticatedApiClient';
 
 interface Role {
   id: number;
@@ -61,11 +62,9 @@ export default function FlowMappingPage() {
     queryKey: ['admin-roles'],
     queryFn: async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/roles`);
-        if (!response.ok) throw new Error('Failed to fetch roles');
-        const data = await response.json();
-        return Array.isArray(data) ? data : data.data || [];
-      } catch (error) {
+        const response = await apiClient.get<{ data: any[] }>('/roles');
+        return Array.isArray(response) ? response : response.data || [];
+      } catch {
         toast.error('Failed to load roles');
         return [];
       }
@@ -90,20 +89,29 @@ export default function FlowMappingPage() {
     enabled: !!currentRole,
   });
 
-  // Update UI when flow mapping is loaded
-  useEffect(() => {
+  // Memoize selectedNextRoles to prevent infinite loops
+  const selectedNextRoles = useMemo(() => {
     if (currentFlowMapping && currentFlowMapping.nextRoleIds.length > 0) {
-      const selectedNextRoles = currentFlowMapping.nextRoleIds
+      return currentFlowMapping.nextRoleIds
         .map(id => {
           const role = allRoles.find((r: Role) => r.id === id);
           return role ? { value: id, label: `${role.name} (${role.code})`, role } : null;
         })
         .filter(Boolean) as SelectOption[];
-      setNextRoles(selectedNextRoles);
-    } else {
-      setNextRoles([]);
     }
+    return [];
   }, [currentFlowMapping, allRoles]);
+
+  // Update UI when flow mapping is loaded
+  useEffect(() => {
+    const currentIds = nextRoles.map(r => r.value).sort().join(',');
+    const newIds = selectedNextRoles.map(r => r.value).sort().join(',');
+    
+    // Only update if the IDs actually changed
+    if (currentIds !== newIds) {
+      setNextRoles(selectedNextRoles);
+    }
+  }, [selectedNextRoles]);
 
   // Validation function
   const validateForm = useCallback(() => {
@@ -242,12 +250,6 @@ export default function FlowMappingPage() {
     }
   };
 
-  const handleReset = () => {
-    if (window.confirm('Are you sure you want to reset this mapping?')) {
-      resetMappingMutation.mutate();
-    }
-  };
-
   const handleDuplicate = async () => {
     if (!duplicateSource || !currentRole) {
       toast.error('Please select both source and target roles');
@@ -340,24 +342,17 @@ export default function FlowMappingPage() {
           flexDirection: 'column',
         }}
       >
-        {/* Header */}
-        <AdminToolbar sticky>
-          <div>
-            <h1
-              style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: colors.text.primary,
-                margin: 0,
-              }}
-            >
-              Role Flow Mapping
-            </h1>
-            <p style={{ color: colors.text.secondary, fontSize: '14px', margin: '4px 0 0 0' }}>
-              Configure workflow routing between roles with circular dependency validation
-            </p>
+        {/* Header Section with Gradient Background */}
+        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
+          <div className='bg-[#001F54] text-white px-6 py-8'>
+            <div className='text-white'>
+              <h1 className='text-3xl font-bold mb-2'>Flow Mapping</h1>
+              <p className='text-blue-100 text-lg'>
+                Configure workflow routing between roles with circular dependency validation
+              </p>
+            </div>
           </div>
-        </AdminToolbar>
+        </div>
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>
@@ -391,8 +386,7 @@ export default function FlowMappingPage() {
                     Choose the role that will be forwarding applications
                   </p>
                 </div>
-                {/* @ts-ignore */}
-                <Select
+                <ReactSelectFixed
                   options={roleOptions}
                   value={currentRole}
                   onChange={setCurrentRole}
@@ -428,12 +422,11 @@ export default function FlowMappingPage() {
                     Choose multiple roles that can receive applications from the current role
                   </p>
                 </div>
-                {/* @ts-ignore */}
-                <Select
+                <ReactSelectFixed
                   isMulti
                   options={availableNextRoleOptions}
                   value={nextRoles}
-                  onChange={selected => setNextRoles(selected ? [...selected] : [])}
+                  onChange={(selected: any) => setNextRoles(selected ? [...selected] : [])}
                   placeholder='Select next roles...'
                   isDisabled={!currentRole || isLoading}
                   styles={selectStyles}
@@ -568,28 +561,6 @@ export default function FlowMappingPage() {
                 </button>
 
                 <button
-                  onClick={handleReset}
-                  disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: 'transparent',
-                    color:
-                      !currentRole || !currentFlowMapping || isSaving
-                        ? colors.text.secondary
-                        : '#ef4444',
-                    border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : '#ef4444'}`,
-                    borderRadius: AdminBorderRadius.md,
-                    cursor:
-                      !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
-                  }}
-                >
-                  {resetMappingMutation.isPending ? 'Resetting...' : 'Reset Mapping'}
-                </button>
-
-                <button
                   onClick={() => {
                     setDuplicateSource(currentRole);
                     setShowDuplicateModal(true);
@@ -674,8 +645,7 @@ export default function FlowMappingPage() {
                     >
                       Target Role
                     </label>
-                    {/* @ts-ignore */}
-                    <Select
+                    <ReactSelectFixed
                       options={roleOptions.filter(r => r.value !== duplicateSource?.value)}
                       value={currentRole}
                       onChange={setCurrentRole}

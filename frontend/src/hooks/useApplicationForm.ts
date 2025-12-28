@@ -21,6 +21,7 @@ export const useApplicationForm = ({
   const [applicantId, setApplicantId] = useState<string | null>(null);
   const [applicantIdKey, setApplicantIdKey] = useState<'applicantId' | 'id' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [almsLicenseId, setAlmsLicenseId] = useState<string | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,6 +80,11 @@ export const useApplicationForm = ({
 
       const response = await ApplicationService.getApplication(appId);
       if (response.success && response.data) {
+        // If the application contains an ALMS license id, capture it for UI
+        const licenseId = response.data.almsLicenseId ?? response.data.alms_license_id ?? response.data.licenseId ?? null;
+        if (licenseId) {
+          setAlmsLicenseId(licenseId);
+        }
         // Extract section-specific data using the service method
         const sectionData = ApplicationService.extractSectionData(response.data, formSection);
         if (sectionData && Object.keys(sectionData).length > 0) {
@@ -167,8 +173,12 @@ export const useApplicationForm = ({
         } else {
           // Create new application (POST)
           response = await ApplicationService.createApplication(dataToSave);
-          newApplicantId = response.applicationId;
-          setApplicantId(newApplicantId);
+          // Attempt to read returned application id and alms license id from response
+          newApplicantId = response.applicationId ?? response.data?.applicationId ?? response.data?.id ?? null;
+          if (newApplicantId) setApplicantId(newApplicantId);
+
+          const createdLicenseId = response.almsLicenseId ?? response.data?.almsLicenseId ?? response.data?.alms_license_id ?? null;
+          if (createdLicenseId) setAlmsLicenseId(createdLicenseId);
         }
       } else {
         throw new Error('Application ID is required for this form section');
@@ -231,6 +241,7 @@ export const useApplicationForm = ({
     form,
     setForm,
     applicantId,
+    setApplicantId,
     isSubmitting,
     submitError,
     submitSuccess,
@@ -243,5 +254,7 @@ export const useApplicationForm = ({
     loadCompleteApplicationData,
     setSubmitError,
     setSubmitSuccess,
+    almsLicenseId,
+    setAlmsLicenseId,
   };
 };

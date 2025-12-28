@@ -52,5 +52,5 @@ export const hasPermission = (permissions: AdminPermission, permission: keyof Ad
 // Helper function to check if user can access admin panel
 // This should be called within a component that has access to user
 export const canAccessAdminPanel = (userRole?: string | null): boolean => {
-  return userRole === 'ADMIN';
+  return userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
 }; 

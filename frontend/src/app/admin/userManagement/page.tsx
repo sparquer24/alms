@@ -9,6 +9,8 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { fetchData, postData, putData, deleteData } from '../../../api/axiosConfig';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
+import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../../constants';
+import EditUserPage from '../users/[id]/edit/page';
 
 // Types representing API user + transformed UI user
 interface ApiRole {
@@ -47,6 +49,12 @@ interface UiUser {
   updatedAt?: string;
   roleName?: string;
   roleFull?: ApiRole; // full role object for details modal
+  password?: string;
+  state: string | number | readonly string[] | undefined;
+  district: string | number | readonly string[] | undefined;
+  zone: string | number | readonly string[] | undefined;
+  division: string | number | readonly string[] | undefined;
+  policeStation: string | number | readonly string[] | undefined;
 }
 
 export default function UserManagementPage() {
@@ -105,10 +113,11 @@ export default function UserManagementPage() {
   }>({ username: '', email: '', phoneNo: '', roleCode: '' });
   const [editUser, setEditUser] = useState<UiUser | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string>('');
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
   const { userRole } = useAuthSync();
-  const isAdmin = (userRole || '').toUpperCase() === 'ADMIN';
+  const isAdmin = (userRole || '').toUpperCase() === ROLE_CODES.ADMIN;
 
   // Location hierarchy hook (loads states and manages dependent lists)
   const [locationState, locationActions] = useLocationHierarchy();
@@ -133,6 +142,11 @@ export default function UserManagementPage() {
         updatedAt: (u as any).updatedAt,
         roleName: (u as any).role?.name,
         roleFull: u.role,
+        state: (u as any).state?.id || (u as any).stateId || '',
+        district: (u as any).district?.id || (u as any).districtId || '',
+        zone: (u as any).zone?.id || (u as any).zoneId || '',
+        division: (u as any).division?.id || (u as any).divisionId || '',
+        policeStation: (u as any).policeStation?.id || (u as any).policeStationId || '',
       }));
       setUsers(ui);
       const unique: Record<string, ApiRole> = {};
@@ -221,6 +235,7 @@ export default function UserManagementPage() {
   };
 
   const handleAddUser = async () => {
+    if (addError) return; // block submit when inline add validation shows error
     const err = validateUser(addUser);
     if (err) return setAddError(err);
     const role = apiRoles.find(r => r.code === addUser.roleCode);
@@ -339,15 +354,71 @@ export default function UserManagementPage() {
     }
   };
 
-  const openEdit = (u: UiUser) => {
-    setEditUser({ ...u });
+  const openEdit = async (u: UiUser) => {
+    setEditLoading(true);
     setActionMessage('');
+    setEditError('');
+    try {
+      // Fetch fresh user data from API
+      const data = await fetchData(`/users/${u.id}`);
+      
+      // Extract location IDs from nested objects (consistent with getUsers response)
+      const stateId = data.state?.id || data.stateId || '';
+      const districtId = data.district?.id || data.districtId || '';
+      const zoneId = data.zone?.id || data.zoneId || '';
+      const divisionId = data.division?.id || data.divisionId || '';
+      const policeStationId = data.policeStation?.id || data.policeStationId || '';
+      
+      // Map the API response to UiUser format
+      const fetchedUser: UiUser = {
+        id: Number(data.id),
+        username: data.username || '',
+        role: data.role?.code || '',
+        email: data.email || '',
+        phoneNo: data.phoneNo || '',
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        roleName: data.role?.name,
+        roleFull: data.role,
+        password: '', // Don't populate password - it's hashed in DB
+        state: stateId,
+        district: districtId,
+        zone: zoneId,
+        division: divisionId,
+        policeStation: policeStationId,
+      };
+      
+      // Set location hierarchy - cascade will happen automatically via useEffect in hook
+      if (stateId) {
+        locationActions.setSelectedState(String(stateId));
+      }
+      if (districtId) {
+        locationActions.setSelectedDistrict(String(districtId));
+      }
+      if (zoneId) {
+        locationActions.setSelectedZone(String(zoneId));
+      }
+      if (divisionId) {
+        locationActions.setSelectedDivision(String(divisionId));
+      }
+      if (policeStationId) {
+        locationActions.setSelectedPoliceStation(String(policeStationId));
+      }
+      
+      setEditUser(fetchedUser);
+    } catch (e: any) {
+      setActionMessage(e.message || 'Failed to load user details');
+      setEditUser(null);
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const saveEdit = async () => {
     if (!editUser) return;
     setEditLoading(true);
     setActionMessage('');
+    
     try {
       // find roleId from code
       const role = apiRoles.find(r => r.code === editUser.role);
@@ -355,7 +426,13 @@ export default function UserManagementPage() {
         username: editUser.username,
         email: editUser.email || undefined,
         phoneNo: editUser.phoneNo || undefined,
+        password: editUser.password || undefined,
         roleId: role?.id,
+        stateId: editUser.state ? Number(editUser.state) : undefined,
+        districtId: editUser.district ? Number(editUser.district) : undefined,
+        zoneId: editUser.zone ? Number(editUser.zone) : undefined,
+        divisionId: editUser.division ? Number(editUser.division) : undefined,
+        policeStationId: editUser.policeStation ? Number(editUser.policeStation) : undefined,
       });
       setActionMessage('Updated successfully');
       setTimeout(() => setEditUser(null), 600);
@@ -395,7 +472,7 @@ export default function UserManagementPage() {
         <div className='mx-auto w-full max-w-7xl flex flex-col gap-6'>
           {/* Header Section */}
           <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
-            <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>
+            <div className='bg-[#001F54] text-white px-6 py-8'>
               <div className='text-white'>
                 <h1 className='text-3xl font-bold mb-2'>User Management</h1>
                 <p className='text-blue-100 text-lg'>
@@ -529,7 +606,7 @@ export default function UserManagementPage() {
                 </svg>
               </div>
               <div>
-                <h3 className='text-sm font-medium text-red-800'>Error loading users</h3>
+                <h3 className='text-sm font-medium text-red-800'>No users found</h3>
                 <p className='text-sm text-red-600 mt-1'>{error}</p>
               </div>
             </div>
@@ -819,8 +896,19 @@ export default function UserManagementPage() {
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   placeholder='Enter username'
                   value={addUser.username}
-                  onChange={e => setAddUser({ ...addUser, username: e.target.value })}
+                  onChange={e => {
+                    const raw = e.target.value || '';
+                    const value = raw.toUpperCase();
+                    // allow empty while typing (validation will run on submit)
+                    setAddUser({ ...addUser, username: value });
+                    if (value && !/^[A-Z_]*$/.test(value)) {
+                      setAddError('Username invalid. Only A-Z and underscore allowed, no spaces.');
+                    } else {
+                      setAddError('');
+                    }
+                  }}
                 />
+                {addError && <p className='text-red-600 text-sm mt-1'>{addError}</p>}
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Password</label>
@@ -898,7 +986,7 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+             {LOCATION_HIERARCHY_ROLES.DISTRICT_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
                 <select
@@ -925,7 +1013,8 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+              )}
+              {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
                 <select
@@ -946,7 +1035,8 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+              )}
+              {LOCATION_HIERARCHY_ROLES.DIVISION_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Division</label>
                 <select
@@ -967,11 +1057,10 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
-
+              )}
+              {LOCATION_HIERARCHY_ROLES.POLICE_STATION_REQUIRED.includes(addUser.roleCode) && ( 
               <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>
-                  Police Station
-                </label>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
                 <select
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.policeStation}
@@ -990,6 +1079,7 @@ export default function UserManagementPage() {
                   ))}
                 </select>
               </div>
+              )}
               {addError && (
                 <div className='rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700'>
                   {addError}
@@ -1151,17 +1241,6 @@ export default function UserManagementPage() {
                 User Details
               </h2>
               <div className='flex items-center gap-2'>
-                {isAdmin && (
-                  <button
-                    onClick={() => {
-                      setDetailsEditMode(e => !e);
-                      setDetailsMessage('');
-                    }}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium shadow-sm border transition-colors ${detailsEditMode ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-white/10 text-white border-white/30 hover:bg-white/20'}`}
-                  >
-                    {detailsEditMode ? 'Cancel Edit' : 'Edit'}
-                  </button>
-                )}
                 <button
                   onClick={() => setDetailsUser(null)}
                   className='rounded-lg bg-white/10 hover:bg-white/20 w-8 h-8 flex items-center justify-center transition-colors'
@@ -1407,7 +1486,7 @@ export default function UserManagementPage() {
         <div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
           <div
             className='absolute inset-0 bg-slate-900/40 backdrop-blur-sm'
-            onClick={() => setEditUser(null)}
+            onClick={() => !editLoading && setEditUser(null)}
           />
           <div className='relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl'>
             <div className='flex items-center justify-between mb-4'>
@@ -1426,14 +1505,41 @@ export default function UserManagementPage() {
                 </svg>
               </button>
             </div>
-            <div className='space-y-4'>
+            {actionMessage && (
+              <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${actionMessage.includes('success') || actionMessage.includes('Updated') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {actionMessage}
+              </div>
+            )}
+              <div className='space-y-4 overflow-y-auto max-h-[70vh] pr-1'>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Username</label>
                 <input
-                  value={editUser.username}
-                  onChange={e => setEditUser({ ...editUser, username: e.target.value })}
+                className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                value={editUser.username}
+                onChange={e => {
+                  const raw = e.target.value || '';
+                    const value = raw.toUpperCase();
+                    // allow empty while typing (validation will run on submit)
+                    setEditUser({ ...editUser, username: value });
+                    if (value && !/^[A-Z_]*$/.test(value)) {
+                      setEditError('Username invalid. Only A-Z and underscore allowed, no spaces.');
+                    } else {
+                      setEditError('');
+                    }
+                  }}
+                />
+                {editError && <p className='text-red-600 text-sm mt-1'>{editError}</p>}
+                </div>
+                <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>New Password (Optional)</label>
+                <input
+                  type='password'
+                  placeholder='Enter new password'
+                  value={editUser.password || ''}
+                  onChange={e => setEditUser({ ...editUser, password: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 />
+                <p className='text-xs text-slate-500 mt-1'>Only fill this if you want to change the password</p>
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Email</label>
@@ -1454,22 +1560,139 @@ export default function UserManagementPage() {
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Role</label>
                 <select
-                  value={editUser.role}
+                  value={editUser.role }
                   onChange={e => setEditUser({ ...editUser, role: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 >
-                  {apiRoles.map(r => (
+                  {apiRoles.filter(r => r.code !== ROLE_CODES.SUPER_ADMIN && r.code !== ROLE_CODES.ADMIN).map(r => (
                     <option key={r.code} value={r.code}>
                       {r.code}
                     </option>
                   ))}
                 </select>
               </div>
-              {actionMessage && (
-                <div className='rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-700'>
-                  {actionMessage}
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>State</label>
+                <select
+                 className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.state}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedState(v);
+                    setEditUser({
+                      ...editUser,
+                      state: v,
+                      district: '',
+                      zone: '',
+                      division: '',
+                      policeStation: '',
+                    });
+                  }}
+                  disabled={locationState.loadingStates}
+                >
+                  <option value=''>Select a state</option>
+                  {locationOptions.stateOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {LOCATION_HIERARCHY_ROLES.DISTRICT_REQUIRED.includes(editUser.role) && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.district}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedDistrict(v);
+                    setEditUser({
+                      ...editUser,
+                      district: v,
+                      zone: '',
+                      division: '',
+                      policeStation: '',
+                    });
+                  }}
+                  disabled={!editUser.state || locationState.loadingDistricts}
+                >
+                  <option value=''>Select a district</option>
+                  {locationOptions.districtOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              )} 
+             {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(editUser.role) && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.zone}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedZone(v);
+                    setEditUser({ ...editUser, zone: v, division: '', policeStation: '' });
+                  }}
+                  disabled={!editUser.district || locationState.loadingZones}
+                >
+                  <option value=''>Select a zone</option>
+                  {locationOptions.zoneOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+               )} 
+              {LOCATION_HIERARCHY_ROLES.DIVISION_REQUIRED.includes(editUser.role) && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Division</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.division}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedDivision(v);
+                    setEditUser({ ...editUser, division: v, policeStation: '' });
+                  }}
+                  disabled={!editUser.zone || locationState.loadingDivisions}
+                >
+                  <option value=''>Select a division</option>
+                  {locationOptions.divisionOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              )}
+              {LOCATION_HIERARCHY_ROLES.POLICE_STATION_REQUIRED.includes(editUser.role) && (
+                <div>
+                  <label className='block text-sm font-medium text-slate-700 mb-1'>Police Station</label>
+                  <select
+                    className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                    value={editUser.policeStation}
+                    onChange={e => {
+                      const v = e.target.value;
+                      locationActions.setSelectedPoliceStation(v);
+                      setEditUser({ ...editUser, policeStation: v });
+                    }}
+                    disabled={!editUser.division || locationState.loadingPoliceStations}
+                  >
+                    <option value=''>Select a police station</option>
+                    {locationOptions.policeStationOptions.map(o => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
+                
               <div className='flex justify-end gap-3 pt-2'>
                 <button
                   disabled={editLoading}

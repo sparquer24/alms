@@ -1,8 +1,11 @@
-import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, BadRequestException, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { RolesService } from './roles.service';
 
 @ApiTags('Roles')
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard)
 @Controller('admin/roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) { }
@@ -66,8 +69,13 @@ export class RolesController {
     @Query('limit') limit?: number,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: string,
+    @Req() req?: any,
   ) {
     try {
+      // Extract roleCode from JWT for role-based filtering
+      const user = req ? (req as any).user : null;
+      const roleCode = user?.roleCode;
+
       return await this.rolesService.getRoles({
         id,
         search,
@@ -76,6 +84,7 @@ export class RolesController {
         limit: limit ? Number(limit) : undefined,
         sortBy,
         sortOrder: sortOrder as 'asc' | 'desc',
+        requestingRoleCode: roleCode,
       });
     } catch (error) {
       throw error;
