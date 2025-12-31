@@ -122,40 +122,75 @@ export interface ApplicationData {
     username: string;
   } | null;
   presentAddress?: {
+
     addressLine?: string;
+
     sinceResiding?: string;
-    state?: string;
-    district?: string;
+
+    state?: string | { id: number; name: string; [key: string]: any };
+
+    district?: string | { id: number; name: string; [key: string]: any };
+
     zone?: {
+
       id: number;
+
       name: string;
+
     };
+
     division?: {
+
       id: number;
+
       name: string;
+
     };
+
     policeStation?: {
+
       id: number;
+
       name: string;
+
     };
+
   };
+
   permanentAddress?: {
+
     addressLine?: string;
+
     sinceResiding?: string;
-    state?: string;
-    district?: string;
+
+    state?: string | { id: number; name: string; [key: string]: any };
+
+    district?: string | { id: number; name: string; [key: string]: any };
+
     zone?: {
+
       id: number;
+
       name: string;
+
     };
+
     division?: {
+
       id: number;
+
       name: string;
+
     };
+
     policeStation?: {
+
       id: number;
+
       name: string;
+
     };
+
   };
   occupationAndBusiness?: {
     id: number;
@@ -555,4 +590,4 @@ export interface Theme {
 // Export commonly used types
 export type { User as CurrentUser };
 export type { ApplicationData as Application };
-export type { FormData as FormValues }; 
+export type { FormData as FormValues };

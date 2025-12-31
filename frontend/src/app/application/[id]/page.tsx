@@ -1319,21 +1319,45 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       )}
 
                       {application.presentAddress.state && (
+
                         <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+
                           <p className='text-sm text-gray-500 font-medium mb-1'>State</p>
+
                           <p className='font-semibold text-gray-900'>
-                            {application.presentAddress.state}
+
+                            {typeof application.presentAddress.state === 'object'
+
+                              ? (application.presentAddress.state as any).name
+
+                              : application.presentAddress.state}
+
                           </p>
+
                         </div>
+
                       )}
 
+
+
                       {application.presentAddress.district && (
+
                         <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+
                           <p className='text-sm text-gray-500 font-medium mb-1'>District</p>
+
                           <p className='font-semibold text-gray-900'>
-                            {application.presentAddress.district}
+
+                            {typeof application.presentAddress.district === 'object'
+
+                              ? (application.presentAddress.district as any).name
+
+                              : application.presentAddress.district}
+
                           </p>
+
                         </div>
+
                       )}
 
                       {application.presentAddress.zone && (
@@ -1400,21 +1424,45 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       )}
 
                       {application.permanentAddress.state && (
+
                         <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+
                           <p className='text-sm text-gray-500 font-medium mb-1'>State</p>
+
                           <p className='font-semibold text-gray-900'>
-                            {application.permanentAddress.state}
+
+                            {typeof application.permanentAddress.state === 'object'
+
+                              ? (application.permanentAddress.state as any).name
+
+                              : application.permanentAddress.state}
+
                           </p>
+
                         </div>
+
                       )}
 
+
+
                       {application.permanentAddress.district && (
+
                         <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+
                           <p className='text-sm text-gray-500 font-medium mb-1'>District</p>
+
                           <p className='font-semibold text-gray-900'>
-                            {application.permanentAddress.district}
+
+                            {typeof application.permanentAddress.district === 'object'
+
+                              ? (application.permanentAddress.district as any).name
+
+                              : application.permanentAddress.district}
+
                           </p>
+
                         </div>
+
                       )}
 
                       {application.permanentAddress.zone && (
