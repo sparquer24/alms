@@ -12,7 +12,12 @@ import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
 
+import Footer from '@/components/Footer';
+
+
+
 // Force dynamic rendering
+
 export const dynamic = 'force-dynamic';
 
 // Component that uses useSearchParams - needs to be wrapped in Suspense
@@ -137,9 +142,15 @@ function FreshFormContent() {
       />
 
       {/* Main Content */}
-  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">          
+
+  <main className="flex-1 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px] flex flex-col">          
+
+    <div className="flex-grow p-8">
+
+
 
           {/* Success message */}
+
           {successMessage && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
               <div className="flex items-center">
@@ -191,14 +202,27 @@ function FreshFormContent() {
 
               {/* Display the application table */}
               <ApplicationTable
+
                 applications={filteredApplications}
+
                 isLoading={isLoading}
+
                 showActionColumn={true}
+
               />
+
             </div>
+
+      </div>
+
+      <Footer />
+
       </main>
+
     </div>
+
   );
+
 }
 
 // Main component with Suspense boundary
