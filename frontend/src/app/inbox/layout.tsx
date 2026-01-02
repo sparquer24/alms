@@ -3,8 +3,14 @@
 import React, { Suspense } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
+
 import { InboxProvider } from '../../context/InboxContext';
+
 import InboxBootloaderClient from '../../components/InboxBootloaderClient';
+
+import Footer from '../../components/Footer';
+
+
 
 // Layout component that renders Sidebar and Header once for all /inbox routes
 export default function InboxLayout({ children }: { children: React.ReactNode }) {
@@ -15,13 +21,27 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
           <InboxBootloaderClient />
         </Suspense>
         <Suspense fallback={null}>
+
           <Sidebar onTableReload={undefined} />
+
         </Suspense>
+
         <Header />
-        <div className='flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]'>
-          {children}
+
+        <div className='flex-1 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px] flex flex-col'>
+
+          <div className="flex-grow p-8">
+
+            {children}
+
+          </div>
+
+          <Footer />
+
         </div>
+
       </div>
+
     </InboxProvider>
   );
 }
