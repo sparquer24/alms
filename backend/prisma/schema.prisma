@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 
 model Statuses {
   id           Int                                      @id @default(autoincrement())
@@ -17,6 +19,7 @@ model Statuses {
   updatedAt    DateTime                                 @updatedAt
   isStarted    Boolean                                  @default(false)
   applications FreshLicenseApplicationPersonalDetails[] @relation("ApplicationWorkflowStatus")
+  renewals     RenewalLicenseApplication[]              @relation("RenewalWorkflowStatus")
 }
 
 model Actiones {
@@ -143,6 +146,7 @@ model WeaponTypeMaster {
   description    String?
   imageUrl       String?
   licenseDetails FLAFLicenseDetails[] @relation("RequestedWeapons")
+  renewalLicenseDetails FLAFLicenseDetails[] @relation("RenewalRequestedWeapons")
 }
 
 model Users {
@@ -165,6 +169,8 @@ model Users {
   nextUserInFlows         FlowNextUsers[]                                 @relation("NextUserInFlow")
   currentApplications     FreshLicenseApplicationPersonalDetails[]        @relation("CurrentApplicationOwner")
   previousApplications    FreshLicenseApplicationPersonalDetails[]        @relation("PreviousApplicationOwner")
+  currentRenewals         RenewalLicenseApplication[]                     @relation("CurrentRenewalOwner")
+  previousRenewals        RenewalLicenseApplication[]                     @relation("PreviousRenewalOwner")
   workflowHistoryNext     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
   workflowHistoryPrevious FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
   flowMappingUpdates      RoleFlowMapping[]
@@ -206,6 +212,89 @@ model ActionHistories {
   toUser      Users    @relation("ActionToUser", fields: [toUserId], references: [id], onDelete: Cascade)
 }
 
+model RenewalLicenseApplication {
+  id                      Int      @id @default(autoincrement())
+  UIN                     String   @unique @db.Char(16)
+
+  // Link to original fresh application (inherits most data from here)
+  freshApplicationId      Int
+
+  // Link to previous renewal (for chaining renewals)
+  previousRenewalId       Int?
+
+  // Renewal-specific required fields
+  renewalNumber           Int
+  previousExpiryDate      DateTime?
+  requestedValidityYears  Int      @default(2)
+
+  // OPTIONAL: Only populate these if the applicant CHANGED them during renewal
+  firstName               String?
+  middleName              String?
+  lastName                String?
+  parentOrSpouseName      String?
+  // sex                     Sex?
+  placeOfBirth            String?
+  dateOfBirth             DateTime?
+  dobInWords              String?
+  // Carry-forward fields from fresh application
+  currentExpiryDate      DateTime?
+  // isFLAFGenerated        Boolean? @default(false)
+  // isGroundReportGenerated Boolean? @default(false)
+  // isPending              Boolean? @default(false)
+  // isReEnquiry            Boolean? @default(false)
+  // isReEnquiryDone        Boolean? @default(false)
+  // isRejected             Boolean? @default(false)
+  // isRecommended          Boolean? @default(false)
+  // isNotRecommended       Boolean? @default(false)
+
+  // Workflow fields
+  filledBy                String?
+  occupationAndBusinessId Int?
+  presentAddressId        Int?
+  currentUserId           Int?
+  previousUserId          Int?
+  workflowStatusId        Int?
+
+  // Status flags
+  isAwareOfLegalConsequences Boolean? @default(false)
+  isDeclarationAccepted      Boolean? @default(false)
+  isTermsAccepted            Boolean? @default(false)
+  isSubmit                   Boolean? @default(false)
+  // almsLicenseId              String? - Do we need this in renewal?
+  isApproved                 Boolean? @default(false)
+  approvedAt                 DateTime?
+  newExpiryDate              DateTime?
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relations
+  freshApplication        FreshLicenseApplicationPersonalDetails @relation("FreshToRenewals", fields: [freshApplicationId], references: [id], onDelete: Cascade)
+
+  // Self-referential for renewal chain
+  previousRenewal         RenewalLicenseApplication? @relation("RenewalChain", fields: [previousRenewalId], references: [id])
+  nextRenewals            RenewalLicenseApplication[] @relation("RenewalChain")
+
+  // Optional relations (only if data changed during renewal)
+  occupationAndBusiness   FLAFOccupationAndBusiness? @relation("RenewalOccupation", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
+  presentAddress          FLAFAddressesAndContactDetails? @relation("RenewalPresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
+  currentUser             Users? @relation("CurrentRenewalOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
+  previousUser            Users? @relation("PreviousRenewalOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
+  workflowStatus          Statuses? @relation("RenewalWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
+
+  // New documents/records submitted during renewal
+  biometricData           FLAFBiometricDatas? @relation("RenewalBiometricData")
+  criminalHistories       FLAFCriminalHistories[] @relation("RenewalCriminalHistories")
+  fileUploads             FLAFFileUploads[] @relation("RenewalFileUploads")
+  licenseDetails          FLAFLicenseDetails[] @relation("RenewalLicenseDetails")
+  licenseHistories        FLAFLicenseHistories[] @relation("RenewalLicenseHistories")
+  workflowHistories       FreshLicenseApplicationsFormWorkflowHistories[] @relation("RenewalWorkflowHistories")
+
+  @@index([freshApplicationId])
+  @@index([previousRenewalId])
+  @@index([newExpiryDate])
+}
+
 model FreshLicenseApplicationPersonalDetails {
   id                         Int                             @id @default(autoincrement())
   acknowledgementNo          String?
@@ -221,6 +310,7 @@ model FreshLicenseApplicationPersonalDetails {
   aadharNumber               String?
   createdAt                  DateTime                        @default(now())
   updatedAt                  DateTime                        @default(now()) @updatedAt
+  currentExpiryDate          DateTime?
   filledBy                   String?
   occupationAndBusinessId    Int?
   permanentAddressId         Int?
@@ -254,7 +344,7 @@ model FreshLicenseApplicationPersonalDetails {
   presentAddress             FLAFAddressesAndContactDetails? @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
   previousUser               Users?                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
   workflowStatus             Statuses?                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
-
+  renewalApplications        RenewalLicenseApplication[]     @relation("FreshToRenewals")
   @@index([aadharNumber])
 }
 
@@ -278,6 +368,7 @@ model FLAFAddressesAndContactDetails {
   zone                  Zones                                    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   permanentApplications FreshLicenseApplicationPersonalDetails[] @relation("PermanentAddress")
   presentApplications   FreshLicenseApplicationPersonalDetails[] @relation("PresentAddress")
+  renewalPresentApplications   RenewalLicenseApplication[]              @relation("RenewalPresentAddress")
 }
 
 model FLAFOccupationAndBusiness {
@@ -291,11 +382,13 @@ model FLAFOccupationAndBusiness {
   district             Districts                                @relation(fields: [districtId], references: [id], onDelete: Cascade)
   state                States                                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
   applications         FreshLicenseApplicationPersonalDetails[] @relation("occupationAndBusinessId")
+  renewalApplications  RenewalLicenseApplication[]              @relation("RenewalOccupation")
 }
 
 model FLAFCriminalHistories {
   id                Int                                    @id @default(autoincrement())
-  applicationId     Int
+  applicationId     Int?
+  renewalApplicationId Int?
   isConvicted       Boolean                                @default(false)
   isBondExecuted    Boolean                                @default(false)
   bondDate          DateTime?
@@ -306,12 +399,14 @@ model FLAFCriminalHistories {
   createdAt         DateTime                               @default(now())
   updatedAt         DateTime                               @updatedAt
   firDetails        Json?
-  application       FreshLicenseApplicationPersonalDetails @relation("CriminalHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  application       FreshLicenseApplicationPersonalDetails? @relation("CriminalHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication  RenewalLicenseApplication?              @relation("RenewalCriminalHistories", fields: [renewalApplicationId], references: [id], onDelete: Cascade)
 }
 
 model FLAFLicenseHistories {
   id                      Int                                    @id @default(autoincrement())
-  applicationId           Int
+  applicationId           Int?
+  renewalApplicationId    Int?
   hasAppliedBefore        Boolean                                @default(false)
   dateAppliedFor          DateTime?
   previousAuthorityName   String?
@@ -329,12 +424,14 @@ model FLAFLicenseHistories {
   trainingDetails         String?
   createdAt               DateTime                               @default(now())
   updatedAt               DateTime                               @updatedAt
-  application             FreshLicenseApplicationPersonalDetails @relation("LicenseHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  application             FreshLicenseApplicationPersonalDetails? @relation("LicenseHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication      RenewalLicenseApplication?              @relation("RenewalLicenseHistories", fields: [renewalApplicationId], references: [id], onDelete: Cascade)
 }
 
 model FLAFLicenseDetails {
   id                         Int                                    @id @default(autoincrement())
-  applicationId              Int
+  applicationId              Int?
+  renewalApplicationId       Int?
   needForLicense             LicensePurpose?
   armsCategory               ArmsCategory?
   areaOfValidity             String?
@@ -344,31 +441,38 @@ model FLAFLicenseDetails {
   wildBeastsSpecification    String?
   createdAt                  DateTime                               @default(now())
   updatedAt                  DateTime                               @updatedAt
-  application                FreshLicenseApplicationPersonalDetails @relation("LicenseDetails", fields: [applicationId], references: [id], onDelete: Cascade)
+  application                FreshLicenseApplicationPersonalDetails? @relation("LicenseDetails", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication         RenewalLicenseApplication?              @relation("RenewalLicenseDetails", fields: [renewalApplicationId], references: [id], onDelete: Cascade)
   requestedWeapons           WeaponTypeMaster[]                     @relation("RequestedWeapons")
+  renewalRequestedWeapons    WeaponTypeMaster[]                      @relation("RenewalRequestedWeapons")
 }
 
 model FLAFFileUploads {
   id            Int                                    @id @default(autoincrement())
-  applicationId Int
+  applicationId Int?
+  renewalApplicationId Int?
   fileType      FileType
   fileUrl       String
   uploadedAt    DateTime                               @default(now())
   fileName      String
   fileSize      Int
-  application   FreshLicenseApplicationPersonalDetails @relation("FileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
+  application   FreshLicenseApplicationPersonalDetails? @relation("FileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication   RenewalLicenseApplication?              @relation("RenewalFileUploads", fields: [renewalApplicationId], references: [id], onDelete: Cascade)
 }
 
 model FLAFBiometricDatas {
   id            Int                                    @id @default(autoincrement())
-  applicationId Int                                    @unique
+  applicationId Int?                                   @unique
+  renewalApplicationId Int?                             @unique
   biometricData Json
-  application   FreshLicenseApplicationPersonalDetails @relation("BiometricData", fields: [applicationId], references: [id], onDelete: Cascade)
+  application   FreshLicenseApplicationPersonalDetails? @relation("BiometricData", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication   RenewalLicenseApplication?              @relation("RenewalBiometricData", fields: [renewalApplicationId], references: [id], onDelete: Cascade)
 }
 
 model FreshLicenseApplicationsFormWorkflowHistories {
   id             Int       @id @default(autoincrement())
-  applicationId  Int
+  applicationId  Int?
+  renewalApplicationId Int?
   previousUserId Int
   nextUserId     Int
   actionTaken    String
@@ -383,7 +487,8 @@ model FreshLicenseApplicationsFormWorkflowHistories {
   nextUser       Users     @relation("WorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
   previousRole   Roles?    @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
   previousUser   Users     @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
-  application    FreshLicenseApplicationPersonalDetails @relation("WorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  application    FreshLicenseApplicationPersonalDetails? @relation("WorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication   RenewalLicenseApplication?              @relation("RenewalWorkflowHistories", fields: [renewalApplicationId], references: [id], onDelete: Cascade)
 }
 
 enum Sex {
