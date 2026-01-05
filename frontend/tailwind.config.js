@@ -6,7 +6,14 @@ module.exports = {
     "./src/config/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'alms-navy': '#001F54',
+        'alms-navy-dark': '#00163D',
+        'alms-indigo': '#6366F1',
+        'alms-indigo-dark': '#4F46E5',
+      },
+    },
   },
   plugins: [],
 }

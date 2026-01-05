@@ -32,7 +32,6 @@ import {
   getHeaders,
   getMultipartHeaders,
 } from './APIsEndpoints';
-// import the cookes
 import { parse } from 'cookie';
 
 /**
@@ -463,6 +462,65 @@ export const NotificationApi = {
       throw error;
     }
   }
+};
+
+/**
+ * QR Code API client - Requires authentication (ZS role only)
+ */
+export const QRCodeApi = {
+  /**
+   * Generate QR code for an application
+   * Only ZS role users can generate QR codes
+   */
+  generate: async (applicationId: string | number): Promise<ApiResponse<{
+    applicationId: number;
+    acknowledgementNo: string | null;
+    qrCodeDataUrl: string;
+    publicUrl: string;
+  }>> => {
+    try {
+      return await apiClient.get(`/qrcode/generate/${applicationId}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Check if current user can generate QR code for an application
+   */
+  checkPermission: async (applicationId: string | number): Promise<ApiResponse<{
+    canGenerate: boolean;
+    applicationId: number;
+    applicationExists: boolean;
+    userHasPermission: boolean;
+    reason?: string | null;
+  }>> => {
+    try {
+      return await apiClient.get(`/qrcode/check/${applicationId}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * Public API client - No authentication required
+ * Used for QR code scanned application details
+ */
+export const PublicApi = {
+  /**
+   * Get public application details (no auth required)
+   * Used when scanning QR code
+   */
+  getApplicationDetails: async (applicationId: string | number): Promise<ApiResponse<any>> => {
+    try {
+      // Use raw axios instance to bypass auth header requirement
+      const response = await axiosInstance.get(`/public/application/${applicationId}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
 };
 
 /**

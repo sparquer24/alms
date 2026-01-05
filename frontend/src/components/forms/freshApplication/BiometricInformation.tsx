@@ -58,6 +58,7 @@ const BiometricInformation = () => {
   const [showFingerprintPreviewModal, setShowFingerprintPreviewModal] = useState(false);
   const [pendingCaptureResult, setPendingCaptureResult] = useState<any | null>(null);
   const [pendingFingerPosition, setPendingFingerPosition] = useState<string>('RIGHT_THUMB');
+  const [selectedFinger, setSelectedFinger] = useState<string>('RIGHT_THUMB');
 
   // Device diagnostics/settings states
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
@@ -424,7 +425,7 @@ const BiometricInformation = () => {
   };
 
   /** 🔍 Fingerprint Capture via Mantra SDK */
-  const handleCaptureFingerprintMantra = async (fingerPosition: string = 'RIGHT_THUMB') => {
+  const handleCaptureFingerprintMantra = async (fingerPosition: string = selectedFinger) => {
     if (!mantraSDKReady || !fingerprintDeviceConnected) {
       toast.error('Fingerprint device is not available. Please check Settings for diagnostics.');
       setShowDeviceSettings(true);
@@ -650,10 +651,11 @@ const BiometricInformation = () => {
     setShowFingerprintPreviewModal(false);
     setFingerprintPreviewImage(null);
     setPendingCaptureResult(null);
-    setPendingFingerPosition('RIGHT_THUMB');
-    toast.info(
-      '👆 Fingerprint rejected. Ready to capture again. Place your finger and click Capture.'
-    );
+    // Do not reset position to default, keep user selection
+    setPendingFingerPosition(selectedFinger);
+    
+    // Automatically restart capture process
+    handleCaptureFingerprintMantra(selectedFinger);
   };
 
   /** Cancel fingerprint preview without retaking */
@@ -661,7 +663,7 @@ const BiometricInformation = () => {
     setShowFingerprintPreviewModal(false);
     setFingerprintPreviewImage(null);
     setPendingCaptureResult(null);
-    setPendingFingerPosition('RIGHT_THUMB');
+    setPendingFingerPosition(selectedFinger);
   };
 
   /** 📷 WEBCAM MODAL HANDLERS */
@@ -874,7 +876,7 @@ const BiometricInformation = () => {
     }
 
     // Use Mantra SDK capture instead
-    await handleCaptureFingerprintMantra('RIGHT_THUMB');
+    await handleCaptureFingerprintMantra(selectedFinger);
   };
 
   const handleScanIris = async () => {
@@ -1041,12 +1043,26 @@ const BiometricInformation = () => {
             </div>
           </div>
           <div className='space-y-2'>
+            <div className='mb-4'>
+               <label className='block text-sm font-medium text-gray-700 mb-1'>Select Hand & Finger</label>
+               <select
+                value={selectedFinger}
+                onChange={(e) => setSelectedFinger(e.target.value)}
+                className='w-full md:w-64 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500'
+                disabled={fingerprintCapturing}
+              >
+                <option value="RIGHT_THUMB">Right Hand Thumb</option>
+                <option value="LEFT_THUMB">Left Hand Thumb</option>
+              </select>
+              <p className="text-sm text-red-500 mt-1 font-medium">Only thumb fingers are allowed.</p>
+            </div>
+
             {/* Mantra SDK Fingerprint Capture (if device available) */}
             {mantraSDKReady && fingerprintDeviceConnected ? (
               <div className='flex items-center space-x-3'>
                 <button
                   type='button'
-                  onClick={() => handleCaptureFingerprintMantra('RIGHT_THUMB')}
+                  onClick={() => handleCaptureFingerprintMantra(selectedFinger)}
                   disabled={fingerprintCapturing || uploadingFiles}
                   className={`px-4 py-2 rounded text-white font-medium ${
                     fingerprintCapturing || uploadingFiles
@@ -2038,16 +2054,6 @@ const BiometricInformation = () => {
                 className='px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium text-sm transition-colors'
               >
                 Close
-              </button>
-              <button
-                type='button'
-                onClick={() => {
-                  setShowDuplicateModal(false);
-                  setDuplicateMatchInfo(null);
-                }}
-                className='px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
-              >
-                Try Different Finger
               </button>
             </div>
           </div>
