@@ -7,6 +7,9 @@ import Header from '../../../components/Header';
 import { useAuthSync } from '../../../hooks/useAuthSync';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
+import { useNotifications } from '../../../config/notificationContext';
+import NotificationDropdown from '../../../components/NotificationDropdown';
+import Link from 'next/link';
 import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
@@ -95,6 +98,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isProcessing, setIsProcessing] = useState(false);
   const [isForwarding, setIsForwarding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { unreadCount } = useNotifications();
+  const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedAction, setSelectedAction] = useState<
@@ -135,6 +141,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   // after actions that move an application between inbox buckets.
   const { refreshCounts } = useSidebarCounts(true);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
+
+  useEffect(() => {
+    const name = user?.name || user?.username;
+    if (!authLoading && name) setDisplayName(name);
+  }, [user, authLoading]);
 
   // Open attachments from history with a robust viewer (PDF/image) in a new tab
   const openAttachment = (att: any) => {
@@ -849,7 +860,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </li>
               </ol>
             </nav>
-            {/* Current Status */}
+            {/* Current Status and Right Side Actions */}
             <div className='flex items-center space-x-3'>
               <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
                 <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center'>
@@ -881,6 +892,71 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   </span>
                 </div>
               </div>
+              {/* Notification Bell */}
+              <div className='relative'>
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full'
+                  aria-label='Toggle notifications'
+                  aria-expanded={showNotifications}
+                >
+                  <svg
+                    xmlns='http://www.w3.org/2000/svg'
+                    className='h-6 w-6'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    stroke='currentColor'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'
+                    />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className='absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full'>
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                {showNotifications && (
+                  <NotificationDropdown onClose={() => setShowNotifications(false)} />
+                )}
+              </div>
+              {/* Print Button */}
+              <button
+                onClick={() => window.print()}
+                className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
+                aria-label='Print page'
+                title='Print'
+              >
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  className='h-6 w-6'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  stroke='currentColor'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 9V2h12v7m-6 4v6m-6 0h12'
+                  />
+                </svg>
+              </button>
+              {/* User Profile Avatar */}
+              {!authLoading && displayName && (
+                <Link
+                  href='/settings'
+                  className='flex items-center hover:bg-white hover:bg-opacity-10 rounded-full p-1 transition-colors'
+                >
+                  <div className='bg-white text-[#001F54] rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm'>
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                </Link>
+              )}
             </div>
           </div>
         </div>
