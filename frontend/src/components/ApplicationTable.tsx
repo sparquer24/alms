@@ -5,6 +5,7 @@ import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
 // Removed PDF generation feature
 import { useAuth } from '../config/auth';
+import { useGlobalAction } from '../context/GlobalActionContext';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi } from '../config/APIClient';
 import { Edit, Trash2 } from 'lucide-react';
@@ -122,6 +123,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     }, [baseApplications, searchQuery]);
 
     const router = useRouter();
+    const { executeAction, setActiveNavigationPath } = useGlobalAction();
 
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
@@ -157,32 +159,43 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     const handleViewApplication = useCallback(
       (id: string) => {
-        router.push(`/application/${id}`);
+        const actionId = `navigate-application-${id}`;
+        // executeAction will prevent duplicate navigations for same actionId
+        void executeAction(actionId, async () => {
+          setActiveNavigationPath(`/application/${id}`);
+          await router.push(`/application/${id}`);
+        });
       },
-      [router]
+      [router, executeAction, setActiveNavigationPath]
     );
 
     const handleEditDraft = useCallback(
       async (id: string) => {
-        try {
-          const response = await ApplicationApi.getById(Number(id));
+        const actionId = `edit-draft-${id}`;
+        const result = await executeAction(actionId, async () => {
+          try {
+            const response = await ApplicationApi.getById(Number(id));
 
-          if (response?.success && response?.data) {
-            // Store the application data in sessionStorage to use in the form
-            sessionStorage.setItem('draftApplicationData', JSON.stringify(response.data));
-            sessionStorage.setItem('editingApplicationId', id);
-            // Navigate to the form with application ID as query parameter
-            router.push(`/forms/createFreshApplication/personal-information?id=${id}`);
-          } else {
-            setErrorMessage('Failed to load draft application');
+            if (response?.success && response?.data) {
+              // Store the application data in sessionStorage to use in the form
+              sessionStorage.setItem('draftApplicationData', JSON.stringify(response.data));
+              sessionStorage.setItem('editingApplicationId', id);
+              // Navigate to the form with application ID as query parameter
+              await router.push(`/forms/createFreshApplication/personal-information?id=${id}`);
+            } else {
+              setErrorMessage('Failed to load draft application');
+              setTimeout(() => setErrorMessage(null), 3000);
+            }
+          } catch (error) {
+            setErrorMessage('Error loading draft application');
             setTimeout(() => setErrorMessage(null), 3000);
           }
-        } catch (error) {
-          setErrorMessage('Error loading draft application');
-          setTimeout(() => setErrorMessage(null), 3000);
-        }
+        });
+
+        // If executeAction returned null it means the action was blocked (duplicate), so we simply return
+        if (result === null) return;
       },
-      [router]
+      [router, executeAction]
     );
 
     const formatDateTime = useCallback((dateStr: string) => {
@@ -203,7 +216,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
         const rows = effectiveApplications.map((app, idx) => {
           const statusName = extractWorkflowStatusName(app);
-          const createdAtVal = (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate;
+          const createdAtVal =
+            (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate;
 
           const row: Record<string, string | number> = {};
           exportColumns.forEach(col => {
@@ -222,7 +236,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 break;
               case 'Date & Time':
               case 'Created At':
-              case 'Action Taken At':  
+              case 'Action Taken At':
                 row[col] = formatDateTime(createdAtVal || '');
                 break;
               case 'Status':
@@ -381,7 +395,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   <th
                     key={col}
                     scope='col'
-className={`${styles.tableHeaderCell} text-left text-xs font-medium text-black uppercase tracking-wider`}                  >
+                    className={`${styles.tableHeaderCell} text-left text-xs font-medium text-black uppercase tracking-wider`}
+                  >
                     {col}
                   </th>
                 ))}
@@ -505,11 +520,11 @@ const TableRow: React.FC<{
         className={`${styles.tableRow}`}
         aria-label={`Row for sent application ${app.id}`}
       >
-       <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
-        <td className={`${styles.tableCell} text-sm text-black`}> 
+        <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+        <td className={`${styles.tableCell} text-sm text-black`}>
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
-         <td className={`${styles.tableCell} text-sm font-medium`}>
+        <td className={`${styles.tableCell} text-sm font-medium`}>
           <button
             onClick={e => {
               e.stopPropagation();
@@ -521,14 +536,16 @@ const TableRow: React.FC<{
             {app.applicantName}
           </button>
         </td>
-<td className={`${styles.tableCell} text-sm text-black`}>
-           {formatDateTime((app as any).actionTakenAt || (app as any).createdAt || app.applicationDate)}
+        <td className={`${styles.tableCell} text-sm text-black`}>
+          {formatDateTime(
+            (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate
+          )}
         </td>
-                <td className={`${styles.tableCell} text-sm text-black`}>
+        <td className={`${styles.tableCell} text-sm text-black`}>
           {(app as any).actionTaken || 'N/A'}
         </td>
         {showActionColumn && (
- <td className={`${styles.tableCell} text-sm text-gray-500`}>
+          <td className={`${styles.tableCell} text-sm text-gray-500`}>
             <button
               onClick={e => {
                 e.stopPropagation();
@@ -552,7 +569,7 @@ const TableRow: React.FC<{
       className={`${styles.tableRow} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
       aria-label={`Row for application ${app.id}`}
     >
-     <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+      <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
       <td className={`${styles.tableCell} text-sm font-medium `}>
         {isDrafts ? (
           <span className='text-gray-900'>{app.applicantName}</span>
@@ -569,11 +586,11 @@ const TableRow: React.FC<{
           </button>
         )}
       </td>
-     <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+      <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
       <td className={`${styles.tableCell} text-sm text-black`}>
         {formatDateTime(app.applicationDate)}
       </td>
-     <td className={`${styles.tableCell}`}>
+      <td className={`${styles.tableCell}`}>
         {(() => {
           const statusStr = extractWorkflowStatusName(app);
           const display = statusStr
@@ -591,7 +608,7 @@ const TableRow: React.FC<{
         })()}
       </td>
       {showActionColumn && (
-         <td className={`${styles.tableCell} text-sm text-gray-500`}>
+        <td className={`${styles.tableCell} text-sm text-gray-500`}>
           {isDrafts ? (
             <div className='flex items-center gap-1'>
               <button
@@ -671,7 +688,7 @@ const DeleteDraftButton: React.FC<{ appId: string | number }> = ({ appId }) => {
         aria-label={`Delete draft application ${appId}`}
         title='Delete'
       >
-<TrashFixed className='w-4 h-4' />
+        <TrashFixed className='w-4 h-4' />
       </button>
 
       {/* Toast Notification */}

@@ -8,7 +8,12 @@ import { useLayout } from "../config/layoutContext";
 import { useApplications } from "../context/ApplicationContext";
 import { ApplicationApi } from '../config/APIClient';
 import { mapAPIApplicationToTableData } from "../utils/applicationMapper";
+
 import { PageLayoutSkeleton, DashboardStatsSkeleton } from "../components/Skeleton";
+
+import Footer from "@/components/Footer";
+
+
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,11 +138,25 @@ export default function Home() {
   }
 
   return (
-    <div className="flex items-center justify-center h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
-      <div className="text-center p-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Welcome to Arms License Management System</h1>
-        <p className="mt-4 text-gray-600">Manage applications, track statuses, and process requests from a single dashboard.</p>
+
+    <div className="flex flex-col h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+
+      <div className="flex-grow flex items-center justify-center">
+
+        <div className="text-center p-6">
+
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Welcome to Arms License Management System</h1>
+
+          <p className="mt-4 text-gray-600">Manage applications, track statuses, and process requests from a single dashboard.</p>
+
+        </div>
+
       </div>
+
+      <Footer />
+
     </div>
+
   );
+
 }

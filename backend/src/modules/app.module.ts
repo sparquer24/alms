@@ -13,8 +13,10 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { FlowMappingModule } from './flowMapping/flow-mapping.module';
 import { HealthModule } from './health/health.module';
 import { BiometricModule } from './biometric/biometric.module';
+import { PublicModule } from './public/public.module';
+import { QRCodeModule } from './qrcode/qrcode.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, QRCodeModule],
 })
 export class AppModule { }

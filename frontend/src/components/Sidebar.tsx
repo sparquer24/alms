@@ -27,6 +27,7 @@ import { toggleInbox, openInbox, closeInbox } from '../store/slices/uiSlice';
 import { useAuthSync } from '../hooks/useAuthSync';
 import { useLayout } from '../config/layoutContext';
 import { useInbox } from '../context/InboxContext';
+import { useGlobalAction } from '../context/GlobalActionContext';
 import { useSidebarCounts } from '../hooks/useSidebarCounts';
 import { menuMeta, MenuMetaKey } from '../config/menuMeta';
 import { getRoleConfig } from '../config/roles';
@@ -38,9 +39,7 @@ import {
   getAdminMenuItems,
   getAdminPathForMenuItem,
 } from '../config/adminMenuService';
-import {
-  getSuperAdminPathForMenuItem,
-} from '../config/superAdminMenuService';
+import { getSuperAdminPathForMenuItem } from '../config/superAdminMenuService';
 import { preloadAdminPages } from '../utils/adminPagePreloader';
 import { HamburgerButton } from './HamburgerButton';
 
@@ -63,7 +62,7 @@ const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: Menu
       onMouseDown={onActivate}
       onClick={onClick}
       className={`flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150
-        ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`}
+        ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-700'}`}
       aria-pressed={active}
       aria-current={active ? 'page' : undefined}
       role='menuitem'
@@ -117,7 +116,7 @@ const InboxSubMenuItem = memo(
 
     const className = useMemo(
       () =>
-        `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-800'}`,
+        `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-700'}`,
       [active]
     );
 
@@ -172,9 +171,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { userRole, token, user } = useAuthSync();
-  const { loadType, selectedType } = useInbox();
+  const { loadType, selectedType, isLoading: isInboxLoading } = useInbox();
+  const { isActionInProgress, startAction, endAction, canNavigateTo, setActiveNavigationPath } =
+    useGlobalAction();
   const isMountedRef = useRef(false);
   const isInboxOpen = useSelector((state: any) => state.ui?.isInboxOpen); // moved up so other handlers can read it
+
+  // No longer need navigationInProgressRef; rely on isActionInProgress
+
   // Prevent auto active changes during API-triggered refreshes
   const activeFreezeRef = useRef<boolean>(false);
   const activeUnfreezeTimerRef = useRef<number | null>(null);
@@ -776,172 +780,244 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   -----------------------------*/
   const handleMenuClick = useCallback(
     async (item: { name: string; childs?: { name: string }[]; statusIds?: number[] }) => {
-      // Freeze active highlight briefly on menu navigation
-      freezeActive(2000);
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.log(
-          '[Sidebar] handleMenuClick - item.name:',
-          item.name,
-          'userRole:',
-          userRole,
-          'cookieRole:',
-          cookieRole
-        );
-      }
+      const actionId = `menu-${item.name.toLowerCase().replace(/\s+/g, '')}`;
 
-      if (item.name.toLowerCase() !== 'inbox') {
-        dispatch(closeInbox());
+      // Prevent repeated clicks on the same menu item while its action is in progress
+      if (isActionInProgress(actionId) || isInboxLoading) {
+        console.debug('[Sidebar] Menu click blocked - action in progress:', actionId);
+        return;
       }
-
-      if (item.childs?.length) {
-        const k = normalizeNavKey(item.name as string) || item.name;
-        setExpandedMenus(prev => ({ ...prev, [k]: !prev[k] }));
+      // Only block navigation if same actionId is in progress
+      // (canNavigateTo now accepts actionId)
+      // Start the action to block duplicate clicks for this menu item
+      if (!startAction(actionId)) {
+        console.debug('[Sidebar] Menu click blocked - could not start action:', actionId);
         return;
       }
 
-      const key = normalizeNavKey(item.name as string);
-
-      // Get effective role (use userRole, fall back to cookieRole)
-      const effectiveRole = userRole || cookieRole;
-
-      if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-        console.log(
-          '[Sidebar] effectiveRole:',
-          effectiveRole,
-          'isAdminRole result:',
-          isAdminRole(effectiveRole)
-        );
-      }
-
-      // Check if this is an admin user navigating to an admin menu item
-      if (isAdminRole(effectiveRole)) {
-        // Check if SUPER_ADMIN or ADMIN and get appropriate path
-        const isSuperAdmin = effectiveRole === 'SUPER_ADMIN';
-        const adminPath = isSuperAdmin 
-          ? getSuperAdminPathForMenuItem(item.name)
-          : getAdminPathForMenuItem(item.name);
-
+      try {
+        // Freeze active highlight briefly on menu navigation
+        freezeActive(2000);
         if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log('[Sidebar] Admin user detected. Role:', effectiveRole, 'Path for', item.name, ':', adminPath);
+          console.log(
+            '[Sidebar] handleMenuClick - item.name:',
+            item.name,
+            'userRole:',
+            userRole,
+            'cookieRole:',
+            cookieRole
+          );
         }
 
-        if (adminPath) {
-          // This is a valid admin menu item
+        if (item.name.toLowerCase() !== 'inbox') {
+          dispatch(closeInbox());
+        }
+
+        if (item.childs?.length) {
+          const k = normalizeNavKey(item.name as string) || item.name;
+          setExpandedMenus(prev => ({ ...prev, [k]: !prev[k] }));
+          return;
+        }
+
+        const key = normalizeNavKey(item.name as string);
+
+        // Get effective role (use userRole, fall back to cookieRole)
+        const effectiveRole = userRole || cookieRole;
+
+        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+          console.log(
+            '[Sidebar] effectiveRole:',
+            effectiveRole,
+            'isAdminRole result:',
+            isAdminRole(effectiveRole)
+          );
+        }
+
+        // Check if this is an admin user navigating to an admin menu item
+        if (isAdminRole(effectiveRole)) {
+          // Check if SUPER_ADMIN or ADMIN and get appropriate path
+          const isSuperAdmin = effectiveRole === 'SUPER_ADMIN';
+          const adminPath = isSuperAdmin
+            ? getSuperAdminPathForMenuItem(item.name)
+            : getAdminPathForMenuItem(item.name);
+
           if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.log('[Sidebar] Navigating to admin path:', adminPath);
+            console.log(
+              '[Sidebar] Admin user detected. Role:',
+              effectiveRole,
+              'Path for',
+              item.name,
+              ':',
+              adminPath
+            );
           }
+
+          if (adminPath) {
+            // This is a valid admin menu item
+            if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+              console.log('[Sidebar] Navigating to admin path:', adminPath);
+            }
+
+            // Only navigate if not already on this path
+            if (typeof window !== 'undefined') {
+              const currentPath = window.location.pathname;
+              if (currentPath === adminPath) {
+                // Already on this page, just update active item
+                setActiveItem(key);
+                persistActiveNavToLocal(key);
+                return;
+              }
+            }
+
+            // Check if we can navigate to this path
+            if (!canNavigateTo(adminPath)) {
+              console.debug('[Sidebar] Navigation blocked by global action:', adminPath);
+              return;
+            }
+
+            setActiveNavigationPath(adminPath);
+            setActiveItem(key);
+            persistActiveNavToLocal(key);
+            router.push(adminPath);
+            return;
+          }
+        }
+
+        // For non-ADMIN roles: use inbox pattern
+        // Special-case: treat certain inbox-like items as top-level selections
+        const topLevelInboxLike = new Set([
+          'freshform',
+          'sent',
+          'closed',
+          'drafts',
+          'finaldisposal',
+        ]);
+
+        if (key && topLevelInboxLike.has(key)) {
+          try {
+            dispatch(closeInbox());
+            try {
+              if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.setItem('inboxDesiredOpen', 'false');
+              }
+            } catch (e) {}
+          } catch (e) {}
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
+          // For 'sent', trigger navigation to inbox with type=sent
+          if (key === 'sent') {
+            const actionId = 'sidebar-sent';
+            const sentPath = '/inbox?type=sent';
+            if (!canNavigateTo(sentPath, actionId)) {
+              return;
+            }
+            setActiveNavigationPath(sentPath);
+            router.push(sentPath);
+            return;
+          }
+        } else {
+          setActiveItem(key);
+        }
+
+        if (item.statusIds && item.statusIds.length) {
+          setActiveStatusIds(item.statusIds);
+          try {
+            localStorage.setItem('activeStatusIds', JSON.stringify(item.statusIds));
+          } catch (e) {}
+        } else {
+          setActiveStatusIds(undefined);
+          try {
+            localStorage.removeItem('activeStatusIds');
+          } catch (e) {}
+        }
+
+        if (item.name.toLowerCase().includes('dashboard')) {
+          const redirectPath = getRoleBasedRedirectPath(effectiveRole);
 
           // Only navigate if not already on this path
           if (typeof window !== 'undefined') {
-            const currentPath = window.location.pathname;
-            if (currentPath === adminPath) {
-              // Already on this page, just update active item
-              setActiveItem(key);
-              persistActiveNavToLocal(key);
-              return;
+            const currentPath = window.location.pathname + window.location.search;
+            if (currentPath !== redirectPath) {
+              if (!canNavigateTo(redirectPath)) {
+                return;
+              }
+              setActiveNavigationPath(redirectPath);
+              router.push(redirectPath);
             }
           }
+          return;
+        }
 
+        // Handle analytics menu item
+        if (item.name.toLowerCase() === 'analytics') {
+          const analyticsPath = '/inbox/analytics';
+          const actionId = 'sidebar-analytics';
+          if (!canNavigateTo(analyticsPath, actionId)) {
+            return;
+          }
           setActiveItem(key);
           persistActiveNavToLocal(key);
-          router.push(adminPath);
+          dispatch(closeInbox());
+          setActiveNavigationPath(analyticsPath);
+          router.push(analyticsPath);
           return;
         }
-      }
 
-      // For non-ADMIN roles: use inbox pattern
-      // Special-case: treat certain inbox-like items as top-level selections
-      // so clicking them will close the inbox and make the clicked menu item active
-      // (no `inbox-` prefix). This prevents URL-driven inbox activation when
-      // these are intended to behave as standalone menu entries.
-      const topLevelInboxLike = new Set(['freshform', 'sent', 'closed', 'drafts', 'finaldisposal']);
-
-      if (key && topLevelInboxLike.has(key)) {
-        try {
-          // ensure inbox is closed immediately in the UI
-          dispatch(closeInbox());
-          try {
-            if (typeof window !== 'undefined' && window.localStorage) {
-              window.localStorage.setItem('inboxDesiredOpen', 'false');
-            }
-          } catch (e) {}
-        } catch (e) {}
-        setActiveItem(key);
-        persistActiveNavToLocal(key);
-      } else {
-        setActiveItem(key);
-      }
-
-      if (item.statusIds && item.statusIds.length) {
-        setActiveStatusIds(item.statusIds);
-        try {
-          localStorage.setItem('activeStatusIds', JSON.stringify(item.statusIds));
-        } catch (e) {}
-      } else {
-        setActiveStatusIds(undefined);
-        try {
-          localStorage.removeItem('activeStatusIds');
-        } catch (e) {}
-      }
-
-      if (item.name.toLowerCase().includes('dashboard')) {
-        const redirectPath = getRoleBasedRedirectPath(effectiveRole);
+        const type = item.name.replace(/\s+/g, '');
+        const wasTopLevel = key && topLevelInboxLike.has(key);
+        const target = `/inbox?type=${encodeURIComponent(type)}`;
 
         // Only navigate if not already on this path
+        let isSamePath = false;
         if (typeof window !== 'undefined') {
           const currentPath = window.location.pathname + window.location.search;
-          if (currentPath !== redirectPath) {
-            router.push(redirectPath);
+          if (currentPath === target) {
+            isSamePath = true;
           }
         }
-        return;
-      }
 
-      // Handle analytics menu item - navigate to /inbox/analytics for non-admin users
-      if (item.name.toLowerCase() === 'analytics') {
-        setActiveItem(key);
-        persistActiveNavToLocal(key);
-        dispatch(closeInbox());
-        router.push('/inbox/analytics');
-        return;
-      }
-
-      const type = item.name.replace(/\s+/g, '');
-      const wasTopLevel = key && topLevelInboxLike.has(key);
-      const target = `/inbox?type=${encodeURIComponent(type)}`;
-
-      // Only navigate if not already on this path
-      if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname + window.location.search;
-        if (currentPath === target) {
-          // Already on this page
+        if (!canNavigateTo(target, actionId) && !isSamePath) {
           return;
         }
-      }
 
-      if (wasTopLevel) {
-        try {
-          // set a short-lived session flag so the pathname/searchParams sync
-          // effect can detect this navigation and avoid opening the inbox.
-          if (typeof window !== 'undefined' && window.sessionStorage) {
-            window.sessionStorage.setItem('skipOpenInbox', 'true');
+        setActiveNavigationPath(target);
+
+        if (wasTopLevel) {
+          try {
+            if (typeof window !== 'undefined' && window.sessionStorage) {
+              window.sessionStorage.setItem('skipOpenInbox', 'true');
+            }
+          } catch (e) {}
+          if (isSamePath) {
+            // If already on this page, force reload data
+            void loadType(type, true, item.statusIds).catch(() => {});
+            if (onTableReload) onTableReload(key);
+          } else {
+            router.push(target);
+            scheduleInboxForwardedRefresh(target);
+            if (onTableReload) onTableReload(key);
           }
-        } catch (e) {}
-        // push the URL so it's reflected in the address bar, but the sync
-        // effect will read the flag and avoid opening the inbox UI.
-        router.push(target);
-        scheduleInboxForwardedRefresh(target);
-        if (onTableReload) onTableReload(key);
-      } else {
-        try {
-          const inboxKey = normalizeNavKey(`inbox-${type}`);
-          if (inboxKey) {
-            setActiveItem(inboxKey);
-            persistActiveNavToLocal(inboxKey);
+        } else {
+          try {
+            const inboxKey = normalizeNavKey(`inbox-${type}`);
+            if (inboxKey) {
+              setActiveItem(inboxKey);
+              persistActiveNavToLocal(inboxKey);
+            }
+          } catch (e) {}
+          if (isSamePath) {
+            // If already on this page, force reload data
+            void loadType(type, true, item.statusIds).catch(() => {});
+          } else {
+            router.push(target);
+            scheduleInboxForwardedRefresh(target);
           }
-        } catch (e) {}
-        router.push(target);
-        scheduleInboxForwardedRefresh(target);
+        }
+      } finally {
+        // Always release the lock for this actionId
+        setTimeout(() => {
+          endAction(actionId);
+        }, 500);
       }
     },
     [
@@ -952,6 +1028,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       scheduleInboxForwardedRefresh,
       dispatch,
       freezeActive,
+      isActionInProgress,
+      isInboxLoading,
+      startAction,
+      endAction,
+      canNavigateTo,
+      setActiveNavigationPath,
+      onTableReload,
+      persistActiveNavToLocal,
     ]
   );
 
@@ -971,88 +1055,112 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
   const handleInboxSubItemClick = useCallback(
     (subItem: string) => {
-      // Freeze active highlight during API-driven updates
-      freezeActive(2500);
-      // Check if admin user is trying to access inbox (should not happen)
-      if (isAdminRole(userRole || cookieRole)) {
-        // Admin users shouldn't be in inbox - redirect to role-appropriate dashboard
-        const redirectPath = getRoleBasedRedirectPath(userRole || cookieRole);
-        router.push(redirectPath);
+      const actionId = `inbox-${subItem.toLowerCase().replace(/\s+/g, '')}`;
+
+      // Prevent repeated clicks on the same sub-item while its action is in progress
+      if (isActionInProgress(actionId) || isInboxLoading) {
+        console.debug('[Sidebar] Inbox sub-item click blocked - action in progress:', actionId);
+        return;
+      }
+      // Only block navigation if same actionId is in progress
+      // (canNavigateTo now accepts actionId)
+      if (!startAction(actionId)) {
+        console.debug('[Sidebar] Inbox sub-item click blocked - could not start action:', actionId);
         return;
       }
 
-      const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
-      setActiveItem(activeItemKey);
-      persistActiveNavToLocal(activeItemKey);
-
       try {
-        const desiredOpen =
-          typeof window !== 'undefined' && window.localStorage
-            ? window.localStorage.getItem('inboxDesiredOpen')
-            : null;
-        if (desiredOpen !== 'false') {
+        // Freeze active highlight during API-driven updates
+        freezeActive(2500);
+        // Check if admin user is trying to access inbox (should not happen)
+        if (isAdminRole(userRole || cookieRole)) {
+          // Admin users shouldn't be in inbox - redirect to role-appropriate dashboard
+          const redirectPath = getRoleBasedRedirectPath(userRole || cookieRole);
+          router.push(redirectPath);
+          return;
+        }
+
+        const activeItemKey = normalizeNavKey(`inbox-${subItem}`);
+        setActiveItem(activeItemKey);
+        persistActiveNavToLocal(activeItemKey);
+
+        try {
+          const desiredOpen =
+            typeof window !== 'undefined' && window.localStorage
+              ? window.localStorage.getItem('inboxDesiredOpen')
+              : null;
+          if (desiredOpen !== 'false') {
+            if (!isInboxOpen) dispatch(openInbox());
+          }
+        } catch (e) {
           if (!isInboxOpen) dispatch(openInbox());
         }
-      } catch (e) {
-        if (!isInboxOpen) dispatch(openInbox());
-      }
 
-      // Resolve statusIds fallback logic
-      let customStatusIds: number[] | undefined = activeStatusIds;
-      try {
-        if (!customStatusIds) {
-          const inboxMenu = menuItems.find(
-            mi =>
-              String(mi.name || '')
-                .replace(/\s+/g, '')
-                .toLowerCase() === 'inbox'
-          );
-          if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
-            customStatusIds = inboxMenu.statusIds;
-        }
-        if (!customStatusIds) {
-          const direct = menuItems.find(
-            mi =>
-              String(mi.name || '')
-                .replace(/\s+/g, '')
-                .toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase()
-          );
-          if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
-        }
-        // Final fallback: known static mappings for some inbox types
-        if (!customStatusIds) {
-          try {
-            const normalized = String(subItem).replace(/\s+/g, '').toLowerCase();
-            if (normalized === 'reenquiry') {
-              customStatusIds = [5];
+        // Resolve statusIds fallback logic
+        let customStatusIds: number[] | undefined = activeStatusIds;
+        try {
+          if (!customStatusIds) {
+            const inboxMenu = menuItems.find(
+              mi =>
+                String(mi.name || '')
+                  .replace(/\s+/g, '')
+                  .toLowerCase() === 'inbox'
+            );
+            if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
+              customStatusIds = inboxMenu.statusIds;
+          }
+          if (!customStatusIds) {
+            const direct = menuItems.find(
+              mi =>
+                String(mi.name || '')
+                  .replace(/\s+/g, '')
+                  .toLowerCase() === String(subItem).replace(/\s+/g, '').toLowerCase()
+            );
+            if (direct?.statusIds && direct.statusIds.length) customStatusIds = direct.statusIds;
+          }
+          // Final fallback: known static mappings for some inbox types
+          if (!customStatusIds) {
+            try {
+              const normalized = String(subItem).replace(/\s+/g, '').toLowerCase();
+              if (normalized === 'reenquiry') {
+                customStatusIds = [5];
+              }
+            } catch (e) {
+              /* ignore */
             }
-          } catch (e) {
-            /* ignore */
+          }
+        } catch (e) {
+          /* ignore */
+        }
+
+        // If user clicked the same inbox type that's already selected, force a reload
+        const forceReload =
+          !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
+        void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
+
+        const targetBase = '/inbox';
+        const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
+
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox');
+
+        if (isOnInboxBase) {
+          try {
+            window.history.replaceState(null, '', targetUrl);
+          } catch (e) {}
+          if (onTableReload) onTableReload(subItem);
+        } else {
+          if (canNavigateTo(targetUrl, actionId)) {
+            setActiveNavigationPath(targetUrl);
+            router.push(targetUrl);
+            scheduleInboxForwardedRefresh(targetUrl);
           }
         }
-      } catch (e) {
-        /* ignore */
-      }
-
-      // If user clicked the same inbox type that's already selected, force a reload
-      const forceReload =
-        !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
-      void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
-
-      const targetBase = '/inbox';
-      const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
-
-      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-      const isOnInboxBase = currentPath === '/inbox' || currentPath.startsWith('/inbox');
-
-      if (isOnInboxBase) {
-        try {
-          window.history.replaceState(null, '', targetUrl);
-        } catch (e) {}
-        if (onTableReload) onTableReload(subItem);
-      } else {
-        router.push(targetUrl);
-        scheduleInboxForwardedRefresh(targetUrl);
+      } finally {
+        // Always release the lock for this actionId
+        setTimeout(() => {
+          endAction(actionId);
+        }, 500);
       }
     },
     [
@@ -1068,6 +1176,14 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
       normalizeNavKey,
       isInboxOpen,
       freezeActive,
+      isActionInProgress,
+      isInboxLoading,
+      startAction,
+      endAction,
+      canNavigateTo,
+      setActiveNavigationPath,
+      selectedType,
+      persistActiveNavToLocal,
     ]
   );
 
@@ -1214,7 +1330,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                   className={`flex items-center w-full px-4 py-2 rounded-md text-left ${
                     (activeItem && String(activeItem).startsWith('inbox-')) || isInboxOpen
                       ? 'bg-[#001F54] text-white'
-                      : 'hover:bg-gray-100 text-gray-800'
+                      : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
                   <span
@@ -1333,7 +1449,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           <button
             type='button'
             onClick={handleLogout}
-            className='flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150 hover:bg-gray-100 text-gray-800'
+            className='flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150 bg-[#001F54] hover:bg-[#001F54] text-white'
           >
             <span
               className='inline-flex items-center justify-center w-6 h-6 mr-2'

@@ -53,7 +53,7 @@ export const AdminColors = {
 // Spacing System (based on 4px grid)
 export const AdminSpacing = {
     xs: '4px',
-    sm: '8px',
+    sm: '16px',
     md: '12px',
     lg: '16px',
     xl: '20px',
