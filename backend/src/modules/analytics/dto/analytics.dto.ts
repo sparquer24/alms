@@ -7,6 +7,7 @@ export class ApplicationsDataDto {
 export class RoleLoadDataDto {
     name!: string;
     value!: number;
+    code?: string;
 }
 
 export class StateDataDto {

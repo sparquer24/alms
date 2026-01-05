@@ -90,6 +90,8 @@ export default function UserManagementPage() {
 
   const [users, setUsers] = useState<UiUser[]>([]);
   const [apiRoles, setApiRoles] = useState<ApiRole[]>([]);
+  const [rolesFromAPI, setRolesFromAPI] = useState<ApiRole[]>([]);
+  const [loadingRolesAPI, setLoadingRolesAPI] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -97,6 +99,7 @@ export default function UserManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
   const [addUser, setAddUser] = useState({
     username: '',
     password: '',
@@ -127,6 +130,7 @@ export default function UserManagementPage() {
   const [editUser, setEditUser] = useState<UiUser | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string>('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
   const { userRole } = useAuthSync();
@@ -177,9 +181,28 @@ export default function UserManagementPage() {
     }
   };
 
+  // Fetch roles from Role API
+  const fetchRolesFromAPI = async () => {
+    setLoadingRolesAPI(true);
+    try {
+      const data = await fetchData('/roles');
+      const list: ApiRole[] = Array.isArray(data) ? data : data?.data || data?.roles || [];
+      setRolesFromAPI(list);
+      setAddUser(prev => ({ ...prev, roleCode: prev.roleCode || list[0]?.code || '' }));
+    } catch (e: any) {
+      console.error('Failed to fetch roles from API:', e?.message || e);
+    } finally {
+      setLoadingRolesAPI(false);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
   }, [roleFilter]);
+
+  useEffect(() => {
+    fetchRolesFromAPI();
+  }, []);
 
   const openDetails = (u: UiUser) => {
     setDetailsUser(u);
@@ -252,7 +275,8 @@ export default function UserManagementPage() {
     if (addError) return; // block submit when inline add validation shows error
     const err = validateUser(addUser);
     if (err) return setAddError(err);
-    const role = apiRoles.find(r => r.code === addUser.roleCode);
+    const rolePool = rolesFromAPI.length ? rolesFromAPI : apiRoles;
+    const role = rolePool.find(r => r.code === addUser.roleCode);
     if (!role) return setAddError('Role list not loaded.');
     try {
       await postData('/users', {
@@ -435,7 +459,8 @@ export default function UserManagementPage() {
     
     try {
       // find roleId from code
-      const role = apiRoles.find(r => r.code === editUser.role);
+      const rolePool = rolesFromAPI.length ? rolesFromAPI : apiRoles;
+      const role = rolePool.find(r => r.code === editUser.role);
       await putData(`/users/${editUser.id}`, {
         username: editUser.username,
         email: editUser.email || undefined,
@@ -574,7 +599,10 @@ export default function UserManagementPage() {
                     <span>{downloadLoading ? 'Preparing…' : 'Download Excel'}</span>
                   </button>
                   <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={() => {
+                      setSearch('');
+                      setShowAddModal(true);
+                    }}
                     className='inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2'
                   >
                     <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -880,7 +908,7 @@ export default function UserManagementPage() {
           />
           <div className='relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl'>
             <div className='flex items-center justify-between mb-4'>
-              <h2 className='text-xl font-semibold text-slate-800'>Add New User</h2>
+              <h2 className='text-xl font-semibold text-slate-800'>super-admin Add New User</h2>
               <button
                 onClick={() => {
                   setShowAddModal(false);
@@ -921,13 +949,34 @@ export default function UserManagementPage() {
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Password</label>
-                <input
-                  type='password'
-                  className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
-                  placeholder='Enter password'
-                  value={addUser.password}
-                  onChange={e => setAddUser({ ...addUser, password: e.target.value })}
-                />
+                <div className='relative'>
+                  <input
+                    type={showAddPassword ? 'text' : 'password'}
+                    className='w-full pr-10 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                    placeholder='Enter password'
+                    value={addUser.password}
+                    onChange={e => setAddUser({ ...addUser, password: e.target.value })}
+                  />
+                  <button
+                    type='button'
+                    aria-label={showAddPassword ? 'Hide password' : 'Show password'}
+                    title={showAddPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowAddPassword(v => !v)}
+                    className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  >
+                    {showAddPassword ? (
+                      <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.267-2.614-10-6 1.013-2.026 2.654-3.69 4.62-4.703m3.097-1.25A9.956 9.956 0 0112 5c4.478 0 8.267 2.614 10 6-.463.927-1.064 1.78-1.78 2.536M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 3l18 18' />
+                      </svg>
+                    ) : (
+                      <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M1 12c1.733 3.386 5.522 6 10 6s8.267-2.614 10-6c-1.733-3.386-5.522-6-10-6S2.733 8.614 1 12z' />
+                        <circle cx='12' cy='12' r='3' strokeWidth={2} />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>
@@ -957,9 +1006,10 @@ export default function UserManagementPage() {
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.roleCode}
                   onChange={e => setAddUser({ ...addUser, roleCode: e.target.value })}
+                  disabled={loadingRolesAPI}
                 >
                   <option value=''>Select a role</option>
-                  {apiRoles.map(r => (
+                  {(rolesFromAPI.length ? rolesFromAPI : apiRoles).map(r => (
                     <option key={r.code} value={r.code}>
                       {r.code} {r.name ? `- ${r.name}` : ''}
                     </option>
@@ -1409,7 +1459,7 @@ export default function UserManagementPage() {
                               }
                               className='w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                             >
-                              {apiRoles.map(r => (
+                              {(rolesFromAPI.length ? rolesFromAPI : apiRoles).map(r => (
                                 <option key={r.code} value={r.code}>
                                   {r.code} {r.name ? `- ${r.name}` : ''}
                                 </option>
@@ -1540,16 +1590,37 @@ export default function UserManagementPage() {
                 {editError && <p className='text-red-600 text-sm mt-1'>{editError}</p>}
                 </div>
                 <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>New Password (Optional)</label>
-                <input
-                  type='password'
-                  placeholder='Enter new password'
-                  value={editUser.password || ''}
-                  onChange={e => setEditUser({ ...editUser, password: e.target.value })}
-                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
-                />
-                <p className='text-xs text-slate-500 mt-1'>Only fill this if you want to change the password</p>
-              </div>
+                  <label className='block text-sm font-medium text-slate-700 mb-1'>New Password (Optional)</label>
+                  <div className='relative'>
+                    <input
+                      type={showEditPassword ? 'text' : 'password'}
+                      placeholder='Enter new password'
+                      value={editUser.password || ''}
+                      onChange={e => setEditUser({ ...editUser, password: e.target.value })}
+                      className='w-full pr-10 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                    />
+                    <button
+                      type='button'
+                      aria-label={showEditPassword ? 'Hide password' : 'Show password'}
+                      title={showEditPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowEditPassword(v => !v)}
+                      className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    >
+                      {showEditPassword ? (
+                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.267-2.614-10-6 1.013-2.026 2.654-3.69 4.62-4.703m3.097-1.25A9.956 9.956 0 0112 5c4.478 0 8.267 2.614 10 6-.463.927-1.064 1.78-1.78 2.536M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 3l18 18' />
+                        </svg>
+                      ) : (
+                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M1 12c1.733 3.386 5.522 6 10 6s8.267-2.614 10-6c-1.733-3.386-5.522-6-10-6S2.733 8.614 1 12z' />
+                          <circle cx='12' cy='12' r='3' strokeWidth={2} />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className='text-xs text-slate-500 mt-1'>Only fill this if you want to change the password</p>
+                </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Email</label>
                 <input
@@ -1574,7 +1645,7 @@ export default function UserManagementPage() {
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 >
                   {/* Super Admin can assign ANY role including ADMIN and SUPER_ADMIN */}
-                  {apiRoles.map(r => (
+                  {(rolesFromAPI.length ? rolesFromAPI : apiRoles).map(r => (
                     <option key={r.code} value={r.code}>
                       {r.code}
                     </option>

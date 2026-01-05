@@ -117,15 +117,25 @@ function InboxContent() {
         return 'Closed Applications';
       case 'freshform':
         return 'Fresh Form Applications';
+      case 'reenquiry':
+        return 'Re-Enquiry Applications';
       default:
         return 'Applications';
     }
   };
 
+  const filterOptions = [
+    { key: 'forwarded', label: 'Forwarded' },
+    { key: 'returned', label: 'Returned' },
+    { key: 'redflagged', label: 'Red Flagged' },
+    { key: 'reenquiry', label: 'Re-Enquiry' },
+  ];
+
   return (
     <div className='max-w-8xl w-full mx-auto'>
       <div className='bg-white rounded-lg shadow p-6'>
-        <h1 className='text-2xl font-bold mb-6'>{getPageTitle()}</h1>
+        <h1 className='text-2xl font-bold mb-4'>{getPageTitle()}</h1>
+
         {(searchQuery || startDate || endDate) && (
           <div className='mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg'>
             <h3 className='font-semibold text-blue-700'>Active Filters:</h3>

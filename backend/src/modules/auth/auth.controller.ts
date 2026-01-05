@@ -51,15 +51,18 @@ export class AuthController {
         }
       } catch (cookieErr) {
         // Best-effort: don't fail login if cookie setting fails
-        console.warn('Failed to set server-side role cookie:', cookieErr);
       }
 
       return result;
     } catch (error) {
       // If login failed due to Unauthorized (bad creds or role inactive),
-      // return a clean JSON response without Nest's default path/method fields.
+      // set the response status and return a plain serializable body. Returning
+      // the Express `res` object directly would cause Nest to attempt to
+      // serialize it (circular), so avoid calling `res.json` as the return
+      // value.
       if (error instanceof UnauthorizedException) {
-        return res.status(HttpStatus.UNAUTHORIZED).json({ success: false, message: error.message });
+        res.status(HttpStatus.UNAUTHORIZED);
+        return { success: false, message: error.message };
       }
       throw error;
     }

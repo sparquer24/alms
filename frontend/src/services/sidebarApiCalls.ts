@@ -78,17 +78,33 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
   return {
     id: String(detailedApp.id || ''),
     applicantName: applicantName,
+    // Preserve original name components for forms/UI that expect them
+    firstName: detailedApp.firstName || undefined,
+    middleName: detailedApp.middleName || undefined,
+    lastName: detailedApp.lastName || undefined,
     applicantMobile: detailedApp.contactInfo?.mobileNumber || detailedApp.mobileNumber || '',
     applicantEmail: detailedApp.contactInfo?.email || detailedApp.email || undefined,
+    // Legacy aliases expected by some UI components
+    mobileNumber: detailedApp.contactInfo?.mobileNumber || detailedApp.mobileNumber || '',
+    email: detailedApp.contactInfo?.email || detailedApp.email || undefined,
     fatherName: detailedApp.parentOrSpouseName || detailedApp.fatherName || undefined,
-    gender: detailedApp.sex === 'MALE' ? 'Male' : detailedApp.sex === 'FEMALE' ? 'Female' : 'Other',
+    parentOrSpouseName: detailedApp.parentOrSpouseName || undefined,
+    sex: detailedApp.sex || undefined,
+    gender: detailedApp.sex === 'MALE' ? 'Male' : detailedApp.sex === 'FEMALE' ? 'Female' : detailedApp.sex || undefined,
     dob: detailedApp.dateOfBirth || detailedApp.dob || undefined,
+    dobInWords: detailedApp.dobInWords || undefined,
+    placeOfBirth: detailedApp.placeOfBirth || undefined,
+    panNumber: detailedApp.panNumber || detailedApp.panNumber || undefined,
+    aadharNumber: detailedApp.aadharNumber || detailedApp.aadharNumber || undefined,
     address: detailedApp.presentAddress?.addressLine || detailedApp.address || undefined,
-    applicationType: 'Fresh License',
+    presentAddress: detailedApp.presentAddress || undefined,
+    permanentAddress: detailedApp.permanentAddress || undefined,
+    applicationType: detailedApp.applicationType || detailedApp.formType || 'Fresh License',
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
-    status: statusName,
+    status: statusName || detailedApp.status || undefined,
     status_id: detailedApp.status?.id || detailedApp.statusId || 1,
+    workflowStatus: detailedApp.workflowStatus || undefined,
     assignedTo: detailedApp.currentUser?.username || String(detailedApp.currentUserId || ''),
     forwardedFrom: detailedApp.previousUser?.username || undefined,
     forwardedTo: detailedApp.currentUser?.username || undefined,
@@ -99,10 +115,15 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     flagReason: undefined,
     disposalReason: undefined,
     lastUpdated: detailedApp.updatedAt || detailedApp.createdAt || new Date().toISOString(),
-    documents: detailedApp.fileUploads?.map((upload: any) => ({
-      name: upload.fileName,
-      type: upload.fileType,
-      url: upload.fileUrl
+    createdAt: detailedApp.createdAt || detailedApp.created_at || undefined,
+    updatedAt: detailedApp.updatedAt || detailedApp.updated_at || undefined,
+    // Keep raw fileUploads as documents for UI; include common fallback keys
+    documents: (detailedApp.fileUploads || detailedApp.file_uploads || []).map((upload: any) => ({
+      id: upload.id || upload.fileId || undefined,
+      name: upload.fileName || upload.name || upload.file_name || 'file',
+      type: upload.fileType || upload.type || upload.mime || undefined,
+      url: upload.fileUrl || upload.url || upload.fileUrl || undefined,
+      uploadedAt: upload.uploadedAt || upload.createdAt || undefined,
     })) || [],
     // Prefer an explicit photoUrl resolved from biometric payloads or fileUploads
     photoUrl: (() => {
@@ -141,7 +162,11 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     })(),
     history,
     // Preserve the original workflowHistories for the new Application History display
-    workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || [],
+    workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || detailedApp.workflowHistory || [],
+    // Preserve contact and occupation info so UI can render easily
+    contactInfo: detailedApp.contactInfo || detailedApp.contact_info || undefined,
+    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || undefined,
+    acknowledgementNo: detailedApp.acknowledgementNo || detailedApp.acknowledgement_no || detailedApp.ackNo || undefined,
     // Preserve additional data fields
     licenseHistories: detailedApp.licenseHistories || [],
     criminalHistories: detailedApp.criminalHistories || [],
@@ -806,13 +831,23 @@ export const searchApplications = async (searchParams: {
 export const getApplicationByApplicationId = async (applicationId: string | number): Promise<ApplicationData | null> => {
   try {
     // Make API call to get specific application by ID
+    const start = Date.now();
     const response = await ApplicationApi.getById(Number(applicationId));
-    if (!response?.success || !response?.data) {
+    const took = Date.now() - start;
+    // Response may be wrapped in an ApiResponse { success, data } OR may be the raw application object.
+    // Normalize both shapes for downstream processing and log timing for frontend diagnostics.
+    // eslint-disable-next-line no-console
+    console.debug('[sidebarApiCalls] getApplicationByApplicationId fetch', { applicationId, took, rawResponse: response });
+
+    // If API follows wrapped response pattern, extract data
+    let detailedApplicationData: any = response && (response as any).data ? (response as any).data : response;
+    // If response explicitly signals failure, bail out early
+    if ((response as any)?.success === false) {
       return null;
     }
-
-    // The API now returns a single application object (not an array)
-    const detailedApplicationData: any = response.data;
+    if (!detailedApplicationData) {
+      return null;
+    }
     // Transform the detailed API response to ApplicationData format for backward compatibility
     const applicationData = transformDetailedToApplicationData(detailedApplicationData);
 

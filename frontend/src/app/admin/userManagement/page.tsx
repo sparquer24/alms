@@ -11,6 +11,7 @@ import { fetchData, postData, putData, deleteData } from '../../../api/axiosConf
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
 import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../../constants';
 import EditUserPage from '../users/[id]/edit/page';
+import { getUserFromCookie } from '../../../utils/authCookies';
 
 // Types representing API user + transformed UI user
 interface ApiRole {
@@ -84,6 +85,7 @@ export default function UserManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
   const [addUser, setAddUser] = useState({
     username: '',
     password: '',
@@ -114,14 +116,70 @@ export default function UserManagementPage() {
   const [editUser, setEditUser] = useState<UiUser | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string>('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
-  const { userRole } = useAuthSync();
+  const { userRole, user } = useAuthSync();
   const isAdmin = (userRole || '').toUpperCase() === ROLE_CODES.ADMIN;
+  const isSuperAdmin = (userRole || '').toUpperCase() === ROLE_CODES.SUPER_ADMIN;
+  
+  // Get current user's state from multiple sources
+  const currentUser = getUserFromCookie();
+  const authUser = user; // User from useAuthSync (Redux)
+  
+  // Try to get stateId from various possible locations
+  const currentUserStateId = 
+    currentUser?.stateId || 
+    currentUser?.state?.id || 
+    (currentUser as any)?.location?.state?.id ||
+    authUser?.stateId || 
+    authUser?.state?.id ||
+    (authUser as any)?.location?.state?.id;
+  
+  // Console logs for debugging
+  console.log('🔍 Debug Info:', {
+    userRole,
+    isAdmin,
+    isSuperAdmin,
+    currentUser,
+    authUser,
+    currentUserStateId,
+    'currentUser.stateId': currentUser?.stateId,
+    'currentUser.state': currentUser?.state,
+    'currentUser.location': (currentUser as any)?.location,
+    'currentUser.location.state.id': (currentUser as any)?.location?.state?.id,
+    'authUser.stateId': authUser?.stateId,
+    'authUser.state': (authUser as any)?.state,
+    'authUser.location': (authUser as any)?.location,
+    'currentUser keys': currentUser ? Object.keys(currentUser) : 'no currentUser',
+    'authUser keys': authUser ? Object.keys(authUser) : 'no authUser',
+  });
+  
+  // State for fetching roles from API (for SUPER_ADMIN)
+  const [allRolesFromAPI, setAllRolesFromAPI] = useState<ApiRole[]>([]);
+  const [loadingRolesAPI, setLoadingRolesAPI] = useState(false);
 
   // Location hierarchy hook (loads states and manages dependent lists)
   const [locationState, locationActions] = useLocationHierarchy();
   const locationOptions = locationActions.getSelectOptions();
+  
+  // Console log for location options
+  console.log('📍 Location Options:', {
+    stateOptions: locationOptions.stateOptions,
+    loadingStates: locationState.loadingStates,
+  });
+  
+  // Filter state options based on user role
+  // ADMIN: Show only their assigned state
+  // SUPER_ADMIN: Show all states
+  const filteredStateOptions = isAdmin && currentUserStateId
+    ? locationOptions.stateOptions.filter(state => state.value === String(currentUserStateId))
+    : locationOptions.stateOptions;
+  
+  console.log('✅ Filtered State Options:', {
+    filteredStateOptions,
+    filterApplied: isAdmin && currentUserStateId,
+  });
 
   // Fetch users
   const loadUsers = async () => {
@@ -163,9 +221,46 @@ export default function UserManagementPage() {
     }
   };
 
+  // Fetch roles from API (for both ADMIN and SUPER_ADMIN)
+  const fetchRolesFromAPI = async () => {
+    setLoadingRolesAPI(true);
+    try {
+      const data = await fetchData('/roles');
+      const rolesList: ApiRole[] = Array.isArray(data) ? data : data?.data || data?.roles || [];
+      setAllRolesFromAPI(rolesList);
+    } catch (e: any) {
+      console.error('Failed to fetch roles from API:', e.message);
+    } finally {
+      setLoadingRolesAPI(false);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
+    // Always fetch roles for role selects
+    fetchRolesFromAPI();
   }, [roleFilter]);
+
+  // Auto-select state for ADMIN users when modal opens and states are loaded
+  useEffect(() => {
+    console.log('🔄 Auto-select State Effect Running:', {
+      showAddModal,
+      isAdmin,
+      currentUserStateId,
+      addUserState: addUser.state,
+      filteredStateOptionsLength: filteredStateOptions.length,
+      loadingStates: locationState.loadingStates,
+    });
+
+    if (showAddModal && isAdmin && currentUserStateId && !addUser.state && !locationState.loadingStates) {
+      if (filteredStateOptions.length > 0) {
+        const stateValue = String(currentUserStateId);
+        console.log('✅ Auto-selecting state:', stateValue);
+        setAddUser(prev => ({ ...prev, state: stateValue }));
+        locationActions.setSelectedState(stateValue);
+      }
+    }
+  }, [showAddModal, isAdmin, currentUserStateId, filteredStateOptions, addUser.state, locationState.loadingStates]);
 
   const openDetails = (u: UiUser) => {
     setDetailsUser(u);
@@ -238,7 +333,8 @@ export default function UserManagementPage() {
     if (addError) return; // block submit when inline add validation shows error
     const err = validateUser(addUser);
     if (err) return setAddError(err);
-    const role = apiRoles.find(r => r.code === addUser.roleCode);
+    const rolePool = allRolesFromAPI.length ? allRolesFromAPI : apiRoles;
+    const role = rolePool.find(r => r.code === addUser.roleCode);
     if (!role) return setAddError('Role list not loaded.');
     try {
       await postData('/users', {
@@ -354,6 +450,28 @@ export default function UserManagementPage() {
     }
   };
 
+  // Open Add User modal and initialize state for ADMIN
+  const handleOpenAddModal = () => {
+    console.log('🚀 Opening Add User Modal', {
+      isAdmin,
+      currentUserStateId,
+      loadingStates: locationState.loadingStates,
+    });
+    // Ensure search input stays empty when opening the modal
+    setSearch('');
+    setShowAddModal(true);
+    
+    // For ADMIN users, auto-select their state immediately
+    if (isAdmin && currentUserStateId) {
+      setTimeout(() => {
+        const stateValue = String(currentUserStateId);
+        console.log('🎯 Setting state on modal open:', stateValue);
+        setAddUser(prev => ({ ...prev, state: stateValue }));
+        locationActions.setSelectedState(stateValue);
+      }, 100); // Small delay to ensure states are loaded
+    }
+  };
+
   const openEdit = async (u: UiUser) => {
     setEditLoading(true);
     setActionMessage('');
@@ -421,7 +539,8 @@ export default function UserManagementPage() {
     
     try {
       // find roleId from code
-      const role = apiRoles.find(r => r.code === editUser.role);
+      const rolePool = allRolesFromAPI.length ? allRolesFromAPI : apiRoles;
+      const role = rolePool.find(r => r.code === editUser.role);
       await putData(`/users/${editUser.id}`, {
         username: editUser.username,
         email: editUser.email || undefined,
@@ -561,7 +680,7 @@ export default function UserManagementPage() {
                     <span>{downloadLoading ? 'Preparing…' : 'Download Excel'}</span>
                   </button>
                   <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={handleOpenAddModal}
                     className='inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2'
                   >
                     <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -689,7 +808,7 @@ export default function UserManagementPage() {
                             </p>
                             {isAdmin ? (
                               <button
-                                onClick={() => setShowAddModal(true)}
+                                onClick={handleOpenAddModal}
                                 className='mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300'
                               >
                                 <svg
@@ -871,7 +990,7 @@ export default function UserManagementPage() {
           />
           <div className='relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl'>
             <div className='flex items-center justify-between mb-4'>
-              <h2 className='text-xl font-semibold text-slate-800'>Add New User</h2>
+              <h2 className='text-xl font-semibold text-slate-800'>Add ----admin New User</h2>
               <button
                 onClick={() => {
                   setShowAddModal(false);
@@ -912,13 +1031,34 @@ export default function UserManagementPage() {
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Password</label>
-                <input
-                  type='password'
-                  className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
-                  placeholder='Enter password'
-                  value={addUser.password}
-                  onChange={e => setAddUser({ ...addUser, password: e.target.value })}
-                />
+                <div className='relative'>
+                  <input
+                    type={showAddPassword ? 'text' : 'password'}
+                    className='w-full pr-10 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                    placeholder='Enter password'
+                    value={addUser.password}
+                    onChange={e => setAddUser({ ...addUser, password: e.target.value })}
+                  />
+                  <button
+                    type='button'
+                    aria-label={showAddPassword ? 'Hide password' : 'Show password'}
+                    title={showAddPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowAddPassword(v => !v)}
+                    className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  >
+                    {showAddPassword ? (
+                      <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.267-2.614-10-6 1.013-2.026 2.654-3.69 4.62-4.703m3.097-1.25A9.956 9.956 0 0112 5c4.478 0 8.267 2.614 10 6-.463.927-1.064 1.78-1.78 2.536M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 3l18 18' />
+                      </svg>
+                    ) : (
+                      <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M1 12c1.733 3.386 5.522 6 10 6s8.267-2.614 10-6c-1.733-3.386-5.522-6-10-6S2.733 8.614 1 12z' />
+                        <circle cx='12' cy='12' r='3' strokeWidth={2} />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>
@@ -948,19 +1088,29 @@ export default function UserManagementPage() {
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.roleCode}
                   onChange={e => setAddUser({ ...addUser, roleCode: e.target.value })}
+                  disabled={loadingRolesAPI}
                 >
                   <option value=''>Select a role</option>
-                  {apiRoles.map(r => (
-                    <option key={r.code} value={r.code}>
-                      {r.code} {r.name ? `- ${r.name}` : ''}
-                    </option>
-                  ))}
+                  {(
+                    (isSuperAdmin ? allRolesFromAPI : allRolesFromAPI.length ? allRolesFromAPI : apiRoles)
+                  )
+                    .filter(r => (isSuperAdmin ? true : (r.code !== ROLE_CODES.SUPER_ADMIN && r.code !== ROLE_CODES.ADMIN)))
+                    .map(r => (
+                      <option key={r.code} value={r.code}>
+                        {r.code} {r.name ? `- ${r.name}` : ''}
+                      </option>
+                    ))}
                 </select>
+                {isSuperAdmin && loadingRolesAPI && (
+                  <p className='text-xs text-slate-500 mt-1'>Loading roles...</p>
+                )}
               </div>
 
               {/* Location hierarchy selects */}
               <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>State</label>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>
+                  State {isSuperAdmin ? '(from Location API)' : isAdmin ? '(your assigned state)' : ''}
+                </label>
                 <select
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.state}
@@ -976,19 +1126,29 @@ export default function UserManagementPage() {
                       policeStation: '',
                     });
                   }}
-                  disabled={locationState.loadingStates}
+                  disabled={locationState.loadingStates || (isAdmin && filteredStateOptions.length === 1)}
                 >
-                  <option value=''>Select a state</option>
-                  {locationOptions.stateOptions.map(o => (
+                  {/* Only show "Select a state" for SUPER_ADMIN or when no state is selected */}
+                  {(!isAdmin || !currentUserStateId) && <option value=''>Select a state</option>}
+                  {filteredStateOptions.map(o => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
                   ))}
                 </select>
+                {locationState.loadingStates && (
+                  <p className='text-xs text-slate-500 mt-1'>Loading states...</p>
+                )}
+                {isAdmin && filteredStateOptions.length === 1 && addUser.state && (
+                  <p className='text-xs text-slate-500 mt-1'>Your assigned state (locked)</p>
+                )}
               </div>
-             {LOCATION_HIERARCHY_ROLES.DISTRICT_REQUIRED.includes(addUser.roleCode) && (
+             {/* Show District when State is selected or when role requires it */}
+             {(addUser.state || LOCATION_HIERARCHY_ROLES.DISTRICT_REQUIRED.includes(addUser.roleCode)) && (
               <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>District</label>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>
+                  District {isSuperAdmin ? '(dynamic based on State)' : isAdmin ? '(select after State)' : ''}
+                </label>
                 <select
                   className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
                   value={addUser.district}
@@ -1005,13 +1165,16 @@ export default function UserManagementPage() {
                   }}
                   disabled={!addUser.state || locationState.loadingDistricts}
                 >
-                  <option value=''>Select a district</option>
+                  <option value=''>{!addUser.state ? 'Select state first' : 'Select a district'}</option>
                   {locationOptions.districtOptions.map(o => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
                   ))}
                 </select>
+                {locationState.loadingDistricts && (
+                  <p className='text-xs text-slate-500 mt-1'>Loading districts...</p>
+                )}
               </div>
               )}
               {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(addUser.roleCode) && (
@@ -1400,7 +1563,7 @@ export default function UserManagementPage() {
                               }
                               className='w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                             >
-                              {apiRoles.map(r => (
+                              {(allRolesFromAPI.length ? allRolesFromAPI : apiRoles).map(r => (
                                 <option key={r.code} value={r.code}>
                                   {r.code} {r.name ? `- ${r.name}` : ''}
                                 </option>
@@ -1531,16 +1694,37 @@ export default function UserManagementPage() {
                 {editError && <p className='text-red-600 text-sm mt-1'>{editError}</p>}
                 </div>
                 <div>
-                <label className='block text-sm font-medium text-slate-700 mb-1'>New Password (Optional)</label>
-                <input
-                  type='password'
-                  placeholder='Enter new password'
-                  value={editUser.password || ''}
-                  onChange={e => setEditUser({ ...editUser, password: e.target.value })}
-                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
-                />
-                <p className='text-xs text-slate-500 mt-1'>Only fill this if you want to change the password</p>
-              </div>
+                  <label className='block text-sm font-medium text-slate-700 mb-1'>New Password (Optional)</label>
+                  <div className='relative'>
+                    <input
+                      type={showEditPassword ? 'text' : 'password'}
+                      placeholder='Enter new password'
+                      value={editUser.password || ''}
+                      onChange={e => setEditUser({ ...editUser, password: e.target.value })}
+                      className='w-full pr-10 rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                    />
+                    <button
+                      type='button'
+                      aria-label={showEditPassword ? 'Hide password' : 'Show password'}
+                      title={showEditPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowEditPassword(v => !v)}
+                      className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    >
+                      {showEditPassword ? (
+                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.267-2.614-10-6 1.013-2.026 2.654-3.69 4.62-4.703m3.097-1.25A9.956 9.956 0 0112 5c4.478 0 8.267 2.614 10 6-.463.927-1.064 1.78-1.78 2.536M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 3l18 18' />
+                        </svg>
+                      ) : (
+                        <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M1 12c1.733 3.386 5.522 6 10 6s8.267-2.614 10-6c-1.733-3.386-5.522-6-10-6S2.733 8.614 1 12z' />
+                          <circle cx='12' cy='12' r='3' strokeWidth={2} />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className='text-xs text-slate-500 mt-1'>Only fill this if you want to change the password</p>
+                </div>
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Email</label>
                 <input
@@ -1564,7 +1748,9 @@ export default function UserManagementPage() {
                   onChange={e => setEditUser({ ...editUser, role: e.target.value })}
                   className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                 >
-                  {apiRoles.filter(r => r.code !== ROLE_CODES.SUPER_ADMIN && r.code !== ROLE_CODES.ADMIN).map(r => (
+                  {(allRolesFromAPI.length ? allRolesFromAPI : apiRoles)
+                    .filter(r => r.code !== ROLE_CODES.SUPER_ADMIN && r.code !== ROLE_CODES.ADMIN)
+                    .map(r => (
                     <option key={r.code} value={r.code}>
                       {r.code}
                     </option>

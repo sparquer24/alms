@@ -800,9 +800,6 @@ export class ApplicationFormService {
           // If there's something other than updatedAt to save, perform the update
           const hasUpdatableKeys = Object.keys(updateData).some(k => k !== 'updatedAt');
           if (hasUpdatableKeys) {
-            // small debug to help trace why an update may not happen in future
-            console.debug('Updating workflow/personal acceptance fields for application', applicationId, updateData);
-
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: applicationId },
               data: updateData
@@ -1657,7 +1654,6 @@ export class ApplicationFormService {
       try {
         statusMap[code] = await this.getStatusIdByCode(code);
       } catch (error) {
-        console.warn(`Status '${code}' not found in database`);
         // Don't throw error, just skip missing statuses
       }
     }

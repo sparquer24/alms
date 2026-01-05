@@ -82,6 +82,9 @@ export interface ApplicationData {
   applicantName: string;
   applicantMobile: string;
   applicantEmail?: string;
+  // Legacy / alternate field names used by some API transforms
+  mobileNumber?: string;
+  email?: string;
   parentOrSpouseName?: string;
   fatherName?: string;
   sex?: 'MALE' | 'FEMALE' | 'OTHER';
@@ -119,40 +122,75 @@ export interface ApplicationData {
     username: string;
   } | null;
   presentAddress?: {
+
     addressLine?: string;
+
     sinceResiding?: string;
-    state?: string;
-    district?: string;
+
+    state?: string | { id: number; name: string; [key: string]: any };
+
+    district?: string | { id: number; name: string; [key: string]: any };
+
     zone?: {
+
       id: number;
+
       name: string;
+
     };
+
     division?: {
+
       id: number;
+
       name: string;
+
     };
+
     policeStation?: {
+
       id: number;
+
       name: string;
+
     };
+
   };
+
   permanentAddress?: {
+
     addressLine?: string;
+
     sinceResiding?: string;
-    state?: string;
-    district?: string;
+
+    state?: string | { id: number; name: string; [key: string]: any };
+
+    district?: string | { id: number; name: string; [key: string]: any };
+
     zone?: {
+
       id: number;
+
       name: string;
+
     };
+
     division?: {
+
       id: number;
+
       name: string;
+
     };
+
     policeStation?: {
+
       id: number;
+
       name: string;
+
     };
+
   };
   occupationAndBusiness?: {
     id: number;
@@ -168,6 +206,12 @@ export interface ApplicationData {
       id: number;
       name: string;
     };
+  };
+  // Raw contact object from API (kept for compatibility)
+  contactInfo?: {
+    mobileNumber?: string;
+    email?: string;
+    [key: string]: any;
   };
   assignedTo: string;
   forwardedFrom?: string;
@@ -546,4 +590,4 @@ export interface Theme {
 // Export commonly used types
 export type { User as CurrentUser };
 export type { ApplicationData as Application };
-export type { FormData as FormValues }; 
+export type { FormData as FormValues };

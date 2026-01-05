@@ -66,6 +66,8 @@ export interface ApplicationDetailsOptions {
     limit?: number;
     q?: string;
     sort?: string;
+    fromDate?: string;
+    toDate?: string;
 }
 
 export interface AnalyticsResponse<T> {
@@ -86,7 +88,7 @@ class AnalyticsService {
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/applications${queryString ? `?${queryString}` : ''}`;
-            
+
             const response = await apiClient.get<AnalyticsResponse<ApplicationsData[]>>(endpoint);
             return response.data || [];
         } catch (error) {
@@ -126,7 +128,7 @@ class AnalyticsService {
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/states${queryString ? `?${queryString}` : ''}`;
-            
+
             const response = await apiClient.get<AnalyticsResponse<StateData[]>>(endpoint);
             return response.data || [];
         } catch (error) {
@@ -146,7 +148,7 @@ class AnalyticsService {
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/admin-activities${queryString ? `?${queryString}` : ''}`;
-            
+
             const response = await apiClient.get<AnalyticsResponse<AdminActivity[]>>(endpoint);
             return response.data || [];
         } catch (error) {
@@ -167,6 +169,8 @@ class AnalyticsService {
             if (options?.status) params.append('status', options.status);
             if (options?.q) params.append('q', options.q);
             if (options?.sort) params.append('sort', options.sort);
+            if (options?.fromDate) params.append('fromDate', options.fromDate);
+            if (options?.toDate) params.append('toDate', options.toDate);
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/applications/details${queryString ? `?${queryString}` : ''}`;

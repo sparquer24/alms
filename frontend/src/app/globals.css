@@ -145,3 +145,36 @@ body::-webkit-scrollbar-thumb,
 .animate-progress-bar {
   animation: progressBar 3s ease-in-out infinite;
 }
+
+/* Print styles - hide chrome and make printable area full width */
+@media print {
+  /* hide app chrome */
+  aside, header, .action-button-container, .fixed, .md\:hidden, .no-print {
+    display: none !important;
+  }
+
+  /* remove background decorations, ensure text is dark */
+  body, .container {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* printable card should take full width */
+  [data-printable="application-card"] {
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* ensure links and buttons are visible but not interactive */
+  a, button {
+    color: #000 !important;
+    text-decoration: none !important;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* avoid page breaks inside key blocks */
+  .avoid-break, [data-printable="application-card"] {
+    page-break-inside: avoid;
+  }
+}

@@ -26,12 +26,10 @@ export class ActionesService {
       });
 
       if (!user) {
-        console.warn(`getActiones: no user found with id=${userId}`);
         return [];
       }
 
       if (!user.roleId) {
-        console.warn(`getActiones: user id=${userId} has no roleId`);
         return [];
       }
 

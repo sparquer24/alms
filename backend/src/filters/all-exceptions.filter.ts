@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { inspect } from 'util';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -24,7 +25,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
       } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
@@ -34,20 +35,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     } else if (exception instanceof Error) {
       message = exception.message;
       error = exception.name;
-      
+
       // Log stack trace for non-HTTP exceptions
       this.logger.error(
         `${request.method} ${request.url} - ${exception.message}`,
         exception.stack,
       );
     } else {
+      // Avoid JSON.stringify on unknown objects which may be circular
       this.logger.error(
         `${request.method} ${request.url} - Unknown exception`,
-        JSON.stringify(exception),
+        inspect(exception, { depth: null }),
       );
     }
 
-    // Prepare error response
+    // Prepare error response (plain serializable object)
     const errorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
@@ -60,7 +62,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Log the error (except for 4xx client errors)
     if (status >= 500) {
       this.logger.error(
-        `HTTP ${status} Error Response: ${JSON.stringify(errorResponse)}`,
+        `HTTP ${status} Error Response: ${inspect(errorResponse, { depth: null })}`,
       );
     } else if (status >= 400) {
       this.logger.warn(
