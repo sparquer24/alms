@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
+import Footer from '../../components/Footer';
 
 // Type assertions for Next.js components to fix React 18 compatibility
 const ImageFixed = Image as any;
@@ -361,7 +362,7 @@ function LoginContent() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
+      className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
       role='main'
     >
       {/* Overlay */}
@@ -369,7 +370,8 @@ function LoginContent() {
         className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
         aria-hidden='true'
       />
-      <div className='relative max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40'>
+      <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40'>
         {/* Header */}
         <div className='flex flex-col items-center'>
           <div className='mb-6'>
@@ -431,6 +433,8 @@ function LoginContent() {
           </div>
         </form>
       </div>
+      </div>
+      <Footer variant="dark" className="relative z-10" />
     </div>
   );
 }
