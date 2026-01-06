@@ -23,6 +23,7 @@ import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 import QRCodeDisplay from '../../../components/QRCodeDisplay';
 import { useGlobalAction } from '../../../context/GlobalActionContext';
+import Footer from '../../../components/Footer';
 
 // --- Small UI formatting helpers to present user-readable data ---
 const humanize = (val?: any) => {
@@ -2708,6 +2709,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           )}
         </div>
       </main>
+
+      <Footer className='bg-white' variant='light' />
 
       {/* Loading Overlay */}
       {(isProcessing || isForwarding) && (
