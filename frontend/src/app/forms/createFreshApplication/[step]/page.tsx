@@ -16,6 +16,7 @@ import DocumentsUpload from '../../../../components/forms/freshApplication/Docum
 import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
 import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
 import { StepHeader } from '../../../../components/forms/elements/StepHeader';
+import Footer from '../../../../components/Footer';
 
 interface StepPageProps {
   params: Promise<{ step: string }>;
@@ -363,6 +364,8 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
           {StepComponent && <StepComponent />}
         </div>
       </div>
+
+      <Footer className='bg-white/80 mt-6' variant='light' />
 
       {/* Validation Error Modal */}
       {validationError && (
