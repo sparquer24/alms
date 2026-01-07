@@ -162,6 +162,7 @@ export default function ProceedingsForm({
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   // Refs for scrolling to invalid fields
   const actionRef = useRef<HTMLDivElement | null>(null);
   const remarksRef = useRef<HTMLDivElement | null>(null);
@@ -451,20 +452,41 @@ export default function ProceedingsForm({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // Basic validation: 10 files max, each <= 1MB
-    const MAX_FILES = 10;
+    // Clear previous attachment error
+    setAttachmentError(null);
+
+    // Basic validation: 4 files max, each <= 1MB
+    const MAX_FILES = 4;
     const MAX_SIZE = 1 * 1024 * 1024; // 1MB
 
     const valid: File[] = [];
     for (const f of files) {
       if (f.size > MAX_SIZE) {
-        setError(`File too large: ${f.name} (max 1MB)`);
-        continue;
+        setAttachmentError(`File too large: (max 1MB)`);
+        e.target.value = '' as any;
+        return;
       }
       valid.push(f);
     }
 
-    const merged = [...attachmentFiles, ...valid].slice(0, MAX_FILES);
+    const merged = [...attachmentFiles, ...valid];
+    
+    // Check if more than 4 files
+    if (merged.length > MAX_FILES) {
+      setAttachmentError(`You can only select up to ${MAX_FILES} files.`);
+      e.target.value = '' as any;
+      return;
+    }
+
+    // Check for duplicate file names
+    const fileNames = merged.map(f => f.name);
+    const uniqueNames = new Set(fileNames);
+    if (fileNames.length !== uniqueNames.size) {
+      setAttachmentError('Duplicate file names are not allowed. Please select files with unique names.');
+      e.target.value = '' as any;
+      return;
+    }
+
     setAttachmentFiles(merged);
     // reset input value to allow re-selecting same file later
     e.target.value = '' as any;
@@ -472,6 +494,8 @@ export default function ProceedingsForm({
 
   const removeAttachment = (index: number) => {
     setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+    // Clear attachment error when removing files
+    setAttachmentError(null);
   };
 
   const openAttachmentInNewTab = (file: File) => {
@@ -1307,8 +1331,13 @@ ${content}
                       className='block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
                     />
                     <p className={styles.helpText}>
-                      Max 10 files, each up to 1MB. Allowed: PDF, images, Word.
+                      Max 4 files, each up to 1MB. Allowed: PDF, images, Word.
                     </p>
+                    {attachmentError && (
+                      <p className='text-sm text-red-600 mt-2' role='alert'>
+                        {attachmentError}
+                      </p>
+                    )}
                   </div>
 
                   {attachmentFiles.length > 0 ? (
