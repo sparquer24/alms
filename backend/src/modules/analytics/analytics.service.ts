@@ -21,6 +21,7 @@ export class AnalyticsService {
         toDate?: string,
         stateId?: number,
         roleCode?: string,
+        zoneId?: number,
     ): Promise<ApplicationsDataDto[]> {
         try {
             const where: any = {};
@@ -36,12 +37,16 @@ export class AnalyticsService {
                 }
             }
 
-            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
-            // Filter by permanent address state since applications don't have direct stateId
-            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                where.permanentAddress = {
-                    stateId: stateId
-                };
+            // Filtering rules:
+            // - SUPER_ADMIN bypasses filters
+            // - ZS users see applications for their Zone (when zoneId provided)
+            // - ADMIN (and others) can be filtered by stateId
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    where.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    where.permanentAddress = { stateId };
+                }
             }
 
             // Fetch all applications within date range
@@ -90,6 +95,7 @@ export class AnalyticsService {
         toDate?: string,
         stateId?: number,
         roleCode?: string,
+        zoneId?: number,
     ): Promise<RoleLoadDataDto[]> {
         try {
             const where: any = {
@@ -109,12 +115,12 @@ export class AnalyticsService {
                 }
             }
 
-            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
-            // Filter by permanent address state since applications don't have direct stateId
-            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                where.permanentAddress = {
-                    stateId: stateId
-                };
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    where.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    where.permanentAddress = { stateId };
+                }
             }
 
             // Get applications with their assigned roles
@@ -173,6 +179,7 @@ export class AnalyticsService {
         toDate?: string,
         stateId?: number,
         roleCode?: string,
+        zoneId?: number,
     ): Promise<StateDataDto[]> {
         try {
             const where: any = {};
@@ -188,12 +195,12 @@ export class AnalyticsService {
                 }
             }
 
-            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
-            // Filter by permanent address state since applications don't have direct stateId
-            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                where.permanentAddress = {
-                    stateId: stateId
-                };
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    where.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    where.permanentAddress = { stateId };
+                }
             }
 
             // Get all applications with their status
@@ -250,6 +257,7 @@ export class AnalyticsService {
         roleId?: number,
         stateId?: number,
         roleCode?: string,
+        zoneId?: number,
     ): Promise<AdminActivityDto[]> {
         try {
             const where: any = {};
@@ -265,15 +273,12 @@ export class AnalyticsService {
                 }
             }
 
-            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
-            // Filter applications by permanent address state to ensure admin only sees activities from their state
-            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                where.application = {
-                    permanentAddress: {
-                        stateId: stateId
-                    }
-                };
-            } else {
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    where.application = { permanentAddress: { zoneId } };
+                } else if (stateId) {
+                    where.application = { permanentAddress: { stateId } };
+                }
             }
 
             // Fetch workflow history (admin actions) with application details
@@ -377,16 +382,16 @@ export class AnalyticsService {
      * Supports optional status filter (APPROVED | REJECTED | PENDING)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
-            // State-based filtering for ADMIN (SUPER_ADMIN bypasses this)
-            // Filter by permanent address state since applications don't have direct stateId
-            if (stateId && roleCode !== ROLE_CODES.SUPER_ADMIN) {
-                where.permanentAddress = {
-                    stateId: stateId
-                };
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    where.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    where.permanentAddress = { stateId };
+                }
             }
 
             if (status) {
