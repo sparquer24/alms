@@ -63,12 +63,13 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            // Extract user info from JWT for state filtering
+            // Extract user info from JWT for state/zone filtering
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
+            const zoneId = user?.zoneId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode);
+            const data = await this.analyticsService.getApplicationsByWeek(fromDate, toDate, stateId, roleCode, zoneId);
 
             return {
                 success: true,
@@ -128,12 +129,13 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            // Extract user info from JWT for state filtering
+            // Extract user info from JWT for state/zone filtering
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
+            const zoneId = user?.zoneId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode);
+            const data = await this.analyticsService.getRoleLoad(fromDate, toDate, stateId, roleCode, zoneId);
 
             return {
                 success: true,
@@ -193,12 +195,13 @@ export class AnalyticsController {
                 throw new HttpException('Invalid toDate format', HttpStatus.BAD_REQUEST);
             }
 
-            // Extract user info from JWT for state filtering
+            // Extract user info from JWT for state/zone filtering
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
+            const zoneId = user?.zoneId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode);
+            const data = await this.analyticsService.getApplicationStates(fromDate, toDate, stateId, roleCode, zoneId);
 
             return {
                 success: true,
@@ -263,9 +266,10 @@ export class AnalyticsController {
             const userId = user?.userId;
             const roleId = user?.roleId;
             const stateId = user?.stateId;
+            const zoneId = user?.zoneId;
             const roleCode = user?.roleCode;
 
-            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode);
+            const data = await this.analyticsService.getAdminActivities(fromDate, toDate, userId, roleId, stateId, roleCode, zoneId);
 
             return {
                 success: true,
@@ -335,12 +339,13 @@ export class AnalyticsController {
             const pageNum = page ? parseInt(page, 10) : undefined;
             const limitNum = limit ? parseInt(limit, 10) : undefined;
 
-            // Extract user info from JWT for state filtering
+            // Extract user info from JWT for state/zone filtering
             const user = req ? (req as any).user : null;
             const stateId = user?.stateId;
+            const zoneId = user?.zoneId;
             const roleCode = user?.roleCode;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode);
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 
