@@ -95,11 +95,11 @@ export class PublicService {
                 isNotRecommended: application.isNotRecommended,
 
                 // License Details (public info only)
-                licenseDetails: application.licenseDetails?.map((ld) => ({
+                licenseDetails: application.licenseDetails?.map((ld: { needForLicense: any; armsCategory: any; areaOfValidity: string | null; requestedWeapons: { name: string; description: string | null }[] }) => ({
                     needForLicense: ld.needForLicense,
                     armsCategory: ld.armsCategory,
                     areaOfValidity: ld.areaOfValidity,
-                    requestedWeapons: ld.requestedWeapons?.map((w) => ({
+                    requestedWeapons: ld.requestedWeapons?.map((w: { name: string; description: string | null }) => ({
                         name: w.name,
                         description: w.description,
                     })),

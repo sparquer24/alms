@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Sex, FileType, LicensePurpose } from '@prisma/client';
+import { Sex, FileType, LicensePurpose, Prisma } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
 
@@ -181,8 +181,8 @@ export class ApplicationFormService {
       select: { id: true, code: true, name: true }
     });
 
-    const resolved = Array.from(new Set(statuses.map(s => s.id)));
-    return resolved;
+    const resolved = Array.from(new Set(statuses.map((s: { id: number }) => s.id)));
+    return resolved as number[];
   }
 
   async getDistrictsByState(stateId: number) {
@@ -272,7 +272,7 @@ export class ApplicationFormService {
       // convert strings -> numbers
       const weaponIds = data.licenseRequestDetails.requestedWeaponIds.map((id: any) => Number(id));
       const found = await prisma.weaponTypeMaster.findMany({ where: { id: { in: weaponIds } }, select: { id: true } });
-      const foundIds = found.map(w => w.id);
+      const foundIds = found.map((w: { id: number }) => w.id);
       const missing = weaponIds.filter((id: number) => !foundIds.includes(id));
       if (missing.length) throw new Error(`Requested weapons not found: ${missing.join(', ')}`);
     }
@@ -364,7 +364,7 @@ export class ApplicationFormService {
         return [new BadRequestException('Invalid sex value'), null];
       }
       // Transaction: create only the personal-details row (no application)
-      const created = await prisma.$transaction(async (tx) => {
+      const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Generate acknowledgementNo once
         const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
 
@@ -454,7 +454,7 @@ export class ApplicationFormService {
 
       const updatedSections: string[] = [];
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
 
 
         // 1. Handle Present Address
@@ -945,7 +945,7 @@ export class ApplicationFormService {
       }
 
       // Perform a transaction that deletes related rows first then the application
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Delete related simple child tables
         await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
         await tx.fLAFLicenseHistories.deleteMany({ where: { applicationId } });
@@ -1065,7 +1065,7 @@ export class ApplicationFormService {
 
       // Transform and attach workflow histories if any exist
       if (workflowHistories.length > 0) {
-        application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }) => ({
+        application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }: { previousUser: any; previousRole: any; nextUser: any; nextRole: any; [key: string]: any }) => ({
           ...rest,
           previousUserName: previousUser?.username ?? null,
           previousRoleName: previousRole?.name ?? null,
@@ -1470,7 +1470,7 @@ export class ApplicationFormService {
       });
 
       // Transform to flatten roleCode
-      const transformedUsers = users.map(user => ({
+      const transformedUsers = users.map((user: { id: number; username: string; roleId: number; role: { code: string } | null }) => ({
         id: user.id,
         username: user.username,
         roleId: user.roleId,

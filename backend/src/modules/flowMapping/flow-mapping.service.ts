@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateFlowMappingDto, UpdateFlowMappingDto, ValidateFlowMappingDto } from './dto/flow-mapping.dto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Roles, RoleFlowMapping } from '@prisma/client';
 
 @Injectable()
 export class FlowMappingService {
@@ -74,7 +74,7 @@ export class FlowMappingService {
         });
 
         if (nextRolesCheck.length !== data.nextRoleIds.length) {
-            const foundIds = nextRolesCheck.map(r => r.id);
+            const foundIds = nextRolesCheck.map((r: Roles) => r.id);
             const invalidIds = data.nextRoleIds.filter(id => !foundIds.includes(id));
             throw new BadRequestException(`Invalid role IDs: ${invalidIds.join(', ')}`);
         }
@@ -188,7 +188,7 @@ export class FlowMappingService {
 
         // Create adjacency map
         const adjacencyMap = new Map<number, number[]>();
-        allMappings.forEach(mapping => {
+        allMappings.forEach((mapping: Pick<RoleFlowMapping, 'currentRoleId' | 'nextRoleIds'>) => {
             adjacencyMap.set(mapping.currentRoleId, mapping.nextRoleIds);
         });
 

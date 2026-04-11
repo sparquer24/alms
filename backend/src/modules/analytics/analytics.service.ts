@@ -60,7 +60,7 @@ export class AnalyticsService {
 
             // Group by ISO week
             const weekMap = new Map<string, number>();
-            applications.forEach((app) => {
+            applications.forEach((app: { id: number; createdAt: Date }) => {
                 const date = new Date(app.createdAt);
                 const year = getISOWeekYear(date);
                 const week = getISOWeek(date);
@@ -143,7 +143,7 @@ export class AnalyticsService {
 
             // Group by role we need to return the name, code and count
             const roleMap = new Map<string, { name: string; code: string; count: number }>();
-            applications.forEach((app) => {
+            applications.forEach((app: { id: number; currentUser: { role: { code: string; name: string } | null } | null }) => {
                 const role = app.currentUser?.role;
                 if (role) {
                     const existing = roleMap.get(role.code);
@@ -221,7 +221,7 @@ export class AnalyticsService {
                 pending: 0,
             };
 
-            applications.forEach((app) => {
+            applications.forEach((app: { id: number; isApproved: boolean | null; isRejected: boolean | null; isPending: boolean | null }) => {
                 if (app.isApproved) {
                     stateMap.approved++;
                 } else if (app.isRejected) {
@@ -319,7 +319,7 @@ export class AnalyticsService {
             // Group by user and take only the 2 most recent entries for each user
             const userActivitiesMap = new Map<string, any[]>();
 
-            workflows.forEach((workflow) => {
+            workflows.forEach((workflow: typeof workflows[0]) => {
                 const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
 
                 if (!userActivitiesMap.has(user)) {
@@ -496,7 +496,7 @@ export class AnalyticsService {
 
             const now = Date.now();
 
-            const data: any[] = applications.map((app) => {
+            const data: any[] = applications.map((app: typeof applications[0]) => {
                 const latest = app.workflowHistories && app.workflowHistories[0];
                 const actionDate = latest?.createdAt ? new Date(latest.createdAt) : app.updatedAt ? new Date(app.updatedAt) : new Date(app.createdAt);
                 const actionTakenAt = actionDate ? actionDate.toISOString() : null;
