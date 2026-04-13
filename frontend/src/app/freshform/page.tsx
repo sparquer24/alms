@@ -11,8 +11,7 @@ import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusK
 import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
-
-import Footer from '@/components/Footer';
+import Footer from '../../components/Footer';
 
 
 

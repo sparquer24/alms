@@ -1042,6 +1042,18 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const handleInboxToggle = useCallback(() => {
     try {
       const newState = !isInboxOpen;
+      
+      // When clicking Inbox button (not just toggling), navigate to show all inbox items
+      if (!isInboxOpen) {
+        // Opening inbox - navigate to combined view
+        const activeItemKey = normalizeNavKey('inbox-all');
+        setActiveItem(activeItemKey);
+        persistActiveNavToLocal(activeItemKey);
+        
+        // Navigate to combined inbox view
+        router.push('/inbox?type=all');
+      }
+      
       dispatch(toggleInbox());
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('inboxDesiredOpen', newState ? 'true' : 'false');
@@ -1051,7 +1063,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         dispatch(toggleInbox());
       } catch (err) {}
     }
-  }, [dispatch, isInboxOpen]);
+  }, [dispatch, isInboxOpen, normalizeNavKey, persistActiveNavToLocal, setActiveItem, router]);
 
   const handleInboxSubItemClick = useCallback(
     (subItem: string) => {

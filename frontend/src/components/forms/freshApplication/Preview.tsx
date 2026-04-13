@@ -1441,40 +1441,25 @@ const Preview = () => {
   const renderUploadDocuments = () => {
     if (!applicationData) return null;
 
-    const fileUploads = applicationData.fileUploads || [];
+    // Filter out PHOTOGRAPH from document uploads (it's shown in biometric section)
+    const fileUploads = (applicationData.fileUploads || []).filter((file: any) => 
+      (file.fileType || '').toUpperCase() !== 'PHOTOGRAPH'
+    );
 
-    // Helper function to get file size in readable format
-    const formatFileSize = (bytes: number) => {
-      if (!bytes) return 'Unknown';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    // Helper function to check if file is an image
+    const isImageFile = (fileName: string, contentType?: string) => {
+      if (contentType && contentType.startsWith('image/')) return true;
+      if (!fileName) return false;
+      const extension = fileName.split('.').pop()?.toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '');
     };
 
-    // Helper function to get file extension icon - returns text instead of emoji
-    const getFileIcon = (fileName: string) => {
-      if (!fileName) return 'File';
+    // Helper function to check if file is a PDF
+    const isPdfFile = (fileName: string, contentType?: string) => {
+      if (contentType === 'application/pdf') return true;
+      if (!fileName) return false;
       const extension = fileName.split('.').pop()?.toLowerCase();
-      switch (extension) {
-        case 'pdf':
-          return 'PDF';
-        case 'doc':
-        case 'docx':
-          return 'Document';
-        case 'jpg':
-        case 'jpeg':
-        case 'png':
-        case 'gif':
-          return 'Image';
-        case 'xls':
-        case 'xlsx':
-          return 'Spreadsheet';
-        case 'txt':
-          return 'Text';
-        default:
-          return 'File';
-      }
+      return extension === 'pdf';
     };
 
     return (
@@ -1513,24 +1498,65 @@ const Preview = () => {
                   className='border border-gray-200 rounded-lg p-4 bg-gray-50 flex flex-col'
                 >
                   <div className='mb-2'>
-                    <span className='text-gray-900'>
+                    <span className='font-semibold text-gray-900 uppercase text-sm'>
                       {file.fileType || 'Unknown Document Type'}
                     </span>
                   </div>
-                  <div>
-                      {file.fileName && file.fileUrl ? (
-                        <button
-                          onClick={() => openDocumentFile(file.fileUrl, file.fileName)}
-                          className='text-blue-600 hover:text-blue-800 underline break-words cursor-pointer mb-1 text-left bg-none border-none p-0'
-                          title='Click to download and open file'
-                        >
-                          {file.fileName.length > 30
-                            ? file.fileName.substring(0, 30) + '...'
-                            : file.fileName}
-                        </button>
-                      ) : (
-                        <span className='text-gray-400 italic'>Not Available</span>
-                      )}
+                  
+                  {/* Document Preview Image */}
+                  {file.fileUrl && (
+                    <div className='mb-3 flex justify-center'>
+                      <div className='w-32 h-32 bg-white rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm'>
+                        {isImageFile(file.fileName, file.contentType) ? (
+                          <img
+                            src={file.fileUrl}
+                            alt={file.fileType}
+                            className='w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity'
+                            onClick={() => openDocumentFile(file.fileUrl, file.fileName)}
+                            title='Click to view full size'
+                          />
+                        ) : isPdfFile(file.fileName, file.contentType) ? (
+                          <div 
+                            className='w-full h-full flex flex-col items-center justify-center bg-red-50 cursor-pointer hover:bg-red-100 transition-colors'
+                            onClick={() => openDocumentFile(file.fileUrl, file.fileName)}
+                            title='Click to open PDF'
+                          >
+                            <svg className='w-16 h-16 text-red-600' fill='currentColor' viewBox='0 0 24 24'>
+                              <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18.5,9H13V3.5L18.5,9M6,20V4H12V10H18V20H6Z' />
+                            </svg>
+                            <span className='text-xs text-red-700 font-semibold mt-1'>PDF</span>
+                          </div>
+                        ) : (
+                          <div 
+                            className='w-full h-full flex flex-col items-center justify-center bg-gray-100 cursor-pointer hover:bg-gray-200 transition-colors'
+                            onClick={() => openDocumentFile(file.fileUrl, file.fileName)}
+                            title='Click to open file'
+                          >
+                            <svg className='w-16 h-16 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
+                            </svg>
+                            <span className='text-xs text-gray-500 font-semibold mt-1'>File</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* File Name */}
+                  <div className='text-center'>
+                    {file.fileName && file.fileUrl ? (
+                      <button
+                        onClick={() => openDocumentFile(file.fileUrl, file.fileName)}
+                        className='text-blue-600 hover:text-blue-800 underline break-words cursor-pointer text-sm bg-none border-none p-0'
+                        title='Click to download and open file'
+                      >
+                        {file.fileName.length > 30
+                          ? file.fileName.substring(0, 30) + '...'
+                          : file.fileName}
+                      </button>
+                    ) : (
+                      <span className='text-gray-400 italic text-sm'>Not Available</span>
+                    )}
                   </div>
                 </div>
               ))}

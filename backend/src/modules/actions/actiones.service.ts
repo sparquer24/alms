@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException} from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Actiones } from '@prisma/client';
-import { RolesActionsMapping } from '@prisma/client';
+import { Actiones, RolesActionsMapping } from '@prisma/client';
 import { ACTION_CODES } from '../../constants/workflow-actions';
 
 @Injectable()
@@ -57,12 +56,12 @@ export class ActionesService {
         if (application) {
           // If application is approved, filter out APPROVED action
           if (application.isApproved) {
-            actions = actions.filter(action => action.code.toUpperCase() !== ACTION_CODES.APPROVED);
+            actions = actions.filter((action: Actiones) => action.code.toUpperCase() !== ACTION_CODES.APPROVED);
           }
 
           // If application is rejected, filter out REJECT action
           if (application.isRejected) {
-            actions = actions.filter(action => action.code.toUpperCase() !== ACTION_CODES.REJECT);
+            actions = actions.filter((action: Actiones) => action.code.toUpperCase() !== ACTION_CODES.REJECT);
           }
         }
       }

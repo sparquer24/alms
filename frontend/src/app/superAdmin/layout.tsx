@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { LayoutProvider } from '@/config/layoutContext';
 import { isAdminRole } from '@/utils/roleUtils';
 import { ROLE_CODES } from '@/constants';
+import Footer from '@/components/Footer';
 
 export default function SuperAdminLayout({ children }: { children: any }) {
   const { userRole, token, isLoading } = useAuthSync();
@@ -66,7 +67,12 @@ export default function SuperAdminLayout({ children }: { children: any }) {
     <LayoutProvider>
       <div className='flex h-screen bg-gray-50'>
         <Sidebar />
-        <main className='flex-1 ml-[80px] md:ml-[18%] min-w-0 overflow-auto'>{children}</main>
+        <main className='flex-1 ml-[80px] md:ml-[18%] min-w-0 overflow-auto flex flex-col'>
+          <div className="flex-grow">
+            {children}
+          </div>
+          <Footer />
+        </main>
       </div>
     </LayoutProvider>
   );

@@ -15,6 +15,7 @@ type UploadedFile = {
 	uploadId?: string | number;
 	serverSize?: number; // size reported by server in bytes
 	error?: string;
+	previewUrl?: string; // For image/document preview
 };
 
 const initialState = {
@@ -59,6 +60,7 @@ const DocumentsUpload = () => {
    const requiredDocuments = ['Aadhar Card'];
    const [files, setFiles] = useState<{ [key: string]: UploadedFile[] }>({});
    const [fileError, setFileError] = useState<{ [key: string]: string }>({});
+   const [previewDocument, setPreviewDocument] = useState<{ url: string; name: string; type: string } | null>(null);
 
 	 // Create reverse mapping from backend fileType -> display name
 	 const fileTypeToDisplay: Record<string, string> = {};
@@ -108,6 +110,38 @@ const DocumentsUpload = () => {
 	   setForm((prev: any) => ({ ...prev, [name]: value }));
    };
 
+   // Generate preview URL using FileReader API
+   const generatePreviewUrl = (file: File): Promise<string> => {
+	   return new Promise((resolve, reject) => {
+		   const reader = new FileReader();
+		   reader.onload = (e) => {
+			   if (e.target?.result) {
+				   resolve(e.target.result as string);
+			   } else {
+				   reject(new Error('Failed to read file'));
+			   }
+		   };
+		   reader.onerror = () => reject(new Error('File reading error'));
+		   reader.readAsDataURL(file);
+	   });
+   };
+
+   // Open document preview in modal
+   const openPreview = (file: File, previewUrl?: string) => {
+	   if (previewUrl) {
+		   setPreviewDocument({
+			   url: previewUrl,
+			   name: file.name,
+			   type: file.type
+		   });
+	   }
+   };
+
+   // Close preview modal
+   const closePreview = () => {
+	   setPreviewDocument(null);
+   };
+
    const handleFileChange = (docType: string) => async (e: React.ChangeEvent<HTMLInputElement>) => {
 	   if (e.target.files && applicationId) {
 		   const newFiles = Array.from(e.target.files as FileList);
@@ -123,11 +157,20 @@ const DocumentsUpload = () => {
 			   // Clear any previous errors
 			   setFileError(prev => ({ ...prev, [docType]: '' }));
 
+			   // Generate preview URL for the file
+			   let previewUrl: string | undefined;
+			   try {
+				   previewUrl = await generatePreviewUrl(file);
+			   } catch (error) {
+				   console.error('Failed to generate preview:', error);
+			   }
+
 			   // Create UploadedFile object with uploading state
 			   const uploadedFile: UploadedFile = {
 				   file,
 				   uploading: true,
 				   uploaded: false,
+				   previewUrl,
 			   };
 
 			   // Add to files state immediately to show uploading status
@@ -200,6 +243,11 @@ const DocumentsUpload = () => {
 		   } catch (error) {
 			   // Continue with local removal even if server deletion fails
 		   }
+	   }
+
+	   // Revoke object URL if it exists to prevent memory leaks
+	   if (fileToRemove.previewUrl && fileToRemove.previewUrl.startsWith('blob:')) {
+		   URL.revokeObjectURL(fileToRemove.previewUrl);
 	   }
 
 	   // Remove from local state
@@ -352,7 +400,32 @@ const DocumentsUpload = () => {
 							{/* Error message for file size/type is now always from validation, not hardcoded */}
 							<div className="bg-white rounded-lg p-1">
 								{(files[docType] || []).map((uploadedFile, idx) => (
-									<div key={idx} className="flex items-center gap-2 border-b py-1">
+									<div key={idx} className="flex items-center gap-2 border-b py-2">
+										{/* Thumbnail Preview */}
+										{uploadedFile.previewUrl && (
+											<div 
+												className="w-12 h-12 flex-shrink-0 cursor-pointer border rounded overflow-hidden hover:border-blue-500 transition-colors"
+												onClick={() => openPreview(uploadedFile.file, uploadedFile.previewUrl)}
+												title="Click to view full size"
+											>
+												{uploadedFile.file.type.startsWith('image/') ? (
+													<img 
+														src={uploadedFile.previewUrl} 
+														alt={uploadedFile.file.name}
+														className="w-full h-full object-cover"
+													/>
+												) : uploadedFile.file.type === 'application/pdf' ? (
+													<div className="w-full h-full bg-red-100 flex items-center justify-center">
+														<span className="text-2xl">📄</span>
+													</div>
+												) : (
+													<div className="w-full h-full bg-gray-100 flex items-center justify-center">
+														<span className="text-2xl">📁</span>
+													</div>
+												)}
+											</div>
+										)}
+										
 										<div className="flex items-center gap-2">
 											{uploadedFile.uploading ? (
 												<span className="text-xl animate-spin">⏳</span>
@@ -373,7 +446,7 @@ const DocumentsUpload = () => {
 												<span className="text-blue-500 ml-2 text-xs">Uploading...</span>
 											)}
 											{uploadedFile.uploaded && (
-												<span className="text-green-500 ml-2 text-xs">Uploaded</span>
+												<span className="text-green-500 ml-2 text-xs">✅ Submitted</span>
 											)}
 											{uploadedFile.error && (
 												<span className="text-red-500 ml-2 text-xs">{uploadedFile.error}</span>
@@ -400,6 +473,77 @@ const DocumentsUpload = () => {
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
 			/>
+
+			{/* Document Preview Modal */}
+			{previewDocument && (
+				<div 
+					className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+					onClick={closePreview}
+				>
+					<div 
+						className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-auto relative"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{/* Header */}
+						<div className="sticky top-0 bg-white border-b px-4 py-3 flex justify-between items-center">
+							<h3 className="font-semibold text-lg truncate">{previewDocument.name}</h3>
+							<button 
+								type="button"
+								onClick={closePreview}
+								className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+							>
+								✕
+							</button>
+						</div>
+						
+						{/* Preview Content */}
+						<div className="p-4">
+							{previewDocument.type.startsWith('image/') ? (
+								<div className="flex justify-center">
+									<img 
+										src={previewDocument.url} 
+										alt={previewDocument.name}
+										className="max-w-full h-auto rounded"
+										style={{ maxHeight: 'calc(90vh - 100px)' }}
+									/>
+									<div className="mt-2 text-center">
+										<div className="inline-flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1 rounded">
+											<span className="text-xl">✓</span>
+											<span className="text-sm font-medium">Submitted</span>
+										</div>
+									</div>
+								</div>
+							) : previewDocument.type === 'application/pdf' ? (
+								<div className="space-y-4">
+									<iframe
+										src={previewDocument.url}
+										className="w-full rounded border"
+										style={{ height: 'calc(90vh - 150px)' }}
+										title={previewDocument.name}
+									/>
+									<div className="text-center">
+										<div className="inline-flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1 rounded">
+											<span className="text-xl">✓</span>
+											<span className="text-sm font-medium">Submitted</span>
+										</div>
+									</div>
+								</div>
+							) : (
+								<div className="text-center py-8">
+									<span className="text-6xl">📄</span>
+									<p className="mt-4 text-gray-600">Preview not available for this file type</p>
+									<div className="mt-4">
+										<div className="inline-flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1 rounded">
+											<span className="text-xl">✓</span>
+											<span className="text-sm font-medium">Submitted</span>
+										</div>
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 		</form>
 	);
 };

@@ -5,12 +5,11 @@ import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
+import Footer from '@/components/Footer';
 
 import { LayoutProvider } from '@/config/layoutContext';
 
 import { canAccessAdmin } from '@/utils/roleUtils';
-
-import Footer from '@/components/Footer';
 
 
 

@@ -420,6 +420,31 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   // Normalize statusKey to lowercase to be robust against URL/menu casing
   const key = String(statusKey || '').toLowerCase();
 
+  // Special handling for 'all' - fetch and combine all inbox categories
+  if (key === 'all') {
+    try {
+      // Fetch all inbox categories in parallel
+      const [forwarded, returned, redflagged, reenquiry] = await Promise.all([
+        fetchApplicationsByStatusKey('forwarded', customStatusIds),
+        fetchApplicationsByStatusKey('returned', customStatusIds),
+        fetchApplicationsByStatusKey('redflagged', customStatusIds),
+        fetchApplicationsByStatusKey('reenquiry', customStatusIds)
+      ]);
+
+      // Combine all results and remove duplicates based on application ID
+      const combined = [...forwarded, ...returned, ...redflagged, ...reenquiry];
+      const uniqueApps = combined.filter((app, index, self) =>
+        index === self.findIndex((a) => a.id === app.id)
+      );
+
+      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all): Combined', uniqueApps.length, 'unique applications');
+      return uniqueApps;
+    } catch (error) {
+      console.error('❌ fetchApplicationsByStatusKey (all) error:', error);
+      return [];
+    }
+  }
+
   // Special handling for 'sent' - use isSent parameter instead of status filtering
   if (key === 'sent') {
     try {

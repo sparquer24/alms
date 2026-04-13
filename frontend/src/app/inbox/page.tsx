@@ -16,7 +16,7 @@ import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 function InboxContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const queryType = searchParams?.get('type') || '';
+  const queryType = searchParams?.get('type') || 'all'; // Default to 'all' if no type specified
   const shouldRefresh = searchParams?.get('refresh') === 'true';
 
   const [type, setType] = useState<string | null>(null);
@@ -70,15 +70,35 @@ function InboxContent() {
         setIsLoading(true);
         // debug: log requested type
         console.debug('[InboxContent] fetching applications for type:', type);
-        const apps = await fetchApplicationsByStatusKey(type);
-        console.debug(
-          '[InboxContent] fetch result length for',
-          type,
-          ':',
-          Array.isArray(apps) ? apps.length : typeof apps,
-          apps && apps[0] ? apps[0] : null
-        );
-        setApplications(apps);
+        
+        // If type is 'all', fetch from all inbox categories and combine
+        if (type === 'all') {
+          const [forwarded, returned, redflagged, reenquiry] = await Promise.all([
+            fetchApplicationsByStatusKey('forwarded'),
+            fetchApplicationsByStatusKey('returned'),
+            fetchApplicationsByStatusKey('redflagged'),
+            fetchApplicationsByStatusKey('reenquiry')
+          ]);
+          
+          // Combine all results and remove duplicates based on application ID
+          const combined = [...forwarded, ...returned, ...redflagged, ...reenquiry];
+          const uniqueApps = combined.filter((app, index, self) =>
+            index === self.findIndex((a) => a.id === app.id)
+          );
+          
+          console.debug('[InboxContent] combined inbox applications:', uniqueApps.length);
+          setApplications(uniqueApps);
+        } else {
+          const apps = await fetchApplicationsByStatusKey(type);
+          console.debug(
+            '[InboxContent] fetch result length for',
+            type,
+            ':',
+            Array.isArray(apps) ? apps.length : typeof apps,
+            apps && apps[0] ? apps[0] : null
+          );
+          setApplications(apps);
+        }
       } catch (err) {
         setApplications([]);
       } finally {
@@ -99,6 +119,8 @@ function InboxContent() {
 
   const getPageTitle = () => {
     switch (type) {
+      case 'all':
+        return 'All Inbox Applications';
       case 'forwarded':
         return 'Forwarded Applications';
       case 'returned':
@@ -135,6 +157,28 @@ function InboxContent() {
     <div className='max-w-8xl w-full mx-auto'>
       <div className='bg-white rounded-lg shadow p-6'>
         <h1 className='text-2xl font-bold mb-4'>{getPageTitle()}</h1>
+
+        {type === 'all' && (
+          <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
+            <div className='flex items-center'>
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                className='h-5 w-5 text-blue-600 mr-2'
+                viewBox='0 0 20 20'
+                fill='currentColor'
+              >
+                <path
+                  fillRule='evenodd'
+                  d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                  clipRule='evenodd'
+                />
+              </svg>
+              <span className='text-blue-800 font-medium'>
+                Showing all inbox applications (Forwarded, Returned, Red Flagged, and Re-Enquiry)
+              </span>
+            </div>
+          </div>
+        )}
 
         {(searchQuery || startDate || endDate) && (
           <div className='mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg'>

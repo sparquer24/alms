@@ -3,12 +3,11 @@
 import React, { Suspense } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
+import Footer from '../../components/Footer';
 
 import { InboxProvider } from '../../context/InboxContext';
 
 import InboxBootloaderClient from '../../components/InboxBootloaderClient';
-
-import Footer from '../../components/Footer';
 
 
 
