@@ -8,7 +8,9 @@ const ConditionalFooter = () => {
 
   // Hide footer on login and public pages
   const hideFooterRoutes = ['/login', '/reset-password', '/sent'];
-  const shouldHideFooter = hideFooterRoutes.some(route => pathname === route || pathname.startsWith(route));
+  const shouldHideFooter = pathname
+    ? hideFooterRoutes.some(route => pathname === route || pathname.startsWith(route))
+    : false;
 
   if (shouldHideFooter) {
     return null;

@@ -19,10 +19,10 @@ export function getAuthTokenFromCookie(): string | null {
     try {
       const asAny: any = cookie;
       return asAny?.token ?? asAny?.accessToken ?? null;
-    } catch (_e) {
+    } catch {
       return null;
     }
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
@@ -34,7 +34,7 @@ export function getUserFromCookie(): any | null {
     if (typeof cookie === 'string') {
       try {
         return JSON.parse(cookie);
-      } catch (_e) {
+      } catch {
         return cookie;
       }
     }
@@ -63,7 +63,7 @@ export function isAuthCookieValid(): boolean {
           if (payload.exp < now) return false;
         }
       }
-    } catch (_e) {
+    } catch {
       // ignore token decode errors - presence of token is minimal requirement
     }
 
@@ -72,7 +72,7 @@ export function isAuthCookieValid(): boolean {
     if (!role) return false;
 
     return true;
-  } catch (_error) {
+  } catch {
     return false;
   }
 }
