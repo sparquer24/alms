@@ -34,7 +34,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 
-EXPOSE 3000
+# Use PORT from environment (defaults to 3000 if not set)
+ENV PORT=${PORT:-3000}
+EXPOSE $PORT
 
 # Run with Node.js directly - exception handlers prevent crashes
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "PORT=$PORT node dist/main.js"]

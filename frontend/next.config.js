@@ -1,33 +1,59 @@
 /** @type {import('next').NextConfig} */
 const { config } = require('dotenv');
 const path = require('path');
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 // Load root .env first
 config({ path: path.resolve(__dirname, '../.env') });
 
-module.exports = {
+const nextConfig = {
   reactStrictMode: true,
   // Use standalone output for Docker/production deployment
   output: 'standalone',
   // Set output file tracing root for monorepo
   outputFileTracingRoot: path.resolve(__dirname),
-  // Disable image optimization for static export
+  // Image optimization enabled
   images: {
     unoptimized: false,
+    formats: ['image/webp', 'image/avif'],
   },
   // Skip trailing slash redirect
   skipTrailingSlashRedirect: true,
-  // Disable static optimization to avoid build-time rendering issues
+  // Performance optimizations
   experimental: {
     forceSwcTransforms: true,
+    optimizeCss: true,
+    optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react', '@heroicons/react'],
   },
-  // Custom webpack config to skip error page static generation
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // Skip static generation of error pages during build
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        // Prevent static generation issues
+  // Compiler optimizations
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Custom webpack config for bundle optimization
+  webpack: (config, { isServer, dev }) => {
+    if (!dev && !isServer) {
+      // Split chunks for better caching
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+          mantine: {
+            test: /[\\/]node_modules[\\/]@mantine[\\/]/,
+            name: 'mantine',
+            chunks: 'all',
+          },
+          charts: {
+            test: /[\\/]node_modules[\\/](chart\.js|recharts|react-chartjs-2)[\\/]/,
+            name: 'charts',
+            chunks: 'all',
+          },
+        },
       };
     }
     return config;
@@ -45,4 +71,6 @@ module.exports = {
     };
   }
 };
+
+module.exports = withBundleAnalyzer(nextConfig);
 
