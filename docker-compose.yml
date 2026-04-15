@@ -3,17 +3,20 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.prod
-    container_name: alms-backend
+      dockerfile: Dockerfile  # Use development Dockerfile
+    container_name: alms-backend-dev
     restart: unless-stopped
     env_file:
       - ./backend/.env
       - ./.env
     environment:
-      DATABASE_URL: ${DATABASE_URL}   # must point to AWS RDS
-      NODE_ENV: production
-      PORT: 3000  # Development backend port
-    # REMOVED: Direct port exposure - nginx handles routing
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: development  # Development mode
+      PORT: 3000
+    ports:
+      - "3000:3000"  # Expose for development
+    volumes:
+      - ./backend/src:/app/src  # Hot reload for development
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -21,39 +24,32 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - alms-net
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
+      - alms-dev-net
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.dev  # Use development Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-    container_name: alms-frontend
+        NEXT_PUBLIC_API_URL: http://localhost:3000/api
+    container_name: alms-frontend-dev
     restart: unless-stopped
     env_file:
       - ./.env
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-      NODE_ENV: production
-      PORT: 5000  # Development frontend port
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      NODE_ENV: development  # Development mode
+      PORT: 5000
+    ports:
+      - "5000:5000"  # Expose for development
+    volumes:
+      - ./frontend/src:/app/src  # Hot reload for development
+      - ./frontend/pages:/app/pages
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - alms-net
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
+      - alms-dev-net
 
   nginx:
     image: nginx:stable-alpine
@@ -72,8 +68,8 @@ services:
       frontend:
         condition: service_started
     networks:
-      - alms-net
+      - alms-dev-net
 
 networks:
-  alms-net:
+  alms-dev-net:
     driver: bridge
