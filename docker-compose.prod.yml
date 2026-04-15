@@ -14,11 +14,11 @@ services:
       PORT: 3001  # Production backend port (different from dev)
     # REMOVED: ports exposure - nginx handles all external traffic
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:3001/api/health/ready"]
+      interval: 45s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
     networks:
       - alms-prod-net
     deploy:
@@ -42,9 +42,8 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NODE_ENV: production
       PORT: 5001  # Production frontend port (different from dev)
-    # No ports exposed - nginx handles routing
     depends_on:
-      backend:
+      backend-prod:
         condition: service_healthy
     networks:
       - alms-prod-net
