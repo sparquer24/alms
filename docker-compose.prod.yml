@@ -67,9 +67,13 @@ services:
     container_name: alms-nginx-prod
     restart: unless-stopped
     ports:
-      - "8080:80"   # Production HTTP only for now
+      - "80:80"     # HTTP (redirects to HTTPS)
+      - "443:443"   # HTTPS main traffic
     volumes:
-      - ./nginx/nginx.prod-http.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      # SSL certificate volumes (create these directories first)
+      - ./ssl/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
+      - ./ssl/privkey.pem:/etc/ssl/private/privkey.pem:ro
     depends_on:
       backend-prod:
         condition: service_healthy
