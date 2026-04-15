@@ -11,6 +11,9 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 # Copy source
 COPY . .
 
+# Build the Next.js application
+RUN npm run build
+
 ENV PORT=${PORT:-5000}
 EXPOSE $PORT
-CMD ["sh", "-c", "PORT=$PORT node server.js"]
+CMD ["sh", "-c", "PORT=$PORT npm start"]

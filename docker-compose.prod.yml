@@ -48,6 +48,13 @@ services:
         condition: service_healthy
     networks:
       - alms-prod-net
+    # Add health check so nginx waits for frontend to be ready
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:5001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -67,9 +74,16 @@ services:
       backend-prod:
         condition: service_healthy
       frontend-prod:
-        condition: service_started
+        condition: service_healthy
     networks:
       - alms-prod-net
+    # Add a health check to prevent restart loops
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   alms-prod-net:
