@@ -11,8 +11,6 @@ async function fetchCurrentUser(token: string) {
   // Use getMe to retrieve the canonical user payload (log request/response)
   ongoingFetchCurrentUser = (async () => {
     try {
-      try {
-      } catch { }
       const resp = await AuthApi.getMe(token);
       return resp;
     } finally {
@@ -58,6 +56,7 @@ const verifyCookieWrittenTop = (name: string) => {
   try {
     if (typeof document === 'undefined') return false;
     return document.cookie.split('; ').some(c => c.startsWith(`${name}=`));
+    // eslint-disable-next-line no-empty
   } catch {
     return false;
   }
@@ -128,6 +127,7 @@ async function persistAuthCookies(token: string, user: any) {
   let userOk = false;
   try {
     userOk = await writeCookieWithRetryTop('user', JSON.stringify(minimalUserForCookie));
+    // eslint-disable-next-line no-empty
   } catch {
     userOk = false;
   }
@@ -434,7 +434,7 @@ export const login = createAsyncThunk(
         // Fallback: decode token for basic user info
         try {
           const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-          userPayload = {
+          user = {
             id: tokenPayload.userId || tokenPayload.sub,
             username: tokenPayload.username,
             role: tokenPayload.role,
@@ -490,7 +490,7 @@ export const login = createAsyncThunk(
     } catch (error: any) {
       // Extract error message from axios error response
       let errorMessage = 'Login failed';
-      
+
       // Check for axios error response structure
       if (error?.response?.data) {
         const data = error.response.data;
@@ -499,7 +499,7 @@ export const login = createAsyncThunk(
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       dispatch(setError(errorMessage));
       throw error;
     } finally {

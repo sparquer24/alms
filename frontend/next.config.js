@@ -24,7 +24,6 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     forceSwcTransforms: true,
-    optimizeCss: true,
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react', '@heroicons/react'],
   },
   // Compiler optimizations

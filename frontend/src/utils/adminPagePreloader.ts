@@ -3,7 +3,7 @@
  * Enables fast navigation to admin pages by preloading components
  */
 
-import { getAdminMenuItems, getAdminMenuPath } from '../config/adminMenuService';
+import { getAdminMenuItems } from '../config/adminMenuService';
 
 /**
  * Preload all admin page components for instant navigation
@@ -13,7 +13,7 @@ export async function preloadAdminPages(): Promise<void> {
     if (typeof window === 'undefined') return;
 
     try {
-        const items = getAdminMenuItems();
+        const _items = getAdminMenuItems();
 
         // Dynamically import admin page components to warm up the module cache
         const imports = await Promise.allSettled([

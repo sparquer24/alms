@@ -1,6 +1,5 @@
 // Common types used throughout the ALMS application
 
-import { ReactNode } from "react";
 import { Key } from "readline";
 
 // Location Types
@@ -127,9 +126,9 @@ export interface ApplicationData {
 
     sinceResiding?: string;
 
-    state?: string | { id: number; name: string; [key: string]: any };
+    state?: string | { id: number; name: string;[key: string]: any };
 
-    district?: string | { id: number; name: string; [key: string]: any };
+    district?: string | { id: number; name: string;[key: string]: any };
 
     zone?: {
 
@@ -163,9 +162,9 @@ export interface ApplicationData {
 
     sinceResiding?: string;
 
-    state?: string | { id: number; name: string; [key: string]: any };
+    state?: string | { id: number; name: string;[key: string]: any };
 
-    district?: string | { id: number; name: string; [key: string]: any };
+    district?: string | { id: number; name: string;[key: string]: any };
 
     zone?: {
 

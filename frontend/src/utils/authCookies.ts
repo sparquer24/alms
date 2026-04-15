@@ -1,4 +1,4 @@
-import { getCookie, setCookie, deleteCookie } from 'cookies-next';
+import { getCookie } from "cookies-next";
 
 export function getAuthTokenFromCookie(): string | null {
   try {
@@ -10,7 +10,7 @@ export function getAuthTokenFromCookie(): string | null {
         // Try parse JSON that contains token
         const parsed = JSON.parse(cookie);
         return parsed?.token ?? parsed?.accessToken ?? cookie;
-      } catch (e) {
+      } catch (_e) {
         // not JSON, return as-is
         return cookie;
       }
@@ -19,10 +19,10 @@ export function getAuthTokenFromCookie(): string | null {
     try {
       const asAny: any = cookie;
       return asAny?.token ?? asAny?.accessToken ?? null;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -34,7 +34,7 @@ export function getUserFromCookie(): any | null {
     if (typeof cookie === 'string') {
       try {
         return JSON.parse(cookie);
-      } catch (e) {
+      } catch (_e) {
         return cookie;
       }
     }
@@ -63,7 +63,7 @@ export function isAuthCookieValid(): boolean {
           if (payload.exp < now) return false;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore token decode errors - presence of token is minimal requirement
     }
 
@@ -72,7 +72,7 @@ export function isAuthCookieValid(): boolean {
     if (!role) return false;
 
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
