@@ -1,6 +1,6 @@
 services:
 
-  backend:
+  backend-prod:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
@@ -14,7 +14,7 @@ services:
       PORT: 3001  # Production backend port (different from dev)
     # REMOVED: ports exposure - nginx handles all external traffic
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -28,7 +28,7 @@ services:
         reservations:
           memory: 512M
 
-  frontend:
+  frontend-prod:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
@@ -55,7 +55,7 @@ services:
         reservations:
           memory: 512M
 
-  nginx:
+  nginx-prod:
     image: nginx:stable-alpine
     container_name: alms-nginx-prod
     restart: unless-stopped
@@ -68,9 +68,9 @@ services:
       - /etc/letsencrypt/live/alms.sparquer.com/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
       - /etc/letsencrypt/live/alms.sparquer.com/privkey.pem:/etc/ssl/private/privkey.pem:ro
     depends_on:
-      backend:
+      backend-prod:
         condition: service_healthy
-      frontend:
+      frontend-prod:
         condition: service_started
     networks:
       - alms-prod-net
