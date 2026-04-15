@@ -161,8 +161,6 @@ const FormInput: React.FC<{
       placeholder={placeholder}
       value={value}
       onChange={e => onChange(e.target.value)}
-      // Prevent hydration mismatch warnings caused by browser extensions injecting attributes client-side
-      suppressHydrationWarning
       disabled={disabled}
       aria-describedby={disabled ? `${id}-disabled` : undefined}
       suppressHydrationWarning={true}
@@ -230,7 +228,7 @@ function LoginContent() {
         // and renders the correct navigation/sidebar state immediately.
         const roleUpper = String(cRole).toUpperCase();
         const redirectPath = getRoleBasedRedirectPath(roleUpper);
-        
+
         try {
           setTimeout(() => {
             const separator = redirectPath.includes('?') ? '&' : '?';
@@ -373,36 +371,38 @@ function LoginContent() {
       />
       <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
         <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40'>
-        {/* Header */}
-        <div className='flex flex-col items-center'>
-          <div className='mb-6'>
-            <ImageFixed
-              src={LOGO_IMAGE}
-              alt='ALMS Logo'
-              width={120}
-              height={120}
-              // Ensure aspect ratio is preserved if CSS changes one dimension
-              className='drop-shadow-md h-auto'
-              priority
-            />
-          </div>
-          <h1 className='mt-2 text-center text-3xl font-extrabold text-black'>
-            Arms License Management System
-          </h1>
-          <p className='mt-2 text-center text-sm text-gray-700'>Sign in to access your dashboard</p>
-        </div>
-
-        {/* Error Message */}
-        {error && <ErrorMessage message={error} />}
-
-        {/* Login Form */}
-        <form className='mt-8 space-y-6' onSubmit={handleSubmit} noValidate>
-          <div className='rounded-md shadow-sm -space-y-px'>
-            {usernameInput}
-            {passwordInput}
+          {/* Header */}
+          <div className='flex flex-col items-center'>
+            <div className='mb-6'>
+              <ImageFixed
+                src={LOGO_IMAGE}
+                alt='ALMS Logo'
+                width={120}
+                height={120}
+                // Ensure aspect ratio is preserved if CSS changes one dimension
+                className='drop-shadow-md h-auto'
+                priority
+              />
+            </div>
+            <h1 className='mt-2 text-center text-3xl font-extrabold text-black'>
+              Arms License Management System
+            </h1>
+            <p className='mt-2 text-center text-sm text-gray-700'>
+              Sign in to access your dashboard
+            </p>
           </div>
 
-          {/* Forgot Password Link 
+          {/* Error Message */}
+          {error && <ErrorMessage message={error} />}
+
+          {/* Login Form */}
+          <form className='mt-8 space-y-6' onSubmit={handleSubmit} noValidate>
+            <div className='rounded-md shadow-sm -space-y-px'>
+              {usernameInput}
+              {passwordInput}
+            </div>
+
+            {/* Forgot Password Link 
           <div className='flex items-center justify-between'>
             <div className='text-sm'></div>
             <div className='text-sm'>
@@ -415,27 +415,27 @@ function LoginContent() {
             </div>
           </div> */}
 
-          {/* Submit Button */}
-          <div>
-            <button
-              type='submit'
-              disabled={isLoading || !isFormValid}
-              className='group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all duration-200'
-              aria-describedby={!isFormValid ? 'form-validation' : undefined}
-            >
-              {isLoading && <LoadingSpinner />}
-              <span className='font-semibold'>{isLoading ? 'Signing in...' : 'Sign in'}</span>
-            </button>
-            {!isFormValid && (
-              <div id='form-validation' className='sr-only'>
-                Please fill in all required fields
-              </div>
-            )}
-          </div>
-        </form>
+            {/* Submit Button */}
+            <div>
+              <button
+                type='submit'
+                disabled={isLoading || !isFormValid}
+                className='group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all duration-200'
+                aria-describedby={!isFormValid ? 'form-validation' : undefined}
+              >
+                {isLoading && <LoadingSpinner />}
+                <span className='font-semibold'>{isLoading ? 'Signing in...' : 'Sign in'}</span>
+              </button>
+              {!isFormValid && (
+                <div id='form-validation' className='sr-only'>
+                  Please fill in all required fields
+                </div>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
-      </div>
-      <Footer variant="dark" className="relative z-10" />
+      <Footer variant='dark' className='relative z-10' />
     </div>
   );
 }

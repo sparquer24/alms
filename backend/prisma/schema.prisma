@@ -53,6 +53,8 @@ model Districts {
   occupations FLAFOccupationAndBusiness[]
   users       Users[]                          @relation("DistrictUsers")
   zones       Zones[]
+
+  @@index([stateId])
 }
 
 model Zones {
@@ -65,6 +67,8 @@ model Zones {
   addresses  FLAFAddressesAndContactDetails[]
   users      Users[]                          @relation("ZoneUsers")
   district   Districts                        @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@index([districtId])
 }
 
 model Divisions {
@@ -77,6 +81,8 @@ model Divisions {
   addresses FLAFAddressesAndContactDetails[]
   stations  PoliceStations[]
   users     Users[]                          @relation("DivisionUsers")
+
+  @@index([zoneId])
 }
 
 model PoliceStations {
@@ -174,6 +180,15 @@ model Users {
   role                    Roles                                           @relation(fields: [roleId], references: [id], onDelete: Cascade)
   state                   States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
   zone                    Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@index([policeStationId])
+  @@index([stateId])
+  @@index([districtId])
+  @@index([zoneId])
+  @@index([divisionId])
+  @@index([email])
+  @@index([phoneNo])
 }
 
 model FlowMaps {
@@ -207,7 +222,7 @@ model ActionHistories {
 }
 
 model FreshLicenseApplicationPersonalDetails {
-  id                         Int                             @id @default(autoincrement())
+  id                         Int                                             @id @default(autoincrement())
   acknowledgementNo          String?
   firstName                  String
   middleName                 String?
@@ -219,8 +234,8 @@ model FreshLicenseApplicationPersonalDetails {
   dobInWords                 String?
   panNumber                  String?
   aadharNumber               String?
-  createdAt                  DateTime                        @default(now())
-  updatedAt                  DateTime                        @default(now()) @updatedAt
+  createdAt                  DateTime                                        @default(now())
+  updatedAt                  DateTime                                        @default(now()) @updatedAt
   filledBy                   String?
   occupationAndBusinessId    Int?
   permanentAddressId         Int?
@@ -228,32 +243,32 @@ model FreshLicenseApplicationPersonalDetails {
   currentUserId              Int?
   previousUserId             Int?
   workflowStatusId           Int?
-  isAwareOfLegalConsequences Boolean?                        @default(false)
-  isDeclarationAccepted      Boolean?                        @default(false)
-  isTermsAccepted            Boolean?                        @default(false)
-  isSubmit                   Boolean?                        @default(false)
+  isAwareOfLegalConsequences Boolean?                                        @default(false)
+  isDeclarationAccepted      Boolean?                                        @default(false)
+  isTermsAccepted            Boolean?                                        @default(false)
+  isSubmit                   Boolean?                                        @default(false)
   almsLicenseId              String?
-  isApproved                 Boolean?                        @default(false)
-  isFLAFGenerated            Boolean?                        @default(false)
-  isGroundReportGenerated    Boolean?                        @default(false)
-  isPending                  Boolean?                        @default(false)
-  isReEnquiry                Boolean?                        @default(false)
-  isReEnquiryDone            Boolean?                        @default(false)
-  isRejected                 Boolean?                        @default(false)
-  isRecommended              Boolean?                        @default(false)
-  isNotRecommended           Boolean?                        @default(false)
-  biometricData              FLAFBiometricDatas?             @relation("BiometricData")
-  criminalHistories          FLAFCriminalHistories[]         @relation("CriminalHistories")
-  fileUploads                FLAFFileUploads[]               @relation("FileUploads")
-  licenseDetails             FLAFLicenseDetails[]            @relation("LicenseDetails")
-  licenseHistories           FLAFLicenseHistories[]          @relation("LicenseHistories")
+  isApproved                 Boolean?                                        @default(false)
+  isFLAFGenerated            Boolean?                                        @default(false)
+  isGroundReportGenerated    Boolean?                                        @default(false)
+  isPending                  Boolean?                                        @default(false)
+  isReEnquiry                Boolean?                                        @default(false)
+  isReEnquiryDone            Boolean?                                        @default(false)
+  isRejected                 Boolean?                                        @default(false)
+  isRecommended              Boolean?                                        @default(false)
+  isNotRecommended           Boolean?                                        @default(false)
+  biometricData              FLAFBiometricDatas?                             @relation("BiometricData")
+  criminalHistories          FLAFCriminalHistories[]                         @relation("CriminalHistories")
+  fileUploads                FLAFFileUploads[]                               @relation("FileUploads")
+  licenseDetails             FLAFLicenseDetails[]                            @relation("LicenseDetails")
+  licenseHistories           FLAFLicenseHistories[]                          @relation("LicenseHistories")
+  currentUser                Users?                                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
+  occupationAndBusiness      FLAFOccupationAndBusiness?                      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
+  permanentAddress           FLAFAddressesAndContactDetails?                 @relation("PermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
+  presentAddress             FLAFAddressesAndContactDetails?                 @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
+  previousUser               Users?                                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
+  workflowStatus             Statuses?                                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
   workflowHistories          FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowHistories")
-  currentUser                Users?                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
-  occupationAndBusiness      FLAFOccupationAndBusiness?      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
-  permanentAddress           FLAFAddressesAndContactDetails? @relation("PermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
-  presentAddress             FLAFAddressesAndContactDetails? @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
-  previousUser               Users?                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
-  workflowStatus             Statuses?                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
 
   @@index([aadharNumber])
 }
@@ -367,23 +382,23 @@ model FLAFBiometricDatas {
 }
 
 model FreshLicenseApplicationsFormWorkflowHistories {
-  id             Int       @id @default(autoincrement())
+  id             Int                                    @id @default(autoincrement())
   applicationId  Int
   previousUserId Int
   nextUserId     Int
   actionTaken    String
   remarks        String?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime                               @default(now())
   previousRoleId Int?
   nextRoleId     Int?
   actionesId     Int?
   attachments    Json?
-  actiones       Actiones? @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id], onDelete: Cascade)
-  nextRole       Roles?    @relation("WorkflowNextRole", fields: [nextRoleId], references: [id], onDelete: Cascade)
-  nextUser       Users     @relation("WorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
-  previousRole   Roles?    @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
-  previousUser   Users     @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
+  actiones       Actiones?                              @relation("ActionesToWorkflowHistory", fields: [actionesId], references: [id], onDelete: Cascade)
   application    FreshLicenseApplicationPersonalDetails @relation("WorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+  nextRole       Roles?                                 @relation("WorkflowNextRole", fields: [nextRoleId], references: [id], onDelete: Cascade)
+  nextUser       Users                                  @relation("WorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
+  previousRole   Roles?                                 @relation("WorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
+  previousUser   Users                                  @relation("WorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
 }
 
 enum Sex {

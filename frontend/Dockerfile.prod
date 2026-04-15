@@ -20,9 +20,12 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 # Copy source code
 COPY . .
 
-# Build the Next.js app (disable linting)
-# IMPORTANT: Ensure NEXT_PUBLIC_API_URL is available during build
-RUN NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL ESLINT_NO_DEV_ERRORS=true npm run build
+# Build the Next.js app (disable linting and improve build speed)
+# IMPORTANT: Ensure NEXT_PUBLIC_API_URL is available during build  
+RUN NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    ESLINT_NO_DEV_ERRORS=true \
+    NEXT_TELEMETRY_DISABLED=1 \
+    npm run build
 
 # -----------------------
 # Runner Image - Optimized with standalone
