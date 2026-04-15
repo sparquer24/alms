@@ -60,13 +60,13 @@ services:
     container_name: alms-nginx-prod
     restart: unless-stopped
     ports:
-      - "8080:80"   # Production HTTP on different port
+      - "8080:80"   # Production HTTP on different port  
       - "8443:443"  # Production HTTPS on different port
     volumes:
-      - ./nginx/nginx.prod-no-ssl.conf:/etc/nginx/nginx.conf:ro
-      # SSL certificates (disabled temporarily):
-      # - /etc/letsencrypt/live/dev.alms.sparquer.com/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
-      # - /etc/letsencrypt/live/dev.alms.sparquer.com/privkey.pem:/etc/ssl/private/privkey.pem:ro
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      # SSL certificates (using VALID dev certificate):
+      - /etc/letsencrypt/live/dev.alms.sparquer.com-0001/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
+      - /etc/letsencrypt/live/dev.alms.sparquer.com-0001/privkey.pem:/etc/ssl/private/privkey.pem:ro
     depends_on:
       backend-prod:
         condition: service_healthy
