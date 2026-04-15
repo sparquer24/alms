@@ -59,8 +59,8 @@ services:
     container_name: alms-nginx-prod
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       # IMPORTANT: Map the new production certificates here
