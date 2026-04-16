@@ -67,8 +67,8 @@ services:
     container_name: alms-nginx-prod
     restart: unless-stopped
     ports:
-      - "8080:80"     # HTTP (different from dev port 80)
-      - "8443:443"    # HTTPS (different from dev port 443)
+      - "80:80"     # Standard HTTP port (no :port needed in URL)
+      - "443:443"   # Standard HTTPS port (no :port needed in URL)
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       # SSL certificate volumes (create these directories first)
