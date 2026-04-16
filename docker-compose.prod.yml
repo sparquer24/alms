@@ -4,7 +4,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod  # Production Dockerfile
-    container_name: alms-backend-prod
+    container_name: alms-backend-prod-standalone
     restart: unless-stopped
     env_file:
       - ./.env.prod  # Production environment file
@@ -12,7 +12,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}   # Production AWS RDS
       NODE_ENV: production
       PORT: 3001  # Different port from dev
-    # NO port exposure - nginx handles all traffic
+    ports:
+      - "3001:3001"  # Expose for standalone production testing
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:3001/api/health/ready"]
       interval: 45s
@@ -33,16 +34,17 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod  # Production Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}  # Production API URL
-    container_name: alms-frontend-prod
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api  # Standalone API URL
+    container_name: alms-frontend-prod-standalone
     restart: unless-stopped
     env_file:
       - ./.env.prod  # Production environment file
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
       NODE_ENV: production
       PORT: 5001  # Different port from dev
-    # NO port exposure - nginx handles all traffic
+    ports:
+      - "5001:5001"  # Expose for standalone production testing
     depends_on:
       backend-prod:
         condition: service_healthy
@@ -78,17 +80,19 @@ services:
       backend-prod:
         condition: service_healthy
       frontend-prod:
-        condition: service_healthy
     networks:
       - alms-prod-net
-    # Add a health check to prevent restart loops
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
 
 networks:
   alms-prod-net:
     driver: bridge
+    
+# NOTE: This compose file is now for standalone production only.
+# For unified dev+prod setup with single Nginx, use:
+# docker-compose -f docker-compose.unified.yml up
