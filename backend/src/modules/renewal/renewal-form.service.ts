@@ -509,53 +509,6 @@ export class RenewalFormService {
   }
 
   /**
-   * Get all states for dropdown
-   */
-  async getStates(): Promise<any[]> {
-    try {
-      return await prisma.states.findMany({
-        orderBy: { name: 'asc' },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'An error occurred while retrieving states.',
-      );
-    }
-  }
-
-  /**
-   * Get districts by state ID
-   */
-  async getDistrictsByState(stateId: number): Promise<any[]> {
-    try {
-      return await prisma.districts.findMany({
-        where: { stateId },
-        orderBy: { name: 'asc' },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'An error occurred while retrieving districts.',
-      );
-    }
-  }
-
-  /**
-   * Get police stations by division ID
-   */
-  async getPoliceStationsByDivision(divisionId: number): Promise<any[]> {
-    try {
-      return await prisma.policeStations.findMany({
-        where: { divisionId },
-        orderBy: { name: 'asc' },
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'An error occurred while retrieving police stations.',
-      );
-    }
-  }
-
-  /**
    * Helper method to map application to response
    */
   private mapApplicationToResponse(application: any): RenewalFormResponse {
