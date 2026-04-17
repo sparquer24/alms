@@ -10,8 +10,7 @@ config({ path: path.resolve(__dirname, '../.env') });
 
 const nextConfig = {
   reactStrictMode: true,
-  // Use standalone output for Docker/production deployment
-  output: 'standalone',
+  // Removed standalone output for simpler Docker setup
   // Set output file tracing root for monorepo
   outputFileTracingRoot: path.resolve(__dirname),
   // Image optimization enabled
