@@ -9,8 +9,7 @@ services:
     container_name: alms-backend-dev
     restart: unless-stopped
     env_file:
-      - ./backend/.env
-      - ./.env
+      - ./.env.dev
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
@@ -37,7 +36,7 @@ services:
     container_name: alms-frontend-dev
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.dev
     environment:
       NEXT_PUBLIC_API_URL: https://dev.alms.sparquer.com/api
       NODE_ENV: development
@@ -69,7 +68,7 @@ services:
     ports:
       - "3001:3001"  # Expose for system nginx access
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:3001/api/health/ready"]
+      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:3001/api/health"]
       interval: 45s
       timeout: 15s
       retries: 5
@@ -115,50 +114,6 @@ services:
           memory: 1G
         reservations:
           memory: 512M
-
-  # ─── UNIFIED NGINX REVERSE PROXY ─────────────────────────────────────────────
-  # nginx-unified:  # DISABLED - using system nginx instead
-  #   image: nginx:stable-alpine
-  #   container_name: alms-nginx-unified
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"     # HTTP (redirects to HTTPS)
-  #     - "443:443"   # HTTPS (main access point)
-  #   volumes:
-  #     # Use the unified configuration
-  #     - ./nginx/nginx.unified.conf:/etc/nginx/nginx.conf:ro
-  #     
-  #     # SSL Certificates (create these directories and certificates)
-  #     # Development certificates
-  #     - ./ssl/dev/fullchain.pem:/etc/ssl/certs/dev-fullchain.pem:ro
-  #     - ./ssl/dev/privkey.pem:/etc/ssl/private/dev-privkey.pem:ro
-  #     
-  #     # Production certificates  
-  #     - ./ssl/prod/fullchain.pem:/etc/ssl/certs/prod-fullchain.pem:ro
-  #     - ./ssl/prod/privkey.pem:/etc/ssl/private/prod-privkey.pem:ro
-  #     
-  #     # Fallback certificate for default server
-  #     - ./ssl/fallback/fullchain.pem:/etc/ssl/certs/fullchain.pem:ro
-  #     - ./ssl/fallback/privkey.pem:/etc/ssl/private/privkey.pem:ro
-  #     
-  #   depends_on:
-  #     backend-dev:
-  #       condition: service_healthy
-  #     frontend-dev:
-  #       condition: service_started
-  #     backend-prod:
-  #       condition: service_healthy
-  #     frontend-prod:
-  #       condition: service_healthy
-  #   networks:
-  #     - alms-unified-net
-  #   healthcheck:
-  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
-
 # ─── UNIFIED NETWORK ──────────────────────────────────────────────────────────
 networks:
   alms-unified-net:

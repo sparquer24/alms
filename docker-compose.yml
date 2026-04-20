@@ -1,14 +1,13 @@
 services:
 
-  backend:
+  backend-dev:
     build:
       context: ./backend
       dockerfile: Dockerfile  # Use development Dockerfile
-    container_name: alms-backend-dev-standalone
+    container_name: alms-backend-dev
     restart: unless-stopped
     env_file:
-      - ./backend/.env
-      - ./.env
+      - ./.env.dev
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development  # Development mode
@@ -26,16 +25,16 @@ services:
     networks:
       - alms-dev-net
 
-  frontend:
+  frontend-dev:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev  # Use development Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:3000/api
-    container_name: alms-frontend-dev-standalone
+    container_name: alms-frontend-dev
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.dev
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3000/api
       NODE_ENV: development  # Development mode
@@ -46,7 +45,7 @@ services:
       - ./frontend/src:/app/src  # Hot reload for development
       - ./frontend/pages:/app/pages
     depends_on:
-      backend:
+      backend-dev:
         condition: service_healthy
     networks:
       - alms-dev-net
