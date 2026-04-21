@@ -5,7 +5,7 @@ jspm_packages
 # esbuild directories
 .esbuild
 
-# env
+# env only
 .env
 .env.dev
 .env.prod
