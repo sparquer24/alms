@@ -629,7 +629,12 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
 
   return {
     id: String(apiApp.id || ''),
-    applicantName:apiApp.applicantName,
+    applicantName:
+      apiApp.applicantName ||
+      apiApp.name ||
+      apiApp.fullName ||
+      [apiApp.firstName, apiApp.middleName, apiApp.lastName].filter(Boolean).join(' ') ||
+      '',
     applicantMobile: apiApp.mobileNumber || '', // This might need to be fetched from detailed API
     applicantEmail: apiApp.emailAddress || undefined, // This might need to be fetched from detailed API
     fatherName: apiApp.fatherName || undefined, // This might need to be fetched from detailed API

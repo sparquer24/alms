@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
+import { FormDataLoader } from '../utils/formDataLoader';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
 import { useAuthSync } from '../hooks/useAuthSync';
@@ -23,6 +25,9 @@ const Header = (props: HeaderProps) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalLoading, setRenewalLoading] = useState(false);
+  const [renewalError, setRenewalError] = useState<string | null>(null);
 
   useEffect(() => {
     const name = userName || user?.name || user?.username;
@@ -35,11 +40,37 @@ const Header = (props: HeaderProps) => {
     if (type.enabled) {
       if (type.key === 'fresh') {
         router.push('/forms/createFreshApplication/personal-information');
+      } else if (type.key === 'renewal') {
+        setShowRenewalModal(true);
       } else {
         router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
+    }
+  };
+
+  // Renewal Modal Handlers
+  const handleRenewalModalClose = () => {
+    setShowRenewalModal(false);
+    setRenewalError(null);
+  };
+
+  const handleRenewalModalSave = async (data: { applicationId: string }) => {
+    setRenewalLoading(true);
+    setRenewalError(null);
+    try {
+      const result = await FormDataLoader.checkDataAvailability(data.applicationId);
+      if (result.exists) {
+        setShowRenewalModal(false);
+        router.push(`/forms/renewal/personal-information?applicationId=${encodeURIComponent(data.applicationId)}`);
+      } else {
+        setRenewalError('Invalid Application ID. Please create a Fresh Application.');
+      }
+    } catch (err: any) {
+      setRenewalError('Error validating Application ID. Please try again.');
+    } finally {
+      setRenewalLoading(false);
     }
   };
 
@@ -56,6 +87,23 @@ const Header = (props: HeaderProps) => {
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         <div className='flex items-center'>
+          {/* Renewal Application Modal */}
+          {showRenewalModal && (
+            <Modal
+              data={{ applicationId: '' }}
+              onClose={handleRenewalModalClose}
+              onSave={handleRenewalModalSave}
+              title="Enter Application ID for Renewal"
+              fields={[{ name: 'applicationId', label: 'Application ID', type: 'text', required: true }]}
+            >
+              {/* No children needed */}
+            </Modal>
+          )}
+          {renewalError && (
+            <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-4 py-2 rounded shadow z-50">
+              {renewalError}
+            </div>
+          )}
           {/* Show Create Form only when sidebar is visible */}
           {showSidebar && (
             <div className='relative'>
@@ -82,9 +130,12 @@ const Header = (props: HeaderProps) => {
                           key={type.key}
                           className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${!type.enabled ? 'text-gray-400 cursor-not-allowed' : ''}`}
                           onClick={() => handleDropdownClick(type)}
-                          disabled={!type.enabled}
+                          disabled={!type.enabled || renewalLoading}
                         >
                           {type.label}
+                          {type.key === 'renewal' && renewalLoading && (
+                            <span className="ml-2 text-xs text-blue-500">Checking...</span>
+                          )}
                         </button>
                       ))}
                     </div>
