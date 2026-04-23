@@ -1100,11 +1100,8 @@ export class ApplicationFormService {
     isOwned?: boolean;
     isSent?: boolean;
   }) {
-    // Build a compact, frontend-friendly query: include necessary relations
     try {
       const where: any = {};
-
-      // Pagination (move earlier so we can early-return when resolved status filter is empty)
       const page = Math.max(Number(filter.page ?? 1), 1);
       const limit = Math.max(Number(filter.limit ?? 10), 1);
       const skip = (page - 1) * limit;
@@ -1296,6 +1293,7 @@ export class ApplicationFormService {
         middleName: true,
         lastName: true,
         createdAt: true,
+        workflowStatusId: true,
         // Workflow status
         workflowStatus: {
           select: {
@@ -1332,7 +1330,8 @@ export class ApplicationFormService {
         },
       };
 
-      const [total, rawData] = await Promise.all([
+      // Fetch Fresh License Applications
+      const [freshLicenseTotal, freshLicenseRawData] = await Promise.all([
         prisma.freshLicenseApplicationPersonalDetails.count({ where }),
         prisma.freshLicenseApplicationPersonalDetails.findMany({
           where,
@@ -1342,17 +1341,127 @@ export class ApplicationFormService {
           select,
         }),
       ]);
-      // Build 'applicatenName' by joining first/middle/last for each record
-      const transformedData = (rawData || []).map((row: any) => {
+
+      // Transform Fresh License data
+      const freshLicenseTransformed = (freshLicenseRawData || []).map((row: any) => {
         const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+        
         return {
           ...row,
+          applicantName: parts.join(' '),
+          applicationType: 'Fresh License'
         };
       });
 
+      // Get all unique workflowStatusIds from fresh license data
+      const uniqueWorkflowStatusIds = Array.from(
+        new Set((freshLicenseRawData || []).map((row: any) => row.workflowStatusId).filter(Boolean))
+      ) as number[];
+
+      // Fetch Renewal License Applications grouped by workflowStatusId
+      // (no pagination - get all renewals for the workflowStatusIds present in this page)
+      let renewalByStatusId: Map<number, any[]> = new Map();
+
+      if (uniqueWorkflowStatusIds.length > 0) {
+        const renewalRawData = await prisma.renewalFormPersonalDetails.findMany({
+          where: {
+            workflowStatusId: { in: uniqueWorkflowStatusIds }
+          },
+          select: {
+            id: true,
+            licenseNumber: true,
+            acknowledgementNo: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            createdAt: true,
+            workflowStatusId: true,
+            workflowStatus: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              }
+            },
+            currentUser: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                role: {
+                  select: {
+                    code: true,
+                  }
+                }
+              }
+            },
+            previousUser: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                  }
+                }
+              }
+            },
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+
+        // Transform and group renewal data by workflowStatusId
+        (renewalRawData || []).forEach((row: any) => {
+          const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+          const transformedRenewal = {
+            ...row,
+            applicantName: parts.join(' '),
+            applicationType: 'Renewal License'
+          };
+
+          const statusId = row.workflowStatusId;
+          if (!renewalByStatusId.has(statusId)) {
+            renewalByStatusId.set(statusId, []);
+          }
+          renewalByStatusId.get(statusId)!.push(transformedRenewal);
+        });
+      }
+
+      // Build renewalDataByStatus: Map renewal data by workflowStatusId with fresh license's currentUser
+      const renewalDataByStatus: { [key: number]: any[] } = {};
+      
+      // For each fresh license, if it's the first with its status, capture its currentUser
+      const statusUserMap: { [key: number]: any } = {};
+      freshLicenseTransformed.forEach((freshApp: any) => {
+        if (freshApp.workflowStatusId && !statusUserMap[freshApp.workflowStatusId]) {
+          statusUserMap[freshApp.workflowStatusId] = freshApp.currentUser;
+        }
+      });
+
+      // Attach fresh license's currentUser to each renewal record
+      renewalByStatusId.forEach((renewals: any[], statusId: number) => {
+        const freshLicenseUser = statusUserMap[statusId];
+        renewalDataByStatus[statusId] = renewals.map((renewal: any) => ({
+          ...renewal,
+          currentUser: freshLicenseUser // Use the fresh license's currentUser for this status
+        }));
+      });
+
+      // Combine fresh license data with renewal data in one array
+      const combinedData = [...freshLicenseTransformed];
+      Object.values(renewalDataByStatus).forEach((renewals: any[]) => {
+        combinedData.push(...renewals);
+      });
 
       // Return in the [error, result] tuple format used across the service methods
-      return [null, { total, page, limit, data: transformedData }];
+      return [null, { 
+        total: freshLicenseTotal, 
+        page, 
+        limit, 
+        data: combinedData
+      }];
     } catch (error) {
       return [error, null];
     }
@@ -1514,7 +1623,6 @@ export class ApplicationFormService {
               select: {
                 id: true,
                 code: true,
-                name: true
               }
             }
           }
