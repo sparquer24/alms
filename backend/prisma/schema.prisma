@@ -8,115 +8,120 @@ datasource db {
 }
 
 model Statuses {
-  id           Int                                      @id @default(autoincrement())
-  code         String                                   @unique
-  name         String
-  description  String?
-  isActive     Boolean                                  @default(true)
-  createdAt    DateTime                                 @default(now())
-  updatedAt    DateTime                                 @updatedAt
-  isStarted    Boolean                                  @default(false)
-  applications FreshLicenseApplicationPersonalDetails[] @relation("ApplicationWorkflowStatus")
+  id                      Int                                      @id @default(autoincrement())
+  code                    String                                   @unique
+  name                    String
+  description             String?
+  isActive                Boolean                                  @default(true)
+  createdAt               DateTime                                 @default(now())
+  updatedAt               DateTime                                 @updatedAt
+  isStarted               Boolean                                  @default(false)
+  applications            FreshLicenseApplicationPersonalDetails[] @relation("ApplicationWorkflowStatus")
+  renewalApplications     RenewalFormPersonalDetails[]             @relation("RenewalApplicationWorkflowStatus")
 }
 
 model Actiones {
-  id                  Int                                             @id @default(autoincrement())
-  code                String                                          @unique
-  name                String
-  description         String?
-  isActive            Boolean                                         @default(true)
-  createdAt           DateTime                                        @default(now())
-  updatedAt           DateTime                                        @updatedAt
-  applicationsHistory FreshLicenseApplicationsFormWorkflowHistories[] @relation("ActionesToWorkflowHistory")
-  rolesActionsMapping RolesActionsMapping[]
-}
-
-model States {
-  id          Int                              @id @default(autoincrement())
-  name        String                           @unique
-  createdAt   DateTime                         @default(now())
-  updatedAt   DateTime                         @updatedAt
-  districts   Districts[]
-  addresses   FLAFAddressesAndContactDetails[]
-  occupations FLAFOccupationAndBusiness[]
-  users       Users[]                          @relation("StateUsers")
-}
-
-model Districts {
-  id          Int                              @id @default(autoincrement())
-  name        String                           @unique
-  stateId     Int
-  createdAt   DateTime                         @default(now())
-  updatedAt   DateTime                         @updatedAt
-  state       States                           @relation(fields: [stateId], references: [id], onDelete: Cascade)
-  addresses   FLAFAddressesAndContactDetails[]
-  occupations FLAFOccupationAndBusiness[]
-  users       Users[]                          @relation("DistrictUsers")
-  zones       Zones[]
-
-  @@index([stateId])
-}
-
-model Zones {
-  id         Int                              @id @default(autoincrement())
-  name       String                           @unique
-  districtId Int
-  createdAt  DateTime                         @default(now())
-  updatedAt  DateTime                         @updatedAt
-  divisions  Divisions[]
-  addresses  FLAFAddressesAndContactDetails[]
-  users      Users[]                          @relation("ZoneUsers")
-  district   Districts                        @relation(fields: [districtId], references: [id], onDelete: Cascade)
-
-  @@index([districtId])
-}
-
-model Divisions {
-  id        Int                              @id @default(autoincrement())
-  name      String                           @unique
-  zoneId    Int
-  createdAt DateTime                         @default(now())
-  updatedAt DateTime                         @updatedAt
-  zone      Zones                            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  addresses FLAFAddressesAndContactDetails[]
-  stations  PoliceStations[]
-  users     Users[]                          @relation("DivisionUsers")
-
-  @@index([zoneId])
-}
-
-model PoliceStations {
-  id         Int                              @id @default(autoincrement())
-  name       String                           @unique
-  divisionId Int
-  createdAt  DateTime                         @default(now())
-  updatedAt  DateTime                         @updatedAt
-  addresses  FLAFAddressesAndContactDetails[]
-  division   Divisions                        @relation(fields: [divisionId], references: [id], onDelete: Cascade)
-  users      Users[]                          @relation("PoliceStationUsers")
-}
-
-model Roles {
   id                         Int                                             @id @default(autoincrement())
   code                       String                                          @unique
   name                       String
-  is_active                  Boolean                                         @default(true)
-  created_at                 DateTime                                        @default(now())
-  updated_at                 DateTime                                        @updatedAt
-  dashboard_title            String
-  menu_items                 Json?
-  permissions                Json?
-  can_access_settings        Boolean                                         @default(false)
-  can_forward                Boolean                                         @default(false)
-  can_re_enquiry             Boolean                                         @default(false)
-  can_generate_ground_report Boolean                                         @default(false)
-  can_FLAF                   Boolean                                         @default(false)
-  can_create_freshLicence    Boolean                                         @default(false)
-  workflowHistoryNext        FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextRole")
-  workflowHistoryPrevious    FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
-  currentRoleFlowMappings    RoleFlowMapping?                                @relation("CurrentRole")
+  description                String?
+  isActive                   Boolean                                         @default(true)
+  createdAt                  DateTime                                        @default(now())
+  updatedAt                  DateTime                                        @updatedAt
+  applicationsHistory        FreshLicenseApplicationsFormWorkflowHistories[] @relation("ActionesToWorkflowHistory")
+  renewalApplicationsHistory RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalActionesToWorkflowHistory")
   rolesActionsMapping        RolesActionsMapping[]
-  users                      Users[]
+}
+
+model States {
+  id                    Int                              @id @default(autoincrement())
+  name                  String                           @unique
+  createdAt             DateTime                         @default(now())
+  updatedAt             DateTime                         @updatedAt
+  districts             Districts[]
+  addresses             FLAFAddressesAndContactDetails[]
+  occupations           FLAFOccupationAndBusiness[]
+  renewalAddresses      RenewalAddressesAndContactDetails[]
+  renewalOccupations    RenewalOccupationAndBusiness[]
+  users                 Users[]                          @relation("StateUsers")
+}
+
+model Districts {
+  id                 Int                              @id @default(autoincrement())
+  name               String                           @unique
+  stateId            Int
+  createdAt          DateTime                         @default(now())
+  updatedAt          DateTime                         @updatedAt
+  state              States                           @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  addresses          FLAFAddressesAndContactDetails[]
+  occupations        FLAFOccupationAndBusiness[]
+  renewalAddresses   RenewalAddressesAndContactDetails[]
+  renewalOccupations RenewalOccupationAndBusiness[]
+  users              Users[]                          @relation("DistrictUsers")
+  zones              Zones[]
+}
+
+model Zones {
+  id                Int                              @id @default(autoincrement())
+  name              String                           @unique
+  districtId        Int
+  createdAt         DateTime                         @default(now())
+  updatedAt         DateTime                         @updatedAt
+  divisions         Divisions[]
+  addresses         FLAFAddressesAndContactDetails[]
+  renewalAddresses  RenewalAddressesAndContactDetails[]
+  users             Users[]                          @relation("ZoneUsers")
+  district          Districts                        @relation(fields: [districtId], references: [id], onDelete: Cascade)
+}
+
+model Divisions {
+  id               Int                              @id @default(autoincrement())
+  name             String                           @unique
+  zoneId           Int
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  zone             Zones                            @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  addresses        FLAFAddressesAndContactDetails[]
+  renewalAddresses RenewalAddressesAndContactDetails[]
+  stations         PoliceStations[]
+  users            Users[]                          @relation("DivisionUsers")
+}
+
+model PoliceStations {
+  id               Int                              @id @default(autoincrement())
+  name             String                           @unique
+  divisionId       Int
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
+  addresses        FLAFAddressesAndContactDetails[]
+  renewalAddresses RenewalAddressesAndContactDetails[]
+  division         Divisions                        @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  users            Users[]                          @relation("PoliceStationUsers")
+}
+
+model Roles {
+  id                          Int                                             @id @default(autoincrement())
+  code                        String                                          @unique
+  name                        String
+  is_active                   Boolean                                         @default(true)
+  created_at                  DateTime                                        @default(now())
+  updated_at                  DateTime                                        @updatedAt
+  dashboard_title             String
+  menu_items                  Json?
+  permissions                 Json?
+  can_access_settings         Boolean                                         @default(false)
+  can_forward                 Boolean                                         @default(false)
+  can_re_enquiry              Boolean                                         @default(false)
+  can_generate_ground_report  Boolean                                         @default(false)
+  can_FLAF                    Boolean                                         @default(false)
+  can_create_freshLicence     Boolean                                         @default(false)
+  workflowHistoryNext         FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextRole")
+  workflowHistoryPrevious     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
+  renewalWorkflowHistoryNext  RenewalApplicationsFormWorkflowHistories[]     @relation("RenewalWorkflowNextRole")
+  renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]  @relation("RenewalWorkflowPreviousRole")
+  currentRoleFlowMappings     RoleFlowMapping?                                @relation("CurrentRole")
+  rolesActionsMapping         RolesActionsMapping[]
+  users                       Users[]
 }
 
 model RolesActionsMapping {
@@ -144,51 +149,47 @@ model RoleFlowMapping {
 }
 
 model WeaponTypeMaster {
-  id             Int                  @id @default(autoincrement())
-  name           String               @unique
-  description    String?
-  imageUrl       String?
-  licenseDetails FLAFLicenseDetails[] @relation("RequestedWeapons")
+  id                    Int                  @id @default(autoincrement())
+  name                  String               @unique
+  description           String?
+  imageUrl              String?
+  licenseDetails        FLAFLicenseDetails[] @relation("RequestedWeapons")
+  renewalLicenseDetails RenewalLicenseDetails[] @relation("RenewalRequestedWeapons")
 }
 
 model Users {
-  id                      Int                                             @id @default(autoincrement())
-  username                String
-  email                   String?                                         @unique
-  password                String
-  createdAt               DateTime                                        @default(now())
-  updatedAt               DateTime                                        @updatedAt
-  phoneNo                 String?                                         @unique
-  roleId                  Int
-  policeStationId         Int?
-  stateId                 Int?
-  districtId              Int?
-  zoneId                  Int?
-  divisionId              Int?
-  actionsFrom             ActionHistories[]                               @relation("ActionFromUser")
-  actionsTo               ActionHistories[]                               @relation("ActionToUser")
-  flowMaps                FlowMaps[]
-  nextUserInFlows         FlowNextUsers[]                                 @relation("NextUserInFlow")
-  currentApplications     FreshLicenseApplicationPersonalDetails[]        @relation("CurrentApplicationOwner")
-  previousApplications    FreshLicenseApplicationPersonalDetails[]        @relation("PreviousApplicationOwner")
-  workflowHistoryNext     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
-  workflowHistoryPrevious FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
-  flowMappingUpdates      RoleFlowMapping[]
-  district                Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
-  division                Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
-  policeStation           PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
-  role                    Roles                                           @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  state                   States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
-  zone                    Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
-
-  @@index([roleId])
-  @@index([policeStationId])
-  @@index([stateId])
-  @@index([districtId])
-  @@index([zoneId])
-  @@index([divisionId])
-  @@index([email])
-  @@index([phoneNo])
+  id                            Int                                             @id @default(autoincrement())
+  username                      String
+  email                         String?                                         @unique
+  password                      String
+  createdAt                     DateTime                                        @default(now())
+  updatedAt                     DateTime                                        @updatedAt
+  phoneNo                       String?                                         @unique
+  roleId                        Int
+  policeStationId               Int?
+  stateId                       Int?
+  districtId                    Int?
+  zoneId                        Int?
+  divisionId                    Int?
+  actionsFrom                   ActionHistories[]                               @relation("ActionFromUser")
+  actionsTo                     ActionHistories[]                               @relation("ActionToUser")
+  flowMaps                      FlowMaps[]
+  nextUserInFlows               FlowNextUsers[]                                 @relation("NextUserInFlow")
+  currentApplications           FreshLicenseApplicationPersonalDetails[]        @relation("CurrentApplicationOwner")
+  previousApplications          FreshLicenseApplicationPersonalDetails[]        @relation("PreviousApplicationOwner")
+  renewalCurrentApplications    RenewalFormPersonalDetails[]                    @relation("RenewalCurrentApplicationOwner")
+  renewalPreviousApplications   RenewalFormPersonalDetails[]                    @relation("RenewalPreviousApplicationOwner")
+  workflowHistoryNext           FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextUser")
+  workflowHistoryPrevious       FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
+  renewalWorkflowHistoryNext    RenewalApplicationsFormWorkflowHistories[]     @relation("RenewalWorkflowNextUser")
+  renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]    @relation("RenewalWorkflowPreviousUser")
+  flowMappingUpdates            RoleFlowMapping[]
+  district                      Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
+  division                      Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
+  policeStation                 PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
+  role                          Roles                                           @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  state                         States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
+  zone                          Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
 }
 
 model FlowMaps {
@@ -450,4 +451,143 @@ enum LicenseResult {
   APPROVED
   REJECTED
   PENDING
+}
+
+// Renewal License Application Models
+model RenewalFormPersonalDetails {
+  id                         Int                                  @id @default(autoincrement())
+  acknowledgementNo          String?
+  licenseNumber              String                               @unique
+  firstName                  String
+  middleName                 String?
+  lastName                   String
+  parentOrSpouseName         String
+  sex                        Sex
+  dateOfBirth                DateTime?
+  dobInWords                 String?
+  panNumber                  String?
+  aadharNumber               String?
+  createdAt                  DateTime                             @default(now())
+  updatedAt                  DateTime                             @updatedAt
+  filledBy                   String?
+  occupationAndBusinessId    Int?
+  permanentAddressId         Int?
+  presentAddressId           Int?
+  currentUserId              Int?
+  previousUserId             Int?
+  workflowStatusId           Int?
+  isAwareOfLegalConsequences Boolean?                             @default(false)
+  isDeclarationAccepted      Boolean?                             @default(false)
+  isTermsAccepted            Boolean?                             @default(false)
+  isSubmit                   Boolean?                             @default(false)
+  renewalLicenseId           String?
+  isApproved                 Boolean?                             @default(false)
+  isGroundReportGenerated    Boolean?                             @default(false)
+  isPending                  Boolean?                             @default(false)
+  isReEnquiry                Boolean?                             @default(false)
+  isReEnquiryDone            Boolean?                             @default(false)
+  isRejected                 Boolean?                             @default(false)
+  isRecommended              Boolean?                             @default(false)
+  isNotRecommended           Boolean?                             @default(false)
+  biometricData              RenewalBiometricDatas?               @relation("RenewalBiometricData")
+  licenseDetails             RenewalLicenseDetails[]              @relation("RenewalLicenseDetails")
+  fileUploads                RenewalFileUploads[]                 @relation("RenewalFileUploads")
+  workflowHistories          RenewalApplicationsFormWorkflowHistories[] @relation("RenewalWorkflowHistories")
+  currentUser                Users?                               @relation("RenewalCurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
+  occupationAndBusiness      RenewalOccupationAndBusiness?        @relation("RenewalOccupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
+  permanentAddress           RenewalAddressesAndContactDetails?   @relation("RenewalPermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
+  presentAddress             RenewalAddressesAndContactDetails?   @relation("RenewalPresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
+  previousUser               Users?                               @relation("RenewalPreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
+  workflowStatus             Statuses?                            @relation("RenewalApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
+
+  @@index([aadharNumber])
+  @@index([licenseNumber])
+}
+
+model RenewalAddressesAndContactDetails {
+  id                    Int                                      @id @default(autoincrement())
+  addressLine           String
+  stateId               Int
+  districtId            Int
+  policeStationId       Int
+  sinceResiding         DateTime
+  divisionId            Int
+  zoneId                Int
+  telephoneOffice       String?
+  telephoneResidence    String?
+  officeMobileNumber    String?
+  alternativeMobile     String?
+  district              Districts                                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  division              Divisions                                @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  policeStation         PoliceStations                           @relation(fields: [policeStationId], references: [id], onDelete: Cascade)
+  state                 States                                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  zone                  Zones                                    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  permanentApplications RenewalFormPersonalDetails[]             @relation("RenewalPermanentAddress")
+  presentApplications   RenewalFormPersonalDetails[]             @relation("RenewalPresentAddress")
+}
+
+model RenewalOccupationAndBusiness {
+  id                   Int                                      @id @default(autoincrement())
+  occupation           String
+  officeAddress        String
+  stateId              Int
+  districtId           Int
+  cropLocation         String?
+  areaUnderCultivation Float?
+  district             Districts                                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  state                States                                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  applications         RenewalFormPersonalDetails[]             @relation("RenewalOccupationAndBusinessId")
+}
+
+model RenewalLicenseDetails {
+  id                         Int                                    @id @default(autoincrement())
+  applicationId              Int
+  needForLicense             LicensePurpose?
+  armsCategory               ArmsCategory?
+  areaOfValidity             String?
+  ammunitionDescription      String?
+  specialConsiderationReason String?
+  licencePlaceArea           String?
+  createdAt                  DateTime                               @default(now())
+  updatedAt                  DateTime                               @updatedAt
+  application                RenewalFormPersonalDetails             @relation("RenewalLicenseDetails", fields: [applicationId], references: [id], onDelete: Cascade)
+  requestedWeapons           WeaponTypeMaster[]                     @relation("RenewalRequestedWeapons")
+}
+
+model RenewalFileUploads {
+  id            Int                                    @id @default(autoincrement())
+  applicationId Int
+  fileType      FileType
+  fileUrl       String
+  uploadedAt    DateTime                               @default(now())
+  fileName      String
+  fileSize      Int
+  application   RenewalFormPersonalDetails             @relation("RenewalFileUploads", fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model RenewalBiometricDatas {
+  id            Int                                    @id @default(autoincrement())
+  applicationId Int                                    @unique
+  biometricData Json
+  application   RenewalFormPersonalDetails             @relation("RenewalBiometricData", fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model RenewalApplicationsFormWorkflowHistories {
+  id             Int       @id @default(autoincrement())
+  applicationId  Int
+  previousUserId Int
+  nextUserId     Int
+  actionTaken    String
+  remarks        String?
+  createdAt      DateTime  @default(now())
+  previousRoleId Int?
+  nextRoleId     Int?
+  actionesId     Int?
+  attachments    Json?
+  actiones       Actiones? @relation("RenewalActionesToWorkflowHistory", fields: [actionesId], references: [id], onDelete: Cascade)
+  nextRole       Roles?    @relation("RenewalWorkflowNextRole", fields: [nextRoleId], references: [id], onDelete: Cascade)
+  nextUser       Users     @relation("RenewalWorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade)
+  previousRole   Roles?    @relation("RenewalWorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
+  previousUser   Users     @relation("RenewalWorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
+  application    RenewalFormPersonalDetails             @relation("RenewalWorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade)
 }
