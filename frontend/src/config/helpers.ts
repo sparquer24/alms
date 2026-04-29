@@ -19,7 +19,7 @@ export const APPLICATION_TYPES = [
   {
     key: 'renewal',
     label: 'Renewal Application',
-    enabled: false, // Not yet implemented
+    enabled: true,
   },
   // Add more types as needed
 ];
