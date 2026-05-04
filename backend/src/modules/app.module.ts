@@ -15,8 +15,9 @@ import { HealthModule } from './health/health.module';
 import { BiometricModule } from './biometric/biometric.module';
 import { PublicModule } from './public/public.module';
 import { QRCodeModule } from './qrcode/qrcode.module';
+import { RenewalFormModule } from './renewal/renewal-form.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, QRCodeModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, QRCodeModule, RenewalFormModule],
 })
 export class AppModule { }

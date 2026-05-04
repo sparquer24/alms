@@ -690,7 +690,11 @@ export class ApplicationFormController {
         const errMsg = (error as any)?.message || 'Failed to fetch applications';
         throw new HttpException({ success: false, message: errMsg, error: errMsg }, HttpStatus.BAD_REQUEST);
       }
-      const typedResult = result as { data: any[]; total: number; usersInHierarchy?: any[] };
+      const typedResult = result as { 
+        data: any[]; 
+        total: number; 
+        usersInHierarchy?: any[];
+      };
 
       // The service already returns transformed rows and a combined usersInHierarchy
       return {
