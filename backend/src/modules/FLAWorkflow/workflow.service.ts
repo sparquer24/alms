@@ -19,6 +19,46 @@ export class WorkflowService {
     }
   }
 
+  async getApplicationsByType(applicationType: string) {
+    if (applicationType === 'flawUpdate' || applicationType === 'FreshLicenseApplicationForm') {
+      return await this.prisma.freshLicenseApplicationPersonalDetails.findMany({
+        select: {
+          id: true,
+          workflowStatusId: true,
+          currentUserId: true,
+          previousUserId: true,
+          isApproved: true,
+          isRejected: true,
+          isRecommended: true,
+          isNotRecommended: true,
+          isPending: true,
+          isReEnquiry: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+    } else if (applicationType === 'renewUpdate' || applicationType === 'RenewalApplicationForm') {
+      return await this.prisma.renewalFormPersonalDetails.findMany({
+        select: {
+          id: true,
+          workflowStatusId: true,
+          currentUserId: true,
+          previousUserId: true,
+          isApproved: true,
+          isRejected: true,
+          isRecommended: true,
+          isNotRecommended: true,
+          isPending: true,
+          isReEnquiry: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+    } else {
+      throw new Error(`Invalid applicationType: ${applicationType}`);
+    }
+  }
+
   /**
    * Check if a role is allowed to perform a specific action
    */
@@ -33,16 +73,7 @@ export class WorkflowService {
     });
     return mapping !== null && mapping.isActive === true;
   }
-
-
- async handleUserAction(payload: {
-    applicationId: number;
-    actionId: number;
-    action: any; // full action object from Actiones table
-    nextUserId?: number;
-    remarks: string;
-    currentUserId: number;
-    attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
+ async flawUpdate(payload: {
     isApproved?: boolean;
     isFLAFGenerated?: boolean;
     isGroundReportGenerated?: boolean;
@@ -52,50 +83,21 @@ export class WorkflowService {
     isRejected?: boolean;
     isRecommended?: boolean;
     isNotRecommended?: boolean;
-  }) {
-    // 1. Fetch Application Data
+    action: any;
+    remarks: string;
+    actionId: any;
+    attachments?: any;
+    applicationId: number;
+    currentUserId: number;
+  }, status: any, nextUserId: number, actionCode:string, nextUserRoleId: any, currentRoleId: number){
+   // 1. Fetch Application Data
     const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
       where: { id: payload.applicationId },
     });
     if (!application) {
       throw new NotFoundException('Application not found');
     }
-
-    // 1b. Fetch current user's roleId
-    const currentUser = await this.prisma.users.findUnique({
-      where: { id: payload.currentUserId },
-      select: { roleId: true },
-    });
-    if (!currentUser || !currentUser.roleId) {
-      throw new InternalServerErrorException(`Role for current user '${payload.currentUserId}' not found.`);
-    }
-    const currentRoleId = currentUser.roleId;
-
-    // 2. Validate User Permission using RolesActionsMapping
-    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
-    if (!hasPermission) {
-      throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
-    }
-
-    // 3. Determine next user and validate based on action type
-    let nextUserId: number | null 
-     const nextUserRoleId = await this.prisma.users.findUnique({
-      where: { id: payload.nextUserId },
-      select: { roleId: true },
-    });
-
-    const actionCode = payload.action.code.toUpperCase();
-
-    if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
-      nextUserId = payload.nextUserId;
-    }else{
-      throw new BadRequestException('nextUserId is required for this action.');
-    }
-     
-    // 4. Find corresponding status for this action
-    const status = await this.prisma.statuses.findFirst({
-      where: { code: payload.action.code }
-    });
+    
     const newStatusId = status ? status.id : application.workflowStatusId;
 
     // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
@@ -178,7 +180,182 @@ export class WorkflowService {
     });
 
     return updatedApplication;
-  }
+ }
+
+ async renewUpdate(payload: {
+    isApproved?: boolean;
+    isFLAFGenerated?: boolean;
+    isGroundReportGenerated?: boolean;
+    isPending?: boolean;
+    isReEnquiry?: boolean;
+    isReEnquiryDone?: boolean;
+    isRejected?: boolean;
+    isRecommended?: boolean;
+    isNotRecommended?: boolean;
+    action: any;
+    remarks: string;
+    actionId: any;
+    attachments?: any;
+    applicationId: number;
+    currentUserId: number;
+  }, status: any, nextUserId: number, actionCode:string, nextUserRoleId: any, currentRoleId: number){
+   // 1. Fetch Application Data
+    const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+      where: { id: payload.applicationId },
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+    
+    const newStatusId = status ? status.id : application.workflowStatusId;
+
+    // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
+    const updateData: any = {
+      workflowStatusId: newStatusId,
+      previousUserId: payload.currentUserId,
+      currentUserId: nextUserId,
+    };
+
+    // Set approval/rejection/recommendation flags based on action code
+    if (isApprovalAction(actionCode)) {
+      updateData.isApproved = true;
+      updateData.isPending = false;
+    } else if (isRejectionAction(actionCode)) {
+      updateData.isRejected = true;
+      updateData.isPending = false;
+    } else if (isRecommendAction(actionCode)) {
+      updateData.isRecommended = true;
+      updateData.isPending = false;
+    } else if (isNotRecommendAction(actionCode)) {
+      updateData.isNotRecommended = true;
+      updateData.isPending = false;
+    }
+
+    // Set flags based on specific action codes
+     if (isReEnquiryAction(actionCode)) {
+      updateData.isGroundReportGenerated = false;
+      updateData.isReEnquiry = true;
+    }
+
+    // Add optional boolean fields if provided in payload (can override the above)
+    if (payload.isApproved !== undefined) updateData.isApproved = payload.isApproved;
+    if (payload.isFLAFGenerated !== undefined) updateData.isFLAFGenerated = payload.isFLAFGenerated;
+    if (payload.isGroundReportGenerated !== undefined) updateData.isGroundReportGenerated = payload.isGroundReportGenerated;
+    if (payload.isPending !== undefined) updateData.isPending = payload.isPending;
+    if (payload.isReEnquiry !== undefined) updateData.isReEnquiry = payload.isReEnquiry;
+    if (payload.isReEnquiryDone !== undefined) updateData.isReEnquiryDone = payload.isReEnquiryDone;
+    if (payload.isRejected !== undefined) updateData.isRejected = payload.isRejected;
+    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
+    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
+    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
+    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
+    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
+    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
+
+    const updatedApplication = await this.prisma.renewalFormPersonalDetails.update({
+      where: { id: payload.applicationId },
+      data: updateData,
+    });
+
+    // 6. Add workflow history log
+    const previousUserIdForHistory = application.currentUserId || payload.currentUserId; // Who had it before
+    
+    // Determine actionTaken: preserve terminal action states (approved, rejected, recommended, not recommended)
+    let actionTaken = payload.action.code;
+    if (application.isApproved || updateData.isApproved) {
+      actionTaken = ACTION_CODES.APPROVED;
+    } else if (application.isRejected || updateData.isRejected) {
+      actionTaken = ACTION_CODES.REJECT;
+    } else if (application.isRecommended || updateData.isRecommended) {
+      actionTaken = ACTION_CODES.RECOMMEND;
+    } else if (application.isNotRecommended || updateData.isNotRecommended) {
+      actionTaken = ACTION_CODES.NOT_RECOMMEND;
+    }
+    
+    const workflowHistoryData: any = {
+      applicationId: payload.applicationId,
+      previousUserId: previousUserIdForHistory, // Who had the application before this action
+      nextUserId: nextUserId, // Who has it after (or who completed it)
+      actionTaken: actionTaken,
+      remarks: payload.remarks || '',
+      previousRoleId: previousUserIdForHistory ? (await this.prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
+      nextRoleId: nextUserRoleId?.roleId ,
+      actionesId: payload.actionId,
+      attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
+    };
+
+    await this.prisma.renewalApplicationsFormWorkflowHistories.create({
+      data: workflowHistoryData,
+    });
+
+    return updatedApplication;
+ }
+
+ async handleUserAction(payload: 
+  {
+    applicationId: number;
+    actionId: number;
+    action: any; // full action object from Actiones table
+    nextUserId?: number;
+    remarks: string;
+    currentUserId: number;
+    attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
+    isApproved?: boolean;
+    isFLAFGenerated?: boolean;
+    isGroundReportGenerated?: boolean;
+    isPending?: boolean;
+    isReEnquiry?: boolean;
+    isReEnquiryDone?: boolean;
+    isRejected?: boolean;
+    isRecommended?: boolean;
+    isNotRecommended?: boolean;
+  }, applicationType : string,)
+
+   {
+     // 1b. Fetch current user's roleId
+    const currentUser = await this.prisma.users.findUnique({
+      where: { id: payload.currentUserId },
+      select: { roleId: true },
+    });
+    if (!currentUser || !currentUser.roleId) {
+      throw new InternalServerErrorException(`Role for current user '${payload.currentUserId}' not found.`);
+    }
+    const currentRoleId = currentUser.roleId;
+
+    // 2. Validate User Permission using RolesActionsMapping
+    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
+    if (!hasPermission) {
+      throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
+    }
+     // 3. Determine next user and validate based on action type
+    let nextUserId: number | null 
+     const nextUserRoleId = await this.prisma.users.findUnique({
+      where: { id: payload.nextUserId },
+      select: { roleId: true },
+    });
+
+    const actionCode = payload.action.code.toUpperCase();
+
+    if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
+      nextUserId = payload.nextUserId;
+    }else{
+      throw new BadRequestException('nextUserId is required for this action.');
+    }
+    // 4. Find corresponding status for this action
+    const status = await this.prisma.statuses.findFirst({
+      where: { code: payload.action.code }
+    });
+     if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
+        this.renewUpdate(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+      } else{
+        this.flawUpdate(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+      }
+   
+    return {
+      success: true,
+      message: `${payload.action.code.toLowerCase()} performed successfully.`,  
+     }
+    }
 
 }
 
