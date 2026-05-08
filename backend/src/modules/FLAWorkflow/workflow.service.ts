@@ -73,7 +73,7 @@ export class WorkflowService {
     });
     return mapping !== null && mapping.isActive === true;
   }
- async flawUpdate(payload: {
+ async freshapplication(payload: {
     isApproved?: boolean;
     isFLAFGenerated?: boolean;
     isGroundReportGenerated?: boolean;
@@ -182,7 +182,7 @@ export class WorkflowService {
     return updatedApplication;
  }
 
- async renewUpdate(payload: {
+ async renewalapplication(payload: {
     isApproved?: boolean;
     isFLAFGenerated?: boolean;
     isGroundReportGenerated?: boolean;
@@ -346,9 +346,9 @@ export class WorkflowService {
       where: { code: payload.action.code }
     });
      if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
-        this.renewUpdate(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+        this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       } else{
-        this.flawUpdate(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+        this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       }
    
     return {
