@@ -1137,14 +1137,43 @@ export class ApplicationFormService {
               createdAt: 'desc'
             }
           });
+          // need to get renewal applications as well 
+          const renewalWorkflowHistories = await prisma.renewalApplicationsFormWorkflowHistories.findMany({
+            where: {
+              previousUserId: parsedUserId
+            },
+            select: {
+              id: true,
+              applicationId: true,
+              createdAt: true,
+              actionTaken: true,
+              remarks: true,
+              application: {
+                select: {
+                  id: true,
+                  acknowledgementNo: true,
+                  createdAt: true,
+                  firstName: true,
+                  middleName: true,
+                  lastName: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          }); 
+         const allworkflowHistories = [...workflowHistories.map(h => ({...h, applicationType: 'fresh' })),
+           ...renewalWorkflowHistories.map(h => ({...h, applicationType: 'renewal' }))
+          ];
 
-          if (workflowHistories.length === 0) {
+            if (allworkflowHistories.length === 0) {
             return [null, { total: 0, page, limit, data: [] }];
           }
 
           // Group by applicationId and keep only the latest action per application
           const latestActionsMap = new Map<number, any>();
-          for (const history of workflowHistories) {
+          for (const history of allworkflowHistories) {
             if (!latestActionsMap.has(history.applicationId)) {
               latestActionsMap.set(history.applicationId, history);
             }
@@ -1353,20 +1382,12 @@ export class ApplicationFormService {
         };
       });
 
-      // Get all unique workflowStatusIds from fresh license data
-      const uniqueWorkflowStatusIds = Array.from(
-        new Set((freshLicenseRawData || []).map((row: any) => row.workflowStatusId).filter(Boolean))
-      ) as number[];
-
       // Fetch Renewal License Applications grouped by workflowStatusId
       // (no pagination - get all renewals for the workflowStatusIds present in this page)
       let renewalByStatusId: Map<number, any[]> = new Map();
 
-      if (uniqueWorkflowStatusIds.length > 0) {
         const renewalRawData = await prisma.renewalFormPersonalDetails.findMany({
-          where: {
-            workflowStatusId: { in: uniqueWorkflowStatusIds }
-          },
+          where,
           select: {
             id: true,
             licenseNumber: true,
@@ -1411,6 +1432,7 @@ export class ApplicationFormService {
           },
           orderBy: { createdAt: 'desc' }
         });
+        console.log('Fetched renewalRawData:', renewalRawData);
 
         // Transform and group renewal data by workflowStatusId
         (renewalRawData || []).forEach((row: any) => {
@@ -1427,7 +1449,7 @@ export class ApplicationFormService {
           }
           renewalByStatusId.get(statusId)!.push(transformedRenewal);
         });
-      }
+      
 
       // Build renewalDataByStatus: Map renewal data by workflowStatusId with fresh license's currentUser
       const renewalDataByStatus: { [key: number]: any[] } = {};
