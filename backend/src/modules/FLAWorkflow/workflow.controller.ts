@@ -44,6 +44,11 @@ export class WorkflowController {
           description: 'Comments or notes for this action',
           example: 'Application reviewed and processing'
         },
+        applicationType:{
+          type : 'string',
+          description: 'for Fresh and Renewal Appliaction',
+          example: 'FreshLicenseApplicationForm'
+        },
         attachments: {
           type: 'array',
           description: 'Optional attachments for this action',
@@ -69,10 +74,10 @@ export class WorkflowController {
               }
             }
           }
-        }
       }
-    },
-    examples: {
+    }
+  },
+  examples: {
       'Standard Action Payload': {
         summary: 'Standard payload for any workflow action',
         description: 'Use this payload structure for all actions. Only nextUserId is required when actionId is for "forward" action.',
@@ -81,6 +86,7 @@ export class WorkflowController {
           actionId: 1,
           nextUserId: 5,
           remarks: 'Application reviewed and processing',
+          applicationType: 'FreshLicenseApplicationForm',
           attachments: [
             {
               name: 'verification_report.pdf',
@@ -175,7 +181,7 @@ export class WorkflowController {
         currentUserId: Number(user.user_id),
         nextUserId: body.nextUserId !== undefined && body.nextUserId !== null ? Number(body.nextUserId) : undefined,
         attachments: body.attachments || [],
-      });
+      }, body.applicationType);
       return {
         success: true,
         message: `${action.code.toLowerCase()} performed successfully.`,

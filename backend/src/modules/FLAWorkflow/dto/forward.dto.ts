@@ -41,4 +41,7 @@ export class ForwardDto {
   @IsString()
   @IsNotEmpty()
   remarks!: string;
+  
+  @IsString()
+  applicationType!: string;
 }
