@@ -512,13 +512,12 @@ export class RenewalFormService {
    * Helper method to map application to response
    */
   private mapApplicationToResponse(application: any): RenewalFormResponse {
+    const applicantName = `${application.firstName}${application.middleName ? ' ' + application.middleName : ''}${application.lastName ? ' ' + application.lastName : ''}`;
     return {
       id: application.id,
       acknowledgementNo: application.acknowledgementNo,
       licenseNumber: application.licenseNumber,
-      firstName: application.firstName,
-      middleName: application.middleName,
-      lastName: application.lastName,
+      applicantName: applicantName,
       parentOrSpouseName: application.parentOrSpouseName,
       sex: application.sex,
       dateOfBirth: application.dateOfBirth,

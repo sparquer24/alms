@@ -24,9 +24,7 @@ export interface RenewalFormResponse {
   id: number;
   acknowledgementNo?: string;
   licenseNumber: string;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
+  applicantName: string;
   parentOrSpouseName: string;
   sex: string;
   dateOfBirth?: Date;
