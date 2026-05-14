@@ -1374,11 +1374,19 @@ export class ApplicationFormService {
       // Transform Fresh License data
       const freshLicenseTransformed = (freshLicenseRawData || []).map((row: any) => {
         const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+        const { firstName, middleName, lastName, ...rest } = row;
         
         return {
-          ...row,
+          id: rest.id,
+          almsLicenseId: rest.almsLicenseId,
+          acknowledgementNo: rest.acknowledgementNo,
           applicantName: parts.join(' '),
-          applicationType: 'Fresh License'
+          applicationType: 'Fresh License',
+          createdAt: rest.createdAt,
+          workflowStatusId: rest.workflowStatusId,
+          workflowStatus: rest.workflowStatus,
+          currentUser: rest.currentUser,
+          previousUser: rest.previousUser
         };
       });
 
@@ -1432,15 +1440,22 @@ export class ApplicationFormService {
           },
           orderBy: { createdAt: 'desc' }
         });
-        console.log('Fetched renewalRawData:', renewalRawData);
 
         // Transform and group renewal data by workflowStatusId
         (renewalRawData || []).forEach((row: any) => {
           const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+          const { firstName, middleName, lastName, ...rest } = row;
           const transformedRenewal = {
-            ...row,
+            id: rest.id,
+            licenseNumber: rest.licenseNumber,
+            acknowledgementNo: rest.acknowledgementNo,
             applicantName: parts.join(' '),
-            applicationType: 'Renewal License'
+            applicationType: 'Renewal License',
+            createdAt: rest.createdAt,
+            workflowStatusId: rest.workflowStatusId,
+            workflowStatus: rest.workflowStatus,
+            currentUser: rest.currentUser,
+            previousUser: rest.previousUser
           };
 
           const statusId = row.workflowStatusId;
