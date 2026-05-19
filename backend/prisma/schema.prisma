@@ -183,6 +183,7 @@ model Users {
   workflowHistoryPrevious       FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousUser")
   renewalWorkflowHistoryNext    RenewalApplicationsFormWorkflowHistories[]     @relation("RenewalWorkflowNextUser")
   renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]    @relation("RenewalWorkflowPreviousUser")
+  mergeAuditLogs                LicensesMergeAuditLog[]                         @relation("MergeAuditLogUser")
   flowMappingUpdates            RoleFlowMapping[]
   district                      Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                      Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
@@ -270,6 +271,7 @@ model FreshLicenseApplicationPersonalDetails {
   previousUser               Users?                                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
   workflowStatus             Statuses?                                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
   workflowHistories          FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowHistories")
+  mergeAuditLogs             LicensesMergeAuditLog[]                         @relation("FreshLicenseMergeLog")
 
   @@index([aadharNumber])
 }
@@ -499,6 +501,7 @@ model RenewalFormPersonalDetails {
   presentAddress             RenewalAddressesAndContactDetails?   @relation("RenewalPresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
   previousUser               Users?                               @relation("RenewalPreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
   workflowStatus             Statuses?                            @relation("RenewalApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
+  mergeAuditLogs             LicensesMergeAuditLog[]              @relation("RenewalLicenseMergeLog")
 
   @@index([aadharNumber])
   @@index([licenseNumber])
@@ -590,4 +593,25 @@ model RenewalApplicationsFormWorkflowHistories {
   previousRole   Roles?    @relation("RenewalWorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
   previousUser   Users     @relation("RenewalWorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
   application    RenewalFormPersonalDetails             @relation("RenewalWorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+// Merge Audit Log Model - Tracks all merge operations between renewal and fresh licenses
+model LicensesMergeAuditLog {
+  id               Int                                 @id @default(autoincrement())
+  mergeId          String                              @unique
+  freshLicenseId   Int
+  renewalLicenseId Int
+  mergedFields     String?                             // JSON stringified array of merged field names
+  mergedBy         Int?
+  mergedAt         DateTime                            @default(now())
+  status           String                              @default("COMPLETED")
+  remarks          String?
+  createdAt        DateTime                            @default(now())
+  freshLicense     FreshLicenseApplicationPersonalDetails @relation("FreshLicenseMergeLog", fields: [freshLicenseId], references: [id], onDelete: Cascade)
+  renewalLicense   RenewalFormPersonalDetails          @relation("RenewalLicenseMergeLog", fields: [renewalLicenseId], references: [id], onDelete: Cascade)
+  mergedByUser     Users?                              @relation("MergeAuditLogUser", fields: [mergedBy], references: [id], onDelete: SetNull)
+
+  @@index([freshLicenseId])
+  @@index([renewalLicenseId])
+  @@index([mergeId])
 }
