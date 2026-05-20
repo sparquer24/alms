@@ -61,6 +61,8 @@ interface RenewalFormContextType {
   resetForm: () => void;
   goToNextStep: () => void;
   goToPreviousStep: () => void;
+  registerRefresh?: (fn: (() => Promise<void> | void) | null) => void;
+  invokeRefresh?: () => Promise<void>;
 }
 
 const RenewalFormContext = createContext<RenewalFormContextType | undefined>(undefined);
@@ -130,6 +132,24 @@ export const RenewalFormProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, currentStep: Math.max(0, prev.currentStep - 1) }));
   }, []);
 
+  const refreshCallbackRef = React.useRef<(() => Promise<void> | void) | null>(null);
+
+  const registerRefresh = useCallback((fn: (() => Promise<void> | void) | null) => {
+    refreshCallbackRef.current = fn;
+  }, []);
+
+  const invokeRefresh = useCallback(async () => {
+    if (refreshCallbackRef.current) {
+      try {
+        setIsLoading(true);
+        const r = refreshCallbackRef.current();
+        if (r && typeof (r as Promise<void>).then === 'function') await r as Promise<void>;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  }, [setIsLoading]);
+
   const value: RenewalFormContextType = {
     state,
     setCurrentStep,
@@ -144,6 +164,8 @@ export const RenewalFormProvider = ({ children }: { children: ReactNode }) => {
     resetForm,
     goToNextStep,
     goToPreviousStep,
+    registerRefresh,
+    invokeRefresh,
   };
 
   return (

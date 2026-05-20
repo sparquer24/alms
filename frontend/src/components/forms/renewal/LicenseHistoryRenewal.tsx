@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Input, TextArea } from '../elements/Input';
-import FormFooter from '../elements/footer';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalForm } from './RenewalFormContext';
 import { getNextRenewalRoute, getPreviousRenewalRoute } from './renewalRoutes';
@@ -19,15 +19,18 @@ const initialState: LicenseHistoryData = {
 const LicenseHistoryRenewal: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('id') || searchParams?.get('applicantId');
-
-  const {
-    state,
+  const { state,
     updateFormData,
     setIsSubmitting,
     setSubmitError,
     setSubmitSuccess,
+    registerRefresh,
   } = useRenewalForm();
+
+  // Prefer renewal application id from context
+  const applicantId = state.applicantId;
+
+  
 
   const [appliedBefore, setAppliedBefore] = useState('no');
   const [appliedDetails, setAppliedDetails] = useState({ date: '', authority: '', result: '' });
@@ -108,6 +111,49 @@ const LicenseHistoryRenewal: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId]);
 
+  const handleRefreshData = async () => {
+    if (!applicantId) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { FormDataLoader } = await import('../../../utils/formDataLoader');
+      const data = await FormDataLoader.loadAllSections(applicantId);
+      if (data.licenseHistory && data.licenseHistory.licenseHistories && data.licenseHistory.licenseHistories.length > 0) {
+        const lh = data.licenseHistory.licenseHistories[0];
+        setAppliedBefore(lh.hasAppliedBefore ? 'yes' : 'no');
+        setAppliedDetails({
+          date: lh.dateAppliedFor ? new Date(lh.dateAppliedFor).toISOString().split('T')[0] : '',
+          authority: lh.previousAuthorityName || '',
+          result: lh.previousResult || '',
+        });
+        setSuspended(lh.hasLicenceSuspended ? 'yes' : 'no');
+        setSuspendedDetails({
+          authority: lh.suspensionAuthorityName || '',
+          reason: lh.suspensionReason || '',
+        });
+        setFamily(lh.hasFamilyLicence ? 'yes' : 'no');
+        setFamilyDetails([{ name: lh.familyMemberName || '', licenseNumber: lh.familyLicenceNumber || '', weapons: lh.familyWeaponsEndorsed || [0] }]);
+        setSafePlace(lh.hasSafePlace ? 'yes' : 'no');
+        setSafePlaceDetails(lh.safePlaceDetails || '');
+        setTraining(lh.hasTraining ? 'yes' : 'no');
+        setTrainingDetails(lh.trainingDetails || '');
+        updateFormData('licenseHistory', data.licenseHistory);
+        setSubmitSuccess('Data refreshed');
+        setTimeout(() => setSubmitSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      setSubmitError('Failed to refresh data.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (registerRefresh) registerRefresh(handleRefreshData);
+    return () => { if (registerRefresh) registerRefresh(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicantId]);
+
   const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setAppliedDetails(prev => ({ ...prev, [name]: value }));
@@ -182,59 +228,11 @@ const LicenseHistoryRenewal: React.FC = () => {
 
 
   return (
-    <form className="p-6">
+    <form className="">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-2">License History</h2>
-        <p className="text-sm text-gray-600">Step 5 of 10 - Renewal Application</p>
       </div>
-      {applicantId && (
-        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-          <div className="flex flex-col">
-            <strong>Application ID: {applicantId}</strong>
-          </div>
-          <button
-            type="button"
-            onClick={async () => {
-              setIsSubmitting(true);
-              setSubmitError(null);
-              try {
-                const { FormDataLoader } = await import('../../../utils/formDataLoader');
-                const data = await FormDataLoader.loadAllSections(applicantId);
-                if (data.licenseHistory && data.licenseHistory.licenseHistories && data.licenseHistory.licenseHistories.length > 0) {
-                  const lh = data.licenseHistory.licenseHistories[0];
-                  setAppliedBefore(lh.hasAppliedBefore ? 'yes' : 'no');
-                  setAppliedDetails({
-                    date: lh.dateAppliedFor ? new Date(lh.dateAppliedFor).toISOString().split('T')[0] : '',
-                    authority: lh.previousAuthorityName || '',
-                    result: lh.previousResult || '',
-                  });
-                  setSuspended(lh.hasLicenceSuspended ? 'yes' : 'no');
-                  setSuspendedDetails({
-                    authority: lh.suspensionAuthorityName || '',
-                    reason: lh.suspensionReason || '',
-                  });
-                  setFamily(lh.hasFamilyLicence ? 'yes' : 'no');
-                  setFamilyDetails([{ name: lh.familyMemberName || '', licenseNumber: lh.familyLicenceNumber || '', weapons: lh.familyWeaponsEndorsed || [0] }]);
-                  setSafePlace(lh.hasSafePlace ? 'yes' : 'no');
-                  setSafePlaceDetails(lh.safePlaceDetails || '');
-                  setTraining(lh.hasTraining ? 'yes' : 'no');
-                  setTrainingDetails(lh.trainingDetails || '');
-                  updateFormData('licenseHistory', data.licenseHistory);
-                  setSubmitSuccess('Data refreshed');
-                  setTimeout(() => setSubmitSuccess(null), 3000);
-                }
-              } catch (err: any) {
-                setSubmitError('Failed to refresh data.');
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Refresh Data
-          </button>
-        </div>
-      )}
+      {/* Application ID and refresh moved to layout header */}
 
       {state.submitSuccess && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">{state.submitSuccess}</div>
@@ -410,12 +408,6 @@ const LicenseHistoryRenewal: React.FC = () => {
         )}
       </div>
 
-      <FormFooter
-        onSaveToDraft={handleSaveToDraft}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        isLoading={state.isSubmitting}
-      />
     </form>
   );
 };

@@ -7,7 +7,6 @@ export const RENEWAL_ROUTES = {
   LICENSE_DETAILS: '/forms/renewal/license-details',
   BIOMETRIC_INFO: '/forms/renewal/biometric-information',
   DOCUMENTS_UPLOAD: '/forms/renewal/documents-upload',
-  PREVIEW: '/forms/renewal/preview',
   DECLARATION: '/forms/renewal/declaration',
 };
 
@@ -20,8 +19,7 @@ export const RENEWAL_STEPS = [
   { index: 5, label: 'License Details', route: RENEWAL_ROUTES.LICENSE_DETAILS },
   { index: 6, label: 'Biometric Information', route: RENEWAL_ROUTES.BIOMETRIC_INFO },
   { index: 7, label: 'Documents Upload', route: RENEWAL_ROUTES.DOCUMENTS_UPLOAD },
-  { index: 8, label: 'Preview', route: RENEWAL_ROUTES.PREVIEW },
-  { index: 9, label: 'Declaration & Submit', route: RENEWAL_ROUTES.DECLARATION },
+  { index: 8, label: 'Declaration & Submit', route: RENEWAL_ROUTES.DECLARATION },
 ];
 
 export const getNextRenewalRoute = (currentRoute: string): string | null => {

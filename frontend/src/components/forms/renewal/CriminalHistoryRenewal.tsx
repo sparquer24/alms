@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
-import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalForm } from './RenewalFormContext';
 import { getNextRenewalRoute, getPreviousRenewalRoute } from './renewalRoutes';
@@ -35,15 +34,8 @@ const validateCriminalHistory = (formData: CriminalHistoryData): string[] => {
 const CriminalHistoryRenewal: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('id') || searchParams?.get('applicantId');
-
-  const {
-    state,
-    updateFormData,
-    setIsSubmitting,
-    setSubmitError,
-    setSubmitSuccess,
-  } = useRenewalForm();
+  const { state, updateFormData, setIsSubmitting, setSubmitError, setSubmitSuccess } = useRenewalForm();
+  const applicantId = state.applicantId;
 
   const [convicted, setConvicted] = useState('no');
   const [provisions, setProvisions] = useState([{ ...initialProvision }]);
@@ -196,7 +188,7 @@ const CriminalHistoryRenewal: React.FC = () => {
   };
 
   return (
-    <form className="p-6">
+    <form className="">
       <h2 className="text-xl font-bold mb-4">Criminal History</h2>
 
       {state.submitSuccess && (
@@ -328,12 +320,6 @@ const CriminalHistoryRenewal: React.FC = () => {
         )}
       </div>
 
-      <FormFooter
-        onSaveToDraft={handleSaveToDraft}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        isLoading={state.isSubmitting}
-      />
     </form>
   );
 };

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { FormDataLoader } from '../utils/formDataLoader';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
 import { useAuthSync } from '../hooks/useAuthSync';
@@ -10,14 +9,14 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
+import { ApplicationService } from '../api/applicationService';
 
 interface HeaderProps {
-  onCreateApplication?: (typeKey: string) => void;
   onShowMessage?: (msg: string, type?: 'info' | 'error' | 'success') => void;
 }
 
 const Header = (props: HeaderProps) => {
-  const { onCreateApplication, onShowMessage } = props;
+  const { onShowMessage } = props;
   const { showHeader, showSidebar } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
@@ -60,15 +59,19 @@ const Header = (props: HeaderProps) => {
     setRenewalLoading(true);
     setRenewalError(null);
     try {
-      const result = await FormDataLoader.checkDataAvailability(data.applicationId);
-      if (result.exists) {
-        setShowRenewalModal(false);
-        router.push(`/forms/renewal/personal-information?applicationId=${encodeURIComponent(data.applicationId)}`);
-      } else {
+      const response = await ApplicationService.getApplication(data.applicationId);
+      const applicationData = response?.data ?? response;
+
+      if (!applicationData) {
         setRenewalError('Invalid Application ID. Please create a Fresh Application.');
+        return;
       }
-    } catch (err: any) {
-      setRenewalError('Error validating Application ID. Please try again.');
+
+      setShowRenewalModal(false);
+      router.push(`/forms/renewal?id=${encodeURIComponent(data.applicationId)}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error validating Application ID. Please try again.';
+      setRenewalError(message);
     } finally {
       setRenewalLoading(false);
     }

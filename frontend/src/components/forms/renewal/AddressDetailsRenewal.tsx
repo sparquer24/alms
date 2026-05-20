@@ -4,10 +4,10 @@ import { Input } from '../elements/Input';
 import { TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { LocationHierarchy } from '../elements/LocationHierarchy';
-import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalForm } from './RenewalFormContext';
 import { getNextRenewalRoute, getPreviousRenewalRoute } from './renewalRoutes';
+import { patchData } from '../../../api/axiosConfig';
 
 interface AddressFormData {
   presentAddress: string;
@@ -76,8 +76,6 @@ const validateAddressInfo = (formData: AddressFormData): string[] => {
 const AddressDetailsRenewal: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('id') || searchParams?.get('applicantId');
-
   const {
     state,
     updateFormData,
@@ -85,7 +83,10 @@ const AddressDetailsRenewal: React.FC = () => {
     setIsSubmitting,
     setSubmitError,
     setSubmitSuccess,
+    registerRefresh,
   } = useRenewalForm();
+
+  const applicantId = state?.applicantId;
 
   const [form, setForm] = useState<AddressFormData>(initialState);
 
@@ -98,7 +99,8 @@ const AddressDetailsRenewal: React.FC = () => {
           // Try to get from context first
           const contextData = state.formData.addressDetails;
           if (contextData && Object.keys(contextData).length > 0) {
-            setForm(prev => ({ ...prev, ...contextData }));
+            const normalized = normalizeAddressContext(contextData);
+            setForm(prev => ({ ...prev, ...normalized }));
             setSubmitSuccess('Address data loaded successfully');
             setTimeout(() => setSubmitSuccess(null), 3000);
           } else {
@@ -106,7 +108,8 @@ const AddressDetailsRenewal: React.FC = () => {
             const { FormDataLoader } = await import('../../../utils/formDataLoader');
             const data = await FormDataLoader.loadAllSections(applicantId);
             if (data.addressDetails) {
-              setForm(prev => ({ ...prev, ...data.addressDetails }));
+              const normalized = normalizeAddressContext(data.addressDetails);
+              setForm(prev => ({ ...prev, ...normalized }));
               updateFormData('addressDetails', data.addressDetails);
               setSubmitSuccess('Address data loaded successfully');
               setTimeout(() => setSubmitSuccess(null), 3000);
@@ -122,6 +125,66 @@ const AddressDetailsRenewal: React.FC = () => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId]);
+
+  const handleRefreshData = async () => {
+    if (!applicantId) return;
+    setIsLoading(true);
+    setSubmitError(null);
+    try {
+      const { FormDataLoader } = await import('../../../utils/formDataLoader');
+      const data = await FormDataLoader.loadAllSections(applicantId);
+      if (data.addressDetails) {
+        const normalized = normalizeAddressContext(data.addressDetails);
+        setForm(prev => ({ ...prev, ...normalized }));
+        updateFormData('addressDetails', data.addressDetails);
+        setSubmitSuccess('Data refreshed');
+        setTimeout(() => setSubmitSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      setSubmitError('Failed to refresh data.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (registerRefresh) registerRefresh(handleRefreshData);
+    return () => { if (registerRefresh) registerRefresh(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicantId]);
+
+  const normalizeAddressContext = (ctx: any): AddressFormData => {
+    // ctx may be in backend shape (presentAddress: { addressLine, stateId, ... })
+    // or already flattened. Normalize to the flattened AddressFormData used by this component.
+    const present = ctx.presentAddress || ctx.present_address || {};
+    const permanent = ctx.permanentAddress || ctx.permanent_address || {};
+
+    const normalized: AddressFormData = {
+      presentAddress: typeof present === 'string' ? present : (present.addressLine || ''),
+      presentState: typeof present === 'string' ? (ctx.presentState || '') : (present.stateId ? String(present.stateId) : ''),
+      presentDistrict: typeof present === 'string' ? (ctx.presentDistrict || '') : (present.districtId ? String(present.districtId) : ''),
+      presentZone: typeof present === 'string' ? (ctx.presentZone || '') : (present.zoneId ? String(present.zoneId) : ''),
+      presentDivision: typeof present === 'string' ? (ctx.presentDivision || '') : (present.divisionId ? String(present.divisionId) : ''),
+      presentPoliceStation: typeof present === 'string' ? (ctx.presentPoliceStation || '') : (present.policeStationId ? String(present.policeStationId) : ''),
+      presentSince: typeof present === 'string' ? (ctx.presentSince || '') : (present.sinceResiding ? new Date(present.sinceResiding).toISOString().split('T')[0] : ''),
+
+      sameAsPresent: ctx.sameAsPresent || false,
+
+      permanentAddress: typeof permanent === 'string' ? permanent : (permanent.addressLine || ''),
+      permanentState: typeof permanent === 'string' ? (ctx.permanentState || '') : (permanent.stateId ? String(permanent.stateId) : ''),
+      permanentDistrict: typeof permanent === 'string' ? (ctx.permanentDistrict || '') : (permanent.districtId ? String(permanent.districtId) : ''),
+      permanentZone: typeof permanent === 'string' ? (ctx.permanentZone || '') : (permanent.zoneId ? String(permanent.zoneId) : ''),
+      permanentDivision: typeof permanent === 'string' ? (ctx.permanentDivision || '') : (permanent.divisionId ? String(permanent.divisionId) : ''),
+      permanentPoliceStation: typeof permanent === 'string' ? (ctx.permanentPoliceStation || '') : (permanent.policeStationId ? String(permanent.policeStationId) : ''),
+
+      telephoneOffice: ctx.telephoneOffice || ctx.telephone_office || '',
+      telephoneResidence: ctx.telephoneResidence || ctx.telephone_residence || '',
+      officeMobileNumber: ctx.officeMobileNumber || ctx.office_mobile_number || '',
+      alternativeMobile: ctx.alternativeMobile || ctx.alternative_mobile || '',
+    };
+
+    return normalized;
+  };
   // Add a Refresh Data button similar to PersonalInformationRenewal
   // Place this button above the form fields, after the step header
   // (You may adjust placement as needed in your UI)
@@ -156,10 +219,33 @@ const AddressDetailsRenewal: React.FC = () => {
     setSubmitError(null);
     try {
       updateFormData('addressDetails', form);
+
+      // If applicationId exists, update via PATCH API
+      if (applicantId && Number(applicantId)) {
+        const applicationId = Number(applicantId);
+        const payload = {
+          addressDetails: {
+            addressLine: form.presentAddress,
+            stateId: parseInt(form.presentState) || 1,
+            districtId: parseInt(form.presentDistrict) || 1,
+            policeStationId: parseInt(form.presentPoliceStation) || 1,
+            zoneId: parseInt(form.presentZone) || 1,
+            divisionId: parseInt(form.presentDivision) || 1,
+            sinceResiding: form.presentSince,
+            telephoneOffice: form.telephoneOffice,
+            telephoneResidence: form.telephoneResidence,
+            officeMobileNumber: form.officeMobileNumber,
+            alternativeMobile: form.alternativeMobile,
+          },
+        };
+
+        await patchData(`/renewal-forms/${applicationId}`, payload);
+      }
+
       setSubmitSuccess('Address saved to draft!');
       setTimeout(() => setSubmitSuccess(null), 3000);
-    } catch (error) {
-      setSubmitError('Failed to save address');
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to save address');
     } finally {
       setIsSubmitting(false);
     }
@@ -172,10 +258,42 @@ const AddressDetailsRenewal: React.FC = () => {
       return;
     }
 
-    updateFormData('addressDetails', form);
-    const nextRoute = getNextRenewalRoute('/forms/renewal/address-details');
-    if (nextRoute) {
-      router.push(`${nextRoute}${applicantId ? `?id=${applicantId}` : ''}`);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      updateFormData('addressDetails', form);
+
+      // If applicationId exists, update via PATCH API
+      if (applicantId && Number(applicantId)) {
+        const applicationId = Number(applicantId);
+        const payload = {
+          addressDetails: {
+            addressLine: form.presentAddress,
+            stateId: parseInt(form.presentState) || 1,
+            districtId: parseInt(form.presentDistrict) || 1,
+            policeStationId: parseInt(form.presentPoliceStation) || 1,
+            zoneId: parseInt(form.presentZone) || 1,
+            divisionId: parseInt(form.presentDivision) || 1,
+            sinceResiding: form.presentSince,
+            telephoneOffice: form.telephoneOffice,
+            telephoneResidence: form.telephoneResidence,
+            officeMobileNumber: form.officeMobileNumber,
+            alternativeMobile: form.alternativeMobile,
+          },
+        };
+
+        await patchData(`/renewal-forms/${applicationId}`, payload);
+      }
+
+      const nextRoute = getNextRenewalRoute('/forms/renewal/address-details');
+      if (nextRoute) {
+        router.push(`${nextRoute}${applicantId ? `?id=${applicantId}` : ''}`);
+      }
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to save and proceed to next step');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -199,42 +317,11 @@ const AddressDetailsRenewal: React.FC = () => {
 
 
   return (
-    <form className="p-6">
+    <form className="">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-2">Address Details</h2>
-        <p className="text-sm text-gray-600">Step 2 of 10 - Renewal Application</p>
       </div>
-      {applicantId && (
-        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-          <div className="flex flex-col">
-            <strong>Application ID: {applicantId}</strong>
-          </div>
-          <button
-            type="button"
-            onClick={async () => {
-              setIsLoading(true);
-              setSubmitError(null);
-              try {
-                const { FormDataLoader } = await import('../../../utils/formDataLoader');
-                const data = await FormDataLoader.loadAllSections(applicantId);
-                if (data.addressDetails) {
-                  setForm(prev => ({ ...prev, ...data.addressDetails }));
-                  updateFormData('addressDetails', data.addressDetails);
-                  setSubmitSuccess('Data refreshed');
-                  setTimeout(() => setSubmitSuccess(null), 3000);
-                }
-              } catch (err: any) {
-                setSubmitError('Failed to refresh data.');
-              } finally {
-                setIsLoading(false);
-              }
-            }}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Refresh Data
-          </button>
-        </div>
-      )}
+      {/* Application ID and Refresh moved to layout header */}
 
       {state.submitSuccess && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
@@ -366,12 +453,6 @@ const AddressDetailsRenewal: React.FC = () => {
         </div>
       </div>
 
-      <FormFooter
-        onSaveToDraft={handleSaveToDraft}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        isLoading={state.isSubmitting}
-      />
     </form>
   );
 };

@@ -1,8 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Input } from '../elements/Input';
-import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalForm } from './RenewalFormContext';
 import { getNextRenewalRoute, getPreviousRenewalRoute } from './renewalRoutes';
@@ -41,9 +39,8 @@ const mockPrefill: BiometricData = {
 const BiometricInformationRenewal: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('id') || searchParams?.get('applicantId');
-
-  const { state, updateFormData, setIsSubmitting, setSubmitError, setSubmitSuccess } = useRenewalForm();
+  const { state, updateFormData, setIsSubmitting, setSubmitError, setSubmitSuccess, registerRefresh } = useRenewalForm();
+  const applicantId = state.applicantId;
   const [form, setForm] = useState<BiometricData>(initialState);
   const [streamActive, setStreamActive] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -56,6 +53,32 @@ const BiometricInformationRenewal: React.FC = () => {
       setSubmitSuccess('Biometric data loaded');
       setTimeout(() => setSubmitSuccess(null), 3000);
     }
+  }, [applicantId]);
+
+  const handleRefreshData = async () => {
+    if (!applicantId) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { FormDataLoader } = await import('../../../utils/formDataLoader');
+      const data = await FormDataLoader.loadAllSections(applicantId);
+      if (data.biometricInformation) {
+        setForm(prev => ({ ...prev, ...data.biometricInformation }));
+        updateFormData('biometricInformation', data.biometricInformation);
+        setSubmitSuccess('Data refreshed');
+        setTimeout(() => setSubmitSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      setSubmitError('Failed to refresh data.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (registerRefresh) registerRefresh(handleRefreshData);
+    return () => { if (registerRefresh) registerRefresh(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -114,22 +137,10 @@ const BiometricInformationRenewal: React.FC = () => {
   };
 
   return (
-    <form className="p-6 space-y-6">
+    <form className="">
       <h2 className="text-xl font-bold">Biometric Information</h2>
 
-      {(applicantId || state.almsLicenseId) && (
-        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-          <div className="flex flex-col">
-            {state.almsLicenseId && <strong className="text-sm">License ID: {state.almsLicenseId}</strong>}
-          </div>
-          <button
-            type="button"
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Refresh Data
-          </button>
-        </div>
-      )}
+      {/* Application ID and refresh moved to layout header */}
 
       {state.submitSuccess && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">{state.submitSuccess}</div>
@@ -251,12 +262,6 @@ const BiometricInformationRenewal: React.FC = () => {
         </div>
       </div>
 
-      <FormFooter
-        onSaveToDraft={handleSaveToDraft}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        isLoading={state.isSubmitting}
-      />
     </form>
   );
 };

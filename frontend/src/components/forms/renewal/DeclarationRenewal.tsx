@@ -1,15 +1,14 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { Checkbox } from '../elements/Checkbox';
+import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Frown } from 'lucide-react';
+import { Checkbox } from '../elements/Checkbox';
+import RenewalFooter from '../elements/footer';
+import SuccessModal from '../../modals/SuccessModal';
+import { patchData, postData } from '../../../api/axiosConfig';
+import { useRenewalForm } from './RenewalFormContext';
 
 const FrownFixed = Frown as any;
-import FormFooter from '../elements/footer';
-import { ApplicationService } from '../../../api/applicationService';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { patchData } from '../../../api/axiosConfig';
-import { RENEWAL_ROUTES } from './renewalRoutes';
-import SuccessModal from '../../modals/SuccessModal';
 
 const initialState = {
   declareTrue: false,
@@ -17,32 +16,175 @@ const initialState = {
   declareTerms: false,
 };
 
+const getLicenseDetail = (raw: any) => {
+  if (!raw) return {};
+  if (Array.isArray(raw)) return raw[0] || {};
+  if (Array.isArray(raw.licenseDetails)) return raw.licenseDetails[0] || {};
+  return raw;
+};
+
+const buildSubmitPayload = (args: {
+  applicationId: number | null;
+  personal: Record<string, any>;
+  addressCtx: Record<string, any>;
+  occupationCtx: Record<string, any>;
+  licenseDetail: Record<string, any>;
+  form: typeof initialState;
+}) => {
+  const { applicationId, personal, addressCtx, occupationCtx, licenseDetail, form } = args;
+
+  return {
+    applicationId,
+    personalDetails: {
+      firstName: personal.firstName ?? '',
+      middleName: personal.middleName ?? '',
+      lastName: personal.lastName ?? '',
+      parentOrSpouseName: personal.parentOrSpouseName ?? '',
+      sex: personal.sex ?? '',
+      dateOfBirth: personal.dateOfBirth ?? null,
+      dobInWords: personal.dobInWords ?? '',
+      panNumber: personal.panNumber ?? '',
+      aadharNumber: personal.aadharNumber ?? '',
+    },
+    addressDetails: {
+      addressLine: addressCtx.addressLine || addressCtx.presentAddress?.addressLine || '',
+      stateId: addressCtx.presentState || addressCtx.presentAddress?.stateId || addressCtx.stateId || null,
+      districtId: addressCtx.presentDistrict || addressCtx.presentAddress?.districtId || addressCtx.districtId || null,
+      policeStationId: addressCtx.presentPoliceStation || addressCtx.presentAddress?.policeStationId || null,
+      zoneId: addressCtx.presentZone || addressCtx.presentAddress?.zoneId || null,
+      divisionId: addressCtx.presentDivision || addressCtx.presentAddress?.divisionId || null,
+      sinceResiding: addressCtx.presentSince || addressCtx.presentAddress?.sinceResiding || null,
+      telephoneOffice: addressCtx.telephoneOffice || addressCtx.presentAddress?.telephoneOffice || '',
+      telephoneResidence: addressCtx.telephoneResidence || addressCtx.presentAddress?.telephoneResidence || '',
+      officeMobileNumber: addressCtx.officeMobileNumber || addressCtx.presentAddress?.officeMobileNumber || '',
+      alternativeMobile: addressCtx.alternativeMobile || addressCtx.presentAddress?.alternativeMobile || '',
+    },
+    occupationAndBusiness: {
+      occupation: occupationCtx.occupation || '',
+      officeAddress: occupationCtx.officeAddress || '',
+      stateId: occupationCtx.officeState || occupationCtx.stateId || null,
+      districtId: occupationCtx.officeDistrict || occupationCtx.districtId || null,
+      cropLocation: occupationCtx.cropLocation || '',
+      areaUnderCultivation: occupationCtx.areaUnderCultivation || null,
+    },
+    licenseDetails: {
+      needForLicense: licenseDetail.needForLicense || '',
+      armsCategory: licenseDetail.armsCategory || '',
+      areaOfValidity: licenseDetail.areaOfValidity || '',
+      ammunitionDescription: licenseDetail.ammunitionDescription || '',
+      specialConsiderationReason: licenseDetail.specialConsiderationReason || '',
+      licencePlaceArea: licenseDetail.licencePlaceArea || '',
+      requestedWeaponIds: licenseDetail.requestedWeaponIds || (licenseDetail.requestedWeapons ? licenseDetail.requestedWeapons.map((w: any) => w.id) : []),
+    },
+    acceptanceFlags: {
+      isDeclarationAccepted: form.declareTrue,
+      isAwareOfLegalConsequences: form.declareFalseInfo,
+      isTermsAccepted: form.declareTerms,
+    },
+    isSubmit: true,
+  };
+};
+
+const buildCreatePayload = (args: {
+  applicationId: number | null;
+  licenseNumber: string;
+  idToUse: string | null;
+  personal: Record<string, any>;
+}) => {
+  const { applicationId, licenseNumber, idToUse, personal } = args;
+  return {
+    applicationId,
+    licenseNumber: licenseNumber || undefined,
+    acknowledgementNo: idToUse,
+    firstName: personal.firstName || '',
+    middleName: personal.middleName || '',
+    lastName: personal.lastName || '',
+    parentOrSpouseName: personal.parentOrSpouseName || '',
+    sex: personal.sex || '',
+    dateOfBirth: personal.dateOfBirth || null,
+    dobInWords: personal.dobInWords || '',
+    panNumber: personal.panNumber || '',
+    aadharNumber: personal.aadharNumber || '',
+    filledBy: personal.filledBy || '',
+  };
+};
+
+const getRenewalMatches = (searchResult: any) => {
+  if (Array.isArray(searchResult?.data)) return searchResult.data;
+  if (Array.isArray(searchResult)) return searchResult;
+  return [];
+};
+
+const submitRenewalApplication = async (args: {
+  state: any;
+  form: typeof initialState;
+  idToUse: string;
+  setIsSubmitting: (value: boolean) => void;
+  setError: (value: string | null) => void;
+  setShowSuccessModal: (value: boolean) => void;
+  setAlmsLicenseId: (value: string | null) => void;
+  setApplicantId: (value: string | null) => void;
+}) => {
+  const {
+    state,
+    form,
+    idToUse,
+    setIsSubmitting,
+    setError,
+    setShowSuccessModal,
+    setAlmsLicenseId,
+    setApplicantId,
+  } = args;
+
+  setIsSubmitting(true);
+  setError(null);
+
+  try {
+    const personal = state.formData.personalInformation || {};
+    const addressCtx = state.formData.addressDetails || {};
+    const occupationCtx = state.formData.occupationBusiness || {};
+    const licenseDetail = getLicenseDetail(state.formData.licenseDetails);
+    const applicationId = Number(idToUse) || null;
+    const payload = buildSubmitPayload({ applicationId, personal, addressCtx, occupationCtx, licenseDetail, form });
+    const licenseNumber = state.almsLicenseId || personal.licenseNumber || '';
+
+    // Follow create-first flow: prefer renewal id from context; if absent, create via POST and then PATCH
+    const renewalIdFromState = state?.applicantId ? Number(state.applicantId) : null;
+
+    const createPayload = buildCreatePayload({ applicationId, licenseNumber, idToUse, personal });
+
+    if (renewalIdFromState) {
+      // We already have a renewal application id (created earlier) — use it for PATCH
+      const payloadWithApp = { ...payload, applicationId: applicationId ?? null };
+      await patchData(`/renewal-forms/${renewalIdFromState}?isSubmit=true`, payloadWithApp);
+    } else {
+      // Create a renewal record first
+      const createResp: any = await postData('/renewal-forms', createPayload);
+      const createdId = createResp?.applicationId || createResp?.id || createResp?.data?.id || createResp?.renewalId || createResp?.applicationId || null;
+      if (!createdId) throw new Error('Renewal record was created but no id was returned by the API');
+
+      setAlmsLicenseId(String(createdId));
+      setApplicantId(String(createdId));
+      await patchData(`/renewal-forms/${createdId}?isSubmit=true`, { ...payload, applicationId: null });
+    }
+
+    setShowSuccessModal(true);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 const DeclarationRenewal = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { state, setAlmsLicenseId, setApplicantId } = useRenewalForm();
   const [form, setForm] = useState(initialState);
-  const [almsLicenseId, setAlmsLicenseId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('applicantId') || searchParams?.get('id');
-  const acknowledgementNo = searchParams?.get('acknowledgementNo');
 
-  useEffect(() => {
-    const loadLicense = async () => {
-      if (!applicantId && !acknowledgementNo) return;
-      try {
-        const idToUse = applicantId || acknowledgementNo || '';
-        const resp = await ApplicationService.getApplication(idToUse);
-        const data = resp?.data || resp;
-        const licenseId = data?.almsLicenseId ?? data?.alms_license_id ?? data?.licenseId ?? null;
-        if (licenseId) setAlmsLicenseId(licenseId);
-      } catch (err) {
-        // ignore
-      }
-    };
-    loadLicense();
-  }, [applicantId, acknowledgementNo]);
+  const applicantId = state.applicantId;
+  const acknowledgementNo = searchParams?.get('acknowledgementNo');
 
   const handleCheck = (name: string, checked: boolean) => {
     setForm(prev => ({ ...prev, [name]: checked }));
@@ -66,9 +208,7 @@ const DeclarationRenewal = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     const idToUse = applicantId || acknowledgementNo;
     if (!idToUse) {
@@ -76,34 +216,19 @@ const DeclarationRenewal = () => {
       return;
     }
 
-    setIsSubmitting(true);
-    setError(null);
-
     try {
-      const payload = {
-        isDeclarationAccepted: form.declareTrue,
-        isAwareOfLegalConsequences: form.declareFalseInfo,
-        isTermsAccepted: form.declareTerms,
-      };
-      await patchData(
-        `/application-form?applicationId=${idToUse}&isSubmit=true`,
-        payload
-      );
-      setShowSuccessModal(true);
+      await submitRenewalApplication({
+        state,
+        form,
+        idToUse,
+        setIsSubmitting,
+        setError,
+        setShowSuccessModal,
+        setAlmsLicenseId,
+        setApplicantId,
+      });
     } catch (err: any) {
-      const errorMsg = err?.message || 'Failed to submit application. Please try again.';
-      setError(errorMsg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePrevious = () => {
-    const idToUse = applicantId || acknowledgementNo;
-    if (idToUse) {
-      router.push(`${RENEWAL_ROUTES.PREVIEW}?id=${idToUse}`);
-    } else {
-      router.push(RENEWAL_ROUTES.PREVIEW);
+      setError(err?.message || 'Failed to submit application. Please try again.');
     }
   };
 
@@ -117,36 +242,25 @@ const DeclarationRenewal = () => {
   };
 
   return (
-    <div className='p-4 bg-white'>
-      <div className='max-w-6xl mx-auto'>
-        <div className='text-center mb-6'>
-          <h2 className='text-3xl font-bold mb-2 text-gray-800'>Declaration & Submit</h2>
-          <div className='w-24 h-1 bg-blue-600 mx-auto rounded-full mb-4'></div>
+    <div className='bg-white'>
+      <div className='max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6'>
+        <div className='mb-6 text-center'>
+          <h2 className='text-2xl font-semibold text-gray-900'>Declaration & Submit</h2>
+          <div className='mt-2 h-1 w-20 rounded-full bg-blue-600 mx-auto' />
         </div>
-        <form onSubmit={e => e.preventDefault()} className=''>
-          {(applicantId || acknowledgementNo || almsLicenseId) && (
-            <div className='mb-6 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-lg font-semibold max-w-md mx-auto text-center'>
-              {almsLicenseId && (
-                <strong className='text-sm mt-1'>License ID: {almsLicenseId}</strong>
-              )}
-              {(applicantId || acknowledgementNo) && (
-                <div className='text-sm'>
-                  Application ID: {applicantId || acknowledgementNo}
-                </div>
-              )}
-            </div>
-          )}{' '}
+        <form onSubmit={e => e.preventDefault()}>
           {error && (
-            <div className='mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-auto'>
+            <div className='mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-0'>
               <div className='flex items-start'>
                 <FrownFixed className='h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5' />
                 <p className='text-sm text-red-800'>{error}</p>
               </div>
             </div>
           )}
-          <div className='mb-8 max-w-2xl mx-auto'>
-            <div className='bg-white border border-gray-200 rounded-lg shadow-sm p-6'>
-              <div className='text-lg font-medium text-gray-900 mb-4 text-center'>
+
+          <div className='mb-8 max-w-3xl mx-0'>
+            <div className='bg-white p-6'>
+              <div className='text-lg font-medium text-gray-900 mb-4 text-left'>
                 Please check all boxes to proceed:
               </div>
               <div className='flex flex-col gap-4'>
@@ -171,14 +285,16 @@ const DeclarationRenewal = () => {
               </div>
             </div>
           </div>
-          <FormFooter
+
+          <RenewalFooter
             isDeclarationStep
+            hidePrevious
             onSubmit={handleSubmit}
-            onPrevious={handlePrevious}
             isLoading={isSubmitting}
           />
         </form>
       </div>
+
       <SuccessModal
         isOpen={showSuccessModal}
         onClose={handleCloseSuccessModal}

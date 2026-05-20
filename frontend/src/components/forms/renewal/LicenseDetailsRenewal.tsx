@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
 import { TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
-import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalForm } from './RenewalFormContext';
 import { getNextRenewalRoute, getPreviousRenewalRoute } from './renewalRoutes';
+import { patchData } from '../../../api/axiosConfig';
 
 interface LicenseDetailsData {
   needForLicense: string;
@@ -43,9 +43,8 @@ const weaponsList = [
 const LicenseDetailsRenewal: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('id') || searchParams?.get('applicantId');
-
   const { state, updateFormData, setIsSubmitting, setSubmitError, setSubmitSuccess } = useRenewalForm();
+  const applicantId = state?.applicantId;
   const [form, setForm] = useState<LicenseDetailsData>(initialState);
 
   useEffect(() => {
@@ -56,28 +55,41 @@ const LicenseDetailsRenewal: React.FC = () => {
         try {
           // Try to get from context first
           const contextData = state.formData.licenseDetails;
-          if (contextData && Array.isArray(contextData.licenseDetails) && contextData.licenseDetails.length > 0) {
-            setForm(prev => ({ ...prev, ...contextData.licenseDetails[0] }));
+          const normalizeDetail = (raw: any) => {
+            if (!raw) return null;
+            let detail = null;
+            if (Array.isArray(raw)) detail = raw[0];
+            else if (raw.licenseDetails && Array.isArray(raw.licenseDetails)) detail = raw.licenseDetails[0];
+            else detail = raw;
+
+            if (!detail) return null;
+
+            const requestedWeaponIds = detail.requestedWeapons ? detail.requestedWeapons.map((w:any) => w.id) : (detail.requestedWeaponIds || []);
+            return { ...detail, requestedWeaponIds };
+          };
+
+          const ctxDetail = normalizeDetail(contextData);
+          if (ctxDetail) {
+            setForm(prev => ({ ...prev, ...ctxDetail }));
             setSubmitSuccess('License details loaded');
             setTimeout(() => setSubmitSuccess(null), 3000);
           } else if (contextData && Object.keys(contextData).length > 0) {
-            setForm(prev => ({ ...prev, ...contextData }));
+            const normalized = normalizeDetail(contextData) || contextData;
+            setForm(prev => ({ ...prev, ...normalized }));
             setSubmitSuccess('License details loaded');
             setTimeout(() => setSubmitSuccess(null), 3000);
           } else {
             // Otherwise, fetch from API
             const { FormDataLoader } = await import('../../../utils/formDataLoader');
             const data = await FormDataLoader.loadAllSections(applicantId);
-            if (data.licenseDetails && Array.isArray(data.licenseDetails.licenseDetails) && data.licenseDetails.licenseDetails.length > 0) {
-              setForm(prev => ({ ...prev, ...data.licenseDetails.licenseDetails[0] }));
-              updateFormData('licenseDetails', data.licenseDetails);
-              setSubmitSuccess('License details loaded');
-              setTimeout(() => setSubmitSuccess(null), 3000);
-            } else if (data.licenseDetails && Object.keys(data.licenseDetails).length > 0) {
-              setForm(prev => ({ ...prev, ...data.licenseDetails }));
-              updateFormData('licenseDetails', data.licenseDetails);
-              setSubmitSuccess('License details loaded');
-              setTimeout(() => setSubmitSuccess(null), 3000);
+            if (data.licenseDetails) {
+              const normalized = normalizeDetail(data.licenseDetails);
+              if (normalized) {
+                setForm(prev => ({ ...prev, ...normalized }));
+                updateFormData('licenseDetails', data.licenseDetails);
+                setSubmitSuccess('License details loaded');
+                setTimeout(() => setSubmitSuccess(null), 3000);
+              }
             }
           }
         } catch (err: any) {
@@ -119,18 +131,72 @@ const LicenseDetailsRenewal: React.FC = () => {
     });
   };
 
-  const handleSaveToDraft = () => {
+  const handleSaveToDraft = async () => {
     setIsSubmitting(true);
-    updateFormData('licenseDetails', form);
-    setSubmitSuccess('Saved to draft');
-    setTimeout(() => setSubmitSuccess(null), 3000);
-    setIsSubmitting(false);
+    setSubmitError(null);
+
+    try {
+      updateFormData('licenseDetails', form);
+
+      // If applicationId exists, update via PATCH API
+      if (applicantId && Number(applicantId)) {
+        const applicationId = Number(applicantId);
+        const payload = {
+          licenseDetails: {
+            needForLicense: form.needForLicense,
+            armsCategory: form.armsCategory,
+            areaOfValidity: form.areaOfValidity,
+            ammunitionDescription: form.ammunitionDescription,
+            specialConsiderationReason: form.specialConsiderationReason,
+            licencePlaceArea: form.licencePlaceArea,
+            requestedWeaponIds: form.requestedWeaponIds,
+          },
+        };
+
+        await patchData(`/renewal-forms/${applicationId}`, payload);
+      }
+
+      setSubmitSuccess('Saved to draft');
+      setTimeout(() => setSubmitSuccess(null), 3000);
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to save to draft');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleNext = () => {
-    updateFormData('licenseDetails', form);
-    const nextRoute = getNextRenewalRoute('/forms/renewal/license-details');
-    router.push(`${nextRoute}${applicantId ? `?id=${applicantId}` : ''}`);
+  const handleNext = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      updateFormData('licenseDetails', form);
+
+      // If applicationId exists, update via PATCH API
+      if (applicantId && Number(applicantId)) {
+        const applicationId = Number(applicantId);
+        const payload = {
+          licenseDetails: {
+            needForLicense: form.needForLicense,
+            armsCategory: form.armsCategory,
+            areaOfValidity: form.areaOfValidity,
+            ammunitionDescription: form.ammunitionDescription,
+            specialConsiderationReason: form.specialConsiderationReason,
+            licencePlaceArea: form.licencePlaceArea,
+            requestedWeaponIds: form.requestedWeaponIds,
+          },
+        };
+
+        await patchData(`/renewal-forms/${applicationId}`, payload);
+      }
+
+      const nextRoute = getNextRenewalRoute('/forms/renewal/license-details');
+      router.push(`${nextRoute}${applicantId ? `?id=${applicantId}` : ''}`);
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to save and proceed to next step');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePrevious = () => {
@@ -139,7 +205,7 @@ const LicenseDetailsRenewal: React.FC = () => {
   };
 
   return (
-    <form className="p-6">
+    <form className="">
       <h2 className="text-xl font-bold mb-4">License Details</h2>
 
       {state.submitSuccess && (
@@ -327,12 +393,7 @@ const LicenseDetailsRenewal: React.FC = () => {
         </div>
       </div>
 
-      <FormFooter
-        onSaveToDraft={handleSaveToDraft}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        isLoading={state.isSubmitting}
-      />
+
     </form>
   );
 };

@@ -3,10 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ApplicationService } from '../../../api/applicationService';
+import { fetchData } from '../../../api/axiosConfig';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { openDocumentFile } from '../../../services/fileHandler';
 import { RENEWAL_ROUTES } from './renewalRoutes';
-import FormFooter from '../elements/footer';
+import { useRenewalForm } from './RenewalFormContext';
+
 
 interface SectionConfig {
   title: string;
@@ -35,9 +37,10 @@ const PreviewRenewal = () => {
   const [error, setError] = useState<string | null>(null);
   const [weapons, setWeapons] = useState<Weapon[]>([]);
 
+  const { state } = useRenewalForm();
   const applicationId =
+    state?.applicantId ||
     searchParams?.get('applicationId') ||
-    searchParams?.get('id') ||
     searchParams?.get('acknowledgementNo') ||
     localStorage.getItem('applicationId');
   const acknowledgementNo =
@@ -87,7 +90,14 @@ const PreviewRenewal = () => {
         }
         const isOwnedBool = isOwned === 'true' ? true : isOwned === 'false' ? false : undefined;
 
-        const response = await ApplicationService.getApplication(idToFetch, isOwnedBool);
+        // If we have a renewal id, call renewal GET endpoint. Otherwise fallback to application GET
+        let response: any = null;
+        try {
+          response = await fetchData(`/renewal-forms/${idToFetch}`);
+        } catch (err) {
+          // Fallback to application service if renewal GET fails
+          response = await ApplicationService.getApplication(idToFetch, isOwnedBool);
+        }
         if (response && response.success === false) {
           const errorMsg =
             response.details?.response?.error ||
@@ -1167,10 +1177,7 @@ const PreviewRenewal = () => {
           <h3 className='text-red-700 text-lg font-semibold mb-2'>Error Loading Preview</h3>
           <p className='text-red-600'>{error}</p>
         </div>
-        <FormFooter
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-        />
+
       </div>
     );
   }
@@ -1193,10 +1200,7 @@ const PreviewRenewal = () => {
           {renderLicenseDetails()}
         </div>
 
-        <FormFooter
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-        />
+
       </div>
     </div>
   );

@@ -13,6 +13,8 @@
 
 import React from 'react';
 import { ApplicationService } from '../api/applicationService';
+import { FileUploadService } from '../api/fileUploadService';
+import { DOCUMENT_TYPE_MAPPING } from '../config/documenttypes';
 
 export interface LoadedFormData {
   personalInformation?: any;
@@ -33,23 +35,90 @@ export class FormDataLoader {
   static async loadAllSections(applicationId: string): Promise<LoadedFormData> {
     try {
       const response = await ApplicationService.getApplication(applicationId);
-      
-      if (!response.success || !response.data) {
+
+      // ApplicationService.getApplication sometimes returns the raw axios `data`
+      // (already unwrapped) and sometimes a wrapper like { success, data }.
+      // Normalize both shapes into `applicationData`.
+      let applicationData: any = null;
+      if (response && typeof response === 'object' && ('success' in response || 'data' in response)) {
+        applicationData = response.data ?? (response as any);
+      } else {
+        applicationData = response;
+      }
+      if (!applicationData) {
         throw new Error('Failed to load application data');
       }
-      
-      const applicationData = response.data;
-      // Extract data for each section
+
+      // Debug: log raw response for troubleshooting missing sections
+      // (logs appear in browser console because this is invoked from client code)
+      try {
+        // eslint-disable-next-line no-console
+        console.debug('[FormDataLoader] raw response:', response);
+      } catch (e) {}
+
+      // Keep backend attribute names intact so the renewal form can consume the original shape
+      // Normalize personal information and ensure `dateOfBirth` is in yyyy-MM-dd for date inputs
+      const rawPersonal = applicationData.personalDetails ? { ...applicationData.personalDetails } : { ...applicationData };
+      if (rawPersonal.dateOfBirth) {
+        try {
+          rawPersonal.dateOfBirth = new Date(rawPersonal.dateOfBirth).toISOString().split('T')[0];
+        } catch (e) {
+          // leave as-is if parsing fails
+        }
+      }
+
       const loadedData: LoadedFormData = {
-        personalInformation: ApplicationService.extractSectionData(applicationData, 'personal'),
-        addressDetails: ApplicationService.extractSectionData(applicationData, 'address'),
-        occupationBusiness: ApplicationService.extractSectionData(applicationData, 'occupation'),
-        criminalHistory: ApplicationService.extractSectionData(applicationData, 'criminal'),
-        licenseHistory: ApplicationService.extractSectionData(applicationData, 'license-history'),
-        licenseDetails: ApplicationService.extractSectionData(applicationData, 'license-details'),
-        // Documents are typically loaded separately due to file handling
-        documentsUpload: { files: [], uploadedDocuments: [] }
+        personalInformation: rawPersonal,
+        addressDetails: {
+          presentAddress: applicationData.presentAddress || null,
+          permanentAddress: applicationData.permanentAddress || null,
+        },
+        occupationBusiness: applicationData.occupationAndBusiness || null,
+        criminalHistory: { criminalHistories: applicationData.criminalHistories || [] },
+        licenseHistory: { licenseHistories: applicationData.licenseHistories || [] },
+        licenseDetails: { licenseDetails: applicationData.licenseDetails || [] },
+        documentsUpload: await (async () => {
+          try {
+            const uploaded = await FileUploadService.getFiles(applicationId);
+            const filesMap: Record<string, any[]> = {};
+
+            // Build reverse lookup for fileType -> displayName
+            const reverseMap: Record<string, string> = {};
+            Object.keys(DOCUMENT_TYPE_MAPPING).forEach((display) => {
+              const cfg = DOCUMENT_TYPE_MAPPING[display];
+              reverseMap[cfg.fileType] = display;
+            });
+
+            for (const f of uploaded) {
+              const displayName = reverseMap[f.fileType] || 'Other Documents';
+              if (!filesMap[displayName]) filesMap[displayName] = [];
+
+              filesMap[displayName].push({
+                file: { name: f.fileName },
+                uploading: false,
+                uploaded: true,
+                uploadId: f.id,
+                serverSize: f.fileSize,
+                fileUrl: f.fileUrl,
+                uploadedAt: f.uploadedAt,
+                // keep original backend fields for reference
+                raw: f
+              });
+            }
+
+            // Debug: log mapped files
+            try {
+              // eslint-disable-next-line no-console
+              console.debug('[FormDataLoader] documentsUpload:', filesMap);
+            } catch (e) {}
+
+            return filesMap;
+          } catch (e) {
+            return {};
+          }
+        })()
       };
+
       return loadedData;
       
     } catch (error: any) {

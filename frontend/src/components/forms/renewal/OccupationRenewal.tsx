@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Input, TextArea } from '../elements/Input';
 import { Select } from '../elements/Select';
-import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRenewalForm } from './RenewalFormContext';
 import { getNextRenewalRoute, getPreviousRenewalRoute } from './renewalRoutes';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
+import { patchData } from '../../../api/axiosConfig';
 
 interface OccupationData {
   occupation: string;
@@ -44,7 +44,6 @@ const validateOccupationInfo = (formData: OccupationData): string[] => {
 const OccupationRenewal: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicantId = searchParams?.get('id') || searchParams?.get('applicantId');
 
   const {
     state,
@@ -52,7 +51,11 @@ const OccupationRenewal: React.FC = () => {
     setIsSubmitting,
     setSubmitError,
     setSubmitSuccess,
+    registerRefresh,
   } = useRenewalForm();
+
+  // Prefer the renewal application id stored in context (created via POST). Fall back to route params.
+  const applicantId = state?.applicantId;
 
   const [form, setForm] = useState<OccupationData>(initialState);
 
@@ -96,6 +99,34 @@ const OccupationRenewal: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId]);
 
+  const handleRefreshData = async () => {
+    if (!applicantId) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { FormDataLoader } = await import('../../../utils/formDataLoader');
+      const data = await FormDataLoader.loadAllSections(applicantId);
+      if (data.occupationBusiness) {
+        setForm(prev => ({ ...prev, ...data.occupationBusiness }));
+        updateFormData('occupationBusiness', data.occupationBusiness);
+        if (data.occupationBusiness.officeState) locationActions.setSelectedState(data.occupationBusiness.officeState);
+        if (data.occupationBusiness.officeDistrict) locationActions.setSelectedDistrict(data.occupationBusiness.officeDistrict);
+        setSubmitSuccess('Data refreshed');
+        setTimeout(() => setSubmitSuccess(null), 3000);
+      }
+    } catch (err: any) {
+      setSubmitError('Failed to refresh data.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (registerRefresh) registerRefresh(handleRefreshData);
+    return () => { if (registerRefresh) registerRefresh(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicantId]);
+
   useEffect(() => {
     if (form.officeState && form.officeState !== locationState.selectedState) {
       locationActions.setSelectedState(form.officeState);
@@ -136,21 +167,73 @@ const OccupationRenewal: React.FC = () => {
       return;
     }
     setIsSubmitting(true);
-    updateFormData('occupationBusiness', form);
-    setSubmitSuccess('Draft saved!');
-    setTimeout(() => setSubmitSuccess(null), 3000);
-    setIsSubmitting(false);
+    setSubmitError(null);
+
+    try {
+      updateFormData('occupationBusiness', form);
+
+      // If applicationId exists, update via PATCH API
+      if (applicantId && Number(applicantId)) {
+        const applicationId = Number(applicantId);
+        const payload = {
+          occupationAndBusiness: {
+            occupation: form.occupation,
+            officeAddress: form.officeAddress,
+            stateId: parseInt(form.officeState) || 1,
+            districtId: parseInt(form.officeDistrict) || 1,
+            cropLocation: form.cropLocation,
+            areaUnderCultivation: form.areaUnderCultivation ? parseFloat(form.areaUnderCultivation) : undefined,
+          },
+        };
+
+        await patchData(`/renewal-forms/${applicationId}`, payload);
+      }
+
+      setSubmitSuccess('Draft saved!');
+      setTimeout(() => setSubmitSuccess(null), 3000);
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to save draft');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const errors = validateOccupationInfo(form);
     if (errors.length > 0) {
       setSubmitError(errors.join(', '));
       return;
     }
-    updateFormData('occupationBusiness', form);
-    const nextRoute = getNextRenewalRoute('/forms/renewal/occupation');
-    router.push(`${nextRoute}${applicantId ? `?id=${applicantId}` : ''}`);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      updateFormData('occupationBusiness', form);
+
+      // If applicationId exists, update via PATCH API
+      if (applicantId && Number(applicantId)) {
+        const applicationId = Number(applicantId);
+        const payload = {
+          occupationAndBusiness: {
+            occupation: form.occupation,
+            officeAddress: form.officeAddress,
+            stateId: parseInt(form.officeState) || 1,
+            districtId: parseInt(form.officeDistrict) || 1,
+            cropLocation: form.cropLocation,
+            areaUnderCultivation: form.areaUnderCultivation ? parseFloat(form.areaUnderCultivation) : undefined,
+          },
+        };
+
+        await patchData(`/renewal-forms/${applicationId}`, payload);
+      }
+
+      const nextRoute = getNextRenewalRoute('/forms/renewal/occupation');
+      router.push(`${nextRoute}${applicantId ? `?id=${applicantId}` : ''}`);
+    } catch (error: any) {
+      setSubmitError(error?.message || 'Failed to save and proceed to next step');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePrevious = () => {
@@ -160,44 +243,11 @@ const OccupationRenewal: React.FC = () => {
 
 
   return (
-    <form className="p-6">
+    <form className="">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-2">Occupation and Business Details</h2>
-        <p className="text-sm text-gray-600">Step 3 of 10 - Renewal Application</p>
       </div>
-      {applicantId && (
-        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-          <div className="flex flex-col">
-            <strong>Application ID: {applicantId}</strong>
-          </div>
-          <button
-            type="button"
-            onClick={async () => {
-              setIsSubmitting(true);
-              setSubmitError(null);
-              try {
-                const { FormDataLoader } = await import('../../../utils/formDataLoader');
-                const data = await FormDataLoader.loadAllSections(applicantId);
-                if (data.occupationBusiness) {
-                  setForm(prev => ({ ...prev, ...data.occupationBusiness }));
-                  updateFormData('occupationBusiness', data.occupationBusiness);
-                  if (data.occupationBusiness.officeState) locationActions.setSelectedState(data.occupationBusiness.officeState);
-                  if (data.occupationBusiness.officeDistrict) locationActions.setSelectedDistrict(data.occupationBusiness.officeDistrict);
-                  setSubmitSuccess('Data refreshed');
-                  setTimeout(() => setSubmitSuccess(null), 3000);
-                }
-              } catch (err: any) {
-                setSubmitError('Failed to refresh data.');
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Refresh Data
-          </button>
-        </div>
-      )}
+      {/* Application ID and refresh moved to layout header */}
 
       {state.submitSuccess && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">{state.submitSuccess}</div>
@@ -274,12 +324,6 @@ const OccupationRenewal: React.FC = () => {
         />
       </div>
 
-      <FormFooter
-        onSaveToDraft={handleSaveToDraft}
-        onNext={handleNext}
-        onPrevious={handlePrevious}
-        isLoading={state.isSubmitting}
-      />
     </form>
   );
 };

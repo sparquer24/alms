@@ -39,6 +39,18 @@ const extractErrorMessage = (error: any): string => {
   return 'An unexpected error occurred';
 };
 
+const createApiError = (error: any, fallbackMessage: string) => {
+  const message = extractErrorMessage(error) || fallbackMessage;
+  const apiError: any = new Error(message);
+
+  apiError.response = error?.response;
+  apiError.status = error?.response?.status ?? error?.status;
+  apiError.config = error?.config;
+  apiError.data = error?.response?.data;
+
+  return apiError;
+};
+
 
 // Enhanced function to extract token from cookies with multiple fallback strategies
 const getTokenFromCookie = (): string | null => {
@@ -166,7 +178,7 @@ export const fetchData = async (url: string, params = {}) => {
       // throw a specific error to stop execution; caller may catch it
       throw new Error('Authentication required');
     }
-    throw new Error(message);
+    throw createApiError(err, message);
   }
 };
 
@@ -187,7 +199,7 @@ export const postData = async (url: string, data: any, options = {}) => {
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
-    throw new Error(message);
+    throw createApiError(err, message);
   }
 };
 
@@ -208,7 +220,7 @@ export const putData = async (url: string, data: any, options = {}) => {
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
-    throw new Error(message);
+    throw createApiError(err, message);
   }
 };
 
@@ -229,7 +241,7 @@ export const patchData = async (url: string, data: any, options = {}) => {
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
-    throw new Error(message);
+    throw createApiError(err, message);
   }
 };
 
@@ -250,7 +262,7 @@ export const deleteData = async (url: string, options = {}) => {
       window.location.href = '/login';
       throw new Error('Authentication required');
     }
-    throw new Error(message);
+    throw createApiError(err, message);
   }
 };
 

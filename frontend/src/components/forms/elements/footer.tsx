@@ -11,6 +11,8 @@ const FiArrowLeftFixed = FiArrowLeft as any;
 interface FormFooterProps {
   isDeclarationStep?: boolean;
   hidePrevious?: boolean;
+  hideNext?: boolean;
+  hideSaveToDraft?: boolean;
   onSaveToDraft?: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
@@ -21,13 +23,24 @@ interface FormFooterProps {
 const FormFooter = ({
   isDeclarationStep,
   hidePrevious = false,
+  hideNext = false,
+  hideSaveToDraft = false,
   onSaveToDraft,
   onNext,
   onPrevious,
   onSubmit,
   isLoading = false,
-}: FormFooterProps) => (
-  <footer className='w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]'>
+}: FormFooterProps) => {
+  const shouldRenderFooter = isDeclarationStep
+    ? !!onSubmit || !hidePrevious
+    : !hideSaveToDraft || !hidePrevious || !hideNext;
+
+  if (!shouldRenderFooter) {
+    return null;
+  }
+
+  return (
+    <footer className='w-full max-w-full mt-8 bg-white px-6 py-2 flex flex-col gap-2 z-50 shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]'>
     <div className='flex flex-wrap items-center gap-2 text-[15px] font-medium text-[#1A237E]'>
       <span>SCHEDULE–III Part – II</span>
       <span className='mx-1'>|</span>
@@ -50,7 +63,7 @@ const FormFooter = ({
         </span>
       </div>
       {isDeclarationStep ? (
-        <div className='flex w-full justify-between mt-4'>
+        <div className={`flex w-full mt-4 ${hidePrevious ? 'justify-end' : 'justify-between'}`}>
           {!hidePrevious && (
             <button
               type='button'
@@ -63,28 +76,32 @@ const FormFooter = ({
               Previous
             </button>
           )}
-          <button
-            type='button'
-            onClick={onSubmit}
-            disabled={isLoading}
-            suppressHydrationWarning
-            className='flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed'
-          >
-            {isLoading ? 'Submitting...' : 'Submit'}
-          </button>
+          <div>
+            <button
+              type='button'
+              onClick={onSubmit}
+              disabled={isLoading}
+              suppressHydrationWarning
+              className='flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed'
+            >
+              {isLoading ? 'Submitting...' : 'Submit'}
+            </button>
+          </div>
         </div>
       ) : (
         <div className='flex gap-3 justify-end mt-4'>
-          <button
-            type='button'
-            onClick={onSaveToDraft}
-            disabled={isLoading}
-            suppressHydrationWarning
-            className='flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed'
-          >
-            <FaRegSaveFixed className='text-lg' />
-            {isLoading ? 'Saving...' : 'Save to Draft'}
-          </button>
+          {!hideSaveToDraft && (
+            <button
+              type='button'
+              onClick={onSaveToDraft}
+              disabled={isLoading}
+              suppressHydrationWarning
+              className='flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed'
+            >
+              <FaRegSaveFixed className='text-lg' />
+              {isLoading ? 'Saving...' : 'Save to Draft'}
+            </button>
+          )}
 
           {!hidePrevious && (
             <button
@@ -98,20 +115,23 @@ const FormFooter = ({
               Previous
             </button>
           )}
-          <button
-            type='button'
-            onClick={onNext}
-            disabled={isLoading}
-            suppressHydrationWarning
-            className='flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed'
-          >
-            {isLoading ? 'Saving...' : 'Next'}
-            <FiArrowRightFixed className='text-lg' />
-          </button>
+          {!hideNext && (
+            <button
+              type='button'
+              onClick={onNext}
+              disabled={isLoading}
+              suppressHydrationWarning
+              className='flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed'
+            >
+              {isLoading ? 'Saving...' : 'Next'}
+              <FiArrowRightFixed className='text-lg' />
+            </button>
+          )}
         </div>
       )}
     </div>
   </footer>
-);
+  );
+};
 
 export default FormFooter;
