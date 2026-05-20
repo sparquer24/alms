@@ -564,6 +564,13 @@ export class RenewalFormService {
         );
       }
 
+      // Validate that acknowledgementNo from fresh license matches licenseNumber from renewal license
+      if (freshLicense.acknowledgementNo !== renewalLicense.licenseNumber) {
+        throw new BadRequestException(
+          `Merge failed: Fresh license acknowledgement number (${freshLicense.acknowledgementNo}) does not match renewal license number (${renewalLicense.licenseNumber})`
+        );
+      }
+
       const mergeId = `MERGE-${Date.now()}-${uuidv4().substring(0, 8)}`;
       const mergedFields: string[] = [];
 
