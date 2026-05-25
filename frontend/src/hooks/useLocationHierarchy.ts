@@ -9,12 +9,21 @@ import {
   LocationHierarchyState
 } from '../types/location';
 
+export interface AddressLocationValues {
+  state: string;
+  district: string;
+  zone: string;
+  division: string;
+  policeStation: string;
+}
+
 interface LocationHierarchyActions {
   setSelectedState: (stateId: string) => void;
   setSelectedDistrict: (districtId: string) => void;
   setSelectedZone: (zoneId: string) => void;
   setSelectedDivision: (divisionId: string) => void;
   setSelectedPoliceStation: (policeStationId: string) => void;
+  hydrateFromValues: (values: AddressLocationValues) => Promise<void>;
   resetHierarchy: () => void;
   getSelectOptions: () => {
     stateOptions: { value: string; label: string }[];
@@ -198,6 +207,33 @@ export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarc
     setState(prev => ({ ...prev, selectedPoliceStation: policeStationId }));
   };
 
+  const hydrateFromValues = async (values: AddressLocationValues) => {
+    if (!values.state) return;
+
+    setState(prev => ({
+      ...prev,
+      selectedState: values.state,
+      selectedDistrict: values.district || '',
+      selectedZone: values.zone || '',
+      selectedDivision: values.division || '',
+      selectedPoliceStation: values.policeStation || '',
+    }));
+
+    await loadDistricts(values.state);
+
+    if (values.district) {
+      await loadZones(values.district);
+    }
+
+    if (values.zone) {
+      await loadDivisions(values.zone);
+    }
+
+    if (values.division) {
+      await loadPoliceStations(values.division);
+    }
+  };
+
   const resetHierarchy = () => {
     setState(prev => ({
       ...prev,
@@ -227,6 +263,7 @@ export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarc
     setSelectedZone,
     setSelectedDivision,
     setSelectedPoliceStation,
+    hydrateFromValues,
     resetHierarchy,
     getSelectOptions,
   };

@@ -33,7 +33,9 @@ export const locationAPI = {
   },
 
   getStateById: async (id: number): Promise<State> => {
-    const response: LocationAPIResponse<State> = await fetchData(`${locationEndpoints.states}/${id}`);
+    const response: LocationAPIResponse<State> = await fetchData(
+      `${locationEndpoints.states}?id=${id}`
+    );
     return response.data;
   },
 
@@ -51,7 +53,9 @@ export const locationAPI = {
   },
 
   getDistrictById: async (id: number): Promise<District> => {
-    const response: LocationAPIResponse<District> = await fetchData(`${locationEndpoints.districts}/${id}`);
+    const response: LocationAPIResponse<District> = await fetchData(
+      `${locationEndpoints.districts}?id=${id}`
+    );
     return response.data;
   },
 

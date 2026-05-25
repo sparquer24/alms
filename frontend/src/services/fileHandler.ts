@@ -1,4 +1,57 @@
 import toast from 'react-hot-toast';
+import jsCookie from 'js-cookie';
+
+const getApiServerOrigin = () => {
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
+  return apiBase.replace(/\/api$/, '') || apiBase;
+};
+
+const getAuthToken = (): string | null => {
+  try {
+    const authCookie = jsCookie.get('auth');
+    if (!authCookie) return null;
+    try {
+      const parsed = JSON.parse(authCookie);
+      return parsed.token || parsed.accessToken || parsed.authToken || authCookie;
+    } catch {
+      return authCookie;
+    }
+  } catch {
+    return null;
+  }
+};
+
+/** Normalize upload objects from API, form state, or local File picks */
+export const getDocumentUploadMeta = (obj: any) => {
+  if (!obj) {
+    return {
+      uploaded: false,
+      fileName: undefined as string | undefined,
+      fileUrl: undefined as string | undefined,
+      id: undefined as number | undefined,
+    };
+  }
+
+  if (typeof File !== 'undefined' && obj instanceof File) {
+    return {
+      uploaded: true,
+      fileName: obj.name,
+      fileUrl: URL.createObjectURL(obj),
+      id: undefined as number | undefined,
+      isLocalFile: true,
+    };
+  }
+
+  const fileName = obj?.fileName || obj?.name || obj?.file_name || (typeof obj === 'string' ? obj : undefined);
+  const fileUrl = obj?.fileUrl || obj?.url || obj?.path || obj?.file_url;
+  const id =
+    typeof obj?.id === 'number'
+      ? obj.id
+      : typeof obj?.fileId === 'number'
+      ? obj.fileId
+      : undefined;
+  return { uploaded: Boolean(fileName || fileUrl), fileName, fileUrl, id, isLocalFile: false };
+};
 
 // Resolve file URL for links - handles absolute, protocol-relative, data and relative paths
 export const resolveFileHref = (fileUrl?: string | null) => {
@@ -6,26 +59,29 @@ export const resolveFileHref = (fileUrl?: string | null) => {
   const trimmed = String(fileUrl).trim();
   if (!trimmed) return null;
 
-  // Absolute HTTP(S) or data URLs
+  // Absolute HTTP(S), blob, or data URLs
   if (
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
     trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
     trimmed.startsWith('//')
   ) {
     return trimmed;
   }
 
-  // If URL starts with a single slash, make it absolute against current origin
+  const serverOrigin = typeof window !== 'undefined' ? getApiServerOrigin() : '';
+
+  // If URL starts with a single slash, resolve against API server (not Next.js origin)
   if (trimmed.startsWith('/')) {
-    return window.location.origin + trimmed;
+    return serverOrigin ? serverOrigin + trimmed : trimmed;
   }
 
   // If contains a protocol-like pattern (s3://, ftp://), return as-is
   if (trimmed.includes('://')) return trimmed;
 
-  // Fallback: treat as relative path on current origin
-  return window.location.origin + '/' + trimmed;
+  // Fallback: treat as relative path on API server
+  return serverOrigin ? `${serverOrigin}/${trimmed}` : trimmed;
 };
 
 const isDataUrl = (value: string) => value.trim().toLowerCase().startsWith('data:');
@@ -132,6 +188,12 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
   }
 
   try {
+    // 0) Blob URLs (local file preview before/without server upload)
+    if (trimmed.startsWith('blob:')) {
+      window.open(trimmed, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     // 1) Plain HTTP(S): open directly
     if (isHttpLike(trimmed)) {
       window.open(trimmed, '_blank', 'noopener,noreferrer');
@@ -165,9 +227,16 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
       return;
     }
 
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(href, {
       method: 'GET',
       credentials: 'include',
+      headers,
     });
 
     if (!response.ok) {
