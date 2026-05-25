@@ -35,37 +35,16 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
   disabledFields = {},
 }) => {
   const [locationState, locationActions] = useLocationHierarchy();
-  
-  // Sync internal state with parent values
-  React.useEffect(() => {
-    if (values.state !== locationState.selectedState) {
-      locationActions.setSelectedState(values.state);
-    }
-  }, [values.state]);
+  const hydrationKey = `${values.state}|${values.district}|${values.zone}|${values.division}|${values.policeStation}`;
+  const lastHydrationKeyRef = React.useRef('');
 
+  // Load cascading options when parent pre-fills saved location IDs
   React.useEffect(() => {
-    if (values.district !== locationState.selectedDistrict) {
-      locationActions.setSelectedDistrict(values.district);
-    }
-  }, [values.district]);
-
-  React.useEffect(() => {
-    if (values.zone !== locationState.selectedZone) {
-      locationActions.setSelectedZone(values.zone);
-    }
-  }, [values.zone]);
-
-  React.useEffect(() => {
-    if (values.division !== locationState.selectedDivision) {
-      locationActions.setSelectedDivision(values.division);
-    }
-  }, [values.division]);
-
-  React.useEffect(() => {
-    if (values.policeStation !== locationState.selectedPoliceStation) {
-      locationActions.setSelectedPoliceStation(values.policeStation);
-    }
-  }, [values.policeStation]);
+    if (!values.state || hydrationKey === lastHydrationKeyRef.current) return;
+    lastHydrationKeyRef.current = hydrationKey;
+    locationActions.hydrateFromValues(values);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrationKey]);
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;

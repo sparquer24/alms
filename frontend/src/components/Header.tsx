@@ -8,6 +8,7 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
+import { ApplicationService } from '../api/applicationService';
 
 interface HeaderProps {
   onCreateApplication?: (typeKey: string) => void;
@@ -15,13 +16,17 @@ interface HeaderProps {
 }
 
 const Header = (props: HeaderProps) => {
-  const { onCreateApplication, onShowMessage } = props;
+  const { onShowMessage } = props;
   const { showHeader, showSidebar } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalApplicationId, setRenewalApplicationId] = useState('');
+  const [renewalLookupError, setRenewalLookupError] = useState<string | null>(null);
+  const [isRenewalLookupLoading, setIsRenewalLookupLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,11 +40,45 @@ const Header = (props: HeaderProps) => {
     if (type.enabled) {
       if (type.key === 'fresh') {
         router.push('/forms/createFreshApplication/personal-information');
+      } else if (type.key === 'renewal') {
+        setRenewalApplicationId('');
+        setRenewalLookupError(null);
+        setShowRenewalModal(true);
       } else {
         router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
+    }
+  };
+
+  const handleRenewalSubmit = async () => {
+    const id = renewalApplicationId.trim();
+
+    if (!id) {
+      setRenewalLookupError('Enter a Fresh Application ID.');
+      return;
+    }
+
+    try {
+      setIsRenewalLookupLoading(true);
+      setRenewalLookupError(null);
+
+      const response = await ApplicationService.getApplication(id);
+      const freshApplication = response?.data ?? response;
+
+      if (!freshApplication) {
+        throw new Error('No fresh application data returned for that ID.');
+      }
+
+      setShowRenewalModal(false);
+      router.push(`/forms/renewal?applicationId=${encodeURIComponent(id)}`);
+    } catch (error: any) {
+      const message = error?.message || 'Unable to fetch fresh application data.';
+      setRenewalLookupError(message);
+      onShowMessage?.(message, 'error');
+    } finally {
+      setIsRenewalLookupLoading(false);
     }
   };
 
@@ -80,7 +119,7 @@ const Header = (props: HeaderProps) => {
                       {APPLICATION_TYPES.map(type => (
                         <button
                           key={type.key}
-                          className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${!type.enabled ? 'text-gray-400 cursor-not-allowed' : ''}`}
+                          className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${type.enabled ? '' : 'text-gray-400 cursor-not-allowed'}`}
                           onClick={() => handleDropdownClick(type)}
                           disabled={!type.enabled}
                         >
@@ -129,7 +168,7 @@ const Header = (props: HeaderProps) => {
           </div>
           {/* Print button - prints current page */}
           <button
-            onClick={() => window.print()}
+            onClick={() => globalThis.print()}
             className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
             aria-label='Print page'
             title='Print'
@@ -155,12 +194,55 @@ const Header = (props: HeaderProps) => {
               className='flex items-center hover:bg-white hover:bg-opacity-10 rounded-full p-1 transition-colors'
             >
               <div className='bg-white text-[#001F54] rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm'>
-                {displayName!.charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
             </Link>
           )}
         </div>
       </div>
+
+      {showRenewalModal && (
+        <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
+          <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
+            <h2 className='text-lg font-semibold text-gray-900'>Renewal Application</h2>
+            <p className='mt-2 text-sm text-gray-600'>Enter the Fresh Application ID to load the existing application data.</p>
+
+            <div className='mt-4'>
+              <label htmlFor='renewal-application-id' className='block text-sm font-medium text-gray-700'>Fresh Application ID</label>
+              <input
+                id='renewal-application-id'
+                value={renewalApplicationId}
+                onChange={e => {
+                  setRenewalApplicationId(e.target.value);
+                  if (renewalLookupError) setRenewalLookupError(null);
+                }}
+                placeholder='Enter Fresh Application ID'
+                className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
+                autoFocus
+              />
+              {renewalLookupError && <p className='mt-2 text-sm text-red-600'>{renewalLookupError}</p>}
+            </div>
+
+            <div className='mt-6 flex justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => setShowRenewalModal(false)}
+                className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleRenewalSubmit}
+                disabled={isRenewalLookupLoading}
+                className='rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73] disabled:cursor-not-allowed disabled:opacity-70'
+              >
+                {isRenewalLookupLoading ? 'Loading…' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
