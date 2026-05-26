@@ -9,9 +9,11 @@ import { UpdateRenewalWorkflowStatusDto } from './dto/update-workflow-status.dto
 import { MergeLicenseDto, MergeResponseDto } from './dto/merge-license.dto';
 import { RenewalFormResponse } from '../../request/renewal-form';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
+import { AuthGuard } from '../../middleware/auth.middleware';
 
 @ApiTags('Renewal Forms')
 @Controller('renewal-forms')
+@UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class RenewalFormController {
   constructor(private readonly renewalFormService: RenewalFormService) {}
@@ -40,9 +42,14 @@ export class RenewalFormController {
   async createRenewalForm(
     @Body() createRequest: CreateRenewalPersonalDetailsDto,
     @Request() req: any,
-  ): Promise<RenewalFormResponse> {
-    const userId = req.user?.id || req.body.currentUserId;
-    return this.renewalFormService.createPersonalDetails(createRequest, userId);
+  ): Promise<RenewalFormResponse | void> {
+    try {
+      const userId = req.user?.sub || req.body.currentUserId;
+      return this.renewalFormService.createPersonalDetails(createRequest, userId);
+
+    } catch (error) {
+      console.error('Error creating renewal form:', error);
+    }
   }
 
   /**
@@ -265,7 +272,7 @@ export class RenewalFormController {
   @ApiResponse({
     status: 200,
     description: 'Application retrieved successfully',
-    schema: { $ref: '#/components/schemas/RenewalFormResponse' },
+    schema: { $ref: '#//schemas/RenewalFormRescomponentsponse' },
   })
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })

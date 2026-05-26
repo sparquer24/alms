@@ -40,6 +40,9 @@ export interface RenewalFormResponse {
   isRejected?: boolean;
   workflowStatusId?: number;
   currentUserId?: number;
+  isDeclarationAccepted?: boolean;
+  isAwareOfLegalConsequences?: boolean;
+  isTermsAccepted?: boolean;
 }
 
 export interface RenewalFiltersDto {

@@ -27,7 +27,8 @@
     "prisma:db:push": "npx prisma db push",
     "prisma:db:pull": "npx prisma db pull",
     "prisma:db:seed": "npx prisma db seed",
-    "prisma:studio": "npx prisma studio"
+    "prisma:studio": "npx prisma studio",
+    "test:renewal:copy": "powershell -Command \"$response = Invoke-WebRequest -Uri 'http://localhost:3000/api/renewal-forms/copy-from-fresh-license' -Method POST -Headers @{'Content-Type'='application/json'} -Body '{\\\"id\\\":31}' -UseBasicParsing -ErrorAction SilentlyContinue; if ($response -and $response.StatusCode -eq 201) { Write-Host '✓ API Test SUCCESSFUL!' -ForegroundColor Green; Write-Host 'Status: $($response.StatusCode) - Created' -ForegroundColor Green; $data = ($response.Content | ConvertFrom-Json); Write-Host '`nRenewal Record Created:' -ForegroundColor Cyan; Write-Host '  ID: $($data.id)'; Write-Host '  Acknowledgement: $($data.acknowledgementNo)'; Write-Host '  License: $($data.licenseNumber)'; Write-Host '  Name: $($data.applicantName)' } else { Write-Host 'Status: $($response.StatusCode)' -ForegroundColor Yellow; $response.Content }\""
   },
   "author": "",
   "license": "ISC",
