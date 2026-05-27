@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param,Query,Delete,Patch,UseGuards,Request, HttpCode,HttpStatus, ForbiddenException,} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam,} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam, ApiCreatedResponse, ApiOkResponse,} from '@nestjs/swagger';
 import { RenewalFormService } from './renewal-form.service';
 import { CreateRenewalPersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-details.dto';
@@ -10,6 +10,7 @@ import { MergeLicenseDto, MergeResponseDto } from './dto/merge-license.dto';
 import { RenewalFormResponse } from '../../request/renewal-form';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { AuthGuard } from '../../middleware/auth.middleware';
+import { ParseIntPipe } from '@nestjs/common';
 
 @ApiTags('Renewal Forms')
 @Controller('renewal-forms')
@@ -32,10 +33,9 @@ export class RenewalFormController {
     type: CreateRenewalPersonalDetailsDto,
     description: 'Personal details for creating renewal form',
   })
-  @ApiResponse({
-    status: 201,
+  @ApiCreatedResponse({
     description: 'Renewal form created successfully',
-    schema: { $ref: '#/components/schemas/RenewalFormResponse' },
+    type: RenewalFormResponse,
   })
   @ApiResponse({ status: 400, description: 'Invalid input data or license already has renewal' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
@@ -52,53 +52,252 @@ export class RenewalFormController {
     }
   }
 
+
+   @Patch("update-details")
+    @ApiOperation({ 
+      summary: 'Update Application Details', 
+      description: 'Update addresses, occupation, criminal history, license history, and license details for an existing application' 
+    })
+    @ApiQuery({
+      name: 'applicationId',
+      description: 'Application ID',
+      example: '1'
+    })
+    @ApiQuery({
+      name: 'isSubmit',
+      description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
+      example: false,
+      required: false,
+      type: Boolean,
+    })
+    @ApiBody({
+      type: PatchRenewalApplicationDetailsDto,
+      description: 'Application details to update. All sections are optional - only provide the sections you want to update.',
+      examples: {
+        'Complete Address Update': {
+          summary: 'Update both present and permanent addresses with full details',
+          value: {
+          "personalDetails": {
+            "firstName": "XYZ",
+            "middleName": "K",
+            "lastName": "Sharma",
+            "parentOrSpouseName": "Ramesh Sharma",
+            "sex": "MALE",
+            "dateOfBirth": "1985-05-15",
+            "dobInWords": "Fifteenth May Nineteen Eighty Five",
+            "panNumber": "ABCPD1234F",
+            "aadharNumber": "123456789012"
+          },
+          "addressDetails": {
+            "addressLine": "123 Main Street, Block A",
+            "stateId": 1,
+            "districtId": 1,
+            "policeStationId": 1,
+            "zoneId": 1,
+            "divisionId": 1,
+            "sinceResiding": "2020-05-15",
+            "telephoneOffice": "+91-1234567890",
+            "telephoneResidence": "+91-0987654321",
+            "officeMobileNumber": "+91-9876543210",
+            "alternativeMobile": "+91-9123456789"
+          },
+          "occupationAndBusiness": {
+            "occupation": "Farmer",
+            "officeAddress": "123 Market Street",
+            "stateId": 1,
+            "districtId": 1,
+            "cropLocation": "Plot 123, Village XYZ",
+            "areaUnderCultivation": 10.5
+          },
+          "licenseDetails": {
+            "needForLicense": "SELF_PROTECTION",
+            "armsCategory": "RESTRICTED",
+            "areaOfValidity": "DISTRICT",
+            "ammunitionDescription": "10 rounds per month",
+            "specialConsiderationReason": "High crime area",
+            "licencePlaceArea": "Residence",
+            "requestedWeaponIds": [
+              1,
+              2,
+              3
+            ]
+          },
+          "acceptanceFlags": {},
+          "isSubmit": true
+        },
+      }
+      }
+    })
+    @ApiResponse({
+      status: 200,
+      description: 'Application details updated successfully',
+      example: {
+        success: true,
+        message: 'Application details updated successfully',
+        data: {
+          updatedSections: ['presentAddress', 'criminalHistories'],
+          application: {
+            id: 1,
+            acknowledgementNo: 'ALMS1696050000000',
+            firstName: 'John',
+            lastName: 'Doe',
+            // ... other application data with relations
+          }
+        }
+      }
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - Invalid data or application not found' })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+    @ApiResponse({ status: 409, description: 'Conflict - Duplicate values or constraint violations' })
+    @ApiResponse({ status: 500, description: 'Internal server error' })
+    async patchApplicationDetails(
+      @Body() dto: any,
+      @Query('applicationId') applicationId: number,
+      @Query('isSubmit') isSubmit: string,
+      @Request() req: any,
+    ) {
+      try {
+        const submitApp = isSubmit !== undefined ? isSubmit === 'true' : dto.isSubmit === true;
+        const userId = req?.user?.id || null;
+        //  if (userId == null) {
+        //    throw new Error('User not found');
+        //  }
+        const result = await this.renewalFormService.patchApplicationDetails(
+          applicationId,
+          { ...dto, isSubmit: submitApp },
+          userId,
+        );
+        console.log({result})
+        return result;
+      } catch (error) {
+        console.error('Error in patchApplicationDetails:', error);
+        throw error;
+      }
+    }
+
   /**
    * Update application details (addresses, occupation, license details, biometrics)
    * Can be used for multiple steps to gradually fill the form
    */
-  @Patch('/:applicationId')
+  @Patch()
   @ApiOperation({
     summary: 'Update renewal application details',
     description: 'Update addresses, occupation, license details, biometrics and other sections',
   })
-  @ApiParam({
+  @ApiQuery({
     name: 'applicationId',
     type: Number,
     description: 'Application ID to update',
-  })
-  @ApiBody({
-    type: PatchRenewalApplicationDetailsDto,
-    description: 'Application details to update',
+    example: 1,
   })
   @ApiQuery({
     name: 'isSubmit',
+    example: 'false',
     required: false,
     type: Boolean,
     description: 'Whether to submit the application after update',
   })
+  @ApiBody({
+    type: PatchRenewalApplicationDetailsDto,
+    description: 'Application details to update',
+    examples: {
+      'Update Personal, Address, Occupation and License Details': {
+        summary: 'Update multiple sections of the application',
+        value: {
+          "personalDetails": {
+            "firstName": "XYZ",
+            "middleName": "K",
+            "lastName": "Sharma",
+            "parentOrSpouseName": "Ramesh Sharma",
+            "sex": "MALE",
+            "dateOfBirth": "1985-05-15",
+            "dobInWords": "Fifteenth May Nineteen Eighty Five",
+            "panNumber": "ABCPD1234F",
+            "aadharNumber": "123456789012"
+          },
+          "addressDetails": {
+            "addressLine": "123 Main Street, Block A",
+            "stateId": 1,
+            "districtId": 1,
+            "policeStationId": 1,
+            "zoneId": 1,
+            "divisionId": 1,
+            "sinceResiding": "2020-05-15",
+            "telephoneOffice": "+91-1234567890",
+            "telephoneResidence": "+91-0987654321",
+            "officeMobileNumber": "+91-9876543210",
+            "alternativeMobile": "+91-9123456789"
+          },
+          "occupationAndBusiness": {
+            "occupation": "Farmer",
+            "officeAddress": "123 Market Street",
+            "stateId": 1,
+            "districtId": 1,
+            "cropLocation": "Plot 123, Village XYZ",
+            "areaUnderCultivation": 10.5
+          },
+          "licenseDetails": {
+            "needForLicense": "SELF_PROTECTION",
+            "armsCategory": "RESTRICTED",
+            "areaOfValidity": "DISTRICT",
+            "ammunitionDescription": "10 rounds per month",
+            "specialConsiderationReason": "High crime area",
+            "licencePlaceArea": "Residence",
+            "requestedWeaponIds": [
+              1,
+              2,
+              3
+            ]
+          },
+          "acceptanceFlags": {},
+          "isSubmit": true
+        }
+      },
+    },
+  })
   @ApiResponse({
     status: 200,
-    description: 'Application updated successfully',
-    schema: { $ref: '#/components/schemas/RenewalFormResponse' },
+    description: 'Application details updated successfully',
+    example: {
+      success: true,
+      message: 'Application details updated successfully',
+      data: {
+        updatedSections: ['presentAddress', 'criminalHistories'],
+        application: {
+          id: 1,
+          acknowledgementNo: 'ALMS1696050000000',
+          firstName: 'John',
+          lastName: 'Doe',
+          // ... other application data with relations
+        }
+      }
+    }
   })
   @ApiResponse({ status: 400, description: 'Invalid data or application is not in DRAFT status' })
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async updateApplicationDetails(
-    @Param('applicationId') applicationId: string,
+    @Query('applicationId') applicationId: number,
     @Body() patchData: PatchRenewalApplicationDetailsDto,
+    @Request() req: any,
     @Query('isSubmit') isSubmit?: string,
-    @Request() req?: any,
+    
   ): Promise<RenewalFormResponse> {
     const userId = req?.user?.id || 1;
-    const applId = parseInt(applicationId, 10);
-    const submitApp = isSubmit === 'true';
+    const submitApp = isSubmit !== undefined ? isSubmit === 'true' : patchData.isSubmit === true;
+    console.log('🔍 [updateApplicationDetails] Received update request for ');
+    console.log('Application ID:', applicationId);
+    console.log('Patch Data:', patchData);
+    console.log('Submit Application:', submitApp);
+    console.log('User ID:', userId);
 
-    return this.renewalFormService.patchApplicationDetails(
-      applId,
+    const result = await this.renewalFormService.patchApplicationDetails(
+      applicationId,
       { ...patchData, isSubmit: submitApp },
       userId,
     );
+    console.log({result})
+    return result;
   }
 
   /**
@@ -128,11 +327,10 @@ export class RenewalFormController {
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async uploadFile(
-    @Param('applicationId') applicationId: string,
+    @Param('applicationId', ParseIntPipe) applicationId: number,
     @Body() uploadData: UploadRenewalFileDto,
   ): Promise<UploadRenewalFileResponseDto> {
-    const applId = parseInt(applicationId, 10);
-    return this.renewalFormService.uploadFile(applId, uploadData);
+    return this.renewalFormService.uploadFile(applicationId, uploadData);
   }
 
   /**
@@ -155,9 +353,8 @@ export class RenewalFormController {
   }) 
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async deleteFile(@Param('fileId') fileId: string): Promise<void> {
-    const fId = parseInt(fileId, 10);
-    return this.renewalFormService.deleteFile(fId);
+  async deleteFile(@Param('fileId', ParseIntPipe) fileId: number): Promise<void> {
+    return this.renewalFormService.deleteFile(fileId);
   }
 
   /**
@@ -272,7 +469,7 @@ export class RenewalFormController {
   @ApiResponse({
     status: 200,
     description: 'Application retrieved successfully',
-    schema: { $ref: '#//schemas/RenewalFormRescomponentsponse' },
+    schema: { $ref: '#/components/schemas/RenewalFormResponse' },
   })
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })

@@ -101,220 +101,282 @@ export class RenewalFormService {
     currentUserId: number,
   ): Promise<any> {
     try {
-      // Get the current application
-      const application = await prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: applicationId },
-        include: {
-          presentAddress: true,
-          permanentAddress: true,
-          occupationAndBusiness: true,
-          licenseDetails: true,
-        },
-      });
+      // Validate inputs early to prevent unnecessary database queries
+      if (!applicationId || applicationId <= 0) {
+        throw new BadRequestException('Invalid application ID');
+      }
+
+      if (!patchData || Object.keys(patchData).length === 0) {
+        throw new BadRequestException('No data provided for update');
+      }
+
+      const shouldHandleSubmit = patchData.isSubmit !== undefined;
+      const shouldCreateWorkflowHistory = patchData.isSubmit === true && !!currentUserId;
+
+      // Pre-fetch required data in parallel to reduce latency
+      const [application, statuses, userExists] = await Promise.all([
+        prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: applicationId },
+          select: {
+            id: true,
+            presentAddressId: true,
+            permanentAddressId: true,
+            occupationAndBusinessId: true,
+            isDeclarationAccepted: true,
+            isAwareOfLegalConsequences: true,
+            isTermsAccepted: true,
+            licenseDetails: { select: { id: true } },
+          },
+        }),
+        // Fetch both FORWARD and DRAFT statuses in one query
+        shouldHandleSubmit
+          ? prisma.statuses.findMany({
+              where: { code: { in: ['FORWARD', 'DRAFT'] } },
+            })
+          : Promise.resolve([]),
+        // Pre-validate user if currentUserId provided
+        shouldCreateWorkflowHistory
+          ? prisma.users.findUnique({ where: { id: currentUserId } })
+          : Promise.resolve(null),
+      ]);
 
       if (!application) {
         throw new NotFoundException('Renewal application not found.');
       }
 
-      return await prisma.$transaction(async (tx: any) => {
-        let updateData: any = {};
+      const statusMap = statuses.reduce((map: Record<string, number>, status: any) => {
+        map[status.code] = status.id;
+        return map;
+      }, {});
 
-        // Update personal details if provided
-        if (patchData.personalDetails) {
-          updateData = { ...updateData, ...patchData.personalDetails };
-        }
+      // Pre-parse dates and format data outside transaction to reduce lock time
+      const parsedAddressData: any = patchData.addressDetails ? {
+        addressLine: patchData.addressDetails.addressLine,
+        stateId: patchData.addressDetails.stateId,
+        districtId: patchData.addressDetails.districtId,
+        policeStationId: patchData.addressDetails.policeStationId,
+        zoneId: patchData.addressDetails.zoneId,
+        divisionId: patchData.addressDetails.divisionId,
+        sinceResiding: patchData.addressDetails.sinceResiding ? new Date(patchData.addressDetails.sinceResiding) : undefined,
+        telephoneOffice: patchData.addressDetails.telephoneOffice,
+        telephoneResidence: patchData.addressDetails.telephoneResidence,
+        officeMobileNumber: patchData.addressDetails.officeMobileNumber,
+        alternativeMobile: patchData.addressDetails.alternativeMobile,
+      } : null;
 
-        // Update address details if provided
-        if (patchData.addressDetails) {
-          // Create or update present address
-          const presentAddress = await tx.renewalAddressesAndContactDetails.upsert({
-            where: { id: application.presentAddressId || 0 },
-            create: patchData.addressDetails,
-            update: patchData.addressDetails,
-          });
+      const weaponConnections = patchData.licenseDetails?.requestedWeaponIds?.map((id) => ({ id }));
+
+      let updateData: any = patchData.personalDetails ? { ...patchData.personalDetails } : {};
+      if (updateData.dateOfBirth) {
+        updateData.dateOfBirth = new Date(updateData.dateOfBirth);
+      }
+      const relationUpdates: Promise<void>[] = [];
+
+      // Handle addresses in parallel if provided
+      if (parsedAddressData) {
+        const addressData = parsedAddressData;
+        relationUpdates.push((async () => {
+          const [presentAddress, permanentAddress] = await Promise.all([
+            application.presentAddressId
+              ? prisma.renewalAddressesAndContactDetails.update({
+                  where: { id: application.presentAddressId },
+                  data: addressData,
+                })
+              : prisma.renewalAddressesAndContactDetails.create({
+                  data: addressData,
+                }),
+            application.permanentAddressId
+              ? prisma.renewalAddressesAndContactDetails.update({
+                  where: { id: application.permanentAddressId },
+                  data: addressData,
+                })
+              : prisma.renewalAddressesAndContactDetails.create({
+                  data: addressData,
+                }),
+          ]);
+
           updateData.presentAddressId = presentAddress.id;
-
-          // Create or update permanent address (same as present for renewal)
-          const permanentAddress = await tx.renewalAddressesAndContactDetails.upsert({
-            where: { id: application.permanentAddressId || 0 },
-            create: patchData.addressDetails,
-            update: patchData.addressDetails,
-          });
           updateData.permanentAddressId = permanentAddress.id;
-        }
+        })());
+      }
 
-        // Update occupation and business if provided
-        if (patchData.occupationAndBusiness) {
-          const occupationBusiness = await tx.renewalOccupationAndBusiness.upsert({
-            where: { id: application.occupationAndBusinessId || 0 },
-            create: patchData.occupationAndBusiness,
-            update: patchData.occupationAndBusiness,
-          });
+      // Update occupation and business if provided
+      if (patchData.occupationAndBusiness) {
+        const occupationAndBusiness = patchData.occupationAndBusiness;
+        relationUpdates.push((async () => {
+          let occupationBusiness;
+          if (application.occupationAndBusinessId) {
+            occupationBusiness = await prisma.renewalOccupationAndBusiness.update({
+              where: { id: application.occupationAndBusinessId },
+              data: occupationAndBusiness,
+            });
+          } else {
+            occupationBusiness = await prisma.renewalOccupationAndBusiness.create({
+              data: occupationAndBusiness,
+            });
+          }
+
           updateData.occupationAndBusinessId = occupationBusiness.id;
-        }
+        })());
+      }
 
-        // Update license details if provided
-        if (patchData.licenseDetails) {
+      // Update license details if provided
+      if (patchData.licenseDetails) {
+        const licenseDetails = patchData.licenseDetails;
+        relationUpdates.push((async () => {
           // Update or create license details
           const licenseDetail = application.licenseDetails[0];
           if (licenseDetail) {
-            await tx.renewalLicenseDetails.update({
-              where: { id: licenseDetail.id },
-              data: {
-                needForLicense: patchData.licenseDetails.needForLicense as any,
-                armsCategory: patchData.licenseDetails.armsCategory as any,
-                areaOfValidity: patchData.licenseDetails.areaOfValidity,
-                ammunitionDescription: patchData.licenseDetails.ammunitionDescription,
-                specialConsiderationReason:
-                  patchData.licenseDetails.specialConsiderationReason,
-                licencePlaceArea: patchData.licenseDetails.licencePlaceArea,
-              },
-            });
+            // Combine all updates into a single database call for efficiency
+            const licenseUpdateData: any = {
+              needForLicense: licenseDetails.needForLicense as any,
+              armsCategory: licenseDetails.armsCategory as any,
+              areaOfValidity: licenseDetails.areaOfValidity,
+              ammunitionDescription: licenseDetails.ammunitionDescription,
+              specialConsiderationReason: licenseDetails.specialConsiderationReason,
+              licencePlaceArea: licenseDetails.licencePlaceArea,
+            };
 
-            // Update requested weapons if provided
-            if (patchData.licenseDetails.requestedWeaponIds) {
-              // Remove existing weapons and add new ones
-              await tx.renewalLicenseDetails.update({
-                where: { id: licenseDetail.id },
-                data: {
-                  requestedWeapons: {
-                    connect: patchData.licenseDetails.requestedWeaponIds.map((id) => ({
-                      id,
-                    })),
-                  },
-                },
-              });
+            if (weaponConnections) {
+              licenseUpdateData.requestedWeapons = {
+                set: [],
+                connect: weaponConnections,
+              };
             }
+
+            await prisma.renewalLicenseDetails.update({
+              where: { id: licenseDetail.id },
+              data: licenseUpdateData,
+            });
           } else {
             // Create new license details
-            await tx.renewalLicenseDetails.create({
+            await prisma.renewalLicenseDetails.create({
               data: {
                 applicationId,
-                needForLicense: patchData.licenseDetails.needForLicense as any,
-                armsCategory: patchData.licenseDetails.armsCategory as any,
-                areaOfValidity: patchData.licenseDetails.areaOfValidity,
-                ammunitionDescription: patchData.licenseDetails.ammunitionDescription,
+                needForLicense: licenseDetails.needForLicense as any,
+                armsCategory: licenseDetails.armsCategory as any,
+                areaOfValidity: licenseDetails.areaOfValidity,
+                ammunitionDescription: licenseDetails.ammunitionDescription,
                 specialConsiderationReason:
-                  patchData.licenseDetails.specialConsiderationReason,
-                licencePlaceArea: patchData.licenseDetails.licencePlaceArea,
-                requestedWeapons: patchData.licenseDetails.requestedWeaponIds
+                  licenseDetails.specialConsiderationReason,
+                licencePlaceArea: licenseDetails.licencePlaceArea,
+                requestedWeapons: weaponConnections
                   ? {
-                      connect: patchData.licenseDetails.requestedWeaponIds.map((id) => ({
-                        id,
-                      })),
+                      connect: weaponConnections,
                     }
                   : undefined,
               },
             });
           }
+        })());
+      }
+
+      await Promise.all(relationUpdates);
+
+      // Update acceptance flags if provided (only add if explicitly set)
+      if (patchData.acceptanceFlags) {
+        if (patchData.acceptanceFlags.isDeclarationAccepted !== undefined) {
+          updateData.isDeclarationAccepted = patchData.acceptanceFlags.isDeclarationAccepted;
         }
-
-        // Update acceptance flags if provided
-        if (patchData.acceptanceFlags) {
-          updateData = {
-            ...updateData,
-            isDeclarationAccepted:
-              patchData.acceptanceFlags.isDeclarationAccepted !== undefined
-                ? patchData.acceptanceFlags.isDeclarationAccepted
-                : application.isDeclarationAccepted,
-            isAwareOfLegalConsequences:
-              patchData.acceptanceFlags.isAwareOfLegalConsequences !== undefined
-                ? patchData.acceptanceFlags.isAwareOfLegalConsequences
-                : application.isAwareOfLegalConsequences,
-            isTermsAccepted:
-              patchData.acceptanceFlags.isTermsAccepted !== undefined
-                ? patchData.acceptanceFlags.isTermsAccepted
-                : application.isTermsAccepted,
-          };
+        if (patchData.acceptanceFlags.isAwareOfLegalConsequences !== undefined) {
+          updateData.isAwareOfLegalConsequences = patchData.acceptanceFlags.isAwareOfLegalConsequences;
         }
+        if (patchData.acceptanceFlags.isTermsAccepted !== undefined) {
+          updateData.isTermsAccepted = patchData.acceptanceFlags.isTermsAccepted;
+        }
+      }
 
-        // Handle submission
-        if (patchData.isSubmit !== undefined) {
-          if (patchData.isSubmit) {
-            // Submitting the application
-            // Use FORWARD status to mark as submitted
-            const forwardStatus = await tx.statuses.findFirst({
-              where: { code: 'FORWARD' },
-            });
-
-            updateData.isSubmit = true;
-            if (forwardStatus) {
-              updateData.workflowStatusId = forwardStatus.id;
-            }
-
-            // Create workflow history entry only if currentUserId is valid and user exists
-            if (currentUserId) {
-              try {
-                // Check if the user exists before creating history
-                const userExists = await tx.users.findUnique({
-                  where: { id: currentUserId },
-                });
-
-                if (userExists) {
-                  await tx.renewalApplicationsFormWorkflowHistories.create({
-                    data: {
-                      applicationId,
-                      previousUserId: currentUserId,
-                      nextUserId: currentUserId,
-                      actionTaken: 'SUBMITTED',
-                      remarks: 'Application submitted for processing',
-                    },
-                  });
-                } else {
-                  console.warn(`⚠️ User ${currentUserId} does not exist, skipping workflow history`);
-                }
-              } catch (historyError: any) {
-                // Log but don't fail the submission if history creation fails
-                console.warn('⚠️ Could not create workflow history:', historyError.message);
-              }
-            }
-          } else {
-            // Unsetting submission - revert to DRAFT status
-            const draftStatus = await tx.statuses.findFirst({
-              where: { code: 'DRAFT' },
-            });
-            updateData.isSubmit = false;
-            if (draftStatus) {
-              updateData.workflowStatusId = draftStatus.id;
-            }
+      // Handle submission using pre-fetched statuses
+      if (patchData.isSubmit !== undefined) {
+        updateData.isSubmit = patchData.isSubmit;
+        if (patchData.isSubmit) {
+          // Use FORWARD status to mark as submitted
+          if (statusMap['FORWARD']) {
+            updateData.workflowStatusId = statusMap['FORWARD'];
+          }
+        } else {
+          // Revert to DRAFT status
+          if (statusMap['DRAFT']) {
+            updateData.workflowStatusId = statusMap['DRAFT'];
           }
         }
+      }
 
-        // Update the application
-        const updatedApplication = await tx.renewalFormPersonalDetails.update({
+      // Update the application only when parent fields changed.
+      if (Object.keys(updateData).length > 0) {
+        await prisma.renewalFormPersonalDetails.update({
           where: { id: applicationId },
           data: updateData,
-          include: {
-            workflowStatus: true,
-            currentUser: {
-              include: { role: true },
+        });
+      }
+
+      if (patchData.isSubmit && currentUserId && userExists && statusMap['FORWARD']) {
+        try {
+          await prisma.renewalApplicationsFormWorkflowHistories.create({
+            data: {
+              applicationId,
+              previousUserId: currentUserId,
+              nextUserId: currentUserId,
+              actionTaken: 'SUBMITTED',
+              remarks: 'Application submitted for processing',
             },
-            previousUser: {
-              include: { role: true },
+          });
+        } catch (historyError) {
+          // Silently fail - don't interrupt submission
+        }
+      }
+
+      // Fetch fresh updated data with selective includes to minimize payload
+      const finalApplication = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: applicationId },
+        include: {
+          workflowStatus: true,
+          currentUser: {
+            select: { 
+              id: true,
+              username: true,
+              email: true,
+              role: { select: { id: true, name: true } }
             },
-            presentAddress: {
-              include: {
-                state: true,
-                district: true,
-                zone: true,
-                division: true,
-                policeStation: true,
-              },
+          },
+          previousUser: {
+            select: { 
+              id: true,
+              username: true,
+              email: true,
+              role: { select: { id: true, name: true } }
+            },
+          },
+          presentAddress: {
+            select: {
+              id: true,
+              addressLine: true,
+              stateId: true,
+              districtId: true,
+              state: { select: { id: true, name: true } },
+              district: { select: { id: true, name: true } },
+            }
           },
           permanentAddress: {
-            include: {
-              state: true,
-              district: true,
-              zone: true,
-              division: true,
-              policeStation: true,
-            },
+            select: {
+              id: true,
+              addressLine: true,
+              stateId: true,
+              districtId: true,
+              state: { select: { id: true, name: true } },
+              district: { select: { id: true, name: true } },
+            }
           },
           occupationAndBusiness: {
-            include: {
-              state: true,
-              district: true,
-            },
+            select: {
+              id: true,
+              occupation: true,
+              officeAddress: true,
+              stateId: true,
+              districtId: true,
+              state: { select: { id: true, name: true } },
+              district: { select: { id: true, name: true } },
+            }
           },
           licenseDetails: {
             include: { requestedWeapons: true },
@@ -322,30 +384,28 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            take: 10,
+            orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
-                include: { role: true },
+                select: { id: true, username: true, email: true, role: { select: { id: true, name: true } } },
               },
               previousUser: {
-                include: { role: true },
+                select: { id: true, username: true, email: true, role: { select: { id: true, name: true } } },
               },
-              nextRole: true,
-              previousRole: true,
             },
           },
         },
-
-        });
-
-        //return this.mapApplicationToResponse(updatedApplication);
-        return updatedApplication;
       });
-    } catch (error: any) {
-      console.error('❌ [patchApplicationDetails] Error:', error?.message);
       
+      return finalApplication;
+    } catch (error: any) {
+      // Re-throw known exceptions
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
+      
+      // Handle Prisma-specific errors
       if (error.code === 'P2025') {
         throw new NotFoundException('Renewal application or related record not found.');
       }
@@ -353,8 +413,9 @@ export class RenewalFormService {
         throw new BadRequestException('Invalid reference: related record does not exist.');
       }
       
+      // Generic error response
       throw new InternalServerErrorException(
-        'An error occurred while updating the renewal application.',
+        `Failed to update renewal application: ${error?.message || 'Unknown error'}`,
       );
     }
   }
@@ -734,7 +795,7 @@ export class RenewalFormService {
       const mergeId = `MERGE-${Date.now()}-${uuidv4().substring(0, 8)}`;
       const mergedFields: string[] = [];
 
-      return await prisma.$transaction(async (tx: any) => {
+       await prisma.$transaction(async (tx: any) => {
         // Merge personal details
         const personalUpdateData: any = {};
 
@@ -1186,7 +1247,9 @@ export class RenewalFormService {
                 zoneId: freshLicense.presentAddress.zoneId,
                 divisionId: freshLicense.presentAddress.divisionId,
                 policeStationId: freshLicense.presentAddress.policeStationId,
-                sinceResiding: freshLicense.presentAddress.sinceResiding,
+                sinceResiding: freshLicense.presentAddress.sinceResiding
+                  ? new Date(freshLicense.presentAddress.sinceResiding)
+                  : undefined,
                 telephoneOffice: freshLicense.presentAddress.telephoneOffice || null,
                 telephoneResidence: freshLicense.presentAddress.telephoneResidence || null,
                 officeMobileNumber: freshLicense.presentAddress.officeMobileNumber || null,
@@ -1221,7 +1284,9 @@ export class RenewalFormService {
                 zoneId: freshLicense.permanentAddress.zoneId,
                 divisionId: freshLicense.permanentAddress.divisionId,
                 policeStationId: freshLicense.permanentAddress.policeStationId,
-                sinceResiding: freshLicense.permanentAddress.sinceResiding,
+                sinceResiding: freshLicense.permanentAddress.sinceResiding
+                  ? new Date(freshLicense.permanentAddress.sinceResiding)
+                  : undefined,
                 telephoneOffice: freshLicense.permanentAddress.telephoneOffice || null,
                 telephoneResidence: freshLicense.permanentAddress.telephoneResidence || null,
                 officeMobileNumber: freshLicense.permanentAddress.officeMobileNumber || null,

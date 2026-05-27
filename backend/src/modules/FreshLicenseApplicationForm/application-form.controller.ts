@@ -62,7 +62,7 @@ export class ApplicationFormController {
     description: 'Application ID',
     example: '1'
   })
-    @ApiQuery({
+  @ApiQuery({
     name: 'isSubmit',
     description: 'Set to true to submit the application (finalize). If true, declaration and terms must be accepted.',
     example: false,
