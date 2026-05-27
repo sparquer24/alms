@@ -137,6 +137,125 @@ export class RenewalService {
   static async deleteRenewalFile(fileId: string | number): Promise<any> {
     return apiClient.delete(`/renewal-forms/file/${fileId}`);
   }
+
+  /**
+   * Get all statuses and available actions for workflow
+   */
+  static async getWorkflowStatusesAndActions(): Promise<any> {
+    return apiClient.get('/workflow/statuses-actions');
+  }
+
+  /**
+   * Get renewal applications - fetch applications by type
+   */
+  static async getRenewalApplications(filters?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams({
+      applicationType: 'RenewalApplicationForm',
+      ...(filters?.page && { page: String(filters.page) }),
+      ...(filters?.limit && { limit: String(filters.limit) }),
+      ...(filters?.status && { status: filters.status }),
+    });
+    
+    return apiClient.get(`/workflow/applications?${params.toString()}`);
+  }
+
+  /**
+   * Handle workflow action (forward, approve, reject, etc.) on renewal application
+   * @param applicationId - Application ID to perform action on
+   * @param actionId - Action ID from Actiones table
+   * @param nextUserId - User ID to forward/assign to (required for forward action)
+   * @param remarks - Remarks/comments for the action
+   * @param attachments - Optional attachments array
+   * @param applicationType - Application type (FreshLicenseApplicationForm or RenewalApplicationForm)
+   */
+  static async handleWorkflowAction(
+    applicationId: number,
+    actionId: number,
+    nextUserId: number | undefined,
+    remarks: string,
+    attachments?: Array<{ name: string; type: string; contentType: string; url: string }>,
+    applicationType?: string,
+  ): Promise<any> {
+    const payload: Record<string, any> = {
+      applicationId,
+      actionId,
+      remarks,
+    };
+
+    if (nextUserId !== undefined) {
+      payload.nextUserId = nextUserId;
+    }
+
+    if (applicationType) {
+      payload.applicationType = applicationType;
+    }
+
+    if (attachments && attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+
+    return apiClient.post('/workflow/action', payload);
+  }
+
+  /**
+   * Submit renewal application for workflow (change status to INITIATED)
+   * Equivalent to submitting the form
+   */
+  static async submitRenewalForWorkflow(
+    applicationId: number,
+    actionId: number,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, 'Application submitted for review');
+  }
+
+  /**
+   * Forward renewal application to next user/role
+   */
+  static async forwardRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    nextUserId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, nextUserId, remarks);
+  }
+
+  /**
+   * Approve renewal application
+   */
+  static async approveRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
+  }
+
+  /**
+   * Reject renewal application
+   */
+  static async rejectRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
+  }
+
+  /**
+   * Request additional info from applicant
+   */
+  static async requestInfoRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
+  }
 }
 
 export default RenewalService;

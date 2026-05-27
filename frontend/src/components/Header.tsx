@@ -71,6 +71,12 @@ const Header = (props: HeaderProps) => {
         throw new Error('No fresh application data returned for that ID.');
       }
 
+      // Check if application has been submitted
+      const isSubmitted = freshApplication?.isSubmit === true;
+      if (!isSubmitted) {
+        throw new Error('Your application has not been submitted.');
+      }
+
       setShowRenewalModal(false);
       router.push(`/forms/renewal?applicationId=${encodeURIComponent(id)}`);
     } catch (error: any) {

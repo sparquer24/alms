@@ -9,7 +9,7 @@ import {
   deleteRenewalDocument,
   getDocumentUploadMeta,
   uploadRenewalDocument,
-} from '../renewalFileUpload';
+} from '../../../../utils/renewalFileUpload';
 
 const weaponNameToSelectValue = (name?: string) => {
   const lower = String(name || '').toLowerCase();

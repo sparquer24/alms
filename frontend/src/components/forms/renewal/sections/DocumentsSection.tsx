@@ -5,8 +5,8 @@ import {
   deleteRenewalDocument,
   getDocumentUploadMeta,
   uploadRenewalDocument,
-} from '../renewalFileUpload';
-import { usePrefilledDocumentSync } from '../usePrefilledDocumentSync';
+} from '../../../../utils/renewalFileUpload';
+import { usePrefilledDocumentSync } from '../../../../hooks/usePrefilledDocumentSync';
 
 const DOCUMENT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: 'idProofUploaded', label: 'Aadhar Card', required: true },

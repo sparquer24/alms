@@ -7,7 +7,7 @@ import { useApplications } from '../context/ApplicationContext';
 import { useAuth } from '../config/auth';
 import { useGlobalAction } from '../context/GlobalActionContext';
 import { TableSkeleton } from './Skeleton';
-import { ApplicationApi } from '../config/APIClient';
+import { ApplicationApi, RenewalApi } from '../config/APIClient';
 import { Edit, Trash2 } from 'lucide-react';
 
 // Type assertion for lucide-react icons to fix React 18 compatibility
@@ -162,11 +162,14 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         const actionId = `navigate-application-${id}`;
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
-          setActiveNavigationPath(`/application/${id}`);
-          await router.push(`/application/${id}`);
+          const route = /renewal/i.test(String((baseApplications || []).find(app => app.id === id)?.applicationType || ''))
+            ? `/renwalapplication/${id}`
+            : `/application/${id}`;
+          setActiveNavigationPath(route);
+          await router.push(route);
         });
       },
-      [router, executeAction, setActiveNavigationPath]
+      [router, executeAction, setActiveNavigationPath, baseApplications]
     );
 
     const handleEditDraft = useCallback(
@@ -174,6 +177,30 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         const actionId = `edit-draft-${id}`;
         const result = await executeAction(actionId, async () => {
           try {
+            const draftApp = (baseApplications || []).find(app => app.id === id);
+            const isRenewalDraft = /renewal/i.test(String(draftApp?.applicationType || ''));
+
+            if (isRenewalDraft) {
+              const renewalId = String(
+                (draftApp as any)?.renewalId ||
+                (draftApp as any)?.renewalApplicationId ||
+                draftApp?.id ||
+                id
+              );
+              const applicationId = String(
+                (draftApp as any)?.applicationId ||
+                (draftApp as any)?.freshApplicationId ||
+                (draftApp as any)?.sourceApplicationId ||
+                (draftApp as any)?.renewalLicenseId ||
+                id
+              );
+
+              await router.push(
+                `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(renewalId)}`
+              );
+              return;
+            }
+
             const response = await ApplicationApi.getById(Number(id));
 
             if (response?.success && response?.data) {
@@ -195,7 +222,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         // If executeAction returned null it means the action was blocked (duplicate), so we simply return
         if (result === null) return;
       },
-      [router, executeAction]
+      [router, executeAction, baseApplications]
     );
 
     const formatDateTime = useCallback((dateStr: string) => {
@@ -621,7 +648,11 @@ const TableRow: React.FC<{
               >
                 <EditFixed className='w-4 h-4' />
               </button>
-              <DeleteDraftButton appId={app.id} />
+              {/renewal/i.test(String(app.applicationType || '')) ? (
+                <DeleteRenewalDraftButton renewalId={app.id} />
+              ) : (
+                <DeleteDraftButton appId={app.id} />
+              )}
             </div>
           ) : (
             <button
@@ -686,6 +717,68 @@ const DeleteDraftButton: React.FC<{ appId: string | number }> = ({ appId }) => {
         disabled={deleting}
         className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
         aria-label={`Delete draft application ${appId}`}
+        title='Delete'
+      >
+        <TrashFixed className='w-4 h-4' />
+      </button>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg text-white z-50 animate-in fade-in slide-in-from-bottom-4 ${
+            toast.type === 'success' ? 'bg-red-500' : 'bg-red-500'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
+  );
+};
+
+// Small helper component for delete renewal draft action
+const DeleteRenewalDraftButton: React.FC<{ renewalId: string | number }> = ({ renewalId }) => {
+  const [deleting, setDeleting] = React.useState(false);
+  const [toast, setToast] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setDeleting(true);
+      await RenewalApi.deleteRenewal(String(renewalId));
+      // Show success toast
+      setToast({
+        type: 'success',
+        message: 'Renewal draft deleted successfully.',
+      });
+      // Refresh the page after a brief delay to show the toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to delete renewal draft', err);
+      setToast({
+        type: 'error',
+        message: 'Failed to delete renewal draft. Please try again.',
+      });
+      // Auto-hide toast after 4 seconds
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
+        aria-label={`Delete renewal draft ${renewalId}`}
         title='Delete'
       >
         <TrashFixed className='w-4 h-4' />

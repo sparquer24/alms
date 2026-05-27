@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
 import { useAuthSync } from '../../../hooks/useAuthSync';
@@ -19,6 +19,7 @@ import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components
 import ProceedingsForm from '../../../components/ProceedingsForm';
 import { RichTextDisplay } from '../../../components/RichTextDisplay';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
+import { RenewalService } from '../../../api/renewalService';
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 import QRCodeDisplay from '../../../components/QRCodeDisplay';
@@ -78,6 +79,78 @@ const formatPhone = (p?: string) => {
   return p;
 };
 
+const normalizeRenewalApplication = (renewalApp: any): ApplicationData => {
+  const applicantName =
+    renewalApp?.applicantName ||
+    [renewalApp?.firstName, renewalApp?.middleName, renewalApp?.lastName].filter(Boolean).join(' ') ||
+    'Unknown Applicant';
+
+  return {
+    id: String(renewalApp?.id || ''),
+    acknowledgementNo: renewalApp?.acknowledgementNo,
+    firstName: renewalApp?.firstName,
+    middleName: renewalApp?.middleName,
+    lastName: renewalApp?.lastName,
+    applicantName,
+    applicantMobile: renewalApp?.applicantMobile || renewalApp?.mobileNumber || '',
+    applicantEmail: renewalApp?.applicantEmail || renewalApp?.email || undefined,
+    mobileNumber: renewalApp?.applicantMobile || renewalApp?.mobileNumber || '',
+    email: renewalApp?.applicantEmail || renewalApp?.email || undefined,
+    parentOrSpouseName: renewalApp?.parentOrSpouseName,
+    sex: renewalApp?.sex,
+    gender: renewalApp?.sex ? (formatGender(renewalApp.sex) as any) : undefined,
+    dob: renewalApp?.dateOfBirth || undefined,
+    dateOfBirth: renewalApp?.dateOfBirth || undefined,
+    dobInWords: renewalApp?.dobInWords,
+    panNumber: renewalApp?.panNumber,
+    aadharNumber: renewalApp?.aadharNumber,
+    placeOfBirth: renewalApp?.placeOfBirth || undefined,
+    applicationType: 'Renewal Application',
+    applicationDate: renewalApp?.createdAt || new Date().toISOString(),
+    applicationTime: renewalApp?.createdAt ? new Date(renewalApp.createdAt).toTimeString() : undefined,
+    status: renewalApp?.workflowStatus?.name || renewalApp?.status || (renewalApp?.isSubmit ? 'Submitted' : 'Draft'),
+    status_id: renewalApp?.workflowStatusId ?? (renewalApp?.isSubmit ? 1 : 0),
+    workflowStatus: renewalApp?.workflowStatus
+      ? {
+          id: renewalApp.workflowStatus.id || 0,
+          code: renewalApp.workflowStatus.code || '',
+          name: renewalApp.workflowStatus.name || '',
+        }
+      : undefined,
+    currentUser:
+      renewalApp?.currentUser ||
+      (renewalApp?.currentUserId
+        ? {
+            id: renewalApp.currentUserId,
+            username: renewalApp.currentUserName || renewalApp.currentUserUsername || undefined,
+          }
+        : undefined),
+    previousUser: renewalApp?.previousUser || undefined,
+    assignedTo: String(renewalApp?.currentUserId || ''),
+    lastUpdated: renewalApp?.updatedAt || renewalApp?.createdAt || new Date().toISOString(),
+    createdAt: renewalApp?.createdAt,
+    updatedAt: renewalApp?.updatedAt,
+    documents: Array.isArray(renewalApp?.documents) ? renewalApp.documents : (Array.isArray(renewalApp?.fileUploads) ? renewalApp.fileUploads : []),
+    workflowHistories: Array.isArray(renewalApp?.workflowHistories) ? renewalApp.workflowHistories : [],
+    // Use nested objects directly from response - now included by updated backend
+    presentAddress: renewalApp?.presentAddress || undefined,
+    permanentAddress: renewalApp?.permanentAddress || undefined,
+    occupationAndBusiness: renewalApp?.occupationAndBusiness || undefined,
+    licenseDetails: Array.isArray(renewalApp?.licenseDetails) ? renewalApp.licenseDetails : (renewalApp?.licenseDetails ? [renewalApp.licenseDetails] : []),
+    biometricData: renewalApp?.biometricData || undefined,
+    actions: {
+      canForward: false,
+      canReport: true,
+      canApprove: false,
+      canReject: false,
+      canRaiseRedflag: false,
+      canReturn: false,
+      canDispose: false,
+    },
+    usersInHierarchy: Array.isArray(renewalApp?.usersInHierarchy) ? renewalApp.usersInHierarchy : [],
+  };
+};
+
 interface ApplicationDetailPageProps {
   params: Promise<{
     id: string;
@@ -87,6 +160,8 @@ interface ApplicationDetailPageProps {
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
   const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuthSync();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { setShowHeader, setShowSidebar } = useLayout();
   const [application, setApplication] = useState<ApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,6 +211,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isDragging, setIsDragging] = useState(false);
   const dividerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isRenewalView =
+    searchParams?.get('type') === 'renewal' ||
+    (typeof pathname === 'string' && pathname.includes('/renewalApplication'));
 
   // Use sidebar counts hook here so we can trigger an immediate refresh
   // after actions that move an application between inbox buckets.
@@ -314,11 +392,21 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     const fetchApplication = async () => {
       setLoading(true);
       try {
-        const result = await getApplicationByApplicationId(applicationId!);
-        if (result) {
-          setApplication(result as ApplicationData);
+        if (isRenewalView) {
+          const response = await RenewalService.getRenewalForm(applicationId!);
+          const renewalData = (response as any)?.data ?? response;
+          if (renewalData) {
+            setApplication(normalizeRenewalApplication(renewalData));
+          } else {
+            setApplication(null);
+          }
         } else {
-          setApplication(null);
+          const result = await getApplicationByApplicationId(applicationId!);
+          if (result) {
+            setApplication(result as ApplicationData);
+          } else {
+            setApplication(null);
+          }
         }
       } catch (error) {
         setApplication(null);
@@ -330,7 +418,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     if (applicationId) {
       fetchApplication();
     }
-  }, [applicationId]);
+  }, [applicationId, isRenewalView]);
 
   // Clear success message after 5 seconds
   useEffect(() => {
@@ -823,7 +911,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
     // Redirect to inbox/forwarded after successful proceedings action
     setTimeout(() => {
-      router.push('/home?type=forwarded');
+      router.push('/inbox?type=forwarded');
     }, 2000);
   };
 
@@ -2241,8 +2329,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </div>
               </div>
 
-              {/* Action Buttons and Timeline Section - Only show if NOT Draft */}
-              {application?.workflowStatus?.name?.toLowerCase() !== 'draft' && (
+              {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
+              {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
                 <div
                   className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
                 0px)]'

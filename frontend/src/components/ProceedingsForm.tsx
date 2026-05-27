@@ -25,6 +25,18 @@ interface ProceedingsFormProps {
   applicationData?: ApplicationData;
 }
 
+const resolveHierarchyApplicationType = (value?: string): string => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized.includes('renew')) return 'RenewalApplicationForm';
+  return 'FreshApplication';
+};
+
+const resolveWorkflowApplicationType = (value?: string): string => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized.includes('renew')) return 'RenewalApplicationForm';
+  return 'FreshLicenseApplicationForm';
+};
+
 // Type representing actions fetched from backend Actiones table
 type BackendAction = {
   id: number;
@@ -196,6 +208,9 @@ export default function ProceedingsForm({
     }
   };
 
+  const hierarchyApplicationType = resolveHierarchyApplicationType(applicationData?.applicationType);
+  const workflowApplicationType = resolveWorkflowApplicationType(applicationData?.applicationType);
+
   // Fetch actions from backend on mount
   useEffect(() => {
     let mounted = true;
@@ -302,7 +317,9 @@ export default function ProceedingsForm({
     (async () => {
       try {
         // Fetch users in hierarchy from API
-        const response = await fetchData(`/application-form/users-in-hierarchy/${applicationId}`);
+        const response = await fetchData(
+          `/users-in-hierarchy/${applicationId}?applicationType=${encodeURIComponent(hierarchyApplicationType)}`,
+        );
 
         if (mounted) {
           // Handle response - could be direct array or wrapped in data property
@@ -328,7 +345,7 @@ export default function ProceedingsForm({
     return () => {
       mounted = false;
     };
-  }, [applicationId]);
+  }, [applicationId, hierarchyApplicationType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,6 +377,7 @@ export default function ProceedingsForm({
       applicationId: Number(applicationId),
       actionId,
       remarks: remarks.trim(),
+      applicationType: workflowApplicationType,
       attachments: [],
     };
 

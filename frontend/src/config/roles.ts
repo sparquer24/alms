@@ -122,6 +122,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'drafts', statusIds: [13] },
       { name: 'finaldisposal', statusIds: [7] },
       { name: 'analytics' },
+      { name: 'applications' },
     ],
     'SHO': [
       { name: 'inbox', statusIds: [1, 9] },

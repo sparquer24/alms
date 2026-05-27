@@ -1,5 +1,5 @@
-import RenewalService from '../../../api/renewalService';
-import { getDocumentUploadMeta, resolveFileHref } from '../../../services/fileHandler';
+import RenewalService from '../api/renewalService';
+import { getDocumentUploadMeta, resolveFileHref } from '../services/fileHandler';
 import jsCookie from 'js-cookie';
 
 export type RenewalFileMeta = {

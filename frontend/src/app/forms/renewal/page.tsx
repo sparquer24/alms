@@ -8,12 +8,12 @@ import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
-import { applyPrefilledDocumentUploads, syncPendingRenewalDocuments } from '../../../components/forms/renewal/renewalFileUpload';
-import { usePrefilledDocumentSync } from '../../../components/forms/renewal/usePrefilledDocumentSync';
+import { applyPrefilledDocumentUploads, syncPendingRenewalDocuments } from '../../../utils/renewalFileUpload';
+import { usePrefilledDocumentSync } from '../../../hooks/usePrefilledDocumentSync';
 import {
   asPendingRenewalDocument,
   collectRenewalFileIds,
-} from '../../../components/forms/renewal/renewalFileUpload';
+} from '../../../utils/renewalFileUpload';
 import PersonalDetailsSection from '../../../components/forms/renewal/sections/PersonalDetailsSection';
 import AddressDetailsSection from '../../../components/forms/renewal/sections/AddressDetailsSection';
 import OccupationSection from '../../../components/forms/renewal/sections/OccupationSection';
@@ -1352,90 +1352,77 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
 });
 
 const buildRenewalPatchPayload = (formData: RenewalFormState) => {
-  const areaOfValidity = buildAreaOfValidityPayload(formData);
-  const requestedWeaponIds =
-    formData.requestedWeaponIds?.length > 0
-      ? formData.requestedWeaponIds
-      : (() => {
-          const weaponIdNumber = toNumber(formData.weaponId);
-          return weaponIdNumber !== undefined ? [weaponIdNumber] : undefined;
-        })();
+  // Use the same flat structure as buildRenewalPayload for consistency with POST/PATCH endpoints
+  const payload: Record<string, any> = {};
 
-  const armsCategory = normalizeArmsCategoryForApi(formData.armsOptionType || formData.licenseType);
-  const cultivatedAreaNumber = formData.cultivatedArea ? Number(formData.cultivatedArea) : undefined;
+  // Only include fields that have values to minimize payload size
+  if (formData.licenseNumber) payload.licenseNumber = formData.licenseNumber;
+  if (formData.acknowledgementNo) payload.acknowledgementNo = formData.acknowledgementNo;
+  if (formData.applicantName) payload.firstName = formData.applicantName;
+  if (formData.applicantMiddleName) payload.middleName = formData.applicantMiddleName;
+  if (formData.applicantLastName) payload.lastName = formData.applicantLastName;
+  if (formData.fatherName) payload.parentOrSpouseName = formData.fatherName;
+  if (formData.motherName) payload.motherName = formData.motherName;
+  if (formData.maritalStatus) payload.maritalStatus = formData.maritalStatus;
+  if (formData.nationality) payload.nationality = formData.nationality;
+  if (formData.applicantGender) payload.sex = formData.applicantGender;
+  if (formData.applicantDateOfBirth) payload.dateOfBirth = formData.applicantDateOfBirth;
+  if (formData.dobInWords) payload.dobInWords = formData.dobInWords;
+  if (formData.placeOfBirth) payload.placeOfBirth = formData.placeOfBirth;
+  if (formData.applicantIdType) payload.applicantIdType = formData.applicantIdType;
+  if (formData.applicantIdNumber) payload.applicantIdNumber = formData.applicantIdNumber;
+  if (formData.panNumber) payload.panNumber = formData.panNumber;
+  if (formData.aadharNumber) payload.aadharNumber = formData.aadharNumber;
+  if (formData.applicantMobile) payload.applicantMobile = formData.applicantMobile;
+  if (formData.applicantEmail) payload.applicantEmail = formData.applicantEmail;
+  if (formData.filledBy) payload.filledBy = formData.filledBy;
 
-  const payload: Record<string, unknown> = {
-    personalDetails: {
-      firstName: formData.applicantName,
-      middleName: formData.applicantMiddleName || undefined,
-      lastName: formData.applicantLastName,
-      parentOrSpouseName: formData.fatherName,
-      sex: formData.applicantGender || undefined,
-      dateOfBirth: formData.applicantDateOfBirth || undefined,
-      dobInWords: formData.dobInWords || undefined,
-      panNumber: formData.panNumber || undefined,
-      aadharNumber: formData.aadharNumber || undefined,
-      filledBy: formData.filledBy || undefined,
-    },
-  };
+  // Address fields
+  if (formData.presentAddress) payload.presentAddress = formData.presentAddress;
+  if (formData.presentState) payload.presentState = formData.presentState;
+  if (formData.presentDistrict) payload.presentDistrict = formData.presentDistrict;
+  if (formData.presentZone) payload.presentZone = formData.presentZone;
+  if (formData.presentDivision) payload.presentDivision = formData.presentDivision;
+  if (formData.presentPincode) payload.presentPincode = formData.presentPincode;
+  if (formData.presentPoliceStation) payload.presentPoliceStation = formData.presentPoliceStation;
+  if (formData.jurisdictionPoliceStation) payload.jurisdictionPoliceStation = formData.jurisdictionPoliceStation;
+  if (formData.residingSince) payload.residingSince = formData.residingSince;
+  payload.sameAsPresent = formData.sameAsPresent;
+  if (formData.permanentAddress) payload.permanentAddress = formData.permanentAddress;
+  if (formData.permanentState) payload.permanentState = formData.permanentState;
+  if (formData.permanentDistrict) payload.permanentDistrict = formData.permanentDistrict;
+  if (formData.permanentZone) payload.permanentZone = formData.permanentZone;
+  if (formData.permanentDivision) payload.permanentDivision = formData.permanentDivision;
+  if (formData.permanentPincode) payload.permanentPincode = formData.permanentPincode;
+  if (formData.permanentPoliceStation) payload.permanentPoliceStation = formData.permanentPoliceStation;
+  if (formData.officePhone) payload.officePhone = formData.officePhone;
+  if (formData.residencePhone) payload.residencePhone = formData.residencePhone;
+  if (formData.officeMobile) payload.officeMobile = formData.officeMobile;
+  if (formData.alternativeMobile) payload.alternativeMobile = formData.alternativeMobile;
 
-  if (hasCompleteAddressPayload(formData)) {
-    payload.addressDetails = {
-      addressLine: formData.presentAddress,
-      stateId: toNumber(formData.presentState),
-      districtId: toNumber(formData.presentDistrict),
-      zoneId: toNumber(formData.presentZone),
-      divisionId: toNumber(formData.presentDivision),
-      policeStationId: toNumber(formData.presentPoliceStation),
-      sinceResiding: formData.residingSince,
-      telephoneOffice: formData.officePhone || undefined,
-      telephoneResidence: formData.residencePhone || undefined,
-      officeMobileNumber: formData.officeMobile || undefined,
-      alternativeMobile: formData.alternativeMobile || undefined,
-    };
+  // Occupation fields
+  if (formData.occupation) payload.occupation = formData.occupation;
+  if (formData.officeBusinessAddress) payload.officeBusinessAddress = formData.officeBusinessAddress;
+  if (formData.officeBusinessState) payload.officeBusinessState = formData.officeBusinessState;
+  if (formData.officeBusinessDistrict) payload.officeBusinessDistrict = formData.officeBusinessDistrict;
+  if (formData.cropProtectionLocation) payload.cropProtectionLocation = formData.cropProtectionLocation;
+  if (formData.cultivatedArea) payload.cultivatedArea = formData.cultivatedArea;
+
+  // Application/License fields
+  payload.applicationType = 'Renewal';
+  if (formData.weaponType) payload.weaponType = formData.weaponType;
+  if (formData.weaponId) payload.weaponId = formData.weaponId;
+  if (formData.weaponReason) payload.weaponReason = formData.weaponReason;
+  if (formData.licenseValidity) payload.licenseValidity = formData.licenseValidity;
+  if (formData.licenseType) payload.licenseType = formData.licenseType;
+  payload.hasPreviousLicense = formData.hasPreviousLicense;
+  if (formData.previousApplicationDetails) payload.previousApplicationDetails = formData.previousApplicationDetails;
+
+  // Declaration
+  if (formData.declaration && Object.keys(formData.declaration).some(k => formData.declaration[k as keyof typeof formData.declaration])) {
+    payload.declaration = formData.declaration;
   }
-
-  if (hasCompleteOccupationPayload(formData)) {
-    payload.occupationAndBusiness = {
-      occupation: formData.occupation,
-      officeAddress: formData.officeBusinessAddress,
-      stateId: toNumber(formData.officeBusinessState),
-      districtId: toNumber(formData.officeBusinessDistrict),
-      cropLocation: formData.cropProtectionLocation || undefined,
-      areaUnderCultivation:
-        cultivatedAreaNumber !== undefined && !Number.isNaN(cultivatedAreaNumber)
-          ? cultivatedAreaNumber
-          : undefined,
-    };
-  }
-
-  const licenseDetails: Record<string, unknown> = {};
-  const needForLicense = normalizeLicensePurpose(formData.weaponReason);
-  if (needForLicense) licenseDetails.needForLicense = needForLicense;
-  if (armsCategory) licenseDetails.armsCategory = armsCategory;
-  if (areaOfValidity) licenseDetails.areaOfValidity = areaOfValidity;
-  if (formData.ammunitionDescription) licenseDetails.ammunitionDescription = formData.ammunitionDescription;
-  if (formData.specialConsiderationClaim) {
-    licenseDetails.specialConsiderationReason = formData.specialConsiderationClaim;
-  }
-  if (formData.formIVPlaceArea) licenseDetails.licencePlaceArea = formData.formIVPlaceArea;
-  if (requestedWeaponIds?.length) licenseDetails.requestedWeaponIds = requestedWeaponIds;
-
-  if (Object.keys(licenseDetails).length > 0) {
-    payload.licenseDetails = licenseDetails;
-  }
-
-  if (
-    formData.declaration.agreeToTerms ||
-    formData.declaration.understandLegalConsequences ||
-    formData.declaration.agreeToTruth
-  ) {
-    payload.acceptanceFlags = {
-      isDeclarationAccepted: Boolean(formData.declaration.agreeToTerms || formData.declaration.agreeToTruth),
-      isAwareOfLegalConsequences: Boolean(formData.declaration.understandLegalConsequences),
-      isTermsAccepted: Boolean(formData.declaration.agreeToTerms),
-    };
-  }
+  payload.hasSubmittedTrueInfo = formData.hasSubmittedTrueInfo;
 
   return payload;
 };
@@ -1657,6 +1644,9 @@ function RenewalFormPageContent() {
     declaration: false,
   });
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const toggleSection = (key: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -1706,6 +1696,16 @@ function RenewalFormPageContent() {
 
         console.log('Renewal load:', { applicationId, fileUploads: collectUploadedFilesFromApi(freshData) });
         const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
+
+        // Validate that the fresh application has been submitted
+        const applicationCheckResponse = await ApplicationService.getApplication(applicationId);
+        console.log('Application check response:', applicationCheckResponse);
+        
+        // Check if application is submitted (isSubmit should be true)
+        const isSubmitted = applicationCheckResponse?.isSubmit === true || applicationCheckResponse?.data?.isSubmit === true;
+        if (!isSubmitted) {
+          throw new Error('Your application has not been submitted.');
+        }
 
         await createDraftRenewalFromFreshApplication(
           applicationId,
@@ -1787,21 +1787,19 @@ function RenewalFormPageContent() {
     // Try to enrich occupation state/district with human-readable names
     try {
       const stateId = toNumber(formData.officeBusinessState);
-      if (stateId !== undefined) {
+      if (stateId !== undefined && formData.officeBusinessState) {
         const state = await locationAPI.getStateById(stateId);
-        base.occupationAndBusiness = {
-          ...base.occupationAndBusiness,
-          stateName: state?.name,
-        } as any;
+        if (state?.name) {
+          base.officeBusinessStateName = state.name;
+        }
       }
 
       const districtId = toNumber(formData.officeBusinessDistrict);
-      if (districtId !== undefined) {
+      if (districtId !== undefined && formData.officeBusinessDistrict) {
         const district = await locationAPI.getDistrictById(districtId);
-        base.occupationAndBusiness = {
-          ...base.occupationAndBusiness,
-          districtName: district?.name,
-        } as any;
+        if (district?.name) {
+          base.officeBusinessDistrictName = district.name;
+        }
       }
     } catch (err) {
       // Non-fatal: if location name lookup fails, proceed with numeric ids
@@ -1864,7 +1862,11 @@ function RenewalFormPageContent() {
   const saveRenewalDraft = () => persistRenewalForm(false);
 
   const saveAndContinue = async () => {
-    await persistRenewalForm(true);
+    const success = await persistRenewalForm(true);
+    if (success) {
+      setSuccessMessage('Renewal application is submitted');
+      setShowSuccessModal(true);
+    }
   };
 
   const reloadRenewalData = async () => {
@@ -1895,6 +1897,29 @@ function RenewalFormPageContent() {
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+          <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+            <div className='flex items-center justify-center'>
+              <div className='rounded-full bg-green-100 p-3'>
+                <svg className='h-6 w-6 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+                </svg>
+              </div>
+            </div>
+            <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
+            <p className='text-center text-gray-600'>{successMessage}</p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className='mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader applicationId={applicationId} renewalId={renewalId || createdRenewalIdRef.current || ''} summaryData={renewalRecord || formData} />
