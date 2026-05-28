@@ -284,19 +284,13 @@ export class RenewalFormController {
     
   ): Promise<RenewalFormResponse> {
     const userId = req?.user?.id || 1;
-    const submitApp = isSubmit !== undefined ? isSubmit === 'true' : patchData.isSubmit === true;
-    console.log('🔍 [updateApplicationDetails] Received update request for ');
-    console.log('Application ID:', applicationId);
-    console.log('Patch Data:', patchData);
-    console.log('Submit Application:', submitApp);
-    console.log('User ID:', userId);
+    const submitApp = isSubmit !== undefined ? isSubmit === 'true' : patchData.isSubmit === true
 
     const result = await this.renewalFormService.patchApplicationDetails(
       applicationId,
       { ...patchData, isSubmit: submitApp },
       userId,
     );
-    console.log({result})
     return result;
   }
 
