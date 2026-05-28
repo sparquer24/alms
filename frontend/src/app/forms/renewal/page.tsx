@@ -394,6 +394,23 @@ const mapLicensePurposeToUiValue = (value?: string) => {
   }
 };
 
+// Reverse mapping: UI value → API enum
+const mapUiValueToLicensePurpose = (value?: string) => {
+  if (!value) return '';
+  const normalized = String(value).toLowerCase();
+
+  switch (normalized) {
+    case 'self_defense':
+      return 'SELF_PROTECTION';
+    case 'sports':
+      return 'SPORTS';
+    case 'business_security':
+      return 'HEIRLOOM_POLICY';
+    default:
+      return value;
+  }
+};
+
 const getPresentAddress = (data: any) => data?.presentAddress || data?.addressDetails;
 
 const normalizeLocationId = (value: any) => {
@@ -568,6 +585,27 @@ const weaponNameToSelectValue = (name?: string) => {
   if (lower.includes('rifle')) return 'rifle';
   if (lower.includes('shotgun')) return 'shotgun';
   return lower;
+};
+
+// Map UI arms option to API armsCategory enum
+const mapArmsOptionToCategory = (armsOption?: string): string => {
+  if (!armsOption) return '';
+  const normalized = String(armsOption).toUpperCase();
+  
+  // Map common arm types to RESTRICTED or PERMISSIBLE
+  if (normalized.includes('PISTOL') || normalized.includes('REVOLVER')) {
+    return 'RESTRICTED';
+  }
+  if (normalized.includes('RIFLE') || normalized.includes('SHOTGUN')) {
+    return 'RESTRICTED';
+  }
+  if (normalized.includes('PERMISSIBLE')) {
+    return 'PERMISSIBLE';
+  }
+  if (normalized.includes('RESTRICTED')) {
+    return 'RESTRICTED';
+  }
+  return 'RESTRICTED'; // default to RESTRICTED
 };
 
 const parseCarryAreaFlags = (areaOfValidity?: string) => {
@@ -1352,77 +1390,94 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
 });
 
 const buildRenewalPatchPayload = (formData: RenewalFormState) => {
-  // Use the same flat structure as buildRenewalPayload for consistency with POST/PATCH endpoints
+  // Build nested structure matching the new API request format
   const payload: Record<string, any> = {};
+  
+  const personalDetails: Record<string, any> = {};
+  const addressDetails: Record<string, any> = {};
+  const occupationAndBusiness: Record<string, any> = {};
+  const licenseDetails: Record<string, any> = {};
 
-  // Only include fields that have values to minimize payload size
-  if (formData.licenseNumber) payload.licenseNumber = formData.licenseNumber;
-  if (formData.acknowledgementNo) payload.acknowledgementNo = formData.acknowledgementNo;
-  if (formData.applicantName) payload.firstName = formData.applicantName;
-  if (formData.applicantMiddleName) payload.middleName = formData.applicantMiddleName;
-  if (formData.applicantLastName) payload.lastName = formData.applicantLastName;
-  if (formData.fatherName) payload.parentOrSpouseName = formData.fatherName;
-  if (formData.motherName) payload.motherName = formData.motherName;
-  if (formData.maritalStatus) payload.maritalStatus = formData.maritalStatus;
-  if (formData.nationality) payload.nationality = formData.nationality;
-  if (formData.applicantGender) payload.sex = formData.applicantGender;
-  if (formData.applicantDateOfBirth) payload.dateOfBirth = formData.applicantDateOfBirth;
-  if (formData.dobInWords) payload.dobInWords = formData.dobInWords;
-  if (formData.placeOfBirth) payload.placeOfBirth = formData.placeOfBirth;
-  if (formData.applicantIdType) payload.applicantIdType = formData.applicantIdType;
-  if (formData.applicantIdNumber) payload.applicantIdNumber = formData.applicantIdNumber;
-  if (formData.panNumber) payload.panNumber = formData.panNumber;
-  if (formData.aadharNumber) payload.aadharNumber = formData.aadharNumber;
-  if (formData.applicantMobile) payload.applicantMobile = formData.applicantMobile;
-  if (formData.applicantEmail) payload.applicantEmail = formData.applicantEmail;
-  if (formData.filledBy) payload.filledBy = formData.filledBy;
+  // Personal Details
+  if (formData.applicantName) personalDetails.firstName = formData.applicantName;
+  if (formData.applicantMiddleName) personalDetails.middleName = formData.applicantMiddleName;
+  if (formData.applicantLastName) personalDetails.lastName = formData.applicantLastName;
+  if (formData.fatherName) personalDetails.parentOrSpouseName = formData.fatherName;
+  if (formData.applicantGender) personalDetails.sex = formData.applicantGender;
+  if (formData.applicantDateOfBirth) personalDetails.dateOfBirth = formData.applicantDateOfBirth;
+  if (formData.dobInWords) personalDetails.dobInWords = formData.dobInWords;
+  if (formData.panNumber) personalDetails.panNumber = formData.panNumber;
+  if (formData.aadharNumber) personalDetails.aadharNumber = formData.aadharNumber;
 
-  // Address fields
-  if (formData.presentAddress) payload.presentAddress = formData.presentAddress;
-  if (formData.presentState) payload.presentState = formData.presentState;
-  if (formData.presentDistrict) payload.presentDistrict = formData.presentDistrict;
-  if (formData.presentZone) payload.presentZone = formData.presentZone;
-  if (formData.presentDivision) payload.presentDivision = formData.presentDivision;
-  if (formData.presentPincode) payload.presentPincode = formData.presentPincode;
-  if (formData.presentPoliceStation) payload.presentPoliceStation = formData.presentPoliceStation;
-  if (formData.jurisdictionPoliceStation) payload.jurisdictionPoliceStation = formData.jurisdictionPoliceStation;
-  if (formData.residingSince) payload.residingSince = formData.residingSince;
-  payload.sameAsPresent = formData.sameAsPresent;
-  if (formData.permanentAddress) payload.permanentAddress = formData.permanentAddress;
-  if (formData.permanentState) payload.permanentState = formData.permanentState;
-  if (formData.permanentDistrict) payload.permanentDistrict = formData.permanentDistrict;
-  if (formData.permanentZone) payload.permanentZone = formData.permanentZone;
-  if (formData.permanentDivision) payload.permanentDivision = formData.permanentDivision;
-  if (formData.permanentPincode) payload.permanentPincode = formData.permanentPincode;
-  if (formData.permanentPoliceStation) payload.permanentPoliceStation = formData.permanentPoliceStation;
-  if (formData.officePhone) payload.officePhone = formData.officePhone;
-  if (formData.residencePhone) payload.residencePhone = formData.residencePhone;
-  if (formData.officeMobile) payload.officeMobile = formData.officeMobile;
-  if (formData.alternativeMobile) payload.alternativeMobile = formData.alternativeMobile;
+  // Address Details (Present Address)
+  if (formData.presentAddress) addressDetails.addressLine = formData.presentAddress;
+  const stateId = toNumber(formData.presentState);
+  if (stateId !== undefined) addressDetails.stateId = stateId;
+  const districtId = toNumber(formData.presentDistrict);
+  if (districtId !== undefined) addressDetails.districtId = districtId;
+  const policeStationId = toNumber(formData.presentPoliceStation);
+  if (policeStationId !== undefined) addressDetails.policeStationId = policeStationId;
+  const zoneId = toNumber(formData.presentZone);
+  if (zoneId !== undefined) addressDetails.zoneId = zoneId;
+  const divisionId = toNumber(formData.presentDivision);
+  if (divisionId !== undefined) addressDetails.divisionId = divisionId;
+  if (formData.residingSince) addressDetails.sinceResiding = formData.residingSince;
+  if (formData.officePhone) addressDetails.telephoneOffice = formData.officePhone;
+  if (formData.residencePhone) addressDetails.telephoneResidence = formData.residencePhone;
+  if (formData.officeMobile) addressDetails.officeMobileNumber = formData.officeMobile;
+  if (formData.alternativeMobile) addressDetails.alternativeMobile = formData.alternativeMobile;
 
-  // Occupation fields
-  if (formData.occupation) payload.occupation = formData.occupation;
-  if (formData.officeBusinessAddress) payload.officeBusinessAddress = formData.officeBusinessAddress;
-  if (formData.officeBusinessState) payload.officeBusinessState = formData.officeBusinessState;
-  if (formData.officeBusinessDistrict) payload.officeBusinessDistrict = formData.officeBusinessDistrict;
-  if (formData.cropProtectionLocation) payload.cropProtectionLocation = formData.cropProtectionLocation;
-  if (formData.cultivatedArea) payload.cultivatedArea = formData.cultivatedArea;
+  // Occupation and Business
+  if (formData.occupation) occupationAndBusiness.occupation = formData.occupation;
+  if (formData.officeBusinessAddress) occupationAndBusiness.officeAddress = formData.officeBusinessAddress;
+  const occStateId = toNumber(formData.officeBusinessState);
+  if (occStateId !== undefined) occupationAndBusiness.stateId = occStateId;
+  const occDistrictId = toNumber(formData.officeBusinessDistrict);
+  if (occDistrictId !== undefined) occupationAndBusiness.districtId = occDistrictId;
+  if (formData.cropProtectionLocation) occupationAndBusiness.cropLocation = formData.cropProtectionLocation;
+  if (formData.cultivatedArea) occupationAndBusiness.areaUnderCultivation = formData.cultivatedArea;
 
-  // Application/License fields
-  payload.applicationType = 'Renewal';
-  if (formData.weaponType) payload.weaponType = formData.weaponType;
-  if (formData.weaponId) payload.weaponId = formData.weaponId;
-  if (formData.weaponReason) payload.weaponReason = formData.weaponReason;
-  if (formData.licenseValidity) payload.licenseValidity = formData.licenseValidity;
-  if (formData.licenseType) payload.licenseType = formData.licenseType;
-  payload.hasPreviousLicense = formData.hasPreviousLicense;
-  if (formData.previousApplicationDetails) payload.previousApplicationDetails = formData.previousApplicationDetails;
-
-  // Declaration
-  if (formData.declaration && Object.keys(formData.declaration).some(k => formData.declaration[k as keyof typeof formData.declaration])) {
-    payload.declaration = formData.declaration;
+  // License Details - with reverse mapping to API enum values
+  if (formData.weaponReason) {
+    const needForLicense = mapUiValueToLicensePurpose(formData.weaponReason);
+    if (needForLicense) licenseDetails.needForLicense = needForLicense;
   }
-  payload.hasSubmittedTrueInfo = formData.hasSubmittedTrueInfo;
+  
+  // Map arms category from weaponType or armsOptionType
+  const armsCategory = mapArmsOptionToCategory(formData.weaponType || formData.armsOptionType);
+  if (armsCategory) {
+    licenseDetails.armsCategory = armsCategory;
+  }
+  
+  if (formData.licenseValidity) licenseDetails.areaOfValidity = formData.licenseValidity;
+  if (formData.licenseType) licenseDetails.ammunitionDescription = formData.licenseType;
+  if (formData.declaration?.understandLegalConsequences) {
+    licenseDetails.specialConsiderationReason = 'Application submitted with legal acknowledgement';
+  }
+  
+  // Convert requestedWeaponIds to array of numbers
+  const weaponIds: number[] = [];
+  if (formData.requestedWeaponIds && Array.isArray(formData.requestedWeaponIds)) {
+    formData.requestedWeaponIds.forEach((id: any) => {
+      const numId = toNumber(id);
+      if (numId !== undefined) weaponIds.push(numId);
+    });
+  } else if (formData.weaponId) {
+    const weaponIdNum = toNumber(formData.weaponId);
+    if (weaponIdNum !== undefined) weaponIds.push(weaponIdNum);
+  }
+  if (weaponIds.length > 0) {
+    licenseDetails.requestedWeaponIds = weaponIds;
+  }
+
+  // Add non-empty sections to payload
+  if (Object.keys(personalDetails).length > 0) payload.personalDetails = personalDetails;
+  if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
+  if (Object.keys(occupationAndBusiness).length > 0) payload.occupationAndBusiness = occupationAndBusiness;
+  if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
+  
+  // Always include acceptanceFlags (can be empty)
+  payload.acceptanceFlags = {};
 
   return payload;
 };

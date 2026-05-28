@@ -104,8 +104,12 @@ export class RenewalService {
     payload: Record<string, any>,
     options?: { isSubmit?: boolean },
   ): Promise<any> {
-    const query = typeof options?.isSubmit === 'boolean' ? `?isSubmit=${options.isSubmit}` : '';
-    return patchData(`/renewal-forms/${applicationId}${query}`, payload);
+    const params = new URLSearchParams();
+    params.append('applicationId', String(applicationId));
+    if (typeof options?.isSubmit === 'boolean') {
+      params.append('isSubmit', String(options.isSubmit));
+    }
+    return patchData(`/renewal-forms?${params.toString()}`, payload);
   }
 
   static async uploadDocument(

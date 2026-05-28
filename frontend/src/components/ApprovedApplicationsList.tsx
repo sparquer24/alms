@@ -39,6 +39,7 @@ export default function ApprovedApplicationsList() {
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'fresh' | 'renewal'>('all');
 
   useEffect(() => {
     fetchApplications();
@@ -88,7 +89,16 @@ export default function ApprovedApplicationsList() {
 
   const filteredApplications = applications.filter((app) => {
     // Only show approved applications
-    return app.actionTaken === 'APPROVED';
+    if (app.actionTaken !== 'APPROVED') return false;
+    
+    // Filter by application type
+    if (filterType === 'fresh') {
+      return app.applicationType && /fresh/i.test(app.applicationType);
+    } else if (filterType === 'renewal') {
+      return app.applicationType && /renewal/i.test(app.applicationType);
+    }
+    
+    return true; // Show all approved applications
   });
 
 
@@ -99,6 +109,46 @@ export default function ApprovedApplicationsList() {
         <div className='flex items-center justify-between mb-4'>
           <div>
             <h1 className='text-2xl font-bold text-gray-900'>Approved Applications</h1>
+          </div>
+        </div>
+
+        {/* Filter Radio Buttons */}
+        <div className='mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4'>
+          <div className='mb-3 text-sm font-medium text-slate-700'>Filter by application type</div>
+          <div className='flex flex-wrap items-center gap-4'>
+            <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
+              <input
+                type='radio'
+                name='application-type'
+                value='all'
+                checked={filterType === 'all'}
+                onChange={() => setFilterType('all')}
+                className='h-4 w-4 accent-blue-700'
+              />
+              All Approved Applications
+            </label>
+            <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
+              <input
+                type='radio'
+                name='application-type'
+                value='fresh'
+                checked={filterType === 'fresh'}
+                onChange={() => setFilterType('fresh')}
+                className='h-4 w-4 accent-blue-700'
+              />
+              Fresh Application Approved
+            </label>
+            <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
+              <input
+                type='radio'
+                name='application-type'
+                value='renewal'
+                checked={filterType === 'renewal'}
+                onChange={() => setFilterType('renewal')}
+                className='h-4 w-4 accent-blue-700'
+              />
+              Renewal Application Approved
+            </label>
           </div>
         </div>
 

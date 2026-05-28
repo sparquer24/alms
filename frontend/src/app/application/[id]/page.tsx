@@ -2522,6 +2522,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   minute: '2-digit',
                                 });
 
+                                // Extract user and role names from nested objects (backend returns nested structure)
+                                const previousUserName = h.previousUserName || h.previousUser?.username || 'Unknown User';
+                                const previousRoleName = h.previousRoleName || h.previousRole?.name || 'Role';
+                                const nextUserName = h.nextUserName || h.nextUser?.username;
+                                const nextRoleName = h.nextRoleName || h.nextRole?.name;
+
                                 return (
                                   <div
                                     key={h.id}
@@ -2530,19 +2536,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                     <div className='flex items-start justify-between'>
                                       <div className='flex-1'>
                                         <p className='font-semibold text-gray-900 text-sm'>
-                                          {h.previousUserName || 'Unknown User'}
+                                          {previousUserName}
                                         </p>
                                         <p className='text-xs text-gray-600 mt-0.5'>
-                                          {h.previousRoleName || 'Role'}
+                                          {previousRoleName}
                                         </p>
                                         <p className='text-sm text-gray-700 font-medium mt-1'>
                                           {h.actionTaken}
                                         </p>
-                                        {h.nextUserName && (
+                                        {nextUserName && (
                                           <p className='text-xs text-gray-600 mt-1'>
                                             → Forwarded to:{' '}
-                                            <span className='font-medium'>{h.nextUserName}</span> (
-                                            {h.nextRoleName})
+                                            <span className='font-medium'>{nextUserName}</span> (
+                                            {nextRoleName})
                                           </p>
                                         )}
                                         <p className='text-xs text-gray-500 mt-1 flex items-center'>
