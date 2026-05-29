@@ -1475,9 +1475,12 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
   if (Object.keys(occupationAndBusiness).length > 0) payload.occupationAndBusiness = occupationAndBusiness;
   if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
-  
-  // Always include acceptanceFlags (can be empty)
-  payload.acceptanceFlags = {};
+
+  payload.acceptanceFlags = {
+    isDeclarationAccepted: Boolean(formData.declaration?.agreeToTruth),
+    isAwareOfLegalConsequences: Boolean(formData.declaration?.understandLegalConsequences),
+    isTermsAccepted: Boolean(formData.declaration?.agreeToTerms),
+  };
 
   return payload;
 };
@@ -1918,11 +1921,17 @@ function RenewalFormPageContent() {
   const saveRenewalDraft = () => persistRenewalForm(false);
 
   const saveAndContinue = async () => {
+    if (!formData.declaration?.agreeToTruth) {
+      setError('Please accept all declarations before submitting the Renewal Application.');
+      return false;
+    }
+
     const success = await persistRenewalForm(true);
     if (success) {
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
     }
+    return success;
   };
 
   const handleSuccessContinue = () => {
