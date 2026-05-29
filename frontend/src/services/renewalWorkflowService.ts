@@ -15,9 +15,13 @@ export class RenewalWorkflowService {
       const data = await RenewalService.getWorkflowStatusesAndActions();
       const actions = data?.actions || [];
       
-      const action = actions.find(
+      let action = actions.find(
         (a: any) => a.code?.toUpperCase() === actionCode.toUpperCase()
       );
+
+      if (!action && actionCode?.toUpperCase() === 'INITIATE') {
+        action = actions.find((a: any) => a.code?.toUpperCase() === 'INITIATED');
+      }
       
       if (!action) {
         throw new Error(`Action '${actionCode}' not found in workflow system`);

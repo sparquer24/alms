@@ -128,10 +128,10 @@ export class RenewalFormService {
             licenseDetails: { select: { id: true } },
           },
         }),
-        // Fetch both FORWARD and DRAFT statuses in one query
+        // Fetch statuses needed for submit/rollback behavior
         shouldHandleSubmit
           ? prisma.statuses.findMany({
-              where: { code: { in: ['FORWARD', 'DRAFT'] } },
+              where: { code: { in: ['FORWARD', 'DRAFT', 'INITIATE', 'INITIATED'] } },
             })
           : Promise.resolve([]),
         // Pre-validate user if currentUserId provided
@@ -148,6 +148,7 @@ export class RenewalFormService {
         map[status.code] = status.id;
         return map;
       }, {});
+      const initiateStatusId = statusMap['INITIATED'] ?? statusMap['INITIATE'] ?? statusMap['FORWARD'];
 
       // Pre-parse dates and format data outside transaction to reduce lock time
       const parsedAddressData: any = patchData.addressDetails ? {
@@ -290,9 +291,10 @@ export class RenewalFormService {
       if (patchData.isSubmit !== undefined) {
         updateData.isSubmit = patchData.isSubmit;
         if (patchData.isSubmit) {
-          // Use FORWARD status to mark as submitted
-          if (statusMap['FORWARD']) {
-            updateData.workflowStatusId = statusMap['FORWARD'];
+          // Use INITIATED / INITIATE status when submitting renewal, otherwise fall back to FORWARD
+          if (initiateStatusId) {
+            updateData.workflowStatusId = initiateStatusId;
+            updateData.isPending = true;
           }
         } else {
           // Revert to DRAFT status
@@ -310,14 +312,14 @@ export class RenewalFormService {
         });
       }
 
-      if (patchData.isSubmit && currentUserId && userExists && statusMap['FORWARD']) {
+      if (patchData.isSubmit && currentUserId && userExists && initiateStatusId) {
         try {
           await prisma.renewalApplicationsFormWorkflowHistories.create({
             data: {
               applicationId,
               previousUserId: currentUserId,
               nextUserId: currentUserId,
-              actionTaken: 'SUBMITTED',
+              actionTaken: statusMap['INITIATED'] ? 'INITIATED' : statusMap['INITIATE'] ? 'INITIATE' : 'SUBMITTED',
               remarks: 'Application submitted for processing',
             },
           });

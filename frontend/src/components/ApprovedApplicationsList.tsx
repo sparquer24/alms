@@ -23,17 +23,18 @@ type ApplicationRow = {
 
 const toUpper = (value: unknown): string => String(value || '').trim().toUpperCase();
 
-const isRenewalEligible = (actionTakenAt: string): boolean => {
-  if (!actionTakenAt) return false;
-  
-  const actionDate = new Date(actionTakenAt);
-  const now = new Date();
-  
-  // Calculate difference in years
-  const diffTime = now.getTime() - actionDate.getTime();
-  const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-  
-  return diffYears >= 2;
+const isRenewalEligible = (_actionTakenAt: string): boolean => {
+  // 2-year validation temporarily disabled: allow renewals regardless of action date.
+  // Original logic (kept here for reference):
+  // if (!actionTakenAt) return false;
+  // const actionDate = new Date(actionTakenAt);
+  // const now = new Date();
+  // // Calculate difference in years
+  // const diffTime = now.getTime() - actionDate.getTime();
+  // const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+  // return diffYears >= 2;
+
+  return true;
 };
 
 export default function ApprovedApplicationsList() {

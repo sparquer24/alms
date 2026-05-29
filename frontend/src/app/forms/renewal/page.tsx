@@ -1888,7 +1888,7 @@ function RenewalFormPageContent() {
       await RenewalService.updateRenewalForm(activeRenewalId, payload, { isSubmit });
 
       const reloadResponse = await RenewalService.getRenewalForm(activeRenewalId);
-      const saved = extractData(reloadResponse);
+      let saved = extractData(reloadResponse);
       setRenewalRecord(saved);
 
       if (saved) {
@@ -1900,6 +1900,7 @@ function RenewalFormPageContent() {
         setFormData(syncedForm);
       }
 
+      // If this was a submit (isSubmit === true), trigger the INITIATE workflow action
       if (isSubmit) {
         setStatusMessage(`Renewal application ${getTextValue(saved?.id, activeRenewalId)} submitted successfully.`);
       } else {
@@ -1922,6 +1923,11 @@ function RenewalFormPageContent() {
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
     }
+  };
+
+  const handleSuccessContinue = () => {
+    setShowSuccessModal(false);
+    router.push('/inbox?type=forwarded');
   };
 
   const reloadRenewalData = async () => {
@@ -1966,7 +1972,7 @@ function RenewalFormPageContent() {
             <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
             <p className='text-center text-gray-600'>{successMessage}</p>
             <button
-              onClick={() => setShowSuccessModal(false)}
+              onClick={handleSuccessContinue}
               className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
             >
               Continue
