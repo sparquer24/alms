@@ -291,28 +291,34 @@ const LicenseDetailsSection: React.FC<{
           {specialEvidenceFiles.map((file, index) => {
             const meta = getDocumentUploadMeta(file);
             const isDeleting = deletingFileId === (meta.id ?? -index);
+            const displayName = meta.fileName || `Document ${index + 1}`;
 
             return (
-              <div key={`${meta.fileName}-${meta.id ?? index}`} className='mt-1 flex flex-wrap items-center gap-3 text-xs'>
-                <span className='text-gray-600'>{meta.fileName || `Document ${index + 1}`}</span>
-                {meta.fileUrl && (
+              <div key={`${displayName}-${meta.id ?? index}`} className='mt-1 space-y-1 text-xs'>
+                <div className='flex flex-wrap items-center gap-3'>
+                  <span className='text-gray-600'>{displayName}</span>
+                  {meta.fileType && <span className='text-gray-500'>({meta.fileType})</span>}
+                </div>
+                <div className='flex flex-wrap items-center gap-3'>
+                  {meta.fileUrl && (
+                    <button
+                      type='button'
+                      className='text-blue-600 underline hover:text-blue-800'
+                      onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
+                      disabled={isDeleting || uploadingEvidence}
+                    >
+                      View
+                    </button>
+                  )}
                   <button
                     type='button'
-                    className='text-blue-600 underline hover:text-blue-800'
-                    onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
-                    disabled={isDeleting || uploadingEvidence}
+                    className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                    onClick={handleEvidenceDelete(meta.id, index)}
+                    disabled={isDeleting || uploadingEvidence || !renewalId}
                   >
-                    View
+                    {isDeleting ? 'Removing...' : 'Remove'}
                   </button>
-                )}
-                <button
-                  type='button'
-                  className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
-                  onClick={handleEvidenceDelete(meta.id, index)}
-                  disabled={isDeleting || uploadingEvidence || !renewalId}
-                >
-                  {isDeleting ? 'Removing...' : 'Remove'}
-                </button>
+                </div>
               </div>
             );
           })}

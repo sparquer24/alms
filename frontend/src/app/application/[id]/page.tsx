@@ -130,7 +130,17 @@ const normalizeRenewalApplication = (renewalApp: any): ApplicationData => {
     lastUpdated: renewalApp?.updatedAt || renewalApp?.createdAt || new Date().toISOString(),
     createdAt: renewalApp?.createdAt,
     updatedAt: renewalApp?.updatedAt,
-    documents: Array.isArray(renewalApp?.documents) ? renewalApp.documents : (Array.isArray(renewalApp?.fileUploads) ? renewalApp.fileUploads : []),
+    documents: Array.isArray(renewalApp?.documents)
+      ? renewalApp.documents
+      : Array.isArray(renewalApp?.fileUploads)
+      ? renewalApp.fileUploads.map((upload: any) => ({
+          ...upload,
+          name: upload?.fileName || upload?.name || '',
+          url:
+            upload?.fileUrl || upload?.url || upload?.path || upload?.downloadUrl || '',
+          type: upload?.fileType || upload?.type || '',
+        }))
+      : [],
     workflowHistories: Array.isArray(renewalApp?.workflowHistories) ? renewalApp.workflowHistories : [],
     // Use nested objects directly from response - now included by updated backend
     presentAddress: renewalApp?.presentAddress || undefined,
@@ -233,8 +243,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   // Open attachments from history with a robust viewer (PDF/image) in a new tab
   const openAttachment = (att: any) => {
     try {
-      const rawUrl = typeof att?.url === 'string' ? att.url : '';
-      const fileName = att?.name || 'attachment';
+      const rawUrl =
+        typeof att?.url === 'string'
+          ? att.url
+          : typeof att?.fileUrl === 'string'
+          ? att.fileUrl
+          : '';
+      const fileName = att?.name || att?.fileName || 'attachment';
       if (!rawUrl) return;
 
       const isHttpUrl = /^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('/');
@@ -2272,10 +2287,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               </div>
                               <div>
                                 <span className='font-medium text-gray-900'>
-                                  {String(doc.type || '').toUpperCase() || 'DOCUMENT'}
+                                  {String(doc.type || doc.fileType || '').toUpperCase() || 'DOCUMENT'}
                                 </span>
                                 <p className='text-xs text-gray-500 mt-1 break-words'>
-                                  {String(doc.name || 'file')}
+                                  {String(doc.name || doc.fileName || 'file')}
                                 </p>
                               </div>
                             </div>
@@ -2289,8 +2304,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               <button
                                 onClick={() => {
                                   const a = document.createElement('a');
-                                  a.href = doc.url;
-                                  a.download = doc.name || 'download';
+                                  a.href = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
+                                  a.download = doc.name || doc.fileName || 'download';
                                   a.rel = 'noopener';
                                   document.body.appendChild(a);
                                   a.click();

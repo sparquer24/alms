@@ -122,29 +122,33 @@ const DocumentsSection: React.FC<{
                 }
               />
               {showUploaded && (
-                <div className='mt-2 flex flex-wrap items-center gap-3 text-xs'>
-                  {meta.fileUrl && (
-                    <button
-                      type='button'
-                      className='text-blue-600 underline hover:text-blue-800'
-                      onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
-                      disabled={isUploading || isDeleting}
-                    >
-                      View document
-                    </button>
-                  )}
-                  {(canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
-                    <button
-                      type='button'
-                      className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
-                      onClick={handleDelete(key, meta.id)}
-                      disabled={isUploading || isDeleting || !renewalId}
-                    >
-                      {isDeleting ? 'Removing...' : 'Remove'}
-                    </button>
-                  )}
-                </div>
-              )}
+            <div className='mt-2 space-y-2 text-xs'>
+              {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
+              {meta.fileType && <p className='text-gray-600'>File type: {meta.fileType}</p>}
+              <div className='flex flex-wrap items-center gap-3'>
+                {meta.fileUrl && (
+                  <button
+                    type='button'
+                    className='text-blue-600 underline hover:text-blue-800'
+                    onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
+                    disabled={isUploading || isDeleting}
+                  >
+                    View document
+                  </button>
+                )}
+                {(canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
+                  <button
+                    type='button'
+                    className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                    onClick={handleDelete(key, meta.id)}
+                    disabled={isUploading || isDeleting || !renewalId}
+                  >
+                    {isDeleting ? 'Removing...' : 'Remove'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
             </div>
           );
         })}
