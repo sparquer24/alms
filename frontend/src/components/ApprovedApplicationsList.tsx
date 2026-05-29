@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { apiClient } from '@/config/authenticatedApiClient';
 import { ApplicationApi } from '@/config/APIClient';
 
 const LoaderFixed = Loader2 as any;
@@ -39,41 +40,44 @@ export default function ApprovedApplicationsList() {
   const [applications, setApplications] = useState<ApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<'all' | 'fresh' | 'renewal'>('all');
+  const [filterType, setFilterType] = useState<'fresh' | 'renewal'>('fresh');
 
-  useEffect(() => {
-    fetchApplications();
-  }, []);
-
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await ApplicationApi.getAll({ search: 'APPROVED', isOwned: true, isSent: true } as any);
-
-      if (!response?.success || !Array.isArray(response?.data)) {
-        throw new Error('Failed to fetch applications');
+      let response: any;
+      if (filterType === 'fresh') {
+        response = await ApplicationApi.getAll({ search: 'APPROVED', isOwned: true, isSent: true } as any);
+      } else {
+        response = await apiClient.get('/renewal-forms', { status: 'APPROVED' });
       }
 
-      const rows: ApplicationRow[] = response.data.map((app: any) => {
+      const rawData = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      const rows: ApplicationRow[] = rawData.map((app: any) => {
         const actionTaken = toUpper(
           app?.actionTaken || app?.workflowStatus?.code || app?.workflowStatus?.name || (app?.isApproved ? 'APPROVED' : ''),
         ) || 'APPROVED';
 
         return {
           id: String(app?.applicationId || app?.id || ''),
-          acknowledgementNo: String(app?.acknowledgementNo || ''),
+          acknowledgementNo: String(app?.acknowledgementNo || app?.applicationNumber || app?.acknowledgementNumber || ''),
           applicantName:
             String(app?.applicantName || [app?.firstName, app?.middleName, app?.lastName].filter(Boolean).join(' ') || 'Unknown'),
           applicantEmail: String(app?.email || app?.applicantEmail || ''),
           applicantMobile: String(app?.mobileNumber || app?.applicantMobile || ''),
           actionTaken,
-          actionTakenAt: String(app?.actionTakenAt || app?.updatedAt || app?.createdAt || ''),
+          actionTakenAt: String(app?.actionTakenAt || app?.approvedAt || app?.updatedAt || app?.createdAt || ''),
           createdAt: String(app?.createdAt || ''),
           panNumber: String(app?.panNumber || ''),
           aadharNumber: String(app?.aadharNumber || ''),
-          applicationType: String(app?.applicationType || 'Renewal'),
+          applicationType: String(app?.applicationType || (filterType === 'renewal' ? 'Renewal' : 'Fresh')),
         };
       });
 
@@ -85,7 +89,11 @@ export default function ApprovedApplicationsList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterType]);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
 
   const filteredApplications = applications.filter((app) => {
     // Only show approved applications
@@ -94,11 +102,8 @@ export default function ApprovedApplicationsList() {
     // Filter by application type
     if (filterType === 'fresh') {
       return app.applicationType && /fresh/i.test(app.applicationType);
-    } else if (filterType === 'renewal') {
-      return app.applicationType && /renewal/i.test(app.applicationType);
     }
-    
-    return true; // Show all approved applications
+    return app.applicationType && /renewal/i.test(app.applicationType);
   });
 
 
@@ -120,23 +125,12 @@ export default function ApprovedApplicationsList() {
               <input
                 type='radio'
                 name='application-type'
-                value='all'
-                checked={filterType === 'all'}
-                onChange={() => setFilterType('all')}
-                className='h-4 w-4 accent-blue-700'
-              />
-              All Approved Applications
-            </label>
-            <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
-              <input
-                type='radio'
-                name='application-type'
                 value='fresh'
                 checked={filterType === 'fresh'}
                 onChange={() => setFilterType('fresh')}
                 className='h-4 w-4 accent-blue-700'
               />
-              Fresh Application Approved
+              Fresh Applications
             </label>
             <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
               <input
@@ -147,7 +141,7 @@ export default function ApprovedApplicationsList() {
                 onChange={() => setFilterType('renewal')}
                 className='h-4 w-4 accent-blue-700'
               />
-              Renewal Application Approved
+              Renewal Applications
             </label>
           </div>
         </div>
@@ -224,18 +218,22 @@ export default function ApprovedApplicationsList() {
                       {app.actionTakenAt ? new Date(app.actionTakenAt).toLocaleString() : '-'}
                     </td>
                     <td className='px-6 py-4 text-sm text-center border-b border-gray-200'>
-                      <button
-                        onClick={() => window.open(`/forms/renewal?applicationId=${encodeURIComponent(app.id)}`, '_blank')}
-                        disabled={!isRenewalEligible(app.actionTakenAt)}
-                        title={!isRenewalEligible(app.actionTakenAt) ? 'Renewal available after 2 years from action date' : 'Click to start renewal'}
-                        className={`px-3 py-1 rounded-md transition-colors text-sm font-medium ${
-                          isRenewalEligible(app.actionTakenAt)
-                            ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        Renewal
-                      </button>
+                      {filterType === 'renewal' ? (
+                        <span className='text-gray-500'>-</span>
+                      ) : (
+                        <button
+                          onClick={() => window.open(`/forms/renewal?applicationId=${encodeURIComponent(app.id)}`, '_blank')}
+                          disabled={!isRenewalEligible(app.actionTakenAt)}
+                          title={!isRenewalEligible(app.actionTakenAt) ? 'Renewal available after 2 years from action date' : 'Click to start renewal'}
+                          className={`px-3 py-1 rounded-md transition-colors text-sm font-medium ${
+                            isRenewalEligible(app.actionTakenAt)
+                              ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          Renewal
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
