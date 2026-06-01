@@ -98,7 +98,24 @@ export class WorkflowService {
       throw new NotFoundException('Application not found');
     }
     
-    const newStatusId = status ? status.id : application.workflowStatusId;
+    let newStatusId = status ? status.id : application.workflowStatusId;
+
+    // Preserve terminal statuses (APPROVED/REJECT/RECOMMEND/NOT_RECOMMEND) when forwarding
+    // after a terminal action. e.g., CP approves → forwards back to JTCP should show APPROVED.
+    // This checks the existing application state BEFORE this action runs.
+    if (application.isApproved) {
+      const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
+      if (approvedStatus) newStatusId = approvedStatus.id;
+    } else if (application.isRejected) {
+      const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
+      if (rejectedStatus) newStatusId = rejectedStatus.id;
+    } else if (application.isRecommended) {
+      const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
+      if (recommendedStatus) newStatusId = recommendedStatus.id;
+    } else if (application.isNotRecommended) {
+      const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
+      if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
+    }
 
     // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
     const updateData: any = {
@@ -207,7 +224,23 @@ export class WorkflowService {
       throw new NotFoundException('Application not found');
     }
     
-    const newStatusId = status ? status.id : application.workflowStatusId;
+    let newStatusId = status ? status.id : application.workflowStatusId;
+
+    // Preserve terminal statuses (APPROVED/REJECT/RECOMMEND/NOT_RECOMMEND) when forwarding
+    // after a terminal action. e.g., CP approves → forwards back to previous role should show APPROVED.
+    if (application.isApproved) {
+      const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
+      if (approvedStatus) newStatusId = approvedStatus.id;
+    } else if (application.isRejected) {
+      const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
+      if (rejectedStatus) newStatusId = rejectedStatus.id;
+    } else if (application.isRecommended) {
+      const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
+      if (recommendedStatus) newStatusId = recommendedStatus.id;
+    } else if (application.isNotRecommended) {
+      const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
+      if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
+    }
 
     // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
     const updateData: any = {
@@ -346,9 +379,9 @@ export class WorkflowService {
       where: { code: payload.action.code }
     });
      if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
-        this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+        await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       } else{
-        this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+        await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       }
    
     return {
