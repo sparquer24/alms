@@ -8,12 +8,12 @@ import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
-import { applyPrefilledDocumentUploads, syncPendingRenewalDocuments } from '../../../components/forms/renewal/renewalFileUpload';
-import { usePrefilledDocumentSync } from '../../../components/forms/renewal/usePrefilledDocumentSync';
+import { applyPrefilledDocumentUploads, syncPendingRenewalDocuments } from '../../../utils/renewalFileUpload';
+import { usePrefilledDocumentSync } from '../../../hooks/usePrefilledDocumentSync';
 import {
   asPendingRenewalDocument,
   collectRenewalFileIds,
-} from '../../../components/forms/renewal/renewalFileUpload';
+} from '../../../utils/renewalFileUpload';
 import PersonalDetailsSection from '../../../components/forms/renewal/sections/PersonalDetailsSection';
 import AddressDetailsSection from '../../../components/forms/renewal/sections/AddressDetailsSection';
 import OccupationSection from '../../../components/forms/renewal/sections/OccupationSection';
@@ -394,6 +394,23 @@ const mapLicensePurposeToUiValue = (value?: string) => {
   }
 };
 
+// Reverse mapping: UI value → API enum
+const mapUiValueToLicensePurpose = (value?: string) => {
+  if (!value) return '';
+  const normalized = String(value).toLowerCase();
+
+  switch (normalized) {
+    case 'self_defense':
+      return 'SELF_PROTECTION';
+    case 'sports':
+      return 'SPORTS';
+    case 'business_security':
+      return 'HEIRLOOM_POLICY';
+    default:
+      return value;
+  }
+};
+
 const getPresentAddress = (data: any) => data?.presentAddress || data?.addressDetails;
 
 const normalizeLocationId = (value: any) => {
@@ -568,6 +585,27 @@ const weaponNameToSelectValue = (name?: string) => {
   if (lower.includes('rifle')) return 'rifle';
   if (lower.includes('shotgun')) return 'shotgun';
   return lower;
+};
+
+// Map UI arms option to API armsCategory enum
+const mapArmsOptionToCategory = (armsOption?: string): string => {
+  if (!armsOption) return '';
+  const normalized = String(armsOption).toUpperCase();
+  
+  // Map common arm types to RESTRICTED or PERMISSIBLE
+  if (normalized.includes('PISTOL') || normalized.includes('REVOLVER')) {
+    return 'RESTRICTED';
+  }
+  if (normalized.includes('RIFLE') || normalized.includes('SHOTGUN')) {
+    return 'RESTRICTED';
+  }
+  if (normalized.includes('PERMISSIBLE')) {
+    return 'PERMISSIBLE';
+  }
+  if (normalized.includes('RESTRICTED')) {
+    return 'RESTRICTED';
+  }
+  return 'RESTRICTED'; // default to RESTRICTED
 };
 
 const parseCarryAreaFlags = (areaOfValidity?: string) => {
@@ -1352,90 +1390,97 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
 });
 
 const buildRenewalPatchPayload = (formData: RenewalFormState) => {
-  const areaOfValidity = buildAreaOfValidityPayload(formData);
-  const requestedWeaponIds =
-    formData.requestedWeaponIds?.length > 0
-      ? formData.requestedWeaponIds
-      : (() => {
-          const weaponIdNumber = toNumber(formData.weaponId);
-          return weaponIdNumber !== undefined ? [weaponIdNumber] : undefined;
-        })();
+  // Build nested structure matching the new API request format
+  const payload: Record<string, any> = {};
+  
+  const personalDetails: Record<string, any> = {};
+  const addressDetails: Record<string, any> = {};
+  const occupationAndBusiness: Record<string, any> = {};
+  const licenseDetails: Record<string, any> = {};
 
-  const armsCategory = normalizeArmsCategoryForApi(formData.armsOptionType || formData.licenseType);
-  const cultivatedAreaNumber = formData.cultivatedArea ? Number(formData.cultivatedArea) : undefined;
+  // Personal Details
+  if (formData.applicantName) personalDetails.firstName = formData.applicantName;
+  if (formData.applicantMiddleName) personalDetails.middleName = formData.applicantMiddleName;
+  if (formData.applicantLastName) personalDetails.lastName = formData.applicantLastName;
+  if (formData.fatherName) personalDetails.parentOrSpouseName = formData.fatherName;
+  if (formData.applicantGender) personalDetails.sex = formData.applicantGender;
+  if (formData.applicantDateOfBirth) personalDetails.dateOfBirth = formData.applicantDateOfBirth;
+  if (formData.dobInWords) personalDetails.dobInWords = formData.dobInWords;
+  if (formData.panNumber) personalDetails.panNumber = formData.panNumber;
+  if (formData.aadharNumber) personalDetails.aadharNumber = formData.aadharNumber;
 
-  const payload: Record<string, unknown> = {
-    personalDetails: {
-      firstName: formData.applicantName,
-      middleName: formData.applicantMiddleName || undefined,
-      lastName: formData.applicantLastName,
-      parentOrSpouseName: formData.fatherName,
-      sex: formData.applicantGender || undefined,
-      dateOfBirth: formData.applicantDateOfBirth || undefined,
-      dobInWords: formData.dobInWords || undefined,
-      panNumber: formData.panNumber || undefined,
-      aadharNumber: formData.aadharNumber || undefined,
-      filledBy: formData.filledBy || undefined,
-    },
+  // Address Details (Present Address)
+  if (formData.presentAddress) addressDetails.addressLine = formData.presentAddress;
+  const stateId = toNumber(formData.presentState);
+  if (stateId !== undefined) addressDetails.stateId = stateId;
+  const districtId = toNumber(formData.presentDistrict);
+  if (districtId !== undefined) addressDetails.districtId = districtId;
+  const policeStationId = toNumber(formData.presentPoliceStation);
+  if (policeStationId !== undefined) addressDetails.policeStationId = policeStationId;
+  const zoneId = toNumber(formData.presentZone);
+  if (zoneId !== undefined) addressDetails.zoneId = zoneId;
+  const divisionId = toNumber(formData.presentDivision);
+  if (divisionId !== undefined) addressDetails.divisionId = divisionId;
+  if (formData.residingSince) addressDetails.sinceResiding = formData.residingSince;
+  if (formData.officePhone) addressDetails.telephoneOffice = formData.officePhone;
+  if (formData.residencePhone) addressDetails.telephoneResidence = formData.residencePhone;
+  if (formData.officeMobile) addressDetails.officeMobileNumber = formData.officeMobile;
+  if (formData.alternativeMobile) addressDetails.alternativeMobile = formData.alternativeMobile;
+
+  // Occupation and Business
+  if (formData.occupation) occupationAndBusiness.occupation = formData.occupation;
+  if (formData.officeBusinessAddress) occupationAndBusiness.officeAddress = formData.officeBusinessAddress;
+  const occStateId = toNumber(formData.officeBusinessState);
+  if (occStateId !== undefined) occupationAndBusiness.stateId = occStateId;
+  const occDistrictId = toNumber(formData.officeBusinessDistrict);
+  if (occDistrictId !== undefined) occupationAndBusiness.districtId = occDistrictId;
+  if (formData.cropProtectionLocation) occupationAndBusiness.cropLocation = formData.cropProtectionLocation;
+  if (formData.cultivatedArea) occupationAndBusiness.areaUnderCultivation = formData.cultivatedArea;
+
+  // License Details - with reverse mapping to API enum values
+  if (formData.weaponReason) {
+    const needForLicense = mapUiValueToLicensePurpose(formData.weaponReason);
+    if (needForLicense) licenseDetails.needForLicense = needForLicense;
+  }
+  
+  // Map arms category from weaponType or armsOptionType
+  const armsCategory = mapArmsOptionToCategory(formData.weaponType || formData.armsOptionType);
+  if (armsCategory) {
+    licenseDetails.armsCategory = armsCategory;
+  }
+  
+  if (formData.licenseValidity) licenseDetails.areaOfValidity = formData.licenseValidity;
+  if (formData.licenseType) licenseDetails.ammunitionDescription = formData.licenseType;
+  if (formData.declaration?.understandLegalConsequences) {
+    licenseDetails.specialConsiderationReason = 'Application submitted with legal acknowledgement';
+  }
+  
+  // Convert requestedWeaponIds to array of numbers
+  const weaponIds: number[] = [];
+  if (formData.requestedWeaponIds && Array.isArray(formData.requestedWeaponIds)) {
+    formData.requestedWeaponIds.forEach((id: any) => {
+      const numId = toNumber(id);
+      if (numId !== undefined) weaponIds.push(numId);
+    });
+  } else if (formData.weaponId) {
+    const weaponIdNum = toNumber(formData.weaponId);
+    if (weaponIdNum !== undefined) weaponIds.push(weaponIdNum);
+  }
+  if (weaponIds.length > 0) {
+    licenseDetails.requestedWeaponIds = weaponIds;
+  }
+
+  // Add non-empty sections to payload
+  if (Object.keys(personalDetails).length > 0) payload.personalDetails = personalDetails;
+  if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
+  if (Object.keys(occupationAndBusiness).length > 0) payload.occupationAndBusiness = occupationAndBusiness;
+  if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
+
+  payload.acceptanceFlags = {
+    isDeclarationAccepted: Boolean(formData.declaration?.agreeToTruth),
+    isAwareOfLegalConsequences: Boolean(formData.declaration?.understandLegalConsequences),
+    isTermsAccepted: Boolean(formData.declaration?.agreeToTerms),
   };
-
-  if (hasCompleteAddressPayload(formData)) {
-    payload.addressDetails = {
-      addressLine: formData.presentAddress,
-      stateId: toNumber(formData.presentState),
-      districtId: toNumber(formData.presentDistrict),
-      zoneId: toNumber(formData.presentZone),
-      divisionId: toNumber(formData.presentDivision),
-      policeStationId: toNumber(formData.presentPoliceStation),
-      sinceResiding: formData.residingSince,
-      telephoneOffice: formData.officePhone || undefined,
-      telephoneResidence: formData.residencePhone || undefined,
-      officeMobileNumber: formData.officeMobile || undefined,
-      alternativeMobile: formData.alternativeMobile || undefined,
-    };
-  }
-
-  if (hasCompleteOccupationPayload(formData)) {
-    payload.occupationAndBusiness = {
-      occupation: formData.occupation,
-      officeAddress: formData.officeBusinessAddress,
-      stateId: toNumber(formData.officeBusinessState),
-      districtId: toNumber(formData.officeBusinessDistrict),
-      cropLocation: formData.cropProtectionLocation || undefined,
-      areaUnderCultivation:
-        cultivatedAreaNumber !== undefined && !Number.isNaN(cultivatedAreaNumber)
-          ? cultivatedAreaNumber
-          : undefined,
-    };
-  }
-
-  const licenseDetails: Record<string, unknown> = {};
-  const needForLicense = normalizeLicensePurpose(formData.weaponReason);
-  if (needForLicense) licenseDetails.needForLicense = needForLicense;
-  if (armsCategory) licenseDetails.armsCategory = armsCategory;
-  if (areaOfValidity) licenseDetails.areaOfValidity = areaOfValidity;
-  if (formData.ammunitionDescription) licenseDetails.ammunitionDescription = formData.ammunitionDescription;
-  if (formData.specialConsiderationClaim) {
-    licenseDetails.specialConsiderationReason = formData.specialConsiderationClaim;
-  }
-  if (formData.formIVPlaceArea) licenseDetails.licencePlaceArea = formData.formIVPlaceArea;
-  if (requestedWeaponIds?.length) licenseDetails.requestedWeaponIds = requestedWeaponIds;
-
-  if (Object.keys(licenseDetails).length > 0) {
-    payload.licenseDetails = licenseDetails;
-  }
-
-  if (
-    formData.declaration.agreeToTerms ||
-    formData.declaration.understandLegalConsequences ||
-    formData.declaration.agreeToTruth
-  ) {
-    payload.acceptanceFlags = {
-      isDeclarationAccepted: Boolean(formData.declaration.agreeToTerms || formData.declaration.agreeToTruth),
-      isAwareOfLegalConsequences: Boolean(formData.declaration.understandLegalConsequences),
-      isTermsAccepted: Boolean(formData.declaration.agreeToTerms),
-    };
-  }
 
   return payload;
 };
@@ -1657,6 +1702,9 @@ function RenewalFormPageContent() {
     declaration: false,
   });
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const toggleSection = (key: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -1706,6 +1754,16 @@ function RenewalFormPageContent() {
 
         console.log('Renewal load:', { applicationId, fileUploads: collectUploadedFilesFromApi(freshData) });
         const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
+
+        // Validate that the fresh application has been submitted
+        const applicationCheckResponse = await ApplicationService.getApplication(applicationId);
+        console.log('Application check response:', applicationCheckResponse);
+        
+        // Check if application is submitted (isSubmit should be true)
+        const isSubmitted = applicationCheckResponse?.isSubmit === true || applicationCheckResponse?.data?.isSubmit === true;
+        if (!isSubmitted) {
+          throw new Error('Your application has not been submitted.');
+        }
 
         await createDraftRenewalFromFreshApplication(
           applicationId,
@@ -1787,21 +1845,19 @@ function RenewalFormPageContent() {
     // Try to enrich occupation state/district with human-readable names
     try {
       const stateId = toNumber(formData.officeBusinessState);
-      if (stateId !== undefined) {
+      if (stateId !== undefined && formData.officeBusinessState) {
         const state = await locationAPI.getStateById(stateId);
-        base.occupationAndBusiness = {
-          ...base.occupationAndBusiness,
-          stateName: state?.name,
-        } as any;
+        if (state?.name) {
+          base.officeBusinessStateName = state.name;
+        }
       }
 
       const districtId = toNumber(formData.officeBusinessDistrict);
-      if (districtId !== undefined) {
+      if (districtId !== undefined && formData.officeBusinessDistrict) {
         const district = await locationAPI.getDistrictById(districtId);
-        base.occupationAndBusiness = {
-          ...base.occupationAndBusiness,
-          districtName: district?.name,
-        } as any;
+        if (district?.name) {
+          base.officeBusinessDistrictName = district.name;
+        }
       }
     } catch (err) {
       // Non-fatal: if location name lookup fails, proceed with numeric ids
@@ -1835,7 +1891,7 @@ function RenewalFormPageContent() {
       await RenewalService.updateRenewalForm(activeRenewalId, payload, { isSubmit });
 
       const reloadResponse = await RenewalService.getRenewalForm(activeRenewalId);
-      const saved = extractData(reloadResponse);
+      let saved = extractData(reloadResponse);
       setRenewalRecord(saved);
 
       if (saved) {
@@ -1847,6 +1903,7 @@ function RenewalFormPageContent() {
         setFormData(syncedForm);
       }
 
+      // If this was a submit (isSubmit === true), trigger the INITIATE workflow action
       if (isSubmit) {
         setStatusMessage(`Renewal application ${getTextValue(saved?.id, activeRenewalId)} submitted successfully.`);
       } else {
@@ -1864,7 +1921,22 @@ function RenewalFormPageContent() {
   const saveRenewalDraft = () => persistRenewalForm(false);
 
   const saveAndContinue = async () => {
-    await persistRenewalForm(true);
+    if (!formData.declaration?.agreeToTruth) {
+      setError('Please accept all declarations before submitting the Renewal Application.');
+      return false;
+    }
+
+    const success = await persistRenewalForm(true);
+    if (success) {
+      setSuccessMessage('Renewal application is submitted');
+      setShowSuccessModal(true);
+    }
+    return success;
+  };
+
+  const handleSuccessContinue = () => {
+    setShowSuccessModal(false);
+    router.push('/inbox?type=forwarded');
   };
 
   const reloadRenewalData = async () => {
@@ -1895,6 +1967,29 @@ function RenewalFormPageContent() {
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+          <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+            <div className='flex items-center justify-center'>
+              <div className='rounded-full bg-green-100 p-3'>
+                <svg className='h-6 w-6 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+                </svg>
+              </div>
+            </div>
+            <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
+            <p className='text-center text-gray-600'>{successMessage}</p>
+            <button
+              onClick={handleSuccessContinue}
+              className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className='mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader applicationId={applicationId} renewalId={renewalId || createdRenewalIdRef.current || ''} summaryData={renewalRecord || formData} />

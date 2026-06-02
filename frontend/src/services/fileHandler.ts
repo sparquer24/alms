@@ -28,6 +28,7 @@ export const getDocumentUploadMeta = (obj: any) => {
       uploaded: false,
       fileName: undefined as string | undefined,
       fileUrl: undefined as string | undefined,
+      fileType: undefined as string | undefined,
       id: undefined as number | undefined,
     };
   }
@@ -37,20 +38,23 @@ export const getDocumentUploadMeta = (obj: any) => {
       uploaded: true,
       fileName: obj.name,
       fileUrl: URL.createObjectURL(obj),
+      fileType: obj.type || undefined,
       id: undefined as number | undefined,
       isLocalFile: true,
     };
   }
 
-  const fileName = obj?.fileName || obj?.name || obj?.file_name || (typeof obj === 'string' ? obj : undefined);
+  const fileName =
+    obj?.fileName || obj?.filename || obj?.name || obj?.file_name || (typeof obj === 'string' ? obj : undefined);
   const fileUrl = obj?.fileUrl || obj?.url || obj?.path || obj?.file_url;
+  const fileType = obj?.fileType || obj?.type || obj?.mime || obj?.file_type;
   const id =
     typeof obj?.id === 'number'
       ? obj.id
       : typeof obj?.fileId === 'number'
       ? obj.fileId
       : undefined;
-  return { uploaded: Boolean(fileName || fileUrl), fileName, fileUrl, id, isLocalFile: false };
+  return { uploaded: Boolean(fileName || fileUrl), fileName, fileUrl, fileType, id, isLocalFile: false };
 };
 
 // Resolve file URL for links - handles absolute, protocol-relative, data and relative paths

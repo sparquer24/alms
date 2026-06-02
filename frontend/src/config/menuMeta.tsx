@@ -12,6 +12,7 @@ import {
   GitBranch,
   RefreshCcw,
   MapPin,
+  FileText,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -28,6 +29,7 @@ const ShieldFixed = Shield as any;
 const GitBranchFixed = GitBranch as any;
 const RefreshCcwFixed = RefreshCcw as any;
 const MapPinFixed = MapPin as any;
+const FileTextFixed = FileText as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
@@ -40,6 +42,7 @@ export type MenuMetaKey =
   | 'drafts'
   | 'reports'
   | 'analytics' // New analytics tab
+  | 'applications' // New applications tab
   | 'logout'
   | 'userManagement'
   | 'roleManagement'
@@ -51,8 +54,8 @@ export type MenuMetaKey =
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
   // use the `*Fixed` any-casted aliases above to avoid React type mismatch errors
   freshform: {
-    label: 'Fresh Form',
-    icon: () => <FilePlusFixed className='w-6 h-6 mr-2' aria-label='Fresh Form' />,
+    label: 'New Forms',
+    icon: () => <FilePlusFixed className='w-6 h-6 mr-2' aria-label='New Forms' />,
   },
   inbox: { label: 'Inbox', icon: () => <InboxFixed className='w-6 h-6 mr-2' aria-label='Inbox' /> },
   sent: { label: 'Sent', icon: () => <SendFixed className='w-6 h-6 mr-2' aria-label='Sent' /> },
@@ -83,6 +86,10 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   analytics: {
     label: 'Analytics',
     icon: () => <BarChart2Fixed className='w-6 h-6 mr-2' aria-label='Analytics' />,
+  },
+  applications: {
+    label: 'Approved Applications',
+    icon: () => <FileTextFixed className='w-6 h-6 mr-2' aria-label='Approved Applications' />,
   },
   logout: {
     label: 'Log Out',

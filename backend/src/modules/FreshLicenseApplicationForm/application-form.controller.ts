@@ -935,6 +935,13 @@ export class ApplicationFormController {
     description: 'Application ID',
     example: '123'
   })
+  @ApiQuery({
+    name: 'applicationType',
+    required: false,
+    type: String,
+    description: 'Application type used to resolve the correct application table and hierarchy mapping',
+    example: 'RenewalApplicationForm',
+  })
   @ApiResponse({
     status: 200,
     description: 'Users fetched successfully',
@@ -949,7 +956,11 @@ export class ApplicationFormController {
   @ApiResponse({ status: 400, description: 'Bad request - Application not found or invalid data' })
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async getUsersInHierarchy(@Param('applicationId') applicationId: string, @Request() req: any) {
+  async getUsersInHierarchy(
+    @Param('applicationId') applicationId: string,
+    @Request() req: any,
+    @Query('applicationType') applicationType?: string,
+  ) {
     try {
       const applicationIdNum = parseInt(applicationId, 10);
       if (isNaN(applicationIdNum)) {
@@ -962,7 +973,7 @@ export class ApplicationFormController {
         );
       }
 
-      const [error, users] = await this.applicationFormService.getUsersInHierarchy(applicationIdNum);
+      const [error, users] = await this.applicationFormService.getUsersInHierarchy(applicationIdNum, applicationType);
 
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;

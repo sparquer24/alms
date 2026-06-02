@@ -71,6 +71,16 @@ const Header = (props: HeaderProps) => {
         throw new Error('No fresh application data returned for that ID.');
       }
 
+      const workflowStatusCode = freshApplication?.workflowStatus?.code?.toString().toUpperCase();
+      const hasApprovedHistory = Array.isArray(freshApplication?.workflowHistories)
+        && freshApplication.workflowHistories.some((history: any) =>
+          history?.actionTaken?.toString().toUpperCase() === 'APPROVED'
+        );
+
+      if (workflowStatusCode !== 'APPROVED' && !hasApprovedHistory) {
+        throw new Error('Only approved fresh applications can create a renewal form.');
+      }
+
       setShowRenewalModal(false);
       router.push(`/forms/renewal?applicationId=${encodeURIComponent(id)}`);
     } catch (error: any) {
@@ -205,7 +215,7 @@ const Header = (props: HeaderProps) => {
         <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
           <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
             <h2 className='text-lg font-semibold text-gray-900'>Renewal Application</h2>
-            <p className='mt-2 text-sm text-gray-600'>Enter the Fresh Application ID to load the existing application data.</p>
+            <p className='mt-2 text-sm text-gray-600'>Enter the approved Fresh Application ID to load the existing application data.</p>
 
             <div className='mt-4'>
               <label htmlFor='renewal-application-id' className='block text-sm font-medium text-gray-700'>Fresh Application ID</label>

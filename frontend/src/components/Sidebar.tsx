@@ -14,7 +14,7 @@ const ImageFixed = Image as any;
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
-import { CornerUpRight, Undo2, Flag, FolderCheck, RefreshCcw } from 'lucide-react';
+import { CornerUpRight, Undo2, Flag, FolderCheck, RefreshCcw, List } from 'lucide-react';
 
 const CornerUpRightFixed = CornerUpRight as any;
 const Undo2Fixed = Undo2 as any;
@@ -960,6 +960,21 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           dispatch(closeInbox());
           setActiveNavigationPath(analyticsPath);
           router.push(analyticsPath);
+          return;
+        }
+
+        // Handle applications menu item
+        if (item.name.toLowerCase() === 'applications') {
+          const applicationsPath = '/inbox/applications';
+          const actionId = 'sidebar-applications';
+          if (!canNavigateTo(applicationsPath, actionId)) {
+            return;
+          }
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
+          dispatch(closeInbox());
+          setActiveNavigationPath(applicationsPath);
+          router.push(applicationsPath);
           return;
         }
 

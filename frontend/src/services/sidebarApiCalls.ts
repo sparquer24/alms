@@ -626,17 +626,25 @@ export const fetchApplicationCounts = async (): Promise<{
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
   // Derive applicant name from available fields; some list endpoints may not include applicantFullName
+  
+  // Determine if this is a renewal application
+  const isRenewal = Boolean(
+    apiApp?.renewalId ||
+    apiApp?.renewalApplicationId ||
+    apiApp?.renewalLicenseId ||
+    (apiApp?.applicationType && /renewal/i.test(String(apiApp.applicationType)))
+  );
 
   return {
     id: String(apiApp.id || ''),
-    applicantName:apiApp.applicantName,
+    applicantName: apiApp.applicantName,
     applicantMobile: apiApp.mobileNumber || '', // This might need to be fetched from detailed API
     applicantEmail: apiApp.emailAddress || undefined, // This might need to be fetched from detailed API
     fatherName: apiApp.fatherName || undefined, // This might need to be fetched from detailed API
     gender: apiApp.gender || undefined, // This might need to be fetched from detailed API
     dob: apiApp.dateOfBirth || undefined, // This might need to be fetched from detailed API
     address: apiApp.address || undefined, // This might need to be fetched from detailed API
-    applicationType: 'Fresh License', // Default for now, might need to be determined from other fields
+    applicationType: isRenewal ? 'Renewal Application' : 'Fresh License',
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
     status: apiApp.status,
@@ -669,6 +677,15 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
       ? apiApp.usersInHierarchy
       : undefined,
+    // Preserve renewal linkage IDs for routing purposes
+    ...(isRenewal && {
+      renewalId: apiApp?.id,
+      renewalApplicationId: apiApp?.renewalApplicationId || apiApp?.id,
+      applicationId: apiApp?.applicationId || apiApp?.freshApplicationId || apiApp?.sourceApplicationId || '',
+      freshApplicationId: apiApp?.freshApplicationId || apiApp?.applicationId || '',
+      sourceApplicationId: apiApp?.sourceApplicationId || apiApp?.applicationId || '',
+      renewalLicenseId: apiApp?.renewalLicenseId || '',
+    }),
   };
 };
 

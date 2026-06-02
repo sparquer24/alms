@@ -1508,31 +1508,73 @@ export class ApplicationFormService {
   /*
     * Get users in the hierarchy based on application present address and current user's role
   */
-  async getUsersInHierarchy(applicationId: number): Promise<[any, any]> {
+  private normalizeApplicationType(applicationType?: string): 'fresh' | 'renewal' {
+    const normalized = String(applicationType || '').trim().toLowerCase();
+
+    if (!normalized) return 'fresh';
+
+    if (
+      normalized.includes('renew') ||
+      normalized.includes('renewalapplicationform') ||
+      normalized.includes('renewal')
+    ) {
+      return 'renewal';
+    }
+
+    return 'fresh';
+  }
+
+  async getUsersInHierarchy(applicationId: number, applicationType?: string): Promise<[any, any]> {
     try {
+      const resolvedType = this.normalizeApplicationType(applicationType);
+      const isRenewal = resolvedType === 'renewal';
+
       // Fetch application, current user, and role flow mapping in parallel
-      const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: applicationId },
-        select: {
-          id: true,
-          currentUserId: true,
-          currentUser: {
+      const application = isRenewal
+        ? await prisma.renewalFormPersonalDetails.findUnique({
+            where: { id: applicationId },
             select: {
               id: true,
-              roleId: true
+              currentUserId: true,
+              currentUser: {
+                select: {
+                  id: true,
+                  roleId: true
+                }
+              },
+              presentAddress: {
+                select: {
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true
+                }
+              }
             }
-          },
-          presentAddress: {
+          })
+        : await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
             select: {
-              stateId: true,
-              districtId: true,
-              zoneId: true,
-              divisionId: true,
-              policeStationId: true
+              id: true,
+              currentUserId: true,
+              currentUser: {
+                select: {
+                  id: true,
+                  roleId: true
+                }
+              },
+              presentAddress: {
+                select: {
+                  stateId: true,
+                  districtId: true,
+                  zoneId: true,
+                  divisionId: true,
+                  policeStationId: true
+                }
+              }
             }
-          }
-        }
-      });
+          });
 
       if (!application) {
         return [new BadRequestException('Application not found'), null];

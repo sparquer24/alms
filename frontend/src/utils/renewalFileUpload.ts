@@ -1,5 +1,5 @@
-import RenewalService from '../../../api/renewalService';
-import { getDocumentUploadMeta, resolveFileHref } from '../../../services/fileHandler';
+import RenewalService from '../api/renewalService';
+import { getDocumentUploadMeta, resolveFileHref } from '../services/fileHandler';
 import jsCookie from 'js-cookie';
 
 export type RenewalFileMeta = {
@@ -52,14 +52,20 @@ export function asPendingRenewalDocument(
     renewalFileIds.size > 0 &&
     renewalFileIds.has(meta.id);
 
+  const fileTypeFromValue =
+    value && typeof value === 'object'
+      ? String(
+          ((value as { fileType?: string; type?: string }).fileType ??
+            (value as { fileType?: string; type?: string }).type) ||
+            '',
+        )
+      : undefined;
+
   return {
     ...(keepId ? { id: meta.id } : {}),
     fileName: meta.fileName,
     fileUrl: meta.fileUrl,
-    fileType:
-      value && typeof value === 'object' && 'fileType' in value
-        ? String((value as { fileType?: string }).fileType)
-        : undefined,
+    fileType: meta.fileType || (fileTypeFromValue || undefined),
   };
 }
 

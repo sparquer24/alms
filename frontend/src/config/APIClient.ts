@@ -264,6 +264,19 @@ export const ApplicationApi = {
 };
 
 /**
+ * Renewal API client - All endpoints require authentication
+ */
+export const RenewalApi = {
+  deleteRenewal: async (renewalId: string | number): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.delete(`/renewal-forms/application/${renewalId}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
  * Document API client - All endpoints require authentication
  */
 export const DocumentApi = {
