@@ -162,7 +162,7 @@ const PersonalInformation: React.FC = () => {
       )}
 
       
-      <div className='grid  grid-cols-4 gap-10 mb-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-4'>
         <Input
           label='1. Applicant First Name'
           name='firstName'

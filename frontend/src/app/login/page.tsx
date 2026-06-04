@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
+import { navigateToDefaultMenu } from '../../utils/navigationUtils';
 
 const ImageFixed = Image as any;
 const LinkFixed = Link as any;
@@ -15,6 +16,8 @@ import { login } from '../../store/thunks/authThunks';
 import {
   selectAuthLoading,
   selectAuthError,
+  selectIsAuthenticated,
+  selectAuthInitialized,
   setError,
 } from '../../store/slices/authSlice';
 import type { AppDispatch } from '../../store/store';
@@ -147,6 +150,23 @@ function LoginContent() {
 
   const isLoading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const authInitialized = useSelector(selectAuthInitialized);
+
+  // If the user is already authenticated, redirect them away from login page
+  useEffect(() => {
+    if (authInitialized && isAuthenticated) {
+      // Read role from cookie for the redirect
+      const roleCookie = getCookie('role');
+      if (roleCookie) {
+        const normalizedRole = String(roleCookie).replace(/"/g, '').trim().toUpperCase();
+        const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+        router.replace(redirectPath);
+      } else {
+        router.replace('/inbox?type=forwarded');
+      }
+    }
+  }, [authInitialized, isAuthenticated, router]);
 
   const { formData, updateField, resetForm, isFormValid } = useLoginForm();
   useUrlErrorHandler(dispatch);
@@ -186,13 +206,20 @@ function LoginContent() {
             dispatch(setError('No role assigned to your account.'));
             return;
           }
-          // Use getRoleBasedRedirectPath to get the correct destination for the user's role
-          const redirectPath = getRoleBasedRedirectPath(normalizedRole);
-          // Use client-side navigation instead of full reload to preserve Redux auth state
-          // This avoids the issue of auth state being lost and user being redirected to login
-          setTimeout(() => {
-            router.push(redirectPath);
-          }, 100);
+          // Use navigateToDefaultMenu for dynamic role-based routing
+          // based on the user's role configuration menu items.
+          // Fall back to getRoleBasedRedirectPath if navigateToDefaultMenu fails.
+          const navigated = navigateToDefaultMenu(normalizedRole, router);
+          if (!navigated) {
+            const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+            // For admin/superAdmin routes, use a full navigation so the Next.js middleware
+            // can verify the JWT in the edge runtime.
+            if (redirectPath.startsWith('/admin') || redirectPath.startsWith('/superAdmin')) {
+              window.location.assign(redirectPath);
+            } else {
+              router.push(redirectPath);
+            }
+          }
         }
       } catch {
         resetForm();
@@ -235,10 +262,6 @@ function LoginContent() {
     [formData.password, isLoading, updateField]
   );
 
-  if (isLoading) {
-    return <LoginSkeleton />;
-  }
-
   return (
     <div
       className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
@@ -249,7 +272,7 @@ function LoginContent() {
         aria-hidden='true'
       />
       <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
-        <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40'>
+        <div className={`max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300 ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}>
           <div className='flex flex-col items-center'>
             <div className='mb-6'>
               <ImageFixed

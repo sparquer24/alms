@@ -110,6 +110,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     // Local search state
     const [searchQuery, setSearchQuery] = useState<string>('');
+    // Application type filter state: 'All' | 'Fresh License' | 'Renewal Application'
+    const [applicationTypeFilter, setApplicationTypeFilter] = React.useState<string>('All');
 
     // Determine base applications list in this order: filtered -> prop -> context -> empty array
     const baseApplications = React.useMemo(
@@ -117,17 +119,32 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       [filteredApplications, applications, contextApplications]
     );
 
-    // Apply search filter if query present (searches applicantName, applicationType, status)
+    // Apply search filter and application type filter
     const effectiveApplications = React.useMemo(() => {
-      if (!searchQuery.trim()) return baseApplications;
-      const q = searchQuery.toLowerCase();
-      return baseApplications.filter(app => {
-        const applicant = (app.applicantName || '').toLowerCase();
-        const type = (app.applicationType || '').toLowerCase();
-        const status = extractWorkflowStatusName(app).toLowerCase();
-        return applicant.includes(q) || type.includes(q) || status.includes(q);
-      });
-    }, [baseApplications, searchQuery]);
+      let filtered = baseApplications;
+
+      // Filter by application type (unless 'All')
+      if (applicationTypeFilter !== 'All') {
+        filtered = filtered.filter(app => {
+          const appType = (app.applicationType || '').toLowerCase();
+          return appType === applicationTypeFilter.toLowerCase();
+        });
+      }
+
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(app => {
+          const applicant = (app.applicantName || '').toLowerCase();
+          const type = (app.applicationType || '').toLowerCase();
+          const ackNo = ((app as any).acknowledgementNo || '').toLowerCase();
+          const status = extractWorkflowStatusName(app).toLowerCase();
+          return applicant.includes(q) || type.includes(q) || ackNo.includes(q) || status.includes(q);
+        });
+      }
+
+      return filtered;
+    }, [baseApplications, searchQuery, applicationTypeFilter]);
 
     const router = useRouter();
     const { executeAction, setActiveNavigationPath } = useGlobalAction();
@@ -136,7 +153,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     const tableColumns = React.useMemo(() => {
       const base = isSentPage
         ? ['S.No', 'Acknowledgement No', 'Applicant Name', 'Action Taken At', 'Action Taken']
-        : ['S.No', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
+        : ['S.No', 'Acknowledgement No', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
       if (showActionColumn) base.push('Action');
       return base;
     }, [isSentPage, showActionColumn]);
@@ -151,10 +168,10 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         document.body.style.overflow = prev || '';
       };
     }, []);
-    // Removed generatingPDF state after removing PDF button
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+    const [loadingRowId, setLoadingRowId] = useState<string | null>(null);
     const { userRole } = useAuth();
 
     const isApplicationUnread = useCallback(
@@ -166,6 +183,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     const handleViewApplication = useCallback(
       (id: string) => {
+        setLoadingRowId(id);
         const actionId = `navigate-application-${id}`;
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
@@ -174,13 +192,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             : `/application/${id}`;
           setActiveNavigationPath(route);
           await router.push(route);
-        });
+          setLoadingRowId(null);
+        }).catch(() => setLoadingRowId(null));
       },
       [router, executeAction, setActiveNavigationPath, baseApplications]
     );
 
     const handleEditDraft = useCallback(
       async (id: string) => {
+        setLoadingRowId(id);
         const actionId = `edit-draft-${id}`;
         const result = await executeAction(actionId, async () => {
           try {
@@ -224,10 +244,13 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             setErrorMessage('Error loading draft application');
             setTimeout(() => setErrorMessage(null), 3000);
           }
-        });
+        }).catch(() => setLoadingRowId(null));
 
         // If executeAction returned null it means the action was blocked (duplicate), so we simply return
-        if (result === null) return;
+        if (result === null) {
+          setLoadingRowId(null);
+          return;
+        }
       },
       [router, executeAction, baseApplications]
     );
@@ -260,7 +283,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 row[col] = idx + 1;
                 break;
               case 'Acknowledgement No':
-                row[col] = (app as any).acknowledgementNo || '';
+                row[col] = app.acknowledgementNo || '';
                 break;
               case 'Applicant Name':
                 row[col] = app.applicantName || '';
@@ -350,17 +373,18 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             </div>
 
             <div className='flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto'>
-              {pageType === 'freshform' || pageType === 'drafts' ? (
-                <select
-                  value={selectedFormType || 'fresh'}
-                  onChange={e => onSelectedFormTypeChange?.(e.target.value as 'fresh' | 'renewal')}
-                  className='w-full sm:w-64 h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
-                  aria-label='Select form type'
-                >
-                  <option value='fresh'>Fresh Application Form</option>
-                  <option value='renewal'>Renewal Application Form</option>
-                </select>
-              ) : null}
+              {/* Application Type Filter */}
+              <select
+                value={applicationTypeFilter}
+                onChange={e => setApplicationTypeFilter(e.target.value)}
+                className='w-full sm:w-48 h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                aria-label='Filter by application type'
+              >
+                <option value='All'>All Types</option>
+                <option value='Fresh License'>Fresh License</option>
+                <option value='Renewal Application'>Renewal Application</option>
+              </select>
+
               <button
                 type='button'
                 onClick={handleExportExcel}
@@ -428,7 +452,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             {/* Dynamic colgroup based on visible columns */}
             <colgroup>
               {(() => {
-                const baseWidths = ['5%', '30%', '20%', '20%', '15%'];
+                const baseWidths = isSentPage
+                  ? ['5%', '30%', '20%', '20%', '15%']
+                  : ['5%', '15%', '20%', '15%', '15%', '20%'];
                 const cols = [...baseWidths];
                 if (showActionColumn) cols.push('10%');
                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
@@ -454,7 +480,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
           <table className='w-full table-fixed border-collapse'>
             <colgroup>
               {(() => {
-                const baseWidths = ['5%', '30%', '20%', '20%', '15%'];
+                const baseWidths = isSentPage
+                  ? ['5%', '30%', '20%', '20%', '15%']
+                  : ['5%', '15%', '20%', '15%', '15%', '20%'];
                 const cols = [...baseWidths];
                 if (showActionColumn) cols.push('10%');
                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
@@ -476,6 +504,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   formatDateTime={formatDateTime}
                   getStatusPillClass={getStatusPillClass}
                   showActionColumn={showActionColumn}
+                  loadingRowId={loadingRowId}
                 />
               ))}
             </tbody>
@@ -530,6 +559,7 @@ const TableRow: React.FC<{
   formatDateTime: (dateStr: string) => string;
   getStatusPillClass: (status: string) => string;
   showActionColumn?: boolean;
+  loadingRowId?: string | null;
 }> = ({
   app,
   index,
@@ -543,7 +573,9 @@ const TableRow: React.FC<{
   formatDateTime,
   getStatusPillClass,
   showActionColumn = true,
+  loadingRowId,
 }) => {
+  const isRowLoading = String(loadingRowId) === String(app.id);
   // Check if user is ZS role
   const isZSRole = userRole === 'ZS' || userRole === 'zs';
 
@@ -570,16 +602,25 @@ const TableRow: React.FC<{
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
         <td className={`${styles.tableCell} text-sm font-medium`}>
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              handleViewApplication(app.id);
-            }}
-            className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
-            aria-label={`View details for application ${app.id}`}
-          >
-            {app.applicantName}
-          </button>
+          <div className='flex items-center gap-2'>
+            {isRowLoading && (
+              <svg className='animate-spin h-4 w-4 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+              </svg>
+            )}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              disabled={isRowLoading}
+              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              aria-label={`View details for application ${app.id}`}
+            >
+              {app.applicantName}
+            </button>
+          </div>
         </td>
         <td className={`${styles.tableCell} text-sm text-black`}>
           {formatDateTime(
@@ -596,10 +637,19 @@ const TableRow: React.FC<{
                 e.stopPropagation();
                 handleViewApplication(app.id);
               }}
-              className='px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors'
+              disabled={isRowLoading}
+              className={`px-3 py-1 rounded-md transition-colors ${isRowLoading ? 'bg-gray-100 text-gray-400 cursor-wait' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
               aria-label={`View application ${app.id}`}
             >
-              View
+              <span className='flex items-center gap-1.5'>
+                {isRowLoading && (
+                  <svg className='animate-spin h-3.5 w-3.5' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+                  </svg>
+                )}
+                {isRowLoading ? 'Loading...' : 'View'}
+              </span>
             </button>
           </td>
         )}
@@ -615,20 +665,32 @@ const TableRow: React.FC<{
       aria-label={`Row for application ${app.id}`}
     >
       <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+      <td className={`${styles.tableCell} text-sm text-black`}>
+        {(app as any).acknowledgementNo || 'N/A'}
+      </td>
       <td className={`${styles.tableCell} text-sm font-medium `}>
         {isDrafts ? (
           <span className='text-gray-900'>{app.applicantName}</span>
         ) : (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              handleViewApplication(app.id);
-            }}
-            className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors`}
-            aria-label={`View details for application ${app.id}`}
-          >
-            {app.applicantName}
-          </button>
+          <div className='flex items-center gap-2'>
+            {isRowLoading && (
+              <svg className='animate-spin h-4 w-4 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+              </svg>
+            )}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              disabled={isRowLoading}
+              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              aria-label={`View details for application ${app.id}`}
+            >
+              {app.applicantName}
+            </button>
+          </div>
         )}
       </td>
       <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
@@ -678,10 +740,19 @@ const TableRow: React.FC<{
                 e.stopPropagation();
                 handleViewApplication(app.id);
               }}
-              className='px-3 py-1 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors'
+              disabled={isRowLoading}
+              className={`px-3 py-1 rounded-md transition-colors ${isRowLoading ? 'bg-gray-100 text-gray-400 cursor-wait' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
               aria-label={`View application ${app.id}`}
             >
-              View
+              <span className='flex items-center gap-1.5'>
+                {isRowLoading && (
+                  <svg className='animate-spin h-3.5 w-3.5' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+                  </svg>
+                )}
+                {isRowLoading ? 'Loading...' : 'View'}
+              </span>
             </button>
           )}
         </td>

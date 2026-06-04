@@ -45,7 +45,6 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                           <GlobalActionProvider>
 
                             <AuthInitializer />
-
                             {children}
 
                           </GlobalActionProvider>

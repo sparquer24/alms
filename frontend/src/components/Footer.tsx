@@ -25,7 +25,7 @@ const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer className={`${baseClasses} ${variantClasses[variant]} ${borderClass} ${className}`}>
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4">
         <p className="text-sm">
           &copy; {currentYear} ALMS - Arms License Management System. All rights reserved.
         </p>

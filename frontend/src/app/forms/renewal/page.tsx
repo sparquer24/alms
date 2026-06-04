@@ -2510,7 +2510,7 @@ function RenewalFormPageContent() {
         </div>
       )}
 
-      <div className='mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-8 sm:px-6 lg:px-8'>
+      <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader applicationId={applicationId} renewalId={renewalId || createdRenewalIdRef.current || ''} summaryData={renewalRecord || formData} />
 

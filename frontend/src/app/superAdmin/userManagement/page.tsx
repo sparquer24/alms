@@ -507,7 +507,7 @@ export default function UserManagementPage() {
   return (
     <>
     <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-4 md:p-8'>
-      <div className='mx-auto w-full max-w-7xl flex flex-col gap-6'>
+      <div className='mx-auto w-full max-w-7xl 2xl:max-w-[1600px] flex flex-col gap-6'>
           {/* Header Section */}
           <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
             <div className='bg-[#001F54] text-white px-6 py-8'>

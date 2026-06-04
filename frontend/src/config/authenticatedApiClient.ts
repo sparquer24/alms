@@ -63,14 +63,29 @@ function redirectToLogin(): void {
 // The project uses a centralized axios instance. This client wraps it to provide
 // the same semantics as the old authenticatedFetch (auto-token, redirect on 401).
 
+/**
+ * Ensure the Authorization header is set on axios before making a request.
+ * Checks tokens in this priority order:
+ *   1. Existing axios Authorization header (covers in-flight login flow)
+ *   2. Auth cookie (normal app usage)
+ */
 async function ensureAuthHeader() {
+  // 1. Check if the axios instance already has a Bearer token set.
+  //    This covers the login flow where setAuthToken(token) was called
+  //    but cookies haven't been persisted yet.
+  const existingHeader = axiosInstance.defaults.headers['Authorization'];
+  if (typeof existingHeader === 'string' && existingHeader.startsWith('Bearer ')) {
+    return;
+  }
+
+  // 2. Fall back to reading from cookie
   const token = getAuthToken();
   if (token) {
     setAuthToken(token);
     return;
   }
 
-  // No token available: if running in browser, redirect to login so user can re-authenticate
+  // 3. No token anywhere — if running in browser, redirect to login
   if (typeof window !== 'undefined') {
     redirectToLogin();
     return;

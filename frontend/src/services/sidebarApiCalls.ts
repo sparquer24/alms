@@ -637,6 +637,7 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
 
   return {
     id: String(apiApp.id || ''),
+    acknowledgementNo: apiApp.acknowledgementNo || undefined,
     applicantName: apiApp.applicantName,
     applicantMobile: apiApp.mobileNumber || '', // This might need to be fetched from detailed API
     applicantEmail: apiApp.emailAddress || undefined, // This might need to be fetched from detailed API

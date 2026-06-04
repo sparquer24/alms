@@ -130,7 +130,7 @@ export default function RenewalApplicationDetailsPage() {
 
   return (
     <div className='min-h-screen bg-slate-50 px-4 py-8'>
-      <div className='mx-auto max-w-5xl'>
+      <div className='mx-auto max-w-5xl 2xl:max-w-[1200px]'>
         <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
           <div className='bg-gradient-to-r from-[#001F54] to-[#0d2f6b] px-6 py-5 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
             <div>

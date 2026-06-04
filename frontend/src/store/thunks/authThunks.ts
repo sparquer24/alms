@@ -89,9 +89,22 @@ export const initializeAuth = createAsyncThunk(
       }
 
       const meResponse = await AuthApi.getMe(token);
-      if (meResponse && meResponse.success && (meResponse.body || (meResponse as any).data)) {
-        const payload = meResponse.body ?? (meResponse as any).data ?? meResponse;
-        const user = payload;
+
+      // The backend /auth/getMe endpoint returns the user object directly
+      // (e.g. { id, username, role, location, ... }), NOT wrapped in
+      // { success: true, body: ... }. Handle both response formats.
+      let user: any = null;
+      if (meResponse) {
+        // Format 1: Wrapped { success: true, body: { ... } } or { data: { ... } }
+        if (meResponse.success && (meResponse.body || (meResponse as any).data)) {
+          user = meResponse.body ?? (meResponse as any).data ?? meResponse;
+        // Format 2: Direct user object from backend (no `success` wrapper)
+        } else if ((meResponse as any).id || (meResponse as any).username) {
+          user = meResponse;
+        }
+      }
+
+      if (user) {
         const role = normalizeRole(user);
 
         if (!role) {
@@ -120,10 +133,18 @@ export const initializeAuth = createAsyncThunk(
         return { user: normalizedUser, token };
       }
 
+      // getMe returned an unrecognized response — the token may have been
+      // rejected by the server. Clear the stale cookie so there's no
+      // inconsistency between Redux state and cookie-based auth readers.
+      try {
+        deleteCookie('auth', { path: '/' });
+      } catch { /* best-effort */ }
       dispatch(setInitialized(true));
       return rejectWithValue(null);
     } catch {
-      dispatch(logout());
+      // Transient network or server error. Don't call logout() which would
+      // clear cookies and force re-login. Instead, mark initialized and let
+      // the page guard handle the unauthenticated state gracefully.
       dispatch(setInitialized(true));
       return rejectWithValue(null);
     }
@@ -155,10 +176,28 @@ export const login = createAsyncThunk(
         return rejectWithValue(errorMessage);
       }
 
+      // Persist cookies BEFORE calling getMe so that any API calls or
+      // page navigation triggered afterward can rely on cookie-based auth.
+      // Use a minimal user object since we don't have the full profile yet.
+      try {
+        await persistAuthCookies(token, user || { role: (response as any)?.user?.role });
+      } catch { /* best-effort cookie writes */ }
+
       const meResponse = await AuthApi.getMe(token);
-      if (meResponse && meResponse.success && (meResponse.body || (meResponse as any).data)) {
-        user = meResponse.body ?? (meResponse as any).data ?? meResponse;
-      } else {
+
+      // Handle the same dual response format as initializeAuth:
+      // 1. Wrapped { success: true, body: { ... } }
+      // 2. Direct user object { id, username, role, ... }
+      if (meResponse) {
+        if (meResponse.success && (meResponse.body || (meResponse as any).data)) {
+          user = meResponse.body ?? (meResponse as any).data ?? meResponse;
+        } else if ((meResponse as any).id || (meResponse as any).username) {
+          user = meResponse;
+        }
+      }
+
+      // Fallback to JWT token payload decoding if getMe didn't return a user
+      if (!user) {
         try {
           const tokenPayload = JSON.parse(atob(token.split('.')[1]));
           user = {
@@ -190,6 +229,7 @@ export const login = createAsyncThunk(
       const normalizedUser = { ...user, role: String(role).toUpperCase() };
       dispatch(setCredentials({ user: normalizedUser, token }));
 
+      // Refresh cookies with full user data now that we have the complete profile
       try {
         await persistAuthCookies(token, normalizedUser);
       } catch { /* best-effort cookie writes */ }

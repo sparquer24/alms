@@ -30,10 +30,10 @@ export class ActionesController {
     @Query('applicationId') applicationId?: string
   ): Promise<Actiones[]> {
     // JwtAuthGuard guarantees request.user is set to decoded token if valid
-    const tokenUserId = req.user && (req.user as any).sub ? (req.user as any).sub : undefined;
+    const tokenUserId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
 
      return this.actionesService.getActiones(
-      tokenUserId as number | undefined,
+      tokenUserId,
       applicationId ? Number(applicationId) : undefined
     );
   }
