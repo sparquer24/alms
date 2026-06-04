@@ -1,0 +1,456 @@
+import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
+import prisma from '../../db/prismaClient';
+import { CreateCancelRequestDto } from './dto/create-cancel-request.dto';
+import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
+import { CancelRequestActionDto } from './dto/cancel-request-action.dto';
+import { STATUS_CODES, ACTION_CODES } from '../../constants/workflow-actions';
+
+@Injectable()
+export class CancelFormService {
+  /**
+   * Submit a new cancel request for an application
+   */
+  async createCancelRequest(
+    dto: CreateCancelRequestDto,
+    currentUserId: number,
+  ): Promise<any> {
+    try {
+      // Validate application exists based on application type
+      const isRenewal = dto.applicationType.toLowerCase().includes('renewal');
+      let application: any;
+
+      if (isRenewal) {
+        application = await prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: dto.applicationId },
+          select: {
+            id: true,
+            isApproved: true,
+            isRejected: true,
+            workflowStatus: {
+              select: { code: true },
+            },
+          },
+        });
+      } else {
+        application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: dto.applicationId },
+          select: {
+            id: true,
+            isApproved: true,
+            isRejected: true,
+            workflowStatus: {
+              select: { code: true },
+            },
+          },
+        });
+      }
+
+      if (!application) {
+        throw new NotFoundException('Application not found.');
+      }
+
+      // Validate application is in a cancellable state
+      if (application.isApproved) {
+        throw new BadRequestException('Cannot cancel an approved application.');
+      }
+      if (application.isRejected) {
+        throw new BadRequestException('Cannot cancel a rejected application.');
+      }
+      if (application.workflowStatus?.code === 'CANCEL') {
+        throw new BadRequestException('Application is already cancelled.');
+      }
+
+      // Check if there's already a pending cancel request for this application
+      const existingPending = await prisma.cancelFormRequests.findFirst({
+        where: {
+          applicationId: dto.applicationId,
+          status: 'PENDING',
+        },
+      });
+
+      if (existingPending) {
+        throw new BadRequestException('A pending cancel request already exists for this application.');
+      }
+
+      // Create the cancel request
+      const cancelRequest = await prisma.cancelFormRequests.create({
+        data: {
+          applicationId: dto.applicationId,
+          applicationType: dto.applicationType,
+          cancellationReason: dto.cancellationReason,
+          remarks: dto.remarks || null,
+          status: 'PENDING',
+          requestedBy: currentUserId,
+          requestedDate: new Date(),
+        },
+        include: {
+          requester: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return cancelRequest;
+    } catch (error: any) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      if (error.code === 'P2003') {
+        throw new BadRequestException('Invalid user or application reference.');
+      }
+      throw new InternalServerErrorException(
+        `Failed to create cancel request: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Get a cancel request by ID
+   */
+  async getCancelRequestById(id: number): Promise<any> {
+    try {
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id },
+        include: {
+          requester: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          actioner: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!cancelRequest) {
+        throw new NotFoundException('Cancel request not found.');
+      }
+
+      return cancelRequest;
+    } catch (error: any) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to retrieve cancel request: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Get all cancel requests with optional filtering
+   */
+  async getCancelRequests(filters: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    requestedBy?: number;
+    applicationId?: number;
+  }): Promise<{ data: any[]; total: number; page: number; limit: number }> {
+    try {
+      const page = Math.max(Number(filters.page ?? 1), 1);
+      const limit = Math.max(Number(filters.limit ?? 10), 1);
+      const skip = (page - 1) * limit;
+
+      const where: any = {};
+
+      if (filters.status) {
+        where.status = filters.status;
+      }
+      if (filters.requestedBy) {
+        where.requestedBy = filters.requestedBy;
+      }
+      if (filters.applicationId) {
+        where.applicationId = filters.applicationId;
+      }
+
+      const [cancelRequests, total] = await Promise.all([
+        prisma.cancelFormRequests.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            requester: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            actioner: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+              },
+            },
+          },
+        }),
+        prisma.cancelFormRequests.count({ where }),
+      ]);
+
+      return {
+        data: cancelRequests,
+        total,
+        page,
+        limit,
+      };
+    } catch (error: any) {
+      throw new InternalServerErrorException(
+        `Failed to retrieve cancel requests: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Update a cancel request (e.g., change reason/remarks)
+   */
+  async updateCancelRequest(
+    id: number,
+    dto: UpdateCancelRequestDto,
+    currentUserId: number,
+  ): Promise<any> {
+    try {
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id },
+      });
+
+      if (!cancelRequest) {
+        throw new NotFoundException('Cancel request not found.');
+      }
+
+      // Only allow updates to PENDING requests
+      if (cancelRequest.status !== 'PENDING') {
+        throw new BadRequestException('Cannot update a cancel request that has already been processed.');
+      }
+
+      // Only the requester can update the request
+      if (cancelRequest.requestedBy !== currentUserId) {
+        throw new ForbiddenException('You can only update your own cancel requests.');
+      }
+
+      const updateData: any = {};
+      if (dto.cancellationReason !== undefined) {
+        updateData.cancellationReason = dto.cancellationReason;
+      }
+      if (dto.remarks !== undefined) {
+        updateData.remarks = dto.remarks;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        throw new BadRequestException('No data provided for update.');
+      }
+
+      const updated = await prisma.cancelFormRequests.update({
+        where: { id },
+        data: updateData,
+        include: {
+          requester: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return updated;
+    } catch (error: any) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to update cancel request: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Process a cancel request action (APPROVED/REJECTED)
+   * When approved, updates the original application status to CANCELLED
+   * and creates workflow history entries
+   */
+  async processCancelRequestAction(
+    id: number,
+    dto: CancelRequestActionDto,
+    currentUserId: number,
+  ): Promise<any> {
+    try {
+      // Fetch the cancel request
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id },
+      });
+
+      if (!cancelRequest) {
+        throw new NotFoundException('Cancel request not found.');
+      }
+
+      if (cancelRequest.status !== 'PENDING') {
+        throw new BadRequestException('Cancel request has already been processed.');
+      }
+
+      if (dto.action === 'REJECTED' && !dto.remarks) {
+        throw new BadRequestException('Remarks are required when rejecting a cancel request.');
+      }
+
+      const isRenewal = cancelRequest.applicationType.toLowerCase().includes('renewal');
+      let application: any;
+
+      // Fetch the application for validation
+      if (isRenewal) {
+        application = await prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: cancelRequest.applicationId },
+        });
+      } else {
+        application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: cancelRequest.applicationId },
+        });
+      }
+
+      if (!application) {
+        throw new NotFoundException('Original application not found.');
+      }
+
+      // Update the cancel request status
+      const updateData: any = {
+        status: dto.action,
+        actionedBy: currentUserId,
+        actionedDate: new Date(),
+      };
+
+      if (dto.remarks) {
+        // Preserve original remarks and append action remarks
+        const originalRemarks = cancelRequest.remarks || '';
+        updateData.remarks = originalRemarks
+          ? `${originalRemarks}\n[Action: ${dto.action}] ${dto.remarks}`
+          : `[Action: ${dto.action}] ${dto.remarks}`;
+      }
+
+      const updatedCancelRequest = await prisma.cancelFormRequests.update({
+        where: { id },
+        data: updateData,
+      });
+
+      let cancelActionResult: any = { success: true, message: 'Cancel request updated.' };
+
+      // If approved, update the original application to CANCELLED status
+      if (dto.action === 'APPROVED') {
+        // Find the CANCEL status
+        const cancelStatus = await prisma.statuses.findFirst({
+          where: { code: ACTION_CODES.CANCEL },
+        });
+
+        if (!cancelStatus) {
+          throw new InternalServerErrorException('CANCEL status not found in the system.');
+        }
+
+        // Find the CANCEL action from Actiones table for workflow history
+        const cancelAction = await prisma.actiones.findFirst({
+          where: { code: 'CANCEL' },
+        });
+
+        // Update the application to cancelled
+        if (isRenewal) {
+          await prisma.renewalFormPersonalDetails.update({
+            where: { id: cancelRequest.applicationId },
+            data: {
+              workflowStatusId: cancelStatus.id,
+              isPending: false,
+            },
+          });
+
+          // Create workflow history entry for renewal
+          if (cancelAction) {
+            await prisma.renewalApplicationsFormWorkflowHistories.create({
+              data: {
+                applicationId: cancelRequest.applicationId,
+                previousUserId: application.currentUserId || currentUserId,
+                nextUserId: currentUserId,
+                actionTaken: ACTION_CODES.CANCEL,
+                remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,
+                actionesId: cancelAction.id,
+              },
+            });
+          }
+        } else {
+          await prisma.freshLicenseApplicationPersonalDetails.update({
+            where: { id: cancelRequest.applicationId },
+            data: {
+              workflowStatusId: cancelStatus.id,
+              isPending: false,
+            },
+          });
+
+          // Create workflow history entry for fresh license
+          if (cancelAction) {
+            await prisma.freshLicenseApplicationsFormWorkflowHistories.create({
+              data: {
+                applicationId: cancelRequest.applicationId,
+                previousUserId: application.currentUserId || currentUserId,
+                nextUserId: currentUserId,
+                actionTaken: ACTION_CODES.CANCEL,
+                remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,
+                actionesId: cancelAction.id,
+              },
+            });
+          }
+        }
+
+        cancelActionResult = {
+          success: true,
+          message: 'cancel performed successfully.',
+        };
+      }
+
+      return {
+        success: true,
+        message: `Cancel request ${dto.action.toLowerCase()}.`,
+        data: {
+          cancelRequest: updatedCancelRequest,
+          cancelAction: cancelActionResult,
+        },
+      };
+    } catch (error: any) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to process cancel request: ${error?.message || 'Unknown error'}`,
+      );
+    }
+  }
+}

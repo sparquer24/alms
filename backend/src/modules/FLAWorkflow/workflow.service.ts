@@ -155,10 +155,6 @@ export class WorkflowService {
     if (payload.isRejected !== undefined) updateData.isRejected = payload.isRejected;
     if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
-    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
-    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
-    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
-    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
 
     const updatedApplication = await this.prisma.freshLicenseApplicationPersonalDetails.update({
       where: { id: payload.applicationId },
@@ -278,10 +274,6 @@ export class WorkflowService {
     if (payload.isReEnquiry !== undefined) updateData.isReEnquiry = payload.isReEnquiry;
     if (payload.isReEnquiryDone !== undefined) updateData.isReEnquiryDone = payload.isReEnquiryDone;
     if (payload.isRejected !== undefined) updateData.isRejected = payload.isRejected;
-    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
-    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
-    if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
-    if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
     if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
 

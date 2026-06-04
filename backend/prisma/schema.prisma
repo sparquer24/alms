@@ -191,6 +191,8 @@ model Users {
   role                          Roles                                           @relation(fields: [roleId], references: [id], onDelete: Cascade)
   state                         States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
   zone                          Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
+  cancelRequestRequesters       CancelFormRequests[]                            @relation("CancelRequestRequester")
+  cancelRequestActioners        CancelFormRequests[]                            @relation("CancelRequestActioner")
 }
 
 model FlowMaps {
@@ -614,4 +616,23 @@ model LicensesMergeAuditLog {
   @@index([freshLicenseId])
   @@index([renewalLicenseId])
   @@index([mergeId])
+}
+
+model CancelFormRequests {
+  id                 Int      @id @default(autoincrement())
+  applicationId      Int
+  applicationType    String
+  cancellationReason String
+  remarks            String?
+  status             String   @default("PENDING")
+  requestedBy        Int
+  requestedDate      DateTime @default(now())
+  actionedBy         Int?
+  actionedDate       DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  requester          Users    @relation("CancelRequestRequester", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actioner           Users?   @relation("CancelRequestActioner", fields: [actionedBy], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([applicationId])
 }
