@@ -6,7 +6,7 @@
 // import Header from '../../components/Header';
 // import ApplicationTable from '../../components/ApplicationTable';
 // import { useLayout } from '../../config/layoutContext';
-// import { useAuthSync } from '../../hooks/useAuthSync';
+// import { useAuth } from '@/hooks/useAuth';
 // import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 // import { ApplicationData } from '../../types';
 // import { getRoleConfig } from '../../config/roles';
@@ -29,7 +29,7 @@
 //   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 //   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-//   const { isAuthenticated, userRole, isLoading: authLoading } = useAuthSync();
+//   const { isAuthenticated, userRole, isLoading: authLoading } = useAuth();
 //   const { setShowHeader, setShowSidebar } = useLayout();
 //   const searchParams = useSearchParams();
 //   const router = useRouter();

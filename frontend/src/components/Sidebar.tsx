@@ -24,7 +24,7 @@ const RefreshCcwFixed = RefreshCcw as any;
 
 import { logoutUser } from '../store/thunks/authThunks';
 import { toggleInbox, openInbox, closeInbox } from '../store/slices/uiSlice';
-import { useAuthSync } from '../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../config/layoutContext';
 import { useInbox } from '../context/InboxContext';
 import { useGlobalAction } from '../context/GlobalActionContext';
@@ -170,7 +170,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { userRole, token, user } = useAuthSync();
+  const { userRole, token, user } = useAuth();
   const { loadType, selectedType, isLoading: isInboxLoading } = useInbox();
   const { isActionInProgress, startAction, endAction, canNavigateTo, setActiveNavigationPath } =
     useGlobalAction();

@@ -109,6 +109,22 @@ type RenewalFormState = {
   offence: string;
   sentence: string;
   sentenceDate: string;
+  // License History fields
+  hasAppliedBefore: boolean;
+  applicationDate: string;
+  authorityAppliedTo: string;
+  applicationResult: string;
+  licenseRevokedOrSuspended: boolean;
+  revokedByAuthority: string;
+  revokedReason: string;
+  familyMemberHasLicense: boolean;
+  familyMemberName: string;
+  familyLicenseNumber: string;
+  weaponEndorsedList: any[];
+  hasSafeCustody: boolean;
+  safeCustodyDetails: string;
+  hasTrainingUnderRule10: boolean;
+  trainingDetails: string;
   idProofUploaded?: File | null;
   addressProofUploaded?: File | null;
   photographUploaded?: File | null;
@@ -119,6 +135,8 @@ type RenewalFormState = {
   otherStateLicenseUploaded?: File | null;
   existingArmsLicenseUploaded?: File | null;
   safeCustodyUploaded?: File | null;
+  specialEvidenceUploaded?: File | null;
+  specialEvidenceFiles?: (File | any)[];
   selectedFingerprint?: string;
   signature?: string;
   irisScan?: string;
@@ -215,6 +233,22 @@ const initialFormState: RenewalFormState = {
   offence: '',
   sentence: '',
   sentenceDate: '',
+  // License History fields
+  hasAppliedBefore: false,
+  applicationDate: '',
+  authorityAppliedTo: '',
+  applicationResult: '',
+  licenseRevokedOrSuspended: false,
+  revokedByAuthority: '',
+  revokedReason: '',
+  familyMemberHasLicense: false,
+  familyMemberName: '',
+  familyLicenseNumber: '',
+  weaponEndorsedList: [],
+  hasSafeCustody: false,
+  safeCustodyDetails: '',
+  hasTrainingUnderRule10: false,
+  trainingDetails: '',
   idProofUploaded: null,
   addressProofUploaded: null,
   photographUploaded: null,
@@ -225,6 +259,8 @@ const initialFormState: RenewalFormState = {
   otherStateLicenseUploaded: null,
   existingArmsLicenseUploaded: null,
   safeCustodyUploaded: null,
+  specialEvidenceUploaded: null,
+  specialEvidenceFiles: [],
   selectedFingerprint: 'RIGHT_THUMB',
   signature: '',
   irisScan: '',
@@ -804,9 +840,8 @@ const mergeDocumentFieldsFromFresh = (
     merged.specialEvidenceFiles = freshEvidence
       .map((file) => asPendingRenewalDocument(file, renewalFileIds ?? null))
       .filter(Boolean) as RenewalFormState['specialEvidenceFiles'];
-    merged.specialEvidenceUploaded =
-      asPendingRenewalDocument(fresh.specialEvidenceUploaded, renewalFileIds ?? null) ??
-      fresh.specialEvidenceUploaded;
+    merged.specialEvidenceUploaded = (asPendingRenewalDocument(fresh.specialEvidenceUploaded, renewalFileIds ?? null) ??
+      fresh.specialEvidenceUploaded) as any;
   }
 };
 
@@ -1281,7 +1316,9 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
           residencePhone: extractedAddress.telephoneResidence || '',
           officeMobile: extractedAddress.officeMobileNumber || '',
           alternativeMobile: extractedAddress.alternativeMobile || '',
-          sameAsPresent: extractedAddress.sameAsPresent ?? Boolean(data?.sameAsPresent),
+          sameAsPresent: extractedAddress.sameAsPresent !== undefined 
+            ? String(extractedAddress.sameAsPresent).toLowerCase() === 'true' 
+            : Boolean(data?.sameAsPresent),
         }
       : {}),
     ...(extractedAddress.permanentAddress
@@ -1310,7 +1347,7 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
       ? { officeBusinessStateName: data.occupationAndBusiness.state.name }
       : {}),
     ...(data?.occupationAndBusiness?.district?.name
-      ? { officeBusinessDistrictName: data.occupationAndBusiness.district.name }
+      ? { officeBusinessDistrictName: data?.occupationAndBusiness.district.name }
       : {}),
 
     applicationType: 'Renewal',
@@ -1319,7 +1356,8 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
     ...mapLicenseHistoryFields(data),
     ...mapCriminalHistoryFields(data),
     ...mapBiometricFields(data),
-    ...mapDocumentUploadFields(data),
+    // Not prefill document upload fields from the fresh application here.
+    // Renewal documents should be uploaded separately in the renewal form.
 
     declaration: {
       agreeToTruth: Boolean(data?.isAwareOfLegalConsequences || data?.isDeclarationAccepted),
@@ -1385,6 +1423,22 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
   licenseType: formData.licenseType,
   hasPreviousLicense: formData.hasPreviousLicense,
   previousApplicationDetails: formData.previousApplicationDetails,
+  // License History fields
+  hasAppliedBefore: formData.hasAppliedBefore,
+  applicationDate: formData.applicationDate,
+  authorityAppliedTo: formData.authorityAppliedTo,
+  applicationResult: formData.applicationResult,
+  licenseRevokedOrSuspended: formData.licenseRevokedOrSuspended,
+  revokedByAuthority: formData.revokedByAuthority,
+  revokedReason: formData.revokedReason,
+  familyMemberHasLicense: formData.familyMemberHasLicense,
+  familyMemberName: formData.familyMemberName,
+  familyLicenseNumber: formData.familyLicenseNumber,
+  weaponEndorsedList: formData.weaponEndorsedList,
+  hasSafeCustody: formData.hasSafeCustody,
+  safeCustodyDetails: formData.safeCustodyDetails,
+  hasTrainingUnderRule10: formData.hasTrainingUnderRule10,
+  trainingDetails: formData.trainingDetails,
   declaration: formData.declaration,
   hasSubmittedTrueInfo: formData.hasSubmittedTrueInfo,
 });
@@ -1475,6 +1529,39 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
   if (Object.keys(occupationAndBusiness).length > 0) payload.occupationAndBusiness = occupationAndBusiness;
   if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
+
+  // License History - conditional submission based on Yes/No selections
+  const licenseHistoryPayload: Record<string, any> = {};
+  if (formData.hasAppliedBefore) {
+    licenseHistoryPayload.hasAppliedBefore = formData.hasAppliedBefore;
+    if (formData.applicationDate) licenseHistoryPayload.dateAppliedFor = formData.applicationDate;
+    if (formData.authorityAppliedTo) licenseHistoryPayload.previousAuthorityName = formData.authorityAppliedTo;
+    if (formData.applicationResult) licenseHistoryPayload.previousResult = formData.applicationResult.toUpperCase();
+  }
+  if (formData.licenseRevokedOrSuspended) {
+    licenseHistoryPayload.hasLicenceSuspended = formData.licenseRevokedOrSuspended;
+    if (formData.revokedByAuthority) licenseHistoryPayload.suspensionAuthorityName = formData.revokedByAuthority;
+    if (formData.revokedReason) licenseHistoryPayload.suspensionReason = formData.revokedReason;
+  }
+  if (formData.familyMemberHasLicense) {
+    licenseHistoryPayload.hasFamilyLicence = formData.familyMemberHasLicense;
+    if (formData.familyMemberName) licenseHistoryPayload.familyMemberName = formData.familyMemberName;
+    if (formData.familyLicenseNumber) licenseHistoryPayload.familyLicenceNumber = formData.familyLicenseNumber;
+    if (formData.weaponEndorsedList && formData.weaponEndorsedList.length > 0) {
+      licenseHistoryPayload.familyWeaponsEndorsed = formData.weaponEndorsedList.map((w: any) => w.value).filter(Boolean);
+    }
+  }
+  if (formData.hasSafeCustody) {
+    licenseHistoryPayload.hasSafePlace = formData.hasSafeCustody;
+    if (formData.safeCustodyDetails) licenseHistoryPayload.safePlaceDetails = formData.safeCustodyDetails;
+  }
+  if (formData.hasTrainingUnderRule10) {
+    licenseHistoryPayload.hasTraining = formData.hasTrainingUnderRule10;
+    if (formData.trainingDetails) licenseHistoryPayload.trainingDetails = formData.trainingDetails;
+  }
+  if (Object.keys(licenseHistoryPayload).length > 0) {
+    payload.licenseHistories = [licenseHistoryPayload];
+  }
 
   payload.acceptanceFlags = {
     isDeclarationAccepted: Boolean(formData.declaration?.agreeToTruth),
@@ -1582,7 +1669,7 @@ const loadExistingRenewalByLicenseNumber = async (
     existingRenewalId,
     mergedFormData,
   );
-  setFormData(syncedForm);
+  setFormData(syncedForm as RenewalFormState);
   setStatusMessage(
     synced
       ? `Loaded renewal ${existingRenewalId}; prefilled documents saved via upload-file.`
@@ -1632,7 +1719,7 @@ const createDraftRenewalFromFreshApplication = async (
 
     createdRenewalIdRef.current = newRenewalId;
     const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(newRenewalId, prefilledForm);
-    setFormData(syncedForm);
+    setFormData(syncedForm as RenewalFormState);
     setStatusMessage(
       synced
         ? `Created renewal ${newRenewalId}; prefilled documents saved via upload-file.`
@@ -1670,6 +1757,14 @@ function RenewalFormPageContent() {
   const applicationId = searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
   const createdRenewalIdRef = useRef<string | null>(null);
+  const personalSectionRef = React.useRef<any>(null);
+  const addressSectionRef = React.useRef<any>(null);
+  const occupationSectionRef = React.useRef<any>(null);
+  const criminalSectionRef = React.useRef<any>(null);
+  const licenseHistorySectionRef = React.useRef<any>(null);
+  const licenseDetailsSectionRef = React.useRef<any>(null);
+  const documentsSectionRef = React.useRef<any>(null);
+  const declarationSectionRef = React.useRef<any>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1679,10 +1774,41 @@ function RenewalFormPageContent() {
   const [formData, setFormData] = useState<RenewalFormState>(initialFormState);
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
 
+  const handleFormPatch = (patch: Record<string, unknown>) => {
+    setFormData(prev => ({ ...prev, ...patch }));
+    const documentKeys = Object.keys(patch).filter(key => (DOCUMENT_FORM_KEYS as readonly string[]).includes(key));
+    if (documentKeys.length) {
+      setDocumentsErrors(prevErrs => {
+        if (!prevErrs) return prevErrs;
+        const copy = { ...prevErrs };
+        let changed = false;
+        documentKeys.forEach(key => {
+          if (patch[key] && key in copy) {
+            delete copy[key];
+            changed = true;
+          }
+        });
+        return changed ? copy : prevErrs;
+      });
+    }
+  };
+
+  const scheduleSectionFocus = (sectionRef: React.RefObject<any>, sectionKey?: keyof typeof expandedSections) => {
+    if (sectionKey) {
+      setExpandedSections(prev => ({ ...prev, [sectionKey]: true }));
+    }
+
+    setTimeout(() => {
+      try { sectionRef.current?.focusFirstInvalid(); } catch {
+        // ignore if section not mounted yet
+      }
+    }, 0);
+  };
+
   const { isSyncingPrefilled: isSyncingEvidence } = usePrefilledDocumentSync(
     isLoading ? '' : activeRenewalId,
     formData,
-    (patch) => setFormData((prev) => ({ ...prev, ...patch })),
+    handleFormPatch,
     setError,
     (msg) => {
       if (msg) setStatusMessage(msg);
@@ -1692,18 +1818,26 @@ function RenewalFormPageContent() {
 
   const [expandedSections, setExpandedSections] = useState({
     personal: true,
-    address: false,
-    occupation: false,
-    criminal: false,
-    licenseHistory: false,
-    licenseDetails: false,
-    biometric: false,
-    documents: false,
-    declaration: false,
+    address: true,
+    occupation: true,
+    criminal: true,
+    licenseHistory: true,
+    licenseDetails: true,
+    biometric: true,
+    documents: true,
+    declaration: true,
   });
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [personalErrors, setPersonalErrors] = useState<Record<string, string>>({});
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [occupationErrors, setOccupationErrors] = useState<Record<string, string>>({});
+  const [criminalErrors, setCriminalErrors] = useState<Record<string, string>>({});
+  const [licenseHistoryErrors, setLicenseHistoryErrors] = useState<Record<string, string>>({});
+  const [licenseDetailsErrors, setLicenseDetailsErrors] = useState<Record<string, string>>({});
+  const [documentsErrors, setDocumentsErrors] = useState<Record<string, string>>({});
+  const [declarationErrors, setDeclarationErrors] = useState<Record<string, string>>({});
 
   const toggleSection = (key: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -1737,7 +1871,7 @@ function RenewalFormPageContent() {
             renewalId,
             mergedFormData,
           );
-          setFormData(syncedForm);
+          setFormData(syncedForm as RenewalFormState);
           setStatusMessage(
             synced
               ? `Loaded renewal ${getTextValue(renewalData?.id, renewalId)}; prefilled documents saved via upload-file.`
@@ -1791,6 +1925,36 @@ function RenewalFormPageContent() {
     const rawValue =
       value !== undefined ? value : type === 'checkbox' ? Boolean(checked) : (event.target as HTMLInputElement).value;
 
+    const clearErrorKeys = (setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>, keys: string[]) => {
+      setErrors(prevErrs => {
+        if (!prevErrs) return prevErrs;
+        const copy = { ...prevErrs };
+        let changed = false;
+        keys.forEach(key => {
+          if (key in copy) {
+            delete copy[key];
+            changed = true;
+          }
+        });
+        return changed ? copy : prevErrs;
+      });
+    };
+
+    const clearFieldError = (fieldName: string) => {
+      clearErrorKeys(setPersonalErrors, [fieldName]);
+      clearErrorKeys(setAddressErrors, [fieldName]);
+      clearErrorKeys(setOccupationErrors, [fieldName]);
+      clearErrorKeys(setCriminalErrors, [fieldName]);
+      clearErrorKeys(setLicenseHistoryErrors, [fieldName]);
+      clearErrorKeys(setLicenseDetailsErrors, [fieldName]);
+      clearErrorKeys(setDocumentsErrors, [fieldName]);
+      if (fieldName.startsWith('declaration.')) {
+        clearErrorKeys(setDeclarationErrors, [fieldName.replace('declaration.', '')]);
+      } else {
+        clearErrorKeys(setDeclarationErrors, [fieldName]);
+      }
+    };
+
     setFormData(prev => {
       const next = { ...prev } as RenewalFormState & Record<string, any>;
 
@@ -1804,8 +1968,121 @@ function RenewalFormPageContent() {
         next[name] = rawValue;
       }
 
+      // clear validation error for this field as user edits (both personal and address)
+      clearFieldError(name);
+
+      if (name === 'sameAsPresent' && rawValue === true) {
+        next.permanentAddress = '';
+        next.permanentState = '';
+        next.permanentDistrict = '';
+        next.permanentZone = '';
+        next.permanentDivision = '';
+        next.permanentPoliceStation = '';
+        next.permanentPincode = '';
+      }
+
+      if (name === 'convictedStatus' && rawValue === false) {
+        next.firNumber = '';
+        next.underSection = '';
+        next.policeStationCriminal = '';
+        next.criminalUnit = '';
+        next.criminalDistrict = '';
+        next.criminalState = '';
+        next.offence = '';
+        next.sentence = '';
+        next.sentenceDate = '';
+      }
+
+      if (name === 'bondStatus' && rawValue === false) {
+        next.bondSentenceDate = '';
+        next.bondPeriod = '';
+      }
+
+      if (name === 'prohibitedStatus' && rawValue === false) {
+        next.prohibitedSentenceDate = '';
+        next.prohibitedPeriod = '';
+      }
+
+      if (name === 'hasAppliedBefore' && rawValue === false) {
+        next.applicationDate = '';
+        next.authorityAppliedTo = '';
+        next.applicationResult = '';
+      }
+
+      if (name === 'licenseRevokedOrSuspended' && rawValue === false) {
+        next.revokedByAuthority = '';
+        next.revokedReason = '';
+      }
+
+      if (name === 'familyMemberHasLicense' && rawValue === false) {
+        next.familyMemberName = '';
+        next.familyLicenseNumber = '';
+      }
+
+      if (name === 'hasSafeCustody' && rawValue === false) {
+        next.safeCustodyDetails = '';
+      }
+
+      if (name === 'hasTrainingUnderRule10' && rawValue === false) {
+        next.trainingDetails = '';
+      }
+
       return next;
     });
+
+    if (name === 'sameAsPresent' && rawValue === true) {
+      clearErrorKeys(setAddressErrors, [
+        'permanentAddress',
+        'permanentState',
+        'permanentDistrict',
+        'permanentZone',
+        'permanentDivision',
+        'permanentPoliceStation',
+        'permanentPincode',
+      ]);
+    }
+
+    if (name === 'convictedStatus' && rawValue === false) {
+      clearErrorKeys(setCriminalErrors, [
+        'firNumber',
+        'underSection',
+        'policeStationCriminal',
+        'criminalUnit',
+        'criminalDistrict',
+        'criminalState',
+        'offence',
+        'sentence',
+        'sentenceDate',
+      ]);
+    }
+
+    if (name === 'bondStatus' && rawValue === false) {
+      clearErrorKeys(setCriminalErrors, ['bondSentenceDate', 'bondPeriod']);
+    }
+
+    if (name === 'prohibitedStatus' && rawValue === false) {
+      clearErrorKeys(setCriminalErrors, ['prohibitedSentenceDate', 'prohibitedPeriod']);
+    }
+
+    if (name === 'hasAppliedBefore' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['applicationDate', 'authorityAppliedTo', 'applicationResult']);
+    }
+
+    if (name === 'licenseRevokedOrSuspended' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['revokedByAuthority', 'revokedReason']);
+    }
+
+    if (name === 'familyMemberHasLicense' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['familyMemberName', 'familyLicenseNumber']);
+    }
+
+    if (name === 'hasSafeCustody' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['safeCustodyDetails']);
+    }
+
+    if (name === 'hasTrainingUnderRule10' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['trainingDetails']);
+    }
   }
 
   function handleFileChange(name: string, file: File | null) {
@@ -1874,6 +2151,242 @@ function RenewalFormPageContent() {
       return false;
     }
 
+    // Client-side validation before saving/submitting
+    const validatePersonalDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: keyof RenewalFormState, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key as string] = `${label} is required`;
+      };
+
+      requireField('applicantName', 'First name');
+      requireField('applicantLastName', 'Last name');
+      requireField('filledBy', 'Application filled by');
+      requireField('fatherName', 'Parent/Spouse name');
+      requireField('placeOfBirth', 'Place of birth');
+      requireField('applicantDateOfBirth', 'Date of birth');
+      requireField('dobInWords', 'Date of birth in words');
+      requireField('panNumber', 'PAN');
+      requireField('aadharNumber', 'Aadhar number');
+
+      if (data.panNumber && String(data.panNumber).trim().length > 0 && String(data.panNumber).trim().length !== 10) errs['panNumber'] = 'PAN must be 10 characters';
+      if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim())) errs['aadharNumber'] = 'Aadhar must be 12 digits';
+
+      if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
+      return errs;
+    };
+
+
+
+    const preSaveErrors = validatePersonalDetails(formData);
+    if (Object.keys(preSaveErrors).length > 0) {
+      setPersonalErrors(preSaveErrors);
+      scheduleSectionFocus(personalSectionRef, 'personal');
+      setError('Please fix validation errors before continuing.');
+      return false;
+    }
+
+    // Address validation (all required except phone fields)
+    const validateAddressDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      requireField('presentAddress', 'Present address');
+      requireField('presentState', 'Present state');
+      requireField('presentDistrict', 'Present district');
+      requireField('presentZone', 'Present zone');
+      requireField('presentDivision', 'Present division');
+      requireField('presentPoliceStation', 'Present police station');
+      requireField('presentPincode', 'Present pincode');
+      requireField('residingSince', 'Residing since');
+
+      if (!data.sameAsPresent) {
+        requireField('permanentAddress', 'Permanent address');
+        requireField('permanentState', 'Permanent state');
+        requireField('permanentDistrict', 'Permanent district');
+        requireField('permanentZone', 'Permanent zone');
+        requireField('permanentDivision', 'Permanent division');
+        requireField('permanentPoliceStation', 'Permanent police station');
+        requireField('permanentPincode', 'Permanent pincode');
+      }
+
+      return errs;
+    };
+
+    const addressValidationErrors = validateAddressDetails(formData);
+    if (Object.keys(addressValidationErrors).length > 0) {
+      setAddressErrors(addressValidationErrors);
+      scheduleSectionFocus(addressSectionRef, 'address');
+      setError('Please fix validation errors in Address Details before continuing.');
+      return false;
+    }
+
+    // Occupation validation (all required)
+    const validateOccupationDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      requireField('occupation', 'Occupation');
+      requireField('officeBusinessAddress', 'Office/Business address');
+      requireField('officeBusinessState', 'Office/Business state');
+      requireField('officeBusinessDistrict', 'Office/Business district');
+      requireField('cropProtectionLocation', 'Location');
+      requireField('cultivatedArea', 'Area of land under cultivation');
+
+      return errs;
+    };
+
+    const occupationValidationErrors = validateOccupationDetails(formData);
+    if (Object.keys(occupationValidationErrors).length > 0) {
+      setOccupationErrors(occupationValidationErrors);
+      scheduleSectionFocus(occupationSectionRef, 'occupation');
+      setError('Please fix validation errors in Occupation section before continuing.');
+      return false;
+    }
+
+    const validateCriminalDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      if (data.convictedStatus) {
+        requireField('firNumber', 'FIR Number');
+        requireField('underSection', 'Under Section');
+        requireField('policeStationCriminal', 'Police Station');
+        requireField('criminalUnit', 'Unit');
+        requireField('criminalDistrict', 'District');
+        requireField('criminalState', 'State');
+        requireField('offence', 'Offence');
+        requireField('sentence', 'Sentence');
+        requireField('sentenceDate', 'Date of Sentence');
+      }
+
+      if (data.bondStatus) {
+        requireField('bondSentenceDate', 'Date of Sentence');
+        requireField('bondPeriod', 'Period of which bond');
+      }
+
+      if (data.prohibitedStatus) {
+        requireField('prohibitedSentenceDate', 'Date of Sentence');
+        requireField('prohibitedPeriod', 'Period of which bound');
+      }
+
+      return errs;
+    };
+
+    const criminalValidationErrors = validateCriminalDetails(formData);
+    if (Object.keys(criminalValidationErrors).length > 0) {
+      setCriminalErrors(criminalValidationErrors);
+      scheduleSectionFocus(criminalSectionRef, 'criminal');
+      setError('Please fix validation errors in Criminal History before continuing.');
+      return false;
+    }
+
+    const validateLicenseHistoryDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      if (data.hasAppliedBefore) {
+        requireField('applicationDate', 'Application Date');
+        requireField('authorityAppliedTo', 'Authority Applied To');
+        requireField('applicationResult', 'Application Result');
+      }
+
+      if (data.licenseRevokedOrSuspended) {
+        requireField('revokedByAuthority', 'Revoked By Authority');
+        requireField('revokedReason', 'Revoked Reason');
+      }
+
+      if (data.familyMemberHasLicense) {
+        requireField('familyMemberName', 'Family Member Name');
+        requireField('familyLicenseNumber', 'Family License Number');
+      }
+
+      if (data.hasSafeCustody) {
+        requireField('safeCustodyDetails', 'Safe Custody Details');
+      }
+
+      if (data.hasTrainingUnderRule10) {
+        requireField('trainingDetails', 'Training Details');
+      }
+
+      return errs;
+    };
+
+    const licenseHistoryValidationErrors = validateLicenseHistoryDetails(formData);
+    if (Object.keys(licenseHistoryValidationErrors).length > 0) {
+      setLicenseHistoryErrors(licenseHistoryValidationErrors);
+      scheduleSectionFocus(licenseHistorySectionRef, 'licenseHistory');
+      setError('Please fix validation errors in License History before continuing.');
+      return false;
+    }
+
+    const validateLicenseDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      requireField('weaponReason', 'Need for license (15)');
+      requireField('ammunitionDescription', 'Ammunition Description');
+      requireField('specialConsiderationClaim', 'Claims for special consideration (18)');
+      requireField('formIVPlaceArea', 'Place or area for which the licence is sought (19a)');
+      requireField('formIVWildBeastsSpec', 'Specification of the wild beasts (19b)');
+
+      if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
+        errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
+      }
+      if (!data.armsOptionType) {
+        errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
+      }
+      const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
+        ? data.requestedWeaponIds
+        : data.weaponId
+        ? [Number(String(data.weaponId))]
+        : [];
+      if (!selectedWeaponIds.length) {
+        errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
+      }
+
+      return errs;
+    };
+
+    const licenseDetailsValidationErrors = validateLicenseDetails(formData);
+    if (Object.keys(licenseDetailsValidationErrors).length > 0) {
+      setLicenseDetailsErrors(licenseDetailsValidationErrors);
+      scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+      setError('Please fix validation errors in License Details before continuing.');
+      return false;
+    }
+
+    const validateDocumentsUpload = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
+      if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
+      if (!data.medicalCertificateUploaded) errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
+      return errs;
+    };
+
+    const documentsValidationErrors = validateDocumentsUpload(formData);
+    if (Object.keys(documentsValidationErrors).length > 0) {
+      setDocumentsErrors(documentsValidationErrors);
+      scheduleSectionFocus(documentsSectionRef, 'documents');
+      setError('Please upload required documents before continuing.');
+      return false;
+    }
+
     try {
       setIsSaving(true);
       setError(null);
@@ -1900,7 +2413,7 @@ function RenewalFormPageContent() {
           resolveFreshApplicationId(saved, applicationId),
         );
         const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, mergedFormData);
-        setFormData(syncedForm);
+        setFormData(syncedForm as RenewalFormState);
       }
 
       // If this was a submit (isSubmit === true), trigger the INITIATE workflow action
@@ -1921,8 +2434,15 @@ function RenewalFormPageContent() {
   const saveRenewalDraft = () => persistRenewalForm(false);
 
   const saveAndContinue = async () => {
-    if (!formData.declaration?.agreeToTruth) {
-      setError('Please accept all declarations before submitting the Renewal Application.');
+    const declarationErrors: Record<string, string> = {};
+    if (!formData.declaration?.agreeToTruth) declarationErrors['agreeToTruth'] = 'Please accept this declaration.';
+    if (!formData.declaration?.understandLegalConsequences) declarationErrors['understandLegalConsequences'] = 'Please accept this declaration.';
+    if (!formData.declaration?.agreeToTerms) declarationErrors['agreeToTerms'] = 'Please accept the terms and conditions.';
+
+    if (Object.keys(declarationErrors).length > 0) {
+      setDeclarationErrors(declarationErrors);
+      scheduleSectionFocus(declarationSectionRef, 'declaration');
+      setError('Please accept all declarations before submitting the application.');
       return false;
     }
 
@@ -1956,7 +2476,7 @@ function RenewalFormPageContent() {
         resolveFreshApplicationId(renewalData, applicationId),
       );
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
-      setFormData(syncedForm);
+      setFormData(syncedForm as RenewalFormState);
       setStatusMessage(`Reloaded renewal application ${getTextValue(renewalData?.id, activeRenewalId)}.`);
     } catch (reloadError: any) {
       setError(reloadError?.message || 'Failed to reload renewal data.');
@@ -2017,24 +2537,24 @@ function RenewalFormPageContent() {
             {!isLoading && (
             <>
             <AccordionSection title='Personal Information' isOpen={expandedSections.personal} onToggle={() => toggleSection('personal')}>
-              <PersonalDetailsSection formData={formData} onChange={handleChange} />
+              <PersonalDetailsSection ref={personalSectionRef} formData={formData} onChange={handleChange} errors={personalErrors} />
             </AccordionSection>
 
             <AccordionSection title='Address Details' isOpen={expandedSections.address} onToggle={() => toggleSection('address')}>
-              <AddressDetailsSection formData={formData} onChange={handleChange} />
+              <AddressDetailsSection ref={addressSectionRef} formData={formData} onChange={handleChange} errors={addressErrors} />
             </AccordionSection>
 
             <AccordionSection title='Occupation/Business' isOpen={expandedSections.occupation} onToggle={() => toggleSection('occupation')}>
-              <OccupationSection formData={formData} onChange={handleChange} />
+              <OccupationSection ref={occupationSectionRef} formData={formData} onChange={handleChange} errors={occupationErrors} />
             </AccordionSection>
 
             <AccordionSection title='Criminal History' isOpen={expandedSections.criminal} onToggle={() => toggleSection('criminal')}>
-              <CriminalHistory formData={formData} onChange={handleChange} />
+              <CriminalHistory ref={criminalSectionRef} formData={formData} onChange={handleChange} errors={criminalErrors} />
             </AccordionSection>
 
-            <AccordionSection title='License History' isOpen={expandedSections.licenseHistory} onToggle={() => toggleSection('licenseHistory')}>
-              <LicenseHistory formData={formData} onChange={handleChange} />
-            </AccordionSection>
+<AccordionSection title='License History' isOpen={expandedSections.licenseHistory} onToggle={() => toggleSection('licenseHistory')}>
+               <LicenseHistory ref={licenseHistorySectionRef} formData={formData} onChange={handleChange} errors={licenseHistoryErrors} />
+             </AccordionSection>
 
             <AccordionSection title='License Details' isOpen={expandedSections.licenseDetails} onToggle={() => toggleSection('licenseDetails')}>
               <LicenseDetailsSection
@@ -2052,18 +2572,20 @@ function RenewalFormPageContent() {
               <BiometricInformation formData={formData} onChange={handleChange} onFileChange={handleFileChange} />
             </AccordionSection>
 
-            <AccordionSection title='Documents Upload' isOpen={expandedSections.documents} onToggle={() => toggleSection('documents')}>
-              <DocumentsSection
-                formData={formData}
-                renewalId={activeRenewalId}
-                onPatch={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
-                onError={setError}
-                onStatus={setStatusMessage}
-              />
-            </AccordionSection>
+             <AccordionSection title='Documents Upload' isOpen={expandedSections.documents} onToggle={() => toggleSection('documents')}>
+               <DocumentsSection
+                 ref={documentsSectionRef}
+                 formData={formData}
+                 renewalId={activeRenewalId}
+                 onPatch={handleFormPatch}
+                 onError={setError}
+                 onStatus={setStatusMessage}
+                 errors={documentsErrors}
+               />
+             </AccordionSection>
 
             <AccordionSection title='Declaration' isOpen={expandedSections.declaration} onToggle={() => toggleSection('declaration')}>
-              <DeclarationSection formData={formData} onChange={handleChange} />
+              <DeclarationSection formData={formData} onChange={handleChange} errors={declarationErrors} />
             </AccordionSection>
             </>
             )}

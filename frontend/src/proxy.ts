@@ -189,7 +189,9 @@ export function proxy(request: NextRequest) {
   // Handle admin routes (separate admin authentication - for future implementation)
   if (adminRoutes.some(route => pathname.split('?')[0].startsWith(route))) {
     if (!isAuthenticated) {
-      return NextResponse.redirect(new URL('/admin/login', request.url));
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
     }
     if (userRole !== 'ADMIN') {
       return NextResponse.redirect(new URL('/', request.url));

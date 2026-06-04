@@ -16,7 +16,7 @@
  */
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import Papa from 'papaparse';
@@ -133,7 +133,7 @@ export default function UserManagementPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
-  const { userRole } = useAuthSync();
+  const { userRole } = useAuth();
   // SUPER_ADMIN check - has full administrative privileges
   const isSuperAdmin = (userRole || '').toUpperCase() === ROLE_CODES.SUPER_ADMIN;
 

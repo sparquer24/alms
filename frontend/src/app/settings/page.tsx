@@ -4,14 +4,14 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
-import { useAuthSync } from '../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useDispatch } from 'react-redux';
 import { logoutUser } from '../../store/thunks/authThunks';
 import { getUserFromCookie } from '../../utils/authCookies';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 export default function SettingsPage() {
-  const { isAuthenticated, isLoading: authLoading, token } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, token } = useAuth();
   const dispatch = useDispatch();
 
   const router = useRouter();

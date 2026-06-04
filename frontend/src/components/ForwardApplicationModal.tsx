@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ApplicationData } from '../types';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { getRoleHierarchy } from '../utils/roleUtils';
 
 interface ForwardApplicationModalProps {
@@ -24,7 +24,7 @@ export default function ForwardApplicationModal({
 
   const availableRecipients = useCallback(() => {
     const roleHierarchy = getRoleHierarchy();
-    return roleHierarchy[userRole] || [];
+    return roleHierarchy[userRole as string] || [];
   }, [userRole]);
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function ForwardApplicationModal({
               required
             >
               {recipients.length > 0 ? (
-                recipients.map((role) => (
+                recipients.map((role: string) => (
                   <option key={role} value={role}>
                     {role}
                   </option>

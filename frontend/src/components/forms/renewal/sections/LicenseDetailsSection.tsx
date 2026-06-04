@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useEffect, useState } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
 import { Checkbox } from '../../elements/Checkbox';
@@ -11,6 +11,8 @@ import {
   uploadRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 
+type ErrorsMap = Record<string, string | undefined>;
+
 const weaponNameToSelectValue = (name?: string) => {
   const lower = String(name || '').toLowerCase();
   if (lower.includes('revolver')) return 'revolver';
@@ -20,19 +22,46 @@ const weaponNameToSelectValue = (name?: string) => {
   return lower;
 };
 
-const LicenseDetailsSection: React.FC<{
-  formData: any;
-  renewalId: string;
-  isSyncingPrefilled?: boolean;
-  onChange: (e: any) => void;
-  onPatch: (patch: Record<string, unknown>) => void;
-  onError?: (message: string) => void;
-  onStatus?: (message: string | null) => void;
-}> = ({ formData, renewalId, isSyncingPrefilled = false, onChange, onPatch, onError, onStatus }) => {
+const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
+  props: {
+    formData: any;
+    renewalId: string;
+    isSyncingPrefilled?: boolean;
+    onChange: (e: any) => void;
+    onPatch: (patch: Record<string, unknown>) => void;
+    onError?: (message: string) => void;
+    onStatus?: (message: string | null) => void;
+    errors?: ErrorsMap;
+  },
+  ref: any,
+) {
+  const {
+    formData,
+    renewalId,
+    isSyncingPrefilled = false,
+    onChange,
+    onPatch,
+    onError,
+    onStatus,
+    errors = {},
+  } = props;
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [loadingWeapons, setLoadingWeapons] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusFirstInvalid: () => {
+      const firstKey = Object.keys(errors).find((key) => !!errors[key]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus(); } catch { /* ignore */ }
+        }
+      }
+    },
+  }));
 
   useEffect(() => {
     const loadWeapons = async () => {
@@ -150,6 +179,8 @@ const LicenseDetailsSection: React.FC<{
           value={formData.weaponReason || ''}
           onChange={onChange}
           placeholder='Select reason'
+          required
+          error={errors['weaponReason']}
           options={[
             { value: 'self_defense', label: 'Self defense' },
             { value: 'crop_protection', label: 'Crop protection' },
@@ -159,8 +190,11 @@ const LicenseDetailsSection: React.FC<{
         />
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>17. Areas within which applicant wishes to carry arms</p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>17. Areas within which applicant wishes to carry arms <span className='text-red-500 ml-1'>*</span></p>
           <p className='text-xs text-gray-500 mb-2'>Tick any of the options</p>
+          {errors['carryAreaDistrict'] && !formData.carryAreaDistrict && !formData.carryAreaState && !formData.carryAreaIndia && (
+            <p className='text-red-500 text-xs mb-2'>{errors['carryAreaDistrict']}</p>
+          )}
           <div className='flex flex-wrap items-center gap-4'>
             <Checkbox
               label='District'
@@ -184,8 +218,8 @@ const LicenseDetailsSection: React.FC<{
         </div>
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>16. Description of arms for which license is being sought</p>
-          <p className='text-sm mb-1'>(a) Select any of the options</p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>16. Description of arms for which license is being sought <span className='text-red-500 ml-1'>*</span></p>
+          <p className='text-sm mb-1'>(a) Select any of the options <span className='text-red-500 ml-1'>*</span></p>
           <div className='flex items-center gap-4 mb-2'>
             <label className='inline-flex items-center gap-2'>
               <input
@@ -208,11 +242,16 @@ const LicenseDetailsSection: React.FC<{
               <span className='text-sm'>Permissible</span>
             </label>
           </div>
+          {errors['armsOptionType'] && (
+            <p id='armsOptionType' className='text-red-500 text-xs mb-2'>{errors['armsOptionType']}</p>
+          )}
           <Select
             label='(b) Select weapon types (multiple allowed)'
             name='weaponType'
             value=''
             onChange={handleWeaponAdd}
+            required
+            error={errors['weaponType']}
             placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
             options={weapons.map((weapon) => ({
               value: String(weapon.id),
@@ -245,6 +284,9 @@ const LicenseDetailsSection: React.FC<{
               </div>
             </div>
           )}
+          {errors['requestedWeaponIds'] && selectedWeaponIds.length === 0 && (
+            <p id='requestedWeaponIds' className='text-red-500 text-xs mt-1'>{errors['requestedWeaponIds']}</p>
+          )}
         </div>
 
         <Input
@@ -252,6 +294,8 @@ const LicenseDetailsSection: React.FC<{
           name='ammunitionDescription'
           value={formData.ammunitionDescription || ''}
           onChange={onChange}
+          required
+          error={errors['ammunitionDescription']}
           placeholder='e.g., 50 rounds of .32 ammunition'
         />
 
@@ -262,12 +306,16 @@ const LicenseDetailsSection: React.FC<{
             value={formData.specialConsiderationClaim || ''}
             onChange={onChange}
             rows={2}
+            required
+            error={errors['specialConsiderationClaim']}
             placeholder='Enter your claim (if any)'
           />
           <FileUpload
             className='mt-2'
             label='Upload documentary evidence'
             name='specialEvidenceUploaded'
+            required
+            error={errors['specialEvidenceUploaded']}
             variant='browseCard'
             hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
             onFileSelect={handleEvidenceUpload}
@@ -325,12 +373,14 @@ const LicenseDetailsSection: React.FC<{
         </div>
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>19. Details for an application for license in Form IV</p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>19. Details for an application for license in Form IV <span className='text-red-500 ml-1'>*</span></p>
           <Input
             label='(a) Place or area for which the licence is sought'
             name='formIVPlaceArea'
             value={formData.formIVPlaceArea || ''}
             onChange={onChange}
+            required
+            error={errors['formIVPlaceArea']}
             placeholder='Enter place or area'
           />
           <TextArea
@@ -340,12 +390,16 @@ const LicenseDetailsSection: React.FC<{
             value={formData.formIVWildBeastsSpec || ''}
             onChange={onChange}
             rows={2}
+            required
+            error={errors['formIVWildBeastsSpec']}
             placeholder='Enter specification of wild beasts permitted to be destroyed'
           />
         </div>
       </div>
     </div>
   );
-};
+});
+
+LicenseDetailsSection.displayName = 'LicenseDetailsSection';
 
 export default LicenseDetailsSection;

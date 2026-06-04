@@ -121,6 +121,26 @@ export class AuthController {
   }
 
   /**
+   * Logout endpoint
+   * @returns Logout response
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'User Logout',
+    description: 'Invalidate the user session (best-effort)'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful',
+  })
+  async logout(): Promise<{ success: boolean; message: string }> {
+    // Best-effort: just return success. Token invalidation can be handled
+    // by frontend clearing cookies and backend token expiry.
+    return { success: true, message: 'Logged out' };
+  }
+
+  /**
    * Verify token endpoint
    * @param req - Request object with user data
    * @returns Token verification status

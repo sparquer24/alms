@@ -42,13 +42,16 @@ export class RenewalFormController {
   async createRenewalForm(
     @Body() createRequest: CreateRenewalPersonalDetailsDto,
     @Request() req: any,
-  ): Promise<RenewalFormResponse | void> {
+  ): Promise<RenewalFormResponse> {
     try {
-      const userId = req.user?.sub || req.body.currentUserId;
+      const userId = Number(req.user?.sub || req.body.currentUserId);
+      if (!userId || Number.isNaN(userId)) {
+        throw new Error('Authenticated user ID is missing or invalid');
+      }
       return this.renewalFormService.createPersonalDetails(createRequest, userId);
-
     } catch (error) {
       console.error('Error creating renewal form:', error);
+      throw error;
     }
   }
   /**

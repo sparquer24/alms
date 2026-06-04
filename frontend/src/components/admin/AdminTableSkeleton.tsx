@@ -1,82 +1,33 @@
 import React from 'react';
-import { useAdminTheme } from '../../context/AdminThemeContext';
-import { AdminSpacing, AdminBorderRadius } from '../../styles/admin-design-system';
 
 export const AdminTableSkeleton: React.FC<{ rows?: number; columns?: number }> = ({
   rows = 5,
   columns = 4,
 }) => {
-  const { colors } = useAdminTheme();
-
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          backgroundColor: colors.surface,
-        }}
-      >
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse bg-white rounded-lg shadow-sm">
         <thead>
           <tr>
             {Array.from({ length: columns }).map((_, i) => (
-              <th
-                key={i}
-                style={{
-                  padding: AdminSpacing.lg,
-                  height: '48px',
-                }}
-              >
-                <div
-                  style={{
-                    height: '16px',
-                    backgroundColor: colors.border,
-                    borderRadius: AdminBorderRadius.md,
-                    animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                  }}
-                />
+              <th key={i} className="p-4 h-12 border-b border-gray-200">
+                <div className="h-4 bg-gray-200 rounded animate-pulse" />
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {Array.from({ length: rows }).map((_, rowI) => (
-            <tr
-              key={rowI}
-              style={{
-                borderBottom: `1px solid ${colors.border}`,
-                height: '48px',
-              }}
-            >
+            <tr key={rowI} className="border-b border-gray-100 h-12">
               {Array.from({ length: columns }).map((_, colI) => (
-                <td
-                  key={colI}
-                  style={{
-                    padding: AdminSpacing.lg,
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '16px',
-                      backgroundColor: colors.border,
-                      borderRadius: AdminBorderRadius.md,
-                      animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                      animationDelay: `${rowI * 50}ms`,
-                    }}
-                  />
+                <td key={colI} className="p-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
                 </td>
               ))}
             </tr>
           ))}
         </tbody>
       </table>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
     </div>
   );
 };

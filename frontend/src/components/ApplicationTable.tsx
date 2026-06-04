@@ -4,7 +4,7 @@ import { ApplicationData } from '../types';
 import styles from './ApplicationTable.module.css';
 import { useApplications } from '../context/ApplicationContext';
 // Removed PDF generation feature
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { useGlobalAction } from '../context/GlobalActionContext';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi, RenewalApi } from '../config/APIClient';
@@ -62,6 +62,8 @@ interface ApplicationTableProps {
   filteredApplications?: ApplicationData[]; // Optional filtered applications list
   pageType?: string; // Type of page being viewed (e.g., 'drafts', 'forwarded', etc.)
   showActionColumn?: boolean;
+  selectedFormType?: 'fresh' | 'renewal';
+  onSelectedFormTypeChange?: (value: 'fresh' | 'renewal') => void;
 }
 
 const getStatusPillClass = (status: string) => {
@@ -89,13 +91,15 @@ const getStatusPillClass = (status: string) => {
 
 const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
   ({
-    users,
+    users: _users,
     applications,
     filteredApplications,
     isLoading = false,
-    statusIdFilter,
+    statusIdFilter: _statusIdFilter,
     pageType,
     showActionColumn = true,
+    selectedFormType,
+    onSelectedFormTypeChange,
   }) => {
     // Get applications from context
     const { applications: contextApplications } = useApplications();
@@ -108,7 +112,10 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     // Determine base applications list in this order: filtered -> prop -> context -> empty array
-    const baseApplications = filteredApplications || applications || contextApplications || [];
+    const baseApplications = React.useMemo(
+      () => filteredApplications || applications || contextApplications || [],
+      [filteredApplications, applications, contextApplications]
+    );
 
     // Apply search filter if query present (searches applicantName, applicationType, status)
     const effectiveApplications = React.useMemo(() => {
@@ -213,7 +220,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
               setErrorMessage('Failed to load draft application');
               setTimeout(() => setErrorMessage(null), 3000);
             }
-          } catch (error) {
+          } catch {
             setErrorMessage('Error loading draft application');
             setTimeout(() => setErrorMessage(null), 3000);
           }
@@ -287,7 +294,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         XLSX.writeFile(workbook, fileName);
         setSuccessMessage('Applications exported to Excel successfully');
         setTimeout(() => setSuccessMessage(null), 5000);
-      } catch (err) {
+      } catch (error) {
+        console.error('Failed to export applications to Excel', error);
         setErrorMessage('Failed to export applications to Excel');
         setTimeout(() => setErrorMessage(null), 5000);
       } finally {
@@ -298,7 +306,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
     }
-
     if (!effectiveApplications || effectiveApplications.length === 0) {
       return (
         <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
@@ -342,7 +349,18 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
               </svg>
             </div>
 
-            <div className='flex items-center gap-3 w-full sm:w-auto'>
+            <div className='flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto'>
+              {pageType === 'freshform' || pageType === 'drafts' ? (
+                <select
+                  value={selectedFormType || 'fresh'}
+                  onChange={e => onSelectedFormTypeChange?.(e.target.value as 'fresh' | 'renewal')}
+                  className='w-full sm:w-64 h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                  aria-label='Select form type'
+                >
+                  <option value='fresh'>Fresh Application Form</option>
+                  <option value='renewal'>Renewal Application Form</option>
+                </select>
+              ) : null}
               <button
                 type='button'
                 onClick={handleExportExcel}
@@ -452,7 +470,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   handleEditDraft={handleEditDraft}
                   isDraftsPage={isDraftsPage}
                   isSentPage={isSentPage}
-                  userRole={userRole}
+                  userRole={userRole || null}
                   // PDF button removed
                   isApplicationUnread={isApplicationUnread}
                   formatDateTime={formatDateTime}
@@ -697,7 +715,6 @@ const DeleteDraftButton: React.FC<{ appId: string | number }> = ({ appId }) => {
         window.location.reload();
       }, 1500);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Failed to delete application', err);
       setToast({
         type: 'error',
@@ -758,9 +775,8 @@ const DeleteRenewalDraftButton: React.FC<{ renewalId: string | number }> = ({ re
       setTimeout(() => {
         window.location.reload();
       }, 1500);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to delete renewal draft', err);
+    } catch (error) {
+      console.error('Failed to delete renewal draft', error);
       setToast({
         type: 'error',
         message: 'Failed to delete renewal draft. Please try again.',

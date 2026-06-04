@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
-import { useAuthSync } from '../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ interface HeaderProps {
 const Header = (props: HeaderProps) => {
   const { onShowMessage } = props;
   const { showHeader, showSidebar } = useLayout();
-  const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
+  const { userName, isLoading, user, userRole: hookUserRole } = useAuth();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);

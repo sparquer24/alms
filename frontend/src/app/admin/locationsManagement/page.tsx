@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthSync } from '@/hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import {
   AdminCard,
   AdminTable,
@@ -65,13 +65,13 @@ export default function LocationsManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
-  const { userRole, user } = useAuthSync();
+  const { userRole, user } = useAuth();
 
   // Get user's stateId - prioritize user object, fallback to cookies
   const getUserStateId = (): number | undefined => {
     // First check user object from auth hook
-    if (user?.location?.state?.id) return user.location.state.id;
-    if (user?.stateId) return user.stateId;
+    if ((user as any)?.location?.state?.id) return (user as any).location.state.id;
+    if ((user as any)?.stateId) return (user as any).stateId;
     
     // Fallback: parse cookies directly
     if (typeof document === 'undefined') return undefined;

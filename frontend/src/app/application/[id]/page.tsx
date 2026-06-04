@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
-import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
 import { useNotifications } from '../../../config/notificationContext';
@@ -168,7 +168,7 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
-  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -2304,8 +2304,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               <button
                                 onClick={() => {
                                   const a = document.createElement('a');
-                                  a.href = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
-                                  a.download = doc.name || doc.fileName || 'download';
+                                  a.href = (doc as any).url || (doc as any).fileUrl || (doc as any).path || (doc as any).downloadUrl || '';
+                                  a.download = (doc as any).name || (doc as any).fileName || 'download';
                                   a.rel = 'noopener';
                                   document.body.appendChild(a);
                                   a.click();
@@ -2538,10 +2538,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 });
 
                                 // Extract user and role names from nested objects (backend returns nested structure)
-                                const previousUserName = h.previousUserName || h.previousUser?.username || 'Unknown User';
-                                const previousRoleName = h.previousRoleName || h.previousRole?.name || 'Role';
-                                const nextUserName = h.nextUserName || h.nextUser?.username;
-                                const nextRoleName = h.nextRoleName || h.nextRole?.name;
+                                const previousUserName = (h as any).previousUserName || (h as any).previousUser?.username || 'Unknown User';
+                                const previousRoleName = (h as any).previousRoleName || (h as any).previousRole?.name || 'Role';
+                                const nextUserName = (h as any).nextUserName || (h as any).nextUser?.username;
+                                const nextRoleName = (h as any).nextRoleName || (h as any).nextRole?.name;
 
                                 return (
                                   <div

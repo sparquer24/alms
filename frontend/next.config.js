@@ -32,13 +32,12 @@ const nextConfig = {
   },
   // TypeScript configuration for production builds
   typescript: {
-    // Ignore TypeScript errors during production build to match local behavior
-    ignoreBuildErrors: process.env.NODE_ENV === 'production',
+    // We fixed all type errors! Do not ignore them anymore!
+    ignoreBuildErrors: false,
   },
   // ESLint configuration
   eslint: {
-    // Ignore ESLint errors during production build  
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   // Custom webpack config for bundle optimization
   webpack: (config, { isServer, dev }) => {
@@ -78,6 +77,18 @@ const nextConfig = {
       afterFiles: [],
       fallback: []
     };
+  },
+  // Add security headers
+  async headers() {
+    return [{
+      source: '/(.*)',
+      headers: [
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+      ],
+    }];
   }
 };
 

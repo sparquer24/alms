@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { FileUpload } from '../../elements/FileUpload';
 import { openDocumentFile } from '../../../../services/fileHandler';
 import {
@@ -8,25 +8,45 @@ import {
 } from '../../../../utils/renewalFileUpload';
 import { usePrefilledDocumentSync } from '../../../../hooks/usePrefilledDocumentSync';
 
+type ErrorsMap = Record<string, string | undefined>;
+
 const DOCUMENT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: 'idProofUploaded', label: 'Aadhar Card', required: true },
-  { key: 'panCardUploaded', label: 'PAN Card' },
+  { key: 'panCardUploaded', label: 'PAN Card', required: true },
   { key: 'trainingCertificateUploaded', label: 'Training certificate' },
-  { key: 'medicalCertificateUploaded', label: 'Medical Reports' },
+  { key: 'medicalCertificateUploaded', label: 'Medical Certificate', required: true },
   { key: 'otherStateLicenseUploaded', label: 'Other state Arms License (optional)' },
   { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (optional)' },
   { key: 'safeCustodyUploaded', label: 'Safe custody (optional)' },
 ];
 
-const DocumentsSection: React.FC<{
-  formData: any;
-  renewalId: string;
-  onPatch: (patch: Record<string, unknown>) => void;
-  onError?: (message: string) => void;
-  onStatus?: (message: string | null) => void;
-}> = ({ formData, renewalId, onPatch, onError, onStatus }) => {
+const DocumentsSection = forwardRef(function DocumentsSection(
+  props: {
+    formData: any;
+    renewalId: string;
+    onPatch: (patch: Record<string, unknown>) => void;
+    onError?: (message: string) => void;
+    onStatus?: (message: string | null) => void;
+    errors?: ErrorsMap;
+  },
+  ref: any,
+) {
+  const { formData, renewalId, onPatch, onError, onStatus, errors = {} } = props;
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusFirstInvalid: () => {
+      const firstKey = Object.keys(errors).find((key) => !!errors[key]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus(); } catch { /* ignore */ }
+        }
+      }
+    },
+  }));
 
   const { isSyncingPrefilled } = usePrefilledDocumentSync(
     renewalId,
@@ -90,7 +110,7 @@ const DocumentsSection: React.FC<{
       )}
       {renewalId && isSyncingPrefilled && (
         <p className='text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2'>
-          Saving prefilled documents via upload-file API…
+          Saving prefilled documents via upload-file API&hellip;
         </p>
       )}
 
@@ -105,7 +125,7 @@ const DocumentsSection: React.FC<{
           const canDeleteViaApi = Boolean(meta.id && renewalId);
 
           return (
-            <div key={key}>
+            <div key={key} id={key} className={errors[key] ? 'rounded-md border border-red-200 bg-red-50 p-2' : ''}>
               <FileUpload
                 label={label}
                 name={key}
@@ -121,6 +141,9 @@ const DocumentsSection: React.FC<{
                     : meta.fileName
                 }
               />
+              {errors[key] && (
+                <p className='text-red-500 text-xs mt-1'>{errors[key]}</p>
+              )}
               {showUploaded && (
             <div className='mt-2 space-y-2 text-xs'>
               {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
@@ -155,6 +178,8 @@ const DocumentsSection: React.FC<{
       </div>
     </div>
   );
-};
+});
+
+DocumentsSection.displayName = 'DocumentsSection';
 
 export default DocumentsSection;

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ApplicationData } from '../types';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { getRoleBasedActions } from '../utils/roleUtils';
 
 interface ProcessApplicationModalProps {
@@ -27,7 +27,7 @@ export default function ProcessApplicationModal({
   const [selectedAction, setSelectedAction] = useState<string>(initialAction);
   const [reason, setReason] = useState('');
 
-  const availableActions = useMemo(() => getRoleBasedActions(userRole), [userRole]);
+  const availableActions = useMemo(() => getRoleBasedActions(userRole as string), [userRole]);
 
   if (!isOpen) return null;
 

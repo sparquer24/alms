@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthSync } from "../hooks/useAuthSync";
+import { useAuth } from '@/hooks/useAuth';
 import { shouldRedirectOnStartup } from "../config/roleRedirections";
 import { useLayout } from "../config/layoutContext";
 import { useApplications } from "../context/ApplicationContext";
@@ -21,7 +21,7 @@ export default function Home() {
   const [endDate, setEndDate] = useState('');
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
   const { applications, setApplications } = useApplications();
-  const { isAuthenticated, isLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading, userRole, initialized } = useAuth();
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
 
@@ -53,27 +53,23 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Only redirect if we're done loading and user is not authenticated
+    if (!initialized) return;
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
       return;
     }
 
-    // If authenticated, check if user should be redirected based on role
     if (!isLoading && isAuthenticated) {
-      // Prefer role from hook but fall back to cookie-derived role synchronously
       const effectiveRole = userRole || getUserRoleFromCookie();
       if (effectiveRole) {
         const redirectPath = shouldRedirectOnStartup(effectiveRole, '/');
         if (redirectPath) {
-          // Use replace to avoid extra history entries when redirecting on load
           router.replace(redirectPath);
           return;
         }
       }
-      // If we still don't have a role, wait for hydration (no-op) — avoids redirect loops
     }
-  }, [isAuthenticated, isLoading, userRole, router]);
+  }, [isAuthenticated, isLoading, userRole, initialized, router]);
 
   useEffect(() => {
     // Show header and sidebar on the Application Table page

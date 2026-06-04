@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter, usePathname } from "next/navigation";
 import MultiStepForm from "./MultiStepForm";
 
 interface NavigationMultiStepFormProps { }
 
 const NavigationMultiStepForm: React.FC<NavigationMultiStepFormProps> = () => {
-    const navigate = useNavigate();
+    const router = useRouter();
+    const pathname = usePathname();
 
     const steps = [
         "ApplicantIdentity",
@@ -22,8 +23,10 @@ const NavigationMultiStepForm: React.FC<NavigationMultiStepFormProps> = () => {
 
     useEffect(() => {
         // Update the URL when the current step changes
-        navigate(`?action=${currentStep}`, { replace: true });
-    }, [currentStep, navigate]);
+        if (pathname) {
+            router.replace(`${pathname}?action=${currentStep}`, { scroll: false });
+        }
+    }, [currentStep, router, pathname]);
 
     const handleStepChange = (step: string) => {
         setCurrentStep(step);
