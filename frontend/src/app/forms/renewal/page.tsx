@@ -1994,6 +1994,7 @@ function RenewalFormPageContent() {
   const [licenseHistoryErrors, setLicenseHistoryErrors] = useState<Record<string, string>>({});
   const [licenseDetailsErrors, setLicenseDetailsErrors] = useState<Record<string, string>>({});
   const [documentsErrors, setDocumentsErrors] = useState<Record<string, string>>({});
+  const [biometricErrors, setBiometricErrors] = useState<Record<string, string>>({});
   const [declarationErrors, setDeclarationErrors] = useState<Record<string, string>>({});
 
   const toggleSection = (key: keyof typeof expandedSections) => {
@@ -2847,6 +2848,7 @@ function RenewalFormPageContent() {
                     renewalId={activeRenewalId}
                     onChange={handleChange}
                     onFileChange={handleFileChange}
+                    errors={biometricErrors}
                     onPrevious={() => {
                       if (renewalId)
                         router.push(

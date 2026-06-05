@@ -68,6 +68,7 @@ const BiometricInformation = () => {
   // Webcam modal states
   const [showWebcamModal, setShowWebcamModal] = useState(false);
   const [webcamCapturedPhoto, setWebcamCapturedPhoto] = useState<string | null>(null);
+  const [webcamReady, setWebcamReady] = useState(false);
 
   // Duplicate fingerprint error modal state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -673,16 +674,15 @@ const BiometricInformation = () => {
     setShowWebcamModal(true);
     setWebcamCapturedPhoto(null);
     setStreamActive(true);
+    setWebcamReady(false);
   };
 
-  /** Capture photo in webcam modal */
+/** Capture photo in webcam modal */
   const capturePhotoInModal = () => {
-    if (!webcamRef.current) return;
+    if (!webcamRef.current) { toast.error('Webcam not ready. Please wait.'); return; }
+    if (!webcamReady) { toast.error('Camera stream not ready. Please wait a moment.'); return; }
     const dataUrl = webcamRef.current.getScreenshot();
-    if (!dataUrl) {
-      toast.error('Failed to capture photo. Ensure webcam is active.');
-      return;
-    }
+    if (!dataUrl) { toast.error('Failed to capture photo. Ensure webcam is active.'); return; }
     setWebcamCapturedPhoto(dataUrl);
     setStreamActive(false);
   };
@@ -691,6 +691,7 @@ const BiometricInformation = () => {
   const retakePhotoInModal = () => {
     setWebcamCapturedPhoto(null);
     setStreamActive(true);
+    setWebcamReady(false);
   };
 
   /** Submit photo from webcam modal */
@@ -722,6 +723,7 @@ const BiometricInformation = () => {
         setShowWebcamModal(false);
         setWebcamCapturedPhoto(null);
         setStreamActive(false);
+        setWebcamReady(false);
 
         // Show success modal
         setShowPhotoSuccessModal(true);
@@ -736,6 +738,7 @@ const BiometricInformation = () => {
         setShowWebcamModal(false);
         setWebcamCapturedPhoto(null);
         setStreamActive(false);
+        setWebcamReady(false);
       }
     } catch (err: any) {
       console.error('❌ [BiometricInformation] Photo upload error:', err);
@@ -746,6 +749,7 @@ const BiometricInformation = () => {
       setShowWebcamModal(false);
       setWebcamCapturedPhoto(null);
       setStreamActive(false);
+      setWebcamReady(false);
     } finally {
       setUploadingFiles(false);
       setUploadProgress('');
@@ -757,6 +761,7 @@ const BiometricInformation = () => {
     setShowWebcamModal(false);
     setWebcamCapturedPhoto(null);
     setStreamActive(false);
+    setWebcamReady(false);
   };
 
   /** ⚙️ DIAGNOSTIC TEST FUNCTIONS FOR DEVICE TROUBLESHOOTING */
@@ -1872,6 +1877,8 @@ const BiometricInformation = () => {
                         height: 480,
                         facingMode: 'user',
                       }}
+                      onUserMedia={() => setWebcamReady(true)}
+                      onError={() => { toast.error('Webcam error: Unable to access camera'); setStreamActive(false); }}
                     />
                   )}
 
