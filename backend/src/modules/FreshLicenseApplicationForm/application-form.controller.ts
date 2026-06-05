@@ -36,7 +36,7 @@ export class ApplicationFormController {
     try {
   // Pass the DTO object directly to the service, and include the authenticated user id so
   // the service can set currentUserId/currentRoleId on creation when available.
-  const payload = { ...(dto as any), currentUserId: req.user?.sub };
+  const payload = { ...(dto as any), currentUserId: Number(req.user?.sub) };
   const [error, applicationId] = await this.applicationFormService.createPersonalDetails(payload);
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
@@ -390,7 +390,7 @@ export class ApplicationFormController {
       }
 
       // Get authenticated user ID from JWT token
-      const currentUserId = req.user?.sub;
+      const currentUserId = Number(req.user?.sub);
 
   const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmit || false, dto, currentUserId);
       

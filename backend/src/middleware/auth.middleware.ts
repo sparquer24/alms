@@ -35,7 +35,7 @@ export class AuthGuard implements CanActivate {
       const decoded = jwt.verify(token, secret) as any;
       // Fetch user with role and permissions
       const user = await prisma.users.findUnique({
-        where: { id: decoded.sub },
+        where: { id: Number(decoded.sub) },
         include: {
           role: true, // Include role information
         },
@@ -47,6 +47,8 @@ export class AuthGuard implements CanActivate {
       // Attach user info to request so controllers can access req.user
       request.user = {
         ...decoded,
+        sub: Number(decoded.sub),
+        user_id: Number(decoded.sub) || decoded.user_id,
         roleCode: user.role?.code,
         stateId: user.stateId,
         districtId: user.districtId,

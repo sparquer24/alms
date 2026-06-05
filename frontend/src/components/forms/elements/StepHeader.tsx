@@ -47,7 +47,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
       </div>
         <div
           className='max-w-7xl mx-auto rounded-lg shadow px-2 py-1 mt-0  bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
-          <div className='flex space-x-2  px-2 py-1 justify-center items-center'>
+          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const pressed = pressedIndex === idx;

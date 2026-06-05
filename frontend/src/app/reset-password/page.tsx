@@ -11,12 +11,12 @@ const LinkFixed = Link as any;
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
-
 export default function ResetPassword() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +55,7 @@ export default function ResetPassword() {
       setIsLoading(false);
     }
   };
+
   return (
     <div
       className='min-h-screen flex items-center justify-center bg-cover bg-center py-12 px-4 sm:px-6 lg:px-8'

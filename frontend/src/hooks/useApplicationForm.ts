@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationService, ApplicationFormData } from '../api/applicationService';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UseApplicationFormProps {
   initialState: any;

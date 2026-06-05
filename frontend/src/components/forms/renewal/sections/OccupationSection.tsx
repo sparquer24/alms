@@ -1,9 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
 import { locationAPI, toSelectOptions } from '../../../../api/locationApi';
 
-const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }> = ({ formData, onChange }) => {
+type ErrorsMap = Record<string, string | undefined>;
+
+const OccupationSection = forwardRef(function OccupationSection(
+  props: { formData: any; onChange: (e: any) => void; errors?: ErrorsMap },
+  ref,
+) {
+  const { formData, onChange, errors = {} } = props;
   const [stateOptions, setStateOptions] = useState<{ value: string; label: string }[]>([]);
   const [districtOptions, setDistrictOptions] = useState<{ value: string; label: string }[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
@@ -41,6 +47,19 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
     loadDistricts();
   }, [formData.officeBusinessState]);
 
+  useImperativeHandle(ref, () => ({
+    focusFirstInvalid: () => {
+      const firstKey = Object.keys(errors).find(k => !!errors[k]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus(); } catch { /* ignore */ }
+        }
+      }
+    },
+  }));
+
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     const label = stateOptions.find((option) => option.value === value)?.label || '';
@@ -60,17 +79,19 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
   return (
     <div className='space-y-6'>
       <div>
-        <Input label='10. Occupation' name='occupation' value={formData.occupation || ''} onChange={onChange} placeholder='Enter occupation' />
+        <Input label='10. Occupation' name='occupation' value={formData.occupation || ''} onChange={onChange} placeholder='Enter occupation' required error={errors['occupation']} />
       </div>
 
       <div>
         <TextArea
-          label='11. Office/Business address *'
+          label='11. Office/Business address'
           name='officeBusinessAddress'
           value={formData.officeBusinessAddress || ''}
           onChange={onChange}
           placeholder='Enter office or business address'
           rows={2}
+          required
+          error={errors['officeBusinessAddress']}
         />
       </div>
 
@@ -83,6 +104,8 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
           options={stateOptions}
           placeholder={loadingStates ? 'Loading states...' : 'Select state'}
           disabled={loadingStates}
+          required
+          error={errors['officeBusinessState']}
         />
         <Select
           label='District'
@@ -98,6 +121,8 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
               : 'Select district'
           }
           disabled={loadingDistricts || !formData.officeBusinessState}
+          required
+          error={errors['officeBusinessDistrict']}
         />
       </div>
 
@@ -112,6 +137,8 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
             value={formData.cropProtectionLocation || ''}
             onChange={onChange}
             placeholder='Enter location'
+            required
+            error={errors['cropProtectionLocation']}
           />
           <Input
             label='Area of land under cultivation'
@@ -119,11 +146,13 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
             value={formData.cultivatedArea || ''}
             onChange={onChange}
             placeholder='Enter area (in acres)'
+            required
+            error={errors['cultivatedArea']}
           />
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default OccupationSection;

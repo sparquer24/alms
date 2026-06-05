@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthSync } from '@/hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { getCookie } from 'cookies-next';
@@ -224,7 +224,7 @@ export default function PermissionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

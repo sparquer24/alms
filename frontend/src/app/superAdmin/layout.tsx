@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuthSync } from '../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
@@ -10,13 +10,12 @@ import { ROLE_CODES } from '@/constants';
 import Footer from '@/components/Footer';
 
 export default function SuperAdminLayout({ children }: { children: any }) {
-  const { userRole, token, isLoading } = useAuthSync();
+  const { userRole, token, isLoading, initialized } = useAuth();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // Only check auth once and don't redirect immediately
-    if (checked || isLoading) return;
+    if (checked || isLoading || !initialized) return;
 
     // Check token
     if (!token) {
@@ -43,7 +42,7 @@ export default function SuperAdminLayout({ children }: { children: any }) {
     }
 
     setChecked(true);
-  }, [token, userRole, isLoading, checked, router]);
+  }, [token, userRole, isLoading, initialized, checked, router]);
 
   // Show loading while checking authentication
   if (isLoading || !checked) {

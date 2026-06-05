@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthSync } from '@/hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { AdminTableSkeleton } from '@/components/admin';
@@ -65,7 +65,7 @@ export default function WorkflowsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

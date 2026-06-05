@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Sidebar } from "../../components/Sidebar";
 import Header from "../../components/Header";
-import { useAuthSync } from "../../hooks/useAuthSync";
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from "../../config/layoutContext";
-import { useAuth } from "../../config/auth";
 // Example data will be shown in place of the ApplicationTable
 
 const STATUS_TYPES = [
@@ -14,7 +13,7 @@ const STATUS_TYPES = [
 ];
 
 const MyReportsPage = () => {
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
   const { userId } = useAuth();
   const { setShowHeader, setShowSidebar } = useLayout();
   const [appsByType, setAppsByType] = useState<Record<string, any[]>>({});

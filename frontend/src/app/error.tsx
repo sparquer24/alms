@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { logError } from '../utils/loggingUtils';
+
 export default function Error({
   error,
   reset,
@@ -7,6 +10,10 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    logError('React Page Error Boundary caught an error', error);
+  }, [error]);
+
   return (
     <div style={{ padding: '20px', textAlign: 'center' }}>
       <h1>500 - Server Error</h1>

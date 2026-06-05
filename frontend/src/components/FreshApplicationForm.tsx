@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ApplicationApi, ReportApi, DocumentApi } from '../config/APIClient';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import CascadingLocationSelect from './CascadingLocationSelect';
 import { WeaponsService } from '../services/weapons';
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from './auth';
+import { useAuth } from '../hooks/useAuth';
 import { NotificationApi } from './APIClient';
 
 export interface Notification {

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { apiClient } from '@/config/authenticatedApiClient';
 import { ApplicationApi } from '@/config/APIClient';
+import { AdminFilter } from '@/components/admin/AdminFilter';
 
 const LoaderFixed = Loader2 as any;
 
@@ -42,6 +43,10 @@ export default function ApprovedApplicationsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'fresh' | 'renewal'>('fresh');
+
+  useEffect(() => {
+    setFilterType('fresh');
+  }, []);
 
   const fetchApplications = useCallback(async () => {
     try {
@@ -111,40 +116,28 @@ export default function ApprovedApplicationsList() {
 
   return (
     <div className='w-full'>
-      <div className='bg-white rounded-lg shadow p-6 mb-4'>
-        <div className='flex items-center justify-between mb-4'>
-          <div>
-            <h1 className='text-2xl font-bold text-gray-900'>Approved Applications</h1>
-          </div>
-        </div>
+      <div className='bg-white rounded-lg shadow px-4 py-3 mb-4'>
+        <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+          <h1 className='text-xl font-bold leading-tight text-gray-900'>Approved Applications</h1>
 
-        {/* Filter Radio Buttons */}
-        <div className='mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4'>
-          <div className='mb-3 text-sm font-medium text-slate-700'>Filter by application type</div>
-          <div className='flex flex-wrap items-center gap-4'>
-            <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
-              <input
-                type='radio'
-                name='application-type'
-                value='fresh'
-                checked={filterType === 'fresh'}
-                onChange={() => setFilterType('fresh')}
-                className='h-4 w-4 accent-blue-700'
-              />
-              Fresh Applications
-            </label>
-            <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 cursor-pointer'>
-              <input
-                type='radio'
-                name='application-type'
-                value='renewal'
-                checked={filterType === 'renewal'}
-                onChange={() => setFilterType('renewal')}
-                className='h-4 w-4 accent-blue-700'
-              />
-              Renewal Applications
-            </label>
-          </div>
+          <AdminFilter
+            className='ml-auto'
+            showBorder={false}
+            compact
+            filters={{
+              applicationType: {
+                value: filterType,
+                label: '',
+                type: 'select',
+                options: [
+                  { value: 'fresh', label: 'Fresh Application' },
+                  { value: 'renewal', label: 'Renewal Application' },
+                ],
+                showLabel: false,
+                onChange: value => setFilterType(value as 'fresh' | 'renewal'),
+              },
+            }}
+          />
         </div>
 
 

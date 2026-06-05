@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from "../../components/Sidebar";
 import Header from "../../components/Header";
-import { useAuthSync } from "../../hooks/useAuthSync";
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from "../../config/layoutContext";
 import { useNotifications } from "../../config/notificationContext";
 import { NotificationApi } from "../../config/APIClient";
@@ -21,7 +21,7 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const router = useRouter();
   
-  const { isAuthenticated, token, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, token, isLoading: authLoading } = useAuth();
   const { setShowHeader, setShowSidebar } = useLayout();
   const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
 

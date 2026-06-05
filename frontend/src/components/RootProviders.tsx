@@ -4,7 +4,6 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { store } from '../store/store';
-import { AuthProvider } from '../config/auth';
 import { LayoutProvider } from '../config/layoutContext';
 import NotificationProvider from '../config/notificationContext';
 import { AdminAuthProvider } from '../context/AdminAuthContext';
@@ -35,8 +34,7 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
 
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <LayoutProvider>
+        <LayoutProvider>
             <NotificationProvider>
               <AdminThemeProvider>
                 <AdminAuthProvider>
@@ -47,7 +45,6 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                           <GlobalActionProvider>
 
                             <AuthInitializer />
-
                             {children}
 
                           </GlobalActionProvider>
@@ -59,8 +56,7 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
               </AdminThemeProvider>
             </NotificationProvider>
           </LayoutProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+        </QueryClientProvider>
     </Provider>
   );
 };

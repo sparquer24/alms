@@ -1,6 +1,4 @@
 import React from 'react';
-import { useAdminTheme } from '../../context/AdminThemeContext';
-import { AdminSpacing, AdminBorderRadius } from '../../styles/admin-design-system';
 
 interface AdminFormSkeletonProps {
   fields?: number;
@@ -11,80 +9,23 @@ export const AdminFormSkeleton: React.FC<AdminFormSkeletonProps> = ({
   fields = 5,
   showButton = true,
 }) => {
-  const { colors } = useAdminTheme();
-
   return (
-    <div
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: AdminBorderRadius.lg,
-        padding: AdminSpacing.xl,
-        border: `1px solid ${colors.border}`,
-      }}
-    >
+    <div className="bg-white rounded-lg p-6 border border-gray-200">
       {Array.from({ length: fields }).map((_, i) => (
-        <div key={i} style={{ marginBottom: AdminSpacing.lg }}>
+        <div key={i} className="mb-4">
           {/* Label skeleton */}
-          <div
-            style={{
-              height: '16px',
-              width: '120px',
-              backgroundColor: colors.border,
-              borderRadius: AdminBorderRadius.md,
-              marginBottom: AdminSpacing.md,
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }}
-          />
+          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2" />
           {/* Input skeleton */}
-          <div
-            style={{
-              height: '40px',
-              width: '100%',
-              backgroundColor: colors.border,
-              borderRadius: AdminBorderRadius.md,
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              animationDelay: `${i * 50}ms`,
-            }}
-          />
+          <div className="h-10 w-full bg-gray-200 rounded animate-pulse" />
         </div>
       ))}
 
       {showButton && (
-        <div
-          style={{
-            display: 'flex',
-            gap: AdminSpacing.md,
-            marginTop: AdminSpacing.xl,
-          }}
-        >
-          <div
-            style={{
-              height: '40px',
-              width: '120px',
-              backgroundColor: colors.border,
-              borderRadius: AdminBorderRadius.md,
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }}
-          />
-          <div
-            style={{
-              height: '40px',
-              width: '120px',
-              backgroundColor: colors.border,
-              borderRadius: AdminBorderRadius.md,
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              animationDelay: '100ms',
-            }}
-          />
+        <div className="flex gap-4 mt-6">
+          <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
+          <div className="h-10 w-32 bg-gray-200 rounded animate-pulse" />
         </div>
       )}
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
     </div>
   );
 };

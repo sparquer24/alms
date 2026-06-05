@@ -2,7 +2,7 @@
 
 import { Sidebar } from '../../../components/Sidebar';
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import Papa from 'papaparse';
@@ -119,7 +119,7 @@ export default function UserManagementPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UiUser | null>(null);
   const [actionMessage, setActionMessage] = useState<string>('');
-  const { userRole, user } = useAuthSync();
+  const { userRole, user } = useAuth();
   const isAdmin = (userRole || '').toUpperCase() === ROLE_CODES.ADMIN;
   const isSuperAdmin = (userRole || '').toUpperCase() === ROLE_CODES.SUPER_ADMIN;
   
@@ -129,11 +129,11 @@ export default function UserManagementPage() {
   
   // Try to get stateId from various possible locations
   const currentUserStateId = 
-    currentUser?.stateId || 
-    currentUser?.state?.id || 
+    (currentUser as any)?.stateId || 
+    (currentUser as any)?.state?.id || 
     (currentUser as any)?.location?.state?.id ||
-    authUser?.stateId || 
-    authUser?.state?.id ||
+    (authUser as any)?.stateId || 
+    (authUser as any)?.state?.id ||
     (authUser as any)?.location?.state?.id;
   
   // Console logs for debugging
@@ -148,7 +148,7 @@ export default function UserManagementPage() {
     'currentUser.state': currentUser?.state,
     'currentUser.location': (currentUser as any)?.location,
     'currentUser.location.state.id': (currentUser as any)?.location?.state?.id,
-    'authUser.stateId': authUser?.stateId,
+    'authUser.stateId': (authUser as any)?.stateId,
     'authUser.state': (authUser as any)?.state,
     'authUser.location': (authUser as any)?.location,
     'currentUser keys': currentUser ? Object.keys(currentUser) : 'no currentUser',
@@ -588,7 +588,7 @@ export default function UserManagementPage() {
     <div className='flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
       <Sidebar />
       <div className='flex-1 p-4 md:p-8'>
-        <div className='mx-auto w-full max-w-7xl flex flex-col gap-6'>
+        <div className='mx-auto w-full max-w-7xl 2xl:max-w-[1600px] flex flex-col gap-6'>
           {/* Header Section */}
           <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
             <div className='bg-[#001F54] text-white px-6 py-8'>

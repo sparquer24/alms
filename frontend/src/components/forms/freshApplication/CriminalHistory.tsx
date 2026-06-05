@@ -290,12 +290,12 @@ const CriminalHistory = () => {
 				   {convicted === 'yes' && provisions.map((prov, idx) => (
 					   <div key={idx} className="mb-6 border-b pb-4">
 						   <div className="font-medium mb-2">{idx === 0 ? 'i. Provisions to Enter–' : `ii. Provisions to Enter–`}</div>
-						   <div className="grid grid-cols-3 gap-6 mb-2">
+						   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
 							   <Input label="FIR Number" name="firNumber" value={prov.firNumber} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter FIR number" />
 							   <Input label="Under Section" name="underSection" value={prov.underSection} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter section" />
 							   <Input label="Police Station" name="policeStation" value={prov.policeStation} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter police station" />
 						   </div>
-						   <div className="grid grid-cols-3 gap-6 mb-2">
+						   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
 							   <Input label="Unit" name="unit" value={prov.unit} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter unit" />
 							   <Input label="District" name="district" value={prov.district} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter district" />
 							   <Input label="State" name="state" value={prov.state} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter state" />

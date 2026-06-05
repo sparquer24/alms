@@ -20,6 +20,9 @@ export interface User {
     action: string;
     resource: string;
   }[];
+  location?: any;
+  stateId?: any;
+  state?: any;
 }
 
 export interface AuthState {
@@ -226,14 +229,21 @@ export interface ApplicationData {
   comments?: string[]; // Legacy field for comments array
   documents?: Array<{
     id?: string;
-    name: string;
-    type: string;
-    url: string;
+    name?: string;
+    fileName?: string;
+    type?: string;
+    fileType?: string;
+    url?: string;
+    fileUrl?: string;
+    path?: string;
+    downloadUrl?: string;
     uploadedAt?: string;
     size?: number;
+    [key: string]: any;
   }>;
   // Optional resolved photo URL (may come from biometricData or fileUploads)
   photoUrl?: string;
+  biometricData?: any;
   history?: Array<{
     actionTaken: any;
     attachments: any;

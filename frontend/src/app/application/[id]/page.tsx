@@ -4,12 +4,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
-import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
-import { useNotifications } from '../../../config/notificationContext';
-import NotificationDropdown from '../../../components/NotificationDropdown';
-import Link from 'next/link';
+
+
+
 import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
@@ -168,7 +168,7 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
-  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -183,9 +183,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isProcessing, setIsProcessing] = useState(false);
   const [isForwarding, setIsForwarding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
-  const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedAction, setSelectedAction] = useState<
@@ -234,11 +231,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     if (!rawDetails) return [] as any[];
     return Array.isArray(rawDetails) ? rawDetails.filter(Boolean) : [rawDetails];
   }, [application]);
-
-  useEffect(() => {
-    const name = user?.name || user?.username;
-    if (!authLoading && name) setDisplayName(name);
-  }, [user, authLoading]);
 
   // Open attachments from history with a robust viewer (PDF/image) in a new tab
   const openAttachment = (att: any) => {
@@ -941,134 +933,20 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   return (
     <div className='flex flex-col min-h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
-      {/* Custom Header with Breadcrumb, Title and Status */}
-      <header className='fixed top-0 left-0 right-0 bg-[#001F54] shadow-lg z-10'>
-        <div className='px-6 py-4'>
-          {/* Title and Status Row */}
-          <div className='flex items-center justify-between'>
-            <nav className='mb-2' aria-label='Breadcrumb'>
-              <ol className='flex items-center space-x-2 text-sm'>
-                <li>
-                  <button
-                    onClick={() => router.push('/inbox/forwarded')}
-                    className='text-white text-opacity-70 hover:text-opacity-100 transition-colors'
-                  >
-                    Home
-                  </button>
-                </li>
-                <li className='text-white text-opacity-50'>/</li>
-                <li>
-                  <span className='text-white text-opacity-70'>Application Details</span>
-                </li>
-                <li className='text-white text-opacity-50'>/</li>
-                <li>
-                  <span className='font-medium text-white'>
-                    Application ID: {applicationId || '...'}
-                  </span>
-                </li>
-              </ol>
-            </nav>
-            {/* Current Status and Right Side Actions */}
-            <div className='flex items-center space-x-3'>
-              <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
-                <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center'>
-                  <svg
-                    className='w-5 h-5 text-white'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <span
-                    className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${getStatusBadgeClass(
-                      application ? (application.status ?? application.status_id) : undefined
-                    )}`}
-                  >
-                    {application
-                      ? formatStatusLabel(
-                          application.workflowStatus || application.status || application.status_id
-                        )
-                      : 'Loading'}
-                  </span>
-                </div>
-              </div>
-              {/* Notification Bell */}
-              <div className='relative'>
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full'
-                  aria-label='Toggle notifications'
-                  aria-expanded={showNotifications}
-                >
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    className='h-6 w-6'
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    stroke='currentColor'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'
-                    />
-                  </svg>
-                  {unreadCount > 0 && (
-                    <span className='absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full'>
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                {showNotifications && (
-                  <NotificationDropdown onClose={() => setShowNotifications(false)} />
-                )}
-              </div>
-              {/* Print Button */}
-              <button
-                onClick={() => window.print()}
-                className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
-                aria-label='Print page'
-                title='Print'
-              >
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  className='h-6 w-6'
-                  fill='none'
-                  viewBox='0 0 24 24'
-                  stroke='currentColor'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M6 9V2h12v7m-6 4v6m-6 0h12'
-                  />
-                </svg>
-              </button>
-              {/* User Profile Avatar */}
-              {!authLoading && displayName && (
-                <Link
-                  href='/settings'
-                  className='flex items-center hover:bg-white hover:bg-opacity-10 rounded-full p-1 transition-colors'
-                >
-                  <div className='bg-white text-[#001F54] rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm'>
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Use shared Header with breadcrumbs and status badge */}
+      <Header
+        breadcrumbs={[
+          { label: 'Home', onClick: () => router.push('/') },
+          { label: 'Application Details' },
+          { label: applicationId ? `Application ID: ${applicationId}` : '...' }
+        ]}
+        statusBadge={application ? {
+          label: formatStatusLabel(application.workflowStatus || application.status || application.status_id),
+          className: getStatusBadgeClass(application.status ?? application.status_id)
+        } : undefined}
+        hideCreateForm={true}
+        hidePrint={true}
+      />
 
       <main className='flex-1 p-6 overflow-y-auto mt-[120px]'>
         <div className='bg-white rounded-lg shadow'>
@@ -2304,8 +2182,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               <button
                                 onClick={() => {
                                   const a = document.createElement('a');
-                                  a.href = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
-                                  a.download = doc.name || doc.fileName || 'download';
+                                  a.href = (doc as any).url || (doc as any).fileUrl || (doc as any).path || (doc as any).downloadUrl || '';
+                                  a.download = (doc as any).name || (doc as any).fileName || 'download';
                                   a.rel = 'noopener';
                                   document.body.appendChild(a);
                                   a.click();
@@ -2538,10 +2416,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 });
 
                                 // Extract user and role names from nested objects (backend returns nested structure)
-                                const previousUserName = h.previousUserName || h.previousUser?.username || 'Unknown User';
-                                const previousRoleName = h.previousRoleName || h.previousRole?.name || 'Role';
-                                const nextUserName = h.nextUserName || h.nextUser?.username;
-                                const nextRoleName = h.nextRoleName || h.nextRole?.name;
+                                const previousUserName = (h as any).previousUserName || (h as any).previousUser?.username || 'Unknown User';
+                                const previousRoleName = (h as any).previousRoleName || (h as any).previousRole?.name || 'Role';
+                                const nextUserName = (h as any).nextUserName || (h as any).nextUser?.username;
+                                const nextRoleName = (h as any).nextRoleName || (h as any).nextRole?.name;
 
                                 return (
                                   <div

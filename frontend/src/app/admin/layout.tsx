@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuthSync } from '../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
@@ -14,14 +14,13 @@ import { canAccessAdmin } from '@/utils/roleUtils';
 
 
 export default function AdminLayout({ children }: { children: any }) {
-  const { userRole, token, isLoading } = useAuthSync();
+  const { userRole, token, isLoading, initialized } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // Only check auth once and don't redirect immediately
-    if (checked || isLoading) return;
+    if (checked || isLoading || !initialized) return;
 
     // Check token
     if (!token) {
@@ -42,7 +41,7 @@ export default function AdminLayout({ children }: { children: any }) {
     }
 
     setChecked(true);
-  }, [token, userRole, isLoading, checked, router]);
+  }, [token, userRole, isLoading, initialized, checked, router]);
 
   // Show loading while checking authentication
   if (isLoading || !checked) {

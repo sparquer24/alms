@@ -45,12 +45,62 @@ const stepToSlug = (name: string) =>
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationService } from '../../../../api/applicationService';
 
+// Shared skeleton component for loading states — defined outside component to avoid re-creation on every render
+function FormStepSkeleton() {
+  return (
+    <div
+      className='relative min-h-screen'
+      style={{
+        backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+        backgroundSize: 'cover',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className='flex justify-center' style={{ paddingTop: 100, minHeight: '100vh' }}>
+        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full p-6 mx-4'>
+          <div className='animate-pulse space-y-8'>
+            {/* Step header skeleton */}
+            <div className='flex items-center justify-center space-x-4 mb-8'>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className='h-3 w-20 bg-gray-200 rounded'></div>
+              ))}
+            </div>
+            {/* Form fields skeleton */}
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className='space-y-2'>
+                  <div className='h-4 w-32 bg-gray-200 rounded'></div>
+                  <div className='h-10 w-full bg-gray-200 rounded-lg'></div>
+                </div>
+              ))}
+            </div>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className='space-y-2'>
+                  <div className='h-4 w-32 bg-gray-200 rounded'></div>
+                  <div className='h-10 w-full bg-gray-200 rounded-lg'></div>
+                </div>
+              ))}
+            </div>
+            <div className='flex justify-between pt-6'>
+              <div className='h-12 w-24 bg-gray-200 rounded-lg'></div>
+              <div className='h-12 w-32 bg-gray-200 rounded-lg'></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
   const router = useRouter();
   const [step, setStep] = useState<string | null>(null);
   const [allowedToEdit, setAllowedToEdit] = useState<boolean | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const searchParams = useSearchParams();
   const applicantId =
     searchParams?.get('id') ||
@@ -96,77 +146,9 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
     // Intentionally run only when applicantId changes
   }, [applicantId, router]);
 
-  /**
-   * Validate if all required data is present before allowing navigation to Declaration step
-   * Returns an array of missing fields, empty if all data is present
-   */
-  const validateApplicationData = (): string[] => {
-    const missingFields: string[] = [];
-
-    if (!applicationData) {
-      missingFields.push('Application data not loaded');
-      return missingFields;
-    }
-
-    // Check presentAddress
-    if (!applicationData.presentAddress) {
-      missingFields.push('Present Address');
-    }
-
-    // Check permanentAddress
-    if (!applicationData.permanentAddress) {
-      missingFields.push('Permanent Address');
-    }
-
-    // Check occupationAndBusiness
-    if (!applicationData.occupationAndBusiness) {
-      missingFields.push('Occupation/Business Information');
-    }
-
-    // Check biometricData - check for fingerprints or photo
-    const biometricData =
-      applicationData.biometricData?.biometricData || applicationData.biometricData;
-    const hasFingerprints =
-      biometricData?.fingerprints &&
-      Array.isArray(biometricData.fingerprints) &&
-      biometricData.fingerprints.length > 0;
-    const hasPhoto = applicationData.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
-    if (!hasFingerprints && !hasPhoto) {
-      missingFields.push('Biometric Information (Photograph or Fingerprint)');
-    }
-
-    // Check fileUploads - at least 3 documents should be uploaded
-    const uploadedFilesCount = applicationData.fileUploads?.length || 0;
-    if (
-      !applicationData.fileUploads ||
-      !Array.isArray(applicationData.fileUploads) ||
-      uploadedFilesCount < 3
-    ) {
-      const remaining = 3 - uploadedFilesCount;
-      missingFields.push(
-        `Document Uploads (Need ${remaining} more document${remaining > 1 ? 's' : ''}, minimum 3 required)`
-      );
-    }
-
-    return missingFields;
-  };
-
-  // Show loading while params are being resolved
-  if (!step) {
-    return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-lg'>Loading...</div>
-      </div>
-    );
-  }
-
-  // While we check whether editing is allowed, show a loading state
-  if (allowedToEdit === null) {
-    return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-lg'>Checking application status...</div>
-      </div>
-    );
+  // Show skeleton loading while params are being resolved, checking edit permissions, or navigating between steps
+  if (!step || allowedToEdit === null || isNavigating) {
+    return <FormStepSkeleton />;
   }
 
   let StepComponent: React.ComponentType<any> | null = null;
@@ -221,9 +203,16 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
   // Handler to change step and update the URL
   const handleStepClick = async (idx: number) => {
+    // Guard against rapid double-clicks while navigation is in progress
+    if (isNavigating) return;
+
     // Compute dynamic preview/declaration indices to avoid hardcoding after step removal
     const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
     const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
+
+    // Show loading skeleton immediately while we process navigation
+    setIsNavigating(true);
+
     // preserve any existing search params (including optional application id) when navigating
     const currentParams = new URLSearchParams(searchParams ? searchParams.toString() : '');
     const pushWithParams = (path: string) => {
@@ -246,6 +235,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
           if (!latestData) {
             setValidationError('Application data not loaded. Please complete all steps first.');
+            setIsNavigating(false);
             return;
           }
 
@@ -292,14 +282,17 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
             setValidationError(
               `Please complete the following before submitting:\n• ${missingFields.join('\n• ')}`
             );
+            setIsNavigating(false);
             return;
           }
         } catch (err) {
           setValidationError('Failed to validate application data. Please try again.');
+          setIsNavigating(false);
           return;
         }
       } else {
         setValidationError('Please create and save an application first.');
+        setIsNavigating(false);
         return;
       }
 
@@ -307,6 +300,8 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       setValidationError(null);
     }
 
+    // Navigate to the selected step — no need to setIsNavigating(false) here
+    // because the component will unmount and remount on the new page
     if (idx === previewIndex) {
       pushWithParams('/forms/createFreshApplication/preview');
     } else if (idx === declarationIndex) {
@@ -354,11 +349,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
         }}
       >
         <div
-          className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0'
-          style={{
-            maxHeight: 'calc(100vh - 80px )',
-            overflowY: 'auto',
-          }}
+          className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full flex flex-col p-0'
         >
           {StepComponent && <StepComponent />}
         </div>

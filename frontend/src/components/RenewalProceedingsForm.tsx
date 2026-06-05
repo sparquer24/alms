@@ -489,7 +489,7 @@ Regards,`;
             Remarks <span className='text-red-500'>*</span>
           </label>
           <TiptapRichTextEditor
-            content={remarks}
+            value={remarks}
             onChange={setRemarks}
             placeholder='Enter your remarks here...'
             disabled={isSubmitting}
@@ -506,7 +506,7 @@ Regards,`;
               Ground Report <span className='text-red-500'>*</span>
             </label>
             <TiptapRichTextEditor
-              content={draftLetter}
+              value={draftLetter}
               onChange={setDraftLetter}
               placeholder='Enter ground report here...'
               disabled={isSubmitting}

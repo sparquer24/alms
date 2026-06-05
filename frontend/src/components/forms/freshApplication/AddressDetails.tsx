@@ -292,8 +292,7 @@ const AddressDetails: React.FC = () => {
 			</div>
 			<div className="text-xs text-gray-700 mb-4">
 				NOTE: Nearest Police Station means the Police Station under whose jurisdiction the place given in the address comes
-			</div>
-			<div className="bg-blue-50 rounded-lg p-4 grid grid-cols-4 gap-4 mb-2 h-30">
+			</div>          <div className="bg-blue-50 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
 				<Input
 					label="Mobile Number\Office"
 					name="officeMobileNumber"

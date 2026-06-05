@@ -3,22 +3,41 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLayout } from '../config/layoutContext';
-import { useAuthSync } from '../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
 import { ApplicationService } from '../api/applicationService';
 
+interface BreadcrumbItem {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+}
+
 interface HeaderProps {
   onCreateApplication?: (typeKey: string) => void;
   onShowMessage?: (msg: string, type?: 'info' | 'error' | 'success') => void;
+  /** Optional breadcrumb trail shown on the left side of the header */
+  breadcrumbs?: BreadcrumbItem[];
+  /** Optional title shown alongside breadcrumbs (e.g., "Application Details") */
+  pageTitle?: string;
+  /** Optional status badge shown in the header (for detail views) */
+  statusBadge?: {
+    label: string;
+    className?: string;
+  };
+  /** Hide the print button */
+  hidePrint?: boolean;
+  /** Hide the Create Form button even if sidebar is visible */
+  hideCreateForm?: boolean;
 }
 
 const Header = (props: HeaderProps) => {
-  const { onShowMessage } = props;
+  const { onShowMessage, breadcrumbs, pageTitle: _pageTitle, statusBadge, hidePrint, hideCreateForm } = props;
   const { showHeader, showSidebar } = useLayout();
-  const { userName, isLoading, user, userRole: hookUserRole } = useAuthSync();
+  const { userName, isLoading, user, userRole: hookUserRole } = useAuth();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -99,15 +118,19 @@ const Header = (props: HeaderProps) => {
   // Adjust header position based on sidebar visibility
   const headerLeftClass = showSidebar ? 'left-[80px] md:left-[18%]' : 'left-0';
 
+  // Determine if header needs extra height for breadcrumbs
+  const hasBreadcrumbs = breadcrumbs && breadcrumbs.length > 0;
+
   return (
     <header
-      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] h-[64px] md:h-[70px] px-4 md:px-6 flex items-center justify-between shadow-lg z-10 transition-all duration-300`}
+      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg z-10 transition-all duration-300`}
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
-        <div className='flex items-center'>
-          {/* Show Create Form only when sidebar is visible */}
-          {showSidebar && (
-            <div className='relative'>
+        {/* Left section: breadcrumbs / create form */}
+        <div className='flex items-center gap-4 min-w-0'>
+          {/* Show Create Form only when sidebar is visible and not hidden */}
+          {showSidebar && !hideCreateForm && (
+            <div className='relative flex-shrink-0'>
               {isZSUser && (
                 <>
                   <button
@@ -142,9 +165,67 @@ const Header = (props: HeaderProps) => {
               )}
             </div>
           )}
+
+          {/* Breadcrumbs */}
+          {hasBreadcrumbs && (
+            <nav className='min-w-0 flex-1' aria-label='Breadcrumb'>
+              <ol className='flex items-center space-x-2 text-sm truncate'>
+                {breadcrumbs.map((crumb, idx) => (
+                  <li key={idx} className='flex items-center space-x-2 min-w-0'>
+                    {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
+                    {crumb.onClick ? (
+                      <button
+                        onClick={crumb.onClick}
+                        className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
+                      >
+                        {crumb.label}
+                      </button>
+                    ) : crumb.href ? (
+                      <Link
+                        href={crumb.href}
+                        className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
+                      >
+                        {crumb.label}
+                      </Link>
+                    ) : (
+                      <span className='text-white font-medium truncate'>{crumb.label}</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )}
         </div>
 
-        <div className='flex items-center space-x-4 justify-end w-full'>
+        {/* Right section: status badge + actions */}
+        <div className='flex items-center space-x-3 justify-end flex-shrink-0'>
+          {/* Status badge */}
+          {statusBadge && (
+            <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
+              <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center'>
+                <svg
+                  className='w-5 h-5 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                  />
+                </svg>
+              </div>
+              <div>
+                <span
+                  className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${statusBadge.className || 'bg-white bg-opacity-20 text-white border-white border-opacity-30'}`}
+                >
+                  {statusBadge.label}
+                </span>
+              </div>
+            </div>
+          )}
           <div className='relative'>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
@@ -176,7 +257,8 @@ const Header = (props: HeaderProps) => {
               <NotificationDropdown onClose={() => setShowNotifications(false)} />
             )}
           </div>
-          {/* Print button - prints current page */}
+          {/* Print button - hidden when hidePrint is true */}
+          {!hidePrint && (
           <button
             onClick={() => globalThis.print()}
             className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
@@ -198,6 +280,7 @@ const Header = (props: HeaderProps) => {
               />
             </svg>
           </button>
+          )}
           {hasValidUserName && (
             <Link
               href='/settings'

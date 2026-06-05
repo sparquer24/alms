@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import ApplicationTable from '../../components/ApplicationTable';
-import { useAuthSync } from '../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
@@ -115,7 +115,7 @@ function InboxContent() {
   const [selectedFormType, setSelectedFormType] = useState<FreshFormViewType>('fresh');
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
 
   // Handle refresh parameter - only refresh once per login
   useEffect(() => {
@@ -265,41 +265,11 @@ function InboxContent() {
 
   return (
     <div className='max-w-8xl w-full mx-auto'>
-      <div className='bg-white rounded-lg shadow p-6'>
-        <h1 className='text-2xl font-bold mb-4'>{getPageTitle()}</h1>
-
-        {(type === 'freshform' || type === 'drafts') && (
-          <div className='mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4'>
-            <div className='mb-3 text-sm font-medium text-slate-700'>Select form type</div>
-            <div className='flex flex-wrap items-center gap-4'>
-              <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300'>
-                <input
-                  type='radio'
-                  name='fresh-form-type'
-                  value='fresh'
-                  checked={selectedFormType === 'fresh'}
-                  onChange={() => setSelectedFormType('fresh')}
-                  className='h-4 w-4 accent-blue-700'
-                />
-                Fresh Application Form
-              </label>
-              <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300'>
-                <input
-                  type='radio'
-                  name='fresh-form-type'
-                  value='renewal'
-                  checked={selectedFormType === 'renewal'}
-                  onChange={() => setSelectedFormType('renewal')}
-                  className='h-4 w-4 accent-blue-700'
-                />
-                Renewal Application Form
-              </label>
-            </div>
-          </div>
-        )}
+      <div className='bg-white rounded-lg shadow p-4 sm:p-5'>
+        <h1 className='text-2xl font-bold mb-3'>{getPageTitle()}</h1>
 
         {type === 'all' && (
-          <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
+          <div className='mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
             <div className='flex items-center'>
               <svg
                 xmlns='http://www.w3.org/2000/svg'
@@ -320,18 +290,12 @@ function InboxContent() {
           </div>
         )}
 
-        {(type === 'freshform' || type === 'drafts') && (
-          <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
-            <span className='text-blue-800 font-medium'>
-              Showing {selectedFormType === 'renewal' ? 'renewal' : 'fresh'} application form records
-            </span>
-          </div>
-        )}
-
         <ApplicationTable
           applications={applications}
           isLoading={isLoading}
           pageType={type || undefined}
+          selectedFormType={selectedFormType}
+          onSelectedFormTypeChange={setSelectedFormType}
           showActionColumn={true}
         />
       </div>
