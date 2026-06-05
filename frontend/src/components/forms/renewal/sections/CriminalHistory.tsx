@@ -38,7 +38,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
   return (
     <div className='space-y-6'>
       <div>
-        <p className='text-sm font-semibold text-gray-900 mb-4'>13. Whether the applicant has been -</p>
+        <p className='text-sm font-semibold text-gray-900 mb-4'>Whether the applicant has been -</p>
         
         <div className='space-y-6'>
           <div>

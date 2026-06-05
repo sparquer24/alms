@@ -79,7 +79,7 @@ const LicenseHistory = forwardRef(function LicenseHistory(
     <div className='space-y-4'>
       <div className='space-y-5'>
         <div>
-          <p className='text-sm font-medium'>14. Whether the applicant has applied for -</p>
+          <p className='text-sm font-medium'>Whether the applicant has applied for -</p>
           <p className='text-sm mt-2'>(a) Arms License before?</p>
           {yn('hasAppliedBefore', Boolean(formData.hasAppliedBefore))}
           {formData.hasAppliedBefore && (
