@@ -65,7 +65,8 @@ export default function RenewalApplicationDetailsPage() {
         setError(null);
 
         const response = await RenewalService.getRenewalForm(id);
-        const payload = (response as any)?.data ?? response;
+        const root = (response as any)?.data ?? (response as any)?.body ?? response;
+        const payload = root?.data && typeof root.data === 'object' && !Array.isArray(root.data) ? root.data : root;
 
         if (!payload) {
           throw new Error('Renewal application not found');

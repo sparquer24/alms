@@ -68,7 +68,7 @@ const validateAddressInfo = (formData: any) => {
 	if (!formData.presentDistrict?.trim()) {
 		validationErrors.push('Present district is required');
 	}
-	if (!formData.permanentAddress?.trim()) {
+	if (!formData.permanentAddress?.trim() && !formData.sameAsPresent) {
 		validationErrors.push('Permanent address is required');
 	}
 	
@@ -236,11 +236,6 @@ const AddressDetails: React.FC = () => {
 					onChange={handleLocationChange}
 					required={true}
 					className="col-span-2"
-					disabledFields={{
-						state: true,
-						district: true,
-						zone: true,
-					}}
 				/>
 				
 				<Input

@@ -52,7 +52,6 @@ type RenewalFormState = {
   presentDistrict: string;
   presentZone: string;
   presentDivision: string;
-  presentPincode: string;
   presentPoliceStation: string;
   jurisdictionPoliceStation: string;
   residingSince: string;
@@ -62,7 +61,6 @@ type RenewalFormState = {
   permanentDistrict: string;
   permanentZone: string;
   permanentDivision: string;
-  permanentPincode: string;
   permanentPoliceStation: string;
   officePhone: string;
   residencePhone: string;
@@ -175,23 +173,23 @@ const initialFormState: RenewalFormState = {
   presentState: '',
   presentDistrict: '',
   presentZone: '',
-  presentDivision: '',
-  presentPincode: '',
-  presentPoliceStation: '',
-  jurisdictionPoliceStation: '',
-  residingSince: '',
-  sameAsPresent: false,
-  permanentAddress: '',
-  permanentState: '',
-  permanentDistrict: '',
-  permanentZone: '',
-  permanentDivision: '',
-  permanentPincode: '',
-  permanentPoliceStation: '',
-  officePhone: '',
-  residencePhone: '',
-  officeMobile: '',
-  alternativeMobile: '',
+presentDivision: '',
+   presentPoliceStation: '',
+   jurisdictionPoliceStation: '',
+   presentPincode: '',
+   residingSince: '',
+   sameAsPresent: false,
+   permanentAddress: '',
+   permanentState: '',
+   permanentDistrict: '',
+   permanentZone: '',
+   permanentDivision: '',
+   permanentPoliceStation: '',
+   permanentPincode: '',
+   officePhone: '',
+   residencePhone: '',
+   officeMobile: '',
+   alternativeMobile: '',
   occupation: '',
   officeBusinessAddress: '',
   officeBusinessState: '',
@@ -487,14 +485,6 @@ const mapPresentAddressFields = (data: any) => {
     presentDivision: normalizeLocationId(
       presentAddress?.divisionId ?? presentAddress?.division?.id
     ),
-    presentPincode: getTextValue(
-      presentAddress?.pincode,
-      presentAddress?.pinCode,
-      presentAddress?.postalCode,
-      data?.presentPincode,
-      data?.pincode,
-      data?.presentAddressPincode
-    ),
     presentPoliceStation: normalizeLocationId(
       presentAddress?.policeStationId ?? presentAddress?.policeStation?.id
     ),
@@ -536,7 +526,6 @@ const mapPermanentAddressFields = (data: any) => {
     permanentDivision: normalizeLocationId(
       permanentAddress?.divisionId ?? permanentAddress?.division?.id
     ),
-    permanentPincode: getTextValue(permanentAddress?.pincode, data?.permanentPincode),
     permanentPoliceStation: normalizeLocationId(
       permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id
     ),
@@ -549,7 +538,6 @@ const ADDRESS_FORM_KEYS: (keyof RenewalFormState)[] = [
   'presentDistrict',
   'presentZone',
   'presentDivision',
-  'presentPincode',
   'presentPoliceStation',
   'jurisdictionPoliceStation',
   'residingSince',
@@ -1007,6 +995,14 @@ const mergeRenewalStateOverFresh = (
 
   if (!hasSavedBiometric(renewalData)) {
     restoreSectionFromFresh(merged, fresh, BIOMETRIC_FORM_KEYS);
+  }
+
+  if (renewalData?.isDeclarationAccepted !== undefined || renewalData?.isAwareOfLegalConsequences !== undefined || renewalData?.isTermsAccepted !== undefined || renewalData?.declaration) {
+    merged.declaration = {
+      agreeToTruth: Boolean(renewalData?.declaration?.agreeToTruth ?? renewalData?.isDeclarationAccepted),
+      understandLegalConsequences: Boolean(renewalData?.declaration?.understandLegalConsequences ?? renewalData?.isAwareOfLegalConsequences),
+      agreeToTerms: Boolean(renewalData?.declaration?.agreeToTerms ?? renewalData?.isTermsAccepted),
+    };
   }
 
   const renewalFileIds = collectRenewalFileIds(renewalData);
@@ -1482,10 +1478,8 @@ const buildFieldStateFromFreshApplication = (
     // Renewal documents should be uploaded separately in the renewal form.
 
     declaration: {
-      agreeToTruth: Boolean(data?.isAwareOfLegalConsequences || data?.isDeclarationAccepted),
-      understandLegalConsequences: Boolean(
-        data?.isAwareOfLegalConsequences || data?.isDeclarationAccepted
-      ),
+      agreeToTruth: Boolean(data?.isDeclarationAccepted),
+      understandLegalConsequences: Boolean(data?.isAwareOfLegalConsequences),
       agreeToTerms: Boolean(data?.isTermsAccepted),
     },
     hasSubmittedTrueInfo: Boolean(data?.isSubmit),
@@ -1629,11 +1623,19 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     licenseDetails.armsCategory = armsCategory;
   }
 
-  if (formData.licenseValidity) licenseDetails.areaOfValidity = formData.licenseValidity;
-  if (formData.licenseType) licenseDetails.ammunitionDescription = formData.licenseType;
-  if (formData.declaration?.understandLegalConsequences) {
-    licenseDetails.specialConsiderationReason = 'Application submitted with legal acknowledgement';
+  // Map area of validity from checkboxes
+  const areaOfValidityParts: string[] = [];
+  if (formData.carryAreaDistrict) areaOfValidityParts.push('DISTRICT');
+  if (formData.carryAreaState) areaOfValidityParts.push('STATE');
+  if (formData.carryAreaIndia) areaOfValidityParts.push('INDIA');
+  if (areaOfValidityParts.length > 0) {
+    licenseDetails.areaOfValidity = areaOfValidityParts.join(', ');
   }
+
+  if (formData.ammunitionDescription) licenseDetails.ammunitionDescription = formData.ammunitionDescription;
+  if (formData.specialConsiderationClaim) licenseDetails.specialConsiderationReason = formData.specialConsiderationClaim;
+  if (formData.formIVPlaceArea) licenseDetails.licencePlaceArea = formData.formIVPlaceArea;
+  if (formData.formIVWildBeastsSpec) licenseDetails.wildBeastsSpecification = formData.formIVWildBeastsSpec;
 
   // Convert requestedWeaponIds to array of numbers
   const weaponIds: number[] = [];
@@ -1748,14 +1750,14 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
     ...mapDocumentUploadFields(data, collectRenewalFileIds(data)),
     declaration: {
       agreeToTruth: Boolean(
-        data?.declaration?.agreeToTruth || data?.acceptanceFlags?.isDeclarationAccepted
+        data?.declaration?.agreeToTruth ?? data?.isDeclarationAccepted
       ),
       understandLegalConsequences: Boolean(
-        data?.declaration?.understandLegalConsequences ||
-        data?.acceptanceFlags?.isAwareOfLegalConsequences
+        data?.declaration?.understandLegalConsequences ??
+        data?.isAwareOfLegalConsequences
       ),
       agreeToTerms: Boolean(
-        data?.declaration?.agreeToTerms || data?.acceptanceFlags?.isTermsAccepted
+        data?.declaration?.agreeToTerms ?? data?.isTermsAccepted
       ),
     },
     hasSubmittedTrueInfo: Boolean(data?.hasSubmittedTrueInfo || data?.isSubmit),
@@ -1816,8 +1818,8 @@ const loadExistingRenewalByLicenseNumber = async (
   setFormData(syncedForm as RenewalFormState);
   setStatusMessage(
     synced
-      ? `Loaded renewal ${existingRenewalId}; prefilled documents saved via upload-file.`
-      : `Loaded existing renewal application ${existingRenewalId} for license ${licenseNumber}.`
+      ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, existingRenewalId)}; prefilled documents saved via upload-file.`
+      : `Loaded existing renewal application ${getTextValue(renewalData?.acknowledgementNo, existingRenewalId)} for license ${licenseNumber}.`
   );
   router.replace(
     `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
@@ -1868,12 +1870,12 @@ const createDraftRenewalFromFreshApplication = async (
       newRenewalId,
       prefilledForm
     );
-    setFormData(syncedForm as RenewalFormState);
-    setStatusMessage(
-      synced
-        ? `Created renewal ${newRenewalId}; prefilled documents saved via upload-file.`
-        : `Created renewal application ${newRenewalId}.`
-    );
+setFormData(syncedForm as RenewalFormState);
+     setStatusMessage(
+       synced
+         ? `Created renewal ${getTextValue(created?.acknowledgementNo, newRenewalId)}; prefilled documents saved via upload-file.`
+         : `Created renewal application ${getTextValue(created?.acknowledgementNo, newRenewalId)}.`
+     );
     router.replace(
       `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(newRenewalId)}`
     );
@@ -1987,6 +1989,8 @@ function RenewalFormPageContent() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
   const [personalErrors, setPersonalErrors] = useState<Record<string, string>>({});
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
   const [occupationErrors, setOccupationErrors] = useState<Record<string, string>>({});
@@ -1998,6 +2002,10 @@ function RenewalFormPageContent() {
   const [declarationErrors, setDeclarationErrors] = useState<Record<string, string>>({});
 
   const toggleSection = (key: keyof typeof expandedSections) => {
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return;
+    }
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -2021,6 +2029,12 @@ function RenewalFormPageContent() {
             throw new Error('No saved renewal data was returned for the renewal ID.');
           }
 
+          const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
+          if (workflowCode === 'APPROVED') {
+            setIsReadOnly(true);
+            setShowReadOnlyModal(true);
+          }
+
           setRenewalRecord(renewalData);
           const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
           const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
@@ -2030,8 +2044,8 @@ function RenewalFormPageContent() {
           setFormData(syncedForm as RenewalFormState);
           setStatusMessage(
             synced
-              ? `Loaded renewal ${getTextValue(renewalData?.id, renewalId)}; prefilled documents saved via upload-file.`
-              : `Loaded renewal application ${getTextValue(renewalData?.id, renewalId)}.`
+              ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, renewalId)}; prefilled documents saved via upload-file.`
+              : `Loaded renewal application ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, renewalId)}.`
           );
           return;
         }
@@ -2080,10 +2094,14 @@ function RenewalFormPageContent() {
   }, [applicationId, renewalId, router]);
 
   function handleChange(
-    event:
-      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-      | { target: { name: string; value: unknown; type?: string; checked?: boolean } }
-  ) {
+          event:
+            | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+            | { target: { name: string; value: unknown; type?: string; checked?: boolean } }
+        ) {
+          if (isReadOnly) {
+            setShowReadOnlyModal(true);
+            return;
+          }
     const { name, type, value, checked } = event.target as {
       name: string;
       value?: unknown;
@@ -2147,13 +2165,15 @@ function RenewalFormPageContent() {
       clearFieldError(name);
 
       if (name === 'sameAsPresent' && rawValue === true) {
-        next.permanentAddress = '';
-        next.permanentState = '';
-        next.permanentDistrict = '';
-        next.permanentZone = '';
-        next.permanentDivision = '';
-        next.permanentPoliceStation = '';
-        next.permanentPincode = '';
+        next.permanentAddress = next.presentAddress || '';
+        next.permanentState = next.presentState || '';
+        next.permanentDistrict = next.presentDistrict || '';
+        next.permanentZone = next.presentZone || '';
+        next.permanentDivision = next.presentDivision || '';
+        next.permanentPoliceStation = next.presentPoliceStation || '';
+        next.permanentPincode = next.presentPincode || '';
+      } else if (name === 'sameAsPresent' && rawValue === false) {
+        // Clear permanent address fields when unchecked so user can enter different address
       }
 
       if (name === 'convictedStatus' && rawValue === false) {
@@ -2369,7 +2389,7 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    // Address validation (all required except phone fields)
+    // Address validation (core fields required)
     const validateAddressDetails = (data: RenewalFormState) => {
       const errs: Record<string, string> = {};
       const requireField = (key: string, label: string) => {
@@ -2380,20 +2400,14 @@ function RenewalFormPageContent() {
       requireField('presentAddress', 'Present address');
       requireField('presentState', 'Present state');
       requireField('presentDistrict', 'Present district');
-      requireField('presentZone', 'Present zone');
-      requireField('presentDivision', 'Present division');
-      requireField('presentPoliceStation', 'Present police station');
-      requireField('presentPincode', 'Present pincode');
-      requireField('residingSince', 'Residing since');
+      // Residing since is optional as it may not always be available
+      // Location hierarchy (zone, division, police station) may be optional based on jurisdiction
 
       if (!data.sameAsPresent) {
         requireField('permanentAddress', 'Permanent address');
         requireField('permanentState', 'Permanent state');
         requireField('permanentDistrict', 'Permanent district');
-        requireField('permanentZone', 'Permanent zone');
-        requireField('permanentDivision', 'Permanent division');
-        requireField('permanentPoliceStation', 'Permanent police station');
-        requireField('permanentPincode', 'Permanent pincode');
+        // Location hierarchy for permanent is optional
       }
 
       return errs;
@@ -2623,9 +2637,19 @@ function RenewalFormPageContent() {
     }
   };
 
-  const saveRenewalDraft = () => persistRenewalForm(false);
+  const saveRenewalDraft = () => {
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return;
+    }
+    persistRenewalForm(false);
+  };
 
   const saveAndContinue = async () => {
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return false;
+    }
     const declarationErrors: Record<string, string> = {};
     if (!formData.declaration?.agreeToTruth)
       declarationErrors['agreeToTruth'] = 'Please accept this declaration.';
@@ -2673,7 +2697,7 @@ function RenewalFormPageContent() {
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
       setFormData(syncedForm as RenewalFormState);
       setStatusMessage(
-        `Reloaded renewal application ${getTextValue(renewalData?.id, activeRenewalId)}.`
+        ` ${getTextValue(renewalData?.id, activeRenewalId)}.`
       );
     } catch (reloadError: any) {
       setError(reloadError?.message || 'Failed to reload renewal data.');
@@ -2682,52 +2706,91 @@ function RenewalFormPageContent() {
     }
   };
 
-  return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
-          <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
-            <div className='flex items-center justify-center'>
-              <div className='rounded-full bg-green-100 p-3'>
-                <svg
-                  className='h-6 w-6 text-green-600'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M5 13l4 4L19 7'
-                  />
-                </svg>
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+            <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+              <div className='flex items-center justify-center'>
+                <div className='rounded-full bg-green-100 p-3'>
+                  <svg
+                    className='h-6 w-6 text-green-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M5 13l4 4L19 7'
+                    />
+                  </svg>
+                </div>
               </div>
+              <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
+              <p className='text-center text-gray-600'>{successMessage}</p>
+              <button
+                onClick={handleSuccessContinue}
+                className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
+              >
+                Continue
+              </button>
             </div>
-            <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
-            <p className='text-center text-gray-600'>{successMessage}</p>
-            <button
-              onClick={handleSuccessContinue}
-              className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
-            >
-              Continue
-            </button>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Read-Only Modal */}
+        {showReadOnlyModal && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+            <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+              <div className='flex items-center justify-center'>
+                <div className='rounded-full bg-blue-100 p-3'>
+                  <svg
+                    className='h-6 w-6 text-blue-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h2 className='text-center text-lg font-semibold text-gray-900'>Application Read-Only</h2>
+              <p className='text-center text-gray-600'>
+                Your renewal application has already been submitted.
+              </p>
+              <button
+                onClick={() => setShowReadOnlyModal(false)}
+                className='w-full rounded-md bg-[#001F54] hover:bg-[#012a73] text-white font-medium py-2 px-4 transition'
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
 
       <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader
             applicationId={applicationId}
             renewalId={renewalId || createdRenewalIdRef.current || ''}
-            summaryData={renewalRecord || formData}
+            summaryData={formData || renewalRecord}
           />
 
           <form
             onSubmit={e => {
               e.preventDefault();
+              if (isReadOnly) {
+                setShowReadOnlyModal(true);
+                return;
+              }
               saveAndContinue();
             }}
             className='space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-gray-100'
@@ -2907,12 +2970,16 @@ function RenewalFormPageContent() {
                   Reload Saved Renewal Data
                 </button>
 
-                <div className='flex flex-wrap items-center gap-3'>
+                  <div className='flex flex-wrap items-center gap-3'>
                   <button
                     type='button'
                     onClick={() => saveRenewalDraft()}
                     disabled={isSaving}
-                    className='rounded-md border border-[#001F54] px-4 py-2 text-sm font-medium text-[#001F54] hover:bg-[#001F54]/5 disabled:cursor-not-allowed disabled:opacity-60'
+                    className={`rounded-md border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isReadOnly
+                        ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'border-[#001F54] text-[#001F54] hover:bg-[#001F54]/5'
+                    }`}
                   >
                     {isSaving ? 'Saving...' : 'Save Renewal Draft'}
                   </button>
@@ -2920,7 +2987,11 @@ function RenewalFormPageContent() {
                     type='button'
                     onClick={saveAndContinue}
                     disabled={isSaving}
-                    className='rounded-md bg-[#001F54] px-5 py-2 text-sm font-medium text-white hover:bg-[#012a73] disabled:cursor-not-allowed disabled:opacity-60'
+                    className={`rounded-md px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isReadOnly
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-[#001F54] hover:bg-[#012a73]'
+                    }`}
                   >
                     {isSaving ? 'Submitting...' : 'Save & Continue'}
                   </button>

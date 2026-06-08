@@ -147,8 +147,18 @@ const openPdfBlob = (blob: Blob, fileName?: string) => {
   const blobUrl = window.URL.createObjectURL(blob);
   const pdfWindow = window.open('', '_blank', 'noopener,noreferrer');
   if (pdfWindow) {
+    // Use iframe for better PDF rendering compatibility
     pdfWindow.document.write(
-      `<html><head><title>${fileName || 'Document'}</title></head><body style="margin:0;padding:0;overflow:hidden;background:#111;"><object data="${blobUrl}" type="application/pdf" style="width:100%;height:100vh;"></object></body></html>`,
+      `<!DOCTYPE html>
+<html>
+<head>
+  <title>${fileName || 'Document'}</title>
+  <style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#111}#pdf-frame{width:100%;height:100vh;border:none}</style>
+</head>
+<body>
+  <iframe id="pdf-frame" src="${blobUrl}" type="application/pdf"></iframe>
+</body>
+</html>`,
     );
   } else {
     window.open(blobUrl, '_blank', 'noopener,noreferrer');
@@ -193,20 +203,87 @@ export const openDocumentFile = async (fileUrl: string, fileName?: string) => {
 
   try {
     // 0) Blob URLs (local file preview before/without server upload)
+    // These can usually be opened directly, but we check mime type for consistency
     if (trimmed.startsWith('blob:')) {
-      window.open(trimmed, '_blank', 'noopener,noreferrer');
+      // Try to fetch the blob to check its type, fall back to direct open if it fails
+      try {
+        const response = await fetch(trimmed);
+        if (response.ok) {
+          const blob = await response.blob();
+          const mime = blob.type || guessMimeFromName(fileName);
+          if (mime.includes('pdf')) {
+            openPdfBlob(blob, fileName);
+          } else if (mime.startsWith('image/')) {
+            openImageBlob(blob, fileName);
+          } else {
+            window.open(trimmed, '_blank', 'noopener,noreferrer');
+          }
+        } else {
+          // Response not OK, fall back to direct open
+          window.open(trimmed, '_blank', 'noopener,noreferrer');
+        }
+      } catch {
+        // Fallback: blob URLs can be opened directly in most cases
+        window.open(trimmed, '_blank', 'noopener,noreferrer');
+      }
       return;
     }
 
-    // 1) Plain HTTP(S): open directly
+    // 1) Plain HTTP(S): resolve relative paths and open
     if (isHttpLike(trimmed)) {
-      window.open(trimmed, '_blank', 'noopener,noreferrer');
+      // For relative HTTP URLs, resolve against API server
+      if (trimmed.startsWith('//')) {
+        window.open(trimmed, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      // For absolute HTTP(S) URLs, fetch and preview to handle auth and proper rendering
+      const href = resolveFileHref(trimmed);
+      if (!href) {
+        toast.error('Unable to resolve file URL');
+        return;
+      }
+      try {
+        const headers: Record<string, string> = {};
+        const token = getAuthToken();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+        const response = await fetch(href, {
+          method: 'GET',
+          credentials: 'include',
+          headers,
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        const mime = blob.type || guessMimeFromName(fileName);
+        if (mime.includes('pdf')) {
+          openPdfBlob(blob, fileName);
+        } else if (mime.startsWith('image/')) {
+          openImageBlob(blob, fileName);
+        } else {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      } catch (fetchError: any) {
+        console.error('Failed to fetch document, falling back to direct open:', fetchError);
+        // Fallback: try direct open (may fail for auth-protected files)
+        window.open(href, '_blank', 'noopener,noreferrer');
+      }
       return;
     }
 
-    // 2) Data URL: open as-is (no re-fetch)
+    // 2) Data URL: convert to blob and preview properly (direct window.open often fails for PDFs)
     if (isDataUrl(trimmed)) {
-      window.open(trimmed, '_blank', 'noopener,noreferrer');
+      const mime = guessMimeFromName(fileName);
+      const blob = blobFromBase64(trimmed, mime);
+      if (mime === 'application/pdf') {
+        openPdfBlob(blob, fileName);
+      } else if (mime.startsWith('image/')) {
+        openImageBlob(blob, fileName);
+      } else {
+        downloadBlob(blob, fileName);
+      }
       return;
     }
 
