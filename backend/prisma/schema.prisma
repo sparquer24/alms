@@ -18,6 +18,7 @@ model Statuses {
   isStarted               Boolean                                  @default(false)
   applications            FreshLicenseApplicationPersonalDetails[] @relation("ApplicationWorkflowStatus")
   renewalApplications     RenewalFormPersonalDetails[]             @relation("RenewalApplicationWorkflowStatus")
+  cancelFormRequests      CancelFormRequests[]                     @relation("CancelFormWorkflowStatus")
 }
 
 model Actiones {
@@ -619,20 +620,22 @@ model LicensesMergeAuditLog {
 }
 
 model CancelFormRequests {
-  id                 Int      @id @default(autoincrement())
+  id                 Int        @id @default(autoincrement())
   applicationId      Int
   applicationType    String
   cancellationReason String
   remarks            String?
-  status             String   @default("PENDING")
+  status             String     @default("PENDING")
   requestedBy        Int
-  requestedDate      DateTime @default(now())
+  requestedDate      DateTime   @default(now())
   actionedBy         Int?
   actionedDate       DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  requester          Users    @relation("CancelRequestRequester", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  actioner           Users?   @relation("CancelRequestActioner", fields: [actionedBy], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  workFlowStatusId   Int?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  requester          Users      @relation("CancelRequestRequester", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actioner           Users?     @relation("CancelRequestActioner", fields: [actionedBy], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  workflowStatus     Statuses?  @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id], onDelete: SetNull)
 
   @@index([applicationId])
 }

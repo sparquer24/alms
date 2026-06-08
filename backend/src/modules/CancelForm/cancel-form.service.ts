@@ -130,6 +130,13 @@ export class CancelFormService {
               },
             },
           },
+          workflowStatus: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
           actioner: {
             select: {
               id: true,
@@ -208,6 +215,13 @@ export class CancelFormService {
                     name: true,
                   },
                 },
+              },
+            },
+            workflowStatus: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
               },
             },
             actioner: {
@@ -345,12 +359,28 @@ export class CancelFormService {
         throw new NotFoundException('Original application not found.');
       }
 
+      // Pre-fetch the CANCEL status if action is APPROVED (needed for both cancel request and application updates)
+      let cancelStatus: any = null;
+      if (dto.action === 'APPROVED') {
+        cancelStatus = await prisma.statuses.findFirst({
+          where: { code: ACTION_CODES.CANCEL },
+        });
+        if (!cancelStatus) {
+          throw new InternalServerErrorException('CANCEL status not found in the system.');
+        }
+      }
+
       // Update the cancel request status
       const updateData: any = {
         status: dto.action,
         actionedBy: currentUserId,
         actionedDate: new Date(),
       };
+
+      // Set the cancel request's own workflow status if approved
+      if (dto.action === 'APPROVED' && cancelStatus) {
+        updateData.workFlowStatusId = cancelStatus.id;
+      }
 
       if (dto.remarks) {
         // Preserve original remarks and append action remarks
@@ -369,15 +399,6 @@ export class CancelFormService {
 
       // If approved, update the original application to CANCELLED status
       if (dto.action === 'APPROVED') {
-        // Find the CANCEL status
-        const cancelStatus = await prisma.statuses.findFirst({
-          where: { code: ACTION_CODES.CANCEL },
-        });
-
-        if (!cancelStatus) {
-          throw new InternalServerErrorException('CANCEL status not found in the system.');
-        }
-
         // Find the CANCEL action from Actiones table for workflow history
         const cancelAction = await prisma.actiones.findFirst({
           where: { code: 'CANCEL' },

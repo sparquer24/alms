@@ -1099,6 +1099,7 @@ export class ApplicationFormService {
     order?: 'asc' | 'desc';
     isOwned?: boolean;
     isSent?: boolean;
+    applicationType?: string;
   }) {
     try {
       const where: any = {};
@@ -1359,41 +1360,52 @@ export class ApplicationFormService {
         },
       };
 
-      // Fetch Fresh License Applications
-      const [freshLicenseTotal, freshLicenseRawData] = await Promise.all([
-        prisma.freshLicenseApplicationPersonalDetails.count({ where }),
-        prisma.freshLicenseApplicationPersonalDetails.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: orderByObj,
-          select,
-        }),
-      ]);
+      // Determine which application types to fetch based on filter
+      const appType = filter.applicationType ? filter.applicationType.trim().toLowerCase() : undefined;
+      const fetchFresh = !appType || appType === 'freshlicense' || appType === 'fresh';
+      const fetchRenewal = !appType || appType === 'renewalform' || appType === 'renewal';
+      const fetchCancel = !appType || appType === 'cancelform' || appType === 'cancel';
 
-      // Transform Fresh License data
-      const freshLicenseTransformed = (freshLicenseRawData || []).map((row: any) => {
-        const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
-        const { firstName, middleName, lastName, ...rest } = row;
-        
-        return {
-          id: rest.id,
-          almsLicenseId: rest.almsLicenseId,
-          acknowledgementNo: rest.acknowledgementNo,
-          applicantName: parts.join(' '),
-          applicationType: 'Fresh License',
-          createdAt: rest.createdAt,
-          workflowStatusId: rest.workflowStatusId,
-          workflowStatus: rest.workflowStatus,
-          currentUser: rest.currentUser,
-          previousUser: rest.previousUser
-        };
-      });
-
-      // Fetch Renewal License Applications grouped by workflowStatusId
-      // (no pagination - get all renewals for the workflowStatusIds present in this page)
+      let freshLicenseTotal = 0;
+      let freshLicenseTransformed: any[] = [];
       let renewalByStatusId: Map<number, any[]> = new Map();
+      let cancelFormResult: { total: number; data: any[] } = { total: 0, data: [] };
 
+      // Fetch Fresh License Applications (paginated)
+      if (fetchFresh) {
+        const [count, rawData] = await Promise.all([
+          prisma.freshLicenseApplicationPersonalDetails.count({ where }),
+          prisma.freshLicenseApplicationPersonalDetails.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: orderByObj,
+            select,
+          }),
+        ]);
+        freshLicenseTotal = count;
+
+        freshLicenseTransformed = (rawData || []).map((row: any) => {
+          const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+          const { firstName, middleName, lastName, ...rest } = row;
+          
+          return {
+            id: rest.id,
+            almsLicenseId: rest.almsLicenseId,
+            acknowledgementNo: rest.acknowledgementNo,
+            applicantName: parts.join(' '),
+            applicationType: 'Fresh License',
+            createdAt: rest.createdAt,
+            workflowStatusId: rest.workflowStatusId,
+            workflowStatus: rest.workflowStatus,
+            currentUser: rest.currentUser,
+            previousUser: rest.previousUser
+          };
+        });
+      }
+
+      // Fetch Renewal License Applications (no pagination, grouped by workflowStatusId)
+      if (fetchRenewal) {
         const renewalRawData = await prisma.renewalFormPersonalDetails.findMany({
           where,
           select: {
@@ -1464,37 +1476,72 @@ export class ApplicationFormService {
           }
           renewalByStatusId.get(statusId)!.push(transformedRenewal);
         });
-      
+      }
 
-      // Build renewalDataByStatus: Map renewal data by workflowStatusId with fresh license's currentUser
+      // Fetch Cancel Form Requests (paginated)
+      if (fetchCancel) {
+        cancelFormResult = await this.getCancelFormRequests(filter);
+      }
+
+      // Build renewal data by status (only if fresh data exists to map currentUser)
       const renewalDataByStatus: { [key: number]: any[] } = {};
-      
-      // For each fresh license, if it's the first with its status, capture its currentUser
-      const statusUserMap: { [key: number]: any } = {};
-      freshLicenseTransformed.forEach((freshApp: any) => {
-        if (freshApp.workflowStatusId && !statusUserMap[freshApp.workflowStatusId]) {
-          statusUserMap[freshApp.workflowStatusId] = freshApp.currentUser;
-        }
-      });
+      if (fetchRenewal && renewalByStatusId.size > 0) {
+        // For each fresh license, if it's the first with its status, capture its currentUser
+        const statusUserMap: { [key: number]: any } = {};
+        freshLicenseTransformed.forEach((freshApp: any) => {
+          if (freshApp.workflowStatusId && !statusUserMap[freshApp.workflowStatusId]) {
+            statusUserMap[freshApp.workflowStatusId] = freshApp.currentUser;
+          }
+        });
 
-      // Attach fresh license's currentUser to each renewal record
-      renewalByStatusId.forEach((renewals: any[], statusId: number) => {
-        const freshLicenseUser = statusUserMap[statusId];
-        renewalDataByStatus[statusId] = renewals.map((renewal: any) => ({
-          ...renewal,
-          currentUser: freshLicenseUser // Use the fresh license's currentUser for this status
-        }));
-      });
+        // Attach fresh license's currentUser to each renewal record
+        renewalByStatusId.forEach((renewals: any[], statusId: number) => {
+          const freshLicenseUser = statusUserMap[statusId];
+          renewalDataByStatus[statusId] = renewals.map((renewal: any) => ({
+            ...renewal,
+            currentUser: freshLicenseUser
+          }));
+        });
+      } else if (fetchRenewal) {
+        // If only renewals are requested (no fresh data to map), keep renewals as-is
+        renewalByStatusId.forEach((renewals: any[], statusId: number) => {
+          renewalDataByStatus[statusId] = renewals;
+        });
+      }
 
-      // Combine fresh license data with renewal data in one array
-      const combinedData = [...freshLicenseTransformed];
-      Object.values(renewalDataByStatus).forEach((renewals: any[]) => {
-        combinedData.push(...renewals);
-      });
+      // Combine all data into one array
+      const combinedData: any[] = [];
 
-      // Return in the [error, result] tuple format used across the service methods
+      // Add fresh licenses first
+      if (fetchFresh) {
+        combinedData.push(...freshLicenseTransformed);
+      }
+
+      // Add renewals
+      if (fetchRenewal) {
+        Object.values(renewalDataByStatus).forEach((renewals: any[]) => {
+          combinedData.push(...renewals);
+        });
+      }
+
+      // Add cancel form requests
+      if (fetchCancel) {
+        combinedData.push(...cancelFormResult.data);
+      }
+
+      // Calculate total: use freshLicenseTotal as base, add cancel total when applicable
+      let total = freshLicenseTotal;
+      if (fetchCancel && !fetchFresh) {
+        // If only cancel is requested, use cancel total
+        total = cancelFormResult.total;
+      } else if (fetchCancel) {
+        // If cancel is combined with fresh/renewal, add cancel count
+        total = total + cancelFormResult.total;
+      }
+
+      // Return in the [error, result] tuple format
       return [null, { 
-        total: freshLicenseTotal, 
+        total, 
         page, 
         limit, 
         data: combinedData
@@ -1846,6 +1893,112 @@ export class ApplicationFormService {
     }
 
     return statusMap;
+  }
+
+  /**
+   * Fetch cancel form requests with filtering, pagination, and transform to unified format
+   */
+  private async getCancelFormRequests(filter: {
+    statusIds?: Array<number | string>;
+    currentUserId?: string;
+    page?: number;
+    limit?: number;
+    searchField?: string;
+    search?: string;
+    orderBy?: string;
+    order?: 'asc' | 'desc';
+    isOwned?: boolean;
+    isSent?: boolean;
+    applicationType?: string;
+  }): Promise<{ total: number; data: any[] }> {
+    const page = Math.max(Number(filter.page ?? 1), 1);
+    const limit = Math.max(Number(filter.limit ?? 10), 1);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    // User/citizen filter: map currentUserId to requestedBy for cancel form requests
+    if (filter.currentUserId) {
+      const parsedUserId = Number(filter.currentUserId);
+      if (!isNaN(parsedUserId)) {
+        where.requestedBy = parsedUserId;
+      }
+    }
+
+    // Status filter - map workflowStatusId filter to cancel request's workFlowStatusId
+    if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
+      const numericIds = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
+      if (numericIds.length > 0) {
+        where.workFlowStatusId = { in: numericIds };
+      }
+    }
+
+    // Search filter (only id supported for cancel form requests)
+    if (filter.searchField && filter.search) {
+      if (filter.searchField === 'id') {
+        const idVal = Number(filter.search);
+        if (!isNaN(idVal)) where.id = idVal;
+      }
+    }
+
+    // Ordering
+    const allowedOrderFields = ['id', 'createdAt'];
+    const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'createdAt';
+    const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const orderByObj: any = { [orderByField]: orderDirection };
+
+    const [total, rawData] = await Promise.all([
+      prisma.cancelFormRequests.count({ where }),
+      prisma.cancelFormRequests.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByObj,
+        include: {
+          workflowStatus: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+          requester: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  code: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const transformed = (rawData || []).map((row: any) => ({
+      id: row.id,
+      applicationId: row.applicationId,
+      cancellationReason: row.cancellationReason,
+      status: row.status,
+      acknowledgementNo: null,
+      applicantName: row.requester?.username || `Cancel Request #${row.id}`,
+      applicationType: 'Cancel Request',
+      createdAt: row.createdAt,
+      workflowStatusId: row.workFlowStatusId,
+      workflowStatus: row.workflowStatus,
+      currentUser: row.requester ? {
+        id: row.requester.id,
+        username: row.requester.username,
+        email: row.requester.email,
+        role: row.requester.role,
+      } : null,
+      previousUser: null,
+    }));
+
+    return { total, data: transformed };
   }
 
   /**

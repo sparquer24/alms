@@ -606,6 +606,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'statusIds', required: false, type: String })
   @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
   @ApiQuery({ name: 'isSent', required: false, type: Boolean, default: false})
+  @ApiQuery({ name: 'applicationType', required: false, type: String, description: 'Filter by application type: FreshLicense, RenewalForm, CancelForm. If omitted, returns all types.' })
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,
@@ -619,7 +620,8 @@ export class ApplicationFormController {
     @Query('acknowledgementNo') acknowledgementNo?: string,
     @Query('statusIds') statusIds?: string,
     @Query('isOwned', new ParseBoolPipe({ optional: true })) isOwned?: boolean,
-    @Query('isSent', new ParseBoolPipe({ optional: true })) isSent?: boolean
+    @Query('isSent', new ParseBoolPipe({ optional: true })) isSent?: boolean,
+    @Query('applicationType') applicationType?: string
   ) {
     try {
       // Parse pagination
@@ -685,6 +687,7 @@ export class ApplicationFormController {
         // applicationId: parsedApplicationId,
         isOwned: isOwned === true,
         isSent: isSent === true,
+        applicationType: applicationType,
       });
       if (error) {
         const errMsg = (error as any)?.message || 'Failed to fetch applications';
