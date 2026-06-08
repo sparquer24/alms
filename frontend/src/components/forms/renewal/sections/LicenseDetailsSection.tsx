@@ -174,7 +174,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     <div className='space-y-4'>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         <Select
-          label='15. Need for license (see note 1 below)'
+          label='Need for license (see note 1 below)'
           name='weaponReason'
           value={formData.weaponReason || ''}
           onChange={onChange}
@@ -190,7 +190,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
         />
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>17. Areas within which applicant wishes to carry arms <span className='text-red-500 ml-1'>*</span></p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>Areas within which applicant wishes to carry arms <span className='text-red-500 ml-1'>*</span></p>
           <p className='text-xs text-gray-500 mb-2'>Tick any of the options</p>
           {errors['carryAreaDistrict'] && !formData.carryAreaDistrict && !formData.carryAreaState && !formData.carryAreaIndia && (
             <p className='text-red-500 text-xs mb-2'>{errors['carryAreaDistrict']}</p>
@@ -218,7 +218,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
         </div>
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>16. Description of arms for which license is being sought <span className='text-red-500 ml-1'>*</span></p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>Description of arms for which license is being sought <span className='text-red-500 ml-1'>*</span></p>
           <p className='text-sm mb-1'>(a) Select any of the options <span className='text-red-500 ml-1'>*</span></p>
           <div className='flex items-center gap-4 mb-2'>
             <label className='inline-flex items-center gap-2'>
@@ -301,7 +301,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
 
         <div>
           <TextArea
-            label='18. Claims for special consideration for obtaining the licence, if any'
+            label='Claims for special consideration for obtaining the licence, if any'
             name='specialConsiderationClaim'
             value={formData.specialConsiderationClaim || ''}
             onChange={onChange}
@@ -373,7 +373,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
         </div>
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>19. Details for an application for license in Form IV <span className='text-red-500 ml-1'>*</span></p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>Details for an application for license in Form IV <span className='text-red-500 ml-1'>*</span></p>
           <Input
             label='(a) Place or area for which the licence is sought'
             name='formIVPlaceArea'

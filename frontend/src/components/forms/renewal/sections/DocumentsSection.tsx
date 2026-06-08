@@ -100,7 +100,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
 
   return (
     <div className='space-y-4'>
-      <p className='text-sm font-medium'>18. Claims for special consideration for obtaining the license, if any</p>
+      <p className='text-sm font-medium'>Claims for special consideration for obtaining the license, if any</p>
       <p className='text-xs text-gray-500'>(attach documentary evidence)</p>
 
       {!renewalId && (
