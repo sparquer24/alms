@@ -57,7 +57,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   const canAccessSettingsRaw: boolean | undefined = roleData.canAccessSettings ?? roleData.can_access_settings;
   let permissionsRaw: string[] | string | undefined = roleData.permissions;
   if (permissionsRaw === undefined) permissionsRaw = roleData.permission_list ?? roleData.PermissionList;
-  let menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
+  const menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
 
   // Parse stringified JSON arrays if needed
   const safeParse = <T,>(v: any): T | undefined => {

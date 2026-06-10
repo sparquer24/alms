@@ -7,7 +7,7 @@ import type { AppDispatch } from '../store/store';
 import { selectIsAuthenticated, selectCurrentUser, selectAuthLoading, selectAuthInitialized } from '../store/slices/authSlice';
 import { initializeAuth } from '../store/thunks/authThunks';
 import { shouldRedirectOnStartup } from '../config/roleRedirections';
-import { getCookie } from 'cookies-next';
+import { normalizeRole } from '../utils/roleUtils';
 
 export const AuthInitializer = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -19,37 +19,33 @@ export const AuthInitializer = () => {
   const isLoading = useSelector(selectAuthLoading);
   const initialized = useSelector(selectAuthInitialized);
 
-  // Initialize auth once on mount
+  // Initialize auth once on mount only
   useEffect(() => {
     dispatch(initializeAuth());
-  }, [dispatch]);
+    // Intentionally empty dependency array - run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Handle redirection after initialization
+  // Handle redirection after initialization for page refresh scenarios
   useEffect(() => {
+    // Only act after initialization and when on root path
     if (!initialized) return;
+    if (isLoading) return;
+    if (!isAuthenticated || !currentUser) return;
+    if (!pathname) return;
 
-    const handleRedirection = async () => {
-      // Only proceed if we have a current user (authenticated)
-      if (!isAuthenticated || !currentUser) {
-        // User is not authenticated - don't call logout, just let them stay unauthenticated
-        // They will be redirected to /login by route guards if needed
-        return;
-      }
+    // Normalize the role from the current user
+    const normalizedRole = normalizeRole(currentUser?.role);
 
-      const roleFromState = currentUser?.role;
-      const roleFromCookie = getCookie('role') as string | undefined;
-      const effectiveRole = roleFromState || (roleFromCookie ? String(roleFromCookie).toUpperCase() : undefined);
-
-      if (!effectiveRole) return;
-
-      const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname);
+    // Skip redirection on the root path '/' - layouts handle their own redirects
+    // This prevents double-redirects with the login page
+    if (pathname === '/') {
+      const redirectPath = shouldRedirectOnStartup(normalizedRole, pathname);
       if (redirectPath) {
-        await router.replace(redirectPath);
+        router.replace(redirectPath);
       }
-    };
-
-    handleRedirection();
-  }, [initialized, pathname, router, isAuthenticated, currentUser]);
+    }
+  }, [initialized, isLoading, isAuthenticated, currentUser, pathname, router]);
 
   return null;
 };

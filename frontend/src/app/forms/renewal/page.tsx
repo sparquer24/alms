@@ -2,6 +2,7 @@
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ApplicationFormSkeleton } from '../../../components/Skeleton';
 import { ApplicationService } from '../../../api/applicationService';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
@@ -2602,7 +2603,7 @@ function RenewalFormPageContent() {
       await RenewalService.updateRenewalForm(activeRenewalId, payload, { isSubmit });
 
       const reloadResponse = await RenewalService.getRenewalForm(activeRenewalId);
-      let saved = extractData(reloadResponse);
+      const saved = extractData(reloadResponse);
       setRenewalRecord(saved);
 
       if (saved) {
@@ -2808,9 +2809,7 @@ function RenewalFormPageContent() {
             </div>
 
             {isLoading && (
-              <div className='rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600'>
-                Loading renewal data...
-              </div>
+              <ApplicationFormSkeleton />
             )}
             {error && (
               <div className='rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
@@ -3008,11 +3007,7 @@ function RenewalFormPageContent() {
 export default function RenewalFormPage() {
   return (
     <Suspense
-      fallback={
-        <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 text-sm text-gray-600'>
-          Loading renewal form...
-        </div>
-      }
+      fallback={<ApplicationFormSkeleton />}
     >
       <RenewalFormPageContent />
     </Suspense>
