@@ -3,7 +3,7 @@ import prisma from '../../db/prismaClient';
 import { CreateCancelRequestDto } from './dto/create-cancel-request.dto';
 import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
 import { CancelRequestActionDto } from './dto/cancel-request-action.dto';
-import { STATUS_CODES, ACTION_CODES } from '../../constants/workflow-actions';
+import { ACTION_CODES } from '../../constants/workflow-actions';
 
 @Injectable()
 export class CancelFormService {
@@ -359,102 +359,111 @@ export class CancelFormService {
         throw new NotFoundException('Original application not found.');
       }
 
-      // Pre-fetch the CANCEL status if action is APPROVED (needed for both cancel request and application updates)
+      // Pre-fetch the CANCEL status and action if action is APPROVED
       let cancelStatus: any = null;
+      let cancelAction: any = null;
       if (dto.action === 'APPROVED') {
-        cancelStatus = await prisma.statuses.findFirst({
-          where: { code: ACTION_CODES.CANCEL },
-        });
+        [cancelStatus, cancelAction] = await Promise.all([
+          prisma.statuses.findFirst({ where: { code: ACTION_CODES.CANCEL } }),
+          prisma.actiones.findFirst({ where: { code: 'CANCEL' } }),
+        ]);
         if (!cancelStatus) {
           throw new InternalServerErrorException('CANCEL status not found in the system.');
         }
       }
 
-      // Update the cancel request status
-      const updateData: any = {
+      // Build the cancel request update payload
+      const cancelUpdateData: any = {
         status: dto.action,
         actionedBy: currentUserId,
         actionedDate: new Date(),
       };
 
-      // Set the cancel request's own workflow status if approved
       if (dto.action === 'APPROVED' && cancelStatus) {
-        updateData.workFlowStatusId = cancelStatus.id;
+        cancelUpdateData.workFlowStatusId = cancelStatus.id;
       }
 
       if (dto.remarks) {
-        // Preserve original remarks and append action remarks
         const originalRemarks = cancelRequest.remarks || '';
-        updateData.remarks = originalRemarks
+        cancelUpdateData.remarks = originalRemarks
           ? `${originalRemarks}\n[Action: ${dto.action}] ${dto.remarks}`
           : `[Action: ${dto.action}] ${dto.remarks}`;
       }
 
-      const updatedCancelRequest = await prisma.cancelFormRequests.update({
-        where: { id },
-        data: updateData,
-      });
-
+      let updatedCancelRequest: any;
       let cancelActionResult: any = { success: true, message: 'Cancel request updated.' };
 
-      // If approved, update the original application to CANCELLED status
       if (dto.action === 'APPROVED') {
-        // Find the CANCEL action from Actiones table for workflow history
-        const cancelAction = await prisma.actiones.findFirst({
-          where: { code: 'CANCEL' },
+        // Wrap all APPROVE operations in a transaction for atomicity
+        const txResult = await prisma.$transaction(async (tx: any) => {
+          // 1. Update the cancel request status
+          const updated = await tx.cancelFormRequests.update({
+            where: { id },
+            data: cancelUpdateData,
+          });
+
+          // 2. Update the original application to CANCELLED status
+          if (isRenewal) {
+            await tx.renewalFormPersonalDetails.update({
+              where: { id: cancelRequest.applicationId },
+              data: {
+                workflowStatusId: cancelStatus.id,
+                isPending: false,
+              },
+            });
+
+            // 3. Create workflow history entry for renewal
+            if (cancelAction) {
+              await tx.renewalApplicationsFormWorkflowHistories.create({
+                data: {
+                  applicationId: cancelRequest.applicationId,
+                  previousUserId: application.currentUserId || currentUserId,
+                  nextUserId: currentUserId,
+                  actionTaken: ACTION_CODES.CANCEL,
+                  remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,
+                  actionesId: cancelAction.id,
+                },
+              });
+            }
+          } else {
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: cancelRequest.applicationId },
+              data: {
+                workflowStatusId: cancelStatus.id,
+                isPending: false,
+              },
+            });
+
+            // 3. Create workflow history entry for fresh license
+            if (cancelAction) {
+              await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+                data: {
+                  applicationId: cancelRequest.applicationId,
+                  previousUserId: application.currentUserId || currentUserId,
+                  nextUserId: currentUserId,
+                  actionTaken: ACTION_CODES.CANCEL,
+                  remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,
+                  actionesId: cancelAction.id,
+                },
+              });
+            }
+          }
+
+          cancelActionResult = {
+            success: true,
+            message: 'cancel performed successfully.',
+          };
+
+          return updated;
         });
 
-        // Update the application to cancelled
-        if (isRenewal) {
-          await prisma.renewalFormPersonalDetails.update({
-            where: { id: cancelRequest.applicationId },
-            data: {
-              workflowStatusId: cancelStatus.id,
-              isPending: false,
-            },
-          });
-
-          // Create workflow history entry for renewal
-          if (cancelAction) {
-            await prisma.renewalApplicationsFormWorkflowHistories.create({
-              data: {
-                applicationId: cancelRequest.applicationId,
-                previousUserId: application.currentUserId || currentUserId,
-                nextUserId: currentUserId,
-                actionTaken: ACTION_CODES.CANCEL,
-                remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,
-                actionesId: cancelAction.id,
-              },
-            });
-          }
-        } else {
-          await prisma.freshLicenseApplicationPersonalDetails.update({
-            where: { id: cancelRequest.applicationId },
-            data: {
-              workflowStatusId: cancelStatus.id,
-              isPending: false,
-            },
-          });
-
-          // Create workflow history entry for fresh license
-          if (cancelAction) {
-            await prisma.freshLicenseApplicationsFormWorkflowHistories.create({
-              data: {
-                applicationId: cancelRequest.applicationId,
-                previousUserId: application.currentUserId || currentUserId,
-                nextUserId: currentUserId,
-                actionTaken: ACTION_CODES.CANCEL,
-                remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,
-                actionesId: cancelAction.id,
-              },
-            });
-          }
-        }
-
-        cancelActionResult = {
-          success: true,
-          message: 'cancel performed successfully.',
-        };
+        updatedCancelRequest = txResult;
+      } else {
+        // REJECTED path: single operation, no transaction needed
+        updatedCancelRequest = await prisma.cancelFormRequests.update({
+          where: { id },
+          data: cancelUpdateData,
+        });
       }
 
       return {
