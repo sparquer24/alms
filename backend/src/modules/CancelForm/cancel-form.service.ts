@@ -3,12 +3,15 @@ import prisma from '../../db/prismaClient';
 import { CreateCancelRequestDto } from './dto/create-cancel-request.dto';
 import { UpdateCancelRequestDto } from './dto/update-cancel-request.dto';
 import { CancelRequestActionDto } from './dto/cancel-request-action.dto';
-import { ACTION_CODES } from '../../constants/workflow-actions';
+import { ACTION_CODES, STATUS_CODES } from '../../constants/workflow-actions';
 
 @Injectable()
 export class CancelFormService {
   /**
-   * Submit a new cancel request for an application
+   * Submit a new cancel request for an application.
+   * Creates the cancel request record, sets the initial workflow status (INITIATE),
+   * and records a workflow history entry on the original application
+   * following the same pattern as Fresh/Renewal application submission.
    */
   async createCancelRequest(
     dto: CreateCancelRequestDto,
@@ -26,6 +29,7 @@ export class CancelFormService {
             id: true,
             isApproved: true,
             isRejected: true,
+            currentUserId: true,
             workflowStatus: {
               select: { code: true },
             },
@@ -38,6 +42,7 @@ export class CancelFormService {
             id: true,
             isApproved: true,
             isRejected: true,
+            currentUserId: true,
             workflowStatus: {
               select: { code: true },
             },
@@ -72,26 +77,69 @@ export class CancelFormService {
         throw new BadRequestException('A pending cancel request already exists for this application.');
       }
 
-      // Create the cancel request
-      const cancelRequest = await prisma.cancelFormRequests.create({
-        data: {
-          applicationId: dto.applicationId,
-          applicationType: dto.applicationType,
-          cancellationReason: dto.cancellationReason,
-          remarks: dto.remarks || null,
-          status: 'PENDING',
-          requestedBy: currentUserId,
-          requestedDate: new Date(),
+      // Find the initial workflow status (INITIATE/INITIATED) — same pattern as Fresh/Renewal submission
+      const initiateStatus = await prisma.statuses.findFirst({
+        where: {
+          code: { in: [STATUS_CODES.INITIATE, 'INITIATED'] },
+          isActive: true,
         },
-        include: {
-          requester: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
+        orderBy: { id: 'asc' },
+      });
+
+      // Wrap creation and workflow history in a transaction for atomicity
+      const cancelRequest = await prisma.$transaction(async (tx: any) => {
+        // Create the cancel request
+        const created = await tx.cancelFormRequests.create({
+          data: {
+            applicationId: dto.applicationId,
+            applicationType: dto.applicationType,
+            cancellationReason: dto.cancellationReason,
+            remarks: dto.remarks || null,
+            status: 'PENDING',
+            requestedBy: currentUserId,
+            requestedDate: new Date(),
+            // Set initial workflow status — same pattern as Fresh/Renewal submission
+            workFlowStatusId: initiateStatus?.id || null,
+          },
+          include: {
+            requester: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+              },
             },
           },
-        },
+        });
+
+        // Create a workflow history entry on the original application (same pattern as Fresh/Renewal)
+        if (initiateStatus) {
+          const effectiveUserId = currentUserId || application.currentUserId;
+
+          if (isRenewal) {
+            await tx.renewalApplicationsFormWorkflowHistories.create({
+              data: {
+                applicationId: dto.applicationId,
+                previousUserId: effectiveUserId,
+                nextUserId: effectiveUserId,
+                actionTaken: initiateStatus.code,
+                remarks: `Cancel request submitted. Reason: ${dto.cancellationReason}`,
+              },
+            });
+          } else {
+            await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+              data: {
+                applicationId: dto.applicationId,
+                previousUserId: effectiveUserId,
+                nextUserId: effectiveUserId,
+                actionTaken: initiateStatus.code,
+                remarks: `Cancel request submitted. Reason: ${dto.cancellationReason}`,
+              },
+            });
+          }
+        }
+
+        return created;
       });
 
       return cancelRequest;
