@@ -9,6 +9,7 @@ import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
 import { ApplicationService } from '../api/applicationService';
+import { fetchData } from '../api/axiosConfig';
 
 interface BreadcrumbItem {
   label: string;
@@ -46,6 +47,11 @@ const Header = (props: HeaderProps) => {
   const [renewalApplicationId, setRenewalApplicationId] = useState('');
   const [renewalLookupError, setRenewalLookupError] = useState<string | null>(null);
   const [isRenewalLookupLoading, setIsRenewalLookupLoading] = useState(false);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  const [cancellationApplicationId, setCancellationApplicationId] = useState('');
+  const [cancellationType, setCancellationType] = useState('');
+  const [cancellationLookupError, setCancellationLookupError] = useState<string | null>(null);
+  const [isCancellationLookupLoading, setIsCancellationLookupLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -63,6 +69,11 @@ const Header = (props: HeaderProps) => {
         setRenewalApplicationId('');
         setRenewalLookupError(null);
         setShowRenewalModal(true);
+      } else if (type.key === 'cancellation') {
+        setCancellationType('');
+        setCancellationApplicationId('');
+        setCancellationLookupError(null);
+        setShowCancellationModal(true);
       } else {
         router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
       }
@@ -108,6 +119,47 @@ const Header = (props: HeaderProps) => {
       onShowMessage?.(message, 'error');
     } finally {
       setIsRenewalLookupLoading(false);
+    }
+  };
+
+  const handleCancellationSubmit = async () => {
+    const type = cancellationType.trim();
+    const id = cancellationApplicationId.trim();
+
+    if (!type) {
+      setCancellationLookupError('Select Application Type.');
+      return;
+    }
+    if (!id) {
+      setCancellationLookupError('Enter Application ID.');
+      return;
+    }
+
+    try {
+      setIsCancellationLookupLoading(true);
+      setCancellationLookupError(null);
+
+      const endpoint = type === 'RenewalApplicationForm'
+        ? `/renewal-forms/application/${encodeURIComponent(id)}`
+        : `/application-form/?applicationId=${encodeURIComponent(id)}`;
+
+      const response = await fetchData(endpoint);
+      const applicationData = response?.data ?? response;
+
+      if (!applicationData) {
+        throw new Error('Application not found for the provided ID.');
+      }
+
+      setShowCancellationModal(false);
+      router.push(
+        `/forms/CancellationApplication?type=${encodeURIComponent(type)}&applicationId=${encodeURIComponent(id)}`
+      );
+    } catch (error: any) {
+      const message = error?.message || 'Unable to fetch application data.';
+      setCancellationLookupError(message);
+      onShowMessage?.(message, 'error');
+    } finally {
+      setIsCancellationLookupLoading(false);
     }
   };
 
@@ -331,6 +383,65 @@ const Header = (props: HeaderProps) => {
                 className='rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73] disabled:cursor-not-allowed disabled:opacity-70'
               >
                 {isRenewalLookupLoading ? 'Loading…' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancellationModal && (
+        <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
+          <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
+            <h2 className='text-lg font-semibold text-gray-900'>Cancellation Application</h2>
+            <p className='mt-2 text-sm text-gray-600'>Provide the application details to load the cancellation form.</p>
+
+            <div className='mt-4'>
+              <label htmlFor='cancellation-type' className='block text-sm font-medium text-gray-700'>Application Type</label>
+              <select
+                id='cancellation-type'
+                value={cancellationType}
+                onChange={e => {
+                  setCancellationType(e.target.value);
+                  if (cancellationLookupError) setCancellationLookupError(null);
+                }}
+                className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
+              >
+                <option value=''>Select type</option>
+                <option value='FreshLicenseApplicationForm'>Fresh License</option>
+                <option value='RenewalApplicationForm'>Renewal</option>
+              </select>
+            </div>
+
+            <div className='mt-4'>
+              <label htmlFor='cancellation-application-id' className='block text-sm font-medium text-gray-700'>Application ID</label>
+              <input
+                id='cancellation-application-id'
+                value={cancellationApplicationId}
+                onChange={e => {
+                  setCancellationApplicationId(e.target.value);
+                  if (cancellationLookupError) setCancellationLookupError(null);
+                }}
+                placeholder='Enter Application ID'
+                className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
+              />
+              {cancellationLookupError && <p className='mt-2 text-sm text-red-600'>{cancellationLookupError}</p>}
+            </div>
+
+            <div className='mt-6 flex justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => setShowCancellationModal(false)}
+                className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+              >
+                Close
+              </button>
+              <button
+                type='button'
+                onClick={handleCancellationSubmit}
+                disabled={isCancellationLookupLoading}
+                className='rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73] disabled:cursor-not-allowed disabled:opacity-70'
+              >
+                {isCancellationLookupLoading ? 'Loading…' : 'Submit'}
               </button>
             </div>
           </div>
