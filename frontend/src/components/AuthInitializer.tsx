@@ -42,7 +42,7 @@ export const AuthInitializer = () => {
 
       if (!effectiveRole) return;
 
-      const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname);
+      const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname ?? undefined);
       if (redirectPath) {
         await router.replace(redirectPath);
       }
