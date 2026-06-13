@@ -1,5 +1,4 @@
 services:
-
   backend-prod:
     build:
       context: ./backend
@@ -79,6 +78,7 @@ services:
       backend-prod:
         condition: service_healthy
       frontend-prod:
+        condition: service_started
     networks:
       - alms-prod-net
     deploy:
@@ -91,7 +91,3 @@ services:
 networks:
   alms-prod-net:
     driver: bridge
-    
-# NOTE: This compose file is now for standalone production only.
-# For unified dev+prod setup with single Nginx, use:
-# docker-compose -f docker-compose.unified.yml up
