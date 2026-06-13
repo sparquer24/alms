@@ -2,7 +2,7 @@ import toast from 'react-hot-toast';
 import jsCookie from 'js-cookie';
 
 const getApiServerOrigin = () => {
-  const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$/, '');
   return apiBase.replace(/\/api$/, '') || apiBase;
 };
 

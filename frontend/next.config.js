@@ -70,12 +70,18 @@ const nextConfig = {
   async generateBuildId() {
     return 'build-' + Date.now();
   },
-  // Disable prerendering for error pages
+  // Proxy /api/* requests to the backend server
+  // Set BACKEND_URL env var at runtime (e.g., http://host.docker.internal:3001)
   async rewrites() {
     return {
       beforeFiles: [],
       afterFiles: [],
-      fallback: []
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/:path*`,
+        },
+      ],
     };
   },
   // Add security headers
