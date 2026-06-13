@@ -454,9 +454,11 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
               {(() => {
                 const baseWidths = isSentPage
                   ? ['5%', '30%', '20%', '20%', '15%']
-                  : ['5%', '15%', '20%', '15%', '15%', '20%'];
+                  : showActionColumn
+                    ? ['5%', '20%', '25%', '15%', '15%', '12%']
+                    : ['5%', '20%', '25%', '15%', '20%', '15%'];
                 const cols = [...baseWidths];
-                if (showActionColumn) cols.push('10%');
+                if (showActionColumn) cols.push('8%');
                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
               })()}
             </colgroup>
@@ -482,9 +484,11 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
               {(() => {
                 const baseWidths = isSentPage
                   ? ['5%', '30%', '20%', '20%', '15%']
-                  : ['5%', '15%', '20%', '15%', '15%', '20%'];
+                  : showActionColumn
+                    ? ['5%', '20%', '25%', '15%', '15%', '12%']
+                    : ['5%', '20%', '25%', '15%', '20%', '15%'];
                 const cols = [...baseWidths];
-                if (showActionColumn) cols.push('10%');
+                if (showActionColumn) cols.push('8%');
                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
               })()}
             </colgroup>

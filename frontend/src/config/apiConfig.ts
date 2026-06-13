@@ -1,6 +1,6 @@
 // API Configuration
 export const apiConfig = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
+  baseURL: (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$/, ''),
   
   // Authentication endpoints
   auth: {

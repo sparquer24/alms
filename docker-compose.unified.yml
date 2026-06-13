@@ -92,9 +92,11 @@ services:
     env_file:
       - ./.env.prod
     environment:
-      BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3001}
-      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://prod.alms.sparquer.com/api
       PORT: 5001
+      JWT_SECRET: 3097adb9893605ecbca993d05142aef1d4a92cd44f6ece72f32750f6697b82555d2634fa846a2ae78c2465d637b04568244fefaaf5e5f3514b92f357e43111d7
+      DATABASE_URL: postgresql://alms:rI1VQZgWmRN6msBORF8f@almsdev.cta888eqmcrq.ap-south-1.rds.amazonaws.com:5432/alms_prod?connection_limit=20&pool_timeout=20&connect_timeout=10&socket_timeout=30
+
     ports:
       - "5001:5001"  # Expose for system nginx access
     depends_on:
