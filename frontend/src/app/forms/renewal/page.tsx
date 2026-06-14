@@ -2701,7 +2701,7 @@ function RenewalFormPageContent() {
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
       setFormData(syncedForm as RenewalFormState);
       setStatusMessage(
-        ` ${getTextValue(renewalData?.id, activeRenewalId)}.`
+        `Reloaded renewal data for ID ${getTextValue(renewalData?.id, activeRenewalId)}.`
       );
     } catch (reloadError: any) {
       setError(reloadError?.message || 'Failed to reload renewal data.');
