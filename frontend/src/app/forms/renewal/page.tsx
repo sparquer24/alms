@@ -55,6 +55,7 @@ type RenewalFormState = {
   presentDivision: string;
   presentPoliceStation: string;
   jurisdictionPoliceStation: string;
+  presentPincode: string;
   residingSince: string;
   sameAsPresent: boolean;
   permanentAddress: string;
@@ -63,6 +64,7 @@ type RenewalFormState = {
   permanentZone: string;
   permanentDivision: string;
   permanentPoliceStation: string;
+  permanentPincode: string;
   officePhone: string;
   residencePhone: string;
   officeMobile: string;
