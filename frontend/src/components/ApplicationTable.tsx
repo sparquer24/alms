@@ -219,7 +219,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 (draftApp as any)?.freshApplicationId ||
                 (draftApp as any)?.sourceApplicationId ||
                 (draftApp as any)?.renewalLicenseId ||
-                id
+                ''
               );
 
               await router.push(

@@ -2375,12 +2375,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
                         <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
-                          {application &&
-                          application.workflowHistories &&
-                          application.workflowHistories.length > 0 ? (
-                            <div className='space-y-5'>
-                              {application.workflowHistories.map((h, idx) => {
-                                const actionLower = h.actionTaken.toLowerCase();
+{application &&
+                           application.workflowHistories &&
+                           application.workflowHistories.length > 0 ? (
+                             <div className='space-y-5'>
+                               {application.workflowHistories.map((h, idx) => {
+                                 const actionTaken = h?.actionTaken || h?.action || 'Unknown Action';
+                                 const actionLower = actionTaken.toLowerCase();
                                 const color = actionLower.includes('forward')
                                   ? 'border-orange-500'
                                   : actionLower.includes('approve')
@@ -2398,13 +2399,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                         actionLower.includes('return')
                                       ? 'bg-red-50'
                                       : 'bg-blue-50';
-                                const attachmentsArr = h.attachments;
-                                const hasAttachments =
-                                  Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
-                                const hasRemarks = !!h.remarks;
-                                const hasDetails = hasAttachments || hasRemarks;
-                                const isExpanded = !!expandedHistory[idx];
-                                const historyDate = new Date(h.createdAt);
+const attachmentsArr = h.attachments || [];
+                                 const hasAttachments =
+                                   Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
+                                 const hasRemarks = !!(h.remarks || (h as any).comment);
+                                 const hasDetails = hasAttachments || hasRemarks;
+                                 const createdAt = h.createdAt || h.date || h.timestamp;
+                                 const isExpanded = !!expandedHistory[idx];
+                                 const historyDate = createdAt ? new Date(createdAt) : new Date();
                                 const formattedDate = historyDate.toLocaleDateString('en-IN', {
                                   year: 'numeric',
                                   month: 'short',
@@ -2434,9 +2436,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                         <p className='text-xs text-gray-600 mt-0.5'>
                                           {previousRoleName}
                                         </p>
-                                        <p className='text-sm text-gray-700 font-medium mt-1'>
-                                          {h.actionTaken}
-                                        </p>
+<p className='text-sm text-gray-700 font-medium mt-1'>
+                                           {actionTaken}
+                                         </p>
                                         {nextUserName && (
                                           <p className='text-xs text-gray-600 mt-1'>
                                             → Forwarded to:{' '}

@@ -14,7 +14,6 @@ import { PageLayoutSkeleton, DashboardStatsSkeleton } from "../components/Skelet
 import Footer from "@/components/Footer";
 
 
-
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -25,48 +24,21 @@ export default function Home() {
   const { setShowHeader, setShowSidebar } = useLayout();
   const router = useRouter();
 
-  // Synchronous cookie-read fallback for faster role-based redirects.
-  // This mirrors the logic used in Sidebar to avoid waiting for async hydration.
-  const getUserRoleFromCookie = () => {
-    if (typeof window === 'undefined' || !document?.cookie) return undefined;
-    try {
-      const raw = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('user='));
-      if (!raw) return undefined;
-      let value = raw.substring('user='.length);
-      let decoded = decodeURIComponent(value);
-      if (decoded.startsWith('j:')) decoded = decoded.slice(2);
-      if ((decoded.startsWith('"') && decoded.endsWith('"')) || (decoded.startsWith("'") && decoded.endsWith("'"))) {
-        decoded = decoded.slice(1, -1);
-      }
-      const parsed = JSON.parse(decoded);
-      const roleObj = parsed?.role ?? parsed;
-      if (!roleObj) return undefined;
-      if (typeof roleObj === 'string') return roleObj.toUpperCase();
-      if (typeof roleObj === 'object') {
-        if (roleObj.code) return String(roleObj.code).toUpperCase();
-        if (roleObj.name) return String(roleObj.name).toUpperCase();
-      }
-    } catch (err) {
-      // ignore parse errors - fallback to async value from hook
-    }
-    return undefined;
-  };
-
+  // Handle redirection after auth initialization on root path
   useEffect(() => {
-    if (!initialized) return;
-    if (!isLoading && !isAuthenticated) {
+    if (!initialized || isLoading) return;
+
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
       router.push('/login');
       return;
     }
 
-    if (!isLoading && isAuthenticated) {
-      const effectiveRole = userRole || getUserRoleFromCookie();
-      if (effectiveRole) {
-        const redirectPath = shouldRedirectOnStartup(effectiveRole, '/');
-        if (redirectPath) {
-          router.replace(redirectPath);
-          return;
-        }
+    // If authenticated, redirect based on role
+    if (userRole) {
+      const redirectPath = shouldRedirectOnStartup(userRole, '/');
+      if (redirectPath) {
+        router.replace(redirectPath);
       }
     }
   }, [isAuthenticated, isLoading, userRole, initialized, router]);
@@ -115,8 +87,8 @@ export default function Home() {
     // Here you would typically reset the data to its original state
   };
 
-  // Show loading screen while checking authentication
-  if (isLoading) {
+  // Show loading screen while checking authentication or during redirect
+  if (!initialized || isLoading) {
     return (
       <PageLayoutSkeleton>
         <DashboardStatsSkeleton />

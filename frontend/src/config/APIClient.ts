@@ -62,7 +62,7 @@ export const AuthApi = {
         const status = primaryErr?.response?.status;
         // Dev-time debug
         if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
+           
           console.debug('[AuthApi.login] primary login failed', { url, status, err: primaryErr?.response?.data ?? primaryErr?.message });
         }
         if (status === 404 || status === 405) {
@@ -76,14 +76,14 @@ export const AuthApi = {
           }
           try {
             if (process.env.NODE_ENV === 'development') {
-              // eslint-disable-next-line no-console
+               
               console.debug('[AuthApi.login] attempting alternate login URL', { alternate });
             }
             const resp2 = await axiosInstance.post(alternate, params as any, { headers: axiosHeaders });
             return resp2.data as any;
           } catch (altErr: any) {
             if (process.env.NODE_ENV === 'development') {
-              // eslint-disable-next-line no-console
+               
               console.debug('[AuthApi.login] alternate login also failed', { alternate, status: altErr?.response?.status, err: altErr?.response?.data ?? altErr?.message });
             }
             throw altErr;
@@ -210,7 +210,7 @@ export const ApplicationApi = {
     }
   },
 
-  getById: async (id: Number): Promise<ApiResponse<Application>> => {
+  getById: async (id: number): Promise<ApiResponse<Application>> => {
     try {
       return await apiClient.get(`/application-form/?applicationId=${id}`);
     } catch (error) {
@@ -568,7 +568,7 @@ export const DashboardApi = {
           });
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.error('[DashboardApi] Failed to fetch states:', err);
       }
 
@@ -584,7 +584,7 @@ export const DashboardApi = {
           });
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.error('[DashboardApi] Failed to fetch trends:', err);
       }
 
@@ -600,7 +600,7 @@ export const DashboardApi = {
           }));
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.error('[DashboardApi] Failed to fetch activities:', err);
       }
 

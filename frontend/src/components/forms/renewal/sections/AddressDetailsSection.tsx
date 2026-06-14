@@ -47,11 +47,7 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
         </div>
 
         <div>
-          <Input label='Present Pincode' name='presentPincode' value={formData.presentPincode || ''} onChange={onChange} required error={errors['presentPincode']} />
-        </div>
-
-        <div>
-          <Input label='Residing Since' type='date' name='residingSince' value={formData.residingSince || ''} onChange={onChange} required error={errors['residingSince']} />
+          <Input label='Residing Since' type='date' name='residingSince' value={formData.residingSince || ''} onChange={onChange} error={errors['residingSince']} />
         </div>
 
         <div className='col-span-1 md:col-span-2'>
@@ -79,10 +75,7 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
               />
             </div>
 
-            <div>
-              <Input label='Permanent Pincode' name='permanentPincode' value={formData.permanentPincode || ''} onChange={onChange} required error={errors['permanentPincode']} />
-            </div>
-          </>
+            </>
         )}
 
         {/* Contact Numbers (optional) */}

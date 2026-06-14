@@ -1,26 +1,29 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
-import { PageLayoutSkeleton } from '../../components/Skeleton';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 
 import { LayoutProvider } from '@/config/layoutContext';
 
-import { canAccessAdmin } from '@/utils/roleUtils';
-
+import { normalizeRole } from '@/utils/roleUtils';
 
 
 export default function AdminLayout({ children }: { children: any }) {
   const { userRole, token, isLoading, initialized } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [checked, setChecked] = useState(false);
 
+  const effectiveRole = useMemo(() => {
+    return normalizeRole(userRole);
+  }, [userRole]);
+
   useEffect(() => {
-    if (checked || isLoading || !initialized) return;
+    // Wait until auth is initialized and we have the necessary values
+    if (!initialized || isLoading) return;
+    if (checked) return;
 
     // Check token
     if (!token) {
@@ -29,22 +32,28 @@ export default function AdminLayout({ children }: { children: any }) {
     }
 
     // Check role exists
-    if (!userRole) {
+    if (!effectiveRole) {
       router.replace('/login?error=no_role');
       return;
     }
 
-    // Check if user has admin access
-    if (!canAccessAdmin(userRole)) {
+    // SUPER_ADMIN should be redirected to superAdmin routes
+    if (effectiveRole === 'SUPER_ADMIN') {
+      router.replace('/superAdmin/userManagement');
+      return;
+    }
+
+    // Check if user has admin access (only ADMIN role, not SUPER_ADMIN)
+    if (effectiveRole !== 'ADMIN') {
       router.replace('/');
       return;
     }
 
     setChecked(true);
-  }, [token, userRole, isLoading, initialized, checked, router]);
+  }, [token, effectiveRole, isLoading, initialized, checked, router]);
 
   // Show loading while checking authentication
-  if (isLoading || !checked) {
+  if (isLoading || !checked || !initialized) {
     return (
       <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
         <div className='text-center'>
@@ -56,8 +65,8 @@ export default function AdminLayout({ children }: { children: any }) {
   }
 
   // Don't render anything if user is not authenticated as admin
-  if (!token || !userRole || !canAccessAdmin(userRole)) {
-    return null; // Don't render anything while redirecting
+  if (!token || !effectiveRole || effectiveRole !== 'ADMIN') {
+    return null;
   }
 
   return (

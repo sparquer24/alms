@@ -65,7 +65,8 @@ export default function RenewalApplicationDetailsPage() {
         setError(null);
 
         const response = await RenewalService.getRenewalForm(id);
-        const payload = (response as any)?.data ?? response;
+        const root = (response as any)?.data ?? (response as any)?.body ?? response;
+        const payload = root?.data && typeof root.data === 'object' && !Array.isArray(root.data) ? root.data : root;
 
         if (!payload) {
           throw new Error('Renewal application not found');
@@ -158,7 +159,7 @@ export default function RenewalApplicationDetailsPage() {
           <div className='border-t border-slate-200 px-6 py-5 flex flex-wrap gap-3'>
             <button
               type='button'
-              onClick={() => router.push(`/forms/renewal?applicationId=${encodeURIComponent(String(application.id))}`)}
+              onClick={() => router.push(`/forms/renewal?renewalId=${encodeURIComponent(String(id))}`)}
               className='rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800'
             >
               Open Renewal Form

@@ -1,15 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { getCookie } from 'cookies-next';
 import Image from 'next/image';
-import Link from 'next/link';
 import Footer from '../../components/Footer';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import { navigateToDefaultMenu } from '../../utils/navigationUtils';
 
 const ImageFixed = Image as any;
-const LinkFixed = Link as any;
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { login } from '../../store/thunks/authThunks';
@@ -18,10 +15,12 @@ import {
   selectAuthError,
   selectIsAuthenticated,
   selectAuthInitialized,
+  selectCurrentUser,
   setError,
 } from '../../store/slices/authSlice';
 import type { AppDispatch } from '../../store/store';
 import { LoginSkeleton } from '../../components/Skeleton';
+import { normalizeRole } from '../../utils/roleUtils';
 
 interface LoginFormData {
   username: string;
@@ -67,7 +66,8 @@ const useUrlErrorHandler = (dispatch: AppDispatch) => {
       const errorMessage = ERROR_MESSAGES[urlError] || ERROR_MESSAGES.default;
       dispatch(setError(errorMessage));
     }
-  }, [searchParams, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 };
 
 const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
@@ -152,21 +152,21 @@ function LoginContent() {
   const error = useSelector(selectAuthError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const authInitialized = useSelector(selectAuthInitialized);
+  const currentUser = useSelector(selectCurrentUser);
 
   // If the user is already authenticated, redirect them away from login page
+  // This effect only runs once on mount to avoid duplicate redirects
   useEffect(() => {
-    if (authInitialized && isAuthenticated) {
-      // Read role from cookie for the redirect
-      const roleCookie = getCookie('role');
-      if (roleCookie) {
-        const normalizedRole = String(roleCookie).replace(/"/g, '').trim().toUpperCase();
-        const redirectPath = getRoleBasedRedirectPath(normalizedRole);
-        router.replace(redirectPath);
-      } else {
-        router.replace('/inbox?type=forwarded');
-      }
+    if (!authInitialized || !isAuthenticated) return;
+    if (!currentUser) return;
+
+    // Get role from current user and redirect
+    const userRole = currentUser?.role ? normalizeRole(currentUser.role) : null;
+    if (userRole) {
+      const redirectPath = getRoleBasedRedirectPath(userRole);
+      router.replace(redirectPath);
     }
-  }, [authInitialized, isAuthenticated, router]);
+  }, [authInitialized, isAuthenticated, currentUser, router]);
 
   const { formData, updateField, resetForm, isFormValid } = useLoginForm();
   useUrlErrorHandler(dispatch);

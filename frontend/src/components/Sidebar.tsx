@@ -383,7 +383,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         .map(c => c.trim())
         .find(c => c.startsWith('user='));
       if (!raw) return undefined;
-      let value = raw.substring('user='.length);
+      const value = raw.substring('user='.length);
       let decoded = decodeURIComponent(value);
       if (decoded.startsWith('j:')) decoded = decoded.slice(2);
       if (
@@ -748,7 +748,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   // Auto-load inbox when activeItem points to inbox-{type}
   // We intentionally exclude `activeStatusIds` from deps to avoid triggering
   // the effect when we restore status ids from localStorage (which would loop).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     try {
       if (activeItem && activeItem.startsWith('inbox-')) {

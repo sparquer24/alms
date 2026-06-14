@@ -65,7 +65,7 @@ const MultiStepForm: React.FC = () => {
 };
 
 
-let InputWithDownside = {
+const InputWithDownside = {
     className:"border-b-2 border-b-gray w-[250px] focus:ring-2 focus:ring-blue-500"
 }
 

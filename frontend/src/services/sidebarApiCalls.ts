@@ -490,7 +490,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
   // debug: log statusKey -> statusIds mapping
   try {
-    // eslint-disable-next-line no-console
+     
     console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
   } catch (e) { }
   if (statusIds.length === 0) {
@@ -794,7 +794,7 @@ export const getApplicationsByStatus = (
 /**
  * Fetch a specific application by ID
  */
-export const fetchApplicationById = async (id: Number): Promise<ApplicationData | null> => {
+export const fetchApplicationById = async (id: number): Promise<ApplicationData | null> => {
   try {
     const response = await ApplicationApi.getById(id);
 
@@ -876,11 +876,11 @@ export const getApplicationByApplicationId = async (applicationId: string | numb
     const took = Date.now() - start;
     // Response may be wrapped in an ApiResponse { success, data } OR may be the raw application object.
     // Normalize both shapes for downstream processing and log timing for frontend diagnostics.
-    // eslint-disable-next-line no-console
+     
     console.debug('[sidebarApiCalls] getApplicationByApplicationId fetch', { applicationId, took, rawResponse: response });
 
     // If API follows wrapped response pattern, extract data
-    let detailedApplicationData: any = response && (response as any).data ? (response as any).data : response;
+    const detailedApplicationData: any = response && (response as any).data ? (response as any).data : response;
     // If response explicitly signals failure, bail out early
     if ((response as any)?.success === false) {
       return null;

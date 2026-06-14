@@ -227,7 +227,7 @@ const RichTextEditor: React.FC = () => {
   const exec = (command: string, value?: string) => {
     // document.execCommand's third argument expects string|undefined; use a cast to satisfy TS
     // value may be undefined when not needed.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     document.execCommand(command, false, value as any);
     editorRef.current?.focus();
   };

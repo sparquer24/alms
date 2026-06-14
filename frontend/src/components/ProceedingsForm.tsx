@@ -226,7 +226,7 @@ export default function ProceedingsForm({
             try {
               const t = String(cookieAuth || '');
               const masked = t.length > 8 ? `${t.slice(0, 4)}...${t.slice(-4)}` : t;
-              // eslint-disable-next-line no-console
+               
             } catch (e) {}
           }
         } catch (e) {}

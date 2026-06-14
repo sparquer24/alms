@@ -21,8 +21,53 @@ const ROLE_REDIRECT_MAP: Record<string, string> = {
   'ADO': '/inbox?type=forwarded',
   'CADO': '/inbox?type=forwarded',
   'AS': '/inbox?type=forwarded',
+  'ARMS_SEAT': '/inbox',
+  'ACO': '/inbox',
   'APPLICANT': '/inbox?type=sent',
 };
+
+// Numeric role ID to role code mapping (mirrored from roleUtils.ts)
+const NUMERIC_ROLE_MAP: Record<string, string> = {
+  '2': 'ZS',
+  '3': 'ADMIN',
+  '7': 'ZS',
+  '12': 'SUPER_ADMIN',
+  '14': 'ADMIN',
+  '15': 'SUPER_ADMIN',
+  '16': 'SUPER_ADMIN',
+};
+
+/**
+ * Normalize a role to uppercase string (server-side version)
+ */
+function normalizeRole(role: string | number | object | undefined | null): string | undefined {
+  if (!role) return undefined;
+
+  if (typeof role === 'string') {
+    const trimmed = role.trim();
+    if (/^[0-9]+$/.test(trimmed)) {
+      return NUMERIC_ROLE_MAP[trimmed] || trimmed;
+    }
+    return trimmed.toUpperCase();
+  }
+
+  if (typeof role === 'number') {
+    const asString = String(role);
+    return NUMERIC_ROLE_MAP[asString] || asString;
+  }
+
+  if (typeof role === 'object') {
+    const roleObj = role as Record<string, any>;
+    if (roleObj.code && typeof roleObj.code === 'string') {
+      return roleObj.code.toUpperCase();
+    }
+    if (roleObj.name && typeof roleObj.name === 'string') {
+      return roleObj.name.toUpperCase();
+    }
+  }
+
+  return undefined;
+}
 
 /**
  * Get the role from cookies by checking multiple cookie keys.
@@ -34,10 +79,11 @@ function extractRoleFromCookies(request: NextRequest): string | undefined {
   const roleCookie = request.cookies.get('role')?.value;
   if (roleCookie) {
     const cleaned = String(roleCookie).replace(/"/g, '').trim().toUpperCase();
-    if (cleaned) return cleaned;
+    const normalized = normalizeRole(cleaned);
+    if (normalized) return normalized;
   }
 
-  // 2. Parse the 'auth' cookie (JWT) for role from payload
+  // 2. Parse the 'auth' cookie (could be JWT or wrapped JSON)
   const authVal = request.cookies.get('auth')?.value;
   if (authVal) {
     try {
@@ -51,11 +97,14 @@ function extractRoleFromCookies(request: NextRequest): string | undefined {
           parsed?.user?.role?.code ||
           parsed?.user?.role ||
           null;
-        if (roleFromAuth) return String(roleFromAuth).toUpperCase();
+        if (roleFromAuth) {
+          const normalized = normalizeRole(roleFromAuth);
+          if (normalized) return normalized;
+        }
       } catch {
         // Not JSON — try JWT decode
       }
-      // Try JWT payload
+      // Try JWT payload for role (handles raw JWT in auth cookie)
       const parts = decoded.split('.');
       if (parts.length === 3) {
         const payload = JSON.parse(
@@ -67,7 +116,10 @@ function extractRoleFromCookies(request: NextRequest): string | undefined {
           payload?.roleCode ||
           payload?.role_id ||
           null;
-        if (roleFromJwt) return String(roleFromJwt).toUpperCase();
+        if (roleFromJwt) {
+          const normalized = normalizeRole(roleFromJwt);
+          if (normalized) return normalized;
+        }
       }
     } catch {
       // ignore
@@ -85,7 +137,10 @@ function extractRoleFromCookies(request: NextRequest): string | undefined {
         parsed?.role_id ||
         parsed?.role ||
         null;
-      if (roleFromUser) return String(roleFromUser).toUpperCase();
+      if (roleFromUser) {
+        const normalized = normalizeRole(roleFromUser);
+        if (normalized) return normalized;
+      }
     } catch {
       // ignore
     }
@@ -104,17 +159,29 @@ async function isAuthenticated(request: NextRequest): Promise<string | null> {
 
   let token: string | null = null;
   try {
-    const parsed = JSON.parse(decodeURIComponent(authCookieVal));
-    token = parsed?.token ?? parsed?.accessToken ?? null;
+    const decoded = decodeURIComponent(authCookieVal);
+    // Try JSON wrapper first
+    try {
+      const parsed = JSON.parse(decoded);
+      token = parsed?.token ?? parsed?.accessToken ?? null;
+    } catch {
+      // If not JSON, check if it looks like a JWT
+      if (decoded.includes('.')) {
+        token = decoded;
+      }
+    }
   } catch {
-    token = authCookieVal;
+    // If decodeURIComponent fails, try as raw token
+    if (authCookieVal.includes('.')) {
+      token = authCookieVal;
+    }
   }
 
   if (!token) return null;
 
   try {
-    const secretStr =
-      process.env.JWT_SECRET ||
+    const secretStr = process.env.JWT_SECRET ||
+      process.env.NEXT_PUBLIC_JWT_SECRET ||
       '3097adb9893605ecbca993d05142aef1d4a92cd44f6ece72f32750f6697b82555d2634fa846a2ae78c2465d637b04568244fefaaf5e5f3514b92f357e43111d7';
     const secret = new TextEncoder().encode(secretStr);
     await jwtVerify(token, secret);

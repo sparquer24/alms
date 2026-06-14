@@ -7,14 +7,22 @@ const Card: React.FC<{ label: string; value: React.ReactNode }> = ({ label, valu
   </div>
 );
 
+const getStatusLabel = (data?: any) => {
+  if (!data) return 'Prefilled';
+  return data.workflowStatus?.name || data.workflowStatus?.code || (data.isSubmit ? 'Submitted' : 'Loaded');
+};
+
 const RenewalSummary: React.FC<{ applicationId?: string; renewalId?: string; data?: any }> = ({ applicationId, renewalId, data }) => {
+  const applicantName = data?.applicantName || '—';
+  const displayId = data?.acknowledgementNo || renewalId || 'Pending';
+
   return (
     <div className='flex gap-4 overflow-x-auto py-2'>
       <Card label='Application ID' value={applicationId || data?.applicationId || '—'} />
-      <Card label='Renewal ID' value={renewalId || data?.renewalId || 'Pending'} />
-      <Card label='Applicant' value={data?.applicantName || '—'} />
+      <Card label='Renewal ID' value={displayId} />
+      <Card label='Applicant' value={applicantName} />
       <Card label='License No' value={data?.licenseNumber || '—'} />
-      <Card label='Status' value={data ? 'Loaded' : 'Prefilled'} />
+      <Card label='Status' value={getStatusLabel(data)} />
       <Card label='Date' value={data?.updatedAt ? new Date(data.updatedAt).toLocaleDateString() : '—'} />
     </div>
   );
