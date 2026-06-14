@@ -33,6 +33,11 @@ export class PatchRenewalLicenseDetailsDto {
   @IsString()
   licencePlaceArea?: string;
 
+  @ApiPropertyOptional({ example: 'Tigers', description: 'Wild beasts specification' })
+  @IsOptional()
+  @IsString()
+  wildBeastsSpecification?: string;
+
   @ApiPropertyOptional({ example: [1, 2, 3], description: 'Requested weapon type IDs' })
   @IsOptional()
   @IsArray()

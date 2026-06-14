@@ -2366,7 +2366,6 @@ function RenewalFormPageContent() {
       requireField('applicantLastName', 'Last name');
       requireField('filledBy', 'Application filled by');
       requireField('fatherName', 'Parent/Spouse name');
-      requireField('placeOfBirth', 'Place of birth');
       requireField('applicantDateOfBirth', 'Date of birth');
       requireField('dobInWords', 'Date of birth in words');
       requireField('panNumber', 'PAN');
@@ -2451,87 +2450,7 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    const validateCriminalDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      if (data.convictedStatus) {
-        requireField('firNumber', 'FIR Number');
-        requireField('underSection', 'Under Section');
-        requireField('policeStationCriminal', 'Police Station');
-        requireField('criminalUnit', 'Unit');
-        requireField('criminalDistrict', 'District');
-        requireField('criminalState', 'State');
-        requireField('offence', 'Offence');
-        requireField('sentence', 'Sentence');
-        requireField('sentenceDate', 'Date of Sentence');
-      }
-
-      if (data.bondStatus) {
-        requireField('bondSentenceDate', 'Date of Sentence');
-        requireField('bondPeriod', 'Period of which bond');
-      }
-
-      if (data.prohibitedStatus) {
-        requireField('prohibitedSentenceDate', 'Date of Sentence');
-        requireField('prohibitedPeriod', 'Period of which bound');
-      }
-
-      return errs;
-    };
-
-    const criminalValidationErrors = validateCriminalDetails(formData);
-    if (Object.keys(criminalValidationErrors).length > 0) {
-      setCriminalErrors(criminalValidationErrors);
-      scheduleSectionFocus(criminalSectionRef, 'criminal');
-      setError('Please fix validation errors in Criminal History before continuing.');
-      return false;
-    }
-
-    const validateLicenseHistoryDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      if (data.hasAppliedBefore) {
-        requireField('applicationDate', 'Application Date');
-        requireField('authorityAppliedTo', 'Authority Applied To');
-        requireField('applicationResult', 'Application Result');
-      }
-
-      if (data.licenseRevokedOrSuspended) {
-        requireField('revokedByAuthority', 'Revoked By Authority');
-        requireField('revokedReason', 'Revoked Reason');
-      }
-
-      if (data.familyMemberHasLicense) {
-        requireField('familyMemberName', 'Family Member Name');
-        requireField('familyLicenseNumber', 'Family License Number');
-      }
-
-      if (data.hasSafeCustody) {
-        requireField('safeCustodyDetails', 'Safe Custody Details');
-      }
-
-      if (data.hasTrainingUnderRule10) {
-        requireField('trainingDetails', 'Training Details');
-      }
-
-      return errs;
-    };
-
-    const licenseHistoryValidationErrors = validateLicenseHistoryDetails(formData);
-    if (Object.keys(licenseHistoryValidationErrors).length > 0) {
-      setLicenseHistoryErrors(licenseHistoryValidationErrors);
-      scheduleSectionFocus(licenseHistorySectionRef, 'licenseHistory');
-      setError('Please fix validation errors in License History before continuing.');
-      return false;
-    }
+    // Criminal and License History sections are not applicable for Renewal Forms
 
     const validateLicenseDetails = (data: RenewalFormState) => {
       const errs: Record<string, string> = {};
@@ -2542,9 +2461,11 @@ function RenewalFormPageContent() {
 
       requireField('weaponReason', 'Need for license (15)');
       requireField('ammunitionDescription', 'Ammunition Description');
-      requireField('specialConsiderationClaim', 'Claims for special consideration (18)');
-      requireField('formIVPlaceArea', 'Place or area for which the licence is sought (19a)');
-      requireField('formIVWildBeastsSpec', 'Specification of the wild beasts (19b)');
+
+      // Only require these if they are relevant or just let them be optional since they are optional in DTO
+      // requireField('specialConsiderationClaim', 'Claims for special consideration (18)');
+      // requireField('formIVPlaceArea', 'Place or area for which the licence is sought (19a)');
+      // requireField('formIVWildBeastsSpec', 'Specification of the wild beasts (19b)');
 
       if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
         errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
