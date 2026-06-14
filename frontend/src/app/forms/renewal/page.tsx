@@ -1612,7 +1612,8 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   if (occDistrictId !== undefined) occupationAndBusiness.districtId = occDistrictId;
   if (formData.cropProtectionLocation)
     occupationAndBusiness.cropLocation = formData.cropProtectionLocation;
-  if (formData.cultivatedArea) occupationAndBusiness.areaUnderCultivation = formData.cultivatedArea;
+  const cultAreaNum = toNumber(formData.cultivatedArea);
+  if (cultAreaNum !== undefined) occupationAndBusiness.areaUnderCultivation = cultAreaNum;
 
   // License Details - with reverse mapping to API enum values
   if (formData.weaponReason) {
@@ -2899,6 +2900,8 @@ function RenewalFormPageContent() {
                     onPatch={patch => setFormData(prev => ({ ...prev, ...patch }))}
                     onError={setError}
                     onStatus={setStatusMessage}
+                    errors={licenseDetailsErrors}
+                    ref={licenseDetailsSectionRef}
                   />
                 </AccordionSection>
 
