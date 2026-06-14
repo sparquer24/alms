@@ -37,10 +37,16 @@ export const AuthInitializer = () => {
     // Normalize the role from the current user
     const normalizedRole = normalizeRole(currentUser?.role);
 
+
     // Skip redirection on the root path '/' - layouts handle their own redirects
     // This prevents double-redirects with the login page
     if (pathname === '/') {
       const redirectPath = shouldRedirectOnStartup(normalizedRole, pathname);
+
+      if (!effectiveRole) return;
+
+      const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname ?? undefined);
+
       if (redirectPath) {
         router.replace(redirectPath);
       }

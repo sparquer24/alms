@@ -71,7 +71,7 @@ async function bootstrap() {
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
-  const defaultOrigins = ['http://localhost:5000', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'];
+  const defaultOrigins = ['http://localhost:5000', 'http://localhost:5001', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000', "https://alms.sparquer.com"];
   const corsEnv = process.env.CORS_ORIGIN;
   const origins = corsEnv ? corsEnv.split(',').map(s => s.trim()).filter(Boolean) : defaultOrigins;
 

@@ -1,5 +1,4 @@
 services:
-
   backend-prod:
     build:
       context: ./backend
@@ -34,13 +33,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod  # Production Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3001/api  # Standalone API URL
+        BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3001}
     container_name: alms-frontend-prod-standalone
     restart: unless-stopped
     env_file:
       - ./.env.prod  # Production environment file
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+      BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3001}
       NODE_ENV: production
       PORT: 5001  # Different port from dev
     ports:
@@ -50,7 +49,6 @@ services:
         condition: service_healthy
     networks:
       - alms-prod-net
-    # Add health check so nginx waits for frontend to be ready
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:5001/"]
       interval: 30s
@@ -80,6 +78,7 @@ services:
       backend-prod:
         condition: service_healthy
       frontend-prod:
+        condition: service_started
     networks:
       - alms-prod-net
     deploy:
@@ -92,7 +91,3 @@ services:
 networks:
   alms-prod-net:
     driver: bridge
-    
-# NOTE: This compose file is now for standalone production only.
-# For unified dev+prod setup with single Nginx, use:
-# docker-compose -f docker-compose.unified.yml up

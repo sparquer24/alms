@@ -14,6 +14,8 @@ COPY . .
 # Build the Next.js application
 RUN npm run build
 
-# The PORT will be set at runtime by docker-compose
+ENV PORT=5001
 EXPOSE 5001
-CMD ["npm", "start"]
+
+# Use npm start for production (simpler like dev)
+CMD ["sh", "-c", "PORT=5001 npm start"]

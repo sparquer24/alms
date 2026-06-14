@@ -369,7 +369,7 @@ export const ReportApi = {
       // If axios returned data as ArrayBuffer or base64, convert accordingly
       // Fallback: try requesting via axiosInstance directly
       const axios = await import('../api/axiosConfig');
-      const resp = await axios.default.get(`${BASE_URL}/applications/${applicationId}/pdf`, { responseType: 'blob' });
+      const resp = await axios.default.get(`/applications/${applicationId}/pdf`, { responseType: 'blob' });
       return resp.data as Blob;
     } catch (error) {
       throw error;
