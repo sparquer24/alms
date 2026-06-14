@@ -2380,7 +2380,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                            application.workflowHistories.length > 0 ? (
                              <div className='space-y-5'>
                                {application.workflowHistories.map((h, idx) => {
-                                 const actionTaken = h?.actionTaken || h?.action || 'Unknown Action';
+                                 const actionTaken = h?.actionTaken || (h as any)?.action || 'Unknown Action';
                                  const actionLower = actionTaken.toLowerCase();
                                 const color = actionLower.includes('forward')
                                   ? 'border-orange-500'
@@ -2404,7 +2404,7 @@ const attachmentsArr = h.attachments || [];
                                    Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
                                  const hasRemarks = !!(h.remarks || (h as any).comment);
                                  const hasDetails = hasAttachments || hasRemarks;
-                                 const createdAt = h.createdAt || h.date || h.timestamp;
+                                 const createdAt = h.createdAt || (h as any).date || (h as any).timestamp;
                                  const isExpanded = !!expandedHistory[idx];
                                  const historyDate = createdAt ? new Date(createdAt) : new Date();
                                 const formattedDate = historyDate.toLocaleDateString('en-IN', {

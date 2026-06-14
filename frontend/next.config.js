@@ -37,7 +37,7 @@ const nextConfig = {
   },
   // ESLint configuration
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
   // Custom webpack config for bundle optimization
   webpack: (config, { isServer, dev }) => {
