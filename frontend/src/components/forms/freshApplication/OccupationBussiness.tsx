@@ -4,6 +4,7 @@ import { Input, TextArea } from '../elements/Input';
 import { Select } from '../elements/Select';
 import FormFooter from '../elements/footer';
 import { useRouter } from 'next/navigation';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
@@ -116,14 +117,7 @@ const OccupationBussiness: React.FC = () => {
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">Occupation and Business Details</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="Occupation and Business" rows={3} />;
 	}
 
 	return (

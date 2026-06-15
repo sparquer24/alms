@@ -23,6 +23,8 @@ interface LocationHierarchyProps {
     district?: boolean;
     zone?: boolean;
   };
+  // Error mapping
+  errors?: Record<string, string>;
 }
 
 export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
@@ -33,6 +35,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
   required = false,
   className = '',
   disabledFields = {},
+  errors = {},
 }) => {
   const [locationState, locationActions] = useLocationHierarchy();
   const hydrationKey = `${values.state}|${values.district}|${values.zone}|${values.division}|${values.policeStation}`;
@@ -107,6 +110,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         placeholder={locationState.loadingStates ? "Loading states..." : "Select state"}
         required={required}
         disabled={disabled || disabledFields.state || locationState.loadingStates}
+        error={errors[`${namePrefix}State`]}
       />
       
       <Select
@@ -124,6 +128,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         }
         required={required}
         disabled={disabled || disabledFields.district || !values.state || locationState.loadingDistricts}
+        disabledMessage={!values.state ? "Please select a State first" : undefined}
+        error={errors[`${namePrefix}District`]}
       />
       
       <Select
@@ -141,6 +147,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         }
         required={required}
         disabled={disabled || disabledFields.zone || !values.district || locationState.loadingZones}
+        disabledMessage={!values.district ? "Please select a District first" : undefined}
+        error={errors[`${namePrefix}Zone`]}
       />
       
       <Select
@@ -158,6 +166,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         }
         required={required}
         disabled={disabled || !values.zone || locationState.loadingDivisions}
+        disabledMessage={!values.zone ? "Please select a Zone first" : undefined}
+        error={errors[`${namePrefix}Division`]}
       />
       
       <div className="col-span-2">
@@ -176,6 +186,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
           }
           required={required}
           disabled={disabled || !values.division || locationState.loadingPoliceStations}
+          disabledMessage={!values.division ? "Please select a Division first" : undefined}
+          error={errors[`${namePrefix}PoliceStation`]}
         />
       </div>
       

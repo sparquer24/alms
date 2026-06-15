@@ -8,6 +8,8 @@ const FaRegSaveFixed = FaRegSave as any;
 const FiArrowRightFixed = FiArrowRight as any;
 const FiArrowLeftFixed = FiArrowLeft as any;
 
+import { Spinner } from './Spinner';
+
 interface FormFooterProps {
   isDeclarationStep?: boolean;
   hidePrevious?: boolean;
@@ -68,9 +70,15 @@ const FormFooter = ({
             onClick={onSubmit}
             disabled={isLoading}
             suppressHydrationWarning
-            className='flex items-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed'
+            className='flex items-center justify-center gap-2 bg-blue-900 text-white font-semibold px-8 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]'
           >
-            {isLoading ? 'Submitting...' : 'Submit'}
+            {isLoading ? (
+              <>
+                <Spinner size="sm" color="text-white" /> Submitting...
+              </>
+            ) : (
+              'Submit'
+            )}
           </button>
         </div>
       ) : (
@@ -80,10 +88,18 @@ const FormFooter = ({
             onClick={onSaveToDraft}
             disabled={isLoading}
             suppressHydrationWarning
-            className='flex items-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed'
+            className='flex items-center justify-center gap-2 border border-yellow-400 bg-yellow-100 text-yellow-700 font-semibold px-4 py-2 rounded-md hover:bg-yellow-200 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]'
           >
-            <FaRegSaveFixed className='text-lg' />
-            {isLoading ? 'Saving...' : 'Save to Draft'}
+            {isLoading ? (
+              <>
+                <Spinner size="sm" color="text-yellow-700" /> Saving...
+              </>
+            ) : (
+              <>
+                <FaRegSaveFixed className='text-lg' />
+                Save to Draft
+              </>
+            )}
           </button>
 
           {!hidePrevious && (
@@ -103,10 +119,18 @@ const FormFooter = ({
             onClick={onNext}
             disabled={isLoading}
             suppressHydrationWarning
-            className='flex items-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed'
+            className='flex items-center justify-center gap-2 bg-blue-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]'
           >
-            {isLoading ? 'Saving...' : 'Next'}
-            <FiArrowRightFixed className='text-lg' />
+            {isLoading ? (
+              <>
+                <Spinner size="sm" color="text-white" /> Saving...
+              </>
+            ) : (
+              <>
+                Next
+                <FiArrowRightFixed className='text-lg' />
+              </>
+            )}
           </button>
         </div>
       )}

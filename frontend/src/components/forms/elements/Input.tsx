@@ -13,6 +13,7 @@ interface InputProps {
   disabled?: boolean;
   className?: string;
   maxLength?: number;
+  max?: string;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -27,6 +28,7 @@ export const Input: React.FC<InputProps> = ({
   disabled = false,
   className = '',
   maxLength,
+  max,
 }) => {
   return (
     <div className="w-full">
@@ -45,6 +47,7 @@ export const Input: React.FC<InputProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         maxLength={maxLength}
+        max={max}
         suppressHydrationWarning
         className={`
           block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]

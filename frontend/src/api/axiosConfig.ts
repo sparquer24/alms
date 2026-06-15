@@ -141,7 +141,6 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-
 // GET request function
 export const fetchData = async (url: string, params = {}) => {
   try {

@@ -276,6 +276,7 @@ const PersonalInformation: React.FC = () => {
             type='date'
             value={form.dateOfBirth}
             onChange={handleChange}
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 21)).toISOString().split('T')[0]}
             //placeholder="mm/dd/yyyy"
           />
         </div>

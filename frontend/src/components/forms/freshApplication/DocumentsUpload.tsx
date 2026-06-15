@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import { Input, TextArea } from '../elements/Input';
 import FormFooter from '../elements/footer';
 import { FileUploadService } from '../../../api/fileUploadService';
@@ -294,14 +295,7 @@ const DocumentsUpload = () => {
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">Documents Upload</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="Documents Upload" rows={4} />;
 	}
 
 	return (

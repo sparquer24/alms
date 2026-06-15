@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Input, TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
+import { Select } from '../elements/Select';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -326,14 +328,7 @@ const LicenseHistory = () => {
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">License History</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="License History" rows={4} />;
 	}
 
 	const transformFormData = () => {
@@ -525,13 +520,18 @@ const LicenseHistory = () => {
 						<Input label="Date of Application" name="date" type="date" value={appliedDetails.date} onChange={handleAppliedDetails} placeholder="DD/MM/YYYY" />
 						<Input label="To which authority" name="authority" value={appliedDetails.authority} onChange={handleAppliedDetails} placeholder="Enter authority" />
 						<div className="flex flex-col">
-							<label className="block text-sm font-medium text-gray-700 mb-1">Result</label>
-							<select name="result" value={appliedDetails.result} onChange={(e) => setAppliedDetails(prev => ({ ...prev, result: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-								<option value="">Select Result</option>
-								<option value="approved">Approved</option>
-								<option value="rejected">Rejected</option>
-								<option value="pending">Pending</option>
-							</select>
+							<Select 
+								label="Result" 
+								name="result" 
+								value={appliedDetails.result} 
+								onChange={(e: any) => setAppliedDetails(prev => ({ ...prev, result: e.target.value }))} 
+								options={[
+									{ value: 'approved', label: 'Approved' },
+									{ value: 'rejected', label: 'Rejected' },
+									{ value: 'pending', label: 'Pending' }
+								]}
+								placeholder="Select Result" 
+							/>
 						</div>
 						{appliedDetails.result === 'rejected' && (
 							<div className="col-span-2">
@@ -697,18 +697,15 @@ const LicenseHistory = () => {
 						{fam.weapons.map((weaponId, widx) => (
 							<div key={widx} className="flex items-center gap-2 mb-1">
 								<div className="flex-1">
-									<label className="block text-sm font-medium text-gray-700 mb-1">Weapon {widx + 1}</label>
-									<select
-										value={weaponId}
-										onChange={e => handleWeaponChange(idx, widx, e)}
-										className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+									<Select
+										label={`Weapon ${widx + 1}`}
+										name={`weapon-${widx}`}
+										value={String(weaponId)}
+										onChange={e => handleWeaponChange(idx, widx, e as any)}
 										disabled={loadingWeapons}
-									>
-										<option value={0}>{loadingWeapons ? 'Loading weapons...' : 'Select Weapon'}</option>
-										{weapons.map(weapon => (
-											<option key={weapon.id} value={weapon.id}>{weapon.name}</option>
-										))}
-									</select>
+										options={weapons.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
+										placeholder={loadingWeapons ? 'Loading weapons...' : 'Select Weapon'}
+									/>
 								</div>
 								<button type="button" className="bg-blue-900 text-white px-2 py-1 rounded" onClick={() => addWeapon(idx)}>+</button>
 								{fam.weapons.length > 1 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}

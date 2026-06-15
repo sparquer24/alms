@@ -1,5 +1,5 @@
-// components/ui/Select.tsx
 import React from 'react';
+import { toast } from 'react-hot-toast';
 
 interface SelectOption {
   value: string;
@@ -17,6 +17,7 @@ interface SelectProps {
   error?: string;
   disabled?: boolean;
   className?: string;
+  disabledMessage?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -30,9 +31,16 @@ export const Select: React.FC<SelectProps> = ({
   error,
   disabled = false,
   className = '',
+  disabledMessage,
 }) => {
+  const handleClick = () => {
+    if (disabled && disabledMessage) {
+      toast.error(disabledMessage, { id: name });
+    }
+  };
+
   return (
-    <div className="w-full">
+    <div className="w-full relative" onClick={handleClick}>
       {label && (
         <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
           {label}
@@ -46,9 +54,9 @@ export const Select: React.FC<SelectProps> = ({
         onChange={onChange}
         disabled={disabled}
         className={`
-          block w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]
-          ${error ? 'border-red-500' : 'border-gray-300'}
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
+          block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
+          ${error ? 'border-b-red-500' : 'border-b-gray-300'}
+          ${disabled ? 'bg-transparent cursor-not-allowed pointer-events-none' : 'bg-transparent'}
           ${className}
         `}
       >
