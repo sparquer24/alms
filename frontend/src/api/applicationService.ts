@@ -345,9 +345,11 @@ export class ApplicationService {
         }
 
         return {
-          ...formData,
-          sex: formData.sex?.toUpperCase(),
-          dateOfBirth: formattedDateOfBirth,
+           "personalDetails": {
+            ...formData,
+            sex: formData.sex?.toUpperCase(),
+            dateOfBirth: formattedDateOfBirth,
+          }
         };
       case 'address':
         // Validate and format presentSince date
