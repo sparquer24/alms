@@ -38,16 +38,24 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
   errors = {},
 }) => {
   const [locationState, locationActions] = useLocationHierarchy();
-  const hydrationKey = `${values.state}|${values.district}|${values.zone}|${values.division}|${values.policeStation}`;
-  const lastHydrationKeyRef = React.useRef('');
 
   // Load cascading options when parent pre-fills saved location IDs
   React.useEffect(() => {
-    if (!values.state || hydrationKey === lastHydrationKeyRef.current) return;
-    lastHydrationKeyRef.current = hydrationKey;
+    if (!values.state) return;
+    
+    // Check if the values match our internal state (meaning this was our own change)
+    const isInSync = 
+      values.state === locationState.selectedState &&
+      values.district === locationState.selectedDistrict &&
+      values.zone === locationState.selectedZone &&
+      values.division === locationState.selectedDivision &&
+      values.policeStation === locationState.selectedPoliceStation;
+      
+    if (isInSync) return;
+    
     locationActions.hydrateFromValues(values);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrationKey]);
+  }, [values.state, values.district, values.zone, values.division, values.policeStation]);
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+// components/forms/elements/Select.tsx
+import React from 'react';
 
-interface SelectOption {
+export interface SelectOption {
   value: string;
   label: string;
 }
@@ -13,10 +14,11 @@ interface SelectProps {
   options: SelectOption[];
   placeholder?: string;
   required?: boolean;
-  error?: string;
   disabled?: boolean;
-  className?: string;
+  /** Tooltip-style message shown below when the field is disabled */
   disabledMessage?: string;
+  error?: string;
+  className?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -25,37 +27,22 @@ export const Select: React.FC<SelectProps> = ({
   value,
   onChange,
   options,
-  placeholder,
+  placeholder = 'Select an option',
   required = false,
-  error,
   disabled = false,
-  className = '',
   disabledMessage,
+  error,
+  className = '',
 }) => {
-  const [showDisabledMessage, setShowDisabledMessage] = useState(false);
-
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    if (showDisabledMessage) {
-      timeout = setTimeout(() => setShowDisabledMessage(false), 3000);
-    }
-    return () => clearTimeout(timeout);
-  }, [showDisabledMessage]);
-
-  const handleClick = () => {
-    if (disabled && disabledMessage) {
-      setShowDisabledMessage(true);
-    }
-  };
-
   return (
-    <div className="w-full relative" onClick={handleClick}>
+    <div className="w-full">
       {label && (
         <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
+
       <select
         id={name}
         name={name}
@@ -63,21 +50,28 @@ export const Select: React.FC<SelectProps> = ({
         onChange={onChange}
         disabled={disabled}
         className={`
-          block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
-          ${error || showDisabledMessage ? 'border-b-red-500' : 'border-b-gray-300'}
-          ${disabled ? 'bg-transparent cursor-not-allowed pointer-events-none' : 'bg-transparent'}
+          block w-full px-0 pb-1 border-0 border-b-2 bg-transparent focus:outline-none focus:ring-0 focus:border-[#6366F1]
+          appearance-none
+          ${error ? 'border-b-red-500' : 'border-b-gray-300'}
+          ${disabled ? 'cursor-not-allowed text-gray-400' : 'text-gray-900 cursor-pointer'}
           ${className}
         `}
       >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
+        <option value="" disabled hidden>
+          {placeholder}
+        </option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
           </option>
         ))}
       </select>
-      {error && !showDisabledMessage && <p className="text-red-500 text-xs mt-1">{error}</p>}
-      {showDisabledMessage && <p className="text-red-500 text-xs mt-1">{disabledMessage}</p>}
+
+      {disabled && disabledMessage && !error && (
+        <p className="text-gray-400 text-xs mt-1">{disabledMessage}</p>
+      )}
+
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
     </div>
   );
 };

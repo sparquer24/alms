@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { getUserFromCookie } from '../../../utils/authCookies';
+import { validateMobile } from '../../../utils/validations';
 
 // Get user location data for pre-filling
 const getUserLocationDefaults = () => {
@@ -69,10 +70,21 @@ const validateAddressInfo = (formData: any) => {
 	if (!formData.presentDistrict?.trim()) {
 		errors.presentDistrict = 'Present district is required';
 	}
+	if (!formData.presentSince?.trim()) {
+		errors.presentSince = 'Residing since date is required';
+	}
 	if (!formData.permanentAddress?.trim() && !formData.sameAsPresent) {
 		errors.permanentAddress = 'Permanent address is required';
 	}
 	
+	if (formData.officeMobileNumber && !validateMobile(formData.officeMobileNumber)) {
+		errors.officeMobileNumber = 'Invalid mobile number. Must be 10 digits starting with 6-9.';
+	}
+	
+	if (formData.alternativeMobile && !validateMobile(formData.alternativeMobile)) {
+		errors.alternativeMobile = 'Invalid mobile number.';
+	}
+
 	return errors;
 };
 
@@ -111,8 +123,8 @@ const AddressDetails: React.FC = () => {
 		const isZS = userData?.role?.name === 'ZS' || userData?.role === 'ZS';
 		setIsZSRole(isZS);
 		
-		// Only pre-fill if all three fields are empty (no existing data) or if user is ZS role
-		if (isZS || (!form.presentState && !form.presentDistrict && !form.presentZone)) {
+		// Only pre-fill if all three fields are empty (no existing data)
+		if (!form.presentState && !form.presentDistrict && !form.presentZone) {
 			const locationDefaults = getUserLocationDefaults();
 			
 			if (locationDefaults.presentState) {
@@ -198,7 +210,7 @@ const AddressDetails: React.FC = () => {
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col">
 						{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+						{almsLicenseId && <strong className='text-sm'>Acknowledgement No.: {almsLicenseId}</strong>}
 					</div>
 					{typeof loadExistingData === 'function' && (
 						<button
@@ -268,6 +280,7 @@ const AddressDetails: React.FC = () => {
 					placeholder="DD/MM/YYYY"
 					error={fieldErrors.presentSince}
 					max={new Date().toISOString().split('T')[0]}
+					required
 				/>
 			</div>
 			<div className="text-xs text-gray-700 mb-2">
