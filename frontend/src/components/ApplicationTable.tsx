@@ -41,8 +41,12 @@ function extractWorkflowStatusName(app: ApplicationData): string {
   const wf = (app as any).workflowStatus as WorkflowStatus | undefined;
   if (wf?.name) return String(wf.name);
   if (wf?.code) return String(wf.code);
-  const st = (app as any).status as StatusObj | undefined;
-  if (st?.name) return String(st.name);
+  const st = (app as any).status;
+  if (st) {
+    if (typeof st === 'string') return st;
+    if (typeof st === 'object' && 'name' in st && st.name) return String(st.name);
+    if (typeof st === 'object' && 'code' in st && st.code) return String(st.code);
+  }
   return 'unknown';
 }
 
@@ -135,11 +139,27 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         filtered = filtered.filter(app => {
-          const applicant = (app.applicantName || '').toLowerCase();
+          const applicant = (
+            app.applicantName ||
+            [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ') ||
+            ''
+          ).toLowerCase();
           const type = (app.applicationType || '').toLowerCase();
-          const ackNo = ((app as any).acknowledgementNo || '').toLowerCase();
+          const ackNo = (
+            (app as any).acknowledgementNo ||
+            (app as any).ackNo ||
+            (app as any).acknowledgementNumber ||
+            String(app.id || '')
+          ).toLowerCase();
           const status = extractWorkflowStatusName(app).toLowerCase();
-          return applicant.includes(q) || type.includes(q) || ackNo.includes(q) || status.includes(q);
+          const actionTaken = ((app as any).actionTaken || '').toLowerCase();
+          return (
+            applicant.includes(q) ||
+            type.includes(q) ||
+            ackNo.includes(q) ||
+            status.includes(q) ||
+            actionTaken.includes(q)
+          );
         });
       }
 
@@ -330,10 +350,10 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
     }
-    if (!effectiveApplications || effectiveApplications.length === 0) {
+    if (!baseApplications || baseApplications.length === 0) {
       return (
         <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
-          <div className={styles.emptyState}>No applications found matching your criteria.</div>
+          <div className={styles.emptyState}>No applications found.</div>
         </div>
       );
     }
@@ -494,24 +514,35 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
               })()}
             </colgroup>
             <tbody className='bg-white divide-y divide-gray-200'>
-              {effectiveApplications.map((app, index) => (
-                <TableRow
-                  key={`${app.id}-${index}`}
-                  app={app}
-                  index={index}
-                  handleViewApplication={handleViewApplication}
-                  handleEditDraft={handleEditDraft}
-                  isDraftsPage={isDraftsPage}
-                  isSentPage={isSentPage}
-                  userRole={userRole || null}
-                  // PDF button removed
-                  isApplicationUnread={isApplicationUnread}
-                  formatDateTime={formatDateTime}
-                  getStatusPillClass={getStatusPillClass}
-                  showActionColumn={showActionColumn}
-                  loadingRowId={loadingRowId}
-                />
-              ))}
+              {effectiveApplications.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={tableColumns.length}
+                    className='text-center py-8 text-gray-500 bg-white text-sm'
+                  >
+                    No applications found matching your criteria.
+                  </td>
+                </tr>
+              ) : (
+                effectiveApplications.map((app, index) => (
+                  <TableRow
+                    key={`${app.id}-${index}`}
+                    app={app}
+                    index={index}
+                    handleViewApplication={handleViewApplication}
+                    handleEditDraft={handleEditDraft}
+                    isDraftsPage={isDraftsPage}
+                    isSentPage={isSentPage}
+                    userRole={userRole || null}
+                    // PDF button removed
+                    isApplicationUnread={isApplicationUnread}
+                    formatDateTime={formatDateTime}
+                    getStatusPillClass={getStatusPillClass}
+                    showActionColumn={showActionColumn}
+                    loadingRowId={loadingRowId}
+                  />
+                ))
+              )}
             </tbody>
           </table>
         </div>

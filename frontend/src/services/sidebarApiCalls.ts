@@ -457,7 +457,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
 
       // Transform sent applications - they have different structure
       // Backend returns: applicationId, acknowledgementNo, createdAt, applicantName, 
-      // workflowHistoryId, actionTakenAt, actionTaken, actionRemarks
+      // workflowHistoryId, actionTakenAt, actionTaken, actionRemarks, applicationType
       const applications: ApplicationData[] = response.data.map((item: any) => ({
         id: String(item.applicationId),
         acknowledgementNo: item.acknowledgementNo,
@@ -466,9 +466,9 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
         lastUpdated: item.actionTakenAt || item.createdAt,
         status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
         status_id: 999, // Unique ID for sent status (not from database)
-        // Fields not available in sent response - use empty/undefined defaults
+        // Preserve applicationType from backend ('fresh' or 'renewal')
+        applicationType: item.applicationType === 'renewal' ? 'Renewal Application' : 'Fresh License',
         applicantMobile: '', // Not included in workflow history response
-        applicationType: '', // Not included in workflow history response
         currentUser: undefined,
         assignedTo: '', // Not included in workflow history response
         // Additional sent-specific fields from workflow history
