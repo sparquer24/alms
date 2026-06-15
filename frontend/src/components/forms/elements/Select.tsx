@@ -1,5 +1,4 @@
-import React from 'react';
-import { toast } from 'react-hot-toast';
+import React, { useState, useEffect } from 'react';
 
 interface SelectOption {
   value: string;
@@ -33,9 +32,19 @@ export const Select: React.FC<SelectProps> = ({
   className = '',
   disabledMessage,
 }) => {
+  const [showDisabledMessage, setShowDisabledMessage] = useState(false);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (showDisabledMessage) {
+      timeout = setTimeout(() => setShowDisabledMessage(false), 3000);
+    }
+    return () => clearTimeout(timeout);
+  }, [showDisabledMessage]);
+
   const handleClick = () => {
     if (disabled && disabledMessage) {
-      toast.error(disabledMessage, { id: name });
+      setShowDisabledMessage(true);
     }
   };
 
@@ -55,7 +64,7 @@ export const Select: React.FC<SelectProps> = ({
         disabled={disabled}
         className={`
           block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
-          ${error ? 'border-b-red-500' : 'border-b-gray-300'}
+          ${error || showDisabledMessage ? 'border-b-red-500' : 'border-b-gray-300'}
           ${disabled ? 'bg-transparent cursor-not-allowed pointer-events-none' : 'bg-transparent'}
           ${className}
         `}
@@ -67,7 +76,8 @@ export const Select: React.FC<SelectProps> = ({
           </option>
         ))}
       </select>
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {error && !showDisabledMessage && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {showDisabledMessage && <p className="text-red-500 text-xs mt-1">{disabledMessage}</p>}
     </div>
   );
 };

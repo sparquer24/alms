@@ -138,8 +138,8 @@ export const useApplicationForm = ({
   }, []);
 
   // Save form data
-  const saveFormData = useCallback(async (customValidation?: () => string[], overrideFormData?: any) => {
-    setIsSubmitting(true);
+  const saveFormData = useCallback(async (customValidation?: () => string[], overrideFormData?: any, background: boolean = false) => {
+    if (!background) setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
 
@@ -166,37 +166,54 @@ export const useApplicationForm = ({
         }
       }
 
-      let response;
-      let newApplicantId;
+      const performSave = async () => {
+        let response;
+        let newApplicantId;
 
-      if (applicantId && formSection !== 'personal') {
-        // Update existing application (PATCH) for non-personal forms
-        response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
-        newApplicantId = applicantId;
-      } else if (formSection === 'personal') {
-        if (applicantId) {
-          // Update personal information (PATCH)
+        if (applicantId && formSection !== 'personal') {
+          // Update existing application (PATCH) for non-personal forms
           response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
           newApplicantId = applicantId;
-        } else {
-          // Create new application (POST)
-          response = await ApplicationService.createApplication(dataToSave);
-          // Attempt to read returned application id and alms license id from response
-          newApplicantId = response.applicationId ?? response.data?.applicationId ?? response.data?.id ?? null;
-          if (newApplicantId) setApplicantId(newApplicantId);
+        } else if (formSection === 'personal') {
+          if (applicantId) {
+            // Update personal information (PATCH)
+            response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
+            newApplicantId = applicantId;
+          } else {
+            // Create new application (POST)
+            response = await ApplicationService.createApplication(dataToSave);
+            // Attempt to read returned application id and alms license id from response
+            newApplicantId = response.applicationId ?? response.data?.applicationId ?? response.data?.id ?? null;
+            if (newApplicantId) setApplicantId(newApplicantId);
 
-          const createdLicenseId = response.almsLicenseId ?? response.data?.almsLicenseId ?? response.data?.alms_license_id ?? null;
-          if (createdLicenseId) setAlmsLicenseId(createdLicenseId);
+            const createdLicenseId = response.almsLicenseId ?? response.data?.almsLicenseId ?? response.data?.alms_license_id ?? null;
+            if (createdLicenseId) setAlmsLicenseId(createdLicenseId);
+          }
+        } else {
+          throw new Error('Application ID is required for this form section');
         }
+
+        if (response.success) {
+          if (!background) setSubmitSuccess('Data saved successfully!');
+          return newApplicantId;
+        } else {
+          throw new Error('Failed to save data. Please try again.');
+        }
+      };
+
+      if (background && applicantId && formSection !== 'personal') {
+        // Fire and forget, don't await
+        performSave().catch(error => {
+          console.error('Background save error:', error);
+        });
+        return applicantId;
       } else {
-        throw new Error('Application ID is required for this form section');
+        // For personal section or non-background saves, we must wait
+        if (background) setIsSubmitting(true); // if it was personal, we didn't set it to true initially
+        const result = await performSave();
+        return result;
       }
-      if (response.success) {
-        setSubmitSuccess('Data saved successfully!');
-        return newApplicantId;
-      } else {
-        throw new Error('Failed to save data. Please try again.');
-      }
+
     } catch (error: any) {
       if (error.message === 'Authentication required' || error.message.includes('log in')) {
         setSubmitError('Authentication expired. Please log in again.');

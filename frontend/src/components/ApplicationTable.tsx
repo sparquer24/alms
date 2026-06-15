@@ -187,8 +187,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         const actionId = `navigate-application-${id}`;
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
-          const route = /renewal/i.test(String((baseApplications || []).find(app => app.id === id)?.applicationType || ''))
-            ? `/renwalapplication/${id}`
+          const app = (baseApplications || []).find(a => a.id === id);
+          const route = /renewal/i.test(String(app?.applicationType || ''))
+            ? `/renewalApplication/${id}`
             : `/application/${id}`;
           setActiveNavigationPath(route);
           await router.push(route);

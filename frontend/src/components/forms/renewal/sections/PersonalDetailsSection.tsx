@@ -137,6 +137,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
           onChange={onChange}
           required
           error={errors['applicantDateOfBirth']}
+          max={new Date(new Date().setFullYear(new Date().getFullYear() - 21)).toISOString().split('T')[0]}
         />
 
         <Input

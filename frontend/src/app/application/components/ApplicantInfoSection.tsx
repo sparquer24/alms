@@ -161,11 +161,17 @@ export default function ApplicantInfoSection({
           {/* Right-side card - photo in top-right and form-like summary */}
           <aside className='lg:col-span-1 border border-gray-200 rounded-xl p-4 bg-gray-50 shadow-sm h-fit'>
             <div className='ml-2 '>
-              <img
-                src={application?.photoUrl || ''}
-                alt='Applicant Photo'
-                className='w-60 h-60 object-cover rounded-md border'
-              />
+              {application?.photoUrl ? (
+                <img
+                  src={application.photoUrl}
+                  alt='Applicant Photo'
+                  className='w-60 h-60 object-cover rounded-md border bg-white'
+                />
+              ) : (
+                <div className='w-60 h-60 bg-gray-100 rounded-md border flex items-center justify-center text-gray-400 text-sm'>
+                  No Photo Available
+                </div>
+              )}
             </div>
 
             {application && (

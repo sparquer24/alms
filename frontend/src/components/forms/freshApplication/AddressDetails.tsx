@@ -145,7 +145,7 @@ const AddressDetails: React.FC = () => {
 	};
 
 	const handleNext = async () => {
-		const savedApplicantId = await saveFormData();
+		const savedApplicantId = await saveFormData(undefined, undefined, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.OCCUPATION_DETAILS, savedApplicantId);
@@ -267,6 +267,7 @@ const AddressDetails: React.FC = () => {
 					onChange={handleChange}
 					placeholder="DD/MM/YYYY"
 					error={fieldErrors.presentSince}
+					max={new Date().toISOString().split('T')[0]}
 				/>
 			</div>
 			<div className="text-xs text-gray-700 mb-2">

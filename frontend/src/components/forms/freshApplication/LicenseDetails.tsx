@@ -410,7 +410,7 @@ const LicenseDetails = () => {
 
     // Enhanced debugging for requestedWeaponIds specifically
     // The form data is already in the correct format (licenseDetails array)
-    const savedApplicantId = await saveFormData();
+    const savedApplicantId = await saveFormData(undefined, undefined, true);
 
     if (savedApplicantId) {
       // Navigate to the Biometric Information step first

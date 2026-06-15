@@ -29,6 +29,8 @@ const queryClient = new QueryClient({
   },
 });
 
+import { Toaster } from 'react-hot-toast';
+
 export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (

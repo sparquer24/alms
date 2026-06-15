@@ -98,7 +98,7 @@ const OccupationBussiness: React.FC = () => {
 	};
 
 	const handleNext = async () => {
-		const savedApplicantId = await saveFormData();
+		const savedApplicantId = await saveFormData(undefined, undefined, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.CRIMINAL_HISTORY, savedApplicantId);

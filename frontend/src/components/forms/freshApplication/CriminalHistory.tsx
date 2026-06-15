@@ -199,7 +199,7 @@ const CriminalHistory = () => {
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		// Pass the correct criminal histories directly to saveFormData to avoid timing issues
-		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		const savedApplicantId = await saveFormData(undefined, formDataToSave, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.LICENSE_HISTORY, savedApplicantId);

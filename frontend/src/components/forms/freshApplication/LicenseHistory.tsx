@@ -424,7 +424,7 @@ const LicenseHistory = () => {
 		setForm((prev: any) => ({ ...prev, licenseHistories }));
 		
 		// Pass the correct license histories directly to saveFormData to avoid timing issues
-		const savedApplicantId = await saveFormData(undefined, formDataToSave);
+		const savedApplicantId = await saveFormData(undefined, formDataToSave, true);
 		
 		// If we have pending files and now have an application ID, upload them before proceeding
 		if (savedApplicantId && rejectedFiles.length > 0) {
