@@ -26,7 +26,7 @@ import { ROLE_CODES } from '@/constants';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://alms.sparquer.com/api';
 
 interface Location {
   id: number;

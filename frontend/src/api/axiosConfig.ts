@@ -3,7 +3,7 @@ import jsCookie from 'js-cookie';
 
 // Normalize base URL to avoid accidental duplicate '/api' segments when
 // callers pass endpoints that also contain '/api'. Trim any trailing slash.
-const NORMALIZED_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
+const NORMALIZED_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://alms.sparquer.com/api').replace(/\/$/, '');
 
 const axiosInstance = axios.create({
   baseURL: NORMALIZED_BASE_URL,
@@ -122,11 +122,11 @@ axiosInstance.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     const requestUrl = error?.config?.url || '';
-    
+
     // Only redirect on 401 if it's NOT a login request
     // Login requests should handle their own 401 errors to display messages
     const isLoginRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/login');
-    
+
     if (status === 401 && !isLoginRequest && typeof window !== 'undefined') {
       try {
         jsCookie.remove('auth');
