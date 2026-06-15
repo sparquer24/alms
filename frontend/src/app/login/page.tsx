@@ -22,6 +22,7 @@ import type { AppDispatch } from '../../store/store';
 import { LoginSkeleton } from '../../components/Skeleton';
 import { normalizeRole } from '../../utils/roleUtils';
 
+
 interface LoginFormData {
   username: string;
   password: string;
@@ -147,8 +148,10 @@ function LoginContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const isLoading = useSelector(selectAuthLoading);
+  const isAuthLoading = useSelector(selectAuthLoading);
+  const isLoading = isAuthLoading || isNavigating;
   const error = useSelector(selectAuthError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const authInitialized = useSelector(selectAuthInitialized);
@@ -215,10 +218,14 @@ function LoginContent() {
             // For admin/superAdmin routes, use a full navigation so the Next.js middleware
             // can verify the JWT in the edge runtime.
             if (redirectPath.startsWith('/admin') || redirectPath.startsWith('/superAdmin')) {
+              setIsNavigating(true);
               window.location.assign(redirectPath);
             } else {
+              setIsNavigating(true);
               router.push(redirectPath);
             }
+          } else {
+            setIsNavigating(true);
           }
         }
       } catch {

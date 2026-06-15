@@ -15,48 +15,72 @@ function normalizeList(res: any): BasicItem[] {
   return [] as BasicItem[];
 }
 
+const cache = new Map<string, Promise<BasicItem[]>>();
+
+function fetchWithCache(key: string, fetcher: () => Promise<BasicItem[]>): Promise<BasicItem[]> {
+  if (cache.has(key)) {
+    return cache.get(key)!;
+  }
+  const promise = fetcher().catch(e => {
+    cache.delete(key);
+    throw e;
+  });
+  cache.set(key, promise);
+  return promise;
+}
+
 export const LocationService = {
   // GET /locations/states
-  async getStates(): Promise<BasicItem[]> {
-    const res: any = await apiClient.get('/locations/states');
-    return normalizeList(res);
+  getStates(): Promise<BasicItem[]> {
+    return fetchWithCache('states', async () => {
+      const res: any = await apiClient.get('/locations/states');
+      return normalizeList(res);
+    });
   },
 
   // GET /locations/districts?stateId={stateId}
-  async getDistricts(stateId: number | string): Promise<BasicItem[]> {
-    const res: any = await apiClient.get('/locations/districts', { stateId });
-    return normalizeList(res);
+  getDistricts(stateId: number | string): Promise<BasicItem[]> {
+    return fetchWithCache(`districts-${stateId}`, async () => {
+      const res: any = await apiClient.get('/locations/districts', { stateId });
+      return normalizeList(res);
+    });
   },
 
   // GET /locations/zones?districtId={districtId}&stateId={stateId}
-  async getZones(params: { districtId: number | string; stateId?: number | string }): Promise<BasicItem[]> {
-    const res: any = await apiClient.get('/locations/zones', params);
-    return normalizeList(res);
+  getZones(params: { districtId: number | string; stateId?: number | string }): Promise<BasicItem[]> {
+    return fetchWithCache(`zones-${params.districtId}`, async () => {
+      const res: any = await apiClient.get('/locations/zones', params);
+      return normalizeList(res);
+    });
   },
 
   // GET /locations/divisions?zoneId={zoneId}&districtId={districtId}
-  async getDivisions(params: { zoneId: number | string; districtId?: number | string }): Promise<BasicItem[]> {
-    const res: any = await apiClient.get('/locations/divisions', params);
-    return normalizeList(res);
+  getDivisions(params: { zoneId: number | string; districtId?: number | string }): Promise<BasicItem[]> {
+    return fetchWithCache(`divisions-${params.zoneId}`, async () => {
+      const res: any = await apiClient.get('/locations/divisions', params);
+      return normalizeList(res);
+    });
   },
 
   // Prefer new endpoint; fallback to legacy /locations/police-stations when needed
-  // GET /locations/stations?divisionId={divisionId}&zoneId={zoneId}
-  async getStations(params: { divisionId?: number | string; zoneId?: number | string }): Promise<BasicItem[]> {
-    try {
-      const res: any = await apiClient.get('/locations/stations', params);
-      const list = normalizeList(res);
-      if (list.length) return list;
-    } catch (e) {
-      // fall through to legacy
-    }
+  getStations(params: { divisionId?: number | string; zoneId?: number | string }): Promise<BasicItem[]> {
+    const key = `stations-${params.divisionId || params.zoneId}`;
+    return fetchWithCache(key, async () => {
+      try {
+        const res: any = await apiClient.get('/locations/stations', params);
+        const list = normalizeList(res);
+        if (list.length) return list;
+      } catch (e) {
+        // fall through to legacy
+      }
 
-    try {
-      const legacy: any = await apiClient.get('/locations/police-stations', params as any);
-      return normalizeList(legacy);
-    } catch (e) {
-      return [];
-    }
+      try {
+        const legacy: any = await apiClient.get('/locations/police-stations', params as any);
+        return normalizeList(legacy);
+      } catch (e) {
+        return [];
+      }
+    });
   },
 };
 

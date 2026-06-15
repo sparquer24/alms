@@ -214,11 +214,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Rule 2: Protect /admin and /superAdmin routes ──────────────────────
-  const isProtectedRoute =
-    pathname.startsWith('/admin') || pathname.startsWith('/superAdmin');
+  // ── Rule 2: Protect all routes except public ones ──────────────────────
+  const isPublicRoute =
+    pathname === '/login' ||
+    pathname.startsWith('/reset-password') ||
+    pathname.match(/\.(png|jpe?g|svg|ico)$/i);
 
-  if (!isProtectedRoute) {
+  if (isPublicRoute) {
     return NextResponse.next();
   }
 

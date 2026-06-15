@@ -17,6 +17,7 @@ import { GlobalActionProvider } from '../context/GlobalActionContext';
 
 
 
+
 // Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,7 +44,6 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                       <ApplicationProvider>
                         <InboxProvider>
                           <GlobalActionProvider>
-
                             <AuthInitializer />
                             {children}
 

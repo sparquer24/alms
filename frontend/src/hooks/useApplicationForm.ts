@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface UseApplicationFormProps {
   initialState: any;
   formSection: 'personal' | 'address' | 'occupation' | 'criminal' | 'license-history' | 'license-details';
-  validationRules?: (formData: any) => string[];
+  validationRules?: (formData: any) => Record<string, string> | string[];
 }
 
 export const useApplicationForm = ({
@@ -22,6 +22,7 @@ export const useApplicationForm = ({
   const [applicantIdKey, setApplicantIdKey] = useState<'applicantId' | 'id' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [almsLicenseId, setAlmsLicenseId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -152,9 +153,16 @@ export const useApplicationForm = ({
       // Run validation
       const validation = customValidation || validationRules;
       if (validation) {
-        const validationErrors = validation(dataToSave);
-        if (validationErrors.length > 0) {
-          throw new Error(validationErrors.join(', '));
+        const validationResult = validation(dataToSave);
+        if (Array.isArray(validationResult)) {
+          if (validationResult.length > 0) {
+            throw new Error(validationResult.join(', '));
+          }
+        } else if (Object.keys(validationResult).length > 0) {
+          setFieldErrors(validationResult);
+          throw new Error('Please fix the errors in the form before proceeding.');
+        } else {
+          setFieldErrors({});
         }
       }
 
@@ -256,5 +264,7 @@ export const useApplicationForm = ({
     setSubmitSuccess,
     almsLicenseId,
     setAlmsLicenseId,
+    fieldErrors,
+    setFieldErrors,
   };
 };

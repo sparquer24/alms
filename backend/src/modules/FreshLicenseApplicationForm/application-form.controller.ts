@@ -46,6 +46,9 @@ export class ApplicationFormController {
 
       return { success: true, applicationId, message: 'Personal details saved with DRAFT status' };
     } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);

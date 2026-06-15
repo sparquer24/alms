@@ -12,71 +12,10 @@ import { isAdminRole } from '../../utils/roleUtils';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import { apiClient } from '../../config/authenticatedApiClient';
 
+import { normalizeRenewalApplication } from '../../utils/applicationFormatters';
+
 type FreshFormViewType = 'fresh' | 'renewal';
 
-const normalizeRenewalApplication = (application: any, submittedOnly: boolean): ApplicationData => {
-  const applicantName =
-    application?.applicantName ||
-    [application?.firstName, application?.middleName, application?.lastName].filter(Boolean).join(' ') ||
-    'Unknown Applicant';
-
-  return {
-    id: String(application?.id || ''),
-    acknowledgementNo: application?.acknowledgementNo,
-    firstName: application?.firstName,
-    middleName: application?.middleName,
-    lastName: application?.lastName,
-    applicantName,
-    applicantMobile: application?.mobileNumber || application?.contactInfo?.mobileNumber || '',
-    applicantEmail: application?.email || application?.contactInfo?.email || undefined,
-    mobileNumber: application?.mobileNumber || application?.contactInfo?.mobileNumber || '',
-    email: application?.email || application?.contactInfo?.email || undefined,
-    parentOrSpouseName: application?.parentOrSpouseName,
-    sex: application?.sex,
-    dob: application?.dateOfBirth ? new Date(application.dateOfBirth).toISOString() : undefined,
-    dobInWords: application?.dobInWords,
-    panNumber: application?.panNumber,
-    aadharNumber: application?.aadharNumber,
-    applicationType: 'Renewal Application',
-    applicationDate: application?.createdAt || new Date().toISOString(),
-    applicationTime: application?.createdAt ? new Date(application.createdAt).toTimeString() : undefined,
-    status: application?.workflowStatus?.name || (submittedOnly ? 'Submitted' : 'Draft'),
-    status_id: application?.workflowStatusId ?? (application?.isSubmit ? 1 : 9),
-    workflowStatus: application?.workflowStatus,
-    assignedTo: String(application?.currentUserId || ''),
-    lastUpdated: application?.updatedAt || application?.createdAt || new Date().toISOString(),
-    createdAt: application?.createdAt,
-    updatedAt: application?.updatedAt,
-    documents: Array.isArray(application?.documents) ? application.documents : [],
-    currentUser: application?.currentUser,
-    history: Array.isArray(application?.history) ? application.history : [],
-    workflowHistories: Array.isArray(application?.workflowHistories) ? application.workflowHistories : [],
-    actions: application?.actions || {
-      canForward: false,
-      canReport: true,
-      canApprove: false,
-      canReject: false,
-      canRaiseRedflag: false,
-      canReturn: false,
-      canDispose: false,
-    },
-    usersInHierarchy: Array.isArray(application?.usersInHierarchy) ? application.usersInHierarchy : [],
-    // Keep linkage IDs for renewal edit-routing in draft mode.
-    ...( {
-      renewalId: application?.id,
-      renewalApplicationId: application?.id,
-      applicationId:
-        application?.applicationId ||
-        application?.freshApplicationId ||
-        application?.sourceApplicationId ||
-        application?.renewalLicenseId ||
-        '',
-      freshApplicationId: application?.freshApplicationId || application?.applicationId || '',
-      sourceApplicationId: application?.sourceApplicationId || application?.applicationId || '',
-      renewalLicenseId: application?.renewalLicenseId || '',
-    } as any),
-  };
-};
 
 const fetchRenewalApplications = async (submittedOnly: boolean): Promise<ApplicationData[]> => {
   try {
