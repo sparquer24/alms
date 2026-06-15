@@ -19,6 +19,7 @@ interface SelectProps {
   disabledMessage?: string;
   error?: string;
   className?: string;
+  onFocus?: (e: React.FocusEvent<HTMLSelectElement>) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -33,6 +34,7 @@ export const Select: React.FC<SelectProps> = ({
   disabledMessage,
   error,
   className = '',
+  onFocus,
 }) => {
   return (
     <div className="w-full">
@@ -48,6 +50,7 @@ export const Select: React.FC<SelectProps> = ({
         name={name}
         value={value}
         onChange={onChange}
+        onFocus={onFocus}
         disabled={disabled}
         className={`
           block w-full px-0 pb-1 border-0 border-b-2 bg-transparent focus:outline-none focus:ring-0 focus:border-[#6366F1]

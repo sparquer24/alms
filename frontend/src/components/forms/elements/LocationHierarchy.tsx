@@ -59,50 +59,105 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
+    const opts = locationActions.getSelectOptions();
+    const label = opts.stateOptions.find((opt) => opt.value === value)?.label || '';
     locationActions.setSelectedState(value);
     onChange(`${namePrefix}State`, value);
+    onChange(`${namePrefix}StateName`, label);
     
     // Clear dependent fields
     onChange(`${namePrefix}District`, '');
+    onChange(`${namePrefix}DistrictName`, '');
     onChange(`${namePrefix}Zone`, '');
+    onChange(`${namePrefix}ZoneName`, '');
     onChange(`${namePrefix}Division`, '');
+    onChange(`${namePrefix}DivisionName`, '');
     onChange(`${namePrefix}PoliceStation`, '');
+    onChange(`${namePrefix}PoliceStationName`, '');
   };
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
+    const opts = locationActions.getSelectOptions();
+    const label = opts.districtOptions.find((opt) => opt.value === value)?.label || '';
     locationActions.setSelectedDistrict(value);
     onChange(`${namePrefix}District`, value);
+    onChange(`${namePrefix}DistrictName`, label);
     
     // Clear dependent fields
     onChange(`${namePrefix}Zone`, '');
+    onChange(`${namePrefix}ZoneName`, '');
     onChange(`${namePrefix}Division`, '');
+    onChange(`${namePrefix}DivisionName`, '');
     onChange(`${namePrefix}PoliceStation`, '');
+    onChange(`${namePrefix}PoliceStationName`, '');
   };
 
   const handleZoneChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
+    const opts = locationActions.getSelectOptions();
+    const label = opts.zoneOptions.find((opt) => opt.value === value)?.label || '';
     locationActions.setSelectedZone(value);
     onChange(`${namePrefix}Zone`, value);
+    onChange(`${namePrefix}ZoneName`, label);
     
     // Clear dependent fields
     onChange(`${namePrefix}Division`, '');
+    onChange(`${namePrefix}DivisionName`, '');
     onChange(`${namePrefix}PoliceStation`, '');
+    onChange(`${namePrefix}PoliceStationName`, '');
   };
 
   const handleDivisionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
+    const opts = locationActions.getSelectOptions();
+    const label = opts.divisionOptions.find((opt) => opt.value === value)?.label || '';
     locationActions.setSelectedDivision(value);
     onChange(`${namePrefix}Division`, value);
+    onChange(`${namePrefix}DivisionName`, label);
     
     // Clear dependent field
     onChange(`${namePrefix}PoliceStation`, '');
+    onChange(`${namePrefix}PoliceStationName`, '');
   };
 
   const handlePoliceStationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
+    const opts = locationActions.getSelectOptions();
+    const label = opts.policeStationOptions.find((opt) => opt.value === value)?.label || '';
     locationActions.setSelectedPoliceStation(value);
     onChange(`${namePrefix}PoliceStation`, value);
+    onChange(`${namePrefix}PoliceStationName`, label);
+  };
+
+  const handleStateFocus = () => {
+    if (locationState.states.length <= 1) {
+      locationActions.loadStates();
+    }
+  };
+
+  const handleDistrictFocus = () => {
+    if (values.state && locationState.districts.length <= 1) {
+      locationActions.loadDistricts(values.state);
+    }
+  };
+
+  const handleZoneFocus = () => {
+    if (values.district && locationState.zones.length <= 1) {
+      locationActions.loadZones(values.district);
+    }
+  };
+
+  const handleDivisionFocus = () => {
+    if (values.zone && locationState.divisions.length <= 1) {
+      locationActions.loadDivisions(values.zone);
+    }
+  };
+
+  const handlePoliceStationFocus = () => {
+    if (values.division && locationState.policeStations.length <= 1) {
+      locationActions.loadPoliceStations(values.division);
+    }
   };
 
   const options = locationActions.getSelectOptions();
@@ -114,6 +169,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         name={`${namePrefix}State`}
         value={values.state}
         onChange={handleStateChange}
+        onFocus={handleStateFocus}
         options={options.stateOptions}
         placeholder={locationState.loadingStates ? "Loading states..." : "Select state"}
         required={required}
@@ -126,6 +182,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         name={`${namePrefix}District`}
         value={values.district}
         onChange={handleDistrictChange}
+        onFocus={handleDistrictFocus}
         options={options.districtOptions}
         placeholder={
           locationState.loadingDistricts 
@@ -145,6 +202,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         name={`${namePrefix}Zone`}
         value={values.zone}
         onChange={handleZoneChange}
+        onFocus={handleZoneFocus}
         options={options.zoneOptions}
         placeholder={
           locationState.loadingZones 
@@ -164,6 +222,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         name={`${namePrefix}Division`}
         value={values.division}
         onChange={handleDivisionChange}
+        onFocus={handleDivisionFocus}
         options={options.divisionOptions}
         placeholder={
           locationState.loadingDivisions 
@@ -184,6 +243,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
           name={`${namePrefix}PoliceStation`}
           value={values.policeStation}
           onChange={handlePoliceStationChange}
+          onFocus={handlePoliceStationFocus}
           options={options.policeStationOptions}
           placeholder={
             locationState.loadingPoliceStations 

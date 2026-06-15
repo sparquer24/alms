@@ -88,6 +88,11 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
               zone: formData.presentZone || '',
               division: formData.presentDivision || '',
               policeStation: formData.presentPoliceStation || '',
+              stateName: formData.presentStateName,
+              districtName: formData.presentDistrictName,
+              zoneName: formData.presentZoneName,
+              divisionName: formData.presentDivisionName,
+              policeStationName: formData.presentPoliceStationName,
             }}
             onChange={(field, value) => onChange({ target: { name: field, value } })}
             required
@@ -130,6 +135,11 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
                   zone: formData.permanentZone || '',
                   division: formData.permanentDivision || '',
                   policeStation: formData.permanentPoliceStation || '',
+                  stateName: formData.permanentStateName,
+                  districtName: formData.permanentDistrictName,
+                  zoneName: formData.permanentZoneName,
+                  divisionName: formData.permanentDivisionName,
+                  policeStationName: formData.permanentPoliceStationName,
                 }}
                 onChange={(field, value) => onChange({ target: { name: field, value } })}
                 required

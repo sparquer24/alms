@@ -226,6 +226,11 @@ export class ApplicationService {
           presentZone: presentAddr.zoneId ? String(presentAddr.zoneId) : '',
           presentDivision: presentAddr.divisionId ? String(presentAddr.divisionId) : '',
           presentPoliceStation: presentAddr.policeStationId ? String(presentAddr.policeStationId) : '',
+          presentStateName: presentAddr.state?.name || '',
+          presentDistrictName: presentAddr.district?.name || '',
+          presentZoneName: presentAddr.zone?.name || '',
+          presentDivisionName: presentAddr.division?.name || '',
+          presentPoliceStationName: presentAddr.policeStation?.name || '',
           presentSince: presentAddr.sinceResiding ? new Date(presentAddr.sinceResiding).toISOString().split('T')[0] : '',
           // Permanent address fields
           permanentAddress: permanentAddr.addressLine || '',
@@ -234,6 +239,11 @@ export class ApplicationService {
           permanentZone: permanentAddr.zoneId ? String(permanentAddr.zoneId) : '',
           permanentDivision: permanentAddr.divisionId ? String(permanentAddr.divisionId) : '',
           permanentPoliceStation: permanentAddr.policeStationId ? String(permanentAddr.policeStationId) : '',
+          permanentStateName: permanentAddr.state?.name || '',
+          permanentDistrictName: permanentAddr.district?.name || '',
+          permanentZoneName: permanentAddr.zone?.name || '',
+          permanentDivisionName: permanentAddr.division?.name || '',
+          permanentPoliceStationName: permanentAddr.policeStation?.name || '',
           // Contact details
           telephoneOffice: presentAddr.telephoneOffice || permanentAddr.telephoneOffice || '',
           telephoneResidence: presentAddr.telephoneResidence || permanentAddr.telephoneResidence || '',
@@ -249,6 +259,8 @@ export class ApplicationService {
           officeAddress: occupationData.officeAddress || '',
           officeState: occupationData.stateId ? String(occupationData.stateId) : '',
           officeDistrict: occupationData.districtId ? String(occupationData.districtId) : '',
+          officeStateName: occupationData.state?.name || '',
+          officeDistrictName: occupationData.district?.name || '',
           cropLocation: occupationData.cropLocation || '',
           areaUnderCultivation: occupationData.areaUnderCultivation ? String(occupationData.areaUnderCultivation) : '',
         };

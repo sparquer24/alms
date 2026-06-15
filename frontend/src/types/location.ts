@@ -47,6 +47,11 @@ export interface AddressLocationData {
   zone: string;
   division: string;
   policeStation: string;
+  stateName?: string;
+  districtName?: string;
+  zoneName?: string;
+  divisionName?: string;
+  policeStationName?: string;
 }
 
 export interface AddressFormData {
@@ -56,6 +61,11 @@ export interface AddressFormData {
   presentZone: string;
   presentDivision: string;
   presentPoliceStation: string;
+  presentStateName?: string;
+  presentDistrictName?: string;
+  presentZoneName?: string;
+  presentDivisionName?: string;
+  presentPoliceStationName?: string;
   presentSince: string;
   sameAsPresent: boolean;
   permanentAddress: string;
@@ -64,6 +74,11 @@ export interface AddressFormData {
   permanentZone: string;
   permanentDivision: string;
   permanentPoliceStation: string;
+  permanentStateName?: string;
+  permanentDistrictName?: string;
+  permanentZoneName?: string;
+  permanentDivisionName?: string;
+  permanentPoliceStationName?: string;
   telephoneOffice: string;
   telephoneResidence: string;
   officeMobileNumber: string;

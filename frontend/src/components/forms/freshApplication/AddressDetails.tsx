@@ -259,6 +259,11 @@ const AddressDetails: React.FC = () => {
 						zone: form.presentZone,
 						division: form.presentDivision,
 						policeStation: form.presentPoliceStation,
+						stateName: form.presentStateName,
+						districtName: form.presentDistrictName,
+						zoneName: form.presentZoneName,
+						divisionName: form.presentDivisionName,
+						policeStationName: form.presentPoliceStationName,
 					}}
 					onChange={handleLocationChange}
 					required={true}
@@ -316,6 +321,11 @@ const AddressDetails: React.FC = () => {
 						zone: form.permanentZone,
 						division: form.permanentDivision,
 						policeStation: form.permanentPoliceStation,
+						stateName: form.permanentStateName,
+						districtName: form.permanentDistrictName,
+						zoneName: form.permanentZoneName,
+						divisionName: form.permanentDivisionName,
+						policeStationName: form.permanentPoliceStationName,
 					}}
 					onChange={handleLocationChange}
 					required={!form.sameAsPresent}

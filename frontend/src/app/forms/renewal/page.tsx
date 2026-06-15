@@ -54,6 +54,11 @@ type RenewalFormState = {
   presentZone: string;
   presentDivision: string;
   presentPoliceStation: string;
+  presentStateName?: string;
+  presentDistrictName?: string;
+  presentZoneName?: string;
+  presentDivisionName?: string;
+  presentPoliceStationName?: string;
   jurisdictionPoliceStation: string;
   presentPincode: string;
   residingSince: string;
@@ -64,6 +69,11 @@ type RenewalFormState = {
   permanentZone: string;
   permanentDivision: string;
   permanentPoliceStation: string;
+  permanentStateName?: string;
+  permanentDistrictName?: string;
+  permanentZoneName?: string;
+  permanentDivisionName?: string;
+  permanentPoliceStationName?: string;
   permanentPincode: string;
   officePhone: string;
   residencePhone: string;
@@ -176,23 +186,33 @@ const initialFormState: RenewalFormState = {
   presentState: '',
   presentDistrict: '',
   presentZone: '',
-presentDivision: '',
-   presentPoliceStation: '',
-   jurisdictionPoliceStation: '',
-   presentPincode: '',
-   residingSince: '',
-   sameAsPresent: false,
-   permanentAddress: '',
-   permanentState: '',
-   permanentDistrict: '',
-   permanentZone: '',
-   permanentDivision: '',
-   permanentPoliceStation: '',
-   permanentPincode: '',
-   officePhone: '',
-   residencePhone: '',
-   officeMobile: '',
-   alternativeMobile: '',
+  presentDivision: '',
+  presentPoliceStation: '',
+  presentStateName: '',
+  presentDistrictName: '',
+  presentZoneName: '',
+  presentDivisionName: '',
+  presentPoliceStationName: '',
+  jurisdictionPoliceStation: '',
+  presentPincode: '',
+  residingSince: '',
+  sameAsPresent: false,
+  permanentAddress: '',
+  permanentState: '',
+  permanentDistrict: '',
+  permanentZone: '',
+  permanentDivision: '',
+  permanentPoliceStation: '',
+  permanentStateName: '',
+  permanentDistrictName: '',
+  permanentZoneName: '',
+  permanentDivisionName: '',
+  permanentPoliceStationName: '',
+  permanentPincode: '',
+  officePhone: '',
+  residencePhone: '',
+  officeMobile: '',
+  alternativeMobile: '',
   occupation: '',
   officeBusinessAddress: '',
   officeBusinessState: '',
@@ -491,11 +511,27 @@ const mapPresentAddressFields = (data: any) => {
     presentPoliceStation: normalizeLocationId(
       presentAddress?.policeStationId ?? presentAddress?.policeStation?.id
     ),
+    presentStateName: getTextValue(presentAddress?.state?.name, presentAddress?.stateName),
+    presentDistrictName: getTextValue(presentAddress?.district?.name, presentAddress?.districtName),
+    presentZoneName: getTextValue(presentAddress?.zone?.name, presentAddress?.zoneName),
+    presentDivisionName: getTextValue(presentAddress?.division?.name, presentAddress?.divisionName),
+    presentPoliceStationName: getTextValue(
+      presentAddress?.policeStation?.name,
+      presentAddress?.policeStationName
+    ),
     jurisdictionPoliceStation: getTextValue(data?.jurisdictionPoliceStation),
     residingSince: formatDate(
       presentAddress?.sinceResiding || data?.residingSince || data?.presentSince
     ),
-    sameAsPresent: Boolean(data?.sameAsPresent),
+    sameAsPresent: Boolean(data?.sameAsPresent) || Boolean(
+      data?.permanentAddress &&
+      getAddressLine(presentAddress) === getAddressLine(data.permanentAddress) &&
+      normalizeLocationId(presentAddress?.stateId ?? presentAddress?.state?.id) === normalizeLocationId(data.permanentAddress.stateId ?? data.permanentAddress.state?.id) &&
+      normalizeLocationId(presentAddress?.districtId ?? presentAddress?.district?.id) === normalizeLocationId(data.permanentAddress.districtId ?? data.permanentAddress.district?.id) &&
+      normalizeLocationId(presentAddress?.zoneId ?? presentAddress?.zone?.id) === normalizeLocationId(data.permanentAddress.zoneId ?? data.permanentAddress.zone?.id) &&
+      normalizeLocationId(presentAddress?.divisionId ?? presentAddress?.division?.id) === normalizeLocationId(data.permanentAddress.divisionId ?? data.permanentAddress.division?.id) &&
+      normalizeLocationId(presentAddress?.policeStationId ?? presentAddress?.policeStation?.id) === normalizeLocationId(data.permanentAddress.policeStationId ?? data.permanentAddress.policeStation?.id)
+    ),
     officePhone: getTextValue(
       presentAddress?.telephoneOffice,
       data?.telephoneOffice,
@@ -531,6 +567,14 @@ const mapPermanentAddressFields = (data: any) => {
     ),
     permanentPoliceStation: normalizeLocationId(
       permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id
+    ),
+    permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
+    permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
+    permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
+    permanentDivisionName: getTextValue(permanentAddress?.division?.name, permanentAddress?.divisionName),
+    permanentPoliceStationName: getTextValue(
+      permanentAddress?.policeStation?.name,
+      permanentAddress?.policeStationName
     ),
   };
 };
@@ -1430,6 +1474,11 @@ const buildFieldStateFromFreshApplication = (
           presentZone: extractedAddress.presentZone || '',
           presentDivision: extractedAddress.presentDivision || '',
           presentPoliceStation: extractedAddress.presentPoliceStation || '',
+          presentStateName: extractedAddress.presentStateName || '',
+          presentDistrictName: extractedAddress.presentDistrictName || '',
+          presentZoneName: extractedAddress.presentZoneName || '',
+          presentDivisionName: extractedAddress.presentDivisionName || '',
+          presentPoliceStationName: extractedAddress.presentPoliceStationName || '',
           residingSince:
             extractedAddress.presentSince || formatDate(getPresentAddress(data)?.sinceResiding),
           officePhone: extractedAddress.telephoneOffice || '',
@@ -1450,6 +1499,11 @@ const buildFieldStateFromFreshApplication = (
           permanentZone: extractedAddress.permanentZone || '',
           permanentDivision: extractedAddress.permanentDivision || '',
           permanentPoliceStation: extractedAddress.permanentPoliceStation || '',
+          permanentStateName: extractedAddress.permanentStateName || '',
+          permanentDistrictName: extractedAddress.permanentDistrictName || '',
+          permanentZoneName: extractedAddress.permanentZoneName || '',
+          permanentDivisionName: extractedAddress.permanentDivisionName || '',
+          permanentPoliceStationName: extractedAddress.permanentPoliceStationName || '',
         }
       : {}),
 
@@ -1460,6 +1514,8 @@ const buildFieldStateFromFreshApplication = (
           officeBusinessAddress: extractedOccupation.officeAddress || '',
           officeBusinessState: extractedOccupation.officeState || '',
           officeBusinessDistrict: extractedOccupation.officeDistrict || '',
+          officeBusinessStateName: extractedOccupation.officeStateName || '',
+          officeBusinessDistrictName: extractedOccupation.officeDistrictName || '',
           cropProtectionLocation: extractedOccupation.cropLocation || '',
           cultivatedArea: extractedOccupation.areaUnderCultivation || '',
         }
@@ -2176,8 +2232,44 @@ function RenewalFormPageContent() {
         next.permanentDivision = next.presentDivision || '';
         next.permanentPoliceStation = next.presentPoliceStation || '';
         next.permanentPincode = next.presentPincode || '';
+        next.permanentStateName = next.presentStateName || '';
+        next.permanentDistrictName = next.presentDistrictName || '';
+        next.permanentZoneName = next.presentZoneName || '';
+        next.permanentDivisionName = next.presentDivisionName || '';
+        next.permanentPoliceStationName = next.presentPoliceStationName || '';
       } else if (name === 'sameAsPresent' && rawValue === false) {
         // Clear permanent address fields when unchecked so user can enter different address
+      }
+
+      // If sameAsPresent is checked, keep permanent fields in sync when present fields change
+      if (next.sameAsPresent) {
+        if (name === 'presentAddress') next.permanentAddress = rawValue as any;
+        if (name === 'presentState') {
+          next.permanentState = rawValue as any;
+          next.permanentStateName = next.presentStateName;
+        }
+        if (name === 'presentStateName') next.permanentStateName = rawValue as any;
+        if (name === 'presentDistrict') {
+          next.permanentDistrict = rawValue as any;
+          next.permanentDistrictName = next.presentDistrictName;
+        }
+        if (name === 'presentDistrictName') next.permanentDistrictName = rawValue as any;
+        if (name === 'presentZone') {
+          next.permanentZone = rawValue as any;
+          next.permanentZoneName = next.presentZoneName;
+        }
+        if (name === 'presentZoneName') next.permanentZoneName = rawValue as any;
+        if (name === 'presentDivision') {
+          next.permanentDivision = rawValue as any;
+          next.permanentDivisionName = next.presentDivisionName;
+        }
+        if (name === 'presentDivisionName') next.permanentDivisionName = rawValue as any;
+        if (name === 'presentPoliceStation') {
+          next.permanentPoliceStation = rawValue as any;
+          next.permanentPoliceStationName = next.presentPoliceStationName;
+        }
+        if (name === 'presentPoliceStationName') next.permanentPoliceStationName = rawValue as any;
+        if (name === 'presentPincode') next.permanentPincode = rawValue as any;
       }
 
       if (name === 'convictedStatus' && rawValue === false) {

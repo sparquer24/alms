@@ -23,6 +23,44 @@ const initialState = {
 	criminalHistories: [] as any[],
 };
 
+// Validation rules for criminal history
+const validateCriminalHistory = (formData: any) => {
+	const errors: Record<string, string> = {};
+	const history = formData.criminalHistories?.[0];
+	
+	if (history) {
+		if (history.isConvicted) {
+			if (!history.firDetails || history.firDetails.length === 0) {
+				errors.conviction_general = 'At least one conviction provision must be added.';
+			} else {
+				history.firDetails.forEach((prov: any, idx: number) => {
+					if (!prov.firNumber?.trim()) errors[`firNumber_${idx}`] = 'FIR Number is required';
+					if (!prov.underSection?.trim()) errors[`underSection_${idx}`] = 'Section is required';
+					if (!prov.policeStation?.trim()) errors[`policeStation_${idx}`] = 'Police Station is required';
+					if (!prov.unit?.trim()) errors[`unit_${idx}`] = 'Unit is required';
+					if (!prov.District?.trim()) errors[`district_${idx}`] = 'District is required';
+					if (!prov.state?.trim()) errors[`state_${idx}`] = 'State is required';
+					if (!prov.offence?.trim()) errors[`offence_${idx}`] = 'Offence is required';
+					if (!prov.sentence?.trim()) errors[`sentence_${idx}`] = 'Sentence is required';
+					if (!prov.DateOfSentence?.trim()) errors[`dateOfSentence_${idx}`] = 'Date of Sentence is required';
+				});
+			}
+		}
+		
+		if (history.isBondExecuted) {
+			if (!history.bondDate) errors.bondDate = 'Date of Sentence is required';
+			if (!history.bondPeriod?.trim()) errors.bondPeriod = 'Period is required';
+		}
+		
+		if (history.isProhibited) {
+			if (!history.prohibitionDate) errors.prohibitionDate = 'Date of Sentence is required';
+			if (!history.prohibitionPeriod?.trim()) errors.prohibitionPeriod = 'Period is required';
+		}
+	}
+	
+	return errors;
+};
+
 const CriminalHistory = () => {
 	const router = useRouter();
 	
@@ -38,9 +76,12 @@ const CriminalHistory = () => {
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
+		fieldErrors,
+		setFieldErrors,
 	} = useApplicationForm({
 		initialState,
 		formSection: 'criminal',
+		validationRules: validateCriminalHistory,
 	});
 
 	const [convicted, setConvicted] = useState('no');
@@ -101,36 +142,66 @@ const CriminalHistory = () => {
 				// If no FIR details, ensure we have at least one empty provision
 				setProvisions([{ ...initialProvision }]);
 			}
-		} else {
-			// Reset to initial state if no data
 		}
 	}, [form.criminalHistories]);
 
 	const handleProvisionChange = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
 		setProvisions((prev) => prev.map((prov, i) => i === idx ? { ...prov, [name]: value } : prov));
+		
+		const errorKey = `${name === 'district' ? 'district' : name}_${idx}`;
+		if (fieldErrors[errorKey]) {
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		}
 	};
 
-	const addProvision = () => setProvisions((prev) => [...prev, { ...initialProvision }]);
-	const removeProvision = (idx: number) => setProvisions((prev) => prev.filter((_, i) => i !== idx));
+	const addProvision = () => {
+		setProvisions((prev) => [...prev, { ...initialProvision }]);
+		if (fieldErrors.conviction_general) {
+			setFieldErrors((prev: any) => ({ ...prev, conviction_general: '' }));
+		}
+	};
+	
+	const removeProvision = (idx: number) => {
+		setProvisions((prev) => prev.filter((_, i) => i !== idx));
+		// Clear errors for removed index
+		setFieldErrors((prev: any) => {
+			const nextErrors = { ...prev };
+			Object.keys(nextErrors).forEach(key => {
+				if (key.endsWith(`_${idx}`)) {
+					delete nextErrors[key];
+				}
+			});
+			return nextErrors;
+		});
+	};
 
-	const handleSaveToDraft = async () => {
-		// Debug current state before transformation
-		// Transform local state to the new API format
-		const criminalHistories = [{
+	const handleBondChange = (field: 'dateOfSentence' | 'period', value: string) => {
+		setBondDetails(d => ({ ...d, [field]: value }));
+		const errorKey = field === 'dateOfSentence' ? 'bondDate' : 'bondPeriod';
+		if (fieldErrors[errorKey]) {
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		}
+	};
+
+	const handleProhibitedChange = (field: 'dateOfSentence' | 'period', value: string) => {
+		setProhibitedDetails(d => ({ ...d, [field]: value }));
+		const errorKey = field === 'dateOfSentence' ? 'prohibitionDate' : 'prohibitionPeriod';
+		if (fieldErrors[errorKey]) {
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		}
+	};
+
+	const getTransformedHistory = () => {
+		return [{
 			isConvicted: convicted === 'yes',
 			isBondExecuted: bond === 'yes',
-			bondDate: bondDetails.dateOfSentence || null,
-			bondPeriod: bondDetails.period || null,
+			bondDate: bond === 'yes' ? (bondDetails.dateOfSentence || null) : null,
+			bondPeriod: bond === 'yes' ? (bondDetails.period || null) : null,
 			isProhibited: prohibited === 'yes',
-			prohibitionDate: prohibitedDetails.dateOfSentence || null,
-			prohibitionPeriod: prohibitedDetails.period || null,
-			firDetails: convicted === 'yes' ? provisions.filter(prov => 
-				// Only include provisions that have at least some data
-				prov.firNumber || prov.underSection || prov.policeStation || 
-				prov.unit || prov.district || prov.state || 
-				prov.offence || prov.sentence || prov.dateOfSentence
-			).map(prov => ({
+			prohibitionDate: prohibited === 'yes' ? (prohibitedDetails.dateOfSentence || null) : null,
+			prohibitionPeriod: prohibited === 'yes' ? (prohibitedDetails.period || null) : null,
+			firDetails: convicted === 'yes' ? provisions.map(prov => ({
 				firNumber: prov.firNumber || "",
 				underSection: prov.underSection || "",
 				policeStation: prov.policeStation || "",
@@ -142,63 +213,33 @@ const CriminalHistory = () => {
 				DateOfSentence: prov.dateOfSentence || null
 			})) : []
 		}];
+	};
+
+	const handleSaveToDraft = async () => {
+		const criminalHistories = getTransformedHistory();
 
 		// Set flag to prevent useEffect from overwriting our data
 		setIsUpdatingForm(true);
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
-		// Log the payload being sent
-		// Add debugging to see what's in the form state right before save
 		await saveFormData();
 		
 		// Reset flag after a delay to allow for data loading
 		setTimeout(() => setIsUpdatingForm(false), 1000);
-	};	const handleNext = async () => {
-		// Debug current state before transformation
-		// Transform local state to the new API format
-		const criminalHistories = [{
-			isConvicted: convicted === 'yes',
-			isBondExecuted: bond === 'yes',
-			bondDate: bondDetails.dateOfSentence || null,
-			bondPeriod: bondDetails.period || null,
-			isProhibited: prohibited === 'yes',
-			prohibitionDate: prohibitedDetails.dateOfSentence || null,
-			prohibitionPeriod: prohibitedDetails.period || null,
-			firDetails: convicted === 'yes' ? provisions.filter(prov => 
-				// Only include provisions that have at least some data
-				prov.firNumber || prov.underSection || prov.policeStation || 
-				prov.unit || prov.district || prov.state || 
-				prov.offence || prov.sentence || prov.dateOfSentence
-			).map(prov => ({
-				firNumber: prov.firNumber || "",
-				underSection: prov.underSection || "",
-				policeStation: prov.policeStation || "",
-				unit: prov.unit || "",
-				District: prov.district || "",
-				state: prov.state || "",
-				offence: prov.offence || "",
-				sentence: prov.sentence || "",
-				DateOfSentence: prov.dateOfSentence || null
-			})) : []
-		}];
+	};
+
+	const handleNext = async () => {
+		const criminalHistories = getTransformedHistory();
 		
 		// Set flag to prevent useEffect from overwriting our data
 		setIsUpdatingForm(true);
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
-		// Log the payload being sent
-		// Instead of using setForm which might get overridden, pass the data directly
-		// Create the form data structure that includes the criminal histories
 		const formDataToSave = {
 			...form,
 			criminalHistories
 		};
 		
-		// Add debugging to see what's in the form state right before save
-		// Also update the form state for UI consistency
-		setForm((prev: any) => ({ ...prev, criminalHistories }));
-		
-		// Pass the correct criminal histories directly to saveFormData to avoid timing issues
 		const savedApplicantId = await saveFormData(undefined, formDataToSave, true);
 		
 		if (savedApplicantId) {
@@ -225,27 +266,28 @@ const CriminalHistory = () => {
 
 	return (
 		<form className="p-6">
-        <h2 className="text-xl font-bold mb-4">Criminal History</h2>
+			<h2 className="text-xl font-bold mb-4">Criminal History</h2>
 			
-		{/* Display Applicant ID and License ID if available */}
-		{(applicantId || almsLicenseId) && (
-			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-				<div className="flex flex-col">
-					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-					{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+			{/* Display Applicant ID and License ID if available */}
+			{(applicantId || almsLicenseId) && (
+				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
+					<div className="flex flex-col">
+						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+					</div>
+					{typeof loadExistingData === 'function' && (
+						<button
+							type='button'
+							onClick={() => applicantId && loadExistingData(applicantId)}
+							disabled={isLoading}
+							className='px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'
+						>
+							{isLoading ? 'Loading...' : 'Refresh Data'}
+						</button>
+					)}
 				</div>
-				{typeof loadExistingData === 'function' && (
-					<button
-						type='button'
-						onClick={() => applicantId && loadExistingData(applicantId)}
-						disabled={isLoading}
-						className='px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'
-					>
-						{isLoading ? 'Loading...' : 'Refresh Data'}
-					</button>
-				)}
-			</div>
-		)}			{/* Display success/error messages */}
+			)}
+			
+			{/* Display success/error messages */}
 			{submitSuccess && (
 				<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
 					{submitSuccess}
@@ -256,6 +298,7 @@ const CriminalHistory = () => {
 					{submitError}
 				</div>
 			)}
+			
 			<div className="mb-4">
 				<div className="font-semibold mb-2">13. Whether the applicant has been -</div>
 				<div className="mb-2">(a) Convicted</div>
@@ -266,7 +309,10 @@ const CriminalHistory = () => {
 							name="convicted" 
 							value="yes" 
 							checked={convicted === 'yes'} 
-							onChange={() => setConvicted('yes')} 
+							onChange={() => {
+								setConvicted('yes');
+								setFieldErrors((prev: any) => ({ ...prev, conviction_general: '' }));
+							}} 
 							className="cursor-pointer"
 						/> Yes
 					</label>
@@ -276,43 +322,138 @@ const CriminalHistory = () => {
 							name="convicted" 
 							value="no" 
 							checked={convicted === 'no'} 
-							onChange={() => setConvicted('no')} 
+							onChange={() => {
+								setConvicted('no');
+								// Clear conviction-related errors
+								setFieldErrors((prev: any) => {
+									const nextErrors = { ...prev };
+									Object.keys(nextErrors).forEach(key => {
+										if (key.includes('firNumber_') || key.includes('underSection_') || 
+											key.includes('policeStation_') || key.includes('unit_') || 
+											key.includes('district_') || key.includes('state_') || 
+											key.includes('offence_') || key.includes('sentence_') || 
+											key.includes('dateOfSentence_') || key === 'conviction_general') {
+											delete nextErrors[key];
+										}
+									});
+									return nextErrors;
+								});
+							}} 
 							className="cursor-pointer"
 						/> No
 					</label>
 				</div>
-				   {convicted === 'yes' && provisions.map((prov, idx) => (
-					   <div key={idx} className="mb-6 border-b pb-4">
-						   <div className="font-medium mb-2">{idx === 0 ? 'i. Provisions to Enter–' : `ii. Provisions to Enter–`}</div>
-						   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
-							   <Input label="FIR Number" name="firNumber" value={prov.firNumber} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter FIR number" />
-							   <Input label="Under Section" name="underSection" value={prov.underSection} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter section" />
-							   <Input label="Police Station" name="policeStation" value={prov.policeStation} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter police station" />
-						   </div>
-						   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
-							   <Input label="Unit" name="unit" value={prov.unit} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter unit" />
-							   <Input label="District" name="district" value={prov.district} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter district" />
-							   <Input label="State" name="state" value={prov.state} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter state" />
-						   </div>
-						   <div className="font-medium mb-2">If Yes details thereof-</div>
-						   <div className="grid grid-cols-3 gap-6 mb-2">
-							   <Input label="Offence" name="offence" value={prov.offence} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter offence" />
-							   <Input label="Sentence" name="sentence" value={prov.sentence} onChange={e => handleProvisionChange(idx, e)} placeholder="Enter sentence" />
-							   <Input label="Date of Sentence" name="dateOfSentence" type="date" value={prov.dateOfSentence} onChange={e => handleProvisionChange(idx, e)} placeholder="DD/MM/YYYY" />
-						   </div>
-						   <div className="flex gap-2 mt-2">
-							   <button type="button" className="bg-blue-900 text-white px-4 py-1 rounded flex items-center gap-1" onClick={addProvision}>
-								   Add <span role="img" aria-label="add">➕</span>
-							   </button>
-							   {idx > 0 && (
-								   <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1" onClick={() => removeProvision(idx)}>
-									   <span role="img" aria-label="delete">🗑️</span>
-								   </button>
-							   )}
-						   </div>
-					   </div>
-				   ))}
+				
+				{fieldErrors.conviction_general && (
+					<p className="text-red-500 text-xs mb-4">{fieldErrors.conviction_general}</p>
+				)}
+
+				{convicted === 'yes' && provisions.map((prov, idx) => (
+					<div key={idx} className="mb-6 border-b pb-4">
+						<div className="font-medium mb-2">{idx === 0 ? 'i. Provisions to Enter–' : `ii. Provisions to Enter–`}</div>
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
+							<Input 
+								label="FIR Number" 
+								name="firNumber" 
+								value={prov.firNumber} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter FIR number" 
+								error={fieldErrors[`firNumber_${idx}`]}
+								required
+							/>
+							<Input 
+								label="Under Section" 
+								name="underSection" 
+								value={prov.underSection} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter section" 
+								error={fieldErrors[`underSection_${idx}`]}
+								required
+							/>
+							<Input 
+								label="Police Station" 
+								name="policeStation" 
+								value={prov.policeStation} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter police station" 
+								error={fieldErrors[`policeStation_${idx}`]}
+								required
+							/>
+						</div>
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-2">
+							<Input 
+								label="Unit" 
+								name="unit" 
+								value={prov.unit} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter unit" 
+								error={fieldErrors[`unit_${idx}`]}
+								required
+							/>
+							<Input 
+								label="District" 
+								name="district" 
+								value={prov.district} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter district" 
+								error={fieldErrors[`district_${idx}`]}
+								required
+							/>
+							<Input 
+								label="State" 
+								name="state" 
+								value={prov.state} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter state" 
+								error={fieldErrors[`state_${idx}`]}
+								required
+							/>
+						</div>
+						<div className="font-medium mb-2">If Yes details thereof-</div>
+						<div className="grid grid-cols-3 gap-6 mb-2">
+							<Input 
+								label="Offence" 
+								name="offence" 
+								value={prov.offence} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter offence" 
+								error={fieldErrors[`offence_${idx}`]}
+								required
+							/>
+							<Input 
+								label="Sentence" 
+								name="sentence" 
+								value={prov.sentence} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="Enter sentence" 
+								error={fieldErrors[`sentence_${idx}`]}
+								required
+							/>
+							<Input 
+								label="Date of Sentence" 
+								name="dateOfSentence" 
+								type="date" 
+								value={prov.dateOfSentence} 
+								onChange={e => handleProvisionChange(idx, e)} 
+								placeholder="DD/MM/YYYY" 
+								error={fieldErrors[`dateOfSentence_${idx}`]}
+								required
+							/>
+						</div>
+						<div className="flex gap-2 mt-2">
+							<button type="button" className="bg-blue-900 text-white px-4 py-1 rounded flex items-center gap-1" onClick={addProvision}>
+								Add <span role="img" aria-label="add">➕</span>
+							</button>
+							{idx > 0 && (
+								<button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1" onClick={() => removeProvision(idx)}>
+									<span role="img" aria-label="delete">🗑️</span>
+								</button>
+							)}
+						</div>
+					</div>
+				))}
 			</div>
+			
 			<div className="mb-4">
 				<div className="mb-2">(b) Ordered to execute a bond under Chapter IX of Bharath Nagarik Suraksha Sameeksha, 1973 (2 of 1947) for keeping the peace or for good behavior</div>
 				<div className="flex gap-6 mb-2">
@@ -332,18 +473,45 @@ const CriminalHistory = () => {
 							name="bond" 
 							value="no" 
 							checked={bond === 'no'} 
-							onChange={() => setBond('no')} 
+							onChange={() => {
+								setBond('no');
+								// Clear bond-related errors
+								setFieldErrors((prev: any) => {
+									const nextErrors = { ...prev };
+									delete nextErrors.bondDate;
+									delete nextErrors.bondPeriod;
+									return nextErrors;
+								});
+							}} 
 							className="cursor-pointer"
 						/> No
 					</label>
 				</div>
 				{bond === 'yes' && (
 					<div className="grid grid-cols-2 gap-6 mb-2">
-						<Input label="Date of Sentence" name="dateOfSentence" type="date" value={bondDetails.dateOfSentence} onChange={e => setBondDetails(d => ({ ...d, dateOfSentence: e.target.value }))} placeholder="DD/MM/YYYY" />
-						<Input label="Period of which bound" name="period" value={bondDetails.period} onChange={e => setBondDetails(d => ({ ...d, period: e.target.value }))} placeholder="Enter period" />
+						<Input 
+							label="Date of Sentence" 
+							name="dateOfSentence" 
+							type="date" 
+							value={bondDetails.dateOfSentence} 
+							onChange={e => handleBondChange('dateOfSentence', e.target.value)} 
+							placeholder="DD/MM/YYYY" 
+							error={fieldErrors.bondDate}
+							required
+						/>
+						<Input 
+							label="Period of which bound" 
+							name="period" 
+							value={bondDetails.period} 
+							onChange={e => handleBondChange('period', e.target.value)} 
+							placeholder="Enter period" 
+							error={fieldErrors.bondPeriod}
+							required
+						/>
 					</div>
 				)}
 			</div>
+			
 			<div className="mb-4">
 				<div className="mb-2">(c) Prohibited under the Arms Act, 1959, or any other law from having the arms off ammunition</div>
 				<div className="flex gap-6 mb-2">
@@ -363,18 +531,45 @@ const CriminalHistory = () => {
 							name="prohibited" 
 							value="no" 
 							checked={prohibited === 'no'} 
-							onChange={() => setProhibited('no')} 
+							onChange={() => {
+								setProhibited('no');
+								// Clear prohibited-related errors
+								setFieldErrors((prev: any) => {
+									const nextErrors = { ...prev };
+									delete nextErrors.prohibitionDate;
+									delete nextErrors.prohibitionPeriod;
+									return nextErrors;
+								});
+							}} 
 							className="cursor-pointer"
 						/> No
 					</label>
 				</div>
 				{prohibited === 'yes' && (
 					<div className="grid grid-cols-2 gap-6 mb-2">
-						<Input label="Date of Sentence" name="dateOfSentence" type="date" value={prohibitedDetails.dateOfSentence} onChange={e => setProhibitedDetails(d => ({ ...d, dateOfSentence: e.target.value }))} placeholder="DD/MM/YYYY" />
-						<Input label="Period of which bound" name="period" value={prohibitedDetails.period} onChange={e => setProhibitedDetails(d => ({ ...d, period: e.target.value }))} placeholder="Enter period" />
+						<Input 
+							label="Date of Sentence" 
+							name="dateOfSentence" 
+							type="date" 
+							value={prohibitedDetails.dateOfSentence} 
+							onChange={e => handleProhibitedChange('dateOfSentence', e.target.value)} 
+							placeholder="DD/MM/YYYY" 
+							error={fieldErrors.prohibitionDate}
+							required
+						/>
+						<Input 
+							label="Period of which bound" 
+							name="period" 
+							value={prohibitedDetails.period} 
+							onChange={e => handleProhibitedChange('period', e.target.value)} 
+							placeholder="Enter period" 
+							error={fieldErrors.prohibitionPeriod}
+							required
+						/>
 					</div>
 				)}
 			</div>
+			
 			<FormFooter
 				onSaveToDraft={handleSaveToDraft}
 				onNext={handleNext}
