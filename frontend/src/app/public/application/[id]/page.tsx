@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PublicApi } from '../../../../config/APIClient';
+import { getStatusStyle } from '../../../../utils/statusColors';
 
 interface PublicApplicationPageProps {
   params: Promise<{
@@ -91,21 +92,11 @@ export default function PublicApplicationPage({ params }: PublicApplicationPageP
     fetchApplication();
   }, [applicationId]);
 
-  const getStatusColor = (status: string | null) => {
-    const s = (status || '').toLowerCase();
-    switch (s) {
-      case 'approved':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'forwarded':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+  const statusStyle = getStatusStyle(application?.applicationStatus);
+  const approvedStyle = getStatusStyle('approved');
+  const rejectedStyle = getStatusStyle('rejected');
+  const recommendedStyle = getStatusStyle('submitted');
+  const pendingStyle = getStatusStyle('pending');
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -190,7 +181,12 @@ export default function PublicApplicationPage({ params }: PublicApplicationPageP
               </div>
             </div>
             <span
-              className={`px-4 py-2 rounded-full text-sm font-semibold border ${getStatusColor(application.applicationStatus)}`}
+              className="px-4 py-2 rounded-full text-sm font-semibold border"
+              style={{
+                backgroundColor: statusStyle.bg,
+                color: statusStyle.text,
+                borderColor: statusStyle.border,
+              }}
             >
               {application.applicationStatus}
             </span>
@@ -293,10 +289,22 @@ export default function PublicApplicationPage({ params }: PublicApplicationPageP
           </h2>
           <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
             <div
-              className={`rounded-lg p-4 text-center ${application.isApproved ? 'bg-green-50 border-2 border-green-200' : 'bg-gray-50'}`}
+              className='rounded-lg p-4 text-center border-2'
+              style={application.isApproved ? {
+                backgroundColor: `${approvedStyle.bg}1A`,
+                borderColor: approvedStyle.border
+              } : {
+                backgroundColor: '#F9FAFB',
+                borderColor: 'transparent'
+              }}
             >
               <div
-                className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${application.isApproved ? 'bg-green-500' : 'bg-gray-300'}`}
+                className='w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center'
+                style={application.isApproved ? {
+                  backgroundColor: approvedStyle.bg
+                } : {
+                  backgroundColor: '#D1D5DB'
+                }}
               >
                 {application.isApproved && (
                   <svg
@@ -317,10 +325,22 @@ export default function PublicApplicationPage({ params }: PublicApplicationPageP
               <p className='text-sm font-medium text-gray-700'>Approved</p>
             </div>
             <div
-              className={`rounded-lg p-4 text-center ${application.isRejected ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'}`}
+              className='rounded-lg p-4 text-center border-2'
+              style={application.isRejected ? {
+                backgroundColor: `${rejectedStyle.bg}1A`,
+                borderColor: rejectedStyle.border
+              } : {
+                backgroundColor: '#F9FAFB',
+                borderColor: 'transparent'
+              }}
             >
               <div
-                className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${application.isRejected ? 'bg-red-500' : 'bg-gray-300'}`}
+                className='w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center'
+                style={application.isRejected ? {
+                  backgroundColor: rejectedStyle.bg
+                } : {
+                  backgroundColor: '#D1D5DB'
+                }}
               >
                 {application.isRejected && (
                   <svg
@@ -341,10 +361,22 @@ export default function PublicApplicationPage({ params }: PublicApplicationPageP
               <p className='text-sm font-medium text-gray-700'>Rejected</p>
             </div>
             <div
-              className={`rounded-lg p-4 text-center ${application.isRecommended ? 'bg-blue-50 border-2 border-blue-200' : 'bg-gray-50'}`}
+              className='rounded-lg p-4 text-center border-2'
+              style={application.isRecommended ? {
+                backgroundColor: `${recommendedStyle.bg}1A`,
+                borderColor: recommendedStyle.border
+              } : {
+                backgroundColor: '#F9FAFB',
+                borderColor: 'transparent'
+              }}
             >
               <div
-                className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${application.isRecommended ? 'bg-blue-500' : 'bg-gray-300'}`}
+                className='w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center'
+                style={application.isRecommended ? {
+                  backgroundColor: recommendedStyle.bg
+                } : {
+                  backgroundColor: '#D1D5DB'
+                }}
               >
                 {application.isRecommended && (
                   <svg
@@ -365,10 +397,22 @@ export default function PublicApplicationPage({ params }: PublicApplicationPageP
               <p className='text-sm font-medium text-gray-700'>Recommended</p>
             </div>
             <div
-              className={`rounded-lg p-4 text-center ${application.isPending ? 'bg-yellow-50 border-2 border-yellow-200' : 'bg-gray-50'}`}
+              className='rounded-lg p-4 text-center border-2'
+              style={application.isPending ? {
+                backgroundColor: `${pendingStyle.bg}1A`,
+                borderColor: pendingStyle.border
+              } : {
+                backgroundColor: '#F9FAFB',
+                borderColor: 'transparent'
+              }}
             >
               <div
-                className={`w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center ${application.isPending ? 'bg-yellow-500' : 'bg-gray-300'}`}
+                className='w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center'
+                style={application.isPending ? {
+                  backgroundColor: pendingStyle.bg
+                } : {
+                  backgroundColor: '#D1D5DB'
+                }}
               >
                 {application.isPending && (
                   <svg

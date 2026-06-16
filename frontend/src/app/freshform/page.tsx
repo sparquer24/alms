@@ -29,7 +29,7 @@ function FreshFormContent() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { isAuthenticated, userRole, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, userRole, isLoading: authLoading, initialized } = useAuth();
   const { setShowHeader, setShowSidebar } = useLayout();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -37,7 +37,7 @@ function FreshFormContent() {
 
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (initialized && !isAuthenticated) {
       router.push('/login');
       return;
     }
@@ -49,7 +49,7 @@ function FreshFormContent() {
       router.push('/');
       return;
     }
-  }, [isAuthenticated, router, userRole]);
+  }, [initialized, isAuthenticated, router, userRole]);
 
   useEffect(() => {
     // Fetch applications on component mount
@@ -67,10 +67,10 @@ function FreshFormContent() {
       }
     };
 
-    if (!authLoading && isAuthenticated) {
+    if (initialized && isAuthenticated) {
       loadApplications();
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, initialized]);
 
   // Redirect to create form if navigated with type query
   useEffect(() => {
@@ -127,7 +127,7 @@ function FreshFormContent() {
   };
 
   // Show skeleton loading while authenticating or loading
-  if (authLoading || (!isAuthenticated && !authLoading)) {
+  if (!initialized || authLoading || (!isAuthenticated && initialized)) {
     return <PageLayoutSkeleton />;
   }
 

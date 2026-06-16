@@ -28,22 +28,22 @@ const initialState = {
 
 // Validation rules for personal information
 const validatePersonalInfo = (formData: any) => {
-  const validationErrors = [];
+  const errors: Record<string, string> = {};
 
   if (!formData.firstName?.trim()) {
-    validationErrors.push('First name is required');
+    errors.firstName = 'First name is required';
   }
   if (!formData.lastName?.trim()) {
-    validationErrors.push('Last name is required');
+    errors.lastName = 'Last name is required';
   }
   if (!formData.parentOrSpouseName?.trim()) {
-    validationErrors.push('Parent/Spouse name is required');
+    errors.parentOrSpouseName = 'Parent/Spouse name is required';
   }
   if (!formData.sex) {
-    validationErrors.push('Please select sex');
+    errors.sex = 'Please select sex';
   }
 
-  return validationErrors;
+  return errors;
 };
 
 const PersonalInformation: React.FC = () => {
@@ -58,10 +58,12 @@ const PersonalInformation: React.FC = () => {
     isLoading,
     submitError,
     submitSuccess,
-    handleChange,
+    handleChange: originalHandleChange,
     saveFormData,
     navigateToNext,
     loadExistingData,
+    fieldErrors,
+    setFieldErrors,
   } = useApplicationForm({
     initialState,
     formSection: 'personal',
@@ -71,6 +73,13 @@ const PersonalInformation: React.FC = () => {
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    originalHandleChange(e as any);
+    if (fieldErrors[e.target.name]) {
+      setFieldErrors((prev: any) => ({ ...prev, [e.target.name]: '' }));
+    }
+  };
 
   // Manual data refresh functionality for cases where automatic loading doesn't work
   const handleRefreshData = async () => {
@@ -169,7 +178,7 @@ const PersonalInformation: React.FC = () => {
           value={form.firstName}
           onChange={handleChange}
           required
-          //placeholder="Enter first name"
+          error={fieldErrors.firstName}
         />
         <div className='flex flex-col'>
           <label className='block text-sm font-medium text-gray-700 mb-1' htmlFor='middleName'>
@@ -190,7 +199,7 @@ const PersonalInformation: React.FC = () => {
           value={form.lastName}
           onChange={handleChange}
           required
-          //placeholder="Enter last name"
+          error={fieldErrors.lastName}
         />
         <div className='flex flex-col'>
           <label htmlFor='filledBy' className='block text-sm font-medium text-gray-700 mb-1'>
@@ -211,7 +220,7 @@ const PersonalInformation: React.FC = () => {
           value={form.parentOrSpouseName}
           onChange={handleChange}
           required
-          //placeholder="Enter parent/spouse name"
+          error={fieldErrors.parentOrSpouseName}
         />
         <div className='flex flex-col'>
           <span className='block text-sm font-medium text-gray-700 mb-1'>3. Sex</span>
@@ -241,6 +250,7 @@ const PersonalInformation: React.FC = () => {
               <IoMdFemaleFixed className='text-xl' />
             </label>
           </div>
+          {fieldErrors.sex && <p className="text-red-500 text-xs mt-1">{fieldErrors.sex}</p>}
         </div>
         <Input
           label='4. Place of Birth (Nativity)'
@@ -266,6 +276,7 @@ const PersonalInformation: React.FC = () => {
             type='date'
             value={form.dateOfBirth}
             onChange={handleChange}
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 21)).toISOString().split('T')[0]}
             //placeholder="mm/dd/yyyy"
           />
         </div>

@@ -46,6 +46,9 @@ export class ApplicationFormController {
 
       return { success: true, applicationId, message: 'Personal details saved with DRAFT status' };
     } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -512,7 +515,7 @@ export class ApplicationFormController {
       );
     }
   }
-  @Delete(':id')
+  @Delete('file/:id')
   @ApiOperation({
     summary: 'Delete file record for application',
     description: 'Delete a specific file record associated with an application. This does not delete the actual file from storage.'
@@ -525,7 +528,49 @@ export class ApplicationFormController {
   @ApiResponse({
     status: 200,
     description: 'File record deleted successfully',
-    
+    schema: {
+      example: {
+        success: true,
+        message: 'File record deleted successfully',
+        data: {
+          id: 1,
+          applicationId: 123,
+          fileType: 'AADHAR_CARD',
+          fileName: 'aadhar_card.pdf',
+          fileUrl: 'uploads/application-123/files/AADHAR_CARD_1696507200000_aadhar_card.pdf'
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Bad request - Invalid file ID format or file not found',
+    schema: {
+      example: {
+        success: false,
+        error: 'Invalid file ID format or file not found'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Unauthorized - Invalid token',
+    schema: {
+      example: {
+        success: false,
+        error: 'Unauthorized - Invalid token'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error',
+    schema: {
+      example: {
+        success: false,
+        error: 'Internal server error'
+      }
+    }
   })
   async deleteFileRecord(@Param('id') id: string) {
     try {

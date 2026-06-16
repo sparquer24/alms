@@ -1,7 +1,7 @@
-import React, { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
-import { locationAPI, toSelectOptions } from '../../../../api/locationApi';
+import { useLocationHierarchy } from '../../../../hooks/useLocationHierarchy';
 
 type ErrorsMap = Record<string, string | undefined>;
 
@@ -10,42 +10,40 @@ const OccupationSection = forwardRef(function OccupationSection(
   ref,
 ) {
   const { formData, onChange, errors = {} } = props;
-  const [stateOptions, setStateOptions] = useState<{ value: string; label: string }[]>([]);
-  const [districtOptions, setDistrictOptions] = useState<{ value: string; label: string }[]>([]);
-  const [loadingStates, setLoadingStates] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
 
+  // Location hierarchy for state and district
+  const [locationState, locationActions] = useLocationHierarchy();
+
+  // Sync location state with form values (only when data is loaded from backend)
   useEffect(() => {
-    const loadStates = async () => {
-      try {
-        setLoadingStates(true);
-        const states = await locationAPI.getAllStates();
-        setStateOptions(toSelectOptions(states));
-      } finally {
-        setLoadingStates(false);
-      }
+    if (!formData.officeBusinessState) return;
+
+    const values = {
+      state: formData.officeBusinessState,
+      district: formData.officeBusinessDistrict || '',
+      zone: '',
+      division: '',
+      policeStation: '',
+      stateName: formData.officeBusinessStateName,
+      districtName: formData.officeBusinessDistrictName,
     };
-    loadStates();
-  }, []);
 
-  useEffect(() => {
-    const stateId = formData.officeBusinessState;
-    if (!stateId || !/^\d+$/.test(String(stateId))) {
-      setDistrictOptions([]);
-      return;
+    // Only sync if the selected state/district is different from location state
+    const isOutOfSync = 
+      formData.officeBusinessState !== locationState.selectedState ||
+      formData.officeBusinessDistrict !== locationState.selectedDistrict;
+
+    if (isOutOfSync) {
+      locationActions.hydrateFromValues(values);
     }
-
-    const loadDistricts = async () => {
-      try {
-        setLoadingDistricts(true);
-        const districts = await locationAPI.getDistrictsByState(Number(stateId));
-        setDistrictOptions(toSelectOptions(districts));
-      } finally {
-        setLoadingDistricts(false);
-      }
-    };
-    loadDistricts();
-  }, [formData.officeBusinessState]);
+  }, [
+    formData.officeBusinessState,
+    formData.officeBusinessDistrict,
+    locationState.selectedState,
+    locationState.selectedDistrict,
+    formData.officeBusinessStateName,
+    formData.officeBusinessDistrictName
+  ]);
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
@@ -62,7 +60,8 @@ const OccupationSection = forwardRef(function OccupationSection(
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    const label = stateOptions.find((option) => option.value === value)?.label || '';
+    const label = locationActions.getSelectOptions().stateOptions.find((option) => option.value === value)?.label || '';
+    locationActions.setSelectedState(value);
     onChange({ target: { name: 'officeBusinessState', value } });
     onChange({ target: { name: 'officeBusinessStateName', value: label } });
     onChange({ target: { name: 'officeBusinessDistrict', value: '' } });
@@ -71,7 +70,8 @@ const OccupationSection = forwardRef(function OccupationSection(
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    const label = districtOptions.find((option) => option.value === value)?.label || '';
+    const label = locationActions.getSelectOptions().districtOptions.find((option) => option.value === value)?.label || '';
+    locationActions.setSelectedDistrict(value);
     onChange({ target: { name: 'officeBusinessDistrict', value } });
     onChange({ target: { name: 'officeBusinessDistrictName', value: label } });
   };
@@ -101,9 +101,14 @@ const OccupationSection = forwardRef(function OccupationSection(
           name='officeBusinessState'
           value={formData.officeBusinessState || ''}
           onChange={handleStateChange}
-          options={stateOptions}
-          placeholder={loadingStates ? 'Loading states...' : 'Select state'}
-          disabled={loadingStates}
+          onFocus={() => {
+            if (locationState.states.length <= 1) {
+              locationActions.loadStates();
+            }
+          }}
+          options={locationActions.getSelectOptions().stateOptions}
+          placeholder={locationState.loadingStates ? 'Loading states...' : 'Select state'}
+          disabled={locationState.loadingStates}
           required
           error={errors['officeBusinessState']}
         />
@@ -112,15 +117,20 @@ const OccupationSection = forwardRef(function OccupationSection(
           name='officeBusinessDistrict'
           value={formData.officeBusinessDistrict || ''}
           onChange={handleDistrictChange}
-          options={districtOptions}
+          onFocus={() => {
+            if (formData.officeBusinessState && locationState.districts.length <= 1) {
+              locationActions.loadDistricts(formData.officeBusinessState);
+            }
+          }}
+          options={locationActions.getSelectOptions().districtOptions}
           placeholder={
-            loadingDistricts
+            locationState.loadingDistricts
               ? 'Loading districts...'
               : !formData.officeBusinessState
               ? 'Select state first'
               : 'Select district'
           }
-          disabled={loadingDistricts || !formData.officeBusinessState}
+          disabled={locationState.loadingDistricts || !formData.officeBusinessState}
           required
           error={errors['officeBusinessDistrict']}
         />

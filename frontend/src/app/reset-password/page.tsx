@@ -16,6 +16,9 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  const isButtonLoading = isLoading || isNavigating;
 
   const router = useRouter();
 
@@ -44,6 +47,7 @@ export default function ResetPassword() {
         setSuccess('Password reset instructions have been sent to your email.');
         // Optionally redirect after a delay
         setTimeout(() => {
+          setIsNavigating(true);
           router.push('/login');
         }, 2500);
       } else {
@@ -132,7 +136,7 @@ export default function ResetPassword() {
                 placeholder='Email address'
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isButtonLoading}
               />
             </div>
           </div>
@@ -141,10 +145,10 @@ export default function ResetPassword() {
             {' '}
             <button
               type='submit'
-              disabled={isLoading}
+              disabled={isButtonLoading}
               className='group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all duration-200'
             >
-              {isLoading ? (
+              {isButtonLoading ? (
                 <svg
                   className='animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900'
                   xmlns='http://www.w3.org/2000/svg'

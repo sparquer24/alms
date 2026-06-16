@@ -4,6 +4,7 @@ import { Input, TextArea } from '../elements/Input';
 import { Select } from '../elements/Select';
 import FormFooter from '../elements/footer';
 import { useRouter } from 'next/navigation';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
@@ -64,17 +65,28 @@ const OccupationBussiness: React.FC = () => {
 
 	// Sync location state with form values (only when data is loaded from backend)
 	React.useEffect(() => {
-		// Only sync if we have data and location state is different
-		if (form.officeState && form.officeState !== locationState.selectedState) {
-			locationActions.setSelectedState(form.officeState);
-		}
-	}, [form.officeState, isLoading]); // Include isLoading to sync after data loads
+		if (isLoading) return;
+		if (!form.officeState) return;
 
-	React.useEffect(() => {
-		if (form.officeDistrict && form.officeDistrict !== locationState.selectedDistrict) {
-			locationActions.setSelectedDistrict(form.officeDistrict);
+		const values = {
+			state: form.officeState,
+			district: form.officeDistrict || '',
+			zone: '',
+			division: '',
+			policeStation: '',
+			stateName: form.officeStateName,
+			districtName: form.officeDistrictName,
+		};
+
+		// Only sync if the selected state/district is different from location state
+		const isOutOfSync = 
+			form.officeState !== locationState.selectedState ||
+			form.officeDistrict !== locationState.selectedDistrict;
+
+		if (isOutOfSync) {
+			locationActions.hydrateFromValues(values);
 		}
-	}, [form.officeDistrict, isLoading]); // Include isLoading to sync after data loads
+	}, [form.officeState, form.officeDistrict, isLoading, locationState.selectedState, locationState.selectedDistrict]);
 
 	const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 		const value = e.target.value;
@@ -97,7 +109,7 @@ const OccupationBussiness: React.FC = () => {
 	};
 
 	const handleNext = async () => {
-		const savedApplicantId = await saveFormData();
+		const savedApplicantId = await saveFormData(undefined, undefined, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.CRIMINAL_HISTORY, savedApplicantId);
@@ -116,14 +128,7 @@ const OccupationBussiness: React.FC = () => {
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">Occupation and Business Details</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="Occupation and Business" rows={3} />;
 	}
 
 	return (
@@ -175,6 +180,11 @@ const OccupationBussiness: React.FC = () => {
 					name="officeState"
 					value={form.officeState}
 					onChange={handleStateChange}
+					onFocus={() => {
+						if (locationState.states.length <= 1) {
+							locationActions.loadStates();
+						}
+					}}
 					options={locationActions.getSelectOptions().stateOptions}
 					placeholder={locationState.loadingStates ? "Loading states..." : "Select state"}
 					disabled={locationState.loadingStates}
@@ -184,10 +194,16 @@ const OccupationBussiness: React.FC = () => {
 					name="officeDistrict"
 					value={form.officeDistrict}
 					onChange={handleDistrictChange}
+					onFocus={() => {
+						if (form.officeState && locationState.districts.length <= 1) {
+							locationActions.loadDistricts(form.officeState);
+						}
+					}}
 					options={locationActions.getSelectOptions().districtOptions}
 					placeholder={
 						locationState.loadingDistricts 
 							? "Loading districts..." 
+
 							: !form.officeState 
 							? "Select state first" 
 							: "Select district"

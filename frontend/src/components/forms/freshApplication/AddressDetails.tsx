@@ -4,12 +4,14 @@ import { Input } from '../elements/Input';
 import { TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { LocationHierarchy } from '../elements/LocationHierarchy';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { AddressFormData } from '../../../types/location';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { getUserFromCookie } from '../../../utils/authCookies';
+import { validateMobile } from '../../../utils/validations';
 
 // Get user location data for pre-filling
 const getUserLocationDefaults = () => {
@@ -57,22 +59,33 @@ const initialState: AddressFormData = {
 
 // Validation rules for address information
 const validateAddressInfo = (formData: any) => {
-	const validationErrors = [];
+	const errors: Record<string, string> = {};
 	
 	if (!formData.presentAddress?.trim()) {
-		validationErrors.push('Present address is required');
+		errors.presentAddress = 'Present address is required';
 	}
 	if (!formData.presentState?.trim()) {
-		validationErrors.push('Present state is required');
+		errors.presentState = 'Present state is required';
 	}
 	if (!formData.presentDistrict?.trim()) {
-		validationErrors.push('Present district is required');
+		errors.presentDistrict = 'Present district is required';
+	}
+	if (!formData.presentSince?.trim()) {
+		errors.presentSince = 'Residing since date is required';
 	}
 	if (!formData.permanentAddress?.trim() && !formData.sameAsPresent) {
-		validationErrors.push('Permanent address is required');
+		errors.permanentAddress = 'Permanent address is required';
 	}
 	
-	return validationErrors;
+	if (formData.officeMobileNumber && !validateMobile(formData.officeMobileNumber)) {
+		errors.officeMobileNumber = 'Invalid mobile number. Must be 10 digits starting with 6-9.';
+	}
+	
+	if (formData.alternativeMobile && !validateMobile(formData.alternativeMobile)) {
+		errors.alternativeMobile = 'Invalid mobile number.';
+	}
+
+	return errors;
 };
 
 const AddressDetails: React.FC = () => {
@@ -91,28 +104,41 @@ const AddressDetails: React.FC = () => {
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
+		fieldErrors,
+		setFieldErrors,
 	} = useApplicationForm({
 		initialState,
 		formSection: 'address',
 		validationRules: validateAddressInfo,
 	});
 
+	const [isZSRole, setIsZSRole] = React.useState(false);
+
 	// Pre-fill Present Address location fields only if they're empty (no existing data)
 	useEffect(() => {
 		// Wait for loading to complete
 		if (isLoading) return;
+
+		const userData = getUserFromCookie();
+		const isZS = userData?.role?.name === 'ZS' || userData?.role === 'ZS';
+		setIsZSRole(isZS);
 		
 		// Only pre-fill if all three fields are empty (no existing data)
 		if (!form.presentState && !form.presentDistrict && !form.presentZone) {
 			const locationDefaults = getUserLocationDefaults();
 			
 			if (locationDefaults.presentState) {
-				setForm((prev: any) => ({
-					...prev,
-					presentState: locationDefaults.presentState,
-					presentDistrict: locationDefaults.presentDistrict,
-					presentZone: locationDefaults.presentZone,
-				}));
+				// Prevent infinite loop by only updating if different
+				if (form.presentState !== locationDefaults.presentState || 
+					form.presentDistrict !== locationDefaults.presentDistrict || 
+					form.presentZone !== locationDefaults.presentZone) {
+					setForm((prev: any) => ({
+						...prev,
+						presentState: locationDefaults.presentState,
+						presentDistrict: locationDefaults.presentDistrict,
+						presentZone: locationDefaults.presentZone,
+					}));
+				}
 			}
 		}
 	}, [isLoading, form.presentState, form.presentDistrict, form.presentZone]);
@@ -121,6 +147,9 @@ const AddressDetails: React.FC = () => {
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		const { name, value } = e.target;
 		setForm((prev: any) => ({ ...prev, [name]: value }));
+		if (fieldErrors[name]) {
+			setFieldErrors((prev: any) => ({ ...prev, [name]: '' }));
+		}
 	};
 
 	const handleSaveToDraft = async () => {
@@ -128,7 +157,7 @@ const AddressDetails: React.FC = () => {
 	};
 
 	const handleNext = async () => {
-		const savedApplicantId = await saveFormData();
+		const savedApplicantId = await saveFormData(undefined, undefined, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.OCCUPATION_DETAILS, savedApplicantId);
@@ -147,6 +176,9 @@ const AddressDetails: React.FC = () => {
 
 	const handleLocationChange = (field: string, value: string) => {
 		setForm((prev: any) => ({ ...prev, [field]: value }));
+		if (fieldErrors[field]) {
+			setFieldErrors((prev: any) => ({ ...prev, [field]: '' }));
+		}
 	};
 
 	const handleCheckbox = (checked: boolean) => {
@@ -166,14 +198,7 @@ const AddressDetails: React.FC = () => {
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">Address Details</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="Address Details" rows={5} />;
 	}
 
 	return (
@@ -185,7 +210,7 @@ const AddressDetails: React.FC = () => {
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col">
 						{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+						{almsLicenseId && <strong className='text-sm'>Acknowledgement No.: {almsLicenseId}</strong>}
 					</div>
 					{typeof loadExistingData === 'function' && (
 						<button
@@ -221,6 +246,8 @@ const AddressDetails: React.FC = () => {
 						onChange={handleChange}
 						placeholder="Enter present address"
 						rows={2}
+						error={fieldErrors.presentAddress}
+						required
 					/>
 				</div>
 				
@@ -232,10 +259,21 @@ const AddressDetails: React.FC = () => {
 						zone: form.presentZone,
 						division: form.presentDivision,
 						policeStation: form.presentPoliceStation,
+						stateName: form.presentStateName,
+						districtName: form.presentDistrictName,
+						zoneName: form.presentZoneName,
+						divisionName: form.presentDivisionName,
+						policeStationName: form.presentPoliceStationName,
 					}}
 					onChange={handleLocationChange}
 					required={true}
 					className="col-span-2"
+					errors={fieldErrors}
+					disabledFields={{
+						state: isZSRole,
+						district: isZSRole,
+						zone: isZSRole,
+					}}
 				/>
 				
 				<Input
@@ -245,6 +283,9 @@ const AddressDetails: React.FC = () => {
 					value={form.presentSince}
 					onChange={handleChange}
 					placeholder="DD/MM/YYYY"
+					error={fieldErrors.presentSince}
+					max={new Date().toISOString().split('T')[0]}
+					required
 				/>
 			</div>
 			<div className="text-xs text-gray-700 mb-2">
@@ -267,6 +308,8 @@ const AddressDetails: React.FC = () => {
 						onChange={handleChange}
 						placeholder="Enter permanent address"
 						rows={2}
+						error={fieldErrors.permanentAddress}
+						required={!form.sameAsPresent}
 					/>
 				</div>
 				
@@ -278,11 +321,17 @@ const AddressDetails: React.FC = () => {
 						zone: form.permanentZone,
 						division: form.permanentDivision,
 						policeStation: form.permanentPoliceStation,
+						stateName: form.permanentStateName,
+						districtName: form.permanentDistrictName,
+						zoneName: form.permanentZoneName,
+						divisionName: form.permanentDivisionName,
+						policeStationName: form.permanentPoliceStationName,
 					}}
 					onChange={handleLocationChange}
-					required={true}
+					required={!form.sameAsPresent}
 					disabled={form.sameAsPresent}
 					className="col-span-2"
+					errors={fieldErrors}
 				/>
 			</div>
 			<div className="text-xs text-gray-700 mb-4">
@@ -294,6 +343,7 @@ const AddressDetails: React.FC = () => {
 					value={form.officeMobileNumber}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
+					error={fieldErrors.officeMobileNumber}
 				/>
 				<Input
 					label="Residence"
@@ -301,6 +351,7 @@ const AddressDetails: React.FC = () => {
 					value={form.telephoneResidence}
 					onChange={handleChange}
 					placeholder="0000 0000 0000"
+					error={fieldErrors.telephoneResidence}
 				/>
 				<div className="flex flex-col">
 					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="alternativeMobile">
@@ -313,6 +364,7 @@ const AddressDetails: React.FC = () => {
 						value={form.alternativeMobile}
 						onChange={handleChange}
 						placeholder="0000 0000 0000"
+						error={fieldErrors.alternativeMobile}
 					/>
 				</div>
 				<div className="flex flex-col">
@@ -326,6 +378,7 @@ const AddressDetails: React.FC = () => {
 						value={form.telephoneOffice}
 						onChange={handleChange}
 						placeholder="0000 0000 0000"
+						error={fieldErrors.telephoneOffice}
 					/>
 				</div>
 

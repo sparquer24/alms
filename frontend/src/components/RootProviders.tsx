@@ -17,6 +17,7 @@ import { GlobalActionProvider } from '../context/GlobalActionContext';
 
 
 
+
 // Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +28,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+import { Toaster } from 'react-hot-toast';
 
 export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
@@ -43,7 +46,6 @@ export const RootProviders: React.FC<{ children: React.ReactNode }> = ({ childre
                       <ApplicationProvider>
                         <InboxProvider>
                           <GlobalActionProvider>
-
                             <AuthInitializer />
                             {children}
 

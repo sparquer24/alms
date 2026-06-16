@@ -42,6 +42,7 @@ async function persistAuthCookies(token: string, user: any) {
     role: role ?? (typeof user?.role === 'string' ? user.role : null),
     username: user?.username ?? user?.userName ?? null,
     name: user?.name ?? null,
+    location: user?.location ?? null,
   };
   const cookieOptions = { maxAge: 60 * 60 * 24, path: '/' };
   try { setCookie('auth', token, cookieOptions); } catch { /* ignore */ }
@@ -125,6 +126,7 @@ export const initializeAuth = createAsyncThunk(
               role: String(role).toUpperCase(),
               username: user?.username ?? user?.userName ?? null,
               name: user?.name ?? null,
+              location: user?.location ?? null,
             }), { maxAge: 60 * 60 * 24, path: '/' });
           }
         } catch { /* ignore */ }

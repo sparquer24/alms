@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Input } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
+import { Select } from '../elements/Select';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
 import { FileUploadService, FileUploadResponse } from '../../../services/fileUpload';
@@ -25,6 +27,28 @@ const initialState = {
     },
   ],
 };
+const validateLicenseDetails = (formData: any) => {
+  const errors: Record<string, string> = {};
+  const detail = formData.licenseDetails?.[0] || {};
+  
+  if (!detail.needForLicense) {
+    errors.needForLicense = 'Need for license is required';
+  }
+  if (!detail.armsCategory) {
+    errors.armsCategory = 'Arms category is required';
+  }
+  if (!detail.requestedWeaponIds || detail.requestedWeaponIds.length === 0) {
+    errors.weaponSelection = 'Please select at least one weapon';
+  }
+  if (!detail.areaOfValidity) {
+    errors.areaOfValidity = 'Area of validity is required';
+  }
+  if (!detail.ammunitionDescription?.trim()) {
+    errors.ammunitionDescription = 'Ammunition description is required';
+  }
+  
+  return errors;
+};
 
 const LicenseDetails = () => {
   const router = useRouter();
@@ -41,9 +65,12 @@ const LicenseDetails = () => {
     saveFormData,
     navigateToNext,
     loadExistingData,
+    fieldErrors,
+    setFieldErrors,
   } = useApplicationForm({
     initialState,
     formSection: 'license-details',
+    validationRules: validateLicenseDetails,
   });
 
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -131,6 +158,10 @@ const LicenseDetails = () => {
         return newForm;
       });
     }
+
+    if (fieldErrors[name]) {
+      setFieldErrors((prev: any) => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleWeaponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -158,6 +189,10 @@ const LicenseDetails = () => {
       };
       return newForm;
     });
+
+    if (fieldErrors.weaponSelection) {
+      setFieldErrors((prev: any) => ({ ...prev, weaponSelection: '' }));
+    }
   };
 
   const handleAreaChange = (area: string, checked: boolean) => {
@@ -184,6 +219,10 @@ const LicenseDetails = () => {
       };
       return newForm;
     });
+
+    if (fieldErrors.areaOfValidity) {
+      setFieldErrors((prev: any) => ({ ...prev, areaOfValidity: '' }));
+    }
   };
 
   // File upload handler for multiple files with API integration
@@ -371,7 +410,7 @@ const LicenseDetails = () => {
 
     // Enhanced debugging for requestedWeaponIds specifically
     // The form data is already in the correct format (licenseDetails array)
-    const savedApplicantId = await saveFormData();
+    const savedApplicantId = await saveFormData(undefined, undefined, true);
 
     if (savedApplicantId) {
       // Navigate to the Biometric Information step first
@@ -390,14 +429,7 @@ const LicenseDetails = () => {
 
   // Show loading state if data is being loaded
   if (isLoading) {
-    return (
-      <div className='p-6'>
-        <h2 className='text-xl font-bold mb-4'>License Details</h2>
-        <div className='flex justify-center items-center py-8'>
-          <div className='text-gray-500'>Loading...</div>
-        </div>
-      </div>
-    );
+    return <FormSkeleton title="License Details" rows={4} />;
   }
 
   // Debug: Log current form state on render
@@ -441,20 +473,19 @@ const LicenseDetails = () => {
         <div className='flex flex-col gap-8'>
           {/* 15. Need for license */}
           <div className='mb-4'>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              15. Need for license (see note 1 below)
-            </label>
-            <select
+            <Select
+              label='15. Need for license (see note 1 below)'
               name='needForLicense'
               value={getLicenseDetail().needForLicense || ''}
               onChange={handleChange}
-              className='border-0 border-b-2 border-gray-300 focus:border-blue-500 focus:ring-0 w-full py-2 bg-transparent'
-            >
-              <option value=''>Select reason</option>
-              <option value='SELF_PROTECTION'>Self-Protection</option>
-              <option value='SPORTS'>Sports</option>
-              <option value='HEIRLOOM_POLICY'>Heirloom Policy</option>
-            </select>
+              options={[
+                { value: 'SELF_PROTECTION', label: 'Self-Protection' },
+                { value: 'SPORTS', label: 'Sports' },
+                { value: 'HEIRLOOM_POLICY', label: 'Heirloom Policy' },
+              ]}
+              placeholder='Select reason'
+              error={fieldErrors.needForLicense}
+            />
           </div>
           {/* 16. Description of arms */}
           <div className='mb-4'>
@@ -485,22 +516,15 @@ const LicenseDetails = () => {
               </label>
             </div>
             <div className='mb-2'>(b) Select weapon types (multiple allowed)</div>
-            <select
+            <Select
               name='weaponSelection'
-              value={0}
-              onChange={handleWeaponChange}
-              className='border border-gray-300 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2'
+              value="0"
+              onChange={handleWeaponChange as any}
               disabled={loadingWeapons}
-            >
-              <option value={0}>
-                {loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
-              </option>
-              {weapons.map(weapon => (
-                <option key={weapon.id} value={weapon.id}>
-                  {weapon.name}
-                </option>
-              ))}
-            </select>
+              placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
+              options={weapons.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
+              error={fieldErrors.weaponSelection}
+            />
             {/* Display selected weapons */}
             {getLicenseDetail().requestedWeaponIds?.length > 0 && (
               <div className='mt-2'>
@@ -559,20 +583,18 @@ const LicenseDetails = () => {
                 onChange={checked => handleAreaChange('Throughout India', checked)}
               />
             </div>
+            {fieldErrors.areaOfValidity && <p className="text-red-500 text-xs mt-1">{fieldErrors.areaOfValidity}</p>}
           </div>
 
           {/* Ammunition Description */}
           <div className='mb-4'>
-            <label className='block text-sm font-medium text-gray-700 mb-1'>
-              Ammunition Description
-            </label>
-            <input
-              type='text'
+            <Input
+              label='Ammunition Description'
               name='ammunitionDescription'
               value={getLicenseDetail().ammunitionDescription || ''}
               onChange={handleChange}
-              className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400'
               placeholder='e.g., 50 rounds of .32 ammunition'
+              error={fieldErrors.ammunitionDescription}
             />
           </div>
           {/* 18. Claims for special consideration */}

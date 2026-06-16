@@ -8,12 +8,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGlobalAction } from '../context/GlobalActionContext';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi, RenewalApi } from '../config/APIClient';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Eye } from 'lucide-react';
+import { getStatusStyle } from '../utils/statusColors';
 
 // Type assertion for lucide-react icons to fix React 18 compatibility
 // Lucide icons are React components that accept SVG props. We type it conservatively.
 const EditFixed = Edit as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
 const TrashFixed = Trash2 as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
+const EyeFixed = Eye as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
 
 // Note: Excel export uses dynamic import of 'xlsx' to avoid SSR issues
 
@@ -41,8 +43,12 @@ function extractWorkflowStatusName(app: ApplicationData): string {
   const wf = (app as any).workflowStatus as WorkflowStatus | undefined;
   if (wf?.name) return String(wf.name);
   if (wf?.code) return String(wf.code);
-  const st = (app as any).status as StatusObj | undefined;
-  if (st?.name) return String(st.name);
+  const st = (app as any).status;
+  if (st) {
+    if (typeof st === 'string') return st;
+    if (typeof st === 'object' && 'name' in st && st.name) return String(st.name);
+    if (typeof st === 'object' && 'code' in st && st.code) return String(st.code);
+  }
   return 'unknown';
 }
 
@@ -66,28 +72,7 @@ interface ApplicationTableProps {
   onSelectedFormTypeChange?: (value: 'fresh' | 'renewal') => void;
 }
 
-const getStatusPillClass = (status: string) => {
-  const normalized = (status || '')
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[-\s]+/g, '_');
-  const statusClasses: Record<string, string> = {
-    pending: 'bg-[#FACC15] text-black',
-    approved: 'bg-[#10B981] text-white',
-    initiate: 'bg-[#A7F3D0] text-green-800',
-    initiated: 'bg-[#A7F3D0] text-green-800',
-    rejected: 'bg-[#EF4444] text-white',
-    red_flagged: 'bg-[#DC2626] text-white',
-    returned: 'bg-orange-400 text-white',
-    sent: 'bg-blue-500 text-white',
-    closed: 'bg-gray-500 text-white',
-    disposed: 'bg-gray-400 text-white',
-    final_disposal: 'bg-emerald-600 text-white',
-    unknown: 'bg-gray-200 text-gray-800',
-  };
-  return statusClasses[normalized] || statusClasses.unknown;
-};
+
 
 const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
   ({
@@ -135,11 +120,27 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         filtered = filtered.filter(app => {
-          const applicant = (app.applicantName || '').toLowerCase();
+          const applicant = (
+            app.applicantName ||
+            [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ') ||
+            ''
+          ).toLowerCase();
           const type = (app.applicationType || '').toLowerCase();
-          const ackNo = ((app as any).acknowledgementNo || '').toLowerCase();
+          const ackNo = (
+            (app as any).acknowledgementNo ||
+            (app as any).ackNo ||
+            (app as any).acknowledgementNumber ||
+            String(app.id || '')
+          ).toLowerCase();
           const status = extractWorkflowStatusName(app).toLowerCase();
-          return applicant.includes(q) || type.includes(q) || ackNo.includes(q) || status.includes(q);
+          const actionTaken = ((app as any).actionTaken || '').toLowerCase();
+          return (
+            applicant.includes(q) ||
+            type.includes(q) ||
+            ackNo.includes(q) ||
+            status.includes(q) ||
+            actionTaken.includes(q)
+          );
         });
       }
 
@@ -152,8 +153,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
       const base = isSentPage
-        ? ['S.No', 'Acknowledgement No', 'Applicant Name', 'Action Taken At', 'Action Taken']
-        : ['S.No', 'Acknowledgement No', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
+        ? ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Action Taken At', 'Action Taken']
+        : ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
       if (showActionColumn) base.push('Action');
       return base;
     }, [isSentPage, showActionColumn]);
@@ -187,8 +188,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         const actionId = `navigate-application-${id}`;
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
-          const route = /renewal/i.test(String((baseApplications || []).find(app => app.id === id)?.applicationType || ''))
-            ? `/renwalapplication/${id}`
+          const app = (baseApplications || []).find(a => a.id === id);
+          const route = /renewal/i.test(String(app?.applicationType || ''))
+            ? `/renewalApplication/${id}`
             : `/application/${id}`;
           setActiveNavigationPath(route);
           await router.push(route);
@@ -279,10 +281,10 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
           const row: Record<string, string | number> = {};
           exportColumns.forEach(col => {
             switch (col) {
-              case 'S.No':
+              case 'S. No.':
                 row[col] = idx + 1;
                 break;
-              case 'Acknowledgement No':
+              case 'Acknowledgement No.':
                 row[col] = app.acknowledgementNo || '';
                 break;
               case 'Applicant Name':
@@ -329,13 +331,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
     }
-    if (!effectiveApplications || effectiveApplications.length === 0) {
-      return (
-        <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
-          <div className={styles.emptyState}>No applications found matching your criteria.</div>
-        </div>
-      );
-    }
+
 
     return (
       <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
@@ -446,71 +442,67 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
           </div>
         </div>
 
-        {/* Column headers in their own table to avoid overlap issues; body is a separate scrollable table */}
-        <div className='w-full'>
+        <div className={`${styles.tableWrapper} w-full min-w-0`}>
           <table className='w-full table-fixed border-collapse'>
-            {/* Dynamic colgroup based on visible columns */}
             <colgroup>
               {(() => {
-                const baseWidths = isSentPage
-                  ? ['5%', '30%', '20%', '20%', '15%']
-                  : showActionColumn
-                    ? ['5%', '20%', '25%', '15%', '15%', '12%']
-                    : ['5%', '20%', '25%', '15%', '20%', '15%'];
-                const cols = [...baseWidths];
-                if (showActionColumn) cols.push('8%');
+                const cols = isSentPage
+                  ? (showActionColumn
+                    ? ['4%', '22%', '22%', '17%', '30%', '5%']
+                    : ['4%', '22%', '25%', '18%', '31%'])
+                  : (showActionColumn
+                    ? ['4%', '22%', '22%', '18%', '17%', '12%', '5%']
+                    : ['4%', '22%', '25%', '19%', '18%', '12%']);
                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
               })()}
             </colgroup>
             <thead className='bg-gray-50'>
               <tr>
-                {tableColumns.map(col => (
-                  <th
-                    key={col}
-                    scope='col'
-                    className={`${styles.tableHeaderCell} text-left text-xs font-medium text-black uppercase tracking-wider`}
-                  >
-                    {col}
-                  </th>
-                ))}
+                {tableColumns.map(col => {
+                  const isAction = col === 'Action';
+                  return (
+                    <th
+                      key={col}
+                      scope='col'
+                      className={`${styles.tableHeaderCell} ${isAction ? 'text-center' : 'text-left'} text-sm font-medium text-black`}
+                    >
+                      {col}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div className={`${styles.tableWrapper} w-full min-w-0`}>
-          <table className='w-full table-fixed border-collapse'>
-            <colgroup>
-              {(() => {
-                const baseWidths = isSentPage
-                  ? ['5%', '30%', '20%', '20%', '15%']
-                  : showActionColumn
-                    ? ['5%', '20%', '25%', '15%', '15%', '12%']
-                    : ['5%', '20%', '25%', '15%', '20%', '15%'];
-                const cols = [...baseWidths];
-                if (showActionColumn) cols.push('8%');
-                return cols.map((w, i) => <col key={i} style={{ width: w }} />);
-              })()}
-            </colgroup>
             <tbody className='bg-white divide-y divide-gray-200'>
-              {effectiveApplications.map((app, index) => (
-                <TableRow
-                  key={`${app.id}-${index}`}
-                  app={app}
-                  index={index}
-                  handleViewApplication={handleViewApplication}
-                  handleEditDraft={handleEditDraft}
-                  isDraftsPage={isDraftsPage}
-                  isSentPage={isSentPage}
-                  userRole={userRole || null}
-                  // PDF button removed
-                  isApplicationUnread={isApplicationUnread}
-                  formatDateTime={formatDateTime}
-                  getStatusPillClass={getStatusPillClass}
-                  showActionColumn={showActionColumn}
-                  loadingRowId={loadingRowId}
-                />
-              ))}
+              {effectiveApplications.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={tableColumns.length}
+                    className='text-center py-8 text-gray-500 bg-white text-sm'
+                  >
+                    {baseApplications.length === 0
+                      ? 'No applications found.'
+                      : 'No applications found matching your criteria.'}
+                  </td>
+                </tr>
+              ) : (
+                effectiveApplications.map((app, index) => (
+                  <TableRow
+                    key={`${app.id}-${index}`}
+                    app={app}
+                    index={index}
+                    handleViewApplication={handleViewApplication}
+                    handleEditDraft={handleEditDraft}
+                    isDraftsPage={isDraftsPage}
+                    isSentPage={isSentPage}
+                    userRole={userRole || null}
+                    // PDF button removed
+                    isApplicationUnread={isApplicationUnread}
+                    formatDateTime={formatDateTime}
+                    showActionColumn={showActionColumn}
+                    loadingRowId={loadingRowId}
+                  />
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -561,7 +553,6 @@ const TableRow: React.FC<{
   // PDF generation removed
   isApplicationUnread: (app: ApplicationData) => boolean;
   formatDateTime: (dateStr: string) => string;
-  getStatusPillClass: (status: string) => string;
   showActionColumn?: boolean;
   loadingRowId?: string | null;
 }> = ({
@@ -575,7 +566,6 @@ const TableRow: React.FC<{
   // Removed PDF props
   isApplicationUnread,
   formatDateTime,
-  getStatusPillClass,
   showActionColumn = true,
   loadingRowId,
 }) => {
@@ -602,7 +592,7 @@ const TableRow: React.FC<{
         aria-label={`Row for sent application ${app.id}`}
       >
         <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
-        <td className={`${styles.tableCell} text-sm text-black`}>
+        <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
         <td className={`${styles.tableCell} text-sm font-medium`}>
@@ -626,34 +616,59 @@ const TableRow: React.FC<{
             </button>
           </div>
         </td>
-        <td className={`${styles.tableCell} text-sm text-black`}>
+        <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
           {formatDateTime(
             (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate
           )}
         </td>
-        <td className={`${styles.tableCell} text-sm text-black`}>
-          {(app as any).actionTaken || 'N/A'}
+        <td className={`${styles.tableCell}`}>
+          {(() => {
+            const actionStr = (app as any).actionTaken || 'N/A';
+            let displayStr = actionStr;
+            const normalized = actionStr.toLowerCase().trim();
+            if (normalized === 'forward') {
+              displayStr = 'Forwarded';
+            } else if (normalized === 'return') {
+              displayStr = 'Returned';
+            } else if (normalized === 'approve') {
+              displayStr = 'Approved';
+            } else if (normalized === 'reject') {
+              displayStr = 'Rejected';
+            } else {
+              displayStr = displayStr.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            }
+
+            const style = getStatusStyle(actionStr);
+            return (
+              <span
+                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill}`}
+                style={{ backgroundColor: style.bg, color: style.text, border: `1px solid ${style.border}` }}
+              >
+                {displayStr}
+              </span>
+            );
+          })()}
         </td>
         {showActionColumn && (
-          <td className={`${styles.tableCell} text-sm text-gray-500`}>
+          <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
             <button
               onClick={e => {
                 e.stopPropagation();
                 handleViewApplication(app.id);
               }}
               disabled={isRowLoading}
-              className={`px-3 py-1 rounded-md transition-colors ${isRowLoading ? 'bg-gray-100 text-gray-400 cursor-wait' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+              className={`p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors inline-flex items-center justify-center ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
               aria-label={`View application ${app.id}`}
+              title='View Details'
             >
-              <span className='flex items-center gap-1.5'>
-                {isRowLoading && (
-                  <svg className='animate-spin h-3.5 w-3.5' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
-                  </svg>
-                )}
-                {isRowLoading ? 'Loading...' : 'View'}
-              </span>
+              {isRowLoading ? (
+                <svg className='animate-spin h-5 w-5 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                  <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                  <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+                </svg>
+              ) : (
+                <EyeFixed className='w-5 h-5' />
+              )}
             </button>
           </td>
         )}
@@ -669,7 +684,7 @@ const TableRow: React.FC<{
       aria-label={`Row for application ${app.id}`}
     >
       <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
-      <td className={`${styles.tableCell} text-sm text-black`}>
+      <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
         {(app as any).acknowledgementNo || 'N/A'}
       </td>
       <td className={`${styles.tableCell} text-sm font-medium `}>
@@ -698,7 +713,7 @@ const TableRow: React.FC<{
         )}
       </td>
       <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
-      <td className={`${styles.tableCell} text-sm text-black`}>
+      <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
         {formatDateTime(app.applicationDate)}
       </td>
       <td className={`${styles.tableCell}`}>
@@ -707,9 +722,11 @@ const TableRow: React.FC<{
           const display = statusStr
             .replace(/[-_]+/g, ' ')
             .replace(/\b\w/g, (c: string) => c.toUpperCase());
+          const style = getStatusStyle(statusStr);
           return (
             <span
-              className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill} ${getStatusPillClass(statusStr)}`}
+              className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill}`}
+              style={{ backgroundColor: style.bg, color: style.text, border: `1px solid ${style.border}` }}
               title={`Status: ${display}`}
               aria-label={`Status: ${display}`}
             >
@@ -719,9 +736,9 @@ const TableRow: React.FC<{
         })()}
       </td>
       {showActionColumn && (
-        <td className={`${styles.tableCell} text-sm text-gray-500`}>
+        <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
           {isDrafts ? (
-            <div className='flex items-center gap-1'>
+            <div className='flex items-center gap-1 justify-center'>
               <button
                 onClick={e => {
                   e.stopPropagation();
@@ -745,18 +762,18 @@ const TableRow: React.FC<{
                 handleViewApplication(app.id);
               }}
               disabled={isRowLoading}
-              className={`px-3 py-1 rounded-md transition-colors ${isRowLoading ? 'bg-gray-100 text-gray-400 cursor-wait' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}
+              className={`p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors inline-flex items-center justify-center ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
               aria-label={`View application ${app.id}`}
+              title='View Details'
             >
-              <span className='flex items-center gap-1.5'>
-                {isRowLoading && (
-                  <svg className='animate-spin h-3.5 w-3.5' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
-                  </svg>
-                )}
-                {isRowLoading ? 'Loading...' : 'View'}
-              </span>
+              {isRowLoading ? (
+                <svg className='animate-spin h-5 w-5 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                  <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                  <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+                </svg>
+              ) : (
+                <EyeFixed className='w-5 h-5' />
+              )}
             </button>
           )}
         </td>

@@ -1,7 +1,7 @@
-// components/ui/Select.tsx
+// components/forms/elements/Select.tsx
 import React from 'react';
 
-interface SelectOption {
+export interface SelectOption {
   value: string;
   label: string;
 }
@@ -14,9 +14,12 @@ interface SelectProps {
   options: SelectOption[];
   placeholder?: string;
   required?: boolean;
-  error?: string;
   disabled?: boolean;
+  /** Tooltip-style message shown below when the field is disabled */
+  disabledMessage?: string;
+  error?: string;
   className?: string;
+  onFocus?: (e: React.FocusEvent<HTMLSelectElement>) => void;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -25,11 +28,13 @@ export const Select: React.FC<SelectProps> = ({
   value,
   onChange,
   options,
-  placeholder,
+  placeholder = 'Select an option',
   required = false,
-  error,
   disabled = false,
+  disabledMessage,
+  error,
   className = '',
+  onFocus,
 }) => {
   return (
     <div className="w-full">
@@ -39,26 +44,36 @@ export const Select: React.FC<SelectProps> = ({
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
+
       <select
         id={name}
         name={name}
         value={value}
         onChange={onChange}
+        onFocus={onFocus}
         disabled={disabled}
         className={`
-          block w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]
-          ${error ? 'border-red-500' : 'border-gray-300'}
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
+          block w-full px-0 pb-1 border-0 border-b-2 bg-transparent focus:outline-none focus:ring-0 focus:border-[#6366F1]
+          appearance-none
+          ${error ? 'border-b-red-500' : 'border-b-gray-300'}
+          ${disabled ? 'cursor-not-allowed text-gray-400' : 'text-gray-900 cursor-pointer'}
           ${className}
         `}
       >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
+        <option value="" disabled hidden>
+          {placeholder}
+        </option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
           </option>
         ))}
       </select>
+
+      {disabled && disabledMessage && !error && (
+        <p className="text-gray-400 text-xs mt-1">{disabledMessage}</p>
+      )}
+
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
     </div>
   );

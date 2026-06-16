@@ -1,7 +1,31 @@
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useImperativeHandle, useState, useEffect } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Checkbox } from '../../elements/Checkbox';
 import { LocationHierarchy } from '../../elements/LocationHierarchy';
+import { getUserFromCookie } from '../../../../utils/authCookies';
+
+// Get user location data for pre-filling
+const getUserLocationDefaults = () => {
+  const userData = getUserFromCookie();
+  if (userData && userData.location) {
+    return {
+      presentState: userData.location.state?.id ? String(userData.location.state.id) : '',
+      presentDistrict: userData.location.district?.id ? String(userData.location.district.id) : '',
+      presentZone: userData.location.zone?.id ? String(userData.location.zone.id) : '',
+      presentStateName: userData.location.state?.name || '',
+      presentDistrictName: userData.location.district?.name || '',
+      presentZoneName: userData.location.zone?.name || '',
+    };
+  }
+  return {
+    presentState: '',
+    presentDistrict: '',
+    presentZone: '',
+    presentStateName: '',
+    presentDistrictName: '',
+    presentZoneName: '',
+  };
+};
 
 type ErrorsMap = Record<string, string | undefined>;
 
@@ -10,6 +34,30 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
   ref,
 ) {
   const { formData, onChange, errors = {} } = props;
+  const [isZSRole, setIsZSRole] = useState(false);
+
+  useEffect(() => {
+    const userData = getUserFromCookie();
+    const isZS = userData?.role?.name === 'ZS' || userData?.role === 'ZS';
+    setIsZSRole(isZS);
+
+    // Only pre-fill if all three fields are empty (no existing data) or if user is ZS role
+    if (isZS || (!formData.presentState && !formData.presentDistrict && !formData.presentZone)) {
+      const locationDefaults = getUserLocationDefaults();
+      
+      if (locationDefaults.presentState) {
+        // Prevent infinite loop by only updating if different
+        if (formData.presentState !== locationDefaults.presentState || 
+          formData.presentDistrict !== locationDefaults.presentDistrict || 
+          formData.presentZone !== locationDefaults.presentZone) {
+          
+          onChange({ target: { name: 'presentState', value: locationDefaults.presentState } });
+          onChange({ target: { name: 'presentDistrict', value: locationDefaults.presentDistrict } });
+          onChange({ target: { name: 'presentZone', value: locationDefaults.presentZone } });
+        }
+      }
+    }
+  }, [formData.presentState, formData.presentDistrict, formData.presentZone, onChange]);
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
@@ -40,14 +88,32 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
               zone: formData.presentZone || '',
               division: formData.presentDivision || '',
               policeStation: formData.presentPoliceStation || '',
+              stateName: formData.presentStateName,
+              districtName: formData.presentDistrictName,
+              zoneName: formData.presentZoneName,
+              divisionName: formData.presentDivisionName,
+              policeStationName: formData.presentPoliceStationName,
             }}
             onChange={(field, value) => onChange({ target: { name: field, value } })}
             required
+            disabledFields={{
+              state: isZSRole,
+              district: isZSRole,
+              zone: isZSRole
+            }}
           />
         </div>
 
         <div>
-          <Input label='Residing Since' type='date' name='residingSince' value={formData.residingSince || ''} onChange={onChange} error={errors['residingSince']} />
+          <Input 
+            label='Residing Since' 
+            type='date' 
+            name='residingSince' 
+            value={formData.residingSince || ''} 
+            onChange={onChange} 
+            error={errors['residingSince']} 
+            max={new Date().toISOString().split('T')[0]}
+          />
         </div>
 
         <div className='col-span-1 md:col-span-2'>
@@ -69,6 +135,11 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
                   zone: formData.permanentZone || '',
                   division: formData.permanentDivision || '',
                   policeStation: formData.permanentPoliceStation || '',
+                  stateName: formData.permanentStateName,
+                  districtName: formData.permanentDistrictName,
+                  zoneName: formData.permanentZoneName,
+                  divisionName: formData.permanentDivisionName,
+                  policeStationName: formData.permanentPoliceStationName,
                 }}
                 onChange={(field, value) => onChange({ target: { name: field, value } })}
                 required

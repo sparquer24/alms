@@ -27,8 +27,8 @@ const setCachedData = (key: string, data: any, ttl: number = 30000): void => {
 // Status mapping for numeric status_id (based on actual API status codes)
 // Using statusIdMap from config for consistency, with legacy aliases for backward compatibility
 export const STATUS_MAP = {
-  forward: statusIdMap.forwarded || [1, 9],     // FORWARD + INITIATE 
-  forwarded: statusIdMap.forwarded || [1, 9],   // Alias for forward
+  forward: statusIdMap.forwarded || [1],     // FORWARDED status only 
+  forwarded: statusIdMap.forwarded || [1],   // Alias for forward
   pending: statusIdMap.pending || [1, 9],       // Same as forward for now
   sent: statusIdMap.sent || [11, 1, 9],         // RECOMMEND
   returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
@@ -457,7 +457,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
 
       // Transform sent applications - they have different structure
       // Backend returns: applicationId, acknowledgementNo, createdAt, applicantName, 
-      // workflowHistoryId, actionTakenAt, actionTaken, actionRemarks
+      // workflowHistoryId, actionTakenAt, actionTaken, actionRemarks, applicationType
       const applications: ApplicationData[] = response.data.map((item: any) => ({
         id: String(item.applicationId),
         acknowledgementNo: item.acknowledgementNo,
@@ -466,9 +466,9 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
         lastUpdated: item.actionTakenAt || item.createdAt,
         status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
         status_id: 999, // Unique ID for sent status (not from database)
-        // Fields not available in sent response - use empty/undefined defaults
+        // Preserve applicationType from backend ('fresh' or 'renewal')
+        applicationType: item.applicationType === 'renewal' ? 'Renewal Application' : 'Fresh License',
         applicantMobile: '', // Not included in workflow history response
-        applicationType: '', // Not included in workflow history response
         currentUser: undefined,
         assignedTo: '', // Not included in workflow history response
         // Additional sent-specific fields from workflow history
@@ -487,7 +487,10 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
 
   // Original logic for other status keys
   // Use custom statusIds if provided, otherwise use default mapping
-  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
+  let statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
+  if (key === 'forwarded') {
+    statusIds = [1];
+  }
   // debug: log statusKey -> statusIds mapping
   try {
      

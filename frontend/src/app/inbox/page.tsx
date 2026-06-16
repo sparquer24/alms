@@ -5,78 +5,17 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import ApplicationTable from '../../components/ApplicationTable';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
+import { fetchApplicationsByStatusKey, fetchAllApplications } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { isAdminRole } from '../../utils/roleUtils';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import { apiClient } from '../../config/authenticatedApiClient';
 
+import { normalizeRenewalApplication } from '../../utils/applicationFormatters';
+
 type FreshFormViewType = 'fresh' | 'renewal';
 
-const normalizeRenewalApplication = (application: any, submittedOnly: boolean): ApplicationData => {
-  const applicantName =
-    application?.applicantName ||
-    [application?.firstName, application?.middleName, application?.lastName].filter(Boolean).join(' ') ||
-    'Unknown Applicant';
-
-  return {
-    id: String(application?.id || ''),
-    acknowledgementNo: application?.acknowledgementNo,
-    firstName: application?.firstName,
-    middleName: application?.middleName,
-    lastName: application?.lastName,
-    applicantName,
-    applicantMobile: application?.mobileNumber || application?.contactInfo?.mobileNumber || '',
-    applicantEmail: application?.email || application?.contactInfo?.email || undefined,
-    mobileNumber: application?.mobileNumber || application?.contactInfo?.mobileNumber || '',
-    email: application?.email || application?.contactInfo?.email || undefined,
-    parentOrSpouseName: application?.parentOrSpouseName,
-    sex: application?.sex,
-    dob: application?.dateOfBirth ? new Date(application.dateOfBirth).toISOString() : undefined,
-    dobInWords: application?.dobInWords,
-    panNumber: application?.panNumber,
-    aadharNumber: application?.aadharNumber,
-    applicationType: 'Renewal Application',
-    applicationDate: application?.createdAt || new Date().toISOString(),
-    applicationTime: application?.createdAt ? new Date(application.createdAt).toTimeString() : undefined,
-    status: application?.workflowStatus?.name || (submittedOnly ? 'Submitted' : 'Draft'),
-    status_id: application?.workflowStatusId ?? (application?.isSubmit ? 1 : 9),
-    workflowStatus: application?.workflowStatus,
-    assignedTo: String(application?.currentUserId || ''),
-    lastUpdated: application?.updatedAt || application?.createdAt || new Date().toISOString(),
-    createdAt: application?.createdAt,
-    updatedAt: application?.updatedAt,
-    documents: Array.isArray(application?.documents) ? application.documents : [],
-    currentUser: application?.currentUser,
-    history: Array.isArray(application?.history) ? application.history : [],
-    workflowHistories: Array.isArray(application?.workflowHistories) ? application.workflowHistories : [],
-    actions: application?.actions || {
-      canForward: false,
-      canReport: true,
-      canApprove: false,
-      canReject: false,
-      canRaiseRedflag: false,
-      canReturn: false,
-      canDispose: false,
-    },
-    usersInHierarchy: Array.isArray(application?.usersInHierarchy) ? application.usersInHierarchy : [],
-    // Keep linkage IDs for renewal edit-routing in draft mode.
-    ...( {
-      renewalId: application?.id,
-      renewalApplicationId: application?.id,
-      applicationId:
-        application?.applicationId ||
-        application?.freshApplicationId ||
-        application?.sourceApplicationId ||
-        application?.renewalLicenseId ||
-        '',
-      freshApplicationId: application?.freshApplicationId || application?.applicationId || '',
-      sourceApplicationId: application?.sourceApplicationId || application?.applicationId || '',
-      renewalLicenseId: application?.renewalLicenseId || '',
-    } as any),
-  };
-};
 
 const fetchRenewalApplications = async (submittedOnly: boolean): Promise<ApplicationData[]> => {
   try {
@@ -111,11 +50,10 @@ function InboxContent() {
   const isFreshFormsPage = queryType === 'freshform';
   const isDraftsPage = queryType === 'drafts';
 
-  const [type, setType] = useState<string | null>(null);
   const [selectedFormType, setSelectedFormType] = useState<FreshFormViewType>('fresh');
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, userRole, initialized } = useAuth();
 
   // Handle refresh parameter - only refresh once per login
   useEffect(() => {
@@ -133,17 +71,12 @@ function InboxContent() {
 
   // Redirect admin users to admin dashboard
   useEffect(() => {
-    if (!authLoading && isAdminRole(userRole)) {
+    if (initialized && isAdminRole(userRole)) {
       const redirectPath = getRoleBasedRedirectPath(userRole);
       router.push(redirectPath);
       return;
     }
-  }, [authLoading, userRole, router]);
-
-  useEffect(() => {
-    if (!queryType) return;
-    setType(queryType);
-  }, [queryType]);
+  }, [initialized, userRole, router]);
 
   useEffect(() => {
     if (isFreshFormsPage || isDraftsPage) {
@@ -152,22 +85,20 @@ function InboxContent() {
   }, [isFreshFormsPage, isDraftsPage]);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (initialized && !isAuthenticated) {
       router.push('/login');
       return;
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [initialized, isAuthenticated, router]);
 
   useEffect(() => {
-    if (!type) return;
-
     const fetchApplications = async () => {
       try {
         setIsLoading(true);
         // debug: log requested type
-        console.debug('[InboxContent] fetching applications for type:', type);
+        console.debug('[InboxContent] fetching applications for type:', queryType);
 
-        if (type === 'freshform') {
+        if (queryType === 'freshform') {
           if (selectedFormType === 'renewal') {
             const renewalApps = await fetchRenewalApplications(true);
             console.debug('[InboxContent] renewal applications fetched:', renewalApps.length);
@@ -180,7 +111,7 @@ function InboxContent() {
           return;
         }
 
-        if (type === 'drafts') {
+        if (queryType === 'drafts') {
           if (selectedFormType === 'renewal') {
             const renewalDraftApps = await fetchRenewalApplications(false);
             console.debug('[InboxContent] renewal draft applications fetched:', renewalDraftApps.length);
@@ -194,27 +125,30 @@ function InboxContent() {
         }
         
         // If type is 'all', fetch from all inbox categories and combine
-        if (type === 'all') {
-          const [forwarded, returned, redflagged, reenquiry] = await Promise.all([
-            fetchApplicationsByStatusKey('forwarded'),
-            fetchApplicationsByStatusKey('returned'),
-            fetchApplicationsByStatusKey('redflagged'),
-            fetchApplicationsByStatusKey('reenquiry')
-          ]);
-          
-          // Combine all results and remove duplicates based on application ID
-          const combined = [...forwarded, ...returned, ...redflagged, ...reenquiry];
-          const uniqueApps = combined.filter((app, index, self) =>
-            index === self.findIndex((a) => a.id === app.id)
-          );
-          
-          console.debug('[InboxContent] combined inbox applications:', uniqueApps.length);
-          setApplications(uniqueApps);
+        if (queryType === 'all') {
+          if (selectedFormType === 'renewal') {
+            const submittedRenewals = await fetchRenewalApplications(true);
+            console.debug('[InboxContent] all renewal applications (excluding drafts) fetched:', submittedRenewals.length);
+            setApplications(submittedRenewals);
+          } else {
+            const freshApps = await fetchAllApplications({ limit: 1000 });
+            const nonDraftFresh = freshApps.filter((app) => {
+              const statusName = (
+                app.workflowStatus?.name ||
+                (typeof app.status === 'string' ? app.status : (app.status as any)?.name) ||
+                ''
+              ).toLowerCase();
+              const statusId = app.status_id;
+              return statusId !== 12 && statusId !== 13 && !statusName.includes('draft');
+            });
+            console.debug('[InboxContent] all fresh applications (excluding drafts) fetched:', nonDraftFresh.length);
+            setApplications(nonDraftFresh);
+          }
         } else {
-          const apps = await fetchApplicationsByStatusKey(type);
+          const apps = await fetchApplicationsByStatusKey(queryType);
           console.debug(
             '[InboxContent] fetch result length for',
-            type,
+            queryType,
             ':',
             Array.isArray(apps) ? apps.length : typeof apps,
             apps && apps[0] ? apps[0] : null
@@ -228,16 +162,14 @@ function InboxContent() {
       }
     };
 
-    if (!authLoading && isAuthenticated) fetchApplications();
-    else if (!authLoading && !isAuthenticated) setIsLoading(false);
-  }, [type, selectedFormType, authLoading, isAuthenticated]);
-
-  if (!type) return <PageLayoutSkeleton />;
+    if (initialized && isAuthenticated) fetchApplications();
+    else if (initialized && !isAuthenticated) setIsLoading(false);
+  }, [queryType, selectedFormType, initialized, isAuthenticated]);
 
   const getPageTitle = () => {
-    switch (type) {
+    switch (queryType) {
       case 'all':
-        return 'All Inbox Applications';
+        return 'All Applications';
       case 'forwarded':
         return 'Forwarded Applications';
       case 'returned':
@@ -268,7 +200,7 @@ function InboxContent() {
       <div className='bg-white rounded-lg shadow p-4 sm:p-5'>
         <h1 className='text-2xl font-bold mb-3'>{getPageTitle()}</h1>
 
-        {type === 'all' && (
+        {queryType === 'all' && (
           <div className='mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
             <div className='flex items-center'>
               <svg
@@ -284,7 +216,7 @@ function InboxContent() {
                 />
               </svg>
               <span className='text-blue-800 font-medium'>
-                Showing all inbox applications (Forwarded, Returned, Red Flagged, and Re-Enquiry)
+                Showing all applications (Approved, Rejected, Returned, Forwarded, Re-Enquiry, Red Flag, Closed, Submitted, Initiated, etc.)
               </span>
             </div>
           </div>
@@ -293,7 +225,7 @@ function InboxContent() {
         <ApplicationTable
           applications={applications}
           isLoading={isLoading}
-          pageType={type || undefined}
+          pageType={queryType}
           selectedFormType={selectedFormType}
           onSelectedFormTypeChange={setSelectedFormType}
           showActionColumn={true}
