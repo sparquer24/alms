@@ -286,6 +286,7 @@ const PersonalInformation: React.FC = () => {
           value={form.firstName}
           onChange={handleChange}
           onBlur={handleBlur}
+          placeholder='e.g., Ramesh'
           required
           error={fieldErrors.firstName}
         />
@@ -302,6 +303,7 @@ const PersonalInformation: React.FC = () => {
             value={form.middleName}
             onChange={handleChange}
             onBlur={handleBlur}
+            placeholder='e.g., Kumar'
             error={fieldErrors.middleName}
           />
         </div>
@@ -313,6 +315,7 @@ const PersonalInformation: React.FC = () => {
           value={form.lastName}
           onChange={handleChange}
           onBlur={handleBlur}
+          placeholder='e.g., Sharma'
           required
           error={fieldErrors.lastName}
         />
@@ -329,6 +332,7 @@ const PersonalInformation: React.FC = () => {
             value={form.filledBy}
             onChange={handleChange}
             onBlur={handleBlur}
+            placeholder='e.g., Suresh Reddy'
             error={fieldErrors.filledBy}
           />
         </div>
@@ -340,6 +344,7 @@ const PersonalInformation: React.FC = () => {
           value={form.parentOrSpouseName}
           onChange={handleChange}
           onBlur={handleBlur}
+          placeholder='e.g., Rajesh Sharma'
           required
           error={fieldErrors.parentOrSpouseName}
         />
@@ -396,6 +401,7 @@ const PersonalInformation: React.FC = () => {
           value={form.placeOfBirth}
           onChange={handleChange}
           onBlur={handleBlur}
+          placeholder='e.g., Hyderabad'
           required
           error={fieldErrors.placeOfBirth}
         />
@@ -432,6 +438,7 @@ const PersonalInformation: React.FC = () => {
           value={form.panNumber}
           onChange={handleChange}
           onBlur={handleBlur}
+          placeholder='e.g., ABCDE1234F'
           required
           error={fieldErrors.panNumber}
           maxLength={10}
@@ -444,6 +451,7 @@ const PersonalInformation: React.FC = () => {
           value={form.aadharNumber}
           onChange={handleChange}
           onBlur={handleBlur}
+          placeholder='e.g., 123456789012'
           required
           error={fieldErrors.aadharNumber}
           maxLength={12}

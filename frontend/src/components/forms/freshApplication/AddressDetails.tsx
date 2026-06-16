@@ -302,7 +302,7 @@ const AddressDetails: React.FC = () => {
 						value={form.presentAddress}
 						onChange={handleChange}
 						onBlur={handleBlur as any}
-						placeholder="Enter present address"
+						placeholder="e.g., H.No. 12-34, Main Road, Secunderabad"
 						rows={2}
 						maxLength={250}
 						error={fieldErrors.presentAddress}
@@ -366,7 +366,7 @@ const AddressDetails: React.FC = () => {
 						value={form.permanentAddress}
 						onChange={handleChange}
 						onBlur={!form.sameAsPresent ? handleBlur as any : undefined}
-						placeholder="Enter permanent address"
+						placeholder="e.g., Plot 56, Gandhi Nagar, Vizag"
 						rows={2}
 						maxLength={250}
 						error={!form.sameAsPresent ? fieldErrors.permanentAddress : undefined}
@@ -406,7 +406,7 @@ const AddressDetails: React.FC = () => {
 					value={form.officeMobileNumber}
 					onChange={handleChange}
 					onBlur={handleBlur as any}
-					placeholder="0000 0000 0000"
+					placeholder="e.g., 9876543210"
 					error={fieldErrors.officeMobileNumber}
 					maxLength={10}
 					required
@@ -422,7 +422,7 @@ const AddressDetails: React.FC = () => {
 						value={form.telephoneResidence}
 						onChange={handleChange}
 						onBlur={handleBlur as any}
-						placeholder="0000 0000 0000"
+						placeholder="e.g., 04027654321"
 						error={fieldErrors.telephoneResidence}
 						maxLength={15}
 					/>
@@ -438,7 +438,7 @@ const AddressDetails: React.FC = () => {
 						value={form.alternativeMobile}
 						onChange={handleChange}
 						onBlur={handleBlur as any}
-						placeholder="0000 0000 0000"
+						placeholder="e.g., 8765432109"
 						error={fieldErrors.alternativeMobile}
 						maxLength={10}
 					/>
@@ -454,7 +454,7 @@ const AddressDetails: React.FC = () => {
 						value={form.telephoneOffice}
 						onChange={handleChange}
 						onBlur={handleBlur as any}
-						placeholder="0000 0000 0000"
+						placeholder="e.g., 04023456789"
 						error={fieldErrors.telephoneOffice}
 						maxLength={15}
 					/>

@@ -217,7 +217,7 @@ const OccupationBussiness: React.FC = () => {
 				value={form.occupation}
 				onChange={handleChange}
 				onBlur={handleBlur as any}
-				placeholder="Enter occupation"
+				placeholder="e.g., Business Owner"
 				className="mb-4"
 				required
 				error={fieldErrors.occupation}
@@ -228,7 +228,7 @@ const OccupationBussiness: React.FC = () => {
 				value={form.officeAddress}
 				onChange={handleChange}
 				onBlur={handleBlur as any}
-				placeholder="Enter office or business address"
+				placeholder="e.g., Shop No. 5, Commercial Complex, MG Road"
 				rows={2}
 				maxLength={250}
 				className="mb-4"
@@ -290,7 +290,7 @@ const OccupationBussiness: React.FC = () => {
 					value={form.cropLocation}
 					onChange={handleChange}
 					onBlur={handleBlur as any}
-					placeholder="Enter location"
+					placeholder="e.g., Survey No 45 Ranga Reddy"
 					error={fieldErrors.cropLocation}
 				/>
 				<Input
@@ -299,7 +299,7 @@ const OccupationBussiness: React.FC = () => {
 					value={form.areaUnderCultivation}
 					onChange={handleChange}
 					onBlur={handleBlur as any}
-					placeholder="Enter area (in acres)"
+					placeholder="e.g., 12.50"
 					error={fieldErrors.areaUnderCultivation}
 				/>
 			</div>

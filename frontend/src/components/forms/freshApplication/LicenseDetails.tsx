@@ -689,7 +689,7 @@ const LicenseDetails = () => {
               value={getLicenseDetail().ammunitionDescription || ''}
               onChange={handleChange}
               onBlur={handleBlur}
-              placeholder='e.g., 50 rounds of .32 ammunition'
+              placeholder='e.g., 50 rounds of .32 bore ammunition'
               required
               error={fieldErrors.ammunitionDescription}
             />
@@ -709,7 +709,7 @@ const LicenseDetails = () => {
               onBlur={handleBlur}
               className={`w-full border rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${fieldErrors.specialConsiderationReason ? 'border-red-500' : 'border-gray-300'}`}
               rows={2}
-              placeholder='Enter your claim (if any)'
+              placeholder='e.g., Threat perception due to business disputes'
             />
             {fieldErrors.specialConsiderationReason && (
               <p className="text-red-500 text-xs mt-1">{fieldErrors.specialConsiderationReason}</p>
@@ -914,7 +914,7 @@ const LicenseDetails = () => {
                 onChange={handleChange}
                 onBlur={handleBlur}
                 className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${fieldErrors.licencePlaceArea ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder='Enter place or area'
+                placeholder='e.g., Hyderabad District'
               />
               {fieldErrors.licencePlaceArea && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.licencePlaceArea}</p>
@@ -935,7 +935,7 @@ const LicenseDetails = () => {
                 onBlur={handleBlur}
                 className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${fieldErrors.wildBeastsSpecification ? 'border-red-500' : 'border-gray-300'}`}
                 rows={3}
-                placeholder='Enter specification of wild beasts permitted to be destroyed'
+                placeholder='e.g., Wild boar and Nilgai as per permit'
               />
               {fieldErrors.wildBeastsSpecification && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.wildBeastsSpecification}</p>

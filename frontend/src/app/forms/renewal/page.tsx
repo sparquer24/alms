@@ -519,6 +519,7 @@ const mapPresentAddressFields = (data: any) => {
       presentAddress?.policeStation?.name,
       presentAddress?.policeStationName
     ),
+    presentPincode: getTextValue(presentAddress?.pincode, presentAddress?.postalCode, data?.presentPincode),
     jurisdictionPoliceStation: getTextValue(data?.jurisdictionPoliceStation),
     residingSince: formatDate(
       presentAddress?.sinceResiding || data?.residingSince || data?.presentSince
@@ -568,6 +569,7 @@ const mapPermanentAddressFields = (data: any) => {
     permanentPoliceStation: normalizeLocationId(
       permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id
     ),
+    permanentPincode: getTextValue(permanentAddress?.pincode, permanentAddress?.postalCode, data?.permanentPincode),
     permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
     permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
     permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
@@ -1795,7 +1797,12 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
     applicantIdNumber: getTextValue(data?.applicantIdNumber, personalDetails?.applicantIdNumber),
     aadharNumber: getTextValue(data?.aadharNumber, personalDetails?.aadharNumber),
     panNumber: getTextValue(data?.panNumber, personalDetails?.panNumber),
-    applicantMobile: getTextValue(data?.applicantMobile, personalDetails?.applicantMobile),
+    applicantMobile: getTextValue(
+      data?.applicantMobile,
+      personalDetails?.applicantMobile,
+      data?.presentAddress?.officeMobileNumber,
+      data?.permanentAddress?.officeMobileNumber
+    ),
     applicantEmail: getTextValue(data?.applicantEmail, personalDetails?.applicantEmail),
     filledBy: getTextValue(data?.filledBy, personalDetails?.filledBy),
     dobInWords: getTextValue(data?.dobInWords, personalDetails?.dobInWords),
@@ -1824,25 +1831,10 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
   };
 };
 
-const buildFormDataFromRenewalRecord = async (renewalData: any, applicationId: string) => {
-  const renewalState = buildRootDataFromRenewal(renewalData);
-  const freshAppId = resolveFreshApplicationId(renewalData, applicationId);
-
-  if (!freshAppId) {
-    return renewalState;
-  }
-
-  try {
-    const freshData = await fetchFreshApplicationWithFiles(freshAppId);
-    if (freshData) {
-      const freshState = buildFieldStateFromFreshApplication(freshAppId, freshData);
-      return mergeRenewalStateOverFresh(freshState, renewalState, renewalData);
-    }
-  } catch (freshError) {
-    console.warn('Unable to fetch fresh application fallback data', freshError);
-  }
-
-  return renewalState;
+const buildFormDataFromRenewalRecord = async (renewalData: any, _applicationId: string) => {
+  // When a renewal record exists, use it as the sole source of truth.
+  // Do NOT fetch fresh application data — renewal data takes full precedence.
+  return buildRootDataFromRenewal(renewalData);
 };
 
 const loadExistingRenewalByLicenseNumber = async (
@@ -2076,57 +2068,85 @@ function RenewalFormPageContent() {
       return;
     }
 
+    const loadRenewalById = async (rId: string) => {
+      const renewalResponse = await RenewalService.getRenewalForm(rId);
+      const renewalData = extractData(renewalResponse);
+      if (!renewalData) {
+        throw new Error('No saved renewal data was returned for the renewal ID.');
+      }
+
+      const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
+      if (workflowCode === 'APPROVED') {
+        setIsReadOnly(true);
+        setShowReadOnlyModal(true);
+      }
+
+      setRenewalRecord(renewalData);
+      // Renewal data is the sole source of truth — no fresh data fetch.
+      const renewalFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
+      const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
+        rId,
+        renewalFormData
+      );
+      setFormData(syncedForm as RenewalFormState);
+      setStatusMessage(
+        synced
+          ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, rId)}; prefilled documents saved via upload-file.`
+          : `Loaded renewal application ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, rId)}.`
+      );
+      return renewalData;
+    };
+
     const load = async () => {
       try {
         setIsLoading(true);
         setError(null);
         setStatusMessage(null);
 
+        // Path A: renewalId is already known — load renewal directly, no fresh data needed.
         if (renewalId) {
-          const renewalResponse = await RenewalService.getRenewalForm(renewalId);
-          const renewalData = extractData(renewalResponse);
-          if (!renewalData) {
-            throw new Error('No saved renewal data was returned for the renewal ID.');
-          }
-
-          const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
-          if (workflowCode === 'APPROVED') {
-            setIsReadOnly(true);
-            setShowReadOnlyModal(true);
-          }
-
-          setRenewalRecord(renewalData);
-          const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
-          const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
-            renewalId,
-            mergedFormData
-          );
-          setFormData(syncedForm as RenewalFormState);
-          setStatusMessage(
-            synced
-              ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, renewalId)}; prefilled documents saved via upload-file.`
-              : `Loaded renewal application ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, renewalId)}.`
-          );
+          await loadRenewalById(renewalId);
           return;
         }
 
+        // Path B: Only applicationId — fetch fresh app, check for existing renewal.
+        // Step 1: Fetch fresh application data to extract licenseNumber.
         const freshData = await fetchFreshApplicationWithFiles(applicationId);
 
         if (!freshData) {
           throw new Error('No fresh application data found for the provided ID.');
         }
 
+        const licenseNumber = getLicenseNumber(freshData);
+
+        // Step 2: Search for existing renewal by licenseNumber.
+        if (licenseNumber) {
+          const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
+
+          if (existingRenewal) {
+            // Existing renewal found — load renewal data as sole source of truth.
+            const existingRenewalId = getTextValue(existingRenewal?.id, existingRenewal?.renewalApplicationId);
+            if (existingRenewalId) {
+              createdRenewalIdRef.current = existingRenewalId;
+              await loadRenewalById(existingRenewalId);
+              // Update URL to include renewalId.
+              router.replace(
+                `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+              );
+              return;
+            }
+          }
+        }
+
+        // Step 3: No existing renewal — use fresh data to create new draft.
         console.log('Renewal load:', {
           applicationId,
           fileUploads: collectUploadedFilesFromApi(freshData),
         });
         const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
 
-        // Validate that the fresh application has been submitted
+        // Validate that the fresh application has been submitted.
         const applicationCheckResponse = await ApplicationService.getApplication(applicationId);
-        console.log('Application check response:', applicationCheckResponse);
-
-        // Check if application is submitted (isSubmit should be true)
         const isSubmitted =
           applicationCheckResponse?.isSubmit === true ||
           applicationCheckResponse?.data?.isSubmit === true;

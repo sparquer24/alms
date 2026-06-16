@@ -146,6 +146,18 @@ export class FileUploadService {
   }
 
   /**
+   * Delete an uploaded file by its ID
+   * Calls DELETE /api/application-form/file/{id}
+   */
+  static async deleteFile(fileId: number): Promise<void> {
+    try {
+      await apiClient.delete(`/application-form/file/${fileId}`);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Get uploaded files for an application (if needed)
    */
   static async getUploadedFiles(applicationId: number): Promise<FileUploadResponse[]> {
