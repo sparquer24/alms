@@ -8,7 +8,7 @@ import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
-import { ApplicationFormProvider, useApplicationForm } from '../../../context/ApplicationFormContext';
+import { ApplicationFormProvider, useApplicationFormContext as useApplicationForm } from '../../../context/ApplicationFormContext';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
 import {
   applyPrefilledDocumentUploads,
@@ -1972,6 +1972,7 @@ function RenewalFormPageContent() {
   const applicationId =
     searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
+  const { applicationTypeId } = useApplicationForm();
   const createdRenewalIdRef = useRef<string | null>(null);
   const personalSectionRef = React.useRef<any>(null);
   const addressSectionRef = React.useRef<any>(null);
@@ -2146,7 +2147,7 @@ function RenewalFormPageContent() {
           setStatusMessage,
           router,
           createdRenewalIdRef,
-          appTypeId
+          applicationTypeId
         );
       } catch (loadError: any) {
         setError(loadError?.message || 'Failed to load the renewal form.');
