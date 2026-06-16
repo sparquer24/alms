@@ -8,6 +8,28 @@ import { FormSkeleton } from '../elements/FormSkeleton';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { useLocationHierarchy } from '../../../hooks/useLocationHierarchy';
+import { FieldRule } from '../../../utils/validation/types';
+import { useFormValidation } from '../../../hooks/useFormValidation';
+
+// ─── Validation rules ─────────────────────────────────────────────────────────
+
+const occupationRules: FieldRule[] = [
+	{ name: 'occupation', type: 'text', required: true, errorMessages: { required: 'Occupation is required.' } },
+	{ name: 'officeAddress', type: 'address', required: true, minLength: 10, maxLength: 250, errorMessages: { required: 'Office/Business Address is required.', format: 'Please enter a valid Office/Business Address.' } },
+	{ name: 'officeState', type: 'select', required: true, errorMessages: { required: 'Please select State.' } },
+	{ name: 'officeDistrict', type: 'select', required: true, dependsOn: 'officeState', dependsOnMessage: 'Please select State first.', errorMessages: { required: 'Please select District.' } },
+	{ name: 'cropLocation', type: 'custom', condition: (form) => !!(form.cropLocation?.trim() || form.areaUnderCultivation?.trim()), required: true, customValidator: (value) => {
+		const v = value?.trim() || '';
+		if (!v) return 'Location is required for Crop Protection under Rule 35.';
+		if (v.startsWith(' ')) return 'Location cannot start with a space.';
+		if (/^[^A-Za-z0-9]/.test(v)) return 'Location cannot start with a special character.';
+		if (!/^[A-Za-z0-9\s]+$/.test(v)) return 'Only alphabets, numbers, and spaces are allowed.';
+		return '';
+	}},
+	{ name: 'areaUnderCultivation', type: 'area', condition: (form) => !!(form.cropLocation?.trim() || form.areaUnderCultivation?.trim()), required: true, maxDecimals: 2, minValue: 0, errorMessages: { required: 'Area of Land Under Cultivation is required.', format: 'Enter a valid positive area value.' } },
+];
+
+// ─── Initial state ────────────────────────────────────────────────────────────
 
 const initialState = {
 	occupation: '',
@@ -18,22 +40,11 @@ const initialState = {
 	areaUnderCultivation: '',
 };
 
-// Validation rules for occupation information
-const validateOccupationInfo = (formData: any) => {
-	const validationErrors = [];
-	
-	if (!formData.occupation?.trim()) {
-		validationErrors.push('Occupation is required');
-	}
-	if (!formData.officeAddress?.trim()) {
-		validationErrors.push('Office/Business address is required');
-	}
-	
-	return validationErrors;
-};
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const OccupationBussiness: React.FC = () => {
 	const router = useRouter();
+	const validation = useFormValidation(occupationRules);
 	
 	const {
 		form,
@@ -48,17 +59,13 @@ const OccupationBussiness: React.FC = () => {
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
+		fieldErrors,
+		setFieldErrors,
 	} = useApplicationForm({
 		initialState,
 		formSection: 'occupation',
-		validationRules: validateOccupationInfo,
+		validationRules: validation.validateAll,
 	});
-
-	// Enhanced handleChange to support both input and textarea
-	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-		const { name, value } = e.target;
-		setForm((prev: any) => ({ ...prev, [name]: value }));
-	};
 
 	// Location hierarchy for state and district
 	const [locationState, locationActions] = useLocationHierarchy();
@@ -88,28 +95,77 @@ const OccupationBussiness: React.FC = () => {
 		}
 	}, [form.officeState, form.officeDistrict, isLoading, locationState.selectedState, locationState.selectedDistrict]);
 
+	// ── handleChange with real-time validation + input filtering ──
+	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		const { name, value } = e.target;
+		const { value: filtered, error } = validation.processChange(name, value, form);
+		setForm((prev: any) => ({ ...prev, [name]: filtered }));
+		setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+	};
+
+	// ── Blur handler: auto-trim + re-validate ──
+	const handleBlur = (
+		e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>,
+	) => {
+		const { name, value } = e.target;
+		const { value: trimmed, error } = validation.processBlur(name, value, form);
+		if (trimmed !== value) {
+			setForm((prev: any) => ({ ...prev, [name]: trimmed }));
+		}
+		setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+	};
+
+	// ── State change handler with real-time validation ──
 	const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 		const value = e.target.value;
 		locationActions.setSelectedState(value);
-		setForm((prev: any) => ({ 
-			...prev, 
-			officeState: value,
-			officeDistrict: '', // Clear district when state changes
+
+		const updatedForm = { ...form, officeState: value, officeDistrict: '' };
+		setForm(updatedForm);
+
+		// Validate state
+		const { error: stateError } = validation.processChange('officeState', value, updatedForm);
+		// Reset district error
+		const { error: districtError } = validation.processChange('officeDistrict', '', updatedForm);
+		setFieldErrors((prev: any) => ({
+			...prev,
+			officeState: stateError,
+			officeDistrict: districtError,
 		}));
 	};
 
+	// ── District change handler with real-time validation ──
 	const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
 		const value = e.target.value;
 		locationActions.setSelectedDistrict(value);
-		setForm((prev: any) => ({ ...prev, officeDistrict: value }));
+
+		const updatedForm = { ...form, officeDistrict: value };
+		setForm(updatedForm);
+
+		const { error } = validation.processChange('officeDistrict', value, updatedForm);
+		setFieldErrors((prev: any) => ({ ...prev, officeDistrict: error }));
+	};
+
+	// ── Trim all values before submission ──
+	const getTrimmedForm = () => {
+		const trimmed: any = {};
+		for (const key of Object.keys(form)) {
+			trimmed[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+		}
+		return trimmed;
 	};
 
 	const handleSaveToDraft = async () => {
-		await saveFormData();
+		const trimmed = getTrimmedForm();
+		setForm(trimmed);
+		await saveFormData(undefined, trimmed);
 	};
 
 	const handleNext = async () => {
-		const savedApplicantId = await saveFormData(undefined, undefined, true);
+		const trimmed = getTrimmedForm();
+		setForm(trimmed);
+
+		const savedApplicantId = await saveFormData(undefined, trimmed, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.CRIMINAL_HISTORY, savedApplicantId);
@@ -160,19 +216,24 @@ const OccupationBussiness: React.FC = () => {
 				name="occupation"
 				value={form.occupation}
 				onChange={handleChange}
+				onBlur={handleBlur as any}
 				placeholder="Enter occupation"
 				className="mb-4"
 				required
+				error={fieldErrors.occupation}
 			/>
 			<TextArea
 				label="11. Office/Business address"
 				name="officeAddress"
 				value={form.officeAddress}
 				onChange={handleChange}
+				onBlur={handleBlur as any}
 				placeholder="Enter office or business address"
 				rows={2}
+				maxLength={250}
 				className="mb-4"
 				required
+				error={fieldErrors.officeAddress}
 			/>
 			<div className="grid grid-cols-2 gap-6 mb-4">
 				<Select
@@ -188,6 +249,8 @@ const OccupationBussiness: React.FC = () => {
 					options={locationActions.getSelectOptions().stateOptions}
 					placeholder={locationState.loadingStates ? "Loading states..." : "Select state"}
 					disabled={locationState.loadingStates}
+					required
+					error={fieldErrors.officeState}
 				/>
 				<Select
 					label="District"
@@ -209,6 +272,9 @@ const OccupationBussiness: React.FC = () => {
 							: "Select district"
 					}
 					disabled={!form.officeState || locationState.loadingDistricts}
+					disabledMessage={!form.officeState ? "Please select State first." : undefined}
+					required
+					error={fieldErrors.officeDistrict}
 				/>
 			</div>
 			{locationState.error && (
@@ -223,14 +289,18 @@ const OccupationBussiness: React.FC = () => {
 					name="cropLocation"
 					value={form.cropLocation}
 					onChange={handleChange}
+					onBlur={handleBlur as any}
 					placeholder="Enter location"
+					error={fieldErrors.cropLocation}
 				/>
 				<Input
 					label="Area of land under cultivation"
 					name="areaUnderCultivation"
 					value={form.areaUnderCultivation}
 					onChange={handleChange}
+					onBlur={handleBlur as any}
 					placeholder="Enter area (in acres)"
+					error={fieldErrors.areaUnderCultivation}
 				/>
 			</div>
 			
@@ -239,6 +309,7 @@ const OccupationBussiness: React.FC = () => {
 				onNext={handleNext}
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
+				disableActions={!validation.isValid(form)}
 			/>
 		</form>
 	);
