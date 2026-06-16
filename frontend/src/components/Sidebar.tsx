@@ -21,6 +21,7 @@ const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
 const FolderCheckFixed = FolderCheck as any;
 const RefreshCcwFixed = RefreshCcw as any;
+const ListFixed = List as any;
 
 import { logoutUser } from '../store/thunks/authThunks';
 import { toggleInbox, openInbox, closeInbox } from '../store/slices/uiSlice';
@@ -983,20 +984,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           return;
         }
 
-        // Handle applications menu item
-        if (item.name.toLowerCase() === 'applications') {
-          const applicationsPath = '/inbox/applications';
-          const actionId = 'sidebar-applications';
-          if (!canNavigateTo(applicationsPath, actionId)) {
-            return;
-          }
-          setActiveItem(key);
-          persistActiveNavToLocal(key);
-          dispatch(closeInbox());
-          setActiveNavigationPath(applicationsPath);
-          router.push(applicationsPath);
-          return;
-        }
+
 
         const type = item.name.replace(/\s+/g, '');
         const wasTopLevel = key && topLevelInboxLike.has(key);
@@ -1245,6 +1233,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   /* ----------------------------
      Icons / inboxSubItems
   -----------------------------*/
+  const allApplicationsIcon = useMemo(
+    () => <ListFixed className='w-6 h-6 mr-2' aria-label='All Applications' />,
+    []
+  );
   const forwardedIcon = useMemo(
     () => <CornerUpRightFixed className='w-6 h-6 mr-2' aria-label='Forwarded' />,
     []
@@ -1264,32 +1256,38 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
   const inboxSubItems = useMemo(() => {
     const set = new Set<string>();
+    set.add('all'); // 'all' (All Applications) is always first
     menuItems.forEach(mi => {
       try {
         const k = normalizeNavKey(mi.name as string);
-        if (k.startsWith('inbox-')) {
+        if (k.startsWith('inbox-') && k !== 'inbox-all') {
           set.add(k.replace('inbox-', ''));
         }
       } catch (e) {}
     });
-    const fallbacks = ['forwarded', 'returned', 'redflagged', 'reenquiry'];
+    const fallbacks = ['all', 'forwarded', 'returned', 'redflagged', 'reenquiry'];
     if (set.size === 0) fallbacks.forEach(f => set.add(f));
     else fallbacks.forEach(f => set.add(f)); // ensure common types present
 
     const iconMap: Record<string, React.ReactNode> = {
+      all: allApplicationsIcon,
       forwarded: forwardedIcon,
       returned: returnedIcon,
       redflagged: redFlaggedIcon,
       reenquiry: reenquiryIcon,
     };
     const countMap: Record<string, number> = {
+      all: 0,
       forwarded: applicationCounts?.forwardedCount || 0,
       returned: applicationCounts?.returnedCount || 0,
       redflagged: applicationCounts?.redFlaggedCount || 0,
       reenquiry: applicationCounts?.reEnquiryCount || 0,
     };
-    const labelFor = (n: string) =>
-      n.toLowerCase() === 'redflagged' ? 'Red Flagged' : n.charAt(0).toUpperCase() + n.slice(1);
+    const labelFor = (n: string) => {
+      if (n.toLowerCase() === 'all') return 'All Applications';
+      if (n.toLowerCase() === 'redflagged') return 'Red Flagged';
+      return n.charAt(0).toUpperCase() + n.slice(1);
+    };
     return Array.from(set).map(name => ({
       name,
       label: labelFor(name),

@@ -27,6 +27,7 @@ interface HeaderProps {
   statusBadge?: {
     label: string;
     className?: string;
+    style?: React.CSSProperties;
   };
   /** Hide the print button */
   hidePrint?: boolean;
@@ -123,7 +124,7 @@ const Header = (props: HeaderProps) => {
 
   return (
     <header
-      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg z-10 transition-all duration-300`}
+      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg z-40 transition-all duration-300`}
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left section: breadcrumbs / create form */}
@@ -220,6 +221,7 @@ const Header = (props: HeaderProps) => {
               <div>
                 <span
                   className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${statusBadge.className || 'bg-white bg-opacity-20 text-white border-white border-opacity-30'}`}
+                  style={statusBadge.style}
                 >
                   {statusBadge.label}
                 </span>

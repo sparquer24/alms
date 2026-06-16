@@ -2692,7 +2692,7 @@ function RenewalFormPageContent() {
 
   const handleSuccessContinue = () => {
     setShowSuccessModal(false);
-    router.push('/inbox?type=forwarded');
+    router.push('/inbox?type=all');
   };
 
   const reloadRenewalData = async () => {

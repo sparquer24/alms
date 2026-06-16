@@ -15,16 +15,16 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'SUPER_ADMIN' |
 const ROLE_REDIRECT_CONFIG: Record<string, string> = {
   [RoleTypes.ADMIN]: '/admin/userManagement',
   [RoleTypes.SUPER_ADMIN]: '/superAdmin/userManagement',  // Super Admin has separate global routes
-  [RoleTypes.ARMS_SUPDT]: '/inbox?type=forwarded',
-  [RoleTypes.SHO]: '/inbox?type=forwarded',
-  [RoleTypes.ZS]: '/inbox?type=forwarded',
-  [RoleTypes.DCP]: '/inbox?type=forwarded',
-  [RoleTypes.ACP]: '/inbox?type=forwarded',
-  [RoleTypes.CP]: '/inbox?type=forwarded',
-  [RoleTypes.JTCP]: '/inbox?type=forwarded',
-  [RoleTypes.ADO]: '/inbox?type=forwarded',
-  [RoleTypes.CADO]: '/inbox?type=forwarded',
-  [RoleTypes.AS]: '/inbox?type=forwarded',
+  [RoleTypes.ARMS_SUPDT]: '/inbox?type=all',
+  [RoleTypes.SHO]: '/inbox?type=all',
+  [RoleTypes.ZS]: '/inbox?type=all',
+  [RoleTypes.DCP]: '/inbox?type=all',
+  [RoleTypes.ACP]: '/inbox?type=all',
+  [RoleTypes.CP]: '/inbox?type=all',
+  [RoleTypes.JTCP]: '/inbox?type=all',
+  [RoleTypes.ADO]: '/inbox?type=all',
+  [RoleTypes.CADO]: '/inbox?type=all',
+  [RoleTypes.AS]: '/inbox?type=all',
   [RoleTypes.APPLICANT]: '/inbox?type=sent',
 };
 
@@ -63,7 +63,7 @@ export function getRoleBasedRedirectPath(userRole?: any): string {
   }
 
   if (!normalizedRole) {
-    return '/inbox?type=forwarded'; // Fallback default
+    return '/inbox?type=all'; // Fallback default
   }
 
   // Look up role in configuration
@@ -75,7 +75,7 @@ export function getRoleBasedRedirectPath(userRole?: any): string {
   }
 
   // Return configured path or fallback default
-  return redirectPath || '/inbox?type=forwarded';
+  return redirectPath || '/inbox?type=all';
 }
 
 /**

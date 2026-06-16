@@ -27,8 +27,8 @@ const setCachedData = (key: string, data: any, ttl: number = 30000): void => {
 // Status mapping for numeric status_id (based on actual API status codes)
 // Using statusIdMap from config for consistency, with legacy aliases for backward compatibility
 export const STATUS_MAP = {
-  forward: statusIdMap.forwarded || [1, 9],     // FORWARD + INITIATE 
-  forwarded: statusIdMap.forwarded || [1, 9],   // Alias for forward
+  forward: statusIdMap.forwarded || [1],     // FORWARDED status only 
+  forwarded: statusIdMap.forwarded || [1],   // Alias for forward
   pending: statusIdMap.pending || [1, 9],       // Same as forward for now
   sent: statusIdMap.sent || [11, 1, 9],         // RECOMMEND
   returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
@@ -487,7 +487,10 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
 
   // Original logic for other status keys
   // Use custom statusIds if provided, otherwise use default mapping
-  const statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
+  let statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
+  if (key === 'forwarded') {
+    statusIds = [1];
+  }
   // debug: log statusKey -> statusIds mapping
   try {
      

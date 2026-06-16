@@ -1,6 +1,7 @@
 import React from 'react';
 import QRCodeDisplay from '../../../components/QRCodeDisplay';
 import { formatGender, formatApplicationType, formatPhone, formatStatusLabel } from '../../../utils/formatters';
+import { getStatusStyle } from '../../../utils/statusColors';
 
 interface ApplicantInfoSectionProps {
   application: any;
@@ -132,7 +133,18 @@ export default function ApplicantInfoSection({
               {application?.workflowStatus && (
                 <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
                   <p className='text-sm text-gray-500 font-medium mb-1'>Workflow Status</p>
-                  <p className='font-semibold text-gray-900'>{formatStatusLabel(application.workflowStatus)}</p>
+                  <div>
+                    <span
+                      className='inline-block px-3 py-1 text-sm font-semibold rounded-full border'
+                      style={{
+                        backgroundColor: getStatusStyle(application.workflowStatus.name || application.workflowStatus.code).bg,
+                        color: getStatusStyle(application.workflowStatus.name || application.workflowStatus.code).text,
+                        borderColor: getStatusStyle(application.workflowStatus.name || application.workflowStatus.code).border
+                      }}
+                    >
+                      {formatStatusLabel(application.workflowStatus)}
+                    </span>
+                  </div>
                 </div>
               )}
 

@@ -114,7 +114,7 @@ const Declaration = () => {
 
   const handleNavigateHome = () => {
     setShowSuccessModal(false);
-    router.push('/inbox?type=freshform'); // Navigate to dashboard or home page
+    router.push('/inbox?type=all'); // Navigate to dashboard or home page
   };
 
   return (

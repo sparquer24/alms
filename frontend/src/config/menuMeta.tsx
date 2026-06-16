@@ -13,6 +13,7 @@ import {
   RefreshCcw,
   MapPin,
   FileText,
+  List,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -30,6 +31,7 @@ const GitBranchFixed = GitBranch as any;
 const RefreshCcwFixed = RefreshCcw as any;
 const MapPinFixed = MapPin as any;
 const FileTextFixed = FileText as any;
+const ListFixed = List as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
@@ -42,7 +44,6 @@ export type MenuMetaKey =
   | 'drafts'
   | 'reports'
   | 'analytics' // New analytics tab
-  | 'applications' // New applications tab
   | 'logout'
   | 'userManagement'
   | 'roleManagement'
@@ -86,10 +87,6 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   analytics: {
     label: 'Analytics',
     icon: () => <BarChart2Fixed className='w-6 h-6 mr-2' aria-label='Analytics' />,
-  },
-  applications: {
-    label: 'Approved Applications',
-    icon: () => <FileTextFixed className='w-6 h-6 mr-2' aria-label='Approved Applications' />,
   },
   logout: {
     label: 'Log Out',
