@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RenewalService } from '../../api/renewalService';
+import { getStatusStyle } from '../../utils/statusColors';
 
 interface RenewalApplicationDetails {
   id: number | string;
@@ -36,15 +37,6 @@ const formatDateTime = (value?: string) => {
 const getStatusLabel = (application: RenewalApplicationDetails | null) => {
   if (!application) return 'Unknown';
   return application.workflowStatus?.name || (application.isSubmit ? 'Submitted' : 'Draft');
-};
-
-const getStatusClass = (label: string) => {
-  const normalized = label.toLowerCase();
-  if (normalized.includes('draft')) return 'bg-slate-100 text-slate-700';
-  if (normalized.includes('submit')) return 'bg-blue-100 text-blue-800';
-  if (normalized.includes('approve')) return 'bg-green-100 text-green-800';
-  if (normalized.includes('reject')) return 'bg-red-100 text-red-800';
-  return 'bg-gray-100 text-gray-700';
 };
 
 export default function RenewalApplicationDetailsPage() {
@@ -85,6 +77,7 @@ export default function RenewalApplicationDetailsPage() {
   }, [id]);
 
   const statusLabel = getStatusLabel(application);
+  const statusStyle = getStatusStyle(statusLabel);
 
   if (loading) {
     return (
@@ -138,7 +131,14 @@ export default function RenewalApplicationDetailsPage() {
               <p className='text-sm text-blue-100'>Renewal Application</p>
               <h1 className='text-2xl font-semibold'>Application #{application.id}</h1>
             </div>
-            <span className={`inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(statusLabel)}`}>
+            <span
+              className='inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold border'
+              style={{
+                backgroundColor: statusStyle.bg,
+                color: statusStyle.text,
+                borderColor: statusStyle.border,
+              }}
+            >
               {statusLabel}
             </span>
           </div>

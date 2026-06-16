@@ -22,7 +22,7 @@ export type StatusIdMap = Partial<Record<StatusKey, number[]>>;
 // Status mapping for numeric status_id (based on actual API status codes)
 // Synchronized with STATUS_MAP from sidebarApiCalls.ts
 export const statusIdMap: StatusIdMap = {
-  forwarded: [1, 9, 3, 11],     // FORWARD + INITIATE (keep all ids in forward including freshform)
+  forwarded: [1],     // FORWARDED status only
   sent: [],      // RECOMMEND
   returned: [2, 13],         // REJECT (treated as returned)
   redflagged: [8],       // RED_FLAG

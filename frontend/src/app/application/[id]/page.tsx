@@ -33,7 +33,16 @@ import { generateApplicationPrintHtml } from '../../../utils/printGenerators';
 import ApplicantInfoSection from '../components/ApplicantInfoSection';
 import AddressSection from '../components/AddressSection';
 import OccupationSection from '../components/OccupationSection';
+import { getStatusStyle } from '../../../utils/statusColors';
 import LicenseDetailsSection from '../components/LicenseDetailsSection';
+
+const hexToRgba = (hex: string, alpha: number): string => {
+  const cleanHex = hex.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 interface ApplicationDetailPageProps {
   params: Promise<{
@@ -42,7 +51,7 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
-  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, user, userRole, isLoading: authLoading, initialized } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -116,10 +125,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [params]);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (initialized && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, initialized, router]);
 
   // Show header and sidebar like other pages (Settings, etc.)
   useEffect(() => {
@@ -199,36 +208,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     router.push('/');
   };
 
-  // Accepts either a status string or a numeric statusId and returns
-  // Tailwind classes for the badge. We coerce the input to string to
-  // make the helper robust when application stores numeric status ids.
-  const getStatusBadgeClass = (status?: string | number) => {
-    const raw = status ?? '';
-    const s = String(raw).toLowerCase();
-    switch (s) {
-      case 'forwarded':
-      case 'forwarded'.toString():
-        return 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm';
-      case 'pending':
-        return 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm';
-      case 'approved':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm';
-      case 'rejected':
-        return 'bg-red-50 text-red-700 border-red-200 shadow-sm';
-      case 'returned':
-        return 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm';
-      case 'red-flagged':
-      case 'redflagged':
-      case 'red_flagged':
-        return 'bg-red-50 text-red-700 border-red-200 shadow-sm';
-      case 'disposed':
-        return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
-      default:
-        // Unknown status (including numeric ids we don't explicitly map)
-        // fall back to neutral styling.
-        return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
-    }
-  };
+
   const handleProcessApplication = async (action: string, reason: string) => {
     if (!application) return;
 
@@ -457,14 +437,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       /* ignore */
     }
 
-    // Redirect to inbox/forwarded after successful proceedings action
+    // Redirect to inbox/all after successful proceedings action
     setTimeout(() => {
-      router.push('/inbox?type=forwarded');
+      router.push('/inbox?type=all');
     }, 2000);
   };
 
   // Show skeleton loading while authenticating or loading data
-  if (authLoading || loading) {
+  if (!initialized || authLoading || loading) {
     return <PageLayoutSkeleton />;
   }
   if (!isAuthenticated) {
@@ -483,7 +463,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         ]}
         statusBadge={application ? {
           label: formatStatusLabel(application.workflowStatus || application.status || application.status_id),
-          className: getStatusBadgeClass(application.status ?? application.status_id)
+          style: (() => {
+            const style = getStatusStyle(
+              application.workflowStatus?.name ||
+              application.workflowStatus?.code ||
+              application.status ||
+              application.status_id
+            );
+            return {
+              backgroundColor: style.bg,
+              color: style.text,
+              borderColor: style.border
+            };
+          })()
         } : undefined}
         hideCreateForm={true}
         hidePrint={true}
@@ -1171,25 +1163,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                              <div className='space-y-5'>
                                {application.workflowHistories.map((h, idx) => {
                                  const actionTaken = h?.actionTaken || (h as any)?.action || 'Unknown Action';
-                                 const actionLower = actionTaken.toLowerCase();
-                                const color = actionLower.includes('forward')
-                                  ? 'border-orange-500'
-                                  : actionLower.includes('approve')
-                                    ? 'border-green-500'
-                                    : actionLower.includes('reject') ||
-                                        actionLower.includes('return')
-                                      ? 'border-red-500'
-                                      : 'border-blue-500';
-
-                                const bgColor = actionLower.includes('forward')
-                                  ? 'bg-orange-50'
-                                  : actionLower.includes('approve')
-                                    ? 'bg-green-50'
-                                    : actionLower.includes('reject') ||
-                                        actionLower.includes('return')
-                                      ? 'bg-red-50'
-                                      : 'bg-blue-50';
-const attachmentsArr = h.attachments || [];
+                                 const statusStyle = getStatusStyle(actionTaken);
+                                 const borderColor = statusStyle.border;
+                                 const backgroundColor = hexToRgba(borderColor, 0.05);
+                                 const attachmentsArr = h.attachments || [];
                                  const hasAttachments =
                                    Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
                                  const hasRemarks = !!(h.remarks || (h as any).comment);
@@ -1216,7 +1193,11 @@ const attachmentsArr = h.attachments || [];
                                 return (
                                   <div
                                     key={h.id}
-                                    className={`border-l-4 ${color} ${bgColor} pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm`}
+                                    className='border-l-4 pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm'
+                                    style={{
+                                      borderLeftColor: borderColor,
+                                      backgroundColor: backgroundColor,
+                                    }}
                                   >
                                     <div className='flex items-start justify-between'>
                                       <div className='flex-1'>
