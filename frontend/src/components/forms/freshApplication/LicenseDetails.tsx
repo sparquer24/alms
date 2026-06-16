@@ -10,6 +10,8 @@ import { FileUploadService, FileUploadResponse } from '../../../services/fileUpl
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { useApplicationFormContext } from '../../../context/ApplicationFormContext';
+import { AdminActionService, MasterEntity } from '../../../services/admin/actions';
 
 const initialState = {
   licenseDetails: [
@@ -77,6 +79,9 @@ const LicenseDetails = () => {
   const [loadingWeapons, setLoadingWeapons] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [categories, setCategories] = useState<MasterEntity[]>([]);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const { categoryId, setCategoryId } = useApplicationFormContext();
 
   // Helper function to safely get license detail
   const getLicenseDetail = () => {
@@ -116,6 +121,11 @@ const LicenseDetails = () => {
       }
     };
     loadWeapons();
+  }, []);
+
+  // Fetch categories for Fresh application
+  useEffect(() => {
+    AdminActionService.getCategories(true).then(setCategories).catch(() => {});
   }, []);
 
   const handleChange = (
@@ -468,6 +478,67 @@ const LicenseDetails = () => {
           {submitError}
         </div>
       )}
+      {/* Category Selection - required for Fresh Applications */}
+      <div className='mb-6 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg'>
+        <div className='flex items-center justify-between'>
+          <div>
+            <label className='block text-sm font-semibold text-emerald-800 mb-1'>
+              Category <span className='text-red-500'>*</span>
+            </label>
+            <p className='text-xs text-emerald-600'>Select the category for this Fresh application</p>
+          </div>
+          <div className='relative'>
+            <button
+              type='button'
+              onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+              className='flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-emerald-500 text-emerald-700 rounded-lg hover:bg-emerald-50 font-medium text-sm transition-colors shadow-sm min-w-[200px]'
+            >
+              <svg className='w-4 h-4 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 9l-7 7-7-7' />
+              </svg>
+              {categoryId ? (
+                <>
+                  <span className='w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0' />
+                  <span>{categories.find(c => c.id === categoryId)?.name || 'Select Category'}</span>
+                </>
+              ) : (
+                <span className='text-gray-400'>Select Category</span>
+              )}
+            </button>
+
+            {categoryDropdownOpen && (
+              <div className='absolute top-full right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto'>
+                <div className='p-1'>
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      type='button'
+                      onClick={() => {
+                        setCategoryId(cat.id);
+                        setCategoryDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors
+                        ${categoryId === cat.id ? 'bg-emerald-100 text-emerald-700 font-medium' : 'hover:bg-gray-100 text-gray-700'}`}
+                    >
+                      <div className='font-medium'>{cat.name}</div>
+                      <div className='text-xs text-gray-400'>{cat.code}</div>
+                    </button>
+                  ))}
+                  {categories.length === 0 && (
+                    <div className='px-3 py-4 text-sm text-gray-400 text-center'>No categories available</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        {categoryId && (
+          <div className='mt-2 text-xs text-emerald-600'>
+            Selected Category ID: {categoryId}
+          </div>
+        )}
+      </div>
+
       <div className='grid grid-cols-2 gap-8'>
         {/* Left column: 15 above 16 */}
         <div className='flex flex-col gap-8'>

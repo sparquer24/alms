@@ -16,8 +16,11 @@ import { BiometricModule } from './biometric/biometric.module';
 import { PublicModule } from './public/public.module';
 import { QRCodeModule } from './qrcode/qrcode.module';
 import { RenewalFormModule } from './renewal/renewal-form.module';
+import { ApplicationTypeModule } from './applicationType/application-type.module';
+import { CategoryModule } from './category/category.module';
+import { WorkflowMasterModule } from './workflow/workflow-master.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, QRCodeModule, RenewalFormModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, QRCodeModule, RenewalFormModule, ApplicationTypeModule, CategoryModule, WorkflowMasterModule],
 })
 export class AppModule { }

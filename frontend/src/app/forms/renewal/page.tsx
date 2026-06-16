@@ -8,6 +8,7 @@ import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
+import { ApplicationFormProvider, useApplicationForm } from '../../../context/ApplicationFormContext';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
 import {
   applyPrefilledDocumentUploads,
@@ -1545,7 +1546,9 @@ const buildFieldStateFromFreshApplication = (
   };
 };
 
-const buildRenewalPayload = (formData: RenewalFormState) => ({
+const buildRenewalPayload = (formData: RenewalFormState, appTypeId?: number | null, catId?: number | null) => ({
+  applicationTypeId: appTypeId ?? undefined,
+  categoryId: catId ?? undefined,
   licenseNumber: formData.licenseNumber,
   acknowledgementNo: formData.acknowledgementNo,
   firstName: formData.applicantName,
@@ -1894,7 +1897,8 @@ const createDraftRenewalFromFreshApplication = async (
   setFormData: React.Dispatch<React.SetStateAction<RenewalFormState>>,
   setStatusMessage: React.Dispatch<React.SetStateAction<string | null>>,
   router: ReturnType<typeof useRouter>,
-  createdRenewalIdRef: React.MutableRefObject<string | null>
+  createdRenewalIdRef: React.MutableRefObject<string | null>,
+  appTypeId?: number | null
 ) => {
   if (createdRenewalIdRef.current) return;
 
@@ -1916,7 +1920,7 @@ const createDraftRenewalFromFreshApplication = async (
 
   try {
     const createResponse = await RenewalService.createRenewalForm(
-      buildRenewalPayload(prefilledForm)
+      buildRenewalPayload(prefilledForm, appTypeId)
     );
     const created = extractData(createResponse);
     const newRenewalId = getTextValue(created?.id, created?.renewalApplicationId);
@@ -2141,7 +2145,8 @@ function RenewalFormPageContent() {
           setFormData,
           setStatusMessage,
           router,
-          createdRenewalIdRef
+          createdRenewalIdRef,
+          appTypeId
         );
       } catch (loadError: any) {
         setError(loadError?.message || 'Failed to load the renewal form.');
@@ -3024,11 +3029,13 @@ function RenewalFormPageContent() {
 
 export default function RenewalFormPage() {
   return (
-    <Suspense
-      fallback={<ApplicationFormSkeleton />}
-    >
-      <RenewalFormPageContent />
-    </Suspense>
+    <ApplicationFormProvider>
+      <Suspense
+        fallback={<ApplicationFormSkeleton />}
+      >
+        <RenewalFormPageContent />
+      </Suspense>
+    </ApplicationFormProvider>
   );
 }
 

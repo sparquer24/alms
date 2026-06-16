@@ -8,9 +8,14 @@ import { MenuItem } from './roles';
 export type AdminMenuItemKey =
     | 'userManagement'
     | 'roleMapping'
+    | 'actionManagement'
+    | 'roleActionMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement';
+    | 'locationsManagement'
+    | 'applicationTypeManagement'
+    | 'categoryManagement'
+    | 'workflowManagement';
 
 export interface AdminMenuItem extends MenuItem {
     path: string;
@@ -38,26 +43,61 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         path: '/admin/roleMapping',
         order: 2,
     },
+    actionManagement: {
+        name: 'actionManagement',
+        key: 'actionManagement',
+        label: 'Action Management',
+        path: '/admin/actionManagement',
+        order: 3,
+    },
+    roleActionMapping: {
+        name: 'roleActionMapping',
+        key: 'roleActionMapping',
+        label: 'Role-Action Mapping',
+        path: '/admin/roleActionMapping',
+        order: 4,
+    },
     analytics: {
         name: 'analytics',
         key: 'analytics',
         label: 'Analytics',
         path: '/admin/analytics',
-        order: 3,
+        order: 5,
     },
     flowMapping: {
         name: 'flowMapping',
         key: 'flowMapping',
         label: 'Flow Mapping',
         path: '/admin/flowMapping',
-        order: 4,
+        order: 6,
     },
     locationsManagement: {
         name: 'locationsManagement',
         key: 'locationsManagement',
         label: 'Locations Management',
         path: '/admin/locationsManagement',
-        order: 5,
+        order: 7,
+    },
+    applicationTypeManagement: {
+        name: 'applicationTypeManagement',
+        key: 'applicationTypeManagement',
+        label: 'Application Types',
+        path: '/admin/applicationTypeManagement',
+        order: 8,
+    },
+    categoryManagement: {
+        name: 'categoryManagement',
+        key: 'categoryManagement',
+        label: 'Categories',
+        path: '/admin/categoryManagement',
+        order: 9,
+    },
+    workflowManagement: {
+        name: 'workflowManagement',
+        key: 'workflowManagement',
+        label: 'Workflows',
+        path: '/admin/workflowManagement',
+        order: 10,
     },
 };
 
@@ -117,13 +157,20 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'rolesmanagement': 'roleMapping',
         'roles_management': 'roleMapping',
         'roles-management': 'roleMapping',
+        'actionmanagement': 'actionManagement',
+        'action_management': 'actionManagement',
+        'action-management': 'actionManagement',
+        'actionsmanagement': 'actionManagement',
+        'actions_management': 'actionManagement',
+        'actions': 'actionManagement',
+        'roleactionmapping': 'roleActionMapping',
+        'role_action_mapping': 'roleActionMapping',
+        'role-action-mapping': 'roleActionMapping',
+        'actionsmapping': 'roleActionMapping',
         'analytics': 'analytics',
         'flowmapping': 'flowMapping',
         'flow_mapping': 'flowMapping',
         'flow-mapping': 'flowMapping',
-        // 'flowmanagement': 'flowMapping',
-        // 'flow_management': 'flowMapping',
-        // 'flow-management': 'flowMapping',
         'flowmap': 'flowMapping',
         'flow': 'flowMapping',
         'locationsmanagement': 'locationsManagement',
@@ -133,6 +180,19 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'location_management': 'locationsManagement',
         'location-management': 'locationsManagement',
         'locations': 'locationsManagement',
+        'applicationtypemanagement': 'applicationTypeManagement',
+        'application_type_management': 'applicationTypeManagement',
+        'application-type-management': 'applicationTypeManagement',
+        'applicationtypes': 'applicationTypeManagement',
+        'apptypes': 'applicationTypeManagement',
+        'categorymanagement': 'categoryManagement',
+        'category_management': 'categoryManagement',
+        'category-management': 'categoryManagement',
+        'categories': 'categoryManagement',
+        'workflowmanagement': 'workflowManagement',
+        'workflow_management': 'workflowManagement',
+        'workflow-management': 'workflowManagement',
+        'workflows': 'workflowManagement',
     };
 
     // Try direct match first

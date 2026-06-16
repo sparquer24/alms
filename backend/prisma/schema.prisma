@@ -20,6 +20,52 @@ model Statuses {
   renewalApplications     RenewalFormPersonalDetails[]             @relation("RenewalApplicationWorkflowStatus")
 }
 
+// ============================================
+// Application Type, Category, Workflow Master Models
+// ============================================
+
+model ApplicationType {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  code            String   @unique
+  description     String?
+  isActive        Boolean  @default(true)
+  positiveAction  String?  // Default positive action (e.g., Approve, Recommended)
+  negativeAction  String?  // Default negative action (e.g., Reject, Not Recommend)
+  thirdAction     String?  // Default third action (e.g., Re-Enquiry)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  flowMappings    RoleFlowMapping[]
+  roleActionMappings RolesActionsMapping[]
+  applications    FreshLicenseApplicationPersonalDetails[]
+  renewalApplications RenewalFormPersonalDetails[]
+}
+
+model Category {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  code            String   @unique
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  flowMappings    RoleFlowMapping[]
+  roleActionMappings RolesActionsMapping[]
+  applications    FreshLicenseApplicationPersonalDetails[]
+  renewalApplications RenewalFormPersonalDetails[]
+}
+
+model Workflow {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  code            String   @unique
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  flowMappings    RoleFlowMapping[]
+}
+
 model Actiones {
   id                         Int                                             @id @default(autoincrement())
   code                       String                                          @unique
@@ -119,33 +165,45 @@ model Roles {
   workflowHistoryPrevious     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   renewalWorkflowHistoryNext  RenewalApplicationsFormWorkflowHistories[]     @relation("RenewalWorkflowNextRole")
   renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]  @relation("RenewalWorkflowPreviousRole")
-  currentRoleFlowMappings     RoleFlowMapping?                                @relation("CurrentRole")
+  currentRoleFlowMappings     RoleFlowMapping[]                                @relation("CurrentRole")
   rolesActionsMapping         RolesActionsMapping[]
   users                       Users[]
 }
 
 model RolesActionsMapping {
-  id        Int      @id @default(autoincrement())
-  roleId    Int
-  actionId  Int
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  action    Actiones @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id              Int             @id @default(autoincrement())
+  roleId          Int
+  actionId        Int
+  applicationTypeId Int?
+  categoryId      Int?
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  action          Actiones        @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role            Roles           @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  applicationType ApplicationType? @relation(fields: [applicationTypeId], references: [id], onDelete: Cascade)
+  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([roleId, actionId])
+  @@unique([roleId, actionId, applicationTypeId, categoryId])
 }
 
 model RoleFlowMapping {
-  id            Int      @id @default(autoincrement())
-  currentRoleId Int      @unique
-  nextRoleIds   Int[]
-  updatedBy     Int?
-  updatedAt     DateTime @default(now()) @updatedAt
-  createdAt     DateTime @default(now())
-  currentRole   Roles    @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
-  updatedByUser Users?   @relation(fields: [updatedBy], references: [id])
+  id              Int             @id @default(autoincrement())
+  currentRoleId   Int
+  applicationTypeId Int?
+  categoryId      Int?
+  workflowId      Int?
+  nextRoleIds     Int[]
+  updatedBy       Int?
+  updatedAt       DateTime        @default(now()) @updatedAt
+  createdAt       DateTime        @default(now())
+  currentRole     Roles           @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
+  updatedByUser   Users?          @relation(fields: [updatedBy], references: [id])
+  applicationType ApplicationType? @relation(fields: [applicationTypeId], references: [id], onDelete: Cascade)
+  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  workflow        Workflow?        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([currentRoleId, applicationTypeId, categoryId, workflowId])
 }
 
 model WeaponTypeMaster {
@@ -250,7 +308,7 @@ model FreshLicenseApplicationPersonalDetails {
   isTermsAccepted            Boolean?                                        @default(false)
   isSubmit                   Boolean?                                        @default(false)
   almsLicenseId              String?
-  isApproved                 Boolean?                                        @default(false)
+  isApproved                Boolean?                                        @default(false)
   isFLAFGenerated            Boolean?                                        @default(false)
   isGroundReportGenerated    Boolean?                                        @default(false)
   isPending                  Boolean?                                        @default(false)
@@ -269,7 +327,11 @@ model FreshLicenseApplicationPersonalDetails {
   permanentAddress           FLAFAddressesAndContactDetails?                 @relation("PermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
   presentAddress             FLAFAddressesAndContactDetails?                 @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
   previousUser               Users?                                          @relation("PreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
+  applicationTypeId          Int?
+  categoryId                 Int?
   workflowStatus             Statuses?                                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
+  applicationType            ApplicationType?                                @relation(fields: [applicationTypeId], references: [id], onDelete: Cascade)
+  category                   Category?                                       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   workflowHistories          FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowHistories")
   mergeAuditLogs             LicensesMergeAuditLog[]                         @relation("FreshLicenseMergeLog")
 
@@ -478,6 +540,8 @@ model RenewalFormPersonalDetails {
   currentUserId              Int?
   previousUserId             Int?
   workflowStatusId           Int?
+  applicationTypeId          Int?
+  categoryId                 Int?
   isAwareOfLegalConsequences Boolean?                             @default(false)
   isDeclarationAccepted      Boolean?                             @default(false)
   isTermsAccepted            Boolean?                             @default(false)
@@ -501,6 +565,8 @@ model RenewalFormPersonalDetails {
   presentAddress             RenewalAddressesAndContactDetails?   @relation("RenewalPresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
   previousUser               Users?                               @relation("RenewalPreviousApplicationOwner", fields: [previousUserId], references: [id], onDelete: Cascade)
   workflowStatus             Statuses?                            @relation("RenewalApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
+  applicationType            ApplicationType?                     @relation(fields: [applicationTypeId], references: [id], onDelete: Cascade)
+  category                   Category?                            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   mergeAuditLogs             LicensesMergeAuditLog[]              @relation("RenewalLicenseMergeLog")
 
   @@index([aadharNumber])

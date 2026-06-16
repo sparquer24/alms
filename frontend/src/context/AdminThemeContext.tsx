@@ -17,15 +17,14 @@ export const AdminThemeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [theme, setTheme] = useState<ThemeMode>(AdminThemeDefaults.mode);
   const [mounted, setMounted] = useState(false);
 
-  // Load theme from localStorage on mount
+  // Load theme from localStorage on mount, default to light (white theme)
   useEffect(() => {
     const savedTheme = localStorage.getItem('admin-theme') as ThemeMode | null;
     if (savedTheme) {
       setTheme(savedTheme);
     } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'dark' : 'light');
+      // Always default to light/white theme regardless of system preference
+      setTheme('light');
     }
     setMounted(true);
   }, []);

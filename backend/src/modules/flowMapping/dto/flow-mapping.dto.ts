@@ -1,5 +1,5 @@
 import { IsInt, IsArray, IsOptional, ArrayMinSize } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFlowMappingDto {
     @ApiProperty({
@@ -18,6 +18,21 @@ export class CreateFlowMappingDto {
     @ArrayMinSize(1)
     @IsInt({ each: true })
     nextRoleIds!: number[];
+
+    @ApiPropertyOptional({ description: 'Application type ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    applicationTypeId?: number;
+
+    @ApiPropertyOptional({ description: 'Category ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    categoryId?: number;
+
+    @ApiPropertyOptional({ description: 'Workflow ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    workflowId?: number;
 }
 
 export class UpdateFlowMappingDto {
@@ -31,14 +46,25 @@ export class UpdateFlowMappingDto {
     @IsInt({ each: true })
     nextRoleIds!: number[];
 
-    @ApiProperty({
-        description: 'User ID of the person updating the mapping',
-        example: 1,
-        required: false,
-    })
+    @ApiPropertyOptional({ description: 'User ID of the person updating the mapping' })
     @IsOptional()
     @IsInt()
     updatedBy?: number;
+
+    @ApiPropertyOptional({ description: 'Application type ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    applicationTypeId?: number;
+
+    @ApiPropertyOptional({ description: 'Category ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    categoryId?: number;
+
+    @ApiPropertyOptional({ description: 'Workflow ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    workflowId?: number;
 }
 
 export class ValidateFlowMappingDto {
@@ -58,4 +84,19 @@ export class ValidateFlowMappingDto {
     @ArrayMinSize(1)
     @IsInt({ each: true })
     nextRoleIds!: number[];
+
+    @ApiPropertyOptional({ description: 'Application type ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    applicationTypeId?: number;
+
+    @ApiPropertyOptional({ description: 'Category ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    categoryId?: number;
+
+    @ApiPropertyOptional({ description: 'Workflow ID', example: 1 })
+    @IsOptional()
+    @IsInt()
+    workflowId?: number;
 }

@@ -1,8 +1,18 @@
-import { IsOptional, IsString, IsNotEmpty, IsEnum, IsDateString, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsNotEmpty, IsEnum, IsDateString, IsNumber, IsInt } from 'class-validator';
 import { Sex } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateRenewalPersonalDetailsDto {
+  @ApiPropertyOptional({ example: 1, description: 'Application Type ID (links to ApplicationType master)' })
+  @IsOptional()
+  @IsInt()
+  applicationTypeId?: number;
+
+  @ApiPropertyOptional({ example: 2, description: 'Category ID (links to Category master)' })
+  @IsOptional()
+  @IsInt()
+  categoryId?: number;
+
   @ApiProperty({ example: 'ALMS-LIC-2023-001', description: 'Existing license number' })
   @IsNotEmpty()
   @IsString()

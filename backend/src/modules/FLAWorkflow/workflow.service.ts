@@ -63,12 +63,11 @@ export class WorkflowService {
    * Check if a role is allowed to perform a specific action
    */
   async checkRoleActionPermission(roleId: number, actionId: number): Promise<boolean> {
-    const mapping = await this.prisma.rolesActionsMapping.findUnique({
+    const mapping = await this.prisma.rolesActionsMapping.findFirst({
       where: {
-        roleId_actionId: {
-          roleId: roleId,
-          actionId: actionId,
-        },
+        roleId: roleId,
+        actionId: actionId,
+        isActive: true,
       },
     });
     return mapping !== null && mapping.isActive === true;

@@ -23,35 +23,33 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
 }) => {
   const { colors } = useAdminTheme();
 
-  // Calculate layout
-  const nodesPerRow = Math.ceil(Math.sqrt(nextRoles.length)) || 1;
-  const containerWidth = Math.max(900, 150 + nodesPerRow * 200);
-  const containerHeight = Math.max(600, 250 + Math.ceil(nextRoles.length / nodesPerRow) * 180);
+  // Dimensions
+  const BOX_WIDTH = 170;
+  const BOX_HEIGHT = 80;
+  const RADIUS_X = 280;  // horizontal radius of the ellipse
+  const RADIUS_Y = 200;  // vertical radius of the ellipse
+  const CENTER_X = 460;  // SVG center X
+  const CENTER_Y = 260;  // SVG center Y
+  const SVG_WIDTH = 920;
+  const SVG_HEIGHT = 520;
 
-  // Position nodes
-  const nodePositions = useMemo(() => {
-    if (!currentRole) return {};
+  // Position current role at center
+  const currentPos = { x: CENTER_X, y: CENTER_Y };
 
-    const positions: Record<number, { x: number; y: number }> = {};
+  // Position next roles in an ellipse around the center
+  const nextPositions = useMemo(() => {
+    const count = nextRoles.length;
+    if (count === 0) return [];
 
-    // Current role at top
-    positions[currentRole.id] = { x: containerWidth / 2, y: 60 };
-
-    // Next roles in grid layout below
-    nextRoles.forEach((role, index) => {
-      const row = Math.floor(index / nodesPerRow);
-      const col = index % nodesPerRow;
-      const totalRows = Math.ceil(nextRoles.length / nodesPerRow);
-      const startX = (containerWidth - (nodesPerRow - 1) * 200) / 2;
-
-      positions[role.id] = {
-        x: startX + col * 200,
-        y: 200 + row * 180,
-      };
+    return nextRoles.map((role, index) => {
+      // Start from top (angle = -PI/2) and go clockwise
+      const angle = -Math.PI / 2 + (index * 2 * Math.PI) / count;
+      // Slight offset so nodes don't overlap with lines
+      const x = CENTER_X + RADIUS_X * Math.cos(angle);
+      const y = CENTER_Y + RADIUS_Y * Math.sin(angle);
+      return { id: role.id, x, y, angle };
     });
-
-    return positions;
-  }, [currentRole, nextRoles, nodesPerRow, containerWidth]);
+  }, [nextRoles]);
 
   if (!currentRole) {
     return (
@@ -76,6 +74,7 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
       style={{
         width: '100%',
         overflowX: 'auto',
+        overflowY: 'hidden',
         backgroundColor: colors.background,
         borderRadius: AdminBorderRadius.md,
         border: `1px solid ${colors.border}`,
@@ -84,169 +83,245 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
       }}
     >
       <svg
-        width={containerWidth}
-        height={containerHeight}
+        width={SVG_WIDTH}
+        height={SVG_HEIGHT}
         style={{
-          minWidth: containerWidth,
+          minWidth: SVG_WIDTH,
           backgroundColor: colors.background,
+          display: 'block',
         }}
-        viewBox={`0 0 ${containerWidth} ${containerHeight}`}
+        viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
       >
-        {/* Draw connecting lines from current role to each next role */}
-        {nextRoles.map(nextRole => {
-          const from = nodePositions[currentRole.id];
-          const to = nodePositions[nextRole.id];
+        {/* Draw connecting arrows from center to each next role */}
+        {nextPositions.map(pos => {
+          const dx = pos.x - currentPos.x;
+          const dy = pos.y - currentPos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (!from || !to) return null;
+          // Start point: edge of center box (offset by BOX_HEIGHT/2 + 5)
+          const startOffset = BOX_HEIGHT / 2 + 8;
+          const startX = currentPos.x + (dx / dist) * startOffset;
+          const startY = currentPos.y + (dy / dist) * startOffset;
 
-          // Draw curved connector line
-          const dx = to.x - from.x;
-          const dy = to.y - from.y;
+          // End point: edge of outer box (offset inward by BOX_HEIGHT/2 + 5)
+          const endOffset = BOX_HEIGHT / 2 + 8;
+          const endX = pos.x - (dx / dist) * endOffset;
+          const endY = pos.y - (dy / dist) * endOffset;
 
-          // Create curved path
-          const curveFactor = 0.3;
-          const controlX = from.x + dx * curveFactor;
-          const controlY = from.y + dy * 0.5;
+          // Arrow head
+          const arrowSize = 10;
+          const angle = Math.atan2(dy, dx);
 
           return (
-            <g key={`connector-${currentRole.id}-${nextRole.id}`}>
-              {/* Curved line */}
-              <path
-                d={`M ${from.x} ${from.y + 50} Q ${controlX} ${controlY} ${to.x} ${to.y - 60}`}
+            <g key={`connector-${currentRole.id}-${pos.id}`}>
+              {/* Dashed line */}
+              <line
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
                 stroke={colors.status.info}
-                strokeWidth='2.5'
-                fill='none'
-                strokeDasharray='5,5'
+                strokeWidth='2'
+                strokeDasharray='6,4'
+                opacity='0.7'
               />
-              {/* Arrow marker */}
+              {/* Arrow head */}
               <polygon
-                points={`${to.x},${to.y - 50} ${to.x - 8},${to.y - 40} ${to.x + 8},${to.y - 40}`}
+                points={`
+                  ${endX},${endY}
+                  ${endX - arrowSize * Math.cos(angle - Math.PI / 6)},${endY - arrowSize * Math.sin(angle - Math.PI / 6)}
+                  ${endX - arrowSize * Math.cos(angle + Math.PI / 6)},${endY - arrowSize * Math.sin(angle + Math.PI / 6)}
+                `}
                 fill={colors.status.info}
+                opacity='0.8'
               />
+              {/* Direction label - only show when few enough roles to avoid overlap */}
+              {nextRoles.length <= 4 && (
+                <text
+                  x={(startX + endX) / 2}
+                  y={(startY + endY) / 2 - 8}
+                  textAnchor='middle'
+                  fontSize='10'
+                  fill={colors.text.tertiary}
+                  fontStyle='italic'
+                >
+                  forwards to
+                </text>
+              )}
             </g>
           );
         })}
 
-        {/* Draw current role - larger */}
-        {currentRole && (
-          <g key={`node-current-${currentRole.id}`}>
-            {/* Box background */}
-            <rect
-              x={nodePositions[currentRole.id]?.x - 90}
-              y={nodePositions[currentRole.id]?.y - 40}
-              width='180'
-              height='90'
-              rx='8'
-              fill={colors.status.success}
-              opacity='0.1'
-              stroke={colors.status.success}
-              strokeWidth='2.5'
-            />
+        {/* ===== CENTER NODE: Current Role ===== */}
+        <g key={`node-center-${currentRole.id}`}>
+          {/* Glow effect */}
+          <rect
+            x={currentPos.x - BOX_WIDTH / 2 - 4}
+            y={currentPos.y - BOX_HEIGHT / 2 - 4}
+            width={BOX_WIDTH + 8}
+            height={BOX_HEIGHT + 8}
+            rx='12'
+            fill='none'
+            stroke={colors.status.success}
+            strokeWidth='3'
+            opacity='0.3'
+          />
+          {/* Box background */}
+          <rect
+            x={currentPos.x - BOX_WIDTH / 2}
+            y={currentPos.y - BOX_HEIGHT / 2}
+            width={BOX_WIDTH}
+            height={BOX_HEIGHT}
+            rx='10'
+            fill={colors.surface}
+            stroke={colors.status.success}
+            strokeWidth='2.5'
+          />
+          {/* Code */}
+          <text
+            x={currentPos.x}
+            y={currentPos.y - 12}
+            textAnchor='middle'
+            fontSize='16'
+            fontWeight='700'
+            fill={colors.status.success}
+          >
+            {currentRole.code}
+          </text>
+          {/* Name */}
+          <text
+            x={currentPos.x}
+            y={currentPos.y + 12}
+            textAnchor='middle'
+            fontSize='12'
+            fontWeight='500'
+            fill={colors.text.primary}
+          >
+            {currentRole.name.length > 22
+              ? currentRole.name.substring(0, 20) + '...'
+              : currentRole.name}
+          </text>
+          {/* Label */}
+          <text
+            x={currentPos.x}
+            y={currentPos.y + 32}
+            textAnchor='middle'
+            fontSize='10'
+            fill={colors.status.success}
+            fontWeight='600'
+          >
+            ● CURRENT ROLE
+          </text>
+        </g>
 
-            {/* Content */}
+        {/* ===== OUTER NODES: Next Roles ===== */}
+        {nextRoles.map((role, index) => {
+          const pos = nextPositions[index];
+          if (!pos) return null;
+
+          return (
+            <g key={`node-outer-${role.id}`}>
+              {/* Box shadow effect */}
+              <rect
+                x={pos.x - BOX_WIDTH / 2 - 2}
+                y={pos.y - BOX_HEIGHT / 2 - 2}
+                width={BOX_WIDTH + 4}
+                height={BOX_HEIGHT + 4}
+                rx='10'
+                fill='none'
+                stroke={colors.status.info}
+                strokeWidth='2'
+                opacity='0.2'
+              />
+              {/* Box background */}
+              <rect
+                x={pos.x - BOX_WIDTH / 2}
+                y={pos.y - BOX_HEIGHT / 2}
+                width={BOX_WIDTH}
+                height={BOX_HEIGHT}
+                rx='8'
+                fill={colors.surface}
+                stroke={colors.status.info}
+                strokeWidth='2'
+              />
+              {/* Code */}
+              <text
+                x={pos.x}
+                y={pos.y - 12}
+                textAnchor='middle'
+                fontSize='15'
+                fontWeight='700'
+                fill={colors.status.info}
+              >
+                {role.code}
+              </text>
+              {/* Name */}
+              <text
+                x={pos.x}
+                y={pos.y + 12}
+                textAnchor='middle'
+                fontSize='12'
+                fontWeight='500'
+                fill={colors.text.primary}
+              >
+                {role.name.length > 22
+                  ? role.name.substring(0, 20) + '...'
+                  : role.name}
+              </text>
+              {/* Label */}
+              <text
+                x={pos.x}
+                y={pos.y + 30}
+                textAnchor='middle'
+                fontSize='9'
+                fill={colors.text.tertiary}
+                fontStyle='italic'
+              >
+                Next Role
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Empty state when no next roles selected */}
+        {nextRoles.length === 0 && (
+          <g>
             <text
-              x={nodePositions[currentRole.id]?.x}
-              y={nodePositions[currentRole.id]?.y - 10}
-              textAnchor='middle'
-              fontSize='16'
-              fontWeight='700'
-              fill={colors.status.success}
-            >
-              {currentRole.code}
-            </text>
-            <text
-              x={nodePositions[currentRole.id]?.x}
-              y={nodePositions[currentRole.id]?.y + 15}
+              x={CENTER_X}
+              y={CENTER_Y + 90}
               textAnchor='middle'
               fontSize='13'
-              fontWeight='500'
-              fill={colors.text.primary}
+              fill={colors.text.tertiary}
+              fontStyle='italic'
             >
-              {currentRole.name}
-            </text>
-            <text
-              x={nodePositions[currentRole.id]?.x}
-              y={nodePositions[currentRole.id]?.y + 35}
-              textAnchor='middle'
-              fontSize='11'
-              fill={colors.text.secondary}
-            >
-              Current Role
+              Select next roles to see them arranged here
             </text>
           </g>
         )}
 
-        {/* Draw next role nodes - larger */}
-        {nextRoles.map(role => (
-          <g key={`node-next-${role.id}`}>
-            {/* Box background */}
-            <rect
-              x={nodePositions[role.id]?.x - 85}
-              y={nodePositions[role.id]?.y - 40}
-              width='170'
-              height='90'
-              rx='8'
-              fill={colors.status.info}
-              opacity='0.1'
-              stroke={colors.status.info}
-              strokeWidth='2'
-            />
-
-            {/* Content */}
-            <text
-              x={nodePositions[role.id]?.x}
-              y={nodePositions[role.id]?.y - 10}
-              textAnchor='middle'
-              fontSize='15'
-              fontWeight='700'
-              fill={colors.status.info}
-            >
-              {role.code}
-            </text>
-            <text
-              x={nodePositions[role.id]?.x}
-              y={nodePositions[role.id]?.y + 15}
-              textAnchor='middle'
-              fontSize='12'
-              fontWeight='500'
-              fill={colors.text.primary}
-              style={{ wordWrap: 'break-word' }}
-            >
-              {role.name}
-            </text>
-            <text
-              x={nodePositions[role.id]?.x}
-              y={nodePositions[role.id]?.y + 35}
-              textAnchor='middle'
-              fontSize='10'
-              fill={colors.text.secondary}
-            >
-              Next Role
-            </text>
-          </g>
-        ))}
-
-        {/* Legend at bottom */}
-        <g transform={`translate(20, ${containerHeight - 50})`}>
+        {/* Legend */}
+        <g transform={`translate(20, ${SVG_HEIGHT - 70})`}>
           <rect
             x='0'
             y='0'
-            width={containerWidth - 40}
-            height='40'
+            width={SVG_WIDTH - 40}
+            height='55'
             rx='6'
-            fill={colors.background}
+            fill={colors.surface}
             stroke={colors.border}
             strokeWidth='1'
           />
-
-          <circle cx='20' cy='20' r='8' fill={colors.status.success} />
-          <text x='35' y='24' fontSize='12' fontWeight='500' fill={colors.text.primary}>
-            Current Role (Where application/user is now)
+          <circle cx='20' cy='20' r='6' fill={colors.status.success} />
+          <text x='35' y='24' fontSize='11' fontWeight='500' fill={colors.text.primary}>
+            Current Role
           </text>
-
-          <circle cx='380' cy='20' r='8' fill={colors.status.info} />
-          <text x='395' y='24' fontSize='12' fontWeight='500' fill={colors.text.primary}>
-            Next Roles (Can forward to) — Select multiple for workflow
+          <circle cx='180' cy='20' r='6' fill={colors.status.info} />
+          <text x='195' y='24' fontSize='11' fontWeight='500' fill={colors.text.primary}>
+            Next Roles — Applications flow outward
+          </text>
+          <line x1='360' y1='20' x2='420' y2='20' stroke={colors.status.info} strokeWidth='2' strokeDasharray='4,3' />
+          <text x='430' y='24' fontSize='11' fontWeight='500' fill={colors.text.primary}>
+            Workflow Direction
           </text>
         </g>
       </svg>
@@ -263,9 +338,9 @@ export const WorkflowGraphPreview: React.FC<WorkflowGraphProps> = ({
           color: colors.text.secondary,
         }}
       >
-        💡 <strong>Workflow Hierarchy:</strong> Applications flow from the current role to selected
-        next roles. You can select multiple roles to allow applications to be forwarded to different
-        departments or locations.
+        💡 <strong>Hub-and-Spoke Workflow:</strong> The current role is at the center.
+        Applications can be forwarded outward to any of the connected next roles.
+        Lines show the direction of workflow flow.
       </div>
     </div>
   );

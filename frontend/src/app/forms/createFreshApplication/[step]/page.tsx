@@ -16,6 +16,8 @@ import DocumentsUpload from '../../../../components/forms/freshApplication/Docum
 import Preview from '../../../../components/forms/freshApplication/Preview'; // preview
 import Declaration from '../../../../components/forms/freshApplication/Declaration'; // declaration
 import { StepHeader } from '../../../../components/forms/elements/StepHeader';
+import { ApplicationTypeSelector } from '../../../../components/forms/elements/ApplicationTypeSelector';
+import { ApplicationFormProvider, useApplicationFormContext } from '../../../../context/ApplicationFormContext';
 
 interface StepPageProps {
   params: Promise<{ step: string }>;
@@ -94,7 +96,33 @@ function FormStepSkeleton() {
   );
 }
 
-const StepPage: React.FC<StepPageProps> = ({ params }) => {
+function FormPageInner({ params }: StepPageProps) {
+  const { applicationTypeId, categoryId, setApplicationType, setCategoryId } = useApplicationFormContext();
+  return <StepPageInner
+    params={params}
+    applicationTypeId={applicationTypeId}
+    categoryId={categoryId}
+    setApplicationType={setApplicationType}
+    setCategoryId={setCategoryId}
+  />;
+}
+
+function StepPage({ params }: StepPageProps) {
+  return (
+    <ApplicationFormProvider>
+      <FormPageInner params={params} />
+    </ApplicationFormProvider>
+  );
+}
+
+interface StepPageInnerProps extends StepPageProps {
+  applicationTypeId: number | null;
+  categoryId: number | null;
+  setApplicationType: (id: number | null, name: string | null) => void;
+  setCategoryId: (id: number | null) => void;
+}
+
+const StepPageInner: React.FC<StepPageInnerProps> = ({ params, applicationTypeId, categoryId, setApplicationType, setCategoryId }) => {
   const router = useRouter();
   const [step, setStep] = useState<string | null>(null);
   const [allowedToEdit, setAllowedToEdit] = useState<boolean | null>(null);
@@ -319,6 +347,8 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
   // Show home button on all steps
   const showHomeButton = true;
 
+  const isLicenseDetails = step === stepToSlug('License Details');
+
   return (
     <div
       className='relative min-h-screen'
@@ -351,6 +381,14 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
         <div
           className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full flex flex-col p-0'
         >
+          {/* Application Type & Category Selector at top of form */}
+          <div className='px-6 pt-5 pb-2 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl'>
+            <ApplicationTypeSelector
+              selectedTypeId={applicationTypeId}
+              onTypeChange={setApplicationType}
+              showCategory={false}
+            />
+          </div>
           {StepComponent && <StepComponent />}
         </div>
       </div>

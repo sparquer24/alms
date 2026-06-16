@@ -321,6 +321,8 @@ export class ApplicationFormService {
         dobInWords,
         aadharNumber,
         panNumber,
+        applicationTypeId,
+        categoryId,
         currentUserId
       } = data || {};
 
@@ -395,6 +397,8 @@ export class ApplicationFormService {
             dobInWords,
             aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
             panNumber: panNumberForPersonal ?? undefined as any,
+            applicationTypeId: applicationTypeId ?? undefined,
+            categoryId: categoryId ?? undefined,
             currentUserId: currentUserId || null,
             workflowStatusId: draftStatusId,
           } as any),
@@ -1530,12 +1534,14 @@ export class ApplicationFormService {
       const isRenewal = resolvedType === 'renewal';
 
       // Fetch application, current user, and role flow mapping in parallel
-      const application = isRenewal
+      const application: any = isRenewal
         ? await prisma.renewalFormPersonalDetails.findUnique({
             where: { id: applicationId },
             select: {
               id: true,
               currentUserId: true,
+              applicationTypeId: true,
+              categoryId: true,
               currentUser: {
                 select: {
                   id: true,
@@ -1558,6 +1564,8 @@ export class ApplicationFormService {
             select: {
               id: true,
               currentUserId: true,
+              applicationTypeId: true,
+              categoryId: true,
               currentUser: {
                 select: {
                   id: true,
@@ -1592,9 +1600,17 @@ export class ApplicationFormService {
         return [new BadRequestException('Current user does not have a role assigned'), null];
       }
 
-      // Fetch role flow mapping
-      const roleMapping = await prisma.roleFlowMapping.findUnique({
-        where: { currentRoleId: application.currentUser.roleId },
+      // Fetch role flow mapping — filter by app type / category if the application has them
+      const flowMappingWhere: any = { currentRoleId: application.currentUser.roleId };
+      if (application.applicationTypeId != null) {
+        flowMappingWhere.applicationTypeId = application.applicationTypeId;
+      }
+      if (application.categoryId != null) {
+        flowMappingWhere.categoryId = application.categoryId;
+      }
+
+      const roleMapping = await prisma.roleFlowMapping.findFirst({
+        where: flowMappingWhere,
         select: {
           nextRoleIds: true
         }

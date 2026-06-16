@@ -300,6 +300,9 @@ const Preview = () => {
   const renderPersonalInfo = () => {
     if (!applicationData) return null;
 
+    // Support both flat response (top-level fields) and nested response (personalDetails object)
+    const pd = applicationData.personalDetails || applicationData;
+
     return (
       <div className='mb-6 border rounded-lg p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200'>
         <div className='flex justify-between items-center mb-5'>
@@ -331,25 +334,25 @@ const Preview = () => {
               Basic Information
             </h4>
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-              {renderField('First Name', applicationData.firstName)}
-              {renderField('Middle Name', applicationData.middleName)}
-              {renderField('Last Name', applicationData.lastName)}
-              {renderField('Parent/Spouse Name', applicationData.parentOrSpouseName)}
-              {renderField('Gender', applicationData.sex)}
-              {renderField('Filled By', applicationData.filledBy)}
+              {renderField('First Name', applicationData.firstName || pd.firstName)}
+              {renderField('Middle Name', applicationData.middleName || pd.middleName)}
+              {renderField('Last Name', applicationData.lastName || pd.lastName)}
+              {renderField('Parent/Spouse Name', applicationData.parentOrSpouseName || pd.parentOrSpouseName)}
+              {renderField('Gender', applicationData.sex || pd.sex)}
+              {renderField('Filled By', applicationData.filledBy || pd.filledBy)}
             </div>
           </div>
 
           <div className='space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50'>
             <h4 className='text-lg font-medium text-gray-700 border-b pb-2 mb-4'>
-              Birth & Identity Details
+              Birth &amp; Identity Details
             </h4>
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-              {renderField('Date of Birth', formatDate(applicationData.dateOfBirth))}
-              {renderField('DOB in Words', applicationData.dobInWords)}
-              {renderField('Place of Birth', applicationData.placeOfBirth)}
-              {renderField('Aadhar Number', applicationData.aadharNumber)}
-              {renderField('PAN Number', applicationData.panNumber)}
+              {renderField('Date of Birth', formatDate(applicationData.dateOfBirth || pd.dateOfBirth))}
+              {renderField('DOB in Words', applicationData.dobInWords || pd.dobInWords)}
+              {renderField('Place of Birth', applicationData.placeOfBirth || pd.placeOfBirth)}
+              {renderField('Aadhar Number', applicationData.aadharNumber || pd.aadharNumber)}
+              {renderField('PAN Number', applicationData.panNumber || pd.panNumber)}
             </div>
           </div>
         </div>

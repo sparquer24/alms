@@ -13,6 +13,11 @@ import {
   RefreshCcw,
   MapPin,
   FileText,
+  Zap,
+  Link2,
+  Layers,
+  Tags,
+  Activity,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -30,6 +35,11 @@ const GitBranchFixed = GitBranch as any;
 const RefreshCcwFixed = RefreshCcw as any;
 const MapPinFixed = MapPin as any;
 const FileTextFixed = FileText as any;
+const ZapFixed = Zap as any;
+const Link2Fixed = Link2 as any;
+const LayersFixed = Layers as any;
+const TagsFixed = Tags as any;
+const ActivityFixed = Activity as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
@@ -41,15 +51,20 @@ export type MenuMetaKey =
   | 'finaldisposal'
   | 'drafts'
   | 'reports'
-  | 'analytics' // New analytics tab
-  | 'applications' // New applications tab
+  | 'analytics'
+  | 'applications'
   | 'logout'
   | 'userManagement'
   | 'roleManagement'
   | 'roleMapping'
+  | 'actionManagement'
+  | 'roleActionMapping'
   | 'flowMapping'
   | 'locationsManagement'
-  | 'rejected';
+  | 'rejected'
+  | 'applicationTypeManagement'
+  | 'categoryManagement'
+  | 'workflowManagement';
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
   // use the `*Fixed` any-casted aliases above to avoid React type mismatch errors
@@ -107,6 +122,14 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
     label: 'Role Management',
     icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
   },
+  actionManagement: {
+    label: 'Action Management',
+    icon: () => <ZapFixed className='w-6 h-6 mr-2' aria-label='Action Management' />,
+  },
+  roleActionMapping: {
+    label: 'Role-Action Mapping',
+    icon: () => <Link2Fixed className='w-6 h-6 mr-2' aria-label='Role-Action Mapping' />,
+  },
   flowMapping: {
     label: 'Flow Mapping',
     icon: () => <GitBranchFixed className='w-6 h-6 mr-2' aria-label='Flow Mapping' />,
@@ -114,5 +137,17 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   locationsManagement: {
     label: 'Locations Management',
     icon: () => <MapPinFixed className='w-6 h-6 mr-2' aria-label='Locations Management' />,
+  },
+  applicationTypeManagement: {
+    label: 'Application Types',
+    icon: () => <LayersFixed className='w-6 h-6 mr-2' aria-label='Application Types' />,
+  },
+  categoryManagement: {
+    label: 'Categories',
+    icon: () => <TagsFixed className='w-6 h-6 mr-2' aria-label='Categories' />,
+  },
+  workflowManagement: {
+    label: 'Workflows',
+    icon: () => <ActivityFixed className='w-6 h-6 mr-2' aria-label='Workflows' />,
   },
 };

@@ -15,6 +15,7 @@ import {
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
 import { apiClient } from '@/config/authenticatedApiClient';
+import { AdminActionService, MasterEntity } from '@/services/admin/actions';
 
 interface Role {
   id: number;
@@ -50,6 +51,31 @@ export default function FlowMappingContent() {
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
 
+  // Master data filters
+  const [selectedAppType, setSelectedAppType] = useState<{ value: number; label: string } | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<{ value: number; label: string } | null>(null);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<{ value: number; label: string } | null>(null);
+
+  // Fetch master data
+  const { data: appTypes = [] } = useQuery({
+    queryKey: ['application-types'],
+    queryFn: () => AdminActionService.getApplicationTypes(true),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => AdminActionService.getCategories(true),
+  });
+
+  const { data: workflows = [] } = useQuery({
+    queryKey: ['workflows'],
+    queryFn: () => AdminActionService.getWorkflows(true),
+  });
+
+  const appTypeOptions = appTypes.map((t: MasterEntity) => ({ value: t.id, label: `${t.name} (${t.code})` }));
+  const categoryOptions = categories.map((c: MasterEntity) => ({ value: c.id, label: `${c.name} (${c.code})` }));
+  const workflowOptions = workflows.map((w: MasterEntity) => ({ value: w.id, label: `${w.name} (${w.code})` }));
+
   // State management
   const [currentRole, setCurrentRole] = useState<SelectOption | null>(null);
   const [nextRoles, setNextRoles] = useState<SelectOption[]>([]);
@@ -71,13 +97,18 @@ export default function FlowMappingContent() {
     },
   });
 
-  // Fetch current flow mapping when role changes
+  // Fetch current flow mapping when role+filter changes
   const { data: currentFlowMapping, isLoading: mappingLoading } = useQuery({
-    queryKey: ['flow-mapping', currentRole?.value],
+    queryKey: ['flow-mapping', currentRole?.value, selectedAppType?.value, selectedCategory?.value, selectedWorkflow?.value],
     queryFn: async () => {
       if (!currentRole) return null;
+      const params = new URLSearchParams();
+      if (selectedAppType) params.append('applicationTypeId', String(selectedAppType.value));
+      if (selectedCategory) params.append('categoryId', String(selectedCategory.value));
+      if (selectedWorkflow) params.append('workflowId', String(selectedWorkflow.value));
+      const qs = params.toString();
       try {
-        const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole.value}`);
+        const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole.value}${qs ? '?' + qs : ''}`);
         if (!response.ok) throw new Error('Failed to fetch flow mapping');
         const data = await response.json();
         return data.data as FlowMapping;
@@ -134,15 +165,14 @@ export default function FlowMappingContent() {
     return Object.keys(errors).length === 0;
   }, [currentRole, nextRoles]);
 
-  // Validate flow mapping (check for circular dependencies)
+  // Validate flow mapping
   const validateFlowMutation = useMutation({
-    mutationFn: async (data: { currentRoleId: number; nextRoleIds: number[] }) => {
+    mutationFn: async (data: { currentRoleId: number; nextRoleIds: number[]; applicationTypeId?: number; categoryId?: number; workflowId?: number }) => {
       const response = await fetch(`${API_BASE_URL}/flow-mapping/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-
       if (!response.ok) throw new Error('Validation failed');
       return response.json();
     },
@@ -150,18 +180,16 @@ export default function FlowMappingContent() {
 
   // Save flow mapping mutation
   const saveFlowMappingMutation = useMutation({
-    mutationFn: async (data: { nextRoleIds: number[]; updatedBy?: number }) => {
+    mutationFn: async (data: { nextRoleIds: number[]; updatedBy?: number; applicationTypeId?: number; categoryId?: number; workflowId?: number }) => {
       const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole!.value}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to save flow mapping');
       }
-
       return response.json();
     },
     onSuccess: () => {
@@ -176,11 +204,14 @@ export default function FlowMappingContent() {
   // Reset mapping mutation
   const resetMappingMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole!.value}/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
+      let url = `${API_BASE_URL}/flow-mapping/${currentRole!.value}/reset`;
+      const params = new URLSearchParams();
+      if (selectedAppType) params.append('applicationTypeId', String(selectedAppType.value));
+      if (selectedCategory) params.append('categoryId', String(selectedCategory.value));
+      if (selectedWorkflow) params.append('workflowId', String(selectedWorkflow.value));
+      const qs = params.toString();
+      if (qs) url += '?' + qs;
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!response.ok) throw new Error('Failed to reset mapping');
       return response.json();
     },
@@ -189,9 +220,7 @@ export default function FlowMappingContent() {
       toast.success('Flow mapping reset successfully');
       queryClient.invalidateQueries({ queryKey: ['flow-mapping'] });
     },
-    onError: () => {
-      toast.error('Failed to reset flow mapping');
-    },
+    onError: () => toast.error('Failed to reset flow mapping'),
   });
 
   // Duplicate mapping mutation
@@ -229,11 +258,17 @@ export default function FlowMappingContent() {
       return;
     }
 
+    const filterData = {
+      applicationTypeId: selectedAppType?.value,
+      categoryId: selectedCategory?.value,
+      workflowId: selectedWorkflow?.value,
+    };
+
     try {
-      // First validate for circular dependencies
       const validationResult = await validateFlowMutation.mutateAsync({
         currentRoleId: currentRole!.value,
         nextRoleIds: nextRoles.map(r => r.value),
+        ...filterData,
       });
 
       if (!validationResult.data.isValid) {
@@ -241,9 +276,9 @@ export default function FlowMappingContent() {
         return;
       }
 
-      // If validation passes, save the mapping
       await saveFlowMappingMutation.mutateAsync({
         nextRoleIds: nextRoles.map(r => r.value),
+        ...filterData,
       });
     } catch (error: any) {
       console.error('Error submitting flow mapping:', error);
@@ -366,6 +401,59 @@ export default function FlowMappingContent() {
                 gap: AdminSpacing.xl,
               }}
             >
+              {/* Master Data Filters Row */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: AdminSpacing.md,
+                  padding: AdminSpacing.md,
+                  backgroundColor: colors.background,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: AdminBorderRadius.md,
+                }}
+              >
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: colors.text.secondary, marginBottom: '4px', display: 'block' }}>
+                    Application Type
+                  </label>
+                  <ReactSelectFixed
+                    options={appTypeOptions}
+                    value={selectedAppType}
+                    onChange={setSelectedAppType}
+                    placeholder='Any type'
+                    isClearable
+                    styles={selectStyles}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: colors.text.secondary, marginBottom: '4px', display: 'block' }}>
+                    Category
+                  </label>
+                  <ReactSelectFixed
+                    options={categoryOptions}
+                    value={selectedCategory}
+                    onChange={setSelectedCategory}
+                    placeholder='Any category'
+                    isClearable
+                    styles={selectStyles}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: colors.text.secondary, marginBottom: '4px', display: 'block' }}>
+                    Workflow
+                  </label>
+                  <ReactSelectFixed
+                    options={workflowOptions}
+                    value={selectedWorkflow}
+                    onChange={setSelectedWorkflow}
+                    placeholder='Any workflow'
+                    isClearable
+                    styles={selectStyles}
+                  />
+                </div>
+              </div>
+
               {/* Current Role Selection */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
                 <div>

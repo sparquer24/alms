@@ -6,6 +6,9 @@ export { AdminToolbar } from './AdminToolbar';
 export { AdminFilter } from './AdminFilter';
 export { WorkflowGraphPreview } from './WorkflowGraphPreview';
 
+// Action Management Components
+export { ActionFormModal } from './ActionFormModal';
+
 // Role Management Components
 export { RoleTable } from './RoleTable';
 export { RoleFormModal } from './RoleFormModal';

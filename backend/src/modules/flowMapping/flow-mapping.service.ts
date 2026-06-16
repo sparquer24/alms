@@ -1,45 +1,54 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateFlowMappingDto, UpdateFlowMappingDto, ValidateFlowMappingDto } from './dto/flow-mapping.dto';
-import { PrismaClient, Roles, RoleFlowMapping } from '@prisma/client';
+import { PrismaClient, Roles } from '@prisma/client';
 
 @Injectable()
 export class FlowMappingService {
     private prisma = new PrismaClient();
 
-    /**
-     * Get flow mapping for a specific role
-     */
-    async getFlowMapping(roleId: number) {
-        // Verify role exists
-        const role = await this.prisma.roles.findUnique({
-            where: { id: roleId },
-        });
+    private buildWhereClause(roleId: number, appTypeId?: number, categoryId?: number, workflowId?: number) {
+        return {
+            currentRoleId: roleId,
+            ...(appTypeId !== undefined ? { applicationTypeId: appTypeId } : { applicationTypeId: null }),
+            ...(categoryId !== undefined ? { categoryId: categoryId } : { categoryId: null }),
+            ...(workflowId !== undefined ? { workflowId: workflowId } : { workflowId: null }),
+        };
+    }
 
+    /**
+     * Get flow mapping for a specific role with optional filters
+     */
+    async getFlowMapping(roleId: number, appTypeId?: number, categoryId?: number, workflowId?: number) {
+        const role = await this.prisma.roles.findUnique({ where: { id: roleId } });
         if (!role) {
             throw new NotFoundException(`Role with ID ${roleId} not found`);
         }
 
-        // Get or create flow mapping
-        let flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
+        const where = this.buildWhereClause(roleId, appTypeId, categoryId, workflowId);
+        const flowMapping = await this.prisma.roleFlowMapping.findFirst({
+            where,
             include: {
                 currentRole: true,
+                applicationType: { select: { id: true, name: true, code: true } },
+                category: { select: { id: true, name: true, code: true } },
+                workflow: { select: { id: true, name: true, code: true } },
                 updatedByUser: {
-                    select: {
-                        id: true,
-                        username: true,
-                        email: true,
-                    },
+                    select: { id: true, username: true, email: true },
                 },
             },
         });
 
-        // If no mapping exists, return empty response with role info
         if (!flowMapping) {
             return {
                 id: null,
                 currentRoleId: roleId,
                 currentRole: role,
+                applicationTypeId: appTypeId || null,
+                categoryId: categoryId || null,
+                workflowId: workflowId || null,
+                applicationType: null,
+                category: null,
+                workflow: null,
                 nextRoleIds: [],
                 updatedBy: null,
                 updatedByUser: null,
@@ -52,34 +61,31 @@ export class FlowMappingService {
     }
 
     /**
-     * Create or update flow mapping with circular dependency validation
+     * Create or update flow mapping
      */
     async createOrUpdateFlowMapping(
         currentRoleId: number,
         data: CreateFlowMappingDto | UpdateFlowMappingDto,
         updatedBy?: number,
     ) {
-        // Verify current role exists
-        const currentRole = await this.prisma.roles.findUnique({
-            where: { id: currentRoleId },
-        });
-
+        const currentRole = await this.prisma.roles.findUnique({ where: { id: currentRoleId } });
         if (!currentRole) {
             throw new NotFoundException(`Current role with ID ${currentRoleId} not found`);
         }
 
-        // Verify all next roles exist
         const nextRolesCheck = await this.prisma.roles.findMany({
             where: { id: { in: data.nextRoleIds } },
         });
-
         if (nextRolesCheck.length !== data.nextRoleIds.length) {
             const foundIds = nextRolesCheck.map((r: Roles) => r.id);
             const invalidIds = data.nextRoleIds.filter(id => !foundIds.includes(id));
             throw new BadRequestException(`Invalid role IDs: ${invalidIds.join(', ')}`);
         }
 
-        // Validate for circular dependencies
+        const appTypeId = 'applicationTypeId' in data ? data.applicationTypeId : undefined;
+        const categoryId = 'categoryId' in data ? data.categoryId : undefined;
+        const workflowId = 'workflowId' in data ? data.workflowId : undefined;
+
         const circularity = await this.detectCircularDependency(currentRoleId, data.nextRoleIds);
         if (circularity.hasCircle) {
             throw new BadRequestException(
@@ -87,82 +93,70 @@ export class FlowMappingService {
             );
         }
 
-        // Create or update mapping
-        const flowMapping = await this.prisma.roleFlowMapping.upsert({
-            where: { currentRoleId },
-            create: {
+        const where = this.buildWhereClause(currentRoleId, appTypeId, categoryId, workflowId);
+        const existing = await this.prisma.roleFlowMapping.findFirst({ where });
+
+        if (existing) {
+            return this.prisma.roleFlowMapping.update({
+                where: { id: existing.id },
+                data: {
+                    nextRoleIds: data.nextRoleIds,
+                    updatedBy: updatedBy || undefined,
+                    updatedAt: new Date(),
+                },
+                include: {
+                    currentRole: true,
+                    applicationType: { select: { id: true, name: true, code: true } },
+                    category: { select: { id: true, name: true, code: true } },
+                    workflow: { select: { id: true, name: true, code: true } },
+                    updatedByUser: { select: { id: true, username: true, email: true } },
+                },
+            });
+        }
+
+        return this.prisma.roleFlowMapping.create({
+            data: {
                 currentRoleId,
                 nextRoleIds: data.nextRoleIds,
                 updatedBy,
-            },
-            update: {
-                nextRoleIds: data.nextRoleIds,
-                updatedBy: updatedBy || undefined,
-                updatedAt: new Date(),
+                applicationTypeId: appTypeId ?? null,
+                categoryId: categoryId ?? null,
+                workflowId: workflowId ?? null,
             },
             include: {
                 currentRole: true,
-                updatedByUser: {
-                    select: {
-                        id: true,
-                        username: true,
-                        email: true,
-                    },
-                },
+                applicationType: { select: { id: true, name: true, code: true } },
+                category: { select: { id: true, name: true, code: true } },
+                workflow: { select: { id: true, name: true, code: true } },
+                updatedByUser: { select: { id: true, username: true, email: true } },
             },
         });
-
-        return flowMapping;
     }
 
     /**
-     * Validate flow mapping for circular dependencies
+     * Validate flow mapping
      */
     async validateFlowMapping(data: ValidateFlowMappingDto) {
         const { currentRoleId, nextRoleIds } = data;
-
-        // Verify current role exists
-        const currentRole = await this.prisma.roles.findUnique({
-            where: { id: currentRoleId },
-        });
-
+        const currentRole = await this.prisma.roles.findUnique({ where: { id: currentRoleId } });
         if (!currentRole) {
             throw new NotFoundException(`Current role with ID ${currentRoleId} not found`);
         }
 
-        // Verify all next roles exist
         const nextRolesCheck = await this.prisma.roles.findMany({
             where: { id: { in: nextRoleIds } },
         });
-
         if (nextRolesCheck.length !== nextRoleIds.length) {
             throw new NotFoundException(`One or more next roles IDs are invalid`);
-
-            // const foundIds = nextRolesCheck.map(r => r.id);
-            // const invalidIds = nextRoleIds.filter(id => !foundIds.includes(id));
-            // throw new BadRequestException(`Invalid role IDs: ${invalidIds.join(', ')}`);
         }
         if (nextRoleIds.includes(currentRoleId)) {
-            throw new BadRequestException(`A roleIds cannot map to itself as the next role.`);
+            throw new BadRequestException(`A role cannot map to itself as the next role.`);
         }
 
-        const savedMapping = await this.prisma.roleFlowMapping.upsert({
-            where: { currentRoleId },
-            update: {
-                nextRoleIds,
-                updatedBy: null,
-            },
-            create: {
-                currentRoleId,
-                nextRoleIds,
-            },
-        });
-        // Detect circular dependency
         const circularity = await this.detectCircularDependency(currentRoleId, nextRoleIds);
-
         return {
             isValid: !circularity.hasCircle,
-            hasCircularDependency: circularity.hasCircle,  
+            hasCircularDependency: circularity.hasCircle,
             circlePath: circularity.circlePath || null,
             message: circularity.hasCircle
                 ? `Circular workflow detected: ${circularity.circlePath}`
@@ -171,31 +165,22 @@ export class FlowMappingService {
     }
 
     /**
-     * Detect circular dependencies in workflow
-     * Algorithm: DFS to find if there's a path from any nextRole back to currentRole
+     * Detect circular dependencies
      */
     private async detectCircularDependency(
         currentRoleId: number,
         nextRoleIds: number[],
-    ): Promise<{
-        hasCircle: boolean;
-        circlePath: string | null;
-    }> {
-        // Get all existing mappings
+    ): Promise<{ hasCircle: boolean; circlePath: string | null }> {
         const allMappings = await this.prisma.roleFlowMapping.findMany({
             select: { currentRoleId: true, nextRoleIds: true },
         });
 
-        // Create adjacency map
         const adjacencyMap = new Map<number, number[]>();
-        allMappings.forEach((mapping: Pick<RoleFlowMapping, 'currentRoleId' | 'nextRoleIds'>) => {
+        allMappings.forEach(mapping => {
             adjacencyMap.set(mapping.currentRoleId, mapping.nextRoleIds);
         });
-
-        // Temporarily add the new mapping to check
         adjacencyMap.set(currentRoleId, nextRoleIds);
 
-        // DFS to detect cycle
         const visited = new Set<number>();
         const recursionStack = new Set<number>();
 
@@ -208,14 +193,9 @@ export class FlowMappingService {
             for (const neighbor of neighbors) {
                 if (!visited.has(neighbor)) {
                     const result = hasCycle(neighbor, [...path]);
-                    if (result.has) {
-                        return result;
-                    }
+                    if (result.has) return result;
                 } else if (recursionStack.has(neighbor)) {
-                    // Cycle detected
                     const cycleStart = path.indexOf(neighbor);
-                    const cycleEnd = path.length;
-                    const circlePath = [...path.slice(cycleStart), neighbor].join(' → ');
                     return { has: true, path: [...path.slice(cycleStart), neighbor] };
                 }
             }
@@ -224,21 +204,11 @@ export class FlowMappingService {
             return { has: false, path: [] };
         };
 
-        // Check for cycles from current role
         const result = hasCycle(currentRoleId, []);
-
         if (result.has) {
-            const circlePath = result.path.slice(1).join(' → ');
-            return {
-                hasCircle: true,
-                circlePath,
-            };
+            return { hasCircle: true, circlePath: result.path.slice(1).join(' → ') };
         }
-
-        return {
-            hasCircle: false,
-            circlePath: null,
-        };
+        return { hasCircle: false, circlePath: null };
     }
 
     /**
@@ -247,12 +217,11 @@ export class FlowMappingService {
     async getAllFlowMappings() {
         return this.prisma.roleFlowMapping.findMany({
             include: {
-                currentRole: {
-                    select: { id: true, name: true, code: true },
-                },
-                updatedByUser: {
-                    select: { id: true, username: true, email: true },
-                },
+                currentRole: { select: { id: true, name: true, code: true } },
+                applicationType: { select: { id: true, name: true, code: true } },
+                category: { select: { id: true, name: true, code: true } },
+                workflow: { select: { id: true, name: true, code: true } },
+                updatedByUser: { select: { id: true, username: true, email: true } },
             },
             orderBy: { currentRoleId: 'asc' },
         });
@@ -261,40 +230,29 @@ export class FlowMappingService {
     /**
      * Delete flow mapping
      */
-    async deleteFlowMapping(roleId: number) {
-        const flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
-        });
-
+    async deleteFlowMapping(roleId: number, appTypeId?: number, categoryId?: number, workflowId?: number) {
+        const where = this.buildWhereClause(roleId, appTypeId, categoryId, workflowId);
+        const flowMapping = await this.prisma.roleFlowMapping.findFirst({ where });
         if (!flowMapping) {
             throw new NotFoundException(`Flow mapping for role ID ${roleId} not found`);
         }
-
-        return this.prisma.roleFlowMapping.delete({
-            where: { currentRoleId: roleId },
-        });
+        return this.prisma.roleFlowMapping.delete({ where: { id: flowMapping.id } });
     }
 
     /**
-     * Get next roles for a given role
-     * This is useful for checking what roles can receive applications from a given role
+     * Get next roles for a given role (with optional filters)
      */
-    async getNextRoles(roleId: number) {
-        const flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
-            include: {
-                currentRole: true,
-            },
+    async getNextRoles(roleId: number, appTypeId?: number, categoryId?: number, workflowId?: number) {
+        const where = this.buildWhereClause(roleId, appTypeId, categoryId, workflowId);
+        const flowMapping = await this.prisma.roleFlowMapping.findFirst({
+            where,
+            include: { currentRole: true },
         });
 
         if (!flowMapping) {
-            return {
-                currentRoleId: roleId,
-                nextRoles: [],
-            };
+            return { currentRoleId: roleId, nextRoles: [] };
         }
 
-        // Get role details for next roles
         const nextRoles = await this.prisma.roles.findMany({
             where: { id: { in: flowMapping.nextRoleIds } },
             select: { id: true, name: true, code: true },
@@ -308,83 +266,84 @@ export class FlowMappingService {
     }
 
     /**
-     * Duplicate flow mapping from one role to another
+     * Duplicate flow mapping
      */
-    async duplicateFlowMapping(sourceRoleId: number, targetRoleId: number, updatedBy?: number) {
-        // Get source mapping
-        const sourceMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: sourceRoleId },
-        });
-
+    async duplicateFlowMapping(sourceRoleId: number, targetRoleId: number, updatedBy?: number,
+        appTypeId?: number, categoryId?: number, workflowId?: number) {
+        const sourceWhere = this.buildWhereClause(sourceRoleId, appTypeId, categoryId, workflowId);
+        const sourceMapping = await this.prisma.roleFlowMapping.findFirst({ where: sourceWhere });
         if (!sourceMapping) {
             throw new NotFoundException(`Flow mapping for source role ID ${sourceRoleId} not found`);
         }
 
-        // Validate target role exists
-        const targetRole = await this.prisma.roles.findUnique({
-            where: { id: targetRoleId },
-        });
-
+        const targetRole = await this.prisma.roles.findUnique({ where: { id: targetRoleId } });
         if (!targetRole) {
             throw new NotFoundException(`Target role with ID ${targetRoleId} not found`);
         }
 
-        // Check for circular dependencies with new mapping
-        const circularity = await this.detectCircularDependency(
-            targetRoleId,
-            sourceMapping.nextRoleIds,
-        );
+        const circularity = await this.detectCircularDependency(targetRoleId, sourceMapping.nextRoleIds);
         if (circularity.hasCircle) {
-            throw new BadRequestException(
-                `Cannot duplicate mapping: circular workflow detected - ${circularity.circlePath}`,
-            );
+            throw new BadRequestException(`Cannot duplicate mapping: circular workflow detected - ${circularity.circlePath}`);
         }
 
-        // Create or update mapping for target role
-        return this.prisma.roleFlowMapping.upsert({
-            where: { currentRoleId: targetRoleId },
-            create: {
+        const targetWhere = this.buildWhereClause(targetRoleId, appTypeId, categoryId, workflowId);
+        const existing = await this.prisma.roleFlowMapping.findFirst({ where: targetWhere });
+
+        if (existing) {
+            return this.prisma.roleFlowMapping.update({
+                where: { id: existing.id },
+                data: {
+                    nextRoleIds: sourceMapping.nextRoleIds,
+                    updatedBy: updatedBy || undefined,
+                    updatedAt: new Date(),
+                },
+                include: {
+                    currentRole: true,
+                    applicationType: { select: { id: true, name: true, code: true } },
+                    category: { select: { id: true, name: true, code: true } },
+                    workflow: { select: { id: true, name: true, code: true } },
+                    updatedByUser: { select: { id: true, username: true, email: true } },
+                },
+            });
+        }
+
+        return this.prisma.roleFlowMapping.create({
+            data: {
                 currentRoleId: targetRoleId,
                 nextRoleIds: sourceMapping.nextRoleIds,
                 updatedBy,
-            },
-            update: {
-                nextRoleIds: sourceMapping.nextRoleIds,
-                updatedBy: updatedBy || undefined,
-                updatedAt: new Date(),
+                applicationTypeId: appTypeId ?? null,
+                categoryId: categoryId ?? null,
+                workflowId: workflowId ?? null,
             },
             include: {
                 currentRole: true,
-                updatedByUser: {
-                    select: { id: true, username: true, email: true },
-                },
+                applicationType: { select: { id: true, name: true, code: true } },
+                category: { select: { id: true, name: true, code: true } },
+                workflow: { select: { id: true, name: true, code: true } },
+                updatedByUser: { select: { id: true, username: true, email: true } },
             },
         });
     }
 
     /**
-     * Reset flow mapping (remove all next role mappings)
+     * Reset flow mapping
      */
-    async resetFlowMapping(roleId: number) {
-        const flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
-        });
-
+    async resetFlowMapping(roleId: number, appTypeId?: number, categoryId?: number, workflowId?: number) {
+        const where = this.buildWhereClause(roleId, appTypeId, categoryId, workflowId);
+        const flowMapping = await this.prisma.roleFlowMapping.findFirst({ where });
         if (!flowMapping) {
             throw new NotFoundException(`Flow mapping for role ID ${roleId} not found`);
         }
-
         return this.prisma.roleFlowMapping.update({
-            where: { currentRoleId: roleId },
-            data: {
-                nextRoleIds: [],
-                updatedAt: new Date(),
-            },
+            where: { id: flowMapping.id },
+            data: { nextRoleIds: [], updatedAt: new Date() },
             include: {
                 currentRole: true,
-                updatedByUser: {
-                    select: { id: true, username: true, email: true },
-                },
+                applicationType: { select: { id: true, name: true, code: true } },
+                category: { select: { id: true, name: true, code: true } },
+                workflow: { select: { id: true, name: true, code: true } },
+                updatedByUser: { select: { id: true, username: true, email: true } },
             },
         });
     }

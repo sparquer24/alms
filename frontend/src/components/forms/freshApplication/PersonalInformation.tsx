@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import FormFooter from '../elements/footer';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { useApplicationFormContext } from '../../../context/ApplicationFormContext';
 
 const initialState = {
   acknowledgementNo: '',
@@ -50,6 +51,8 @@ const PersonalInformation: React.FC = () => {
   const router = useRouter();
   const [isMounted, setIsMounted] = React.useState(false);
 
+  const { applicationTypeId, categoryId } = useApplicationFormContext();
+
   const {
     form,
     applicantId,
@@ -89,11 +92,13 @@ const PersonalInformation: React.FC = () => {
   };
 
   const handleSaveToDraft = async () => {
-    await saveFormData();
+    const mergedData = { ...form, applicationTypeId, categoryId };
+    await saveFormData(undefined, mergedData);
   };
 
   const handleNext = async () => {
-    const savedApplicantId = await saveFormData();
+    const mergedData = { ...form, applicationTypeId, categoryId };
+    const savedApplicantId = await saveFormData(undefined, mergedData);
 
     if (savedApplicantId) {
       navigateToNext(FORM_ROUTES.ADDRESS_DETAILS, savedApplicantId);
