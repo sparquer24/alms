@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Input, TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import FileUploadService from '../../../services/fileUploadService';
+import { validateText, validateDate, validateSelect, filterText, filterAlphaNumeric } from '../../../utils/validation';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] };
 
@@ -17,40 +18,49 @@ const initialState = {
 	licenseHistories: [] as any[],
 };
 
-// Validation rules for license history
+// Validation rules for license history using centralized validators
 const validateLicenseHistory = (formData: any) => {
 	const errors: Record<string, string> = {};
 	const history = formData.licenseHistories?.[0];
 	
 	if (history) {
 		if (history.hasAppliedBefore) {
-			if (!history.dateAppliedFor) errors.appliedDate = 'Date of Application is required';
-			if (!history.previousAuthorityName?.trim()) errors.appliedAuthority = 'Authority is required';
-			if (!history.previousResult) errors.appliedResult = 'Result is required';
+			const dateErr = validateDate(history.dateAppliedFor ?? '', true, undefined, { required: 'Date of Application is required' });
+			if (dateErr) errors.appliedDate = dateErr;
+			const authErr = validateText(history.previousAuthorityName ?? '', true, { required: 'Authority is required' });
+			if (authErr) errors.appliedAuthority = authErr;
+			const resultErr = validateSelect(history.previousResult ?? '', true, { required: 'Result is required' });
+			if (resultErr) errors.appliedResult = resultErr;
 			if (history.previousResult === 'REJECTED' && (!history.rejectedLicenseFiles || history.rejectedLicenseFiles.length === 0)) {
 				errors.rejectedFiles = 'Please upload previously rejected license documents';
 			}
 		}
 		
 		if (history.hasLicenceSuspended) {
-			if (!history.suspensionAuthorityName?.trim()) errors.suspendedAuthority = 'Authority is required';
-			if (!history.suspensionReason?.trim()) errors.suspendedReason = 'Reason is required';
+			const suspAuthErr = validateText(history.suspensionAuthorityName ?? '', true, { required: 'Authority is required' });
+			if (suspAuthErr) errors.suspendedAuthority = suspAuthErr;
+			const reasonErr = validateText(history.suspensionReason ?? '', true, { required: 'Reason is required' });
+			if (reasonErr) errors.suspendedReason = reasonErr;
 		}
 		
 		if (history.hasFamilyLicence) {
-			if (!history.familyMemberName?.trim()) errors.familyName = 'Family member name is required';
-			if (!history.familyLicenceNumber?.trim()) errors.familyLicenseNumber = 'License number is required';
+			const nameErr = validateText(history.familyMemberName ?? '', true, { required: 'Family member name is required' });
+			if (nameErr) errors.familyName = nameErr;
+			const licErr = validateText(history.familyLicenceNumber ?? '', true, { required: 'License number is required' });
+			if (licErr) errors.familyLicenseNumber = licErr;
 			if (!history.familyWeaponsEndorsed || history.familyWeaponsEndorsed.length === 0) {
 				errors.familyWeapons = 'At least one weapon must be selected';
 			}
 		}
 		
 		if (history.hasSafePlace) {
-			if (!history.safePlaceDetails?.trim()) errors.safePlaceDetails = 'Safe place details are required';
+			const safeErr = validateText(history.safePlaceDetails ?? '', true, { required: 'Safe place details are required' });
+			if (safeErr) errors.safePlaceDetails = safeErr;
 		}
 		
 		if (history.hasTraining) {
-			if (!history.trainingDetails?.trim()) errors.trainingDetails = 'Training details are required';
+			const trainErr = validateText(history.trainingDetails ?? '', true, { required: 'Training details are required' });
+			if (trainErr) errors.trainingDetails = trainErr;
 		}
 	}
 	
@@ -193,12 +203,42 @@ const LicenseHistory = () => {
 		loadWeapons();
 	}, []);
 
-	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+		setIsUpdatingForm(true);
 		const { name, value } = e.target;
-		setAppliedDetails(prev => ({ ...prev, [name]: value }));
-		const errorKey = name === 'date' ? 'appliedDate' : 'appliedAuthority';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		
+		// Input filtering
+		let processedValue = value;
+		if (name === 'authority') {
+			processedValue = filterText(value); // alphabets + spaces only for authority names
+		}
+		
+		setAppliedDetails(prev => ({ ...prev, [name]: processedValue }));
+		// Real-time validation
+		const errorKeyMap: Record<string, string> = { date: 'appliedDate', authority: 'appliedAuthority', result: 'appliedResult' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'date'
+			? validateDate(processedValue, true, undefined, { required: 'Date of Application is required' })
+			: name === 'result'
+			? validateSelect(processedValue, true, { required: 'Result is required' })
+			: validateText(processedValue, true, { required: 'Authority is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		setTimeout(() => setIsUpdatingForm(false), 100);
+	};
+
+	const handleAppliedBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		if (name === 'authority') {
+			const trimmed = value.trim();
+			if (trimmed !== value) {
+				setAppliedDetails(prev => ({ ...prev, [name]: trimmed }));
+			}
+			const err = validateText(trimmed, true, { required: 'Authority is required' });
+			setFieldErrors((prev: any) => ({ ...prev, appliedAuthority: err }));
+		}
+		if (name === 'date') {
+			const err = validateDate(value, true, undefined, { required: 'Date of Application is required' });
+			setFieldErrors((prev: any) => ({ ...prev, appliedDate: err }));
 		}
 	};
 
@@ -325,21 +365,71 @@ const LicenseHistory = () => {
 	};
 
 	const handleSuspendedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		setIsUpdatingForm(true);
 		const { name, value } = e.target;
-		setSuspendedDetails(prev => ({ ...prev, [name]: value }));
-		const errorKey = name === 'authority' ? 'suspendedAuthority' : 'suspendedReason';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		
+		// Input filtering - authority is alpha-only, reason allows alphanumeric
+		let processedValue = value;
+		if (name === 'authority') {
+			processedValue = filterText(value);
+		} else if (name === 'reason') {
+			processedValue = filterAlphaNumeric(value);
 		}
+		
+		setSuspendedDetails(prev => ({ ...prev, [name]: processedValue }));
+		const errorKeyMap: Record<string, string> = { authority: 'suspendedAuthority', reason: 'suspendedReason' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'authority'
+			? validateText(processedValue, true, { required: 'Authority is required' })
+			: validateText(processedValue, true, { required: 'Reason is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		setTimeout(() => setIsUpdatingForm(false), 100);
+	};
+
+	const handleSuspendedBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		const { name, value } = e.target;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setSuspendedDetails(prev => ({ ...prev, [name]: trimmed }));
+		}
+		const errorKeyMap: Record<string, string> = { authority: 'suspendedAuthority', reason: 'suspendedReason' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = validateText(trimmed, true, { required: name === 'authority' ? 'Authority is required' : 'Reason is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const handleFamilyDetails = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+		setIsUpdatingForm(true);
 		const { name, value } = e.target;
-		setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: value } : fam));
-		const errorKey = name === 'name' ? 'familyName' : 'familyLicenseNumber';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		
+		// Input filtering
+		let processedValue = value;
+		if (name === 'name') {
+			processedValue = filterText(value); // Names: alpha + spaces only
+		} else if (name === 'licenseNumber') {
+			processedValue = filterAlphaNumeric(value); // License numbers: alphanumeric
 		}
+		
+		setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: processedValue } : fam));
+		const errorKeyMap: Record<string, string> = { name: 'familyName', licenseNumber: 'familyLicenseNumber' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'name'
+			? validateText(processedValue, true, { required: 'Family member name is required' })
+			: validateText(processedValue, true, { required: 'License number is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		setTimeout(() => setIsUpdatingForm(false), 100);
+	};
+
+	const handleFamilyBlur = (idx: number, e: React.FocusEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: trimmed } : fam));
+		}
+		const errorKeyMap: Record<string, string> = { name: 'familyName', licenseNumber: 'familyLicenseNumber' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = validateText(trimmed, true, { required: name === 'name' ? 'Family member name is required' : 'License number is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const handleWeaponChange = (famIdx: number, weapIdx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -365,6 +455,42 @@ const LicenseHistory = () => {
 	};
 
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
+
+	const handleSafePlaceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		setIsUpdatingForm(true);
+		const { value } = e.target;
+		setSafePlaceDetails(value);
+		const err = validateText(value, true, { required: 'Safe place details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
+		setTimeout(() => setIsUpdatingForm(false), 100);
+	};
+
+	const handleSafePlaceBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+		const trimmed = e.target.value.trim();
+		if (trimmed !== e.target.value) {
+			setSafePlaceDetails(trimmed);
+		}
+		const err = validateText(trimmed, true, { required: 'Safe place details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
+	};
+
+	const handleTrainingChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		setIsUpdatingForm(true);
+		const { value } = e.target;
+		setTrainingDetails(value);
+		const err = validateText(value, true, { required: 'Training details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
+		setTimeout(() => setIsUpdatingForm(false), 100);
+	};
+
+	const handleTrainingBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+		const trimmed = e.target.value.trim();
+		if (trimmed !== e.target.value) {
+			setTrainingDetails(trimmed);
+		}
+		const err = validateText(trimmed, true, { required: 'Training details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
+	};
 
 	const transformFormData = () => {
 		return [{
@@ -398,6 +524,14 @@ const LicenseHistory = () => {
 			trainingDetails: training === 'yes' ? trainingDetails || null : null,
 		}];
 	};
+
+	// Compute form validity using centralized validation
+	const isFormValid = useMemo(() => {
+		const transformed = { licenseHistories: transformFormData() };
+		const errs = validateLicenseHistory(transformed);
+		return Object.keys(errs).length === 0;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [appliedBefore, appliedDetails, rejectedFiles, uploadedFiles, suspended, suspendedDetails, family, familyDetails, safePlace, safePlaceDetails, training, trainingDetails, weapons]);
 
 	const handleSaveToDraft = async () => {
 		const licenseHistories = transformFormData();
@@ -546,6 +680,7 @@ const LicenseHistory = () => {
 							type="date" 
 							value={appliedDetails.date} 
 							onChange={handleAppliedDetails} 
+							onBlur={handleAppliedBlur}
 							placeholder="DD/MM/YYYY" 
 							error={fieldErrors.appliedDate}
 							required
@@ -555,6 +690,7 @@ const LicenseHistory = () => {
 							name="authority" 
 							value={appliedDetails.authority} 
 							onChange={handleAppliedDetails} 
+							onBlur={handleAppliedBlur}
 							placeholder="Enter authority" 
 							error={fieldErrors.appliedAuthority}
 							required
@@ -566,9 +702,8 @@ const LicenseHistory = () => {
 								value={appliedDetails.result} 
 								onChange={(e: any) => {
 									setAppliedDetails(prev => ({ ...prev, result: e.target.value }));
-									if (fieldErrors.appliedResult) {
-										setFieldErrors((prev: any) => ({ ...prev, appliedResult: '' }));
-									}
+									const err = validateSelect(e.target.value, true, { required: 'Result is required' });
+									setFieldErrors((prev: any) => ({ ...prev, appliedResult: err }));
 								}} 
 								options={[
 									{ value: 'approved', label: 'Approved' },
@@ -724,6 +859,7 @@ const LicenseHistory = () => {
 							name="authority" 
 							value={suspendedDetails.authority} 
 							onChange={handleSuspendedDetails} 
+							onBlur={handleSuspendedBlur}
 							placeholder="Enter authority" 
 							error={fieldErrors.suspendedAuthority}
 							required
@@ -733,6 +869,7 @@ const LicenseHistory = () => {
 							name="reason" 
 							value={suspendedDetails.reason} 
 							onChange={handleSuspendedDetails} 
+							onBlur={handleSuspendedBlur}
 							placeholder="Enter reason" 
 							error={fieldErrors.suspendedReason}
 							required
@@ -784,6 +921,7 @@ const LicenseHistory = () => {
 								name="name" 
 								value={fam.name} 
 								onChange={e => handleFamilyDetails(idx, e)} 
+								onBlur={e => handleFamilyBlur(idx, e)}
 								placeholder="Enter name" 
 								error={fieldErrors.familyName}
 								required
@@ -793,6 +931,7 @@ const LicenseHistory = () => {
 								name="licenseNumber" 
 								value={fam.licenseNumber} 
 								onChange={e => handleFamilyDetails(idx, e)} 
+								onBlur={e => handleFamilyBlur(idx, e)}
 								placeholder="Enter license number" 
 								error={fieldErrors.familyLicenseNumber}
 								required
@@ -864,12 +1003,8 @@ const LicenseHistory = () => {
 						label="If Yes details thereof" 
 						name="safePlaceDetails" 
 						value={safePlaceDetails} 
-						onChange={e => {
-							setSafePlaceDetails(e.target.value);
-							if (fieldErrors.safePlaceDetails) {
-								setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: '' }));
-							}
-						}} 
+						onChange={handleSafePlaceChange}
+						onBlur={handleSafePlaceBlur}
 						placeholder="Enter details" 
 						error={fieldErrors.safePlaceDetails}
 						required
@@ -913,12 +1048,8 @@ const LicenseHistory = () => {
 						label="If Yes details thereof" 
 						name="trainingDetails" 
 						value={trainingDetails} 
-						onChange={e => {
-							setTrainingDetails(e.target.value);
-							if (fieldErrors.trainingDetails) {
-								setFieldErrors((prev: any) => ({ ...prev, trainingDetails: '' }));
-							}
-						}} 
+						onChange={handleTrainingChange}
+						onBlur={handleTrainingBlur}
 						placeholder="Enter details" 
 						error={fieldErrors.trainingDetails}
 						required
@@ -931,6 +1062,7 @@ const LicenseHistory = () => {
 				onNext={handleNext}
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
+				disableActions={!isFormValid}
 			/>
 		</form>
 	);

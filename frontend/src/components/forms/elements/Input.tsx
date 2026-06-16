@@ -7,10 +7,12 @@ interface InputProps {
   type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'password';
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
   error?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   className?: string;
   maxLength?: number;
   max?: string;
@@ -22,10 +24,12 @@ export const Input: React.FC<InputProps> = ({
   type = 'text',
   value,
   onChange,
+  onBlur,
   placeholder,
   required = false,
   error,
   disabled = false,
+  readOnly = false,
   className = '',
   maxLength,
   max,
@@ -44,8 +48,10 @@ export const Input: React.FC<InputProps> = ({
         type={type}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
+        readOnly={readOnly}
         maxLength={maxLength}
         max={max}
         suppressHydrationWarning
@@ -53,6 +59,7 @@ export const Input: React.FC<InputProps> = ({
           block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
           ${error ? 'border-b-red-500' : 'border-b-gray-300'}
           ${disabled ? 'bg-transparent cursor-not-allowed' : 'bg-transparent'}
+          ${readOnly ? 'bg-gray-50 cursor-default text-gray-500' : ''}
           ${className}
         `}
       />
@@ -67,12 +74,15 @@ interface TextAreaProps {
   name: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
   required?: boolean;
   error?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   rows?: number;
   className?: string;
+  maxLength?: number;
 }
 
 export const TextArea: React.FC<TextAreaProps> = ({
@@ -80,12 +90,15 @@ export const TextArea: React.FC<TextAreaProps> = ({
   name,
   value,
   onChange,
+  onBlur,
   placeholder,
   required = false,
   error,
   disabled = false,
+  readOnly = false,
   rows = 3,
   className = '',
+  maxLength,
 }) => {
   return (
     <div>
@@ -100,13 +113,17 @@ export const TextArea: React.FC<TextAreaProps> = ({
         name={name}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
+        readOnly={readOnly}
         rows={rows}
+        maxLength={maxLength}
         className={`
           block w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]
           ${error ? 'border-red-500' : 'border-gray-300'}
           ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
+          ${readOnly ? 'bg-gray-50 cursor-default text-gray-500' : ''}
           ${className}
         `}
       />
