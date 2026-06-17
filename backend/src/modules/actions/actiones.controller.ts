@@ -24,17 +24,26 @@ export class ActionesController {
     type: Number, 
     description: 'Optional applicationId to filter actions based on application status (excludes APPROVED action if already approved, REJECT action if already rejected)' 
   })
+  @ApiQuery({
+    name: 'applicationType',
+    required: false,
+    type: String,
+    description: 'Optional application type to filter actions (e.g., "Fresh License" or "Renewal Application)'
+  })
+  @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   async getActiones(
     @Request() req: any,
-    @Query('applicationId') applicationId?: string
+    @Query('applicationId') applicationId?: string, 
+    @Query('applicationType') applicationType?: string
   ): Promise<Actiones[]> {
     // JwtAuthGuard guarantees request.user is set to decoded token if valid
     const tokenUserId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
 
      return this.actionesService.getActiones(
       tokenUserId,
-      applicationId ? Number(applicationId) : undefined
+      applicationId ? Number(applicationId) : undefined, applicationType ? String(applicationType) : undefined
     );
   }
 
