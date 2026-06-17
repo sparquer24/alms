@@ -62,8 +62,6 @@ export class ActionesService {
             select: { isApproved: true, isRejected: true }
           });
         }
-        console.log('Application status:', application);
-
         if (application) {
           // If application is approved, filter out APPROVED action
           if (application.isApproved) {
