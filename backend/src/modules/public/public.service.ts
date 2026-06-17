@@ -12,9 +12,121 @@ export class PublicService {
      * Returns sanitized application data suitable for public viewing via QR code scan
      */
     async getPublicApplicationDetails(
-        applicationId: number
+        applicationId: number,
+        type?: string
     ): Promise<[any | null, any | null]> {
         try {
+            if (type === 'renewal') {
+                const application = await prisma.renewalFormPersonalDetails.findUnique({
+                    where: { id: applicationId },
+                    include: {
+                        workflowStatus: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                            },
+                        },
+                        permanentAddress: {
+                            include: {
+                                state: { select: { id: true, name: true } },
+                                district: { select: { id: true, name: true } },
+                                policeStation: { select: { id: true, name: true } },
+                            },
+                        },
+                        presentAddress: {
+                            include: {
+                                state: { select: { id: true, name: true } },
+                                district: { select: { id: true, name: true } },
+                                policeStation: { select: { id: true, name: true } },
+                            },
+                        },
+                        licenseDetails: {
+                            include: {
+                                requestedWeapons: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        description: true,
+                                    },
+                                },
+                            },
+                        },
+                        fileUploads: {
+                            where: {
+                                fileType: 'PHOTOGRAPH',
+                            },
+                            orderBy: {
+                                uploadedAt: 'desc',
+                            },
+                            take: 1,
+                        },
+                    },
+                });
+
+                if (!application) {
+                    return ['Application not found', null];
+                }
+
+                const photoUpload = application.fileUploads?.[0];
+                const photoUrl = photoUpload?.fileUrl || null;
+
+                const publicData = {
+                    applicationId: application.id,
+                    acknowledgementNo: application.acknowledgementNo,
+                    almsLicenseId: application.renewalLicenseId || null,
+
+                    // Applicant Basic Info (limited)
+                    applicantName: `${application.firstName} ${application.middleName || ''} ${application.lastName}`.trim(),
+                    sex: application.sex,
+                    dateOfBirth: application.dateOfBirth,
+
+                    // Photo URL
+                    photoUrl: photoUrl,
+
+                    // Application Status
+                    applicationStatus: application.workflowStatus?.name || 'Unknown',
+                    statusCode: application.workflowStatus?.code || null,
+                    isApproved: application.isApproved,
+                    isRejected: application.isRejected,
+                    isPending: application.isPending,
+                    isRecommended: application.isRecommended,
+                    isNotRecommended: application.isNotRecommended,
+
+                    // License Details (public info only)
+                    licenseDetails: application.licenseDetails?.map((ld: any) => ({
+                        needForLicense: ld.needForLicense,
+                        armsCategory: ld.armsCategory,
+                        areaOfValidity: ld.areaOfValidity,
+                        requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
+                            name: w.name,
+                            description: w.description,
+                        })),
+                    })),
+
+                    // Address Info (district/state only for verification)
+                    permanentAddress: application.permanentAddress
+                        ? {
+                            state: application.permanentAddress.state?.name,
+                            district: application.permanentAddress.district?.name,
+                            policeStation: application.permanentAddress.policeStation?.name,
+                        }
+                        : null,
+                    presentAddress: application.presentAddress
+                        ? {
+                            state: application.presentAddress.state?.name,
+                            district: application.presentAddress.district?.name,
+                            policeStation: application.presentAddress.policeStation?.name,
+                        }
+                        : null,
+
+                    createdAt: application.createdAt,
+                    updatedAt: application.updatedAt,
+                };
+
+                return [null, publicData];
+            }
+
             const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
                 where: { id: applicationId },
                 include: {

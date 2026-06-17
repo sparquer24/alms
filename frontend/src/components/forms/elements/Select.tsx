@@ -53,10 +53,11 @@ export const Select: React.FC<SelectProps> = ({
         onFocus={onFocus}
         disabled={disabled}
         className={`
-          block w-full px-0 pb-1 border-0 border-b-2 bg-transparent focus:outline-none focus:ring-0 focus:border-[#6366F1]
+          block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
           appearance-none
           ${error ? 'border-b-red-500' : 'border-b-gray-300'}
           ${disabled ? 'cursor-not-allowed text-gray-400' : 'text-gray-900 cursor-pointer'}
+          ${required ? (value ? 'bg-green-50' : 'bg-amber-50') : 'bg-transparent'}
           ${className}
         `}
       >

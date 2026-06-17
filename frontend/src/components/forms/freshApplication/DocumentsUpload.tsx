@@ -306,9 +306,7 @@ const DocumentsUpload = () => {
 		{(applicationId || almsLicenseId) && (
 			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 				<div className="flex flex-col">
-					{/* <strong>Application ID: {applicationId ?? '—'}</strong> */}
-					{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-				</div>
+					{/* <strong>Application ID: {applicationId ?? '—'}</strong> */}</div>
 				{typeof loadExistingData === 'function' && (
 					<button
 						type='button'

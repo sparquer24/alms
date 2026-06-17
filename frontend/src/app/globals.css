@@ -160,6 +160,9 @@ body::-webkit-scrollbar-thumb,
   animation: progressBar 3s ease-in-out infinite;
 }
 
+/* ==============================
+   Print styles
+============================== */
 /* Print styles - hide chrome and make printable area full width */
 @media print {
   /* hide app chrome */

@@ -170,7 +170,9 @@ export class ApplicationService {
    * @returns Application data
    */
   static async getApplication(applicantId: string, isOwned?: boolean) {
-    let url = `/application-form?applicationId=${applicantId}`;
+    const isAck = typeof applicantId === 'string' && applicantId.startsWith('ALMS');
+    const param = isAck ? 'acknowledgementNo' : 'applicationId';
+    let url = `/application-form?${param}=${applicantId}`;
     
     // Add isOwned parameter if provided
     if (isOwned !== undefined) {
