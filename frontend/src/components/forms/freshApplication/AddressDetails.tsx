@@ -468,6 +468,7 @@ const AddressDetails: React.FC = () => {
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
 				disableActions={!validation.isValid(form)}
+				errors={fieldErrors}
 			/>
 		</form>
 	);

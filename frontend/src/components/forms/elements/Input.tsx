@@ -34,6 +34,11 @@ export const Input: React.FC<InputProps> = ({
   maxLength,
   max,
 }) => {
+  // Determine background based on required and filled state
+  const fieldBg = required
+    ? (value?.trim() ? 'bg-green-50' : 'bg-amber-50')
+    : 'bg-transparent';
+
   return (
     <div className="w-full">
       {label && (
@@ -58,7 +63,7 @@ export const Input: React.FC<InputProps> = ({
         className={`
           block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
           ${error ? 'border-b-red-500' : 'border-b-gray-300'}
-          ${disabled ? 'bg-transparent cursor-not-allowed' : 'bg-transparent'}
+          ${disabled ? 'bg-transparent cursor-not-allowed' : fieldBg}
           ${readOnly ? 'bg-gray-50 cursor-default text-gray-500' : ''}
           ${className}
         `}
@@ -100,6 +105,11 @@ export const TextArea: React.FC<TextAreaProps> = ({
   className = '',
   maxLength,
 }) => {
+  // Determine background based on required and filled state
+  const fieldBg = required
+    ? (value?.trim() ? 'bg-green-50' : 'bg-amber-50')
+    : 'bg-white';
+
   return (
     <div>
       {label && (
@@ -122,7 +132,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
         className={`
           block w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]
           ${error ? 'border-red-500' : 'border-gray-300'}
-          ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
+          ${disabled ? 'bg-gray-100 cursor-not-allowed' : fieldBg}
           ${readOnly ? 'bg-gray-50 cursor-default text-gray-500' : ''}
           ${className}
         `}

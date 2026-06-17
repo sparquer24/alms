@@ -69,6 +69,7 @@ const BiometricInformation = () => {
   const [showWebcamModal, setShowWebcamModal] = useState(false);
   const [webcamCapturedPhoto, setWebcamCapturedPhoto] = useState<string | null>(null);
   const [webcamReady, setWebcamReady] = useState(false);
+  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
   // Duplicate fingerprint error modal state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -673,8 +674,9 @@ const BiometricInformation = () => {
   const openWebcamModal = () => {
     setShowWebcamModal(true);
     setWebcamCapturedPhoto(null);
-    setStreamActive(true);
+    setStreamActive(false);
     setWebcamReady(false);
+    setCameraPermissionDenied(false);
   };
 
 /** Capture photo in webcam modal */
@@ -692,6 +694,7 @@ const BiometricInformation = () => {
     setWebcamCapturedPhoto(null);
     setStreamActive(true);
     setWebcamReady(false);
+    setCameraPermissionDenied(false);
   };
 
   /** Submit photo from webcam modal */
@@ -762,6 +765,7 @@ const BiometricInformation = () => {
     setWebcamCapturedPhoto(null);
     setStreamActive(false);
     setWebcamReady(false);
+    setCameraPermissionDenied(false);
   };
 
   /** ⚙️ DIAGNOSTIC TEST FUNCTIONS FOR DEVICE TROUBLESHOOTING */
@@ -903,9 +907,7 @@ const BiometricInformation = () => {
       {(applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
-            {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-            {almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-          </div>
+            {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
           <button
             type='button'
             onClick={() => applicantId && ApplicationService.getApplication(applicantId)}
@@ -1865,22 +1867,85 @@ const BiometricInformation = () => {
               {/* Camera / Preview Display */}
               <div className='flex justify-center mb-6'>
                 <div className='relative'>
-                  {/* Live camera view - always render Webcam but hide when photo captured */}
-                  {streamActive && !webcamCapturedPhoto && (
+                  {/* Camera Permission States: request | denied | loading | live | captured */}
+                  {!streamActive && !cameraPermissionDenied && !webcamCapturedPhoto ? (
+                    <div className='w-72 h-72 rounded-lg border-2 border-blue-300 bg-blue-50 flex flex-col items-center justify-center p-6'>
+                      <div className='w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-4'>
+                        <svg className='w-7 h-7 text-blue-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
+                        </svg>
+                      </div>
+                      <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Needed</h3>
+                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-4'>
+                        This application needs access to your camera to capture a live photograph for the license application.
+                      </p>
+                      <button
+                        type='button'
+                        onClick={() => { setStreamActive(true); setWebcamReady(false); }}
+                        className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-md'
+                      >
+                        Grant Camera Access
+                      </button>
+                    </div>
+                  ) : cameraPermissionDenied ? (
+                    <div className='w-72 h-72 rounded-lg border-2 border-red-300 bg-gray-50 flex flex-col items-center justify-center p-6'>
+                      <div className='w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4'>
+                        <svg className='w-7 h-7 text-red-500' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' />
+                        </svg>
+                      </div>
+                      <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Denied</h3>
+                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-4'>
+                        Camera access was blocked. To take a photo, please allow camera access in your browser settings for this site.
+                      </p>
+                      <div className='bg-amber-50 border border-amber-200 rounded-lg p-3 w-full mb-4'>
+                        <p className='text-xs text-amber-700 font-medium mb-1'>How to enable:</p>
+                        <ol className='text-xs text-amber-600 list-decimal list-inside space-y-0.5'>
+                          <li>Click the camera/lock icon in the browser address bar</li>
+                          <li>Find "Camera" in the permissions list</li>
+                          <li>Change it from "Blocked" to "Allow"</li>
+                          <li>Reload the page and try again</li>
+                        </ol>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => { setCameraPermissionDenied(false); setStreamActive(true); setWebcamReady(false); }}
+                        className='px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  ) : !webcamReady && streamActive && !webcamCapturedPhoto ? (
+                    <div className='w-72 h-72 rounded-lg border-2 border-gray-300 bg-gray-50 flex flex-col items-center justify-center'>
+                      <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4'></div>
+                      <p className='text-sm text-gray-500'>Requesting camera access...</p>
+                      <p className='text-xs text-gray-400 mt-1'>Please allow camera when prompted by your browser</p>
+                    </div>
+                  ) : streamActive && !webcamCapturedPhoto ? (
                     <Webcam
                       ref={webcamRef}
                       audio={false}
                       screenshotFormat='image/jpeg'
-                      className='w-72 h-72 object-cover rounded-lg border-2 border-gray-300 bg-black'
+                      className='w-72 h-72 object-cover rounded-lg border-2 border-gray-300 bg-gray-900'
                       videoConstraints={{
                         width: 480,
                         height: 480,
                         facingMode: 'user',
                       }}
-                      onUserMedia={() => setWebcamReady(true)}
-                      onError={() => { toast.error('Webcam error: Unable to access camera'); setStreamActive(false); }}
+                      onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); }}
+                      onUserMediaError={(err: any) => {
+                        const errStr = typeof err === 'string' ? err : err?.message || err?.name || '';
+                        if (errStr.includes('NotAllowedError') || errStr.includes('Permission') || errStr.includes('denied')) {
+                          setStreamActive(false);
+                          setCameraPermissionDenied(true);
+                          toast.error('Camera permission was denied. Please allow camera access in browser settings.');
+                        } else {
+                          toast.error('Unable to access camera. Please check your camera connection.');
+                          setStreamActive(false);
+                        }
+                      }}
                     />
-                  )}
+                  ) : null}
 
                   {/* Captured photo preview */}
                   {webcamCapturedPhoto && (

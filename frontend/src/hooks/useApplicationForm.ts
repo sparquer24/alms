@@ -43,82 +43,70 @@ export const useApplicationForm = ({
     }
   }, [searchParams, formSection]);
 
-  // Check if application exists before loading data
+  // Load existing application data — single GET request (no separate existence check)
   const checkAndLoadExistingData = useCallback(async (appId: string) => {
     try {
       setIsLoading(true);
       setSubmitError(null);
 
-      // First, check if the application exists
       const response = await ApplicationService.getApplication(appId);
 
       if (response.success && response.data) {
-        // Application exists, now load the data
-        await loadExistingData(appId);
+        await handleLoadedData(appId, response.data);
       } else {
-        // Application doesn't exist, this is a new application
         setIsLoading(false);
       }
     } catch (error: any) {
       setIsLoading(false);
 
-      // Handle different scenarios
       if (error.message.includes('404') || error.message.includes('Not Found')) {
-        // This is expected for new applications - don't show error
+        // Expected for new applications - continue with empty form
       } else if (error.message.includes('Authentication') || error.message.includes('401')) {
         setSubmitError('Session expired. Please log in again.');
-      } else {
-        // Don't show error to user for application existence check
       }
     }
   }, [formSection]);
 
-  // Load existing application data for all sections
+  // Handle loaded data from a single GET response
+  const handleLoadedData = useCallback(async (appId: string, data: any) => {
+    const licenseId = data.almsLicenseId ?? data.alms_license_id ?? data.licenseId ?? null;
+    if (licenseId) {
+      setAlmsLicenseId(licenseId);
+    }
+
+    const sectionData = ApplicationService.extractSectionData(data, formSection);
+    if (sectionData && Object.keys(sectionData).length > 0) {
+      setForm((prev: any) => ({ ...prev, ...sectionData }));
+      setSubmitSuccess('Existing data loaded successfully');
+      setTimeout(() => setSubmitSuccess(null), 3000);
+    }
+    
+    setIsLoading(false);
+  }, [formSection]);
+
+  // Load existing application data — this is now a re-export for components that need it
   const loadExistingData = useCallback(async (appId: string) => {
     try {
       setIsLoading(true);
-      setSubmitError(null); // Clear any previous errors
+      setSubmitError(null);
 
       const response = await ApplicationService.getApplication(appId);
       if (response.success && response.data) {
-        // If the application contains an ALMS license id, capture it for UI
-        const licenseId = response.data.almsLicenseId ?? response.data.alms_license_id ?? response.data.licenseId ?? null;
-        if (licenseId) {
-          setAlmsLicenseId(licenseId);
-        }
-        // Extract section-specific data using the service method
-        const sectionData = ApplicationService.extractSectionData(response.data, formSection);
-        if (sectionData && Object.keys(sectionData).length > 0) {
-          // Merge section data with initial state, prioritizing loaded data
-          setForm((prev: any) => {
-            const mergedData = { ...prev, ...sectionData };
-            return mergedData;
-          });
-
-          // Show success message for better UX
-          setSubmitSuccess('Existing data loaded successfully');
-          setTimeout(() => setSubmitSuccess(null), 3000); // Clear after 3 seconds
-        } else {
-          // This is normal for new applications or sections not yet filled
-        }
-      } else {
-        // Don't show error - let user continue with empty form
+        await handleLoadedData(appId, response.data);
       }
     } catch (error: any) {
-      // Handle different types of errors gracefully
       if (error.message.includes('404') || error.message.includes('Not Found')) {
-        // Don't show error to user - just continue with empty form
+        // Expected for new applications
       } else if (error.message.includes('Authentication') || error.message.includes('401')) {
         setSubmitError('Session expired. Please log in again.');
       } else {
-        // Show a gentle message to user but don't block form usage
         setSubmitError('Could not load existing data. You can continue with a fresh form.');
-        setTimeout(() => setSubmitError(null), 5000); // Clear after 5 seconds
+        setTimeout(() => setSubmitError(null), 5000);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [formSection]);
+  }, [formSection, handleLoadedData]);
 
   // Handle form field changes
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

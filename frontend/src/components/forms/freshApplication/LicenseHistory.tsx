@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Input, TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import FileUploadService from '../../../services/fileUploadService';
-import { validateText, validateDate, validateSelect, filterText, filterAlphaNumeric } from '../../../utils/validation';
+import { validateText, validateGeneralText, validateDate, validateSelect, filterText, filterAlphaNumeric } from '../../../utils/validation';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] };
 
@@ -46,7 +46,7 @@ const validateLicenseHistory = (formData: any) => {
 		if (history.hasFamilyLicence) {
 			const nameErr = validateText(history.familyMemberName ?? '', true, { required: 'Family member name is required' });
 			if (nameErr) errors.familyName = nameErr;
-			const licErr = validateText(history.familyLicenceNumber ?? '', true, { required: 'License number is required' });
+			const licErr = validateGeneralText(history.familyLicenceNumber ?? '', true, { required: 'License number is required' });
 			if (licErr) errors.familyLicenseNumber = licErr;
 			if (!history.familyWeaponsEndorsed || history.familyWeaponsEndorsed.length === 0) {
 				errors.familyWeapons = 'At least one weapon must be selected';
@@ -86,8 +86,8 @@ const LicenseHistory = () => {
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
 	
-	// Add flag to prevent backend data from overwriting fresh form data
-	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
+	// Ref to prevent backend data from overwriting fresh form data (useRef to avoid re-renders)
+	const isUpdatingFormRef = useRef(false);
 
 	const router = useRouter();
 	
@@ -116,7 +116,7 @@ const LicenseHistory = () => {
 	// Load existing data into local state when form data changes
 	useEffect(() => {
 		// Skip loading if we're currently updating the form to prevent overwriting
-		if (isUpdatingForm) {
+		if (isUpdatingFormRef.current) {
 			return;
 		}
 		
@@ -178,7 +178,7 @@ const LicenseHistory = () => {
 				}
 			}
 		}
-	}, [form.licenseHistories, weapons, isUpdatingForm]);
+	}, [form.licenseHistories, weapons]);
 
 	// Fetch weapons on component mount
 	useEffect(() => {
@@ -204,7 +204,7 @@ const LicenseHistory = () => {
 	}, []);
 
 	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		const { name, value } = e.target;
 		
 		// Input filtering
@@ -223,7 +223,7 @@ const LicenseHistory = () => {
 			? validateSelect(processedValue, true, { required: 'Result is required' })
 			: validateText(processedValue, true, { required: 'Authority is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
-		setTimeout(() => setIsUpdatingForm(false), 100);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
 
 	const handleAppliedBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -365,7 +365,7 @@ const LicenseHistory = () => {
 	};
 
 	const handleSuspendedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		const { name, value } = e.target;
 		
 		// Input filtering - authority is alpha-only, reason allows alphanumeric
@@ -383,7 +383,7 @@ const LicenseHistory = () => {
 			? validateText(processedValue, true, { required: 'Authority is required' })
 			: validateText(processedValue, true, { required: 'Reason is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
-		setTimeout(() => setIsUpdatingForm(false), 100);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
 
 	const handleSuspendedBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -399,7 +399,7 @@ const LicenseHistory = () => {
 	};
 
 	const handleFamilyDetails = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		const { name, value } = e.target;
 		
 		// Input filtering
@@ -417,7 +417,7 @@ const LicenseHistory = () => {
 			? validateText(processedValue, true, { required: 'Family member name is required' })
 			: validateText(processedValue, true, { required: 'License number is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
-		setTimeout(() => setIsUpdatingForm(false), 100);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
 
 	const handleFamilyBlur = (idx: number, e: React.FocusEvent<HTMLInputElement>) => {
@@ -457,12 +457,12 @@ const LicenseHistory = () => {
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
 
 	const handleSafePlaceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		const { value } = e.target;
 		setSafePlaceDetails(value);
 		const err = validateText(value, true, { required: 'Safe place details are required' });
 		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
-		setTimeout(() => setIsUpdatingForm(false), 100);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
 
 	const handleSafePlaceBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -475,12 +475,12 @@ const LicenseHistory = () => {
 	};
 
 	const handleTrainingChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		const { value } = e.target;
 		setTrainingDetails(value);
 		const err = validateText(value, true, { required: 'Training details are required' });
 		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
-		setTimeout(() => setIsUpdatingForm(false), 100);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
 
 	const handleTrainingBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -495,7 +495,7 @@ const LicenseHistory = () => {
 	const transformFormData = () => {
 		return [{
 			hasAppliedBefore: appliedBefore === 'yes',
-			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? new Date(appliedDetails.date).toISOString() : null,
+			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? appliedDetails.date : null,
 			previousAuthorityName: appliedBefore === 'yes' ? appliedDetails.authority || null : null,
 			previousResult: appliedBefore === 'yes' ? appliedDetails.result?.toUpperCase() || null : null,
 			rejectedLicenseFiles: (appliedBefore === 'yes' && appliedDetails.result === 'rejected') ? rejectedFiles.map(file => ({
@@ -535,7 +535,7 @@ const LicenseHistory = () => {
 
 	const handleSaveToDraft = async () => {
 		const licenseHistories = transformFormData();
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		
 		const formDataToSave = {
 			...form,
@@ -555,12 +555,12 @@ const LicenseHistory = () => {
 			}
 		}
 		
-		setTimeout(() => setIsUpdatingForm(false), 1000);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 1000);
 	};
 
 	const handleNext = async () => {
 		const licenseHistories = transformFormData();
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		
 		const formDataToSave = {
 			...form,
@@ -584,7 +584,7 @@ const LicenseHistory = () => {
 			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, savedApplicantId);
 		}
 		
-		setTimeout(() => setIsUpdatingForm(false), 1000);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 1000);
 	};
 
 	const handlePrevious = async () => {
@@ -608,9 +608,7 @@ const LicenseHistory = () => {
 			{/* Display Applicant ID and License ID if available */}
 			{(applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-					<div className="flex flex-col">
-						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-					</div>
+					<div className="flex flex-col"></div>
 					{typeof loadExistingData === 'function' && (
 						<button
 							type='button'
@@ -1063,6 +1061,7 @@ const LicenseHistory = () => {
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
 				disableActions={!isFormValid}
+				errors={fieldErrors}
 			/>
 		</form>
 	);

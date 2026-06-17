@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IoMdHome } from 'react-icons/io';
 
 // Type assertion for react-icons to fix React 18 compatibility
@@ -100,7 +100,17 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
   const [allowedToEdit, setAllowedToEdit] = useState<boolean | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [lockedSteps, setLockedSteps] = useState<Set<number>>(new Set());
+  const isNavigatingRef = useRef(false);
+
+  // Compute current step index from the URL slug — must be before useEffect that references it
+  const currentStep = React.useMemo(() => {
+    if (!step) return 0;
+    if (step === 'preview') return 8;
+    if (step === 'declaration') return 9;
+    const idx = steps.findIndex(s => stepToSlug(s) === step);
+    return idx >= 0 ? idx : 0;
+  }, [step]);
   const searchParams = useSearchParams();
   const applicantId =
     searchParams?.get('id') ||
@@ -114,6 +124,47 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       setStep(resolvedParams.step);
     });
   }, [params]);
+
+  /**
+   * Determine which steps should be locked based on application data.
+   * Step 0 is always unlocked. Step N is unlocked when step N-1 has saved data.
+   * The current step is always unlocked so the user can stay on their page.
+   */
+  const getLockedSteps = (data: any, currentIdx: number, hasAppId: boolean): Set<number> => {
+    const unlocked = new Set<number>();
+    
+    // Step 0 is always unlocked
+    unlocked.add(0);
+
+    if (data) {
+      // Check each step's completion based on data fields
+      if (data.firstName) unlocked.add(1);       // Personal Info → Address Details
+      if (data.presentAddress || data.addresses?.length > 0) unlocked.add(2); // Address → Occupation
+      if (data.occupationAndBusiness) unlocked.add(3); // Occupation → Criminal History
+      if (data.criminalHistories?.length > 0) unlocked.add(4); // Criminal → License History
+      if (data.licenseHistories?.length > 0) unlocked.add(5); // License History → License Details
+      if (data.licenseDetails?.length > 0) unlocked.add(6); // License Details → Biometric
+      // Check biometric data OR photograph in fileUploads
+      const hasBiometric = data.biometricData?.biometricData?.fingerprints?.length > 0
+        || data.biometricData?.fingerprints?.length > 0
+        || data.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
+      if (hasBiometric) unlocked.add(7); // Biometric → Documents Upload
+      if (data.fileUploads?.length >= 3) unlocked.add(8); // Documents → Preview
+    } else if (hasAppId) {
+      // If we have an applicantId but no data yet, at least allow address step
+      unlocked.add(1);
+    }
+
+    // Always unlock the current step so the user can stay on their page
+    unlocked.add(currentIdx);
+
+    // Compute locked = all steps minus unlocked
+    const locked = new Set<number>();
+    for (let i = 0; i < steps.length; i++) {
+      if (!unlocked.has(i)) locked.add(i);
+    }
+    return locked;
+  };
 
   // Form-level guard: only allow editing when application is in DRAFT state.
   // Also fetch application data for validation
@@ -146,25 +197,25 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
     // Intentionally run only when applicantId changes
   }, [applicantId, router]);
 
-  // Show skeleton loading while params are being resolved, checking edit permissions, or navigating between steps
-  if (!step || allowedToEdit === null || isNavigating) {
+  // Compute locked steps when applicationData or currentStep changes
+  useEffect(() => {
+    if (allowedToEdit) {
+      setLockedSteps(getLockedSteps(applicationData, currentStep, !!applicantId));
+    }
+  }, [applicationData, allowedToEdit, currentStep, applicantId]);
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
+
+  // Show skeleton only on initial load (params not resolved yet, permissions not checked yet)
+  // Do NOT show skeleton on navigation — let the current form stay visible until the new page loads
+  if (!step || allowedToEdit === null) {
     return <FormStepSkeleton />;
   }
 
   let StepComponent: React.ComponentType<any> | null = null;
-  let currentStep = 0;
-
-  // Find the index of the current step by slug
-  // Special handling for preview and declaration which use different slug patterns
-  let stepIndex;
-  if (step === 'preview') {
-    stepIndex = 8; // Preview is at index 7 (adjusted after removing biometric step)
-  } else if (step === 'declaration') {
-    stepIndex = 9; // Declaration & Submit is at index 8 (adjusted)
-  } else {
-    stepIndex = steps.findIndex(s => stepToSlug(s) === step);
-  }
-  currentStep = stepIndex >= 0 ? stepIndex : 0;
 
   switch (step) {
     case stepToSlug('Personal Information'):
@@ -204,14 +255,14 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
   // Handler to change step and update the URL
   const handleStepClick = async (idx: number) => {
     // Guard against rapid double-clicks while navigation is in progress
-    if (isNavigating) return;
+    if (isNavigatingRef.current) return;
 
     // Compute dynamic preview/declaration indices to avoid hardcoding after step removal
     const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
     const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
 
-    // Show loading skeleton immediately while we process navigation
-    setIsNavigating(true);
+    // Set ref to prevent double-clicks (does NOT trigger re-render, so no skeleton flash)
+    isNavigatingRef.current = true;
 
     // preserve any existing search params (including optional application id) when navigating
     const currentParams = new URLSearchParams(searchParams ? searchParams.toString() : '');
@@ -235,7 +286,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
           if (!latestData) {
             setValidationError('Application data not loaded. Please complete all steps first.');
-            setIsNavigating(false);
+            isNavigatingRef.current = false;
             return;
           }
 
@@ -282,17 +333,17 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
             setValidationError(
               `Please complete the following before submitting:\n• ${missingFields.join('\n• ')}`
             );
-            setIsNavigating(false);
+            isNavigatingRef.current = false;
             return;
           }
         } catch (err) {
           setValidationError('Failed to validate application data. Please try again.');
-          setIsNavigating(false);
+          isNavigatingRef.current = false;
           return;
         }
       } else {
         setValidationError('Please create and save an application first.');
-        setIsNavigating(false);
+        isNavigatingRef.current = false;
         return;
       }
 
@@ -300,8 +351,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       setValidationError(null);
     }
 
-    // Navigate to the selected step — no need to setIsNavigating(false) here
-    // because the component will unmount and remount on the new page
+    // Navigate directly — the component unmounts on route change
     if (idx === previewIndex) {
       pushWithParams('/forms/createFreshApplication/preview');
     } else if (idx === declarationIndex) {
@@ -340,7 +390,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
           </button>
         </div>
       )}
-      <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick} />
+      <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick} lockedSteps={lockedSteps} />
       <div
         className=' flex max-w-8xl px-4  justify-center sm:px-8 '
         style={{

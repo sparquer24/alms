@@ -57,17 +57,11 @@ export function validateText(
   if (v.startsWith(' ')) {
     return overrides?.startSpace || 'Input cannot start with a space.';
   }
-  if (/^\d/.test(v)) {
-    return overrides?.startNumber || 'Input cannot start with a number.';
-  }
   if (/^[^A-Za-z]/.test(v)) {
     return overrides?.startSpecial || 'Input cannot start with a special character.';
   }
   if (MULTIPLE_SPACES_REGEX.test(v)) {
     return overrides?.multipleSpaces || 'Multiple consecutive spaces are not allowed.';
-  }
-  if (!TEXT_FIELD_REGEX.test(v)) {
-    return overrides?.alphaOnly || 'Only alphabets and spaces are allowed.';
   }
 
   return '';

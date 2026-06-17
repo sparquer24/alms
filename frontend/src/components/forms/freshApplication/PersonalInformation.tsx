@@ -221,9 +221,6 @@ const PersonalInformation: React.FC = () => {
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             <strong>Application ID: {applicantId ?? '—'}</strong>
-            {almsLicenseId && (
-              <strong className='text-sm'>License ID: {almsLicenseId}</strong>
-            )}
           </div>
           <button
             type='button'
@@ -466,6 +463,7 @@ const PersonalInformation: React.FC = () => {
         hidePrevious={true}
         isLoading={isSubmitting}
         disableActions={!validation.isValid(form)}
+        errors={fieldErrors}
       />
     </div>
   );
