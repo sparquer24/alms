@@ -818,17 +818,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       try {
         // Freeze active highlight briefly on menu navigation
-        freezeActive(2000);
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] handleMenuClick - item.name:',
-            item.name,
-            'userRole:',
-            userRole,
-            'cookieRole:',
-            cookieRole
-          );
-        }
+        freezeActive(1000);
 
         if (item.name.toLowerCase() !== 'inbox') {
           dispatch(closeInbox());
@@ -845,15 +835,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // Get effective role (use userRole, fall back to cookieRole)
         const effectiveRole = userRole || cookieRole;
 
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] effectiveRole:',
-            effectiveRole,
-            'isAdminRole result:',
-            isAdminRole(effectiveRole)
-          );
-        }
-
         // Check if this is an admin user navigating to an admin menu item
         if (isAdminRole(effectiveRole)) {
           // Check if SUPER_ADMIN or ADMIN and get appropriate path
@@ -862,22 +843,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             ? getSuperAdminPathForMenuItem(item.name)
             : getAdminPathForMenuItem(item.name);
 
-          if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.log(
-              '[Sidebar] Admin user detected. Role:',
-              effectiveRole,
-              'Path for',
-              item.name,
-              ':',
-              adminPath
-            );
-          }
-
           if (adminPath) {
-            // This is a valid admin menu item
-            if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-              console.log('[Sidebar] Navigating to admin path:', adminPath);
-            }
 
             // Only navigate if not already on this path
             if (typeof window !== 'undefined') {

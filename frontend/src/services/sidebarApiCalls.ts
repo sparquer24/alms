@@ -464,10 +464,8 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
         applicantName: item.applicantName,
         applicationDate: item.createdAt,
         lastUpdated: item.actionTakenAt || item.createdAt,
-        status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
-        status_id: 999, // Unique ID for sent status (not from database)
         // Preserve applicationType from backend ('fresh' or 'renewal')
-        applicationType: item.applicationType === 'renewal' ? 'Renewal Application' : 'Fresh License',
+        applicationType: item.applicationType,
         applicantMobile: '', // Not included in workflow history response
         currentUser: undefined,
         assignedTo: '', // Not included in workflow history response

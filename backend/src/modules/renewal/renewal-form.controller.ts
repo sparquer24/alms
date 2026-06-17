@@ -132,6 +132,76 @@ export class RenewalFormController {
           "isSubmit": true
         }
       },
+      'Complete Criminal History': {
+        summary: 'Update criminal history with all possible fields',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: true,
+              firDetails: [
+                { firNumber: '123/2018', underSection: '302', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: 'Rioting', sentence: '2 years', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ],
+              isBondExecuted: true,
+              bondDate: '2019-03-20T00:00:00.000Z',
+              bondPeriod: '6 months',
+              isProhibited: true,
+              prohibitionDate: '2020-07-10T00:00:00.000Z',
+              prohibitionPeriod: '5 years'
+            }
+          ]
+        }
+      },
+      'No Criminal Record': {
+        summary: 'Clear criminal history (set all to false)',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              isProhibited: false
+            }
+          ]
+        }
+      },
+      'Complete License History': {
+        summary: 'Update license history with all possible fields',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: true,
+              dateAppliedFor: '2019-06-15T00:00:00.000Z',
+              previousAuthorityName: 'District Magistrate, Kolkata',
+              previousResult: 'REJECTED',
+              hasLicenceSuspended: true,
+              suspensionAuthorityName: 'District Magistrate, Mumbai',
+              suspensionReason: 'Violation of terms and conditions',
+              hasFamilyLicence: true,
+              familyMemberName: 'John Doe (Father)',
+              familyLicenceNumber: 'LIC123456789',
+              familyWeaponsEndorsed: ['Pistol .32', 'Rifle .22'],
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock in bedroom',
+              hasTraining: true,
+              trainingDetails: 'Basic firearms training from XYZ Academy, Certificate No: ABC123'
+            }
+          ]
+        }
+      },
+      'First Time Applicant (License History)': {
+        summary: 'License history for first-time applicant',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: false,
+              hasLicenceSuspended: false,
+              hasFamilyLicence: false,
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock system',
+              hasTraining: false
+            }
+          ]
+        }
+      },
     },
   })
   @ApiResponse({
@@ -141,13 +211,60 @@ export class RenewalFormController {
       success: true,
       message: 'Application details updated successfully',
       data: {
-        updatedSections: ['presentAddress', 'criminalHistories'],
+        updatedSections: ['presentAddress', 'criminalHistories', 'licenseHistories'],
         application: {
           id: 1,
-          acknowledgementNo: 'ALMS1696050000000',
-          firstName: 'John',
-          lastName: 'Doe',
-          // ... other application data with relations
+          acknowledgementNo: 'RENEWAL-1715754373000-12345678',
+          firstName: 'XYZ',
+          middleName: 'K',
+          lastName: 'Sharma',
+          parentOrSpouseName: 'Ramesh Sharma',
+          sex: 'MALE',
+          dateOfBirth: '1985-05-15T00:00:00.000Z',
+          licenseNumber: 'LIC123456789',
+          criminalHistories: [
+            {
+              id: 1,
+              applicationId: 1,
+              isConvicted: true,
+              firDetails: [
+                { firNumber: '123/2018', underSection: '302', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: 'Rioting', sentence: '2 years', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ],
+              isBondExecuted: true,
+              bondDate: '2019-03-20T00:00:00.000Z',
+              bondPeriod: '6 months',
+              isProhibited: true,
+              prohibitionDate: '2020-07-10T00:00:00.000Z',
+              prohibitionPeriod: '5 years',
+              createdAt: '2024-01-15T10:30:00.000Z',
+              updatedAt: '2024-01-15T10:30:00.000Z'
+            }
+          ],
+          licenseHistories: [
+            {
+              id: 1,
+              applicationId: 1,
+              hasAppliedBefore: true,
+              dateAppliedFor: '2019-06-15T00:00:00.000Z',
+              previousAuthorityName: 'District Magistrate, Kolkata',
+              previousResult: 'REJECTED',
+              hasLicenceSuspended: false,
+              suspensionAuthorityName: null,
+              suspensionReason: null,
+              hasFamilyLicence: true,
+              familyMemberName: 'John Doe (Father)',
+              familyLicenceNumber: 'LIC123456789',
+              familyWeaponsEndorsed: ['Pistol .32', 'Rifle .22'],
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock in bedroom',
+              hasTraining: true,
+              trainingDetails: 'Basic firearms training from XYZ Academy, Certificate No: ABC123',
+              createdAt: '2024-01-15T10:30:00.000Z',
+              updatedAt: '2024-01-15T10:30:00.000Z'
+            }
+          ],
+          workflowStatus: { id: 1, code: 'DRAFT', name: 'Draft' },
+          isSubmit: false
         }
       }
     }

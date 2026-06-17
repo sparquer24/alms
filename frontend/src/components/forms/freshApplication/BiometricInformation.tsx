@@ -116,7 +116,6 @@ const BiometricInformation = () => {
    */
   const convertUrlToBase64 = async (url: string): Promise<string | null> => {
     try {
-      console.log('🔄 [BiometricInformation] Converting URL to base64:', url);
       const response = await fetch(url);
       if (!response.ok) {
         console.error('❌ [BiometricInformation] Failed to fetch image:', response.status);
@@ -127,7 +126,6 @@ const BiometricInformation = () => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          console.log('✅ [BiometricInformation] Converted to base64, length:', base64?.length);
           resolve(base64);
         };
         reader.onerror = () => {
@@ -189,8 +187,6 @@ const BiometricInformation = () => {
       try {
         const resp = await ApplicationService.getApplication(applicantId as string);
         const data = resp?.data || null;
-        console.log('📦 [BiometricInformation] Full API response data:', data);
-
         const bioWrapper = data?.biometricData || null;
 
         let normalized: any = null;
@@ -199,7 +195,6 @@ const BiometricInformation = () => {
           if (bioWrapper.biometricData) normalized = bioWrapper.biometricData;
           else normalized = bioWrapper;
         }
-        console.log('🔍 [BiometricInformation] Normalized biometric data:', normalized);
 
         setExistingBiometricData(normalized);
 
@@ -209,10 +204,6 @@ const BiometricInformation = () => {
           Array.isArray(normalized.fingerprints) &&
           normalized.fingerprints.length > 0
         ) {
-          console.log(
-            '👆 [BiometricInformation] Found existing fingerprints:',
-            normalized.fingerprints
-          );
           setEnrolledFingerprints(normalized.fingerprints);
         }
 
@@ -222,28 +213,16 @@ const BiometricInformation = () => {
 
         // ✅ Check for photo URL from biometricData first
         if (normalized?.photo?.url) {
-          console.log(
-            '📸 [BiometricInformation] Found photo in biometricData:',
-            normalized.photo.url
-          );
           photoUrlToConvert = normalized.photo.url;
           photoFound = true;
         }
 
         // ✅ Check for PHOTOGRAPH in fileUploads array (primary source based on API structure)
         const fileUploads = data?.fileUploads || [];
-        console.log('📁 [BiometricInformation] File uploads:', fileUploads);
-
         if (Array.isArray(fileUploads) && fileUploads.length > 0 && !photoFound) {
           // Find PHOTOGRAPH file type - exact match for fileType: "PHOTOGRAPH"
           const photographUpload = fileUploads.find((upload: any) => {
             const fileType = (upload.fileType || '').toString().toUpperCase();
-            console.log(
-              '🔍 [BiometricInformation] Checking file upload:',
-              upload.fileName,
-              'fileType:',
-              fileType
-            );
             return fileType === 'PHOTOGRAPH';
           });
 
