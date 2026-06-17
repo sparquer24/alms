@@ -22,7 +22,7 @@ import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls
 import { RenewalService } from '../../../api/renewalService';
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
-import QRCodeDisplay from '../../../components/QRCodeDisplay';
+
 import { useGlobalAction } from '../../../context/GlobalActionContext';
 
 // Import newly extracted components and utilities
@@ -458,9 +458,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       <Header
         breadcrumbs={[
           { label: 'Home', onClick: () => router.push('/') },
-          { label: 'Application Details' },
+          { label: isRenewalView ? 'Renewal Application' : 'Fresh Application' },
           { label: applicationId ? `Application ID: ${applicationId}` : '...' }
         ]}
+        applicationTypeLabel={isRenewalView ? 'Renewal Application' : 'Fresh Application'}
         statusBadge={application ? {
           label: formatStatusLabel(application.workflowStatus || application.status || application.status_id),
           style: (() => {
@@ -575,6 +576,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   userRole={userRole || ''} 
                   handleBrowserPrint={handleBrowserPrint} 
                   printRef={printRef} 
+                  isRenewalView={isRenewalView}
                 />
                 <AddressSection application={application} />
                 <OccupationSection application={application} />
@@ -1006,20 +1008,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
-                <div
-                  className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
-                0px)]'
+                 <div
+                  className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden'
                 >
                   <div
                     ref={containerRef}
-                    className='flex h-screen items-stretch gap-0 relative'
+                    className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
                     style={{
                       display: 'flex',
                     }}
                   >
                     {/* Action Buttons - Full Width Editor (2 columns) */}
                     <div
-                      className='flex flex-col h-screen overflow-hidden'
+                      className='flex flex-col h-full overflow-hidden pr-4'
                       style={{
                         width: `${dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',
@@ -1142,7 +1143,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className='flex flex-col h-screen overflow-hidden'
+                      className='flex flex-col h-full overflow-hidden pl-4'
                       style={{
                         width: `${100 - dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',

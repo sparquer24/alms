@@ -1,4 +1,4 @@
-import { Controller, Get, Param, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Param, HttpException, HttpStatus, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { PublicService } from './public.service';
 
@@ -47,7 +47,10 @@ export class PublicController {
     })
     @ApiResponse({ status: 404, description: 'Application not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async getPublicApplicationDetails(@Param('applicationId') applicationId: string) {
+    async getPublicApplicationDetails(
+        @Param('applicationId') applicationId: string,
+        @Query('type') type?: string
+    ) {
         try {
             const applicationIdNum = parseInt(applicationId, 10);
             if (isNaN(applicationIdNum)) {
@@ -57,7 +60,7 @@ export class PublicController {
                 );
             }
 
-            const [error, result] = await this.publicService.getPublicApplicationDetails(applicationIdNum);
+            const [error, result] = await this.publicService.getPublicApplicationDetails(applicationIdNum, type);
 
             if (error) {
                 const errorMessage = typeof error === 'object' && (error as any).message ? (error as any).message : error;

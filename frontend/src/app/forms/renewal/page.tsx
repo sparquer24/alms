@@ -519,6 +519,7 @@ const mapPresentAddressFields = (data: any) => {
       presentAddress?.policeStation?.name,
       presentAddress?.policeStationName
     ),
+    presentPincode: getTextValue(presentAddress?.pincode, presentAddress?.postalCode, data?.presentPincode),
     jurisdictionPoliceStation: getTextValue(data?.jurisdictionPoliceStation),
     residingSince: formatDate(
       presentAddress?.sinceResiding || data?.residingSince || data?.presentSince
@@ -568,6 +569,7 @@ const mapPermanentAddressFields = (data: any) => {
     permanentPoliceStation: normalizeLocationId(
       permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id
     ),
+    permanentPincode: getTextValue(permanentAddress?.pincode, permanentAddress?.postalCode, data?.permanentPincode),
     permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
     permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
     permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
@@ -1054,26 +1056,9 @@ const mergeRenewalStateOverFresh = (
 
   const renewalFileIds = collectRenewalFileIds(renewalData);
 
-  if (!hasSavedDocuments(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, DOCUMENT_FORM_KEYS);
-    for (const key of DOCUMENT_FORM_KEYS) {
-      if (key === 'specialEvidenceFiles') {
-        if (Array.isArray(merged.specialEvidenceFiles)) {
-          merged.specialEvidenceFiles = merged.specialEvidenceFiles
-            .map(file => asPendingRenewalDocument(file, renewalFileIds))
-            .filter(Boolean) as RenewalFormState['specialEvidenceFiles'];
-        }
-        continue;
-      }
-      const pending = asPendingRenewalDocument(
-        (merged as Record<string, unknown>)[key],
-        renewalFileIds
-      );
-      if (pending) (merged as Record<string, unknown>)[key] = pending;
-    }
-  }
-
-  mergeDocumentFieldsFromFresh(merged, fresh, renewalFileIds);
+  // Populate document fields strictly from renewalData (not from fresh application)
+  const mappedDocs = mapDocumentUploadFields(renewalData, collectRenewalFileIds(renewalData));
+  Object.assign(merged, mappedDocs);
 
   return merged;
 };
@@ -1719,45 +1704,99 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     payload.occupationAndBusiness = occupationAndBusiness;
   if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
 
-  // License History - conditional submission based on Yes/No selections
-  const licenseHistoryPayload: Record<string, any> = {};
-  if (formData.hasAppliedBefore) {
-    licenseHistoryPayload.hasAppliedBefore = formData.hasAppliedBefore;
-    if (formData.applicationDate) licenseHistoryPayload.dateAppliedFor = formData.applicationDate;
-    if (formData.authorityAppliedTo)
-      licenseHistoryPayload.previousAuthorityName = formData.authorityAppliedTo;
-    if (formData.applicationResult)
-      licenseHistoryPayload.previousResult = formData.applicationResult.toUpperCase();
-  }
-  if (formData.licenseRevokedOrSuspended) {
-    licenseHistoryPayload.hasLicenceSuspended = formData.licenseRevokedOrSuspended;
-    if (formData.revokedByAuthority)
-      licenseHistoryPayload.suspensionAuthorityName = formData.revokedByAuthority;
-    if (formData.revokedReason) licenseHistoryPayload.suspensionReason = formData.revokedReason;
-  }
-  if (formData.familyMemberHasLicense) {
-    licenseHistoryPayload.hasFamilyLicence = formData.familyMemberHasLicense;
-    if (formData.familyMemberName)
-      licenseHistoryPayload.familyMemberName = formData.familyMemberName;
-    if (formData.familyLicenseNumber)
-      licenseHistoryPayload.familyLicenceNumber = formData.familyLicenseNumber;
-    if (formData.weaponEndorsedList && formData.weaponEndorsedList.length > 0) {
-      licenseHistoryPayload.familyWeaponsEndorsed = formData.weaponEndorsedList
-        .map((w: any) => w.value)
-        .filter(Boolean);
+  // License History - map all fields to request body
+  const licenseHistoryPayload: Record<string, any> = {
+    hasAppliedBefore: Boolean(formData.hasAppliedBefore),
+    dateAppliedFor: formData.applicationDate || undefined,
+    previousAuthorityName: formData.authorityAppliedTo || '',
+    previousResult: formData.applicationResult ? formData.applicationResult.toUpperCase() : '',
+    hasLicenceSuspended: Boolean(formData.licenseRevokedOrSuspended),
+    suspensionAuthorityName: formData.revokedByAuthority || '',
+    suspensionReason: formData.revokedReason || '',
+    hasFamilyLicence: Boolean(formData.familyMemberHasLicense),
+    familyMemberName: formData.familyMemberName || '',
+    familyLicenceNumber: formData.familyLicenseNumber || '',
+    familyWeaponsEndorsed: formData.weaponEndorsedList
+      ? formData.weaponEndorsedList.map((w: any) => w?.value || w).filter(Boolean)
+      : [],
+    hasSafePlace: Boolean(formData.hasSafeCustody),
+    safePlaceDetails: formData.safeCustodyDetails || '',
+    hasTraining: Boolean(formData.hasTrainingUnderRule10),
+    trainingDetails: formData.trainingDetails || ''
+  };
+  payload.licenseHistories = [licenseHistoryPayload];
+
+  // Criminal History - map all fields to request body
+  payload.criminalHistories = [{
+    isConvicted: Boolean(formData.convictedStatus),
+    isBondExecuted: Boolean(formData.bondStatus),
+    bondDate: formData.bondSentenceDate || undefined,
+    bondPeriod: formData.bondPeriod || '',
+    isProhibited: Boolean(formData.prohibitedStatus),
+    prohibitionDate: formData.prohibitedSentenceDate || undefined,
+    prohibitionPeriod: formData.prohibitedPeriod || '',
+    firDetails: [{
+      firNumber: formData.firNumber || '',
+      underSection: formData.underSection || '',
+      policeStation: formData.policeStationCriminal || '',
+      unit: formData.criminalUnit || '',
+      district: formData.criminalDistrict || '',
+      state: formData.criminalState || '',
+      offence: formData.offence || '',
+      sentence: formData.sentence || '',
+      sentenceDate: formData.sentenceDate || undefined
+    }]
+  }];
+
+  // Biometric Details
+  payload.biometricData = {
+    fingerprints: formData.selectedFingerprint || null,
+    signature: formData.signature || null,
+    irisScan: formData.irisScan || null
+  };
+
+  // Document Uploads
+  const getFileUrlAndName = (fileState: any) => {
+    if (!fileState) return null;
+    if (typeof fileState === 'string') return { fileUrl: fileState, fileName: 'document' };
+    if (fileState.url || fileState.fileUrl) {
+      return {
+        fileUrl: fileState.url || fileState.fileUrl,
+        fileName: fileState.name || fileState.fileName || 'document',
+        fileSize: fileState.size || fileState.fileSize || 0
+      };
     }
-  }
-  if (formData.hasSafeCustody) {
-    licenseHistoryPayload.hasSafePlace = formData.hasSafeCustody;
-    if (formData.safeCustodyDetails)
-      licenseHistoryPayload.safePlaceDetails = formData.safeCustodyDetails;
-  }
-  if (formData.hasTrainingUnderRule10) {
-    licenseHistoryPayload.hasTraining = formData.hasTrainingUnderRule10;
-    if (formData.trainingDetails) licenseHistoryPayload.trainingDetails = formData.trainingDetails;
-  }
-  if (Object.keys(licenseHistoryPayload).length > 0) {
-    payload.licenseHistories = [licenseHistoryPayload];
+    return null;
+  };
+
+  const documentKeysMap: Record<string, string> = {
+    idProofUploaded: 'AADHAR_CARD',
+    panCardUploaded: 'PAN_CARD',
+    trainingCertificateUploaded: 'TRAINING_CERTIFICATE',
+    medicalCertificateUploaded: 'MEDICAL_REPORT',
+    otherStateLicenseUploaded: 'OTHER_STATE_LICENSE',
+    existingArmsLicenseUploaded: 'EXISTING_LICENSE',
+    safeCustodyUploaded: 'SAFE_CUSTODY',
+    photographUploaded: 'PHOTOGRAPH',
+    claimDocsUploaded: 'CLAIM_DOCS',
+    otherUploaded: 'OTHER',
+  };
+
+  const fileUploads: any[] = [];
+  Object.entries(documentKeysMap).forEach(([formKey, fileType]) => {
+    const fileData = getFileUrlAndName((formData as any)[formKey]);
+    if (fileData) {
+      fileUploads.push({
+        fileType,
+        fileUrl: fileData.fileUrl,
+        fileName: fileData.fileName,
+        fileSize: fileData.fileSize || 0
+      });
+    }
+  });
+
+  if (fileUploads.length > 0) {
+    payload.fileUploads = fileUploads;
   }
 
   payload.acceptanceFlags = {
@@ -1795,7 +1834,12 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
     applicantIdNumber: getTextValue(data?.applicantIdNumber, personalDetails?.applicantIdNumber),
     aadharNumber: getTextValue(data?.aadharNumber, personalDetails?.aadharNumber),
     panNumber: getTextValue(data?.panNumber, personalDetails?.panNumber),
-    applicantMobile: getTextValue(data?.applicantMobile, personalDetails?.applicantMobile),
+    applicantMobile: getTextValue(
+      data?.applicantMobile,
+      personalDetails?.applicantMobile,
+      data?.presentAddress?.officeMobileNumber,
+      data?.permanentAddress?.officeMobileNumber
+    ),
     applicantEmail: getTextValue(data?.applicantEmail, personalDetails?.applicantEmail),
     filledBy: getTextValue(data?.filledBy, personalDetails?.filledBy),
     dobInWords: getTextValue(data?.dobInWords, personalDetails?.dobInWords),
@@ -1824,25 +1868,10 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
   };
 };
 
-const buildFormDataFromRenewalRecord = async (renewalData: any, applicationId: string) => {
-  const renewalState = buildRootDataFromRenewal(renewalData);
-  const freshAppId = resolveFreshApplicationId(renewalData, applicationId);
-
-  if (!freshAppId) {
-    return renewalState;
-  }
-
-  try {
-    const freshData = await fetchFreshApplicationWithFiles(freshAppId);
-    if (freshData) {
-      const freshState = buildFieldStateFromFreshApplication(freshAppId, freshData);
-      return mergeRenewalStateOverFresh(freshState, renewalState, renewalData);
-    }
-  } catch (freshError) {
-    console.warn('Unable to fetch fresh application fallback data', freshError);
-  }
-
-  return renewalState;
+const buildFormDataFromRenewalRecord = async (renewalData: any, _applicationId: string) => {
+  // When a renewal record exists, use it as the sole source of truth.
+  // Do NOT fetch fresh application data — renewal data takes full precedence.
+  return buildRootDataFromRenewal(renewalData);
 };
 
 const loadExistingRenewalByLicenseNumber = async (
@@ -2076,57 +2105,96 @@ function RenewalFormPageContent() {
       return;
     }
 
+    const loadRenewalById = async (rId: string) => {
+      const renewalResponse = await RenewalService.getRenewalForm(rId);
+      const renewalData = extractData(renewalResponse);
+      if (!renewalData) {
+        throw new Error('No saved renewal data was returned for the renewal ID.');
+      }
+
+      const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
+      const isSubmitted = Boolean(renewalData?.isSubmit);
+      if (workflowCode === 'APPROVED' || isSubmitted) {
+        setIsReadOnly(true);
+        setShowReadOnlyModal(true);
+      }
+
+      setRenewalRecord(renewalData);
+
+      // Fetch fresh application data to display and pre-fill renewal form
+      const freshData = await fetchFreshApplicationWithFiles(applicationId);
+      let mergedFormData: RenewalFormState;
+      if (freshData) {
+        const freshFormState = buildFieldStateFromFreshApplication(applicationId, freshData);
+        const renewalFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
+        mergedFormData = mergeRenewalStateOverFresh(freshFormState, renewalFormData, renewalData);
+      } else {
+        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
+      }
+
+      const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
+        rId,
+        mergedFormData
+      );
+      setFormData(syncedForm as RenewalFormState);
+      setStatusMessage(
+        synced
+          ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, rId)}; prefilled documents saved via upload-file.`
+          : `Loaded renewal application ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, rId)}.`
+      );
+      return renewalData;
+    };
+
     const load = async () => {
       try {
         setIsLoading(true);
         setError(null);
         setStatusMessage(null);
 
+        // Path A: renewalId is already known — load renewal directly, no fresh data needed.
         if (renewalId) {
-          const renewalResponse = await RenewalService.getRenewalForm(renewalId);
-          const renewalData = extractData(renewalResponse);
-          if (!renewalData) {
-            throw new Error('No saved renewal data was returned for the renewal ID.');
-          }
-
-          const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
-          if (workflowCode === 'APPROVED') {
-            setIsReadOnly(true);
-            setShowReadOnlyModal(true);
-          }
-
-          setRenewalRecord(renewalData);
-          const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
-          const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
-            renewalId,
-            mergedFormData
-          );
-          setFormData(syncedForm as RenewalFormState);
-          setStatusMessage(
-            synced
-              ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, renewalId)}; prefilled documents saved via upload-file.`
-              : `Loaded renewal application ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, renewalId)}.`
-          );
+          await loadRenewalById(renewalId);
           return;
         }
 
+        // Path B: Only applicationId — fetch fresh app, check for existing renewal.
+        // Step 1: Fetch fresh application data to extract licenseNumber.
         const freshData = await fetchFreshApplicationWithFiles(applicationId);
 
         if (!freshData) {
           throw new Error('No fresh application data found for the provided ID.');
         }
 
+        const licenseNumber = getLicenseNumber(freshData);
+
+        // Step 2: Search for existing renewal by licenseNumber.
+        if (licenseNumber) {
+          const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
+
+          if (existingRenewal) {
+            // Existing renewal found — load renewal data as sole source of truth.
+            const existingRenewalId = getTextValue(existingRenewal?.id, existingRenewal?.renewalApplicationId);
+            if (existingRenewalId) {
+              createdRenewalIdRef.current = existingRenewalId;
+              await loadRenewalById(existingRenewalId);
+              // Update URL to include renewalId.
+              router.replace(
+                `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+              );
+              return;
+            }
+          }
+        }
+
+        // Step 3: No existing renewal — use fresh data to create new draft.
         console.log('Renewal load:', {
           applicationId,
           fileUploads: collectUploadedFilesFromApi(freshData),
         });
         const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
 
-        // Validate that the fresh application has been submitted
+        // Validate that the fresh application has been submitted.
         const applicationCheckResponse = await ApplicationService.getApplication(applicationId);
-        console.log('Application check response:', applicationCheckResponse);
-
-        // Check if application is submitted (isSubmit should be true)
         const isSubmitted =
           applicationCheckResponse?.isSubmit === true ||
           applicationCheckResponse?.data?.isSubmit === true;

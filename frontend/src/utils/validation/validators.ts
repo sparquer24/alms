@@ -255,7 +255,8 @@ export function validateDate(
   }
   if (!v) return '';
 
-  const date = new Date(v + 'T00:00:00');
+  // Handle both YYYY-MM-DD and full ISO datetime strings (e.g. 2023-05-15T00:00:00.000Z)
+  const date = v.includes('T') ? new Date(v) : new Date(v + 'T00:00:00');
   if (isNaN(date.getTime())) {
     return overrides?.format || 'Please enter a valid date.';
   }

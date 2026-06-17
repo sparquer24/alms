@@ -485,44 +485,7 @@ export const NotificationApi = {
   }
 };
 
-/**
- * QR Code API client - Requires authentication (ZS role only)
- */
-export const QRCodeApi = {
-  /**
-   * Generate QR code for an application
-   * Only ZS role users can generate QR codes
-   */
-  generate: async (applicationId: string | number): Promise<ApiResponse<{
-    applicationId: number;
-    acknowledgementNo: string | null;
-    qrCodeDataUrl: string;
-    publicUrl: string;
-  }>> => {
-    try {
-      return await apiClient.get(`/qrcode/generate/${applicationId}`);
-    } catch (error) {
-      throw error;
-    }
-  },
 
-  /**
-   * Check if current user can generate QR code for an application
-   */
-  checkPermission: async (applicationId: string | number): Promise<ApiResponse<{
-    canGenerate: boolean;
-    applicationId: number;
-    applicationExists: boolean;
-    userHasPermission: boolean;
-    reason?: string | null;
-  }>> => {
-    try {
-      return await apiClient.get(`/qrcode/check/${applicationId}`);
-    } catch (error) {
-      throw error;
-    }
-  },
-};
 
 /**
  * Public API client - No authentication required
@@ -533,10 +496,11 @@ export const PublicApi = {
    * Get public application details (no auth required)
    * Used when scanning QR code
    */
-  getApplicationDetails: async (applicationId: string | number): Promise<ApiResponse<any>> => {
+  getApplicationDetails: async (applicationId: string | number, type?: string): Promise<ApiResponse<any>> => {
     try {
       // Use raw axios instance to bypass auth header requirement
-      const response = await axiosInstance.get(`/public/application/${applicationId}`);
+      const url = type ? `/public/application/${applicationId}?type=${type}` : `/public/application/${applicationId}`;
+      const response = await axiosInstance.get(url);
       return response.data;
     } catch (error) {
       throw error;

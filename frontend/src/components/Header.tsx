@@ -9,6 +9,7 @@ import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
 import { ApplicationService } from '../api/applicationService';
+import { RenewalService } from '../api/renewalService';
 
 interface BreadcrumbItem {
   label: string;
@@ -33,10 +34,20 @@ interface HeaderProps {
   hidePrint?: boolean;
   /** Hide the Create Form button even if sidebar is visible */
   hideCreateForm?: boolean;
+  /** Optional application type label to display in the header */
+  applicationTypeLabel?: string;
 }
 
 const Header = (props: HeaderProps) => {
-  const { onShowMessage, breadcrumbs, pageTitle: _pageTitle, statusBadge, hidePrint, hideCreateForm } = props;
+  const {
+    onShowMessage,
+    breadcrumbs,
+    pageTitle: _pageTitle,
+    statusBadge,
+    hidePrint,
+    hideCreateForm,
+    applicationTypeLabel,
+  } = props;
   const { showHeader, showSidebar } = useLayout();
   const { userName, isLoading, user, userRole: hookUserRole } = useAuth();
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
@@ -72,11 +83,25 @@ const Header = (props: HeaderProps) => {
     }
   };
 
+  const getLicenseNumber = (data: any): string => {
+    if (!data) return '';
+    return (
+      data.licenseNumber ||
+      data.almsLicenseId ||
+      data.licenseId ||
+      data.previousLicenseNumber ||
+      data.licenseHistories?.[0]?.previousLicenseNumber ||
+      data.licenseHistory?.[0]?.previousLicenseNumber ||
+      data.previousApplicationDetails?.previousLicenseNumber ||
+      ''
+    );
+  };
+
   const handleRenewalSubmit = async () => {
     const id = renewalApplicationId.trim();
 
     if (!id) {
-      setRenewalLookupError('Enter a Fresh Application ID.');
+      setRenewalLookupError('Enter a Fresh Application ID or Acknowledgement Number.');
       return;
     }
 
@@ -92,17 +117,96 @@ const Header = (props: HeaderProps) => {
       }
 
       const workflowStatusCode = freshApplication?.workflowStatus?.code?.toString().toUpperCase();
-      const hasApprovedHistory = Array.isArray(freshApplication?.workflowHistories)
-        && freshApplication.workflowHistories.some((history: any) =>
-          history?.actionTaken?.toString().toUpperCase() === 'APPROVED'
+      const hasApprovedHistory =
+        Array.isArray(freshApplication?.workflowHistories) &&
+        freshApplication.workflowHistories.some(
+          (history: any) => history?.actionTaken?.toString().toUpperCase() === 'APPROVED'
         );
 
       if (workflowStatusCode !== 'APPROVED' && !hasApprovedHistory) {
         throw new Error('Only approved fresh applications can create a renewal form.');
       }
 
+      const licenseNumber = getLicenseNumber(freshApplication);
+      if (licenseNumber) {
+        const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
+        if (existingRenewal) {
+          const existingRenewalId = existingRenewal.id || existingRenewal.renewalApplicationId;
+          if (existingRenewalId) {
+            // Display the existing Renewal ID
+            setRenewalLookupError(
+              `Renewal already exists (Renewal ID: ${existingRenewalId}). Redirecting...`
+            );
+            setTimeout(() => {
+              setShowRenewalModal(false);
+              router.push(
+                `/forms/renewal?applicationId=${encodeURIComponent(id)}&renewalId=${encodeURIComponent(String(existingRenewalId))}`
+              );
+            }, 1500);
+            return;
+          }
+        }
+      }
+
+      // Create new Renewal Application using Renewal creation API
+      const getSexValue = (val: any): 'MALE' | 'FEMALE' | 'OTHER' => {
+        const s = String(val || '').toUpperCase();
+        if (s === 'FEMALE') return 'FEMALE';
+        if (s === 'OTHER') return 'OTHER';
+        return 'MALE';
+      };
+
+      const formatDate = (val: any): string => {
+        if (!val) return '';
+        try {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+          }
+        } catch {}
+        return '';
+      };
+
+      const payload = {
+        licenseNumber,
+        firstName:
+          freshApplication.firstName ||
+          freshApplication.personalDetails?.firstName ||
+          freshApplication.applicantName ||
+          'N/A',
+        middleName:
+          freshApplication.middleName || freshApplication.personalDetails?.middleName || '',
+        lastName: freshApplication.lastName || freshApplication.personalDetails?.lastName || '',
+        parentOrSpouseName:
+          freshApplication.parentOrSpouseName ||
+          freshApplication.personalDetails?.parentOrSpouseName ||
+          freshApplication.fatherName ||
+          'N/A',
+        sex: getSexValue(
+          freshApplication.sex || freshApplication.personalDetails?.sex || freshApplication.gender
+        ),
+        dateOfBirth: formatDate(
+          freshApplication.dateOfBirth || freshApplication.personalDetails?.dateOfBirth
+        ),
+        dobInWords:
+          freshApplication.dobInWords || freshApplication.personalDetails?.dobInWords || '',
+        panNumber: freshApplication.panNumber || '',
+        aadharNumber: freshApplication.aadharNumber || freshApplication.aadhaarNumber || '',
+        filledBy: freshApplication.filledBy || '',
+      };
+
+      const createResponse = await RenewalService.createRenewalForm(payload);
+      const created = createResponse?.data ?? createResponse;
+      const newRenewalId = created?.id || created?.renewalApplicationId;
+
+      if (!newRenewalId) {
+        throw new Error('Renewal application was created but no renewal ID was returned.');
+      }
+
       setShowRenewalModal(false);
-      router.push(`/forms/renewal?applicationId=${encodeURIComponent(id)}`);
+      router.push(
+        `/forms/renewal?applicationId=${encodeURIComponent(id)}&renewalId=${encodeURIComponent(String(newRenewalId))}`
+      );
     } catch (error: any) {
       const message = error?.message || 'Unable to fetch fresh application data.';
       setRenewalLookupError(message);
@@ -199,7 +303,54 @@ const Header = (props: HeaderProps) => {
         </div>
 
         {/* Right section: status badge + actions */}
-        <div className='flex items-center space-x-3 justify-end flex-shrink-0'>
+        <div className='flex items-center space-x-3  justify-end flex-shrink-0'>
+          {/* Application Type badge */}
+          {applicationTypeLabel && (
+            <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
+              <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0'>
+                {applicationTypeLabel.toLowerCase().includes('renewal') ? (
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M6 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M6 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                    />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <span
+                  className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border whitespace-nowrap ${
+                    applicationTypeLabel.toLowerCase().includes('renewal')
+                      ? 'bg-[#D97706] text-white border-[#B45309]'
+                      : 'bg-[#059669] text-white border-[#047857]'
+                  }`}
+                >
+                  {applicationTypeLabel}
+                </span>
+              </div>
+            </div>
+          )}
           {/* Status badge */}
           {statusBadge && (
             <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
@@ -261,27 +412,27 @@ const Header = (props: HeaderProps) => {
           </div>
           {/* Print button - hidden when hidePrint is true */}
           {!hidePrint && (
-          <button
-            onClick={() => globalThis.print()}
-            className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
-            aria-label='Print page'
-            title='Print'
-          >
-            <svg
-              xmlns='http://www.w3.org/2000/svg'
-              className='h-6 w-6'
-              fill='none'
-              viewBox='0 0 24 24'
-              stroke='currentColor'
+            <button
+              onClick={() => globalThis.print()}
+              className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
+              aria-label='Print page'
+              title='Print'
             >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth={2}
-                d='M6 9V2h12v7m-6 4v6m-6 0h12'
-              />
-            </svg>
-          </button>
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                className='h-6 w-6'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M6 9V2h12v7m-6 4v6m-6 0h12'
+                />
+              </svg>
+            </button>
           )}
           {hasValidUserName && (
             <Link
@@ -300,10 +451,17 @@ const Header = (props: HeaderProps) => {
         <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
           <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
             <h2 className='text-lg font-semibold text-gray-900'>Renewal Application</h2>
-            <p className='mt-2 text-sm text-gray-600'>Enter the approved Fresh Application ID to load the existing application data.</p>
+            <p className='mt-2 text-sm text-gray-600'>
+              Enter the approved Fresh Application ID or Acknowledgement Number to load the existing application data.
+            </p>
 
             <div className='mt-4'>
-              <label htmlFor='renewal-application-id' className='block text-sm font-medium text-gray-700'>Fresh Application ID</label>
+              <label
+                htmlFor='renewal-application-id'
+                className='block text-sm font-medium text-gray-700'
+              >
+                Fresh Application ID / Acknowledgement Number
+              </label>
               <input
                 id='renewal-application-id'
                 value={renewalApplicationId}
@@ -311,11 +469,13 @@ const Header = (props: HeaderProps) => {
                   setRenewalApplicationId(e.target.value);
                   if (renewalLookupError) setRenewalLookupError(null);
                 }}
-                placeholder='Enter Fresh Application ID'
+                placeholder='Enter ID or Acknowledgement Number (e.g., ALMS...)'
                 className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
                 autoFocus
               />
-              {renewalLookupError && <p className='mt-2 text-sm text-red-600'>{renewalLookupError}</p>}
+              {renewalLookupError && (
+                <p className='mt-2 text-sm text-red-600'>{renewalLookupError}</p>
+              )}
             </div>
 
             <div className='mt-6 flex justify-end gap-3'>

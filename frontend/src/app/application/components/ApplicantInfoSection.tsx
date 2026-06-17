@@ -1,5 +1,4 @@
 import React from 'react';
-import QRCodeDisplay from '../../../components/QRCodeDisplay';
 import { formatGender, formatApplicationType, formatPhone, formatStatusLabel } from '../../../utils/formatters';
 import { getStatusStyle } from '../../../utils/statusColors';
 
@@ -9,6 +8,7 @@ interface ApplicantInfoSectionProps {
   userRole: string;
   handleBrowserPrint: () => void;
   printRef: React.RefObject<HTMLDivElement>;
+  isRenewalView?: boolean;
 }
 
 export default function ApplicantInfoSection({
@@ -16,7 +16,8 @@ export default function ApplicantInfoSection({
   applicationId,
   userRole,
   handleBrowserPrint,
-  printRef
+  printRef,
+  isRenewalView
 }: ApplicantInfoSectionProps) {
   const applicantName = [
     application?.firstName,
@@ -173,24 +174,31 @@ export default function ApplicantInfoSection({
           {/* Right-side card - photo in top-right and form-like summary */}
           <aside className='lg:col-span-1 border border-gray-200 rounded-xl p-4 bg-gray-50 shadow-sm h-fit'>
             <div className='ml-2 '>
-              {application?.photoUrl ? (
-                <img
-                  src={application.photoUrl}
-                  alt='Applicant Photo'
-                  className='w-60 h-60 object-cover rounded-md border bg-white'
-                />
-              ) : (
-                <div className='w-60 h-60 bg-gray-100 rounded-md border flex items-center justify-center text-gray-400 text-sm'>
-                  No Photo Available
-                </div>
-              )}
+              {(() => {
+                let displayPhotoUrl = application?.photoUrl;
+                if (!displayPhotoUrl) {
+                  const files = application?.documents || application?.fileUploads || application?.renewalFileUploads || application?.uploads || [];
+                  const photoFile = files.find((f: any) => String(f?.fileType || f?.type || '').toUpperCase() === 'PHOTOGRAPH');
+                  if (photoFile) {
+                    displayPhotoUrl = photoFile.fileUrl || photoFile.url || photoFile.path;
+                  }
+                }
+                
+                return displayPhotoUrl ? (
+                  <img
+                    src={displayPhotoUrl}
+                    alt='Applicant Photo'
+                    className='w-60 h-60 object-cover rounded-md border bg-white'
+                  />
+                ) : (
+                  <div className='w-60 h-60 bg-gray-100 rounded-md border flex items-center justify-center text-gray-400 text-sm'>
+                    No Photo Available
+                  </div>
+                );
+              })()}
             </div>
 
-            {application && (
-              <div className='mt-4'>
-                <QRCodeDisplay applicationId={application.id} userRole={userRole} />
-              </div>
-            )}
+
 
             <div className='mt-6 bg-white rounded-lg p-4 border border-gray-100'>
               <h3 className='text-sm font-semibold text-gray-700 mb-3'>Profile</h3>

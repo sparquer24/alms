@@ -438,7 +438,7 @@ const CriminalHistory = () => {
 								value={prov.firNumber} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter FIR number" 
+								placeholder="e.g., FIR 2023001" 
 								error={fieldErrors[`firNumber_${idx}`]}
 								required
 							/>
@@ -448,7 +448,7 @@ const CriminalHistory = () => {
 								value={prov.underSection} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter section" 
+								placeholder="e.g., Section 302 IPC" 
 								error={fieldErrors[`underSection_${idx}`]}
 								required
 							/>
@@ -458,7 +458,7 @@ const CriminalHistory = () => {
 								value={prov.policeStation} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter police station" 
+								placeholder="e.g., Saifabad PS" 
 								error={fieldErrors[`policeStation_${idx}`]}
 								required
 							/>
@@ -470,7 +470,7 @@ const CriminalHistory = () => {
 								value={prov.unit} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter unit" 
+								placeholder="e.g., Central Zone" 
 								error={fieldErrors[`unit_${idx}`]}
 								required
 							/>
@@ -480,7 +480,7 @@ const CriminalHistory = () => {
 								value={prov.district} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter district" 
+								placeholder="e.g., Hyderabad" 
 								error={fieldErrors[`district_${idx}`]}
 								required
 							/>
@@ -490,7 +490,7 @@ const CriminalHistory = () => {
 								value={prov.state} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter state" 
+								placeholder="e.g., Telangana" 
 								error={fieldErrors[`state_${idx}`]}
 								required
 							/>
@@ -503,7 +503,7 @@ const CriminalHistory = () => {
 								value={prov.offence} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter offence" 
+								placeholder="e.g., Arms Act Violation" 
 								error={fieldErrors[`offence_${idx}`]}
 								required
 							/>
@@ -513,7 +513,7 @@ const CriminalHistory = () => {
 								value={prov.sentence} 
 								onChange={e => handleProvisionChange(idx, e)} 
 								onBlur={e => handleProvisionBlur(idx, e)}
-								placeholder="Enter sentence" 
+								placeholder="e.g., 6 Months Imprisonment" 
 								error={fieldErrors[`sentence_${idx}`]}
 								required
 							/>
@@ -593,7 +593,7 @@ const CriminalHistory = () => {
 							name="period" 
 							value={bondDetails.period} 
 							onChange={e => handleBondChange('period', e.target.value)} 
-							placeholder="Enter period" 
+							placeholder="e.g., 12 Months" 
 							error={fieldErrors.bondPeriod}
 							required
 						/>
@@ -651,7 +651,7 @@ const CriminalHistory = () => {
 							name="period" 
 							value={prohibitedDetails.period} 
 							onChange={e => handleProhibitedChange('period', e.target.value)} 
-							placeholder="Enter period" 
+							placeholder="e.g., 24 Months" 
 							error={fieldErrors.prohibitionPeriod}
 							required
 						/>

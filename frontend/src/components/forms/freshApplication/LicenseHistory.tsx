@@ -31,15 +31,13 @@ const validateLicenseHistory = (formData: any) => {
 			if (authErr) errors.appliedAuthority = authErr;
 			const resultErr = validateSelect(history.previousResult ?? '', true, { required: 'Result is required' });
 			if (resultErr) errors.appliedResult = resultErr;
-			if (history.previousResult === 'REJECTED' && (!history.rejectedLicenseFiles || history.rejectedLicenseFiles.length === 0)) {
-				errors.rejectedFiles = 'Please upload previously rejected license documents';
-			}
+
 		}
 		
 		if (history.hasLicenceSuspended) {
 			const suspAuthErr = validateText(history.suspensionAuthorityName ?? '', true, { required: 'Authority is required' });
 			if (suspAuthErr) errors.suspendedAuthority = suspAuthErr;
-			const reasonErr = validateText(history.suspensionReason ?? '', true, { required: 'Reason is required' });
+			const reasonErr = validateGeneralText(history.suspensionReason ?? '', true, { required: 'Reason is required' });
 			if (reasonErr) errors.suspendedReason = reasonErr;
 		}
 		
@@ -49,17 +47,17 @@ const validateLicenseHistory = (formData: any) => {
 			const licErr = validateGeneralText(history.familyLicenceNumber ?? '', true, { required: 'License number is required' });
 			if (licErr) errors.familyLicenseNumber = licErr;
 			if (!history.familyWeaponsEndorsed || history.familyWeaponsEndorsed.length === 0) {
-				errors.familyWeapons = 'At least one weapon must be selected';
+				errors.familyWeapons = 'Please select a weapon.';
 			}
 		}
 		
 		if (history.hasSafePlace) {
-			const safeErr = validateText(history.safePlaceDetails ?? '', true, { required: 'Safe place details are required' });
+			const safeErr = validateGeneralText(history.safePlaceDetails ?? '', true, { required: 'Safe place details are required' });
 			if (safeErr) errors.safePlaceDetails = safeErr;
 		}
 		
 		if (history.hasTraining) {
-			const trainErr = validateText(history.trainingDetails ?? '', true, { required: 'Training details are required' });
+			const trainErr = validateGeneralText(history.trainingDetails ?? '', true, { required: 'Training details are required' });
 			if (trainErr) errors.trainingDetails = trainErr;
 		}
 	}
@@ -85,6 +83,7 @@ const LicenseHistory = () => {
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
+	const [validationSummary, setValidationSummary] = useState<Record<string, string>>({});
 	
 	// Ref to prevent backend data from overwriting fresh form data (useRef to avoid re-renders)
 	const isUpdatingFormRef = useRef(false);
@@ -112,8 +111,10 @@ const LicenseHistory = () => {
 		formSection: 'license-history',
 		validationRules: validateLicenseHistory,
 	});
+	// Track whether we've already hydrated from backend data
+	const hasHydrated = React.useRef(false);
 
-	// Load existing data into local state when form data changes
+	// Load existing data into local state ONCE when form data arrives from backend
 	useEffect(() => {
 		// Skip loading if we're currently updating the form to prevent overwriting
 		if (isUpdatingFormRef.current) {
@@ -121,7 +122,9 @@ const LicenseHistory = () => {
 		}
 		
 		if (form.licenseHistories && form.licenseHistories.length > 0) {
-			const history = form.licenseHistories[0]; // Get the first license history record
+			const history = form.licenseHistories[0];
+			hasHydrated.current = true; // Mark as hydrated
+			
 			// Map backend data to local state
 			if (history.hasAppliedBefore !== undefined) {
 				setAppliedBefore(history.hasAppliedBefore ? 'yes' : 'no');
@@ -150,11 +153,17 @@ const LicenseHistory = () => {
 				setFamily(history.hasFamilyLicence ? 'yes' : 'no');
 				
 				if (history.hasFamilyLicence && (history.familyMemberName || history.familyLicenceNumber || history.familyWeaponsEndorsed)) {
-					// Map weapon names back to IDs
-					const weaponIds = (history.familyWeaponsEndorsed || []).map((weaponName: string) => {
-						const weapon = weapons.find(w => w.name === weaponName);
+					// Map weapon data back to IDs — handles both numeric IDs and weapon name strings from backend
+					const weaponIds = (history.familyWeaponsEndorsed || []).map((item: any) => {
+						if (typeof item === 'number') return item;
+						const weapon = weapons.find(w => w.name === item);
 						return weapon ? weapon.id : 0;
 					}).filter((id: number) => id !== 0);
+					
+					// If weapons aren't loaded yet and we got string names, defer hydration
+					if (history.familyWeaponsEndorsed?.length > 0 && weaponIds.length === 0 && weapons.length === 0) {
+						hasHydrated.current = false; // Retry when weapons load
+					}
 					
 					setFamilyDetails([{
 						name: history.familyMemberName || '',
@@ -347,9 +356,21 @@ const LicenseHistory = () => {
 		}
 	};
 
-	const removeFile = (index: number) => {
+	const removeFile = async (index: number) => {
 		const fileToRemove = rejectedFiles[index];
 		if (fileToRemove) {
+			// Check if this file has been uploaded to the server
+			const uploadedFile = uploadedFiles.find(uploaded => uploaded.fileName === fileToRemove.name);
+			
+			if (uploadedFile?.id) {
+				try {
+					await FileUploadService.deleteFile(uploadedFile.id);
+				} catch (error) {
+					setFileError('Failed to delete file from server. Please try again.');
+					return;
+				}
+			}
+
 			setRejectedFiles(prev => prev.filter((_, i) => i !== index));
 			setUploadedFiles(prev => prev.filter(uploaded => uploaded.fileName !== fileToRemove.name));
 			
@@ -381,7 +402,7 @@ const LicenseHistory = () => {
 		const errorKey = errorKeyMap[name] || name;
 		const err = name === 'authority'
 			? validateText(processedValue, true, { required: 'Authority is required' })
-			: validateText(processedValue, true, { required: 'Reason is required' });
+			: validateGeneralText(processedValue, true, { required: 'Reason is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
@@ -394,7 +415,9 @@ const LicenseHistory = () => {
 		}
 		const errorKeyMap: Record<string, string> = { authority: 'suspendedAuthority', reason: 'suspendedReason' };
 		const errorKey = errorKeyMap[name] || name;
-		const err = validateText(trimmed, true, { required: name === 'authority' ? 'Authority is required' : 'Reason is required' });
+		const err = name === 'authority'
+			? validateText(trimmed, true, { required: 'Authority is required' })
+			: validateGeneralText(trimmed, true, { required: 'Reason is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
@@ -415,7 +438,7 @@ const LicenseHistory = () => {
 		const errorKey = errorKeyMap[name] || name;
 		const err = name === 'name'
 			? validateText(processedValue, true, { required: 'Family member name is required' })
-			: validateText(processedValue, true, { required: 'License number is required' });
+			: validateGeneralText(processedValue, true, { required: 'License number is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
@@ -428,18 +451,25 @@ const LicenseHistory = () => {
 		}
 		const errorKeyMap: Record<string, string> = { name: 'familyName', licenseNumber: 'familyLicenseNumber' };
 		const errorKey = errorKeyMap[name] || name;
-		const err = validateText(trimmed, true, { required: name === 'name' ? 'Family member name is required' : 'License number is required' });
+		const err = name === 'name'
+			? validateText(trimmed, true, { required: 'Family member name is required' })
+			: validateGeneralText(trimmed, true, { required: 'License number is required' });
 		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const handleWeaponChange = (famIdx: number, weapIdx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
 		const weaponId = parseInt(e.target.value);
+		const currentWeapons = familyDetails[famIdx]?.weapons || [];
+		// Prevent selecting a weapon that's already chosen in another slot
+		if (currentWeapons.some((w, wi) => w === weaponId && wi !== weapIdx)) {
+			setFieldErrors((prev: any) => ({ ...prev, [`familyWeapon_${weapIdx}`]: 'This weapon is already selected' }));
+			return;
+		}
 		setFamilyDetails(prev => prev.map((fam, i) => 
 			i === famIdx ? { ...fam, weapons: fam.weapons.map((w, wi) => wi === weapIdx ? weaponId : w) } : fam
 		));
-		if (fieldErrors.familyWeapons) {
-			setFieldErrors((prev: any) => ({ ...prev, familyWeapons: '' }));
-		}
+		// Clear errors for this slot and general weapon error
+		setFieldErrors((prev: any) => ({ ...prev, familyWeapons: '', [`familyWeapon_${weapIdx}`]: '' }));
 	};
 
 	const addWeapon = (famIdx: number) => {
@@ -449,9 +479,12 @@ const LicenseHistory = () => {
 	};
 
 	const removeWeapon = (famIdx: number, weapIdx: number) => {
-		setFamilyDetails(prev => prev.map((fam, i) => 
-			i === famIdx ? { ...fam, weapons: fam.weapons.filter((_, wi) => wi !== weapIdx) } : fam
-		));
+		setFamilyDetails(prev => prev.map((fam, i) => {
+			if (i !== famIdx) return fam;
+			const remaining = fam.weapons.filter((_, wi) => wi !== weapIdx);
+			// If last weapon is removed, reset to empty selection
+			return { ...fam, weapons: remaining.length > 0 ? remaining : [0] };
+		}));
 	};
 
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
@@ -460,7 +493,7 @@ const LicenseHistory = () => {
 		isUpdatingFormRef.current = true;
 		const { value } = e.target;
 		setSafePlaceDetails(value);
-		const err = validateText(value, true, { required: 'Safe place details are required' });
+		const err = validateGeneralText(value, true, { required: 'Safe place details are required' });
 		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
 		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
@@ -470,7 +503,7 @@ const LicenseHistory = () => {
 		if (trimmed !== e.target.value) {
 			setSafePlaceDetails(trimmed);
 		}
-		const err = validateText(trimmed, true, { required: 'Safe place details are required' });
+		const err = validateGeneralText(trimmed, true, { required: 'Safe place details are required' });
 		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
 	};
 
@@ -478,7 +511,7 @@ const LicenseHistory = () => {
 		isUpdatingFormRef.current = true;
 		const { value } = e.target;
 		setTrainingDetails(value);
-		const err = validateText(value, true, { required: 'Training details are required' });
+		const err = validateGeneralText(value, true, { required: 'Training details are required' });
 		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
 		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
 	};
@@ -488,7 +521,7 @@ const LicenseHistory = () => {
 		if (trimmed !== e.target.value) {
 			setTrainingDetails(trimmed);
 		}
-		const err = validateText(trimmed, true, { required: 'Training details are required' });
+		const err = validateGeneralText(trimmed, true, { required: 'Training details are required' });
 		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
 	};
 
@@ -498,11 +531,18 @@ const LicenseHistory = () => {
 			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? appliedDetails.date : null,
 			previousAuthorityName: appliedBefore === 'yes' ? appliedDetails.authority || null : null,
 			previousResult: appliedBefore === 'yes' ? appliedDetails.result?.toUpperCase() || null : null,
-			rejectedLicenseFiles: (appliedBefore === 'yes' && appliedDetails.result === 'rejected') ? rejectedFiles.map(file => ({
-				name: file.name,
-				size: file.size,
-				type: file.type
-			})) : [],
+			rejectedLicenseFiles: (appliedBefore === 'yes' && appliedDetails.result === 'rejected') ? [
+				...rejectedFiles.map(file => ({
+					name: file.name,
+					size: file.size,
+					type: file.type
+				})),
+				...uploadedFiles.map(uf => ({
+					name: uf.fileName,
+					size: uf.fileSize || 0,
+					type: uf.fileType || 'application/octet-stream'
+				}))
+			] : [],
 			hasLicenceSuspended: suspended === 'yes',
 			suspensionAuthorityName: suspended === 'yes' ? suspendedDetails.authority || null : null,
 			suspensionReason: suspended === 'yes' ? suspendedDetails.reason || null : null,
@@ -514,9 +554,8 @@ const LicenseHistory = () => {
 					.filter(weaponId => weaponId !== 0)
 					.map(weaponId => {
 						const weapon = weapons.find(w => w.id === weaponId);
-						return weapon ? weapon.name : null;
+						return weapon ? weapon.name : String(weaponId);
 					})
-					.filter(Boolean)
 				: [],
 			hasSafePlace: safePlace === 'yes',
 			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails || null : null,
@@ -529,6 +568,12 @@ const LicenseHistory = () => {
 	const isFormValid = useMemo(() => {
 		const transformed = { licenseHistories: transformFormData() };
 		const errs = validateLicenseHistory(transformed);
+		// DEBUG: log to console
+		if (Object.keys(errs).length > 0) {
+			console.log('🔍 [LicenseHistory] Validation errors:', errs);
+			console.log('🔍 [LicenseHistory] Transformed data:', JSON.stringify(transformed.licenseHistories[0], null, 2));
+		}
+		setValidationSummary(errs);
 		return Object.keys(errs).length === 0;
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [appliedBefore, appliedDetails, rejectedFiles, uploadedFiles, suspended, suspendedDetails, family, familyDetails, safePlace, safePlaceDetails, training, trainingDetails, weapons]);
@@ -689,7 +734,7 @@ const LicenseHistory = () => {
 							value={appliedDetails.authority} 
 							onChange={handleAppliedDetails} 
 							onBlur={handleAppliedBlur}
-							placeholder="Enter authority" 
+							placeholder="e.g., District Magistrate Hyderabad" 
 							error={fieldErrors.appliedAuthority}
 							required
 						/>
@@ -858,7 +903,7 @@ const LicenseHistory = () => {
 							value={suspendedDetails.authority} 
 							onChange={handleSuspendedDetails} 
 							onBlur={handleSuspendedBlur}
-							placeholder="Enter authority" 
+							placeholder="e.g., Commissioner of Police" 
 							error={fieldErrors.suspendedAuthority}
 							required
 						/>
@@ -868,7 +913,7 @@ const LicenseHistory = () => {
 							value={suspendedDetails.reason} 
 							onChange={handleSuspendedDetails} 
 							onBlur={handleSuspendedBlur}
-							placeholder="Enter reason" 
+							placeholder="e.g., Violation of license terms" 
 							error={fieldErrors.suspendedReason}
 							required
 						/>
@@ -920,7 +965,7 @@ const LicenseHistory = () => {
 								value={fam.name} 
 								onChange={e => handleFamilyDetails(idx, e)} 
 								onBlur={e => handleFamilyBlur(idx, e)}
-								placeholder="Enter name" 
+								placeholder="e.g., Suresh Kumar" 
 								error={fieldErrors.familyName}
 								required
 							/>
@@ -930,7 +975,7 @@ const LicenseHistory = () => {
 								value={fam.licenseNumber} 
 								onChange={e => handleFamilyDetails(idx, e)} 
 								onBlur={e => handleFamilyBlur(idx, e)}
-								placeholder="Enter license number" 
+								placeholder="e.g., ARM2023HYD001" 
 								error={fieldErrors.familyLicenseNumber}
 								required
 							/>
@@ -952,12 +997,16 @@ const LicenseHistory = () => {
 										value={String(weaponId)}
 										onChange={e => handleWeaponChange(idx, widx, e as any)}
 										disabled={loadingWeapons}
-										options={weapons.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
+										required
+										error={weaponId === 0 ? (fieldErrors[`familyWeapon_${widx}`] || (fieldErrors.familyWeapons ? 'Please select a weapon.' : '')) : fieldErrors[`familyWeapon_${widx}`]}
+										options={weapons
+											.filter(weapon => !fam.weapons.some((w, wi) => w === weapon.id && wi !== widx))
+											.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
 										placeholder={loadingWeapons ? 'Loading weapons...' : 'Select Weapon'}
 									/>
 								</div>
 								<button type="button" className="bg-blue-900 text-white px-2 py-1 rounded" onClick={() => addWeapon(idx)}>+</button>
-								{fam.weapons.length > 1 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
+								{weaponId !== 0 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
 							</div>
 						))}
 						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={() => removeFamily(idx)}>- Remove</button>}
@@ -1003,7 +1052,7 @@ const LicenseHistory = () => {
 						value={safePlaceDetails} 
 						onChange={handleSafePlaceChange}
 						onBlur={handleSafePlaceBlur}
-						placeholder="Enter details" 
+						placeholder="e.g., Steel almirah with double lock in bedroom" 
 						error={fieldErrors.safePlaceDetails}
 						required
 					/>
@@ -1048,13 +1097,25 @@ const LicenseHistory = () => {
 						value={trainingDetails} 
 						onChange={handleTrainingChange}
 						onBlur={handleTrainingBlur}
-						placeholder="Enter details" 
+						placeholder="e.g., Completed 30 day training at Rifle Club" 
 						error={fieldErrors.trainingDetails}
 						required
 					/>
 				)}
 			</div>
 			
+			{/* Show validation errors when Next is disabled */}
+			{!isFormValid && Object.keys(validationSummary).length > 0 && (
+				<div className="mb-4 p-3 bg-red-50 border border-red-300 rounded">
+					<div className="text-sm font-semibold text-red-700 mb-1">Please fix the following to proceed:</div>
+					<ul className="list-disc list-inside text-sm text-red-600">
+						{Object.entries(validationSummary).map(([key, msg]) => (
+							<li key={key}>{msg}</li>
+						))}
+					</ul>
+				</div>
+			)}
+
 			<FormFooter
 				onSaveToDraft={handleSaveToDraft}
 				onNext={handleNext}

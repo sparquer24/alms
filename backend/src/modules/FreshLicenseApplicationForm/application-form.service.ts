@@ -1013,7 +1013,7 @@ export class ApplicationFormService {
       };
 
       // First, fetch the application
-      const application: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      const application: any = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
         where: whereCondition,
         include: {
           workflowStatus: {
