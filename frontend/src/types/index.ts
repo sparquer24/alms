@@ -110,6 +110,8 @@ export interface ApplicationData {
   applicationTime?: string;
   status: ApplicationStatus;
   status_id: string | number; // Numeric status ID for backend compatibility
+  licenseValidity?: string;
+  validTillDate?: string;
   workflowStatus?: {
     id: number;
     code: string;

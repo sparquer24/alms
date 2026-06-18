@@ -911,7 +911,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           'sent',
           'closed',
           'drafts',
-          'finaldisposal',
+          "applications"
         ]);
 
         if (key && topLevelInboxLike.has(key)) {

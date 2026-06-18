@@ -89,7 +89,46 @@ export const initializeAuth = createAsyncThunk(
         return rejectWithValue(null);
       }
 
-      const meResponse = await AuthApi.getMe(token);
+      // Check if we already have valid auth cookies for quick initialization
+      const userCookie = getCookie('user');
+      const roleCookie = getCookie('role');
+      if (userCookie && roleCookie) {
+        try {
+          const user = JSON.parse(userCookie as string);
+          const role = typeof roleCookie === 'string' ? roleCookie.toUpperCase() : null;
+          if (user && role) {
+            dispatch(setCredentials({ user: { ...user, role }, token }));
+            dispatch(setInitialized(true));
+            return { user, token };
+          }
+        } catch {
+          // Continue to full getMe call if cookie parsing fails
+        }
+      }
+
+      // Fetch user data with timeout to prevent hanging on slow/unreachable backend
+      let meResponse: any;
+      try {
+        meResponse = await Promise.race([
+          AuthApi.getMe(token),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
+        ]);
+      } catch {
+        // If getMe fails due to timeout or network error, fall back to cookie data
+        if (userCookie && roleCookie) {
+          try {
+            const user = JSON.parse(userCookie as string);
+            const role = typeof roleCookie === 'string' ? roleCookie.toUpperCase() : null;
+            if (user && role) {
+              dispatch(setCredentials({ user: { ...user, role }, token }));
+              dispatch(setInitialized(true));
+              return { user, token };
+            }
+          } catch { /* ignore */ }
+        }
+        dispatch(setInitialized(true));
+        return rejectWithValue(null);
+      }
 
       // The backend /auth/getMe endpoint returns the user object directly
       // (e.g. { id, username, role, location, ... }), NOT wrapped in

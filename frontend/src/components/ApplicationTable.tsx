@@ -92,6 +92,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Check if we're on the drafts page or sent page
     const isDraftsPage = pageType === 'drafts' || pageType === 'drafts';
     const isSentPage = pageType === 'sent';
+    const isRenewalPage = pageType === 'renewal';
 
     // Local search state
     const [searchQuery, setSearchQuery] = useState<string>('');
@@ -152,12 +153,17 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
-      const base = isSentPage
-        ? ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Action Taken At', 'Action Taken']
-        : ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
+      let base: string[];
+      if (isSentPage) {
+        base = ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Action Taken At', 'Action Taken'];
+      } else if (isRenewalPage) {
+        base = ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Validate Till Date', 'Date & Time', 'Status'];
+      } else {
+        base = ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
+      }
       if (showActionColumn) base.push('Action');
       return base;
-    }, [isSentPage, showActionColumn]);
+    }, [isSentPage, isRenewalPage, showActionColumn]);
 
     // Prevent outer page scrollbar while this table is rendered so only the
     // inner table wrapper scrolls. We restore the previous overflow value on unmount.
@@ -300,6 +306,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 break;
               case 'Status':
                 row[col] = statusName;
+                break;
+              case 'Validate Till Date':
+                row[col] = app.validTillDate ? formatDateTime(app.validTillDate) : (app as any).licenseValidity || '';
                 break;
               case 'Action Taken':
                 row[col] = (app as any).actionTaken || '';
@@ -444,18 +453,22 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
         <div className={`${styles.tableWrapper} w-full min-w-0`}>
           <table className='w-full table-fixed border-collapse'>
-            <colgroup>
-              {(() => {
-                const cols = isSentPage
-                  ? (showActionColumn
-                    ? ['4%', '22%', '22%', '17%', '30%', '5%']
-                    : ['4%', '22%', '25%', '18%', '31%'])
-                  : (showActionColumn
-                    ? ['4%', '22%', '22%', '18%', '17%', '12%', '5%']
-                    : ['4%', '22%', '25%', '19%', '18%', '12%']);
-                return cols.map((w, i) => <col key={i} style={{ width: w }} />);
-              })()}
-            </colgroup>
+<colgroup>
+               {(() => {
+                 const cols = isSentPage
+                   ? (showActionColumn
+                     ? ['4%', '22%', '22%', '17%', '30%', '5%']
+                     : ['4%', '22%', '25%', '18%', '31%'])
+                   : isRenewalPage
+                     ? (showActionColumn
+                       ? ['4%', '22%', '22%', '18%', '17%', '17%', '5%']
+                       : ['4%', '22%', '22%', '18%', '17%', '17%'])
+                   : (showActionColumn
+                     ? ['4%', '22%', '22%', '18%', '17%', '12%', '5%']
+                     : ['4%', '22%', '25%', '19%', '18%', '12%']);
+                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
+               })()}
+             </colgroup>
             <thead className='bg-gray-50'>
               <tr>
                 {tableColumns.map(col => {
@@ -486,21 +499,21 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 </tr>
               ) : (
                 effectiveApplications.map((app, index) => (
-                  <TableRow
-                    key={`${app.id}-${index}`}
-                    app={app}
-                    index={index}
-                    handleViewApplication={handleViewApplication}
-                    handleEditDraft={handleEditDraft}
-                    isDraftsPage={isDraftsPage}
-                    isSentPage={isSentPage}
-                    userRole={userRole || null}
-                    // PDF button removed
-                    isApplicationUnread={isApplicationUnread}
-                    formatDateTime={formatDateTime}
-                    showActionColumn={showActionColumn}
-                    loadingRowId={loadingRowId}
-                  />
+<TableRow
+                     key={`${app.id}-${index}`}
+                     app={app}
+                     index={index}
+                     handleViewApplication={handleViewApplication}
+                     handleEditDraft={handleEditDraft}
+                     isDraftsPage={isDraftsPage}
+                     isSentPage={isSentPage}
+                     isRenewalPage={isRenewalPage}
+                     userRole={userRole || null}
+                     isApplicationUnread={isApplicationUnread}
+                     formatDateTime={formatDateTime}
+                     showActionColumn={showActionColumn}
+                     loadingRowId={loadingRowId}
+                   />
                 ))
               )}
             </tbody>
@@ -543,31 +556,31 @@ const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ typ
 // TableHeader removed; controls and column headers are rendered separately above.
 
 const TableRow: React.FC<{
-  app: ApplicationData;
-  index: number;
-  handleViewApplication: (id: string) => void;
-  handleEditDraft: (id: string) => Promise<void>;
-  isDraftsPage: boolean;
-  isSentPage?: boolean;
-  userRole: string | null;
-  // PDF generation removed
-  isApplicationUnread: (app: ApplicationData) => boolean;
-  formatDateTime: (dateStr: string) => string;
-  showActionColumn?: boolean;
-  loadingRowId?: string | null;
+   app: ApplicationData;
+   index: number;
+   handleViewApplication: (id: string) => void;
+   handleEditDraft: (id: string) => Promise<void>;
+   isDraftsPage: boolean;
+   isSentPage?: boolean;
+   isRenewalPage?: boolean;
+   userRole: string | null;
+   isApplicationUnread: (app: ApplicationData) => boolean;
+   formatDateTime: (dateStr: string) => string;
+   showActionColumn?: boolean;
+   loadingRowId?: string | null;
 }> = ({
-  app,
-  index,
-  handleViewApplication,
-  handleEditDraft,
-  isDraftsPage,
-  isSentPage = false,
-  userRole,
-  // Removed PDF props
-  isApplicationUnread,
-  formatDateTime,
-  showActionColumn = true,
-  loadingRowId,
+   app,
+   index,
+   handleViewApplication,
+   handleEditDraft,
+   isDraftsPage,
+   isSentPage = false,
+   isRenewalPage = false,
+   userRole,
+   isApplicationUnread,
+   formatDateTime,
+   showActionColumn = true,
+   loadingRowId,
 }) => {
   const isRowLoading = String(loadingRowId) === String(app.id);
   // Check if user is ZS role
@@ -712,7 +725,12 @@ const TableRow: React.FC<{
           </div>
         )}
       </td>
-      <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+<td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+      {isRenewalPage && (
+        <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
+          {app.validTillDate ? formatDateTime(app.validTillDate) : (app as any).licenseValidity || '-'}
+        </td>
+      )}
       <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
         {formatDateTime(app.applicationDate)}
       </td>

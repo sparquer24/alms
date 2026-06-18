@@ -21,10 +21,12 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
 
   return (
       <header className='w-full fixed top-0 left-0 z-40 h-20' aria-hidden={false}>
-      <div className='w-full flex justify-center py-2 px-3'>
-        <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase'>
-          FRESH APPLICATION FORM
-        </h1>
+      <div className='w-full'>
+        <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
+          <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>
+            FRESH APPLICATION FORM
+          </h1>
+        </div>
       </div>
         <div
           className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>

@@ -28,7 +28,7 @@ const PERMISSION_CATEGORIES = {
     { key: 'canViewRedFlagged', label: 'View Red Flagged Applications' },
     { key: 'canViewDisposed', label: 'View Disposed Applications' },
     { key: 'canViewSent', label: 'View Sent Applications' },
-    { key: 'canViewFinalDisposal', label: 'View Final Disposal' },
+    { key: 'canViewApplication', label: 'View Applicationl' },
     { key: 'canViewReports', label: 'View Reports' },
     { key: 'canAccessSettings', label: 'Access Settings' },
   ],
