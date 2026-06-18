@@ -327,7 +327,6 @@ export class RenewalFormController {
    * Delete a file from renewal application
    */
   @Delete('/file/:fileId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete a file from renewal application',
     description: 'Remove a specific file record from the application',
@@ -338,13 +337,28 @@ export class RenewalFormController {
     description: 'File ID to delete',
   })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'File deleted successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'File deleted successfully',
+        data: {
+          fileId: 1315
+        }
+      }
+    }
   }) 
+  @ApiResponse({ status: 400, description: 'Cannot delete file from non-DRAFT application' })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async deleteFile(@Param('fileId', ParseIntPipe) fileId: number): Promise<void> {
-    return this.renewalFormService.deleteFile(fileId);
+  async deleteFile(@Param('fileId', ParseIntPipe) fileId: number): Promise<any> {
+    await this.renewalFormService.deleteFile(fileId);
+    return {
+      success: true,
+      message: 'File deleted successfully',
+      data: { fileId },
+    };
   }
 
   /**
@@ -352,7 +366,6 @@ export class RenewalFormController {
    * Only allowed for DRAFT status applications
    */
   @Delete('/application/:applicationId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete entire renewal application',
     description: 'Delete the complete draft application with all child records. Only works for DRAFT status',
@@ -363,15 +376,29 @@ export class RenewalFormController {
     description: 'Application ID to delete',
   })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'Application deleted successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Application deleted successfully',
+        data: {
+          applicationId: 58
+        }
+      }
+    }
   })
   @ApiResponse({ status: 400, description: 'Application is not in DRAFT status' })
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async deleteApplication(@Param('applicationId') applicationId: string): Promise<void> {
+  async deleteApplication(@Param('applicationId') applicationId: string): Promise<any> {
     const applId = parseInt(applicationId, 10);
-    return this.renewalFormService.deleteApplicationById(applId);
+    await this.renewalFormService.deleteApplicationById(applId);
+    return {
+      success: true,
+      message: 'Application deleted successfully',
+      data: { applicationId: applId },
+    };
   }
 
   /**

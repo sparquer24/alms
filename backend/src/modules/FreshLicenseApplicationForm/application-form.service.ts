@@ -902,13 +902,29 @@ export class ApplicationFormService {
   }
   async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
     try {
-      // First, check if the file record exists
+      // First, check if the file record exists with its application's workflow status
       const existingFile = await prisma.fLAFFileUploads.findUnique({
-        where: { id: fileId }
+        where: { id: fileId },
+        include: {
+          application: {
+            include: {
+              workflowStatus: true,
+            },
+          },
+        },
       });
       if (!existingFile) {
         return [new BadRequestException(`File with ID ${fileId} not found`), false];
       }
+
+      // Only allow file deletion if the application is in DRAFT status
+      if (!existingFile.application?.workflowStatus || existingFile.application.workflowStatus.code !== 'DRAFT') {
+        const statusName = existingFile.application?.workflowStatus?.name || 'UNKNOWN';
+        return [new BadRequestException(
+          `Cannot delete file from an application with "${statusName}" status. Files can only be deleted from DRAFT applications.`,
+        ), false];
+      }
+
       // Delete the file record
       await prisma.fLAFFileUploads.delete({
         where: { id: fileId }

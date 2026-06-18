@@ -553,17 +553,32 @@ export class RenewalFormService {
     try {
       const file = await prisma.renewalFileUploads.findUnique({
         where: { id: fileId },
+        include: {
+          application: {
+            include: {
+              workflowStatus: true,
+            },
+          },
+        },
       });
 
       if (!file) {
         throw new NotFoundException('File not found.');
       }
 
+      // Only allow file deletion if the application is in DRAFT status
+      if (!file.application?.workflowStatus || file.application.workflowStatus.code !== 'DRAFT') {
+        const statusName = file.application?.workflowStatus?.name || 'UNKNOWN';
+        throw new BadRequestException(
+          `Cannot delete file from an application with "${statusName}" status. Files can only be deleted from DRAFT applications.`,
+        );
+      }
+
       await prisma.renewalFileUploads.delete({
         where: { id: fileId },
       });
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
       throw new InternalServerErrorException('An error occurred while deleting the file.');
