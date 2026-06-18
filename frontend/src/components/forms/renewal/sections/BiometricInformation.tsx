@@ -8,6 +8,7 @@ const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
   ssr: false,
 }) as any;
 import RenewalService from '../../../../api/renewalService';
+import { ApplicationService } from '../../../../api/applicationService';
 import MantraSDKService from '../../../../services/mantraSDKService';
 import BiometricAPIService from '../../../../services/biometricAPIService';
 import { openAttachment } from '../../../../utils/attachmentViewer';
@@ -370,6 +371,28 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     }
     try {
       setFingerprintCapturing(true);
+      
+      // STEP 1: Verify against the fresh application's original fingerprint
+      if (formData?.applicationId) {
+        setUploadProgress('Verifying against original fresh application fingerprint...');
+        const freshResponse = await ApplicationService.getApplication(formData.applicationId);
+        const freshData = freshResponse?.data || freshResponse;
+        if (freshData) {
+          const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
+          const fingerprints = bioData?.fingerprints || [];
+          const originalFp = fingerprints.find((f: any) => f.position === pendingFingerPosition);
+          if (originalFp && originalFp.template) {
+            const matchResult = await MantraSDKService.verifyTemplate(originalFp.template, pendingCaptureResult.template, 65);
+            if (!matchResult.isMatch && matchResult.score < 65) {
+              toast.error(`Verification failed: Captured fingerprint does not match the registered ${pendingFingerPosition === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'} from the fresh application.`);
+              setFingerprintCapturing(false);
+              setUploadProgress('');
+              return;
+            }
+          }
+        }
+      }
+
       setUploadProgress('Fetching stored templates for matching...');
       const biometricTemplate = {
         template: pendingCaptureResult.template,
@@ -1201,6 +1224,167 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                 Close Settings
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fingerprint Preview Modal */}
+      {showFingerprintPreviewModal && pendingCaptureResult && (
+        <div
+          className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+          style={{ display: 'flex', visibility: 'visible' }}
+        >
+          <div className='bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto border border-gray-200'>
+            <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
+              <div className='flex items-center gap-4'>
+                <div className='bg-white/20 rounded-full p-3'>
+                  <svg className='w-8 h-8 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11' />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className='text-xl font-bold text-white'>Fingerprint Preview</h2>
+                  <p className='text-blue-100 text-sm mt-1'>Review and confirm before enrolling</p>
+                </div>
+              </div>
+            </div>
+
+            <div className='px-6 py-6'>
+              <div className='mb-6'>
+                <div
+                  className={`p-4 rounded-xl border-2 ${
+                    (pendingCaptureResult?.quality || 0) >= 80
+                      ? 'bg-green-50 border-green-300'
+                      : (pendingCaptureResult?.quality || 0) >= 60
+                        ? 'bg-yellow-50 border-yellow-300'
+                        : 'bg-red-50 border-red-300'
+                  }`}
+                >
+                  <div className='flex items-center justify-between mb-3'>
+                    <div className='flex items-center gap-2'>
+                      <span
+                        className={`font-semibold ${
+                          (pendingCaptureResult?.quality || 0) >= 80
+                            ? 'text-green-700'
+                            : (pendingCaptureResult?.quality || 0) >= 60
+                              ? 'text-yellow-700'
+                              : 'text-red-700'
+                        }`}
+                      >
+                        {(pendingCaptureResult?.quality || 0) >= 80
+                          ? 'Excellent Quality'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'Good Quality'
+                            : 'Low Quality - Consider Retaking'}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-3xl font-bold ${
+                        (pendingCaptureResult?.quality || 0) >= 80
+                          ? 'text-green-600'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                      }`}
+                    >
+                      {pendingCaptureResult?.quality || 0}%
+                    </span>
+                  </div>
+                  <div className='w-full bg-gray-200 rounded-full h-3 overflow-hidden'>
+                    <div
+                      className={`h-3 rounded-full transition-all duration-500 ${
+                        (pendingCaptureResult?.quality || 0) >= 80
+                          ? 'bg-green-500'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
+                      }`}
+                      style={{ width: `${pendingCaptureResult?.quality || 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className='mb-6'>
+                <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                  Captured Fingerprint
+                </h3>
+                <div className='flex justify-center bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-6 min-h-[280px] items-center border border-gray-200'>
+                  {fingerprintPreviewImage ? (
+                    <div className='flex flex-col items-center gap-3'>
+                      <div className='relative'>
+                        <img
+                          src={fingerprintPreviewImage}
+                          alt='Fingerprint Preview'
+                          className='max-w-full max-h-80 border-4 border-white rounded-lg shadow-lg'
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className='text-center py-8'>
+                      <p className='text-gray-500 font-medium'>No preview image available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className='mb-6'>
+                <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                  Finger Position
+                </h3>
+                <div className='flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200'>
+                  <div className='bg-blue-600 rounded-full p-2 text-white'>
+                    👆
+                  </div>
+                  <div>
+                    <p className='font-bold text-blue-900'>
+                      {pendingFingerPosition}
+                    </p>
+                    <p className='text-xs text-blue-700'>Selected biometric type</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className='flex justify-end gap-3 pt-4 border-t border-gray-100'>
+                <button
+                  type='button'
+                  onClick={handleCancelFingerprintPreview}
+                  className='px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors'
+                >
+                  Cancel
+                </button>
+                <button
+                  type='button'
+                  onClick={handleRejectFingerprintPreview}
+                  className='px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors'
+                >
+                  Retake
+                </button>
+                <button
+                  type='button'
+                  onClick={handleAcceptFingerprintPreview}
+                  className='px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-sm'
+                >
+                  Accept & Enroll
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Capturing Status Modal */}
+      {showCapturingModal && (
+        <div
+          className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+          style={{ display: 'flex', visibility: 'visible' }}
+        >
+          <div className='bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center space-y-4'>
+            <div className='mx-auto w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin flex items-center justify-center'>
+              <span className='text-2xl'>👆</span>
+            </div>
+            <h3 className='text-lg font-bold text-gray-900'>Biometric Scan in Progress</h3>
+            <p className='text-sm text-gray-500'>{capturingStep}</p>
           </div>
         </div>
       )}
