@@ -3027,6 +3027,7 @@ function RenewalFormPageContent() {
                     onError={setError}
                     onStatus={setStatusMessage}
                     errors={documentsErrors}
+                    onReload={reloadRenewalData}
                   />
                 </AccordionSection>
 
