@@ -165,7 +165,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || detailedApp.workflowHistory || [],
     // Preserve contact and occupation info so UI can render easily
     contactInfo: detailedApp.contactInfo || detailedApp.contact_info || undefined,
-    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || undefined,
+    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || detailedApp.occupationAndBusiness || undefined,
     acknowledgementNo: detailedApp.acknowledgementNo || detailedApp.acknowledgement_no || detailedApp.ackNo || undefined,
     // Preserve additional data fields
     licenseHistories: detailedApp.licenseHistories || [],
