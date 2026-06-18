@@ -272,6 +272,83 @@ export class RenewalFormService {
         })());
       }
 
+      // Handle Criminal Histories (Replace all existing)
+      if (patchData.criminalHistories && Array.isArray(patchData.criminalHistories)) {
+        relationUpdates.push((async () => {
+          // Delete existing criminal histories
+          await prisma.renewalCriminalHistories.deleteMany({ where: { applicationId } });
+
+          // Create new criminal histories
+          if (patchData.criminalHistories!.length > 0) {
+            for (const history of patchData.criminalHistories!) {
+              const record: any = {
+                applicationId,
+                isConvicted: history.isConvicted ?? false,
+                firDetails: history.firDetails ?? null,
+                isBondExecuted: history.isBondExecuted ?? false,
+                bondDate: history.bondDate ? new Date(history.bondDate) : null,
+                bondPeriod: history.bondPeriod ?? null,
+                isProhibited: history.isProhibited ?? false,
+                prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null,
+                prohibitionPeriod: history.prohibitionPeriod ?? null,
+              };
+              await prisma.renewalCriminalHistories.create({ data: record });
+            }
+          }
+        })());
+      }
+
+      // Handle License Histories (Replace all existing)
+      if (patchData.licenseHistories && Array.isArray(patchData.licenseHistories)) {
+        relationUpdates.push((async () => {
+          // Delete existing license histories
+          await prisma.renewalLicenseHistories.deleteMany({ where: { applicationId } });
+
+          // Create new license histories
+          if (patchData.licenseHistories!.length > 0) {
+            for (const history of patchData.licenseHistories!) {
+              const record: any = {
+                ...history,
+                applicationId,
+                dateAppliedFor: history.dateAppliedFor ? new Date(history.dateAppliedFor) : null,
+              };
+              await prisma.renewalLicenseHistories.create({ data: record });
+            }
+          }
+        })());
+      }
+
+      // Handle Biometric Data
+      if (patchData.biometricData) {
+        relationUpdates.push((async () => {
+          const biometricDataObject = patchData.biometricData;
+
+          if (typeof biometricDataObject !== 'object' || biometricDataObject === null) {
+            throw new BadRequestException('biometricData must be an object');
+          }
+
+          const existingBiometric = await prisma.renewalBiometricDatas.findUnique({
+            where: { applicationId }
+          });
+
+          if (existingBiometric) {
+            await prisma.renewalBiometricDatas.update({
+              where: { applicationId },
+              data: {
+                biometricData: biometricDataObject as any
+              } as any
+            });
+          } else {
+            await prisma.renewalBiometricDatas.create({
+              data: {
+                applicationId,
+                biometricData: biometricDataObject as any
+              } as any
+            });
+          }
+        })());
+      }
+
       await Promise.all(relationUpdates);
 
       // Update acceptance flags if provided (only add if explicitly set)
@@ -383,6 +460,8 @@ export class RenewalFormService {
           licenseDetails: {
             include: { requestedWeapons: true },
           },
+          criminalHistories: true,
+          licenseHistories: true,
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
@@ -474,17 +553,32 @@ export class RenewalFormService {
     try {
       const file = await prisma.renewalFileUploads.findUnique({
         where: { id: fileId },
+        include: {
+          application: {
+            include: {
+              workflowStatus: true,
+            },
+          },
+        },
       });
 
       if (!file) {
         throw new NotFoundException('File not found.');
       }
 
+      // Only allow file deletion if the application is in DRAFT status
+      if (!file.application?.workflowStatus || file.application.workflowStatus.code !== 'DRAFT') {
+        const statusName = file.application?.workflowStatus?.name || 'UNKNOWN';
+        throw new BadRequestException(
+          `Cannot delete file from an application with "${statusName}" status. Files can only be deleted from DRAFT applications.`,
+        );
+      }
+
       await prisma.renewalFileUploads.delete({
         where: { id: fileId },
       });
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
       throw new InternalServerErrorException('An error occurred while deleting the file.');
@@ -512,7 +606,14 @@ export class RenewalFormService {
         );
       }
 
-      // Cascade delete will handle related records
+      // Explicitly delete child records before the parent for consistency
+      await prisma.renewalCriminalHistories.deleteMany({ where: { applicationId } });
+      await prisma.renewalLicenseHistories.deleteMany({ where: { applicationId } });
+      await prisma.renewalLicenseDetails.deleteMany({ where: { applicationId } });
+      await prisma.renewalFileUploads.deleteMany({ where: { applicationId } });
+      await prisma.renewalBiometricDatas.deleteMany({ where: { applicationId } });
+
+      // Delete the main application (cascade will handle remaining related records)
       await prisma.renewalFormPersonalDetails.delete({
         where: { id: applicationId },
       });
@@ -572,6 +673,8 @@ export class RenewalFormService {
           licenseDetails: {
             include: { requestedWeapons: true },
           },
+          criminalHistories: true,
+          licenseHistories: true,
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
@@ -701,6 +804,8 @@ export class RenewalFormService {
           licenseDetails: {
             include: { requestedWeapons: true },
           },
+          criminalHistories: true,
+          licenseHistories: true,
           fileUploads: true,
           biometricData: true,
           workflowHistories: {

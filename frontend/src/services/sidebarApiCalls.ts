@@ -166,7 +166,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || detailedApp.workflowHistory || [],
     // Preserve contact and occupation info so UI can render easily
     contactInfo: detailedApp.contactInfo || detailedApp.contact_info || undefined,
-    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || undefined,
+    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || detailedApp.occupationAndBusiness || undefined,
     acknowledgementNo: detailedApp.acknowledgementNo || detailedApp.acknowledgement_no || detailedApp.ackNo || undefined,
     // Preserve additional data fields
     licenseHistories: detailedApp.licenseHistories || [],
@@ -489,10 +489,8 @@ return applications;
         applicantName: item.applicantName,
         applicationDate: item.createdAt,
         lastUpdated: item.actionTakenAt || item.createdAt,
-        status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
-        status_id: 999, // Unique ID for sent status (not from database)
         // Preserve applicationType from backend ('fresh' or 'renewal')
-        applicationType: item.applicationType === 'renewal' ? 'Renewal Application' : 'Fresh License',
+        applicationType: item.applicationType,
         applicantMobile: '', // Not included in workflow history response
         currentUser: undefined,
         assignedTo: '', // Not included in workflow history response

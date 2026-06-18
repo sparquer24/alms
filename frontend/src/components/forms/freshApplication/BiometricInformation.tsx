@@ -9,11 +9,12 @@ const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
 }) as any;
 import FormFooter from '../elements/footer';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileUploadService } from '../../../services/fileUpload';
+import { FileUploadService } from '../../../api/fileUploadService';
 import { ApplicationService } from '../../../api/applicationService';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import MantraSDKService from '../../../services/mantraSDKService';
 import BiometricAPIService from '../../../services/biometricAPIService';
+import { openAttachment } from '../../../utils/attachmentViewer';
 
 type BiometricForm = {
   fingerprint: File | null;
@@ -70,6 +71,8 @@ const BiometricInformation = () => {
   const [webcamCapturedPhoto, setWebcamCapturedPhoto] = useState<string | null>(null);
   const [webcamReady, setWebcamReady] = useState(false);
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
+  const [uploadedPhotoId, setUploadedPhotoId] = useState<number | null>(null);
+  const [showPhotoDeleteConfirm, setShowPhotoDeleteConfirm] = useState(false);
 
   // Duplicate fingerprint error modal state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -116,7 +119,6 @@ const BiometricInformation = () => {
    */
   const convertUrlToBase64 = async (url: string): Promise<string | null> => {
     try {
-      console.log('🔄 [BiometricInformation] Converting URL to base64:', url);
       const response = await fetch(url);
       if (!response.ok) {
         console.error('❌ [BiometricInformation] Failed to fetch image:', response.status);
@@ -127,7 +129,6 @@ const BiometricInformation = () => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          console.log('✅ [BiometricInformation] Converted to base64, length:', base64?.length);
           resolve(base64);
         };
         reader.onerror = () => {
@@ -143,14 +144,96 @@ const BiometricInformation = () => {
   };
 
   /** 🧩 Handle file input changes */
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
     if (files && files[0]) {
       const file = files[0];
-      setForm(prev => ({ ...prev, [name]: file }));
       if (name === 'photograph') {
+        // Check if photograph already exists
+        if (uploadedPhotoId || photoSubmitted) {
+          toast.error('Please delete the existing photograph first.');
+          e.target.value = '';
+          return;
+        }
+
+        // 1. Supported File Types: .jpg, .jpeg, .png
+        const allowedExtensions = ['jpg', 'jpeg', 'png'];
+        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+        const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (!allowedExtensions.includes(fileExtension) || !allowedMimeTypes.includes(file.type)) {
+          toast.error('Unsupported file format. Please upload a JPG, JPEG, or PNG image.');
+          e.target.value = '';
+          setUploadingFiles(false);
+          setUploadProgress('');
+          return;
+        }
+
+        // 2. File Size Validation: 20 KB - 5 MB
+        const minSize = 20 * 1024;
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size < minSize) {
+          toast.error('File size too small. Minimum allowed size is 20 KB.');
+          e.target.value = '';
+          setUploadingFiles(false);
+          setUploadProgress('');
+          return;
+        }
+        if (file.size > maxSize) {
+          toast.error('File size too large. Maximum allowed size is 5 MB.');
+          e.target.value = '';
+          setUploadingFiles(false);
+          setUploadProgress('');
+          return;
+        }
+
+        // 3. Image Validation (Corrupt / Unreadable check)
+        const isValidImg = await new Promise<boolean>((resolve) => {
+          const img = new Image();
+          const objectUrl = URL.createObjectURL(file);
+          img.src = objectUrl;
+          img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(true);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(false);
+          };
+        });
+
+        if (!isValidImg) {
+          toast.error('The uploaded image file appears to be corrupted or unreadable. Please choose a valid image.');
+          e.target.value = '';
+          setUploadingFiles(false);
+          setUploadProgress('');
+          return;
+        }
+
         const url = URL.createObjectURL(file);
         setPhotoPreview(url);
+        setForm(prev => ({ ...prev, [name]: file }));
+
+        // Upload the new photograph immediately
+        try {
+          if (applicantId) {
+            setUploadingFiles(true);
+            setUploadProgress('Uploading new photograph...');
+            const uploadResp = await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
+            setUploadedPhotoId(uploadResp.data.id);
+            setPhotoSubmitted(true);
+            toast.success('Photograph replaced and uploaded successfully!');
+          } else {
+            setPhotoSubmitted(false);
+          }
+        } catch (uploadErr: any) {
+          toast.error(uploadErr?.message || 'Failed to upload new photograph.');
+          setPhotoSubmitted(false);
+        } finally {
+          setUploadingFiles(false);
+          setUploadProgress('');
+        }
+      } else {
+        setForm(prev => ({ ...prev, [name]: file }));
       }
     }
   };
@@ -179,107 +262,68 @@ const BiometricInformation = () => {
     };
 
     // Fetch existing application biometric data to render and merge when patching.
-    // The backend sometimes returns a wrapper like:
-    // { biometricData: { id, biometricData: { photo: {...}, ... }, applicationId } }
-    // or directly: { biometricData: { photo: {...}, ... } }
-    // Normalize to the inner biometric object so the rest of the component can
-    // read `existingBiometricData.photo`, `existingBiometricData.signature`, etc.
     const loadExisting = async () => {
       if (!applicantId) return;
       try {
         const resp = await ApplicationService.getApplication(applicantId as string);
         const data = resp?.data || null;
-        console.log('📦 [BiometricInformation] Full API response data:', data);
-
         const bioWrapper = data?.biometricData || null;
 
         let normalized: any = null;
         if (bioWrapper) {
-          // If the payload has a nested `biometricData` property, use that inner object
           if (bioWrapper.biometricData) normalized = bioWrapper.biometricData;
           else normalized = bioWrapper;
         }
-        console.log('🔍 [BiometricInformation] Normalized biometric data:', normalized);
 
         setExistingBiometricData(normalized);
 
-        // ✅ Prefill enrolled fingerprints from biometricData.fingerprints
         if (
           normalized?.fingerprints &&
           Array.isArray(normalized.fingerprints) &&
           normalized.fingerprints.length > 0
         ) {
-          console.log(
-            '👆 [BiometricInformation] Found existing fingerprints:',
-            normalized.fingerprints
-          );
           setEnrolledFingerprints(normalized.fingerprints);
         }
 
-        // Track if photo was found to avoid duplicate setting
         let photoFound = false;
         let photoUrlToConvert: string | null = null;
 
-        // ✅ Check for photo URL from biometricData first
         if (normalized?.photo?.url) {
-          console.log(
-            '📸 [BiometricInformation] Found photo in biometricData:',
-            normalized.photo.url
-          );
           photoUrlToConvert = normalized.photo.url;
           photoFound = true;
+          if (normalized.photo.id) {
+            setUploadedPhotoId(normalized.photo.id);
+          }
         }
 
-        // ✅ Check for PHOTOGRAPH in fileUploads array (primary source based on API structure)
         const fileUploads = data?.fileUploads || [];
-        console.log('📁 [BiometricInformation] File uploads:', fileUploads);
-
         if (Array.isArray(fileUploads) && fileUploads.length > 0 && !photoFound) {
-          // Find PHOTOGRAPH file type - exact match for fileType: "PHOTOGRAPH"
           const photographUpload = fileUploads.find((upload: any) => {
             const fileType = (upload.fileType || '').toString().toUpperCase();
-            console.log(
-              '🔍 [BiometricInformation] Checking file upload:',
-              upload.fileName,
-              'fileType:',
-              fileType
-            );
             return fileType === 'PHOTOGRAPH';
           });
 
           if (photographUpload) {
             const photoUrl = photographUpload.fileUrl || '';
-            console.log('📸 [BiometricInformation] Found PHOTOGRAPH in fileUploads:', {
-              id: photographUpload.id,
-              fileName: photographUpload.fileName,
-              fileUrl: photoUrl,
-              fileType: photographUpload.fileType,
-            });
             if (photoUrl) {
               photoUrlToConvert = photoUrl;
               photoFound = true;
+              setUploadedPhotoId(photographUpload.id);
             }
           }
         }
 
-        // ✅ Convert URL to base64 for display (removes localhost URL dependency)
         if (photoUrlToConvert) {
           const base64Photo = await convertUrlToBase64(photoUrlToConvert);
           if (base64Photo) {
             setPhotoPreview(base64Photo);
-            setPhotoSubmitted(true); // Mark as already submitted
-            console.log('✅ [BiometricInformation] Photo preview set with base64 data');
+            setPhotoSubmitted(true);
           } else {
-            // Fallback to URL if base64 conversion fails
-            console.warn(
-              '⚠️ [BiometricInformation] Base64 conversion failed, using URL as fallback'
-            );
             setPhotoPreview(photoUrlToConvert);
             setPhotoSubmitted(true);
           }
         }
 
-        // Capture ALMS license id from application data if present
         const licenseId = data?.almsLicenseId ?? data?.alms_license_id ?? data?.licenseId ?? null;
         if (licenseId) setAlmsLicenseId(licenseId);
       } catch (err) {
@@ -287,16 +331,58 @@ const BiometricInformation = () => {
       }
     };
 
+    // Expose loadExisting callback on component scope for deletion/reload operations
+    (window as any)._loadBiometricExisting = loadExisting;
+
     initializeMantra();
     loadExisting();
 
-    // Cleanup: if a locally-created object URL was used for preview, revoke it when
-    // the component unmounts or applicantId changes. If preview is a remote URL,
-    // revokeObjectURL is harmless (no-op) in most browsers.
     return () => {
       if (photoPreview && photoPreview.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
     };
   }, [applicantId]);
+
+  /** 📷 Handle camera permission state using Permissions API */
+  useEffect(() => {
+    if (!showWebcamModal) return;
+
+    let permissionStatus: PermissionStatus | null = null;
+
+    const handleStateChange = () => {
+      if (!permissionStatus) return;
+      if (permissionStatus.state === 'denied') {
+        setCameraPermissionDenied(true);
+        setStreamActive(false);
+      } else if (permissionStatus.state === 'granted') {
+        setCameraPermissionDenied(false);
+        setStreamActive(true);
+      } else if (permissionStatus.state === 'prompt') {
+        setCameraPermissionDenied(false);
+        setStreamActive(true);
+      }
+    };
+
+    const setupPermissionsQuery = async () => {
+      if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+        try {
+          const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          permissionStatus = status;
+          handleStateChange();
+          status.onchange = handleStateChange;
+        } catch (e) {
+          console.warn('[BiometricInformation] Camera Permissions API query not fully supported:', e);
+        }
+      }
+    };
+
+    setupPermissionsQuery();
+
+    return () => {
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, [showWebcamModal]);
 
   /** 📸 Capture webcam photo */
   const capturePhoto = async () => {
@@ -314,10 +400,31 @@ const BiometricInformation = () => {
     setStreamActive(false);
   };
 
-  const removePhoto = () => {
-    setPhotoPreview(null);
-    setForm(prev => ({ ...prev, photograph: null }));
-    setPhotoSubmitted(false);
+  const confirmRemovePhoto = async () => {
+    if (uploadedPhotoId) {
+      try {
+        setUploadingFiles(true);
+        setUploadProgress('Deleting photograph...');
+        await FileUploadService.deleteFile(uploadedPhotoId);
+        setUploadedPhotoId(null);
+        setPhotoPreview(null);
+        setForm(prev => ({ ...prev, photograph: null }));
+        setPhotoSubmitted(false);
+        setShowPhotoDeleteConfirm(false);
+        toast.success('Photograph deleted successfully!');
+      } catch (err: any) {
+        const errMsg = err?.response?.data?.error || err?.message || 'Failed to delete photograph.';
+        toast.error(errMsg);
+      } finally {
+        setUploadingFiles(false);
+        setUploadProgress('');
+      }
+    } else {
+      setPhotoPreview(null);
+      setForm(prev => ({ ...prev, photograph: null }));
+      setPhotoSubmitted(false);
+      setShowPhotoDeleteConfirm(false);
+    }
   };
 
   /** 📤 Submit captured photograph */
@@ -339,6 +446,11 @@ const BiometricInformation = () => {
 
         setPhotoSubmitted(true);
         toast.success('Photograph submitted successfully!');
+        
+        // Reload data to acquire the newly uploaded photo's server file ID
+        if ((window as any)._loadBiometricExisting) {
+          await (window as any)._loadBiometricExisting();
+        }
       } else {
         toast.warning('Please create application first.');
       }
@@ -414,6 +526,17 @@ const BiometricInformation = () => {
 
   const handleNext = async () => {
     if (!applicantId) return toast.warning('Please save Personal Info first.');
+    
+    // Ensure photograph is uploaded and submitted
+    if (!photoSubmitted) {
+      if (photoPreview || form.photograph) {
+        toast.warning('Please click the "Submit Photo" button to upload your photograph before proceeding.');
+      } else {
+        toast.error('Photograph is required. Please capture using webcam or upload a file.');
+      }
+      return;
+    }
+
     await uploadBiometricFiles(applicantId);
     router.push(`${FORM_ROUTES.DOCUMENTS_UPLOAD}?${queryIdKey}=${encodeURIComponent(applicantId)}`);
   };
@@ -674,7 +797,7 @@ const BiometricInformation = () => {
   const openWebcamModal = () => {
     setShowWebcamModal(true);
     setWebcamCapturedPhoto(null);
-    setStreamActive(false);
+    setStreamActive(true);
     setWebcamReady(false);
     setCameraPermissionDenied(false);
   };
@@ -704,12 +827,54 @@ const BiometricInformation = () => {
       return;
     }
 
+    // Check if photograph already exists
+    if (uploadedPhotoId || photoSubmitted) {
+      toast.error('Please delete the existing photograph first.');
+      return;
+    }
+
     try {
       setUploadingFiles(true);
       setUploadProgress('Submitting photograph...');
 
-      // Convert data URL to File
-      const blob = await (await fetch(webcamCapturedPhoto)).blob();
+      // Convert data URL to Blob synchronously (extremely reliable)
+      const dataURLtoBlob = (dataurl: string) => {
+        const arr = dataurl.split(',');
+        const mime = arr[0].match(/:(.*?);/)![1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+      };
+
+      const blob = dataURLtoBlob(webcamCapturedPhoto);
+
+      // Webcam Photo Size Validation (Webcam captures are automatically 480x480, min 2 KB)
+      const minSize = 2 * 1024;
+      const maxSize = 5 * 1024 * 1024;
+      if (blob.size < minSize) {
+        toast.error('Captured photograph size is too small. Please ensure your camera is working correctly.');
+        return;
+      }
+      if (blob.size > maxSize) {
+        toast.error('Captured photograph size is too large (over 5 MB).');
+        return;
+      }
+
+      // Delete existing photograph if replacing
+      if (uploadedPhotoId) {
+        try {
+          await FileUploadService.deleteFile(uploadedPhotoId);
+          setUploadedPhotoId(null);
+        } catch (delErr: any) {
+          console.error('Failed to delete existing photo during replacement:', delErr);
+          throw new Error('Failed to delete existing photograph before uploading new one.');
+        }
+      }
+
       const file = new File([blob], 'photograph.jpg', { type: 'image/jpeg' });
 
       setPhotoPreview(webcamCapturedPhoto);
@@ -718,7 +883,8 @@ const BiometricInformation = () => {
       if (applicantId) {
         // Upload the photograph using FileUploadService with PHOTOGRAPH fileType
         // Backend will automatically delete existing PHOTOGRAPH entries to keep only the latest
-        await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
+        const uploadResp = await FileUploadService.uploadFile(applicantId, file, 'PHOTOGRAPH', 'Photograph');
+        setUploadedPhotoId(uploadResp.data.id);
 
         setPhotoSubmitted(true);
 
@@ -1206,96 +1372,142 @@ const BiometricInformation = () => {
       </div>
 
       {/* 🔹 Photograph Section */}
-      <div>
-        <div className='font-semibold mb-2'>Photograph</div>
-        <p className='text-sm text-gray-600 mb-3'>
-          Capture the applicant's live photo using webcam or upload an existing photograph. Ensure
-          the subject is centered and clearly visible.
+      <div className='bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6'>
+        <div className='flex items-center space-x-2 mb-4 border-b border-gray-100 pb-3'>
+          <span className='text-xl'>📸</span>
+          <h3 className='text-lg font-bold text-gray-800'>Photograph Capture & Upload</h3>
+        </div>
+        
+        <p className='text-sm text-gray-500 mb-4 leading-relaxed'>
+          Upload a recent passport-size photograph (JPG, JPEG, PNG, max 5 MB) or capture using your webcam.
         </p>
 
-        <div className='grid md:grid-cols-2 gap-6 items-start'>
+        <div className='grid md:grid-cols-2 gap-6 items-stretch'>
           {/* Webcam & Upload Section */}
-          <div className='space-y-3'>
-            <div className='flex flex-col space-y-2'>
+          <div className='flex flex-col justify-between space-y-4 border border-gray-100 rounded-xl p-4 bg-slate-50/50'>
+            <div className='space-y-3'>
               <button
                 type='button'
                 onClick={openWebcamModal}
-                className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium'
+                disabled={Boolean(photoPreview || photoSubmitted)}
+                className={`w-full px-4 py-3 text-white rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm ${
+                  Boolean(photoPreview || photoSubmitted)
+                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+                }`}
               >
-                📷 Use Webcam
+                <span>📷</span>
+                <span>Capture with Webcam</span>
               </button>
-              <label className='block border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 cursor-pointer hover:border-blue-400'>
-                Or upload photograph
+              
+              <div className='relative flex items-center justify-center my-2'>
+                <div className='absolute inset-0 flex items-center'><span className='w-full border-t border-gray-200' /></div>
+                <span className='relative bg-slate-50 px-3 text-xs text-gray-400 font-medium uppercase'>or</span>
+              </div>
+
+              <label
+                className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 text-center transition-all group ${
+                  Boolean(photoPreview || photoSubmitted)
+                    ? 'border-gray-200 bg-gray-100/50 text-gray-400 cursor-not-allowed'
+                    : 'border-gray-300 text-gray-600 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'
+                }`}
+              >
+                <span className='text-2xl mb-1 transition-transform group-hover:scale-110'>📤</span>
+                <span className={`text-sm font-semibold transition-colors ${
+                  Boolean(photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
+                }`}>
+                  Upload Photograph
+                </span>
+                <span className='text-xs text-gray-400 mt-1'>Supports JPG, JPEG, PNG (20 KB - 5 MB)</span>
                 <input
                   type='file'
                   name='photograph'
-                  accept='image/*'
+                  accept='.jpg,.jpeg,.png'
+                  disabled={Boolean(photoPreview || photoSubmitted)}
                   className='hidden'
                   onChange={handleFileChange}
                 />
               </label>
-              {existingBiometricData?.photo && (
-                <div className='mt-2 text-sm text-gray-600'>
-                  Existing: {existingBiometricData.photo.fileName}{' '}
-                  {existingBiometricData.photo.url && (
-                    <a
-                      href={existingBiometricData.photo.url}
-                      target='_blank'
-                      rel='noreferrer'
-                      className='underline text-blue-600'
-                    >
-                      View
-                    </a>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
           {/* Preview Section */}
-          {photoPreview && (
-            <div className='flex flex-col items-center'>
-              <span className='font-semibold mb-2'>Captured Photo Preview</span>
-              <img
-                src={photoPreview}
-                alt='Captured'
-                className='w-48 h-48 object-cover rounded border shadow'
-              />
-              <div className='flex gap-2 mt-2'>
-                {!photoSubmitted && (
-                  <button
-                    type='button'
-                    onClick={submitPhoto}
-                    disabled={uploadingFiles || photoSubmitted}
-                    className={`px-4 py-2 rounded text-white font-medium ${
-                      uploadingFiles || photoSubmitted
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-700'
-                    }`}
-                  >
-                    {uploadingFiles ? 'Submitting...' : 'Submit'}
-                  </button>
-                )}
-                {!photoSubmitted && (
-                  <button
-                    type='button'
-                    onClick={removePhoto}
-                    disabled={uploadingFiles}
-                    className={`px-3 py-2 rounded text-white font-medium ${
-                      uploadingFiles
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-red-500 hover:bg-red-600'
-                    }`}
-                  >
-                    Remove
-                  </button>
-                )}
-                {photoSubmitted && (
-                  <span className='text-green-600 font-semibold'>✓ Submitted</span>
+          <div className='flex flex-col items-center justify-center border border-gray-100 rounded-xl p-4 bg-slate-50/50 min-h-[200px]'>
+            {photoPreview ? (
+              <div className='flex flex-col items-center w-full'>
+                <div className='relative p-2 bg-white rounded-lg shadow-md border border-gray-200'>
+                  <img
+                    src={photoPreview}
+                    alt='Captured Preview'
+                    className='w-40 h-40 object-cover rounded-md'
+                  />
+                  <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded shadow ${
+                    photoSubmitted ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-amber-100 text-amber-700 border border-amber-200'
+                  }`}>
+                    {photoSubmitted ? '✓ Submitted' : '⚠ Pending'}
+                  </span>
+                </div>
+                
+                {showPhotoDeleteConfirm ? (
+                  <div className='mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-center w-full max-w-[260px] animate-fade-in'>
+                    <p className='text-xs font-semibold text-red-700 leading-normal mb-3'>
+                      Are you sure you want to delete the photograph? This action cannot be undone.
+                    </p>
+                    <div className='flex gap-2 justify-center'>
+                      <button
+                        type='button'
+                        onClick={confirmRemovePhoto}
+                        disabled={uploadingFiles}
+                        className='px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded transition-colors shadow-sm'
+                      >
+                        {uploadingFiles ? 'Deleting...' : 'Yes, Delete'}
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => setShowPhotoDeleteConfirm(false)}
+                        disabled={uploadingFiles}
+                        className='px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded transition-colors'
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className='flex gap-2 mt-4 w-full max-w-[240px]'>
+                    {!photoSubmitted ? (
+                      <button
+                        type='button'
+                        onClick={submitPhoto}
+                        disabled={uploadingFiles}
+                        className='flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
+                      >
+                        {uploadingFiles ? 'Uploading...' : 'Submit Photo'}
+                      </button>
+                    ) : (
+                      <div className='flex-1 text-center py-2 text-sm font-semibold text-green-600 bg-green-50 rounded-lg border border-green-200'>
+                        ✓ Photo Saved
+                      </div>
+                    )}
+                    <button
+                      type='button'
+                      onClick={() => setShowPhotoDeleteConfirm(true)}
+                      disabled={uploadingFiles}
+                      className='px-3 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
+                      title='Delete photograph'
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className='flex flex-col items-center text-center text-gray-400 p-6'>
+                <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl mb-2'>👤</div>
+                <p className='text-sm font-medium'>No Photograph Selected</p>
+                <p className='text-xs text-gray-400 mt-1 max-w-[200px]'>Capture from your webcam or upload a file to preview</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1895,56 +2107,51 @@ const BiometricInformation = () => {
                         </svg>
                       </div>
                       <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Denied</h3>
-                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-4'>
-                        Camera access was blocked. To take a photo, please allow camera access in your browser settings for this site.
+                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-6'>
+                        Camera access is required to capture a photograph.
                       </p>
-                      <div className='bg-amber-50 border border-amber-200 rounded-lg p-3 w-full mb-4'>
-                        <p className='text-xs text-amber-700 font-medium mb-1'>How to enable:</p>
-                        <ol className='text-xs text-amber-600 list-decimal list-inside space-y-0.5'>
-                          <li>Click the camera/lock icon in the browser address bar</li>
-                          <li>Find "Camera" in the permissions list</li>
-                          <li>Change it from "Blocked" to "Allow"</li>
-                          <li>Reload the page and try again</li>
-                        </ol>
-                      </div>
                       <button
                         type='button'
                         onClick={() => { setCameraPermissionDenied(false); setStreamActive(true); setWebcamReady(false); }}
-                        className='px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors'
+                        className='px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors shadow-md'
                       >
                         Try Again
                       </button>
                     </div>
-                  ) : !webcamReady && streamActive && !webcamCapturedPhoto ? (
-                    <div className='w-72 h-72 rounded-lg border-2 border-gray-300 bg-gray-50 flex flex-col items-center justify-center'>
-                      <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4'></div>
-                      <p className='text-sm text-gray-500'>Requesting camera access...</p>
-                      <p className='text-xs text-gray-400 mt-1'>Please allow camera when prompted by your browser</p>
-                    </div>
                   ) : streamActive && !webcamCapturedPhoto ? (
-                    <Webcam
-                      ref={webcamRef}
-                      audio={false}
-                      screenshotFormat='image/jpeg'
-                      className='w-72 h-72 object-cover rounded-lg border-2 border-gray-300 bg-gray-900'
-                      videoConstraints={{
-                        width: 480,
-                        height: 480,
-                        facingMode: 'user',
-                      }}
-                      onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); }}
-                      onUserMediaError={(err: any) => {
-                        const errStr = typeof err === 'string' ? err : err?.message || err?.name || '';
-                        if (errStr.includes('NotAllowedError') || errStr.includes('Permission') || errStr.includes('denied')) {
-                          setStreamActive(false);
-                          setCameraPermissionDenied(true);
-                          toast.error('Camera permission was denied. Please allow camera access in browser settings.');
-                        } else {
-                          toast.error('Unable to access camera. Please check your camera connection.');
-                          setStreamActive(false);
-                        }
-                      }}
-                    />
+                    <div className='relative w-72 h-72'>
+                      {!webcamReady && (
+                        <div className='absolute inset-0 w-full h-full rounded-lg border-2 border-gray-300 bg-gray-50 flex flex-col items-center justify-center z-10'>
+                          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4'></div>
+                          <p className='text-sm text-gray-500'>Requesting camera access...</p>
+                          <p className='text-xs text-gray-400 mt-1'>Please allow camera when prompted by your browser</p>
+                        </div>
+                      )}
+                      <Webcam
+                        ref={webcamRef}
+                        audio={false}
+                        screenshotFormat='image/jpeg'
+                        className='w-full h-full object-cover rounded-lg border-2 border-gray-300 bg-gray-900'
+                        videoConstraints={{
+                          width: 480,
+                          height: 480,
+                          facingMode: 'user',
+                        }}
+                        onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); }}
+                        onUserMediaError={(err: any) => {
+                          console.error('[Webcam] Camera access failure:', err);
+                          const errStr = typeof err === 'string' ? err : err?.message || err?.name || '';
+                          if (errStr.includes('NotAllowedError') || errStr.includes('Permission') || errStr.includes('denied')) {
+                            setStreamActive(false);
+                            setCameraPermissionDenied(true);
+                            toast.error('Camera permission was denied. Please allow camera access in browser settings.');
+                          } else {
+                            toast.error('Unable to access camera. Please check your camera connection.');
+                            setStreamActive(false);
+                          }
+                        }}
+                      />
+                    </div>
                   ) : null}
 
                   {/* Captured photo preview */}
@@ -1993,9 +2200,9 @@ const BiometricInformation = () => {
                 <button
                   type='button'
                   onClick={webcamCapturedPhoto ? retakePhotoInModal : capturePhotoInModal}
-                  disabled={uploadingFiles}
+                  disabled={uploadingFiles || (!webcamCapturedPhoto && !webcamReady)}
                   className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
-                    uploadingFiles
+                    uploadingFiles || (!webcamCapturedPhoto && !webcamReady)
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
                   }`}

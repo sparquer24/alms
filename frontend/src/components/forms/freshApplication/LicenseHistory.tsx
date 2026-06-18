@@ -568,11 +568,6 @@ const LicenseHistory = () => {
 	const isFormValid = useMemo(() => {
 		const transformed = { licenseHistories: transformFormData() };
 		const errs = validateLicenseHistory(transformed);
-		// DEBUG: log to console
-		if (Object.keys(errs).length > 0) {
-			console.log('🔍 [LicenseHistory] Validation errors:', errs);
-			console.log('🔍 [LicenseHistory] Transformed data:', JSON.stringify(transformed.licenseHistories[0], null, 2));
-		}
 		setValidationSummary(errs);
 		return Object.keys(errs).length === 0;
 	// eslint-disable-next-line react-hooks/exhaustive-deps

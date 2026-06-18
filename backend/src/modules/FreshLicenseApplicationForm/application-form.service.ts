@@ -902,13 +902,29 @@ export class ApplicationFormService {
   }
   async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
     try {
-      // First, check if the file record exists
+      // First, check if the file record exists with its application's workflow status
       const existingFile = await prisma.fLAFFileUploads.findUnique({
-        where: { id: fileId }
+        where: { id: fileId },
+        include: {
+          application: {
+            include: {
+              workflowStatus: true,
+            },
+          },
+        },
       });
       if (!existingFile) {
         return [new BadRequestException(`File with ID ${fileId} not found`), false];
       }
+
+      // Only allow file deletion if the application is in DRAFT status
+      if (!existingFile.application?.workflowStatus || existingFile.application.workflowStatus.code !== 'DRAFT') {
+        const statusName = existingFile.application?.workflowStatus?.name || 'UNKNOWN';
+        return [new BadRequestException(
+          `Cannot delete file from an application with "${statusName}" status. Files can only be deleted from DRAFT applications.`,
+        ), false];
+      }
+
       // Delete the file record
       await prisma.fLAFFileUploads.delete({
         where: { id: fileId }
@@ -1163,11 +1179,12 @@ export class ApplicationFormService {
               createdAt: 'desc'
             }
           }); 
-         const allworkflowHistories = [...workflowHistories.map(h => ({...h, applicationType: 'fresh' })),
-           ...renewalWorkflowHistories.map(h => ({...h, applicationType: 'renewal' }))
+          // "applicationType": "Renewal License",   "applicationType": "Fresh License",
+         const allworkflowHistories = [...workflowHistories.map(h => ({...h, applicationType: 'Fresh License' })),
+           ...renewalWorkflowHistories.map(h => ({...h, applicationType: 'Renewal License' }))
           ];
 
-            if (allworkflowHistories.length === 0) {
+          if (allworkflowHistories.length === 0) {
             return [null, { total: 0, page, limit, data: [] }];
           }
 
@@ -1183,7 +1200,7 @@ export class ApplicationFormService {
           let latestActions = Array.from(latestActionsMap.values());
 
           // Apply ordering if specified
-          const allowedOrderFields = ['applicationId', 'acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
+          const allowedOrderFields = ['applicationId', 'acknowledgementNo', "applicationType", 'createdAt', 'applicantName', 'actionTakenAt'];
           const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
           const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
@@ -1235,7 +1252,8 @@ export class ApplicationFormService {
               workflowHistoryId: history.id,
               actionTakenAt: history.createdAt,
               actionTaken: history.actionTaken,
-              actionRemarks: history.remarks
+              actionRemarks: history.remarks,
+              applicationType: history.applicationType
             };
           });
 

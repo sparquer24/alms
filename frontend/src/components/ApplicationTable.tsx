@@ -153,14 +153,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
-      let base: string[];
-      if (isSentPage) {
-        base = ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Action Taken At', 'Action Taken'];
-      } else if (isRenewalPage) {
-        base = ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Validate Till Date', 'Date & Time', 'Status'];
-      } else {
-        base = ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
-      }
+      const base = isSentPage
+        ? ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Action Taken At', 'Action Taken']
+        : ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
       if (showActionColumn) base.push('Action');
       return base;
     }, [isSentPage, isRenewalPage, showActionColumn]);
@@ -269,7 +264,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     }, []);
 
     // Removed PDF generation handler
-
     const handleExportExcel = useCallback(async () => {
       if (exportingExcel) return;
       try {
@@ -306,9 +300,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 break;
               case 'Status':
                 row[col] = statusName;
-                break;
-              case 'Validate Till Date':
-                row[col] = app.validTillDate ? formatDateTime(app.validTillDate) : (app as any).licenseValidity || '';
                 break;
               case 'Action Taken':
                 row[col] = (app as any).actionTaken || '';
@@ -608,6 +599,7 @@ const TableRow: React.FC<{
         <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
+        
         <td className={`${styles.tableCell} text-sm font-medium`}>
           <div className='flex items-center gap-2'>
             {isRowLoading && (
@@ -628,6 +620,9 @@ const TableRow: React.FC<{
               {app.applicantName}
             </button>
           </div>
+        </td>
+        <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={app.applicationType || 'N/A'}>
+          {app.applicationType || 'N/A'}
         </td>
         <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
           {formatDateTime(
@@ -726,11 +721,6 @@ const TableRow: React.FC<{
         )}
       </td>
 <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
-      {isRenewalPage && (
-        <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
-          {app.validTillDate ? formatDateTime(app.validTillDate) : (app as any).licenseValidity || '-'}
-        </td>
-      )}
       <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
         {formatDateTime(app.applicationDate)}
       </td>
