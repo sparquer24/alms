@@ -1163,11 +1163,12 @@ export class ApplicationFormService {
               createdAt: 'desc'
             }
           }); 
-         const allworkflowHistories = [...workflowHistories.map(h => ({...h, applicationType: 'fresh' })),
-           ...renewalWorkflowHistories.map(h => ({...h, applicationType: 'renewal' }))
+          // "applicationType": "Renewal License",   "applicationType": "Fresh License",
+         const allworkflowHistories = [...workflowHistories.map(h => ({...h, applicationType: 'Fresh License' })),
+           ...renewalWorkflowHistories.map(h => ({...h, applicationType: 'Renewal License' }))
           ];
 
-            if (allworkflowHistories.length === 0) {
+          if (allworkflowHistories.length === 0) {
             return [null, { total: 0, page, limit, data: [] }];
           }
 
@@ -1183,7 +1184,7 @@ export class ApplicationFormService {
           let latestActions = Array.from(latestActionsMap.values());
 
           // Apply ordering if specified
-          const allowedOrderFields = ['applicationId', 'acknowledgementNo', 'createdAt', 'applicantName', 'actionTakenAt'];
+          const allowedOrderFields = ['applicationId', 'acknowledgementNo', "applicationType", 'createdAt', 'applicantName', 'actionTakenAt'];
           const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
           const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
@@ -1235,7 +1236,8 @@ export class ApplicationFormService {
               workflowHistoryId: history.id,
               actionTakenAt: history.createdAt,
               actionTaken: history.actionTaken,
-              actionRemarks: history.remarks
+              actionRemarks: history.remarks,
+              applicationType: history.applicationType
             };
           });
 

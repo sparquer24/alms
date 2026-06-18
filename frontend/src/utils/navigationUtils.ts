@@ -96,7 +96,6 @@ export function navigateToDefaultMenu(
         }
 
         // Perform navigation
-        console.log(`[navigateToDefaultMenu] Redirecting ${role} to: ${targetPath}`);
         router.push(targetPath);
 
         return true;

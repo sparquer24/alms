@@ -2186,11 +2186,6 @@ function RenewalFormPageContent() {
           }
         }
 
-        // Step 3: No existing renewal — use fresh data to create new draft.
-        console.log('Renewal load:', {
-          applicationId,
-          fileUploads: collectUploadedFilesFromApi(freshData),
-        });
         const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
 
         // Validate that the fresh application has been submitted.

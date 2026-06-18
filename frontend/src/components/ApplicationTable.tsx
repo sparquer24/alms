@@ -153,7 +153,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
       const base = isSentPage
-        ? ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Action Taken At', 'Action Taken']
+        ? ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Action Taken At', 'Action Taken']
         : ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
       if (showActionColumn) base.push('Action');
       return base;
@@ -263,7 +263,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     }, []);
 
     // Removed PDF generation handler
-
     const handleExportExcel = useCallback(async () => {
       if (exportingExcel) return;
       try {
@@ -595,6 +594,7 @@ const TableRow: React.FC<{
         <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
+        
         <td className={`${styles.tableCell} text-sm font-medium`}>
           <div className='flex items-center gap-2'>
             {isRowLoading && (
@@ -615,6 +615,9 @@ const TableRow: React.FC<{
               {app.applicantName}
             </button>
           </div>
+        </td>
+        <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={app.applicationType || 'N/A'}>
+          {app.applicationType || 'N/A'}
         </td>
         <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
           {formatDateTime(

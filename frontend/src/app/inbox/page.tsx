@@ -54,7 +54,6 @@ function InboxContent() {
   const [applications, setApplications] = useState<ApplicationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { isAuthenticated, isLoading: authLoading, userRole, initialized } = useAuth();
-
   // Handle refresh parameter - only refresh once per login
   useEffect(() => {
     if (shouldRefresh) {

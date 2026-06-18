@@ -492,6 +492,8 @@ model RenewalFormPersonalDetails {
   isRecommended              Boolean?                             @default(false)
   isNotRecommended           Boolean?                             @default(false)
   biometricData              RenewalBiometricDatas?               @relation("RenewalBiometricData")
+  criminalHistories          RenewalCriminalHistories[]           @relation("RenewalCriminalHistories")
+  licenseHistories           RenewalLicenseHistories[]            @relation("RenewalLicenseHistories")
   licenseDetails             RenewalLicenseDetails[]              @relation("RenewalLicenseDetails")
   fileUploads                RenewalFileUploads[]                 @relation("RenewalFileUploads")
   workflowHistories          RenewalApplicationsFormWorkflowHistories[] @relation("RenewalWorkflowHistories")
@@ -573,6 +575,45 @@ model RenewalBiometricDatas {
   applicationId Int                                    @unique
   biometricData Json
   application   RenewalFormPersonalDetails             @relation("RenewalBiometricData", fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model RenewalCriminalHistories {
+  id                Int                                    @id @default(autoincrement())
+  applicationId     Int
+  isConvicted       Boolean                                @default(false)
+  isBondExecuted    Boolean                                @default(false)
+  bondDate          DateTime?
+  bondPeriod        String?
+  isProhibited      Boolean                                @default(false)
+  prohibitionDate   DateTime?
+  prohibitionPeriod String?
+  createdAt         DateTime                               @default(now())
+  updatedAt         DateTime                               @updatedAt
+  firDetails        Json?
+  application       RenewalFormPersonalDetails             @relation("RenewalCriminalHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model RenewalLicenseHistories {
+  id                      Int                                    @id @default(autoincrement())
+  applicationId           Int
+  hasAppliedBefore        Boolean                                @default(false)
+  dateAppliedFor          DateTime?
+  previousAuthorityName   String?
+  previousResult          LicenseResult?
+  hasLicenceSuspended     Boolean                                @default(false)
+  suspensionAuthorityName String?
+  suspensionReason        String?
+  hasFamilyLicence        Boolean                                @default(false)
+  familyMemberName        String?
+  familyLicenceNumber     String?
+  familyWeaponsEndorsed   String[]
+  hasSafePlace            Boolean                                @default(false)
+  safePlaceDetails        String?
+  hasTraining             Boolean                                @default(false)
+  trainingDetails         String?
+  createdAt               DateTime                               @default(now())
+  updatedAt               DateTime                               @updatedAt
+  application             RenewalFormPersonalDetails             @relation("RenewalLicenseHistories", fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model RenewalApplicationsFormWorkflowHistories {
