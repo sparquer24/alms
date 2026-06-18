@@ -18,11 +18,12 @@
   /* Limit the table wrapper height so the header (inside the thead) can stick
      to the top while only the tbody scrolls. Adjust 60vh as necessary for your layout. */
   max-height: 60vh;
+  scrollbar-gutter: stable; /* Reserve space for scrollbar to prevent overlapping the last column */
 }
 
 @media (min-width: 1024px) {
   .tableWrapper {
-    overflow-x: hidden !important; /* Prevent horizontal scrollbar on desktop screens */
+    overflow-x: auto; /* Allow horizontal scroll if table is wider than layout */
   }
 }
 

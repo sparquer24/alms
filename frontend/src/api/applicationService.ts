@@ -277,11 +277,14 @@ export class ApplicationService {
         };
       case 'license-details':
         const licenseDetailsData = applicationData.licenseDetails || [];
+        const specialClaimsFiles = applicationData.fileUploads
+          ? applicationData.fileUploads.filter((file: any) => file.fileType === 'OTHER')
+          : [];
         
         // Return in the new format that matches our form structure
         if (licenseDetailsData.length > 0) {
           // Transform backend data to match frontend form structure
-          const transformedLicenseDetails = licenseDetailsData.map((detail: any) => {
+          const transformedLicenseDetails = licenseDetailsData.map((detail: any, index: number) => {
             // Extract weapon IDs from requestedWeapons relationship
             const requestedWeaponIds = detail.requestedWeapons 
               ? detail.requestedWeapons.map((weapon: any) => weapon.id)
@@ -291,7 +294,8 @@ export class ApplicationService {
             
             return {
               ...cleanDetail,
-              requestedWeaponIds // Override with extracted IDs
+              requestedWeaponIds, // Override with extracted IDs
+              uploadedFiles: index === 0 ? specialClaimsFiles : []
             };
           });
           
@@ -309,7 +313,8 @@ export class ApplicationService {
               ammunitionDescription: '',
               specialConsiderationReason: '',
               licencePlaceArea: '',
-              wildBeastsSpecification: ''
+              wildBeastsSpecification: '',
+              uploadedFiles: specialClaimsFiles
             }]
           };
         }
