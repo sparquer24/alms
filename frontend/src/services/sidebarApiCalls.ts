@@ -5,9 +5,11 @@
  */
 
 import { ApplicationApi } from '../config/APIClient';
+import axiosInstance from '../api/axiosConfig';
 import { APIApplication, ApiResponse } from '../types/api';
 import { ApplicationData } from '../types';
 import { statusIdMap } from '../config/statusMap';
+import { normalizeRenewalApplication } from '../utils/applicationFormatters';
 
 // Simple cache to prevent duplicate API calls
 const apiCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -36,13 +38,12 @@ export const STATUS_MAP = {
   redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
   approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
   freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)
-  final: statusIdMap.finaldisposal || [7],      // FINAL DISPOSAL 
-  finaldisposal: statusIdMap.finaldisposal || [7], // FINAL DISPOSAL
   closed: statusIdMap.closed || [10],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
   groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
-  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
+  drafts: statusIdMap.drafts || [13],            // DRAFTS (alias for draft)
+  applications: statusIdMap.approved || [11, 3]
 };
 
 /**
@@ -420,27 +421,51 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   // Normalize statusKey to lowercase to be robust against URL/menu casing
   const key = String(statusKey || '').toLowerCase();
 
-  // Special handling for 'all' - fetch and combine all inbox categories
+// Special handling for 'renewal' - fetch renewal applications list
+  if (key === 'renewal') {
+    try {
+      const response = await axiosInstance.get('/renewal-forms', {
+        params: {
+          page: 1,
+          limit: 1000,
+        },
+      });
+
+      const renewalApplications = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      const applications = renewalApplications
+        .filter((application: any) => application?.isSubmit === true)
+        .map((application: any) => normalizeRenewalApplication(application, true));
+
+return applications;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Special handling for 'all' - fetch only approved applications
   if (key === 'all') {
     try {
-      // Fetch all inbox categories in parallel
-      const [forwarded, returned, redflagged, reenquiry] = await Promise.all([
-        fetchApplicationsByStatusKey('forwarded', customStatusIds),
-        fetchApplicationsByStatusKey('returned', customStatusIds),
-        fetchApplicationsByStatusKey('redflagged', customStatusIds),
-        fetchApplicationsByStatusKey('reenquiry', customStatusIds)
-      ]);
+      // Fetch only approved applications (exclude drafts, cancellations, etc.)
+      const freshApps = await fetchAllApplications({ limit: 1000 });
+      const approvedApps = freshApps.filter((app) => {
+        const statusName = (
+          app.workflowStatus?.name ||
+          (typeof app.status === 'string' ? app.status : (app.status as any)?.name) ||
+          ''
+        ).toLowerCase();
+        const statusId = app.status_id;
+        // Only include approved applications (exclude drafts, cancelled, and status IDs 12, 13)
+        return statusId !== 12 && statusId !== 13 && !statusName.includes('draft') && !statusName.includes('cancel');
+      });
 
-      // Combine all results and remove duplicates based on application ID
-      const combined = [...forwarded, ...returned, ...redflagged, ...reenquiry];
-      const uniqueApps = combined.filter((app, index, self) =>
-        index === self.findIndex((a) => a.id === app.id)
-      );
-
-      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all): Combined', uniqueApps.length, 'unique applications');
-      return uniqueApps;
+      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all): Filtered to', approvedApps.length, 'approved applications');
+      return approvedApps;
     } catch (error) {
-      console.error('❌ fetchApplicationsByStatusKey (all) error:', error);
       return [];
     }
   }

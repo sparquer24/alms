@@ -92,6 +92,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Check if we're on the drafts page or sent page
     const isDraftsPage = pageType === 'drafts' || pageType === 'drafts';
     const isSentPage = pageType === 'sent';
+    const isRenewalPage = pageType === 'renewal';
 
     // Local search state
     const [searchQuery, setSearchQuery] = useState<string>('');
@@ -157,7 +158,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         : ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
       if (showActionColumn) base.push('Action');
       return base;
-    }, [isSentPage, showActionColumn]);
+    }, [isSentPage, isRenewalPage, showActionColumn]);
 
     // Prevent outer page scrollbar while this table is rendered so only the
     // inner table wrapper scrolls. We restore the previous overflow value on unmount.
@@ -486,21 +487,21 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 </tr>
               ) : (
                 effectiveApplications.map((app, index) => (
-                  <TableRow
-                    key={`${app.id}-${index}`}
-                    app={app}
-                    index={index}
-                    handleViewApplication={handleViewApplication}
-                    handleEditDraft={handleEditDraft}
-                    isDraftsPage={isDraftsPage}
-                    isSentPage={isSentPage}
-                    userRole={userRole || null}
-                    // PDF button removed
-                    isApplicationUnread={isApplicationUnread}
-                    formatDateTime={formatDateTime}
-                    showActionColumn={showActionColumn}
-                    loadingRowId={loadingRowId}
-                  />
+<TableRow
+                     key={`${app.id}-${index}`}
+                     app={app}
+                     index={index}
+                     handleViewApplication={handleViewApplication}
+                     handleEditDraft={handleEditDraft}
+                     isDraftsPage={isDraftsPage}
+                     isSentPage={isSentPage}
+                     isRenewalPage={isRenewalPage}
+                     userRole={userRole || null}
+                     isApplicationUnread={isApplicationUnread}
+                     formatDateTime={formatDateTime}
+                     showActionColumn={showActionColumn}
+                     loadingRowId={loadingRowId}
+                   />
                 ))
               )}
             </tbody>
@@ -543,31 +544,31 @@ const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ typ
 // TableHeader removed; controls and column headers are rendered separately above.
 
 const TableRow: React.FC<{
-  app: ApplicationData;
-  index: number;
-  handleViewApplication: (id: string) => void;
-  handleEditDraft: (id: string) => Promise<void>;
-  isDraftsPage: boolean;
-  isSentPage?: boolean;
-  userRole: string | null;
-  // PDF generation removed
-  isApplicationUnread: (app: ApplicationData) => boolean;
-  formatDateTime: (dateStr: string) => string;
-  showActionColumn?: boolean;
-  loadingRowId?: string | null;
+   app: ApplicationData;
+   index: number;
+   handleViewApplication: (id: string) => void;
+   handleEditDraft: (id: string) => Promise<void>;
+   isDraftsPage: boolean;
+   isSentPage?: boolean;
+   isRenewalPage?: boolean;
+   userRole: string | null;
+   isApplicationUnread: (app: ApplicationData) => boolean;
+   formatDateTime: (dateStr: string) => string;
+   showActionColumn?: boolean;
+   loadingRowId?: string | null;
 }> = ({
-  app,
-  index,
-  handleViewApplication,
-  handleEditDraft,
-  isDraftsPage,
-  isSentPage = false,
-  userRole,
-  // Removed PDF props
-  isApplicationUnread,
-  formatDateTime,
-  showActionColumn = true,
-  loadingRowId,
+   app,
+   index,
+   handleViewApplication,
+   handleEditDraft,
+   isDraftsPage,
+   isSentPage = false,
+   isRenewalPage = false,
+   userRole,
+   isApplicationUnread,
+   formatDateTime,
+   showActionColumn = true,
+   loadingRowId,
 }) => {
   const isRowLoading = String(loadingRowId) === String(app.id);
   // Check if user is ZS role
@@ -718,7 +719,7 @@ const TableRow: React.FC<{
           </div>
         )}
       </td>
-      <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+<td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
       <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
         {formatDateTime(app.applicationDate)}
       </td>

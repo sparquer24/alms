@@ -55,17 +55,15 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 
         <Header />
 
-        <div className='flex-1 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px] flex flex-col'>
-
-          <div className="flex-grow p-8">
-
-            {children}
-
+<div className='flex-1 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px] flex flex-col'>
+           <div className="flex-grow p-8">
+            {/* On mobile, let the table handle its own scroll without double-scrolling */}
+            <div className="w-full">
+              {children}
+            </div>
           </div>
-
-          <Footer />
-
-        </div>
+           <Footer />
+         </div>
 
       </div>
 
