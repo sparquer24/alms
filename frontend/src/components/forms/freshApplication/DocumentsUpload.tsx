@@ -146,6 +146,11 @@ const DocumentsUpload = () => {
    const handleFileChange = (docType: string) => async (e: React.ChangeEvent<HTMLInputElement>) => {
 	   if (e.target.files && applicationId) {
 		   const newFiles = Array.from(e.target.files as FileList);
+		   const hasUploaded = (files[docType] || []).some(f => f.uploaded || f.uploading);
+		   if (hasUploaded || newFiles.length > 1) {
+			   e.target.value = '';
+			   return;
+		   }
 		   
 		   for (const file of newFiles) {
 			   // Validate file
@@ -218,6 +223,7 @@ const DocumentsUpload = () => {
 				   }));
 			   }
 		   }
+		   e.target.value = '';
 	   } else if (!applicationId) {
 		   setFileError(prev => ({ 
 			   ...prev, 
@@ -371,23 +377,34 @@ const DocumentsUpload = () => {
 											)
 										)}
 									</div>
-							<div className="flex flex-col items-center mb-1">
-								<span className="text-blue-500 text-xl mb-1">📤</span>
-								<label className="text-blue-700 underline cursor-pointer">
-									Browse
-									<input
-										type="file"
-										className="hidden"
-										accept=".jpg,.jpeg,.png,.pdf"
-										multiple
-										onChange={handleFileChange(docType)}
-									/>
-								</label>
-								   <span className="text-xs text-gray-500">Max 10 MB per file</span>
-								   {fileError[docType] && (
-									   <span className="text-xs text-red-500">{fileError[docType]}</span>
-								   )}
-							</div>
+							{(() => {
+								const hasUploaded = (files[docType] || []).some(f => f.uploaded || f.uploading);
+								return (
+									<div className="flex flex-col items-center mb-1">
+										<span className={`text-xl mb-1 ${hasUploaded ? 'text-gray-300' : 'text-blue-500'}`}>📤</span>
+										{hasUploaded ? (
+											<span className="text-gray-400 text-sm font-medium">Document Uploaded</span>
+										) : (
+											<label className="text-blue-700 underline cursor-pointer hover:text-blue-950 transition-colors">
+												Browse
+												<input
+													type="file"
+													className="hidden"
+													accept=".jpg,.jpeg,.png,.pdf"
+													onChange={handleFileChange(docType)}
+													disabled={hasUploaded}
+												/>
+											</label>
+										)}
+										<span className="text-xs text-gray-500 mt-1">
+											{hasUploaded ? 'Remove the current document to replace it' : 'Max 10 MB • Only 1 file allowed'}
+										</span>
+										{fileError[docType] && (
+											<span className="text-xs text-red-500 mt-1">{fileError[docType]}</span>
+										)}
+									</div>
+								);
+							})()}
 							<div className="text-xs text-gray-500 mb-1">Supported formats: .jpg, .jpeg, .png, .pdf</div>
 							{/* Error message for file size/type is now always from validation, not hardcoded */}
 							<div className="bg-white rounded-lg p-1">

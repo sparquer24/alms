@@ -23,7 +23,7 @@
 
 @media (min-width: 1024px) {
   .tableWrapper {
-    overflow-x: hidden !important; /* Prevent horizontal scrollbar on desktop screens */
+    overflow-x: auto; /* Allow horizontal scroll if table is wider than layout */
   }
 }
 

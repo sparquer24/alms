@@ -6,7 +6,7 @@ import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
-import { FileUploadService, FileUploadResponse } from '../../../services/fileUpload';
+import { FileUploadService, FileUploadResponse } from '../../../api/fileUploadService';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
@@ -334,8 +334,7 @@ const LicenseDetails = () => {
     const uploadedFiles = getLicenseDetail().uploadedFiles || [];
     const totalFiles = currentFiles.length + uploadedFiles.length;
 
-    if (totalFiles >= 5) {
-      alert('Maximum 5 files allowed. Please remove a file before uploading more.');
+    if (totalFiles >= 1) {
       return;
     }
     // If we have an applicationId, upload immediately
@@ -347,7 +346,7 @@ const LicenseDetails = () => {
         const uploadResponse = await FileUploadService.uploadFile(
           applicantId,
           file,
-          'MEDICAL_REPORT',
+          'OTHER',
           'Evidence document for special consideration claims'
         );
 
@@ -403,7 +402,31 @@ const LicenseDetails = () => {
   };
 
   // Remove specific file (local or uploaded)
-  const removeFile = (indexToRemove: number, isUploaded: boolean = false) => {
+  const removeFile = async (indexToRemove: number, isUploaded: boolean = false) => {
+    console.debug('[LicenseDetails] removeFile called:', { indexToRemove, isUploaded });
+    if (isUploaded) {
+      const currentDetail = getLicenseDetail();
+      const currentUploadedFiles = currentDetail.uploadedFiles || [];
+      const fileToRemove = currentUploadedFiles[indexToRemove];
+      console.debug('[LicenseDetails] file to remove:', fileToRemove);
+      
+      const rawId = fileToRemove?.id || fileToRemove?.uploadId;
+      const fileId = rawId ? parseInt(String(rawId), 10) : null;
+      
+      if (fileId && !isNaN(fileId)) {
+        try {
+          await FileUploadService.deleteFile(fileId);
+          console.debug('[LicenseDetails] file deleted from server successfully:', fileId);
+        } catch (error: any) {
+          console.error('[LicenseDetails] failed to delete file:', error);
+          alert(`Failed to delete file from server: ${error.message}`);
+          return;
+        }
+      } else {
+        console.warn('[LicenseDetails] No valid file ID found to delete from server:', fileToRemove);
+      }
+    }
+
     setForm((prev: any) => {
       const currentLicenseDetails = prev.licenseDetails || [{}];
       const currentDetail = currentLicenseDetails[0] || {};
@@ -455,9 +478,11 @@ const LicenseDetails = () => {
 
       const uploadResponses = await FileUploadService.uploadMultipleFiles(
         applicantId,
-        pendingFiles,
-        'MEDICAL_REPORT',
-        'Evidence document for special consideration claims'
+        pendingFiles.map((file: File) => ({
+          file,
+          fileType: 'OTHER',
+          description: 'Evidence document for special consideration claims'
+        }))
       );
 
       // Move files from pending to uploaded
@@ -523,6 +548,11 @@ const LicenseDetails = () => {
   if (isLoading) {
     return <FormSkeleton title="License Details" rows={4} />;
   }
+
+  const detail = getLicenseDetail();
+  const currentFiles = detail.specialClaimsEvidence || [];
+  const uploadedFiles = detail.uploadedFiles || [];
+  const totalFiles = currentFiles.length + uploadedFiles.length;
 
   // Debug: Log current form state on render
   return (
@@ -714,10 +744,10 @@ const LicenseDetails = () => {
             )}
 
             {/* Document Upload Section */}
-            <div className='border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors'>
+            <div className={`border-2 border-dashed rounded-lg p-4 transition-colors ${totalFiles >= 1 ? 'border-gray-200 bg-gray-50' : 'border-gray-300 hover:border-blue-400'}`}>
               <div className='text-center'>
                 <svg
-                  className='mx-auto h-12 w-12 text-gray-400'
+                  className={`mx-auto h-12 w-12 ${totalFiles >= 1 ? 'text-gray-300' : 'text-gray-400'}`}
                   stroke='currentColor'
                   fill='none'
                   viewBox='0 0 48 48'
@@ -730,12 +760,12 @@ const LicenseDetails = () => {
                   />
                 </svg>
                 <div className='mt-4'>
-                  <label htmlFor='specialClaimsEvidence' className='cursor-pointer'>
-                    <span className='mt-2 block text-sm font-medium text-gray-900'>
-                      {uploadingFiles ? 'Uploading...' : 'Upload documentary evidence'}
+                  <label htmlFor='specialClaimsEvidence' className={totalFiles >= 1 ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                    <span className={`mt-2 block text-sm font-medium ${totalFiles >= 1 ? 'text-gray-400' : 'text-gray-900'}`}>
+                      {uploadingFiles ? 'Uploading...' : totalFiles >= 1 ? 'Document Uploaded' : 'Upload documentary evidence'}
                     </span>
                     <span className='mt-1 block text-xs text-gray-500'>
-                      PDF, DOC, DOCX, JPG, PNG up to 10MB each • Multiple files allowed
+                      {totalFiles >= 1 ? 'Remove the current document to upload a new one' : 'PDF, DOC, DOCX, JPG, PNG up to 10MB • Only 1 file allowed'}
                     </span>
                   </label>
                   <input
@@ -745,7 +775,7 @@ const LicenseDetails = () => {
                     className='sr-only'
                     accept='.pdf,.doc,.docx,.jpg,.jpeg,.png'
                     onChange={handleFileChange}
-                    disabled={uploadingFiles}
+                    disabled={uploadingFiles || totalFiles >= 1}
                   />
                 </div>
               </div>
@@ -879,19 +909,7 @@ const LicenseDetails = () => {
                   </div>
                 )}
 
-              {/* Upload limit info */}
-              {(() => {
-                const totalFiles =
-                  (getLicenseDetail().specialClaimsEvidence?.length || 0) +
-                  (getLicenseDetail().uploadedFiles?.length || 0);
-                return (
-                  totalFiles >= 5 && (
-                    <div className='mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700'>
-                      ⚠️ Maximum 5 files allowed. Remove a file to upload more.
-                    </div>
-                  )
-                );
-              })()}
+
             </div>
           </div>
           {/* 19. Details for an application for license in Form IV */}

@@ -444,22 +444,18 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
         <div className={`${styles.tableWrapper} w-full min-w-0`}>
           <table className='w-full table-fixed border-collapse'>
-<colgroup>
-               {(() => {
-                 const cols = isSentPage
-                   ? (showActionColumn
-                     ? ['4%', '22%', '22%', '17%', '30%', '5%']
-                     : ['4%', '22%', '25%', '18%', '31%'])
-                   : isRenewalPage
-                     ? (showActionColumn
-                       ? ['4%', '22%', '22%', '18%', '17%', '17%', '5%']
-                       : ['4%', '22%', '22%', '18%', '17%', '17%'])
-                   : (showActionColumn
-                     ? ['4%', '22%', '22%', '18%', '17%', '12%', '5%']
-                     : ['4%', '22%', '25%', '19%', '18%', '12%']);
-                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
-               })()}
-             </colgroup>
+            <colgroup>
+              {(() => {
+                const cols = isSentPage
+                  ? (showActionColumn
+                    ? ['5%', '20%', '15%', '12%', '20%', '18%', '10%']
+                    : ['5%', '22%', '18%', '15%', '20%', '20%'])
+                  : (showActionColumn
+                    ? ['5%', '20%', '16%', '14%', '17%', '18%', '10%']
+                    : ['5%', '22%', '18%', '16%', '19%', '20%']);
+                return cols.map((w, i) => <col key={i} style={{ width: w }} />);
+              })()}
+            </colgroup>
             <thead className='bg-gray-50'>
               <tr>
                 {tableColumns.map(col => {
@@ -468,7 +464,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                     <th
                       key={col}
                       scope='col'
-                      className={`${styles.tableHeaderCell} ${isAction ? 'text-center' : 'text-left'} text-sm font-medium text-black`}
+                      style={{ textAlign: isAction ? 'center' : 'left' }}
+                      className={`${styles.tableHeaderCell} text-sm font-medium text-black`}
                     >
                       {col}
                     </th>
@@ -600,10 +597,10 @@ const TableRow: React.FC<{
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
         
-        <td className={`${styles.tableCell} text-sm font-medium`}>
-          <div className='flex items-center gap-2'>
+        <td className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`} title={app.applicantName || 'N/A'}>
+          <div className='flex items-center gap-2 w-full min-w-0'>
             {isRowLoading && (
-              <svg className='animate-spin h-4 w-4 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+              <svg className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
                 <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
                 <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
               </svg>
@@ -614,7 +611,8 @@ const TableRow: React.FC<{
                 handleViewApplication(app.id);
               }}
               disabled={isRowLoading}
-              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate text-left ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              style={{ maxWidth: '100%', display: 'block' }}
               aria-label={`View details for application ${app.id}`}
             >
               {app.applicantName}
@@ -695,13 +693,13 @@ const TableRow: React.FC<{
       <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
         {(app as any).acknowledgementNo || 'N/A'}
       </td>
-      <td className={`${styles.tableCell} text-sm font-medium `}>
+      <td className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`} title={app.applicantName || 'N/A'}>
         {isDrafts ? (
-          <span className='text-gray-900'>{app.applicantName}</span>
+          <span className='text-gray-900 truncate block' style={{ maxWidth: '100%' }}>{app.applicantName}</span>
         ) : (
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-2 w-full min-w-0'>
             {isRowLoading && (
-              <svg className='animate-spin h-4 w-4 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+              <svg className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
                 <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
                 <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
               </svg>
@@ -712,7 +710,8 @@ const TableRow: React.FC<{
                 handleViewApplication(app.id);
               }}
               disabled={isRowLoading}
-              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate text-left ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              style={{ maxWidth: '100%', display: 'block' }}
               aria-label={`View details for application ${app.id}`}
             >
               {app.applicantName}
