@@ -25,6 +25,7 @@ interface LocationHierarchyProps {
   };
   // Error mapping
   errors?: Record<string, string>;
+  isRenewal?: boolean;
 }
 
 export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
@@ -36,8 +37,9 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
   className = '',
   disabledFields = {},
   errors = {},
+  isRenewal = false,
 }) => {
-  const [locationState, locationActions] = useLocationHierarchy();
+  const [locationState, locationActions] = useLocationHierarchy({ isRenewal });
 
   // Load cascading options when parent pre-fills saved location IDs
   React.useEffect(() => {
@@ -55,7 +57,10 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     
     locationActions.hydrateFromValues(values);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.state, values.district, values.zone, values.division, values.policeStation]);
+  }, [
+    values.state, values.district, values.zone, values.division, values.policeStation,
+    values.stateName, values.districtName, values.zoneName, values.divisionName, values.policeStationName
+  ]);
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;

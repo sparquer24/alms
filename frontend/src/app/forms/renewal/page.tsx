@@ -3136,211 +3136,228 @@ function RenewalFormPageContent() {
 
     if (!isVerified) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-12 sm:px-6 lg:px-8">
-          <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-3xl shadow-xl ring-1 ring-gray-100 border border-gray-100">
-            {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
-              <div className="space-y-6 py-8 text-center">
-                <div className="mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center">
-                  <span className="text-xl">🪪</span>
+        <div className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]" role='main'>
+          <div className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]' aria-hidden='true' />
+          <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
+            <div className="max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300">
+              {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
+                <div className="space-y-6 py-8 text-center">
+                  <div className="mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center">
+                    <span className="text-xl">🪪</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Loading Application Context...</h3>
+                  <p className="text-sm text-gray-500">Checking biometric requirements</p>
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">Loading Application Context...</h3>
-                <p className="text-sm text-gray-500">Checking biometric requirements</p>
-              </div>
-            ) : verificationStatus === 'ENTER_APP_ID' && (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <div className="mx-auto h-16 w-16 bg-blue-100 text-[#001F54] rounded-full flex items-center justify-center text-3xl font-semibold shadow-sm mb-4">
-                    🪪
+              ) : verificationStatus === 'ENTER_APP_ID' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="mb-6 flex justify-center">
+                      <img
+                        src='/icon-alms.svg'
+                        alt='ALMS Logo'
+                        width={100}
+                        height={100}
+                        className='drop-shadow-md h-auto'
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                      License Renewal Verification
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Please enter your Fresh Application ID to verify your identity and start the renewal process.
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                    License Renewal Verification
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Please enter your Fresh Application ID to verify your identity and start the renewal process.
-                  </p>
-                </div>
-                
-                {verificationError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                    {verificationError}
-                  </div>
-                )}
+                  
+                  {verificationError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {verificationError}
+                    </div>
+                  )}
 
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="app-id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Fresh Application ID
-                    </label>
-                    <input
-                      id="app-id"
-                      type="text"
-                      value={enteredAppId}
-                      onChange={(e) => setEnteredAppId(e.target.value)}
-                      placeholder="e.g. 12345"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white text-gray-900 font-semibold"
-                    />
-                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="app-id" className="block text-sm font-semibold text-gray-700 mb-1">
+                        Fresh Application ID
+                      </label>
+                      <input
+                        id="app-id"
+                        type="text"
+                        value={enteredAppId}
+                        onChange={(e) => setEnteredAppId(e.target.value)}
+                        placeholder="e.g. 12345"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold"
+                      />
+                    </div>
 
-                  <button
-                    onClick={() => checkBiometricRequirement(enteredAppId)}
-                    disabled={verificationChecking || !enteredAppId.trim()}
-                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-[#001F54] hover:bg-[#012a73] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]"
-                  >
-                    {verificationChecking ? 'Checking...' : 'Verify Application'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {verificationStatus === 'VERIFYING_BIOMETRICS' && applicantDetails && (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                    Biometric Identity Match
-                  </h2>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Verify you are the same applicant as registered in the original application.
-                  </p>
-                </div>
-
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-medium">Applicant Name</span>
-                    <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-medium">Application ID</span>
-                    <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-medium">License Number</span>
-                    <span className="text-gray-800 font-semibold">{applicantDetails.licenseNumber}</span>
+                    <button
+                      onClick={() => checkBiometricRequirement(enteredAppId)}
+                      disabled={verificationChecking || !enteredAppId.trim()}
+                      className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]"
+                    >
+                      {verificationChecking ? 'Checking...' : 'Verify Application'}
+                    </button>
                   </div>
                 </div>
+              )}
 
-                {verificationError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                    {verificationError}
+              {verificationStatus === 'VERIFYING_BIOMETRICS' && applicantDetails && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="mb-6 flex justify-center">
+                      <img
+                        src='/icon-alms.svg'
+                        alt='ALMS Logo'
+                        width={100}
+                        height={100}
+                        className='drop-shadow-md h-auto'
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                      Biometric Identity Match
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Verify you are the same applicant as registered in the original application.
+                    </p>
                   </div>
-                )}
 
-                {/* Signature/Thumb Impression section layout from fresh form */}
-                <div className='p-6 rounded-2xl border border-gray-200 bg-white shadow-sm space-y-4 text-left'>
-                  <div className='flex justify-between items-center mb-2'>
-                    <div className='font-semibold text-gray-800'>Signature / Thumb Impression</div>
-                    <div className='flex items-center gap-2'>
-                      {/* Info Icon with Tooltip */}
-                      <div className='relative'>
-                        <button
-                          type='button'
-                          onClick={() => setShowInfoTooltip(!showInfoTooltip)}
-                          className='p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors'
-                          title='Device setup information'
-                        >
-                          <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                            <path
-                              fillRule='evenodd'
-                              d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
-                              clipRule='evenodd'
-                            />
-                          </svg>
-                        </button>
-                        {/* Info Tooltip Popover */}
-                        {showInfoTooltip && (
-                          <div className='absolute right-0 top-8 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4'>
-                            <div className='flex justify-between items-start mb-3'>
-                              <h4 className='font-semibold text-gray-800 flex items-center gap-2'>
-                                <svg className='w-5 h-5 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
-                                  <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
-                                </svg>
-                                Device Setup Guide
-                              </h4>
-                              <button type='button' onClick={() => setShowInfoTooltip(false)} className='text-gray-400 hover:text-gray-600'>✕</button>
-                            </div>
-                            <div className='space-y-2 text-sm text-gray-600'>
-                              <p>✔ Connect Mantra MFS500 via USB</p>
-                              <p>✔ Install Mantra drivers</p>
-                              <p>✔ Run Mantra RD Service</p>
-                              <p>✔ Start MorfinAuth SDK on port 8030</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type='button'
-                        onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-                        className='px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-1'
-                        title='Open device diagnostics and settings'
-                      >
-                        ⚙️ Settings
-                      </button>
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">Applicant Name</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">Application ID</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">License Number</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.licenseNumber}</span>
                     </div>
                   </div>
 
-                  <div className='space-y-2'>
-                    <div className='mb-4'>
-                      <label className='block text-sm font-medium text-gray-700 mb-1'>Required Hand & Finger</label>
-                      <select
-                        value={biometricTargetThumb || 'RIGHT_THUMB'}
-                        disabled
-                        className='w-full p-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed'
-                      >
-                        <option value="RIGHT_THUMB">Right Hand Thumb</option>
-                        <option value="LEFT_THUMB">Left Hand Thumb</option>
-                      </select>
-                      <p className="text-sm text-blue-600 mt-1 font-medium">Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}.</p>
+                  {verificationError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {verificationError}
+                    </div>
+                  )}
+
+                  {/* Signature/Thumb Impression section layout from fresh form */}
+                  <div className='p-6 rounded-xl border border-gray-200 bg-white shadow-sm space-y-4 text-left'>
+                    <div className='flex justify-between items-center mb-2'>
+                      <div className='font-semibold text-gray-800'>Signature / Thumb Impression</div>
+                      <div className='flex items-center gap-2'>
+                        {/* Info Icon with Tooltip */}
+                        <div className='relative'>
+                          <button
+                            type='button'
+                            onClick={() => setShowInfoTooltip(!showInfoTooltip)}
+                            className='p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors'
+                            title='Device setup information'
+                          >
+                            <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                              <path
+                                fillRule='evenodd'
+                                d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                                clipRule='evenodd'
+                              />
+                            </svg>
+                          </button>
+                          {/* Info Tooltip Popover */}
+                          {showInfoTooltip && (
+                            <div className='absolute right-0 top-8 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4'>
+                              <div className='flex justify-between items-start mb-3'>
+                                <h4 className='font-semibold text-gray-800 flex items-center gap-2'>
+                                  <svg className='w-5 h-5 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
+                                    <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
+                                  </svg>
+                                  Device Setup Guide
+                                </h4>
+                                <button type='button' onClick={() => setShowInfoTooltip(false)} className='text-gray-400 hover:text-gray-600'>✕</button>
+                              </div>
+                              <div className='space-y-2 text-sm text-gray-600'>
+                                <p>✔ Connect Mantra MFS500 via USB</p>
+                                <p>✔ Install Mantra drivers</p>
+                                <p>✔ Run Mantra RD Service</p>
+                                <p>✔ Start MorfinAuth SDK on port 8030</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type='button'
+                          onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                          className='px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-1'
+                          title='Open device diagnostics and settings'
+                        >
+                          ⚙️ Settings
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Mantra SDK Fingerprint Capture */}
-                    {mantraSDKReady && deviceConnected ? (
-                      <div className='flex items-center space-x-3'>
-                        <button
-                          type='button'
-                          onClick={handleVerifyBiometrics}
-                          disabled={fingerprintCapturing}
-                          className='px-5 py-2.5 bg-[#6366F1] hover:bg-[#5558E3] text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
-                        >
-                          <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
-                          </svg>
-                          {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
-                        </button>
-                        <span className='text-sm text-green-600 font-medium'>✓ Device Ready</span>
-                      </div>
-                    ) : (
-                      <div className='flex items-center space-x-3'>
-                        <button
-                          type='button'
-                          onClick={() => checkDeviceConnection()}
-                          className='px-5 py-2.5 bg-gray-400 text-white rounded-md font-medium cursor-not-allowed flex items-center gap-2'
+                    <div className='space-y-2'>
+                      <div className='mb-4'>
+                        <label className='block text-sm font-semibold text-gray-700 mb-1'>Required Hand & Finger</label>
+                        <select
+                          value={biometricTargetThumb || 'RIGHT_THUMB'}
                           disabled
+                          className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed text-gray-700 font-semibold'
                         >
-                          <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
-                          </svg>
-                          Scan Fingerprint
-                        </button>
-                        <span className='text-sm text-gray-500 font-medium'>
-                          {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
-                        </span>
+                          <option value="RIGHT_THUMB">Right Hand Thumb</option>
+                          <option value="LEFT_THUMB">Left Hand Thumb</option>
+                        </select>
+                        <p className="text-sm text-blue-600 mt-1 font-medium">Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}.</p>
                       </div>
-                    )}
+
+                      {/* Mantra SDK Fingerprint Capture */}
+                      {mantraSDKReady && deviceConnected ? (
+                        <div className='flex items-center space-x-3'>
+                          <button
+                            type='button'
+                            onClick={handleVerifyBiometrics}
+                            disabled={fingerprintCapturing}
+                            className='px-5 py-2.5 bg-[#D4AF37] hover:bg-[#C4A02F] text-gray-900 rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md'
+                          >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                            </svg>
+                            {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
+                          </button>
+                          <span className='text-sm text-green-600 font-medium'>✓ Device Ready</span>
+                        </div>
+                      ) : (
+                        <div className='flex items-center space-x-3'>
+                          <button
+                            type='button'
+                            onClick={() => checkDeviceConnection()}
+                            className='px-5 py-2.5 bg-gray-300 text-gray-600 rounded-md font-semibold cursor-not-allowed flex items-center gap-2'
+                            disabled
+                          >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                            </svg>
+                            Scan Fingerprint
+                          </button>
+                          <span className='text-sm text-gray-500 font-medium'>
+                            {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        setVerificationStatus('ENTER_APP_ID');
+                        setVerificationError(null);
+                      }}
+                      className="w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      Change Application ID
+                    </button>
                   </div>
                 </div>
-
-                <div className="space-y-3">
-                  <button
-                    onClick={() => {
-                      setVerificationStatus('ENTER_APP_ID');
-                      setVerificationError(null);
-                    }}
-                    className="w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    Change Application ID
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
 
             {/* ⚙️ DEVICE SETTINGS & DIAGNOSTICS MODAL */}
             {showDeviceSettings && (
@@ -3700,6 +3717,7 @@ function RenewalFormPageContent() {
             )}
           </div>
         </div>
+      </div>
       );
     }
 

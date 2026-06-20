@@ -131,6 +131,28 @@ const BiometricInformation = forwardRef(function BiometricInformation(
   }, [formData?.photographUploaded]);
 
   useEffect(() => {
+    const fetchFingerprints = async () => {
+      if (!renewalId) return;
+      try {
+        const fingerprints = await BiometricAPIService.getEnrolledFingerprints(renewalId);
+        if (Array.isArray(fingerprints) && fingerprints.length > 0) {
+          const mapped = fingerprints.map((fp: any) => ({
+            id: fp.id || fp.fingerprintId || null,
+            position: fp.fingerPosition || fp.position || 'RIGHT_THUMB',
+            enrolledAt: fp.enrolledAt || fp.createdAt || null,
+            quality: fp.quality || 100,
+            bitmapData: fp.bitmapData || fp.image || fp.bitmap_data || null
+          }));
+          setEnrolledFingerprints(mapped);
+        }
+      } catch (err) {
+        console.warn('[BiometricInformation] Failed to fetch enrolled fingerprints:', err);
+      }
+    };
+    fetchFingerprints();
+  }, [renewalId]);
+
+  useEffect(() => {
     const initializeMantra = async () => {
       const initialized = await MantraSDKService.initialize();
       setMantraSDKReady(initialized);
@@ -400,43 +422,9 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         captureTime: pendingCaptureResult.captureTime!,
         bitmapData: pendingCaptureResult.bitmapData,
       };
-      const templatesResponse = await BiometricAPIService.getTemplatesForMatching(renewalId);
-      if (!templatesResponse.success) {
-        toast.error('Failed to fetch templates for matching');
-        setFingerprintCapturing(false);
-        setUploadProgress('');
-        return;
-      }
-      const liveTemplate = biometricTemplate.template;
-      const matchThreshold = 65;
-      let matchFound = false, matchedTemplate: any = null;
-      setUploadProgress(`Matching against ${templatesResponse.templates.length} stored fingerprints...`);
-      for (const storedTemplate of templatesResponse.templates) {
-        try {
-          const matchResult = await MantraSDKService.verifyTemplate(storedTemplate.template, liveTemplate, matchThreshold);
-          if (matchResult.isMatch || matchResult.score >= matchThreshold) {
-            matchFound = true;
-            matchedTemplate = storedTemplate;
-            break;
-          }
-        } catch (e) {}
-      }
-      if (matchFound && matchedTemplate) {
-        setDuplicateMatchInfo({
-          applicationId: matchedTemplate.applicationId || 'Unknown',
-          almsLicenseId: matchedTemplate.almsLicenseId || null,
-          applicantName: matchedTemplate.applicantName || 'Unknown',
-          fingerPosition: matchedTemplate.fingerPosition || 'Unknown',
-        });
-        setShowDuplicateModal(true);
-        setShowFingerprintPreviewModal(false);
-        setFingerprintPreviewImage(null);
-        setPendingCaptureResult(null);
-        setFingerprintCapturing(false);
-        setUploadProgress('');
-        return;
-      }
-      setUploadProgress('No duplicate found. Storing fingerprint...');
+      // For renewal applications, we do not perform duplicate fingerprint check
+      // as the applicant's fingerprint will match their own original record in the system.
+      setUploadProgress('Storing fingerprint...');
       const storeResponse = await BiometricAPIService.storeFingerprint(renewalId, pendingFingerPosition, biometricTemplate, `Captured via Mantra SDK - ${pendingFingerPosition}`);
       if (!storeResponse.success) {
         toast.error(`Failed to store fingerprint: ${storeResponse.message}`);
@@ -738,9 +726,25 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                       <span className='text-xs text-gray-500 p-1'>{uploadProgress || ''}</span>
                     )}
                   </div>
-                  <div className='space-y-1'>
-                    <p><span className='text-gray-500 text-sm'>Position:</span> <b className='text-gray-800'>{latestFp.position}</b></p>
-                    <p><span className='text-gray-500 text-sm'>Quality:</span> <b className={latestFp.quality >= 60 ? 'text-green-600' : 'text-red-600'}>{latestFp.quality}%</b></p>
+                  <div className='space-y-1 text-sm'>
+                    <p><span className='text-gray-500'>Position:</span> <b className='text-gray-800'>{latestFp.position}</b></p>
+                    <p><span className='text-gray-500'>Quality:</span> <b className={latestFp.quality >= 60 ? 'text-green-600' : 'text-red-600'}>{latestFp.quality}%</b></p>
+                    {latestFp.id && (
+                      <p>
+                        <span className='text-gray-500'>Fingerprint ID (API):</span>{' '}
+                        <code className='text-xs bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-gray-700 font-mono'>
+                          {latestFp.id}
+                        </code>
+                      </p>
+                    )}
+                    {latestFp.enrolledAt && (
+                      <p>
+                        <span className='text-gray-500'>Enrolled At:</span>{' '}
+                        <span className='text-xs text-gray-600 font-semibold'>
+                          {new Date(latestFp.enrolledAt).toLocaleString()}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

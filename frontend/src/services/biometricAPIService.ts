@@ -211,11 +211,12 @@ export class BiometricAPIService {
             const response = await fetch(
                 `/api${this.BASE_PATH}/enrolled/${encodeURIComponent(applicantId)}`
             );
+            if (response.status === 404) return [];
             if (!response.ok) throw new Error('Failed to fetch enrolled fingerprints');
             const data = await response.json();
             return data.data || [];
         } catch (error) {
-            console.error('[BiometricAPIService] Failed to fetch enrolled fingerprints:', error);
+            console.debug('[BiometricAPIService] No enrolled fingerprints found or fetch skipped:', error);
             return [];
         }
     }
