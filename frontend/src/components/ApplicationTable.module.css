@@ -15,9 +15,10 @@
 .tableWrapper {
   overflow-x: auto; /* Enable horizontal scrolling for responsiveness */
   overflow-y: auto; /* Enable vertical scrolling */
-  /* Limit the table wrapper height so the header (inside the thead) can stick
-     to the top while only the tbody scrolls. Adjust 60vh as necessary for your layout. */
-  max-height: 60vh;
+  /* Full height for single scrollbar - parent controls the viewport height */
+  height: calc(100vh - 240px);
+  min-height: 300px;
+  max-height: calc(100vh - 240px);
 }
 
 @media (min-width: 1024px) {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import Footer from '../../components/Footer';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import { navigateToDefaultMenu } from '../../utils/navigationUtils';
@@ -297,6 +298,12 @@ function LoginContent() {
             <p className='mt-2 text-center text-sm text-gray-700'>
               Sign in to access your dashboard
             </p>
+            <Link
+              href="/"
+              className="mt-4 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              ← Back to Home
+            </Link>
           </div>
 
           {error && <ErrorMessage message={error} />}
