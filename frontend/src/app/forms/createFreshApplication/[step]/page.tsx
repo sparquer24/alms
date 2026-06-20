@@ -58,7 +58,7 @@ function FormStepSkeleton() {
       }}
     >
       <div className='flex justify-center' style={{ paddingTop: 100, minHeight: '100vh' }}>
-        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full p-6 mx-4'>
+        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full p-6'>
           <div className='animate-pulse space-y-8'>
             {/* Step header skeleton */}
             <div className='flex items-center justify-center space-x-4 mb-8'>
@@ -392,9 +392,9 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       )}
       <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick} lockedSteps={lockedSteps} />
       <div
-        className=' flex max-w-8xl px-4  justify-center sm:px-8 '
+        className='flex max-w-8xl px-4  justify-center sm:px-8'
         style={{
-          paddingTop: 100, // match header height (80px)
+          paddingTop: 100, // match header height
           minHeight: '100vh',
         }}
       >

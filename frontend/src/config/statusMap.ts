@@ -8,7 +8,7 @@ export type StatusKey =
   | 'freshform'
   | 'sent'
   | 'closed'
-  | 'finaldisposal'
+  | 'applications'
   | 'pending'
   | 'approved'
   | 'cancelled'
@@ -29,7 +29,6 @@ export const statusIdMap: StatusIdMap = {
   disposed: [7],         // DISPOSE
   approved: [11, 3],     // RECOMMEND + APPROVED
   freshform: [9],        // INITIATE (fresh form applications)
-  finaldisposal: [7],    // FINAL DISPOSAL (same as disposed)
   closed: [10],          // CLOSE
   cancelled: [4],        // CANCEL
   reEnquiry: [5],        // RE_ENQUIRY

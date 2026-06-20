@@ -6,6 +6,8 @@ interface ApplicationCounts {
     forwardedCount: number;
     returnedCount: number;
     redFlaggedCount: number;
+    pendingCount: number;
+    draftCount: number;
 }
 
 export const useSidebarCounts = (enabled: boolean = true) => {
@@ -14,6 +16,8 @@ export const useSidebarCounts = (enabled: boolean = true) => {
         returnedCount: 0,
         redFlaggedCount: 0,
         reEnquiryCount: 0,
+        pendingCount: 0,
+        draftCount: 0,
     });
     const [loading, setLoading] = useState(false);
     const [lastFetch, setLastFetch] = useState<number>(0);
@@ -37,7 +41,9 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                 forwardedCount: counts.forwardedCount,
                 returnedCount: counts.returnedCount,
                 redFlaggedCount: counts.redFlaggedCount,
-                reEnquiryCount: counts.reEnquiryCount
+                reEnquiryCount: counts.reEnquiryCount,
+                pendingCount: counts.pendingCount,
+                draftCount: counts.draftCount,
             });
 
             setLastFetch(now);
@@ -66,6 +72,8 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                         returnedCount: counts.returnedCount,
                         redFlaggedCount: counts.redFlaggedCount,
                         reEnquiryCount: counts.reEnquiryCount,
+                        pendingCount: counts.pendingCount,
+                        draftCount: counts.draftCount,
                     });
                     setLastFetch(Date.now());
                 }

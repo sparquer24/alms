@@ -69,6 +69,8 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
     permanentAddress: application?.permanentAddress || undefined,
     occupationAndBusiness: application?.occupationAndBusiness || undefined,
     licenseDetails: Array.isArray(application?.licenseDetails) ? application.licenseDetails : (application?.licenseDetails ? [application.licenseDetails] : []),
+    licenseValidity: application?.licenseValidity || application?.validTillDate || undefined,
+    validTillDate: application?.licenseValidity || application?.validTillDate || undefined,
     biometricData: application?.biometricData || undefined,
     actions: application?.actions || {
       canForward: false,
