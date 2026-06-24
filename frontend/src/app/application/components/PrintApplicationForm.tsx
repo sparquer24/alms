@@ -10,46 +10,73 @@ interface PrintApplicationFormProps {
 
 // PDF Thumbnail generator component
 function PDFPreview({ url, name }: { url: string; name: string }) {
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [imgSrcs, setImgSrcs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagesCount, setPagesCount] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     const loadPdf = async () => {
       try {
-        // Dynamically import pdfjs-dist to avoid compile-time ESLint and Server Side bundling issues
+        // Dynamically import pdfjs-dist
         const pdfjsLib = await import('pdfjs-dist');
         
-        // Dynamically get the version and configure worker source link
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        // Use internal packaged worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url
+        ).toString();
 
-        const loadingTask = pdfjsLib.getDocument({ url });
+        // Normalize URL - rewrite any URL containing '/files/' to use the local API files download proxy
+        let targetUrl = url;
+        if (url.includes('/files/')) {
+          const fileNameOnly = url.substring(url.indexOf('/files/') + '/files/'.length);
+          if (typeof window !== 'undefined') {
+            targetUrl = window.location.origin + '/api/files/download/' + fileNameOnly;
+          }
+        } else if (typeof window !== 'undefined' && url.startsWith('/')) {
+          targetUrl = window.location.origin + url;
+        }
+
+        const loadingTask = pdfjsLib.getDocument({ url: targetUrl });
         const pdf = await loadingTask.promise;
-        setPagesCount(pdf.numPages);
-
-        // Load first page
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1.5 });
+        if (!active) return;
         
-        // Prepare canvas
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        const totalPages = pdf.numPages;
+        setPagesCount(totalPages);
 
-        if (context) {
-          const renderContext = {
-            canvasContext: context,
-            viewport: viewport,
-          } as any;
-          await page.render(renderContext).promise;
-          if (active) {
-            setImgSrc(canvas.toDataURL());
+        const urls: string[] = [];
+        // Render all pages
+        for (let i = 1; i <= totalPages; i++) {
+          const page = await pdf.getPage(i);
+          // Scale to 2.0 for higher readability & clear text
+          const viewport = page.getViewport({ scale: 2.0 });
+          
+          // Prepare canvas
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          if (context) {
+            const renderContext = {
+              canvasContext: context,
+              viewport: viewport,
+            } as any;
+            await page.render(renderContext).promise;
+            urls.push(canvas.toDataURL('image/png'));
           }
         }
-      } catch (err) {
+
+        if (active) {
+          setImgSrcs(urls);
+        }
+      } catch (err: any) {
         console.error('Error rendering PDF thumbnail:', err);
+        if (active) {
+          setError(err?.message || String(err));
+        }
       } finally {
         if (active) {
           setLoading(false);
@@ -69,15 +96,25 @@ function PDFPreview({ url, name }: { url: string; name: string }) {
     return <div className="print-doc-placeholder">Loading PDF Preview...</div>;
   }
 
-  if (imgSrc) {
+  if (error) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        <img src={imgSrc} alt={name} className="print-doc-preview-image" style={{ maxHeight: '90%' }} />
-        {pagesCount && pagesCount > 1 && (
-          <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '2px 4px', fontWeight: 'bold' }}>
-            1 of {pagesCount} pages
+      <div className="print-doc-placeholder" style={{ color: '#d32f2f' }}>
+        Preview Error: {error}
+      </div>
+    );
+  }
+
+  if (imgSrcs.length > 0) {
+    return (
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', position: 'relative' }}>
+        {imgSrcs.map((src, index) => (
+          <div key={index} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <img src={src} alt={`${name} - Page ${index + 1}`} className="print-doc-preview-image" style={{ width: '100%', height: 'auto', border: '1px solid #ddd' }} />
+            <div style={{ marginTop: '4px', fontSize: '8px', color: '#666', fontWeight: 'bold' }}>
+              Page {index + 1} of {pagesCount}
+            </div>
           </div>
-        )}
+        ))}
       </div>
     );
   }
@@ -214,7 +251,51 @@ export default function PrintApplicationForm({ application, applicantName }: Pri
           }
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 0 !important;
+          }
+          body {
+            padding: 10mm 15mm !important;
+          }
+          /* Add watermark wrapper layer repeating across multiple pages */
+          body::before {
+            content: "Sparquer";
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            color: rgba(135, 206, 250, 0.15) !important;
+            pointer-events: none;
+            z-index: 9999;
+            font-family: sans-serif;
+            font-weight: bold;
+            letter-spacing: 4px;
+            white-space: nowrap;
+          }
+           /* CSS Page counter initialization and display */
+          body {
+            counter-reset: page;
+          }
+          .print-footer-page-number {
+            display: none;
+          }
+          @media print {
+            .print-footer-page-number {
+              display: block !important;
+              position: fixed !important;
+              bottom: 10mm !important;
+              right: 15mm !important;
+              font-size: 9px !important;
+              font-family: sans-serif !important;
+              color: #555 !important;
+              z-index: 9999;
+            }
+            .print-footer-page-number::after {
+              content: "Page " counter(page);
+            }
+          }
+          .print-form-container {
+            position: relative;
           }
         }
 
@@ -301,21 +382,22 @@ export default function PrintApplicationForm({ application, applicantName }: Pri
 
         .print-doc-preview-container {
           width: 100%;
-          flex: 1;
           min-height: 220mm;
           border: 1px solid #111;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
+          justify-content: flex-start;
           background-color: #fff;
-          overflow: hidden;
           box-sizing: border-box;
           margin-bottom: 10px;
+          padding: 10px;
         }
 
         .print-doc-preview-image {
+          width: 100%;
+          height: auto;
           max-width: 100%;
-          max-height: 100%;
           object-fit: contain;
         }
 
@@ -741,7 +823,7 @@ export default function PrintApplicationForm({ application, applicantName }: Pri
                         <td style={{ fontWeight: 'normal', fontSize: '8px', border: '1px solid #111', padding: '3px 4px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{dateTime}</td>
                         <td style={{ fontWeight: 'normal', fontSize: '8px', border: '1px solid #111', padding: '3px 4px', verticalAlign: 'top', textAlign: 'center' }}>{hasAttachments ? `${attachments.length} file(s)` : '—'}</td>
                       </tr>
-                      {hasRemarks && (
+                      {(hasRemarks || hasAttachments) && (
                         <tr>
                           <td
                             colSpan={7}
@@ -758,8 +840,42 @@ export default function PrintApplicationForm({ application, applicantName }: Pri
                               whiteSpace: 'pre-wrap',
                             }}
                           >
-                            <span style={{ fontWeight: 'bold', marginRight: '4px' }}>Remarks:</span>
-                            {formattedRemarks || '—'}
+                            {hasRemarks && (
+                              <div style={{ marginBottom: hasAttachments ? '6px' : '0' }}>
+                                <span style={{ fontWeight: 'bold', marginRight: '4px' }}>Remarks:</span>
+                                {formattedRemarks || '—'}
+                              </div>
+                            )}
+                            {hasAttachments && (
+                              <div style={{ marginTop: '8px' }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>Attachments:</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {attachments.map((att: any, attIdx: number) => {
+                                    const name = att?.name || att?.fileName || `Attachment-${attIdx + 1}`;
+                                    const url = att?.url || att?.path || att?.downloadUrl;
+                                    const isImage = /\.(png|jpe?g|gif|svg)$/i.test(name) || /image/i.test(att?.contentType);
+                                    const isPdf = /\.pdf$/i.test(name) || /pdf/i.test(att?.contentType);
+
+                                    return (
+                                      <div key={attIdx} style={{ border: '1px solid #111', padding: '10px', backgroundColor: '#fff', maxWidth: '100%', pageBreakInside: 'avoid', breakInside: 'avoid', marginTop: '6px' }}>
+                                        <div style={{ fontSize: '9px', fontFamily: 'monospace', fontWeight: 'bold', borderBottom: '1px solid #111', paddingBottom: '5px', marginBottom: '6px' }}>
+                                          {name}
+                                        </div>
+                                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px solid #eee', backgroundColor: '#fff', padding: '10px', boxSizing: 'border-box' }}>
+                                          {isImage && url ? (
+                                            <img src={url} alt={name} style={{ width: '100%', height: 'auto', maxWidth: '100%', objectFit: 'contain' }} />
+                                          ) : isPdf && url ? (
+                                            <PDFPreview url={url} name={name} />
+                                          ) : (
+                                            <div style={{ fontSize: '9px', color: '#888', padding: '20px' }}>Preview not available</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}
@@ -784,6 +900,7 @@ export default function PrintApplicationForm({ application, applicantName }: Pri
           Authorized Signature: ___________________________
         </div>
       </div>
+      <div className="print-footer-page-number" />
     </div>
   );
 }

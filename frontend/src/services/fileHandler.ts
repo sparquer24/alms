@@ -144,38 +144,22 @@ const blobFromBase64 = (data: string, mime?: string) => {
 };
 
 const openPdfBlob = (blob: Blob, fileName?: string) => {
+  // Blob URLs are scoped to the window that creates them.
+  // Using document.write() in a new window to embed the blob URL causes a blank page
+  // because the new window cannot access the parent's blob URL.
+  // Opening the blob URL directly avoids this cross-window scoping issue.
   const blobUrl = window.URL.createObjectURL(blob);
-  const pdfWindow = window.open('', '_blank', 'noopener,noreferrer');
-  if (pdfWindow) {
-    // Use iframe for better PDF rendering compatibility
-    pdfWindow.document.write(
-      `<!DOCTYPE html>
-<html>
-<head>
-  <title>${fileName || 'Document'}</title>
-  <style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#111}#pdf-frame{width:100%;height:100vh;border:none}</style>
-</head>
-<body>
-  <iframe id="pdf-frame" src="${blobUrl}" type="application/pdf"></iframe>
-</body>
-</html>`,
-    );
-  } else {
-    window.open(blobUrl, '_blank', 'noopener,noreferrer');
-  }
+  window.open(blobUrl, '_blank', 'noopener,noreferrer');
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
 };
 
 const openImageBlob = (blob: Blob, fileName?: string) => {
+  // Blob URLs are scoped to the window that creates them.
+  // Using document.write() in a new window to embed the blob URL causes a blank page
+  // because the new window cannot access the parent's blob URL.
+  // Opening the blob URL directly avoids this cross-window scoping issue.
   const blobUrl = window.URL.createObjectURL(blob);
-  const imgWindow = window.open('', '_blank', 'noopener,noreferrer');
-  if (imgWindow) {
-    imgWindow.document.write(
-      `<html><head><title>${fileName || 'Image'}</title></head><body style="margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:#111;"><img src="${blobUrl}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body></html>`,
-    );
-  } else {
-    window.open(blobUrl, '_blank', 'noopener,noreferrer');
-  }
+  window.open(blobUrl, '_blank', 'noopener,noreferrer');
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
 };
 

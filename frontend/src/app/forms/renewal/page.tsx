@@ -3957,17 +3957,8 @@ function RenewalFormPageContent() {
             )}
 
             {!isLoading && (
-              <div className='flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4'>
-                <button
-                  type='button'
-                  onClick={reloadRenewalData}
-                  disabled={isLoading}
-                  className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
-                >
-                  Reload Saved Renewal Data
-                </button>
-
-                  <div className='flex flex-wrap items-center gap-3'>
+              <div className='flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-4'>
+                <div className='flex flex-wrap items-center gap-3'>
                   <button
                     type='button'
                     onClick={() => saveRenewalDraft()}

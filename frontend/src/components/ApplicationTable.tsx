@@ -90,7 +90,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     const { applications: contextApplications } = useApplications();
 
     // Check if we're on the drafts page or sent page
-    const isDraftsPage = pageType === 'drafts' || pageType === 'drafts';
+    const isDraftsPage = pageType === 'drafts';
     const isSentPage = pageType === 'sent';
     const isRenewalPage = pageType === 'renewal';
 
@@ -208,7 +208,15 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         const result = await executeAction(actionId, async () => {
           try {
             const draftApp = (baseApplications || []).find(app => app.id === id);
-            const isRenewalDraft = /renewal/i.test(String(draftApp?.applicationType || ''));
+
+            // Detect renewal drafts via:
+            // 1. The applicationType field on the app object, OR
+            // 2. The selectedFormType prop ('renewal' tab is active), OR
+            // 3. Presence of a renewalId / renewalApplicationId linkage field on the app
+            const isRenewalDraft =
+              /renewal/i.test(String(draftApp?.applicationType || '')) ||
+              selectedFormType === 'renewal' ||
+              Boolean((draftApp as any)?.renewalId || (draftApp as any)?.renewalApplicationId);
 
             if (isRenewalDraft) {
               const renewalId = String(
@@ -255,7 +263,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
           return;
         }
       },
-      [router, executeAction, baseApplications]
+      [router, executeAction, baseApplications, selectedFormType]
     );
 
     const formatDateTime = useCallback((dateStr: string) => {
