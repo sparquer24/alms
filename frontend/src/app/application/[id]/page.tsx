@@ -27,6 +27,7 @@ import { useGlobalAction } from '../../../context/GlobalActionContext';
 
 // Import redesigned components and Lucide icons
 import { StatusBadge, DetailItem, SectionCard, SummaryCard, DocumentTable } from '../components/RedesignedComponents';
+import PrintApplicationForm from '../components/PrintApplicationForm';
 import {
   UserRound,
   UserCheck,
@@ -1553,6 +1554,63 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           </div>
         </div>
       )}
+
+      {/* Print-Only Layout Component */}
+      {application && (
+        <div className="hidden print:block print:w-full print:bg-white print:text-black">
+          <PrintApplicationForm application={application} applicantName={applicantName} />
+        </div>
+      )}
+
+      {/* Global CSS style block to completely hide the normal app shell and details on print */}
+      <style jsx global>{`
+        @media print {
+          /* Force hide standard app shell containers, sidebar, headers, and footer */
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            width: 210mm;
+            height: 297mm;
+          }
+          header, footer, aside, nav, button, .print\:hidden,
+          .flex.h-screen, main, [data-printable='application-card'] {
+            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+          }
+          /* Override body elements and next container */
+          #__next, #__next > div {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+          }
+          /* Ensure print form container is visible starting immediately on page 1 */
+          .hidden.print\:block {
+            display: block !important;
+            position: relative !important;
+            top: 0 !important;
+            left: 0 !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

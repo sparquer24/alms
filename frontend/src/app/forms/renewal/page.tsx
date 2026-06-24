@@ -904,19 +904,8 @@ const mergeDocumentFieldsFromFresh = (
     }
   }
 
-  const mergedEvidence = Array.isArray(merged.specialEvidenceFiles)
-    ? merged.specialEvidenceFiles
-    : [];
-  const freshEvidence = Array.isArray(fresh.specialEvidenceFiles) ? fresh.specialEvidenceFiles : [];
-  if (!mergedEvidence.length && freshEvidence.length) {
-    merged.specialEvidenceFiles = freshEvidence
-      .map(file => asPendingRenewalDocument(file, renewalFileIds ?? null))
-      .filter(Boolean) as RenewalFormState['specialEvidenceFiles'];
-    merged.specialEvidenceUploaded = (asPendingRenewalDocument(
-      fresh.specialEvidenceUploaded,
-      renewalFileIds ?? null
-    ) ?? fresh.specialEvidenceUploaded) as any;
-  }
+  // Note: specialEvidenceFiles/specialEvidenceUploaded intentionally NOT copied
+  // from fresh application -- renewal form should only show its own uploaded evidence.
 };
 
 const restoreSectionFromFresh = (
@@ -1009,8 +998,6 @@ const mergeRenewalStateOverFresh = (
 
     const licenseFieldKeys = [
       ...LICENSE_DETAIL_FORM_KEYS,
-      'specialEvidenceUploaded',
-      'specialEvidenceFiles',
     ] as const;
     for (const key of licenseFieldKeys) {
       const renewalValue = (renewal as Record<string, unknown>)[key];
@@ -1032,14 +1019,6 @@ const mergeRenewalStateOverFresh = (
 
   if (!getTextValue(merged.presentPincode) && getTextValue(fresh.presentPincode)) {
     merged.presentPincode = fresh.presentPincode;
-  }
-
-  const renewalClaimFiles = getUploadedFiles(renewalData).filter((file: any) => {
-    const type = String(file?.fileType || file?.type || '').toUpperCase();
-    return type === 'CLAIM_DOCS' || type === 'CLAIM_DOCUMENTS';
-  });
-  if (!renewalClaimFiles.length) {
-    restoreSectionFromFresh(merged, fresh, ['specialEvidenceUploaded', 'specialEvidenceFiles']);
   }
 
   if (!hasSavedBiometric(renewalData)) {
@@ -1279,7 +1258,9 @@ const mapCriminalHistoryFields = (data: any) => {
       ? formatDate(firDetails[0].date)
       : firDetails?.[0]?.DateOfSentence
         ? formatDate(firDetails[0].DateOfSentence)
-        : getTextValue(data?.sentenceDate),
+        : firDetails?.[0]?.sentenceDate
+          ? formatDate(firDetails[0].sentenceDate)
+          : getTextValue(data?.sentenceDate),
   };
 };
 
