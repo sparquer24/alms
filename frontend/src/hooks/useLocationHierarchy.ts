@@ -63,13 +63,16 @@ const initialState: LocationHierarchyState = {
   error: null,
 };
 
-export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarchyActions] => {
+export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [LocationHierarchyState, LocationHierarchyActions] => {
   const [state, setState] = useState<LocationHierarchyState>(initialState);
+  const isRenewal = options?.isRenewal;
 
   // Load states on component mount
   useEffect(() => {
-    loadStates();
-  }, []);
+    if (!isRenewal) {
+      loadStates();
+    }
+  }, [isRenewal]);
 
   const loadStates = async () => {
     setState(prev => ({ ...prev, loadingStates: true, error: null }));
@@ -250,19 +253,18 @@ export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarc
       return updatedState;
     });
 
-    // Run master API call only if selected ID is present but its name is NOT provided
+    // Load dependent options if the values are pre-selected, so the dropdowns can show the selected names.
     const promises: Promise<any>[] = [];
-
-    if (values.state && (!values.district || !values.districtName)) {
+    if (values.state) {
       promises.push(loadDistricts(values.state));
     }
-    if (values.district && (!values.zone || !values.zoneName)) {
+    if (values.district) {
       promises.push(loadZones(values.district));
     }
-    if (values.zone && (!values.division || !values.divisionName)) {
+    if (values.zone) {
       promises.push(loadDivisions(values.zone));
     }
-    if (values.division && (!values.policeStation || !values.policeStationName)) {
+    if (values.division) {
       promises.push(loadPoliceStations(values.division));
     }
 

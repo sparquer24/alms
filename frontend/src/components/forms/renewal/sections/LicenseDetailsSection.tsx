@@ -63,25 +63,23 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     },
   }));
 
-  useEffect(() => {
-    const loadWeapons = async () => {
-      try {
-        setLoadingWeapons(true);
-        const list = await WeaponsService.getAll();
-        setWeapons(list.length ? list : []);
-      } catch {
-        setWeapons([
-          { id: 1, name: 'Revolver' },
-          { id: 2, name: 'Pistol' },
-          { id: 3, name: 'Rifle' },
-          { id: 4, name: 'Shotgun' },
-        ]);
-      } finally {
-        setLoadingWeapons(false);
-      }
-    };
-    loadWeapons();
-  }, []);
+  const loadWeapons = async () => {
+    if (weapons.length > 0 || loadingWeapons) return;
+    try {
+      setLoadingWeapons(true);
+      const list = await WeaponsService.getAll();
+      setWeapons(list.length ? list : []);
+    } catch {
+      setWeapons([
+        { id: 1, name: 'Revolver' },
+        { id: 2, name: 'Pistol' },
+        { id: 3, name: 'Rifle' },
+        { id: 4, name: 'Shotgun' },
+      ]);
+    } finally {
+      setLoadingWeapons(false);
+    }
+  };
 
   const selectedWeaponIds: number[] = Array.isArray(formData.requestedWeaponIds)
     ? formData.requestedWeaponIds
@@ -250,6 +248,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             name='weaponType'
             value=''
             onChange={handleWeaponAdd}
+            onFocus={loadWeapons}
             required
             error={errors['weaponType']}
             placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}

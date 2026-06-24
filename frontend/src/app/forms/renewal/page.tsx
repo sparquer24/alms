@@ -2,6 +2,7 @@
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'react-toastify';
 import { ApplicationFormSkeleton } from '../../../components/Skeleton';
 import { ApplicationService } from '../../../api/applicationService';
 import { FileUploadService } from '../../../api/fileUploadService';
@@ -24,6 +25,8 @@ import LicenseDetailsSection from '../../../components/forms/renewal/sections/Li
 import BiometricInformation from '../../../components/forms/renewal/sections/BiometricInformation';
 import DocumentsSection from '../../../components/forms/renewal/sections/DocumentsSection';
 import DeclarationSection from '../../../components/forms/renewal/sections/DeclarationSection';
+import MantraSDKService from '../../../services/mantraSDKService';
+import BiometricAPIService from '../../../services/biometricAPIService';
 
 type RenewalFormState = {
   renewalApplicationId: string;
@@ -1975,7 +1978,7 @@ setFormData(syncedForm as RenewalFormState);
 function RenewalFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicationId =
+  const urlApplicationId =
     searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
   const createdRenewalIdRef = useRef<string | null>(null);
@@ -1995,6 +1998,349 @@ function RenewalFormPageContent() {
   const [renewalRecord, setRenewalRecord] = useState<any>(null);
   const [formData, setFormData] = useState<RenewalFormState>(initialFormState);
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
+
+  // Biometric verification states
+  const [enteredAppId, setEnteredAppId] = useState(urlApplicationId || '');
+  const resolvedApplicationId = urlApplicationId || enteredAppId;
+  const [isVerified, setIsVerified] = useState(false);
+  const [verificationChecking, setVerificationChecking] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'>('ENTER_APP_ID');
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [biometricTargetThumb, setBiometricTargetThumb] = useState<string | null>(null);
+  const [applicantDetails, setApplicantDetails] = useState<{
+    name: string;
+    licenseNumber: string;
+    applicationId: string;
+  } | null>(null);
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [deviceChecking, setDeviceChecking] = useState(false);
+  const [fingerprintCapturing, setFingerprintCapturing] = useState(false);
+  const [verificationMsg, setVerificationMsg] = useState<string | null>(null);
+  const [enrolledTemplates, setEnrolledTemplates] = useState<any[]>([]);
+
+  // States matching fresh biometric capture UI
+  const [mantraSDKReady, setMantraSDKReady] = useState(false);
+  const [showFingerprintPreviewModal, setShowFingerprintPreviewModal] = useState(false);
+  const [pendingCaptureResult, setPendingCaptureResult] = useState<any | null>(null);
+  const [fingerprintPreviewImage, setFingerprintPreviewImage] = useState<string | null>(null);
+  const [showDeviceSettings, setShowDeviceSettings] = useState(false);
+  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
+  const [showCapturingModal, setShowCapturingModal] = useState(false);
+  const [capturingStep, setCapturingStep] = useState<string>('');
+  const [diagnosticLoading, setDiagnosticLoading] = useState<string | null>(null);
+  const [diagnosticResults, setDiagnosticResults] = useState<Record<string, any>>({});
+
+  const checkDeviceConnection = async () => {
+    try {
+      setDeviceChecking(true);
+      const initialized = await MantraSDKService.initialize();
+      setMantraSDKReady(initialized);
+      if (initialized) {
+        const status = await MantraSDKService.isDeviceConnected();
+        setDeviceConnected(status.isConnected);
+      } else {
+        setDeviceConnected(false);
+      }
+    } catch {
+      setDeviceConnected(false);
+    } finally {
+      setDeviceChecking(false);
+    }
+  };
+
+  // Diagnostic test functions matching fresh biometric capture UI
+  const testCheckDevice = async () => {
+    const result = await MantraSDKService.isDeviceConnected();
+    if (!result.isConnected) {
+      throw new Error(result.errorMessage || 'Device not connected');
+    }
+    return { connected: result.isConnected, info: result };
+  };
+
+  const testGetConnectedDevice = async () => {
+    const result = await MantraSDKService.getConnectedDeviceList();
+    if (!result || result.length === 0) {
+      throw new Error('No connected devices found');
+    }
+    return { devices: result };
+  };
+
+  const testGetSupportedDevice = async () => {
+    const result = await MantraSDKService.getSupportedDeviceList();
+    if (!result || result.length === 0) {
+      throw new Error('No supported devices found');
+    }
+    return { devices: result };
+  };
+
+  const testGetInfo = async () => {
+    const result = await MantraSDKService.getDeviceInfo();
+    if (!result) {
+      throw new Error('Failed to get device info');
+    }
+    return { info: result };
+  };
+
+  const testCapture = async () => {
+    const result = await MantraSDKService.captureFinger(60, 10000);
+    if (!result.success) {
+      const error = new Error(result.errorMessage || 'Capture failed');
+      (error as any).errorCode = result.errorCode;
+      throw error;
+    }
+    return {
+      success: true,
+      quality: result.quality,
+      template: result.template ? 'Present' : 'Missing',
+    };
+  };
+
+  const testGetImage = async () => {
+    const result = await MantraSDKService.getImage('0');
+    if (!result) {
+      throw new Error('Failed to get fingerprint image');
+    }
+    return { imageSize: result.length, format: 'BMP (base64)' };
+  };
+
+  const testGetTemplate = async () => {
+    const result = await MantraSDKService.getTemplate();
+    if (!result) {
+      throw new Error('Failed to get template');
+    }
+    return { template: result ? 'Present' : 'Missing', size: result ? result.length : 0 };
+  };
+
+  const testMatch = async () => {
+    if (enrolledTemplates.length === 0) {
+      throw new Error('No enrolled fingerprints to match against');
+    }
+    const template = await MantraSDKService.getTemplate();
+    if (!template) {
+      throw new Error('No template available from last capture');
+    }
+    const result = await MantraSDKService.verifyTemplate(enrolledTemplates[0].template, template, 65);
+    return { matchScore: result.score, matched: result.isMatch };
+  };
+
+  const runDiagnostic = async (testName: string, testFn: () => Promise<any>) => {
+    try {
+      setDiagnosticLoading(testName);
+      const result = await testFn();
+      setDiagnosticResults((prev: any) => ({
+        ...prev,
+        [testName]: {
+          success: true,
+          data: result,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      }));
+      toast.success(`✓ ${testName} passed`);
+    } catch (error: any) {
+      setDiagnosticResults((prev: any) => ({
+        ...prev,
+        [testName]: {
+          success: false,
+          error: error.message,
+          errorCode: error.errorCode,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      }));
+      toast.error(`✗ ${testName} failed: ${error.message}`);
+    } finally {
+      setDiagnosticLoading(null);
+    }
+  };
+
+  const checkBiometricRequirement = async (appId: string) => {
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+
+      // Fetch fresh application to confirm existence and get details
+      const freshResponse = await ApplicationService.getApplication(appId);
+      const freshData = extractData(freshResponse);
+      if (!freshData) {
+        throw new Error('No application data found for the provided Application ID.');
+      }
+
+      // Check if fresh application has enrolled fingerprints directly in biometricData
+      const numericAppId = String(freshData.id || freshData.applicationId || appId);
+      const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
+      const fingerprints = bioData?.fingerprints || [];
+      
+      const userThumbprints = fingerprints
+        .filter((f: any) => f.position === 'RIGHT_THUMB' || f.position === 'LEFT_THUMB')
+        .map((f: any) => ({
+          template: f.template,
+          fingerPosition: f.position,
+          applicationId: numericAppId
+        }));
+
+      const name = [
+        freshData.firstName,
+        freshData.middleName,
+        freshData.lastName
+      ].filter(Boolean).join(' ') || freshData.applicantName || 'Applicant';
+
+      const details = {
+        name,
+        licenseNumber: getLicenseNumber(freshData) || 'Pending',
+        applicationId: numericAppId
+      };
+      setApplicantDetails(details);
+
+      if (userThumbprints.length > 0) {
+        // Biometrics enrolled - require verification
+        setEnrolledTemplates(userThumbprints);
+        const target = userThumbprints[0].fingerPosition;
+        setBiometricTargetThumb(target);
+        setVerificationStatus('VERIFYING_BIOMETRICS');
+        checkDeviceConnection();
+      } else {
+        // No biometrics enrolled - proceed directly to form
+        setIsVerified(true);
+        setVerificationStatus('VERIFIED');
+      }
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to fetch application details.');
+      setVerificationStatus('ENTER_APP_ID');
+    } finally {
+      setVerificationChecking(false);
+    }
+  };
+
+  const resolveAppIdAndCheck = async (rId: string) => {
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+      const renewalResponse = await RenewalService.getRenewalForm(rId);
+      const renewalData = extractData(renewalResponse);
+      const appId = resolveFreshApplicationId(renewalData, '');
+      if (!appId) {
+        throw new Error('Could not resolve original Application ID from renewal.');
+      }
+      setEnteredAppId(appId);
+      await checkBiometricRequirement(appId);
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to resolve application details.');
+      setVerificationStatus('ENTER_APP_ID');
+      setVerificationChecking(false);
+    }
+  };
+
+  const handleVerifyBiometrics = async () => {
+    try {
+      setFingerprintCapturing(true);
+      setShowCapturingModal(true);
+      setCapturingStep('Initializing fingerprint device...');
+      setVerificationError(null);
+
+      const status = await MantraSDKService.isDeviceConnected();
+      if (!status.isConnected) {
+        setVerificationError('Fingerprint device is not connected. Please connect the device and try again.');
+        setDeviceConnected(false);
+        setShowDeviceSettings(true);
+        setShowCapturingModal(false);
+        setFingerprintCapturing(false);
+        return;
+      }
+
+      setCapturingStep('Place your thumb on the scanner...');
+      const captureResult = await MantraSDKService.captureFinger(60, 10000);
+      if (!captureResult.success) {
+        setVerificationError(`Fingerprint capture failed: ${captureResult.errorMessage}`);
+        setShowCapturingModal(false);
+        setFingerprintCapturing(false);
+        return;
+      }
+
+      setCapturingStep('Processing captured fingerprint...');
+      setCapturingStep('Generating preview...');
+
+      try {
+        let previewImage: string | null = captureResult.bitmapData || null;
+        if (!previewImage) {
+          previewImage = await MantraSDKService.getImage('0');
+        }
+        setPendingCaptureResult(captureResult);
+        if (previewImage) {
+          setFingerprintPreviewImage(`data:image/bmp;base64,${previewImage}`);
+        } else {
+          setFingerprintPreviewImage(null);
+        }
+        setShowCapturingModal(false);
+        setShowFingerprintPreviewModal(true);
+      } catch (imageError) {
+        setPendingCaptureResult(captureResult);
+        setFingerprintPreviewImage(null);
+        setShowCapturingModal(false);
+        setShowFingerprintPreviewModal(true);
+      }
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Biometric verification failed.');
+      setShowCapturingModal(false);
+    } finally {
+      setFingerprintCapturing(false);
+      setCapturingStep('');
+    }
+  };
+
+  const handleAcceptFingerprintPreview = async () => {
+    if (!pendingCaptureResult) {
+      setVerificationError('Invalid capture data');
+      return;
+    }
+
+    try {
+      setFingerprintCapturing(true);
+      setVerificationChecking(true);
+      
+      let matchFound = false;
+      const liveTemplate = pendingCaptureResult.template;
+      
+      for (const storedFp of enrolledTemplates) {
+        try {
+          const matchResult = await MantraSDKService.verifyTemplate(storedFp.template, liveTemplate, 65);
+          if (matchResult.isMatch || matchResult.score >= 65) {
+            matchFound = true;
+            break;
+          }
+        } catch (matchErr) {
+          console.warn('[Mantra verifyTemplate] Match failed for template comparison', matchErr);
+        }
+      }
+
+      setShowFingerprintPreviewModal(false);
+      setFingerprintPreviewImage(null);
+      setPendingCaptureResult(null);
+
+      if (matchFound) {
+        setVerificationMsg('Verification successful!');
+        setIsVerified(true);
+        setVerificationStatus('VERIFIED');
+      } else {
+        setVerificationError('Verification failed: Scanned fingerprint does not match. Please try again.');
+      }
+    } catch (error: any) {
+      setVerificationError(error.message || 'Verification check failed.');
+    } finally {
+      setFingerprintCapturing(false);
+      setVerificationChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (renewalId) {
+      resolveAppIdAndCheck(renewalId);
+    } else if (urlApplicationId) {
+      setEnteredAppId(urlApplicationId);
+      checkBiometricRequirement(urlApplicationId);
+    } else {
+      setVerificationStatus('ENTER_APP_ID');
+      setIsLoading(false);
+    }
+  }, [urlApplicationId, renewalId]);
 
   const handleFormPatch = (patch: Record<string, unknown>) => {
     setFormData(prev => ({ ...prev, ...patch }));
@@ -2080,7 +2426,9 @@ function RenewalFormPageContent() {
   };
 
   useEffect(() => {
-    if (!applicationId && !renewalId) {
+    if (!isVerified) return;
+    const resolvedApplicationId = urlApplicationId || enteredAppId;
+    if (!resolvedApplicationId && !renewalId) {
       setError('No application context was provided.');
       setIsLoading(false);
       return;
@@ -2103,14 +2451,14 @@ function RenewalFormPageContent() {
       setRenewalRecord(renewalData);
 
       // Fetch fresh application data to display and pre-fill renewal form
-      const freshData = await fetchFreshApplicationWithFiles(applicationId);
+      const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
       let mergedFormData: RenewalFormState;
       if (freshData) {
-        const freshFormState = buildFieldStateFromFreshApplication(applicationId, freshData);
-        const renewalFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
+        const freshFormState = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
+        const renewalFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
         mergedFormData = mergeRenewalStateOverFresh(freshFormState, renewalFormData, renewalData);
       } else {
-        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
+        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
       }
 
       const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
@@ -2140,7 +2488,7 @@ function RenewalFormPageContent() {
 
         // Path B: Only applicationId — fetch fresh app, check for existing renewal.
         // Step 1: Fetch fresh application data to extract licenseNumber.
-        const freshData = await fetchFreshApplicationWithFiles(applicationId);
+        const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
 
         if (!freshData) {
           throw new Error('No fresh application data found for the provided ID.');
@@ -2160,17 +2508,17 @@ function RenewalFormPageContent() {
               await loadRenewalById(existingRenewalId);
               // Update URL to include renewalId.
               router.replace(
-                `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+                `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
               );
               return;
             }
           }
         }
 
-        const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
+        const prefilledForm = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
 
         // Validate that the fresh application has been submitted.
-        const applicationCheckResponse = await ApplicationService.getApplication(applicationId);
+        const applicationCheckResponse = await ApplicationService.getApplication(resolvedApplicationId);
         const isSubmitted =
           applicationCheckResponse?.isSubmit === true ||
           applicationCheckResponse?.data?.isSubmit === true;
@@ -2179,7 +2527,7 @@ function RenewalFormPageContent() {
         }
 
         await createDraftRenewalFromFreshApplication(
-          applicationId,
+          resolvedApplicationId,
           prefilledForm,
           setRenewalRecord,
           setFormData,
@@ -2195,7 +2543,7 @@ function RenewalFormPageContent() {
     };
 
     load();
-  }, [applicationId, renewalId, router]);
+  }, [isVerified, urlApplicationId, enteredAppId, renewalId, router]);
 
   function handleChange(
           event:
@@ -2669,7 +3017,7 @@ function RenewalFormPageContent() {
       if (saved) {
         const mergedFormData = await buildFormDataFromRenewalRecord(
           saved,
-          resolveFreshApplicationId(saved, applicationId)
+          resolveFreshApplicationId(saved, resolvedApplicationId)
         );
         const { formData: syncedForm } = await applyPrefilledDocumentUploads(
           activeRenewalId,
@@ -2753,7 +3101,7 @@ function RenewalFormPageContent() {
       setRenewalRecord(renewalData);
       const merged = await buildFormDataFromRenewalRecord(
         renewalData,
-        resolveFreshApplicationId(renewalData, applicationId)
+        resolveFreshApplicationId(renewalData, resolvedApplicationId)
       );
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
       setFormData(syncedForm as RenewalFormState);
@@ -2766,6 +3114,593 @@ function RenewalFormPageContent() {
       setIsLoading(false);
     }
   };
+
+    if (!isVerified) {
+      return (
+        <div className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]" role='main'>
+          <div className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]' aria-hidden='true' />
+          <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
+            <div className="max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300">
+              {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
+                <div className="space-y-6 py-8 text-center">
+                  <div className="mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center">
+                    <span className="text-xl">🪪</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Loading Application Context...</h3>
+                  <p className="text-sm text-gray-500">Checking biometric requirements</p>
+                </div>
+              ) : verificationStatus === 'ENTER_APP_ID' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="mb-6 flex justify-center">
+                      <img
+                        src='/icon-alms.svg'
+                        alt='ALMS Logo'
+                        width={100}
+                        height={100}
+                        className='drop-shadow-md h-auto'
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                      License Renewal Verification
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Please enter your Fresh Application ID to verify your identity and start the renewal process.
+                    </p>
+                  </div>
+                  
+                  {verificationError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {verificationError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="app-id" className="block text-sm font-semibold text-gray-700 mb-1">
+                        Fresh Application ID
+                      </label>
+                      <input
+                        id="app-id"
+                        type="text"
+                        value={enteredAppId}
+                        onChange={(e) => setEnteredAppId(e.target.value)}
+                        placeholder="e.g. 12345"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => checkBiometricRequirement(enteredAppId)}
+                      disabled={verificationChecking || !enteredAppId.trim()}
+                      className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]"
+                    >
+                      {verificationChecking ? 'Checking...' : 'Verify Application'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {verificationStatus === 'VERIFYING_BIOMETRICS' && applicantDetails && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="mb-6 flex justify-center">
+                      <img
+                        src='/icon-alms.svg'
+                        alt='ALMS Logo'
+                        width={100}
+                        height={100}
+                        className='drop-shadow-md h-auto'
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                      Biometric Identity Match
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Verify you are the same applicant as registered in the original application.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">Applicant Name</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">Application ID</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">License Number</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.licenseNumber}</span>
+                    </div>
+                  </div>
+
+                  {verificationError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {verificationError}
+                    </div>
+                  )}
+
+                  {/* Signature/Thumb Impression section layout from fresh form */}
+                  <div className='p-6 rounded-xl border border-gray-200 bg-white shadow-sm space-y-4 text-left'>
+                    <div className='flex justify-between items-center mb-2'>
+                      <div className='font-semibold text-gray-800'>Signature / Thumb Impression</div>
+                      <div className='flex items-center gap-2'>
+                        {/* Info Icon with Tooltip */}
+                        <div className='relative'>
+                          <button
+                            type='button'
+                            onClick={() => setShowInfoTooltip(!showInfoTooltip)}
+                            className='p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors'
+                            title='Device setup information'
+                          >
+                            <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                              <path
+                                fillRule='evenodd'
+                                d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                                clipRule='evenodd'
+                              />
+                            </svg>
+                          </button>
+                          {/* Info Tooltip Popover */}
+                          {showInfoTooltip && (
+                            <div className='absolute right-0 top-8 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4'>
+                              <div className='flex justify-between items-start mb-3'>
+                                <h4 className='font-semibold text-gray-800 flex items-center gap-2'>
+                                  <svg className='w-5 h-5 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
+                                    <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
+                                  </svg>
+                                  Device Setup Guide
+                                </h4>
+                                <button type='button' onClick={() => setShowInfoTooltip(false)} className='text-gray-400 hover:text-gray-600'>✕</button>
+                              </div>
+                              <div className='space-y-2 text-sm text-gray-600'>
+                                <p>✔ Connect Mantra MFS500 via USB</p>
+                                <p>✔ Install Mantra drivers</p>
+                                <p>✔ Run Mantra RD Service</p>
+                                <p>✔ Start MorfinAuth SDK on port 8030</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type='button'
+                          onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                          className='px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-1'
+                          title='Open device diagnostics and settings'
+                        >
+                          ⚙️ Settings
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className='space-y-2'>
+                      <div className='mb-4'>
+                        <label className='block text-sm font-semibold text-gray-700 mb-1'>Required Hand & Finger</label>
+                        <select
+                          value={biometricTargetThumb || 'RIGHT_THUMB'}
+                          disabled
+                          className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed text-gray-700 font-semibold'
+                        >
+                          <option value="RIGHT_THUMB">Right Hand Thumb</option>
+                          <option value="LEFT_THUMB">Left Hand Thumb</option>
+                        </select>
+                        <p className="text-sm text-blue-600 mt-1 font-medium">Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}.</p>
+                      </div>
+
+                      {/* Mantra SDK Fingerprint Capture */}
+                      {mantraSDKReady && deviceConnected ? (
+                        <div className='flex items-center space-x-3'>
+                          <button
+                            type='button'
+                            onClick={handleVerifyBiometrics}
+                            disabled={fingerprintCapturing}
+                            className='px-5 py-2.5 bg-[#D4AF37] hover:bg-[#C4A02F] text-gray-900 rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md'
+                          >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                            </svg>
+                            {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
+                          </button>
+                          <span className='text-sm text-green-600 font-medium'>✓ Device Ready</span>
+                        </div>
+                      ) : (
+                        <div className='flex items-center space-x-3'>
+                          <button
+                            type='button'
+                            onClick={() => checkDeviceConnection()}
+                            className='px-5 py-2.5 bg-gray-300 text-gray-600 rounded-md font-semibold cursor-not-allowed flex items-center gap-2'
+                            disabled
+                          >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                            </svg>
+                            Scan Fingerprint
+                          </button>
+                          <span className='text-sm text-gray-500 font-medium'>
+                            {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        setVerificationStatus('ENTER_APP_ID');
+                        setVerificationError(null);
+                      }}
+                      className="w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      Change Application ID
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {/* ⚙️ DEVICE SETTINGS & DIAGNOSTICS MODAL */}
+            {showDeviceSettings && (
+              <div
+                className='fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+                style={{
+                  display: 'flex',
+                  visibility: 'visible',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div className='bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto flex flex-col'>
+                  <div className='border-b px-6 py-4 sticky top-0 bg-white flex justify-between items-center z-10'>
+                    <div>
+                      <h2 className='text-2xl font-bold text-gray-800'>Device Settings & Diagnostics</h2>
+                      <p className='text-sm text-gray-500 mt-1'>
+                        Test Mantra MFS500 device connectivity and API endpoints
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowDeviceSettings(false)}
+                      className='text-gray-600 hover:text-gray-900 text-2xl font-bold'
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className='px-6 py-6 overflow-y-auto flex-1'>
+                    <div
+                      className='mb-6 p-4 rounded-lg border-2'
+                      style={{
+                        backgroundColor: deviceConnected ? '#ecfdf5' : '#fef2f2',
+                        borderColor: deviceConnected ? '#10b981' : '#ef4444',
+                      }}
+                    >
+                      <p
+                        className='font-semibold'
+                        style={{ color: deviceConnected ? '#059669' : '#dc2626' }}
+                      >
+                        {deviceConnected ? '✓ Device Connected' : '✗ Device Not Connected'}
+                      </p>
+                      <p className='text-sm text-gray-600 mt-1'>
+                        {deviceConnected
+                          ? 'Device is online and ready for testing'
+                          : 'Device is offline. Please check the connection and restart the device service.'}
+                      </p>
+                    </div>
+
+                    <div className='grid grid-cols-2 gap-3 mb-6'>
+                      <button
+                        onClick={() => runDiagnostic('Check Device', testCheckDevice)}
+                        disabled={diagnosticLoading === 'Check Device'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Check Device' ? '⟳ Testing...' : 'Check Device'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Connected Device', testGetConnectedDevice)}
+                        disabled={diagnosticLoading === 'Get Connected Device'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Connected Device' ? '⟳ Testing...' : 'Get Connected Device'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Supported Device', testGetSupportedDevice)}
+                        disabled={diagnosticLoading === 'Get Supported Device'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Supported Device' ? '⟳ Testing...' : 'Get Supported Device'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Info', testGetInfo)}
+                        disabled={diagnosticLoading === 'Get Info'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Info' ? '⟳ Testing...' : 'Get Info'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Capture', testCapture)}
+                        disabled={diagnosticLoading === 'Capture' || !deviceConnected}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Capture' ? '⟳ Testing...' : 'Capture'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Image', testGetImage)}
+                        disabled={diagnosticLoading === 'Get Image'}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Image' ? '⟳ Testing...' : 'Get Image'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Template', testGetTemplate)}
+                        disabled={diagnosticLoading === 'Get Template'}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Template' ? '⟳ Testing...' : 'Get Template'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Match', testMatch)}
+                        disabled={diagnosticLoading === 'Match' || enrolledTemplates.length === 0}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Match' ? '⟳ Testing...' : 'Match'}
+                      </button>
+                    </div>
+
+                    {Object.keys(diagnosticResults).length > 0 && (
+                      <div className='mt-6 pt-6 border-t border-gray-200'>
+                        <div className='flex justify-between items-center mb-4'>
+                          <p className='font-bold text-lg text-gray-800'>📊 Test Results</p>
+                          <span className='text-sm text-gray-600'>
+                            {Object.values(diagnosticResults).filter((r: any) => r.success).length}/
+                            {Object.keys(diagnosticResults).length} Passed
+                          </span>
+                        </div>
+
+                        <div className='space-y-3'>
+                          {Object.entries(diagnosticResults).map(([testName, result]: [string, any]) => (
+                            <div
+                              key={testName}
+                              className='p-4 rounded-lg border-2 transition-all'
+                              style={{
+                                backgroundColor: result.success ? '#ecfdf5' : '#fef2f2',
+                                borderColor: result.success ? '#10b981' : '#ef4444',
+                              }}
+                            >
+                              <div className='flex justify-between items-start'>
+                                <div className='flex-1'>
+                                  <p
+                                    className='font-bold flex items-center gap-2'
+                                    style={{ color: result.success ? '#059669' : '#dc2626' }}
+                                  >
+                                    {result.success ? '✓' : '✗'} {testName}
+                                  </p>
+                                  {result.timestamp && (
+                                    <p className='text-xs text-gray-500 mt-1'>{result.timestamp}</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {result.success ? (
+                                <div className='mt-3 text-sm text-gray-700'>
+                                  <details className='cursor-pointer'>
+                                    <summary className='font-medium text-gray-700 hover:text-gray-900'>
+                                      📋 View Details
+                                    </summary>
+                                    <pre className='bg-gray-100 p-3 rounded border border-gray-300 text-xs overflow-auto max-h-48 mt-2 text-gray-800'>
+                                      {JSON.stringify(result.data, null, 2)}
+                                    </pre>
+                                  </details>
+                                </div>
+                              ) : (
+                                <div className='mt-3 text-sm' style={{ color: '#991b1b' }}>
+                                  <p className='font-semibold'>{result.error || 'Unknown error'}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {Object.keys(diagnosticResults).length > 0 && (
+                      <button
+                        onClick={() => setDiagnosticResults({})}
+                        className='mt-6 w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium text-sm'
+                      >
+                        Clear Results
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setShowDeviceSettings(false)}
+                      className='mt-4 w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold'
+                    >
+                      Close Settings
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Fingerprint Preview Modal */}
+            {showFingerprintPreviewModal && pendingCaptureResult && (
+              <div
+                className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+                style={{ display: 'flex', visibility: 'visible' }}
+              >
+                <div className='bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto border border-gray-200'>
+                  <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
+                    <div className='flex items-center gap-4'>
+                      <div className='bg-white/20 rounded-full p-3'>
+                        <svg className='w-8 h-8 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11' />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className='text-xl font-bold text-white'>Fingerprint Preview</h2>
+                        <p className='text-blue-100 text-sm mt-1'>Review quality before verifying identity</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className='px-6 py-6'>
+                    <div className='mb-6'>
+                      <div
+                        className={`p-4 rounded-xl border-2 ${
+                          (pendingCaptureResult?.quality || 0) >= 80
+                            ? 'bg-green-50 border-green-300'
+                            : (pendingCaptureResult?.quality || 0) >= 60
+                              ? 'bg-yellow-50 border-yellow-300'
+                              : 'bg-red-50 border-red-300'
+                        }`}
+                      >
+                        <div className='flex items-center justify-between mb-3'>
+                          <div className='flex items-center gap-2'>
+                            <span
+                              className={`font-semibold ${
+                                (pendingCaptureResult?.quality || 0) >= 80
+                                  ? 'text-green-700'
+                                  : (pendingCaptureResult?.quality || 0) >= 60
+                                    ? 'text-yellow-700'
+                                    : 'text-red-700'
+                              }`}
+                            >
+                              {(pendingCaptureResult?.quality || 0) >= 80
+                                ? 'Excellent Quality'
+                                : (pendingCaptureResult?.quality || 0) >= 60
+                                  ? 'Good Quality'
+                                  : 'Low Quality - Consider Retaking'}
+                            </span>
+                          </div>
+                          <span
+                            className={`text-3xl font-bold ${
+                              (pendingCaptureResult?.quality || 0) >= 80
+                                ? 'text-green-600'
+                                : (pendingCaptureResult?.quality || 0) >= 60
+                                  ? 'text-yellow-600'
+                                  : 'text-red-600'
+                            }`}
+                          >
+                            {pendingCaptureResult?.quality || 0}%
+                          </span>
+                        </div>
+                        <div className='w-full bg-gray-200 rounded-full h-3 overflow-hidden'>
+                          <div
+                            className={`h-3 rounded-full transition-all duration-500 ${
+                              (pendingCaptureResult?.quality || 0) >= 80
+                                ? 'bg-green-500'
+                                : (pendingCaptureResult?.quality || 0) >= 60
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                            }`}
+                            style={{ width: `${pendingCaptureResult?.quality || 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className='mb-6'>
+                      <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                        Captured Fingerprint
+                      </h3>
+                      <div className='flex justify-center bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-6 min-h-[280px] items-center border border-gray-200'>
+                        {fingerprintPreviewImage ? (
+                          <div className='flex flex-col items-center gap-3'>
+                            <div className='relative'>
+                              <img
+                                src={fingerprintPreviewImage}
+                                alt='Fingerprint Preview'
+                                className='max-w-full max-h-80 border-4 border-white rounded-lg shadow-lg'
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className='text-center py-8'>
+                            <p className='text-gray-500 font-medium'>No preview image available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className='mb-6'>
+                      <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                        Finger Position
+                      </h3>
+                      <div className='flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200'>
+                        <div className='bg-blue-600 rounded-full p-2 text-white'>
+                          👆
+                        </div>
+                        <div>
+                          <p className='font-bold text-blue-900'>
+                            {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}
+                          </p>
+                          <p className='text-xs text-blue-700'>Matches required biometric type</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className='flex justify-end gap-3 pt-4 border-t border-gray-100'>
+                      <button
+                        onClick={() => {
+                          setShowFingerprintPreviewModal(false);
+                          setFingerprintPreviewImage(null);
+                          setPendingCaptureResult(null);
+                        }}
+                        className='px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors'
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowFingerprintPreviewModal(false);
+                          setFingerprintPreviewImage(null);
+                          setPendingCaptureResult(null);
+                          handleVerifyBiometrics();
+                        }}
+                        className='px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors'
+                      >
+                        Retake
+                      </button>
+                      <button
+                        onClick={handleAcceptFingerprintPreview}
+                        className='px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-sm'
+                      >
+                        Accept & Verify
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Capturing Status Modal */}
+            {showCapturingModal && (
+              <div
+                className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+                style={{ display: 'flex', visibility: 'visible' }}
+              >
+                <div className='bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center space-y-4'>
+                  <div className='mx-auto w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin flex items-center justify-center'>
+                    <span className='text-2xl'>👆</span>
+                  </div>
+                  <h3 className='text-lg font-bold text-gray-900'>Biometric Scan in Progress</h3>
+                  <p className='text-sm text-gray-500'>{capturingStep}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      );
+    }
 
     return (
       <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
@@ -2840,7 +3775,7 @@ function RenewalFormPageContent() {
       <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader
-            applicationId={applicationId}
+            applicationId={urlApplicationId || enteredAppId}
             renewalId={renewalId || createdRenewalIdRef.current || ''}
             summaryData={formData || renewalRecord}
           />
@@ -2859,7 +3794,7 @@ function RenewalFormPageContent() {
             <div className='rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900'>
               <div className='flex flex-wrap items-center gap-3'>
                 <span className='font-semibold'>Fresh Application ID:</span>
-                <span>{applicationId || 'Not provided'}</span>
+                <span>{urlApplicationId || enteredAppId || 'Not provided'}</span>
                 <span className='font-semibold'>Renewal ID:</span>
                 <span>{renewalId || createdRenewalIdRef.current || 'Pending'}</span>
                 {statusMessage && (
@@ -2976,14 +3911,14 @@ function RenewalFormPageContent() {
                     onPrevious={() => {
                       if (renewalId)
                         router.push(
-                          `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
+                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
                         );
                       else router.back();
                     }}
                     onNext={() => {
                       if (activeRenewalId)
                         router.push(
-                          `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
+                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
                         );
                     }}
                     onSaveToDraft={saveRenewalDraft}

@@ -12,7 +12,7 @@ const OccupationSection = forwardRef(function OccupationSection(
   const { formData, onChange, errors = {} } = props;
 
   // Location hierarchy for state and district
-  const [locationState, locationActions] = useLocationHierarchy();
+  const [locationState, locationActions] = useLocationHierarchy({ isRenewal: true });
 
   // Sync location state with form values (only when data is loaded from backend)
   useEffect(() => {
