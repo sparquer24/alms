@@ -50,13 +50,13 @@ export class ActionesService {
       if (applicationId) {
 
         let application;
-        if (applicationType === 'Fresh License') {
+        if (applicationType?.toLocaleLowerCase() === 'fresh license' || applicationType?.toLocaleLowerCase() === 'freshlicenseapplicationform' || applicationType?.toLocaleLowerCase() === 'flawupdate') {
           application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
             where: { id: applicationId },
             select: { isApproved: true, isRejected: true }
           });
         }
-        else if (!application && applicationType === 'Renewal Application') {
+        else if (!application && applicationType?.toLocaleLowerCase() && ['renewal application', 'renewalapplicationform', 'renewalupdate', 'renewalform', 'renewalapplicationform'].includes(applicationType)) {
           application = await prisma.renewalFormPersonalDetails.findUnique({
             where: { id: applicationId },
             select: { isApproved: true, isRejected: true }
