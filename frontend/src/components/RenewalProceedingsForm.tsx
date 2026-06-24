@@ -10,6 +10,7 @@ import { ApplicationData } from '../types';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { fetchData, setAuthToken } from '../api/axiosConfig';
+import { VersionHistoryPanel } from './revert';
 
 const SelectFixed = Select as any;
 
@@ -569,6 +570,19 @@ Regards,`;
           </button>
         </div>
       </form>
+
+      {/* ── Version History Panel ── */}
+      {applicationData?.id && (
+        <div style={{ marginTop: 20 }}>
+          <VersionHistoryPanel
+            applicationId={Number(applicationId)}
+            applicationType="RENEWAL"
+            canRevert={!!((applicationData as any)?.canRevert)}
+            currentVersionNumber={(applicationData as any)?.currentVersionNumber ?? 1}
+            acknowledgementNo={(applicationData as any)?.acknowledgementNo}
+          />
+        </div>
+      )}
     </div>
   );
 }

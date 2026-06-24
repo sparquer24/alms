@@ -16,6 +16,7 @@ export const STATUS_COLOR_MAP: Record<string, StatusStyle> = {
   initiated: { bg: '#0EA5E9', text: '#FFFFFF', border: '#0EA5E9' },
   draft: { bg: '#94A3B8', text: '#FFFFFF', border: '#94A3B8' },
   pending: { bg: '#EAB308', text: '#000000', border: '#EAB308' }, // Pending defaults to re-enquiry/yellow color
+  reverted: { bg: '#8B5CF6', text: '#FFFFFF', border: '#7C3AED' }, // Violet — revert status
   unknown: { bg: '#94A3B8', text: '#FFFFFF', border: '#94A3B8' },
 };
 
@@ -39,6 +40,8 @@ export const getStatusStyle = (status: string | number | undefined | null): Stat
     key = 'reenquiry';
   } else if (normalized.includes('redflag') || normalized.includes('flag')) {
     key = 'redflagged';
+  } else if (normalized.includes('reverted') || normalized === 'revert') {
+    key = 'reverted';
   } else if (normalized.includes('closed') || normalized === 'close') {
     key = 'closed';
   } else if (normalized.includes('submitted') || normalized === 'submit' || normalized.includes('sent')) {

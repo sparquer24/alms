@@ -115,6 +115,10 @@ model Roles {
   can_generate_ground_report  Boolean                                         @default(false)
   can_FLAF                    Boolean                                         @default(false)
   can_create_freshLicence     Boolean                                         @default(false)
+  // Revert permissions
+  can_revert                  Boolean                                         @default(false)
+  can_revert_others           Boolean                                         @default(false)
+  can_revert_terminal         Boolean                                         @default(false)
   workflowHistoryNext         FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextRole")
   workflowHistoryPrevious     FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   renewalWorkflowHistoryNext  RenewalApplicationsFormWorkflowHistories[]     @relation("RenewalWorkflowNextRole")
@@ -122,6 +126,9 @@ model Roles {
   currentRoleFlowMappings     RoleFlowMapping?                                @relation("CurrentRole")
   rolesActionsMapping         RolesActionsMapping[]
   users                       Users[]
+  // Revert audit relations
+  revertAuditLogsBy           RevertAuditLog[]                                @relation("RevertedByRole")
+  versionSnapshots            ApplicationVersionSnapshot[]                    @relation("VersionActionByRole")
 }
 
 model RolesActionsMapping {
@@ -185,6 +192,9 @@ model Users {
   renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]    @relation("RenewalWorkflowPreviousUser")
   mergeAuditLogs                LicensesMergeAuditLog[]                         @relation("MergeAuditLogUser")
   flowMappingUpdates            RoleFlowMapping[]
+  // Revert audit relations
+  revertAuditLogs               RevertAuditLog[]                                @relation("RevertedByUser")
+  versionSnapshots              ApplicationVersionSnapshot[]                    @relation("VersionActionByUser")
   district                      Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                      Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
   policeStation                 PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
@@ -259,6 +269,11 @@ model FreshLicenseApplicationPersonalDetails {
   isRejected                 Boolean?                                        @default(false)
   isRecommended              Boolean?                                        @default(false)
   isNotRecommended           Boolean?                                        @default(false)
+  // Revert version tracking
+  currentVersionNumber       Int                                             @default(1)
+  lastRevertedAt             DateTime?
+  lastRevertedByUserId       Int?
+  isReverted                 Boolean                                         @default(false)
   biometricData              FLAFBiometricDatas?                             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]                         @relation("CriminalHistories")
   fileUploads                FLAFFileUploads[]                               @relation("FileUploads")
@@ -491,6 +506,11 @@ model RenewalFormPersonalDetails {
   isRejected                 Boolean?                             @default(false)
   isRecommended              Boolean?                             @default(false)
   isNotRecommended           Boolean?                             @default(false)
+  // Revert version tracking
+  currentVersionNumber       Int                                  @default(1)
+  lastRevertedAt             DateTime?
+  lastRevertedByUserId       Int?
+  isReverted                 Boolean                              @default(false)
   biometricData              RenewalBiometricDatas?               @relation("RenewalBiometricData")
   criminalHistories          RenewalCriminalHistories[]           @relation("RenewalCriminalHistories")
   licenseHistories           RenewalLicenseHistories[]            @relation("RenewalLicenseHistories")
@@ -634,6 +654,66 @@ model RenewalApplicationsFormWorkflowHistories {
   previousRole   Roles?    @relation("RenewalWorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade)
   previousUser   Users     @relation("RenewalWorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade)
   application    RenewalFormPersonalDetails             @relation("RenewalWorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// Revert / Versioning Models
+// ============================================================
+
+enum ApplicationType {
+  FRESH
+  RENEWAL
+}
+
+/// Stores a full snapshot of application state before every workflow action.
+/// A new snapshot is created BEFORE modifying the application (on submit, forward, approve, etc.).
+/// On revert, the target snapshot's data is restored into the application — and a NEW snapshot captures the pre-revert state.
+model ApplicationVersionSnapshot {
+  id               Int             @id @default(autoincrement())
+  applicationId    Int
+  applicationType  ApplicationType
+  versionNumber    Int
+  snapshotData     Json            // Full application state as JSONB
+  triggerAction    String          // e.g. 'FORWARD', 'APPROVE', 'REVERT', 'SUBMIT'
+  triggerActionId  Int?            // FK → Actiones (optional)
+  actionByUserId   Int
+  actionByRoleId   Int
+  createdAt        DateTime        @default(now())
+  workflowStatusId Int
+  currentUserId    Int
+  previousUserId   Int?
+  actionByUser     Users           @relation("VersionActionByUser", fields: [actionByUserId], references: [id], onDelete: Cascade)
+  actionByRole     Roles           @relation("VersionActionByRole", fields: [actionByRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, applicationType, versionNumber])
+  @@index([applicationId, applicationType])
+}
+
+/// Full audit log for every revert operation. Captures who reverted, from/to versions, reason, and metadata.
+model RevertAuditLog {
+  id                     Int             @id @default(autoincrement())
+  applicationId          Int
+  applicationType        ApplicationType
+  fromVersionNumber      Int             // The version that was active before this revert
+  toVersionNumber        Int             // The version we reverted the data TO
+  newVersionNumber       Int             // New snapshot version created by this revert
+  revertedByUserId       Int
+  revertedByRoleId       Int
+  originalActionByUserId Int?            // User whose action was undone (when reverting another's action)
+  reason                 String          // Mandatory reason text
+  revertedAt             DateTime        @default(now())
+  fromStatusId           Int             // Workflow status before the revert
+  toStatusId             Int             // Workflow status after the revert
+  isTerminalRevert       Boolean         @default(false)  // True when reverting APPROVED/REJECTED/etc.
+  escalationDocumentUrl  String?         // Required for terminal status reverts
+  ipAddress              String?
+  userAgent              String?
+  revertedByUser         Users           @relation("RevertedByUser", fields: [revertedByUserId], references: [id], onDelete: Cascade)
+  revertedByRole         Roles           @relation("RevertedByRole", fields: [revertedByRoleId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, applicationType])
+  @@index([revertedByUserId])
+  @@index([revertedAt])
 }
 
 // Merge Audit Log Model - Tracks all merge operations between renewal and fresh licenses

@@ -12,6 +12,7 @@ import { getCookie } from 'cookies-next';
 import jsPDF from 'jspdf';
 
 import { ApplicationData } from '../types';
+import { VersionHistoryPanel } from './revert';
 
 interface UserOption {
   value: string;
@@ -1610,6 +1611,23 @@ ${content}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Version History Panel ── */}
+      {applicationData?.id && (
+        <div style={{ margin: '20px 0' }}>
+          <VersionHistoryPanel
+            applicationId={Number(applicationId)}
+            applicationType={
+              String(applicationData?.applicationType || '').toLowerCase().includes('renew')
+                ? 'RENEWAL'
+                : 'FRESH'
+            }
+            canRevert={!!((applicationData as any)?.canRevert)}
+            currentVersionNumber={(applicationData as any)?.currentVersionNumber ?? 1}
+            acknowledgementNo={applicationData?.acknowledgementNo}
+          />
         </div>
       )}
     </div>

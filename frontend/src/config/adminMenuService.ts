@@ -10,7 +10,8 @@ export type AdminMenuItemKey =
     | 'roleMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement';
+    | 'locationsManagement'
+    | 'revertAuditLogs';
 
 export interface AdminMenuItem extends MenuItem {
     path: string;
@@ -58,6 +59,13 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         label: 'Locations Management',
         path: '/admin/locationsManagement',
         order: 5,
+    },
+    revertAuditLogs: {
+        name: 'revertAuditLogs',
+        key: 'revertAuditLogs',
+        label: 'Revert Audit Logs',
+        path: '/admin/revertAuditLogs',
+        order: 6,
     },
 };
 
@@ -133,6 +141,11 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'location_management': 'locationsManagement',
         'location-management': 'locationsManagement',
         'locations': 'locationsManagement',
+        'revertauditlogs': 'revertAuditLogs',
+        'revert_audit_logs': 'revertAuditLogs',
+        'revert-audit-logs': 'revertAuditLogs',
+        'revertlogs': 'revertAuditLogs',
+        'auditlogs': 'revertAuditLogs',
     };
 
     // Try direct match first

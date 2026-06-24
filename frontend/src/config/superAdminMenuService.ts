@@ -13,7 +13,8 @@ export type SuperAdminMenuItemKey =
     | 'roleMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement';
+    | 'locationsManagement'
+    | 'revertAuditLogs';
 
 export interface SuperAdminMenuItem extends MenuItem {
     path: string;
@@ -61,7 +62,14 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         label: 'Locations Management',
         path: '/superAdmin/locationsManagement',
         order: 5,
-    }
+    },
+    revertAuditLogs: {
+        name: 'revertAuditLogs',
+        key: 'revertAuditLogs',
+        label: 'Revert Audit Logs',
+        path: '/superAdmin/revertAuditLogs',
+        order: 6,
+    },
 };
 
 /**

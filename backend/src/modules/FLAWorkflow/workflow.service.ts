@@ -1,11 +1,14 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ApplicationType } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { SnapshotService } from '../versioning/services/snapshot.service';
 
 @Injectable()
 export class WorkflowService {
   private prisma = new PrismaClient();
+
+  constructor(private readonly snapshotService: SnapshotService) {}
 
   async getStatusesAndActions(id?: number) {
     if (id) {
@@ -160,6 +163,23 @@ export class WorkflowService {
     if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
 
+    // ── Create version snapshot BEFORE updating (captures current state) ──
+    try {
+      await this.snapshotService.createSnapshot({
+        applicationId:    payload.applicationId,
+        applicationType:  ApplicationType.FRESH,
+        triggerAction:    actionCode,
+        actionByUserId:   payload.currentUserId,
+        actionByRoleId:   currentRoleId,
+        workflowStatusId: application.workflowStatusId ?? 0,
+        currentUserId:    application.currentUserId ?? payload.currentUserId,
+        previousUserId:   application.previousUserId ?? undefined,
+      });
+    } catch (snapshotErr) {
+      // Non-fatal: snapshot failure must never block the workflow action
+      console.error('[SnapshotService] Failed to create snapshot for FRESH app', payload.applicationId, snapshotErr);
+    }
+
     const updatedApplication = await this.prisma.freshLicenseApplicationPersonalDetails.update({
       where: { id: payload.applicationId },
       data: updateData,
@@ -284,6 +304,23 @@ export class WorkflowService {
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
     if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
+
+    // ── Create version snapshot BEFORE updating (captures current state) ──
+    try {
+      await this.snapshotService.createSnapshot({
+        applicationId:    payload.applicationId,
+        applicationType:  ApplicationType.RENEWAL,
+        triggerAction:    actionCode,
+        actionByUserId:   payload.currentUserId,
+        actionByRoleId:   currentRoleId,
+        workflowStatusId: application.workflowStatusId ?? 0,
+        currentUserId:    application.currentUserId ?? payload.currentUserId,
+        previousUserId:   application.previousUserId ?? undefined,
+      });
+    } catch (snapshotErr) {
+      // Non-fatal: snapshot failure must never block the workflow action
+      console.error('[SnapshotService] Failed to create snapshot for RENEWAL app', payload.applicationId, snapshotErr);
+    }
 
     const updatedApplication = await this.prisma.renewalFormPersonalDetails.update({
       where: { id: payload.applicationId },
