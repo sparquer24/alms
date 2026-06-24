@@ -698,8 +698,9 @@ export default function PrintApplicationForm({ application, applicantName }: Pri
                     (entry.by ? (entry.by.match(/\(([^)]+)\)/)?.[1] || '') : '') ||
                     '—';
                   const actionTaken = entry.actionTaken || entry.action || '—';
+                  const isSameUser = entry.previousUserId && entry.nextUserId && Number(entry.previousUserId) === Number(entry.nextUserId);
                   const forwardedTo =
-                    entry.nextUserName
+                    entry.nextUserName && !isSameUser
                       ? `${entry.nextUserName}${entry.nextRoleName ? ` (${entry.nextRoleName})` : ''}`
                       : '—';
                   const rawRemarks = entry.remarks || entry.comments || '';

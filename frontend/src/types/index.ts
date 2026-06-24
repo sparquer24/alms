@@ -332,6 +332,10 @@ export interface ApplicationData {
     canReturn: boolean;
     canDispose: boolean;
   };
+  isApproved?: boolean;
+  isRejected?: boolean;
+  isRecommended?: boolean;
+  isNotRecommended?: boolean;
   usersInHierarchy?: Array<{
     id: number;
     userName?: string;

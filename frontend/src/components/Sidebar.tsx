@@ -1296,7 +1296,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         <HamburgerButton open={mobileSidebarOpen} onClick={() => setMobileSidebarOpen(v => !v)} />
       </div>
       <aside
-        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0
+        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0 flex flex-col
         ${showSidebar || mobileSidebarOpen ? 'opacity-100 transform translate-x-0' : 'opacity-0 pointer-events-none -translate-x-full'}
         md:opacity-100 md:transform md:translate-x-0 md:pointer-events-auto`}
       >
@@ -1462,7 +1462,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           </ul>
         </nav>
 
-        <div className='absolute bottom-0 w-full p-4 border-t border-gray-200'>
+        <div className='p-4 border-t border-gray-200 mt-auto'>
           <button
             type='button'
             onClick={handleLogout}

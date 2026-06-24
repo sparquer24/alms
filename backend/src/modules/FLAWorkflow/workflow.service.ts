@@ -99,22 +99,23 @@ export class WorkflowService {
     }
     
     let newStatusId = status ? status.id : application.workflowStatusId;
-
     // Preserve terminal statuses (APPROVED/REJECT/RECOMMEND/NOT_RECOMMEND) when forwarding
     // after a terminal action. e.g., CP approves → forwards back to JTCP should show APPROVED.
     // This checks the existing application state BEFORE this action runs.
-    if (application.isApproved) {
-      const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
-      if (approvedStatus) newStatusId = approvedStatus.id;
-    } else if (application.isRejected) {
-      const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
-      if (rejectedStatus) newStatusId = rejectedStatus.id;
-    } else if (application.isRecommended) {
-      const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
-      if (recommendedStatus) newStatusId = recommendedStatus.id;
-    } else if (application.isNotRecommended) {
-      const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
-      if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
+    if (actionCode !== 'CLOSE') {
+      if (application.isApproved) {
+        const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
+        if (approvedStatus) newStatusId = approvedStatus.id;
+      } else if (application.isRejected) {
+        const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
+        if (rejectedStatus) newStatusId = rejectedStatus.id;
+      } else if (application.isRecommended) {
+        const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
+        if (recommendedStatus) newStatusId = recommendedStatus.id;
+      } else if (application.isNotRecommended) {
+        const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
+        if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
+      }
     }
 
     // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
@@ -170,14 +171,16 @@ export class WorkflowService {
     
     // Determine actionTaken: preserve terminal action states (approved, rejected, recommended, not recommended)
     let actionTaken = payload.action.code;
-    if (application.isApproved || updateData.isApproved) {
-      actionTaken = ACTION_CODES.APPROVED;
-    } else if (application.isRejected || updateData.isRejected) {
-      actionTaken = ACTION_CODES.REJECT;
-    } else if (application.isRecommended || updateData.isRecommended) {
-      actionTaken = ACTION_CODES.RECOMMEND;
-    } else if (application.isNotRecommended || updateData.isNotRecommended) {
-      actionTaken = ACTION_CODES.NOT_RECOMMEND;
+    if (actionCode !== 'CLOSE') {
+      if (application.isApproved || updateData.isApproved) {
+        actionTaken = ACTION_CODES.APPROVED;
+      } else if (application.isRejected || updateData.isRejected) {
+        actionTaken = ACTION_CODES.REJECT;
+      } else if (application.isRecommended || updateData.isRecommended) {
+        actionTaken = ACTION_CODES.RECOMMEND;
+      } else if (application.isNotRecommended || updateData.isNotRecommended) {
+        actionTaken = ACTION_CODES.NOT_RECOMMEND;
+      }
     }
     
     const workflowHistoryData: any = {
@@ -228,18 +231,20 @@ export class WorkflowService {
 
     // Preserve terminal statuses (APPROVED/REJECT/RECOMMEND/NOT_RECOMMEND) when forwarding
     // after a terminal action. e.g., CP approves → forwards back to previous role should show APPROVED.
-    if (application.isApproved) {
-      const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
-      if (approvedStatus) newStatusId = approvedStatus.id;
-    } else if (application.isRejected) {
-      const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
-      if (rejectedStatus) newStatusId = rejectedStatus.id;
-    } else if (application.isRecommended) {
-      const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
-      if (recommendedStatus) newStatusId = recommendedStatus.id;
-    } else if (application.isNotRecommended) {
-      const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
-      if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
+    if (actionCode !== 'CLOSE') {
+      if (application.isApproved) {
+        const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
+        if (approvedStatus) newStatusId = approvedStatus.id;
+      } else if (application.isRejected) {
+        const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
+        if (rejectedStatus) newStatusId = rejectedStatus.id;
+      } else if (application.isRecommended) {
+        const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
+        if (recommendedStatus) newStatusId = recommendedStatus.id;
+      } else if (application.isNotRecommended) {
+        const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
+        if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
+      }
     }
 
     // 5. Update Application Fields (removed 'remarks' as it doesn't exist in the schema)
@@ -295,14 +300,16 @@ export class WorkflowService {
     
     // Determine actionTaken: preserve terminal action states (approved, rejected, recommended, not recommended)
     let actionTaken = payload.action.code;
-    if (application.isApproved || updateData.isApproved) {
-      actionTaken = ACTION_CODES.APPROVED;
-    } else if (application.isRejected || updateData.isRejected) {
-      actionTaken = ACTION_CODES.REJECT;
-    } else if (application.isRecommended || updateData.isRecommended) {
-      actionTaken = ACTION_CODES.RECOMMEND;
-    } else if (application.isNotRecommended || updateData.isNotRecommended) {
-      actionTaken = ACTION_CODES.NOT_RECOMMEND;
+    if (actionCode !== 'CLOSE') {
+      if (application.isApproved || updateData.isApproved) {
+        actionTaken = ACTION_CODES.APPROVED;
+      } else if (application.isRejected || updateData.isRejected) {
+        actionTaken = ACTION_CODES.REJECT;
+      } else if (application.isRecommended || updateData.isRecommended) {
+        actionTaken = ACTION_CODES.RECOMMEND;
+      } else if (application.isNotRecommended || updateData.isNotRecommended) {
+        actionTaken = ACTION_CODES.NOT_RECOMMEND;
+      }
     }
     
     const workflowHistoryData: any = {
@@ -376,8 +383,14 @@ export class WorkflowService {
     }
     // 4. Find corresponding status for this action
     const status = await this.prisma.statuses.findFirst({
-      where: { code: payload.action.code }
+      where: {
+        code: {
+          equals: actionCode,
+          mode: 'insensitive'
+        }
+      }
     });
+
      if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
         await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       } else{

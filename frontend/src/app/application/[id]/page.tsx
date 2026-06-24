@@ -977,14 +977,18 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           // Try multiple possible field names for application's current user ID
                           const appData = application as any;
                           const applicationUserId = Number(application?.currentUser?.id) || null;
-                          // Helpful debug info (kept minimal)
+                          const statusName = (application?.workflowStatus?.name || '').toLowerCase();
+                          const statusId = Number(application?.status_id || application?.workflowStatus?.id);
+                          const isClosed = statusName === 'closed' || statusId === 10;
+
                           const canTakeAction =
                             currentUserId &&
                             applicationUserId &&
-                            currentUserId == applicationUserId;
+                            currentUserId == applicationUserId &&
+                            !isClosed;
 
-                          return canTakeAction;
-                        })() ? (
+                          return { canTakeAction, isClosed };
+                        })()?.canTakeAction ? (
                           <>
                             {/* Proceedings Form - Always Open */}
                             <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
@@ -1018,19 +1022,29 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 />
                               </svg>
                               <div>
-                                <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
-                                  Action Not Available
-                                </h4>
-                                <p className='text-sm text-yellow-700 leading-relaxed'>
-                                  At this point, you cannot take action on this request. This
-                                  application is currently assigned to another user.
-                                </p>
-                                {application?.currentUser && (
-                                  <p className='text-sm text-yellow-700 mt-2'>
-                                    <span className='font-medium'>Current handler:</span>{' '}
-                                    {application.currentUser.username}
-                                  </p>
-                                )}
+                                {(() => {
+                                  const statusName = (application?.workflowStatus?.name || '').toLowerCase();
+                                  const statusId = Number(application?.status_id || application?.workflowStatus?.id);
+                                  const isClosed = statusName === 'closed' || statusId === 10;
+                                  return (
+                                    <>
+                                      <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
+                                        {isClosed ? 'Application Closed' : 'Action Not Available'}
+                                      </h4>
+                                      <p className='text-sm text-yellow-700 leading-relaxed'>
+                                        {isClosed 
+                                          ? 'This application has been closed. No further actions can be taken on it.' 
+                                          : 'At this point, you cannot take action on this request. This application is currently assigned to another user.'}
+                                      </p>
+                                      {!isClosed && application?.currentUser && (
+                                        <p className='text-sm text-yellow-700 mt-2'>
+                                          <span className='font-medium'>Current handler:</span>{' '}
+                                          {application.currentUser.username}
+                                        </p>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -1122,7 +1136,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 <p className='text-sm text-gray-700 font-medium mt-1'>
                                            {actionTaken}
                                          </p>
-                                        {nextUserName && (
+                                        {nextUserName && !(h.previousUserId && h.nextUserId && Number(h.previousUserId) === Number(h.nextUserId)) && (
                                           <p className='text-xs text-gray-600 mt-1'>
                                             → Forwarded to:{' '}
                                             <span className='font-medium'>{nextUserName}</span> (

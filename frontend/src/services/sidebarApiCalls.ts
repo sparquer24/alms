@@ -43,7 +43,7 @@ export const STATUS_MAP = {
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
   groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
   drafts: statusIdMap.drafts || [13],            // DRAFTS (alias for draft)
-  applications: statusIdMap.approved || [11, 3]
+  applications: statusIdMap.applications || [10, 11, 3]
 };
 
 /**
@@ -104,7 +104,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
     status: statusName || detailedApp.status || undefined,
-    status_id: detailedApp.status?.id || detailedApp.statusId || 1,
+    status_id: detailedApp.workflowStatus?.id || detailedApp.workflowStatusId || detailedApp.status?.id || detailedApp.statusId || 1,
     workflowStatus: detailedApp.workflowStatus || undefined,
     assignedTo: detailedApp.currentUser?.username || String(detailedApp.currentUserId || ''),
     forwardedFrom: detailedApp.previousUser?.username || undefined,
@@ -181,6 +181,10 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       canReturn: !detailedApp.isApproved && !detailedApp.isRejected,
       canDispose: detailedApp.isApproved,
     },
+    isApproved: detailedApp.isApproved,
+    isRejected: detailedApp.isRejected,
+    isRecommended: detailedApp.isRecommended,
+    isNotRecommended: detailedApp.isNotRecommended,
     usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
       ? detailedApp.usersInHierarchy
       : [],
@@ -421,7 +425,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   // Normalize statusKey to lowercase to be robust against URL/menu casing
   const key = String(statusKey || '').toLowerCase();
 
-// Special handling for 'renewal' - fetch renewal applications list
+  // Special handling for 'renewal' - fetch renewal applications list
   if (key === 'renewal') {
     try {
       const response = await axiosInstance.get('/renewal-forms', {
@@ -441,7 +445,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
         .filter((application: any) => application?.isSubmit === true)
         .map((application: any) => normalizeRenewalApplication(application, true));
 
-return applications;
+      return applications;
     } catch (error) {
       return [];
     }
@@ -516,7 +520,7 @@ return applications;
   }
   // debug: log statusKey -> statusIds mapping
   try {
-     
+
     console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
   } catch (e) { }
   if (statusIds.length === 0) {
@@ -652,7 +656,7 @@ export const fetchApplicationCounts = async (): Promise<{
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
   // Derive applicant name from available fields; some list endpoints may not include applicantFullName
-  
+
   // Determine if this is a renewal application
   const isRenewal = Boolean(
     apiApp?.renewalId ||
@@ -701,6 +705,10 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
       canReturn: !apiApp.isApproved && !apiApp.isRejected,
       canDispose: apiApp.isApproved,
     },
+    isApproved: apiApp.isApproved,
+    isRejected: apiApp.isRejected,
+    isRecommended: apiApp.isRecommended,
+    isNotRecommended: apiApp.isNotRecommended,
     usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
       ? apiApp.usersInHierarchy
       : undefined,
@@ -902,7 +910,7 @@ export const getApplicationByApplicationId = async (applicationId: string | numb
     const took = Date.now() - start;
     // Response may be wrapped in an ApiResponse { success, data } OR may be the raw application object.
     // Normalize both shapes for downstream processing and log timing for frontend diagnostics.
-     
+
     console.debug('[sidebarApiCalls] getApplicationByApplicationId fetch', { applicationId, took, rawResponse: response });
 
     // If API follows wrapped response pattern, extract data
