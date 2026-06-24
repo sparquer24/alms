@@ -133,10 +133,24 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onStatus?.('Uploading documentary evidence...');
 
     try {
+      // Delete existing documents first
+      if (specialEvidenceFiles && specialEvidenceFiles.length > 0) {
+        for (const fileItem of specialEvidenceFiles) {
+          const meta = getDocumentUploadMeta(fileItem);
+          if (meta.id) {
+            try {
+              await deleteRenewalDocument(meta.id);
+            } catch (err) {
+              console.error('Failed to delete old special evidence document:', err);
+            }
+          }
+        }
+      }
+
       const meta = await uploadRenewalDocument(renewalId, 'specialEvidenceUploaded', file);
-      const nextFiles = [...specialEvidenceFiles, meta];
+      const nextFiles = [meta];
       onPatch({
-        specialEvidenceUploaded: nextFiles[nextFiles.length - 1],
+        specialEvidenceUploaded: meta,
         specialEvidenceFiles: nextFiles,
       });
       onStatus?.('Document uploaded successfully.');

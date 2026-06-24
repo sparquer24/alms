@@ -91,11 +91,9 @@ function InboxContent() {
     }
   }, [initialized, userRole, router]);
 
-  useEffect(() => {
-    if (isFreshFormsPage || isDraftsPage) {
-      setSelectedFormType('fresh');
-    }
-  }, [isFreshFormsPage, isDraftsPage]);
+  // NOTE: selectedFormType intentionally keeps its current value when navigating
+  // between pages. Resetting it here would prevent renewal drafts from being
+  // shown if the user had previously switched to the renewal tab.
 
   useEffect(() => {
     if (initialized && !isAuthenticated) {
@@ -185,6 +183,36 @@ function InboxContent() {
                 Showing approved applications only
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Tab switcher for pages that support both fresh and renewal application types */}
+        {(isDraftsPage || isFreshFormsPage) && (
+          <div className='mb-4 flex gap-2'>
+            <button
+              type='button'
+              onClick={() => setSelectedFormType('fresh')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedFormType === 'fresh'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              aria-pressed={selectedFormType === 'fresh'}
+            >
+              Fresh License
+            </button>
+            <button
+              type='button'
+              onClick={() => setSelectedFormType('renewal')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedFormType === 'renewal'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              aria-pressed={selectedFormType === 'renewal'}
+            >
+              Renewal Application
+            </button>
           </div>
         )}
 

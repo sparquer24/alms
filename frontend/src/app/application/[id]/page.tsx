@@ -1623,6 +1623,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             padding: 0 !important;
             box-sizing: border-box !important;
           }
+          @page {
+            size: A4 portrait;
+            margin: 0 !important;
+          }
+          body {
+            padding: 10mm 15mm !important;
+          }
         }
       `}</style>
     </div>
