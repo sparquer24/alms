@@ -979,7 +979,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (isSamePath) {
             // If already on this page, force reload data
-            void loadType(type, true, item.statusIds).catch(() => {});
+            await loadType(type, true, item.statusIds).catch(() => {});
             if (onTableReload) onTableReload(key);
           } else {
             router.push(target);
@@ -996,7 +996,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (isSamePath) {
             // If already on this page, force reload data
-            void loadType(type, true, item.statusIds).catch(() => {});
+            await loadType(type, true, item.statusIds).catch(() => {});
           } else {
             router.push(target);
             scheduleInboxForwardedRefresh(target);
@@ -1004,9 +1004,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } finally {
         // Always release the lock for this actionId
-        setTimeout(() => {
-          endAction(actionId);
-        }, 500);
+        endAction(actionId);
       }
     },
     [
@@ -1055,7 +1053,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   }, [dispatch, isInboxOpen, normalizeNavKey, persistActiveNavToLocal, setActiveItem, router]);
 
   const handleInboxSubItemClick = useCallback(
-    (subItem: string) => {
+    async (subItem: string) => {
       const actionId = `inbox-${subItem.toLowerCase().replace(/\s+/g, '')}`;
 
       // Prevent repeated clicks on the same sub-item while its action is in progress
@@ -1098,19 +1096,22 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
 
         // Resolve statusIds fallback logic
-        let customStatusIds: number[] | undefined = activeStatusIds;
+        let customStatusIds: number[] | undefined = undefined;
         try {
-          if (!customStatusIds) {
-            const inboxMenu = menuItems.find(
-              mi =>
-                String(mi.name || '')
-                  .replace(/\s+/g, '')
-                  .toLowerCase() === 'inbox'
-            );
-            if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
-              customStatusIds = inboxMenu.statusIds;
-          }
-          if (!customStatusIds) {
+          const isAllTab = String(subItem).toLowerCase() === 'all';
+          if (isAllTab) {
+            customStatusIds = activeStatusIds;
+            if (!customStatusIds) {
+              const inboxMenu = menuItems.find(
+                mi =>
+                  String(mi.name || '')
+                    .replace(/\s+/g, '')
+                    .toLowerCase() === 'inbox'
+              );
+              if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
+                customStatusIds = inboxMenu.statusIds;
+            }
+          } else {
             const direct = menuItems.find(
               mi =>
                 String(mi.name || '')
@@ -1137,7 +1138,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // If user clicked the same inbox type that's already selected, force a reload
         const forceReload =
           !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
-        void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
+        await loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
 
         const targetBase = '/inbox';
         const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
@@ -1159,9 +1160,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } finally {
         // Always release the lock for this actionId
-        setTimeout(() => {
-          endAction(actionId);
-        }, 500);
+        endAction(actionId);
       }
     },
     [

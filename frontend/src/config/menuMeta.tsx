@@ -40,7 +40,7 @@ export type MenuMetaKey =
   | 'sent'
   | 'closed'
   | 'final'
-  | 'application'
+  | 'applications'
   | 'drafts'
   | 'reports'
   | 'analytics' // New analytics tab
@@ -68,9 +68,9 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
     label: 'Final Disposal',
     icon: () => <ArchiveFixed className='w-6 h-6 mr-2' aria-label='Final Disposal' />,
   },
-  application: {
+  applications: {
     label: 'Applications',
-    icon: () => <ArchiveFixed className='w-6 h-6 mr-2' aria-label='Final Disposal' />,
+    icon: () => <ListFixed className='w-6 h-6 mr-2' aria-label='Applications' />,
   },
   rejected: {
     label: 'Rejected',

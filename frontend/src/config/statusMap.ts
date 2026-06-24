@@ -28,6 +28,7 @@ export const statusIdMap: StatusIdMap = {
   redflagged: [8],       // RED_FLAG
   disposed: [7],         // DISPOSE
   approved: [11, 3],     // RECOMMEND + APPROVED
+  applications: [11, 3],  // Approved applications
   freshform: [9],        // INITIATE (fresh form applications)
   closed: [10],          // CLOSE
   cancelled: [4],        // CANCEL
