@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ApplicationData } from '../types';
 import styles from './BatchProcessingModal.module.css';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { RoleTypes } from '../config/roles';
 import { getRoleHierarchy, getRoleDisplayNames } from '../utils/roleUtils'; // Centralized utilities
 
@@ -27,7 +27,7 @@ const BatchProcessingModal: React.FC<BatchProcessingModalProps> = ({
   const availableRecipients = useMemo(() => {
     const roleHierarchy = getRoleHierarchy();
     const roleDisplayNames = getRoleDisplayNames();
-    const roles: string[] = roleHierarchy[userRole] || [];
+    const roles: string[] = roleHierarchy[userRole as string] || [];
     return roles.map((role: string) => ({
       value: role,
       label: roleDisplayNames[role] || role

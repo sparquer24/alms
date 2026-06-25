@@ -82,6 +82,20 @@ body::-webkit-scrollbar-thumb,
   border-radius: 999px;
 }
 
+/* Loading pulse for table rows and sidebar items */
+@keyframes loading-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-loading-pulse {
+  animation: loading-pulse 1.5s ease-in-out infinite;
+}
+
 /* Success/Error Message Animation */
 @keyframes slideInFromRight {
   0% {
@@ -146,6 +160,9 @@ body::-webkit-scrollbar-thumb,
   animation: progressBar 3s ease-in-out infinite;
 }
 
+/* ==============================
+   Print styles
+============================== */
 /* Print styles - hide chrome and make printable area full width */
 @media print {
   /* hide app chrome */

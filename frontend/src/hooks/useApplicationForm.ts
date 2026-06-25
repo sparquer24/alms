@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationService, ApplicationFormData } from '../api/applicationService';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 
 interface UseApplicationFormProps {
   initialState: any;
   formSection: 'personal' | 'address' | 'occupation' | 'criminal' | 'license-history' | 'license-details';
-  validationRules?: (formData: any) => string[];
+  validationRules?: (formData: any) => Record<string, string> | string[];
 }
 
 export const useApplicationForm = ({
@@ -22,6 +22,7 @@ export const useApplicationForm = ({
   const [applicantIdKey, setApplicantIdKey] = useState<'applicantId' | 'id' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [almsLicenseId, setAlmsLicenseId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,82 +43,70 @@ export const useApplicationForm = ({
     }
   }, [searchParams, formSection]);
 
-  // Check if application exists before loading data
+  // Load existing application data — single GET request (no separate existence check)
   const checkAndLoadExistingData = useCallback(async (appId: string) => {
     try {
       setIsLoading(true);
       setSubmitError(null);
 
-      // First, check if the application exists
       const response = await ApplicationService.getApplication(appId);
 
       if (response.success && response.data) {
-        // Application exists, now load the data
-        await loadExistingData(appId);
+        await handleLoadedData(appId, response.data);
       } else {
-        // Application doesn't exist, this is a new application
         setIsLoading(false);
       }
     } catch (error: any) {
       setIsLoading(false);
 
-      // Handle different scenarios
       if (error.message.includes('404') || error.message.includes('Not Found')) {
-        // This is expected for new applications - don't show error
+        // Expected for new applications - continue with empty form
       } else if (error.message.includes('Authentication') || error.message.includes('401')) {
         setSubmitError('Session expired. Please log in again.');
-      } else {
-        // Don't show error to user for application existence check
       }
     }
   }, [formSection]);
 
-  // Load existing application data for all sections
+  // Handle loaded data from a single GET response
+  const handleLoadedData = useCallback(async (appId: string, data: any) => {
+    const licenseId = data.almsLicenseId ?? data.alms_license_id ?? data.licenseId ?? null;
+    if (licenseId) {
+      setAlmsLicenseId(licenseId);
+    }
+
+    const sectionData = ApplicationService.extractSectionData(data, formSection);
+    if (sectionData && Object.keys(sectionData).length > 0) {
+      setForm((prev: any) => ({ ...prev, ...sectionData }));
+      setSubmitSuccess('Existing data loaded successfully');
+      setTimeout(() => setSubmitSuccess(null), 3000);
+    }
+    
+    setIsLoading(false);
+  }, [formSection]);
+
+  // Load existing application data — this is now a re-export for components that need it
   const loadExistingData = useCallback(async (appId: string) => {
     try {
       setIsLoading(true);
-      setSubmitError(null); // Clear any previous errors
+      setSubmitError(null);
 
       const response = await ApplicationService.getApplication(appId);
       if (response.success && response.data) {
-        // If the application contains an ALMS license id, capture it for UI
-        const licenseId = response.data.almsLicenseId ?? response.data.alms_license_id ?? response.data.licenseId ?? null;
-        if (licenseId) {
-          setAlmsLicenseId(licenseId);
-        }
-        // Extract section-specific data using the service method
-        const sectionData = ApplicationService.extractSectionData(response.data, formSection);
-        if (sectionData && Object.keys(sectionData).length > 0) {
-          // Merge section data with initial state, prioritizing loaded data
-          setForm((prev: any) => {
-            const mergedData = { ...prev, ...sectionData };
-            return mergedData;
-          });
-
-          // Show success message for better UX
-          setSubmitSuccess('Existing data loaded successfully');
-          setTimeout(() => setSubmitSuccess(null), 3000); // Clear after 3 seconds
-        } else {
-          // This is normal for new applications or sections not yet filled
-        }
-      } else {
-        // Don't show error - let user continue with empty form
+        await handleLoadedData(appId, response.data);
       }
     } catch (error: any) {
-      // Handle different types of errors gracefully
       if (error.message.includes('404') || error.message.includes('Not Found')) {
-        // Don't show error to user - just continue with empty form
+        // Expected for new applications
       } else if (error.message.includes('Authentication') || error.message.includes('401')) {
         setSubmitError('Session expired. Please log in again.');
       } else {
-        // Show a gentle message to user but don't block form usage
         setSubmitError('Could not load existing data. You can continue with a fresh form.');
-        setTimeout(() => setSubmitError(null), 5000); // Clear after 5 seconds
+        setTimeout(() => setSubmitError(null), 5000);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [formSection]);
+  }, [formSection, handleLoadedData]);
 
   // Handle form field changes
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,8 +126,8 @@ export const useApplicationForm = ({
   }, []);
 
   // Save form data
-  const saveFormData = useCallback(async (customValidation?: () => string[], overrideFormData?: any) => {
-    setIsSubmitting(true);
+  const saveFormData = useCallback(async (customValidation?: () => string[], overrideFormData?: any, background: boolean = false) => {
+    if (!background) setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(null);
 
@@ -152,43 +141,67 @@ export const useApplicationForm = ({
       // Run validation
       const validation = customValidation || validationRules;
       if (validation) {
-        const validationErrors = validation(dataToSave);
-        if (validationErrors.length > 0) {
-          throw new Error(validationErrors.join(', '));
+        const validationResult = validation(dataToSave);
+        if (Array.isArray(validationResult)) {
+          if (validationResult.length > 0) {
+            throw new Error(validationResult.join(', '));
+          }
+        } else if (Object.keys(validationResult).length > 0) {
+          setFieldErrors(validationResult);
+          throw new Error('Please fix the errors in the form before proceeding.');
+        } else {
+          setFieldErrors({});
         }
       }
 
-      let response;
-      let newApplicantId;
+      const performSave = async () => {
+        let response;
+        let newApplicantId;
 
-      if (applicantId && formSection !== 'personal') {
-        // Update existing application (PATCH) for non-personal forms
-        response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
-        newApplicantId = applicantId;
-      } else if (formSection === 'personal') {
-        if (applicantId) {
-          // Update personal information (PATCH)
+        if (applicantId && formSection !== 'personal') {
+          // Update existing application (PATCH) for non-personal forms
           response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
           newApplicantId = applicantId;
-        } else {
-          // Create new application (POST)
-          response = await ApplicationService.createApplication(dataToSave);
-          // Attempt to read returned application id and alms license id from response
-          newApplicantId = response.applicationId ?? response.data?.applicationId ?? response.data?.id ?? null;
-          if (newApplicantId) setApplicantId(newApplicantId);
+        } else if (formSection === 'personal') {
+          if (applicantId) {
+            // Update personal information (PATCH)
+            response = await ApplicationService.updateApplication(applicantId, dataToSave, formSection);
+            newApplicantId = applicantId;
+          } else {
+            // Create new application (POST)
+            response = await ApplicationService.createApplication(dataToSave);
+            // Attempt to read returned application id and alms license id from response
+            newApplicantId = response.applicationId ?? response.data?.applicationId ?? response.data?.id ?? null;
+            if (newApplicantId) setApplicantId(newApplicantId);
 
-          const createdLicenseId = response.almsLicenseId ?? response.data?.almsLicenseId ?? response.data?.alms_license_id ?? null;
-          if (createdLicenseId) setAlmsLicenseId(createdLicenseId);
+            const createdLicenseId = response.almsLicenseId ?? response.data?.almsLicenseId ?? response.data?.alms_license_id ?? null;
+            if (createdLicenseId) setAlmsLicenseId(createdLicenseId);
+          }
+        } else {
+          throw new Error('Application ID is required for this form section');
         }
+
+        if (response.success) {
+          if (!background) setSubmitSuccess('Data saved successfully!');
+          return newApplicantId;
+        } else {
+          throw new Error('Failed to save data. Please try again.');
+        }
+      };
+
+      if (background && applicantId && formSection !== 'personal') {
+        // Fire and forget, don't await
+        performSave().catch(error => {
+          console.error('Background save error:', error);
+        });
+        return applicantId;
       } else {
-        throw new Error('Application ID is required for this form section');
+        // For personal section or non-background saves, we must wait
+        if (background) setIsSubmitting(true); // if it was personal, we didn't set it to true initially
+        const result = await performSave();
+        return result;
       }
-      if (response.success) {
-        setSubmitSuccess('Data saved successfully!');
-        return newApplicantId;
-      } else {
-        throw new Error('Failed to save data. Please try again.');
-      }
+
     } catch (error: any) {
       if (error.message === 'Authentication required' || error.message.includes('log in')) {
         setSubmitError('Authentication expired. Please log in again.');
@@ -256,5 +269,7 @@ export const useApplicationForm = ({
     setSubmitSuccess,
     almsLicenseId,
     setAlmsLicenseId,
+    fieldErrors,
+    setFieldErrors,
   };
 };

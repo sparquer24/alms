@@ -45,7 +45,7 @@ export const generateApplicationPDF = async (application: ApplicationData): Prom
     // Application Status
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`Status: ${application.status.toUpperCase()}`, margin, yPosition);
+    doc.text(`Status: ${(application.status || '').toUpperCase()}`, margin, yPosition);
     yPosition += 6;
 
     doc.text(`Date of Application: ${formatDate(application.applicationDate)}`, margin, yPosition);
@@ -177,7 +177,8 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
 
     // Create a summary of applications by status
     const statusCounts: Record<string, number> = applications.reduce((acc, app) => {
-      acc[app.status] = (acc[app.status] || 0) + 1;
+      const status = app.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -271,7 +272,8 @@ export const generateBatchReportPDF = async (applications: ApplicationData[], re
         yPosition + 4
       );
       doc.text(formatDate(app.applicationDate), margin + 95, yPosition + 4);
-      doc.text(app.status.charAt(0).toUpperCase() + app.status.slice(1), margin + 130, yPosition + 4);
+      const statusText = app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Unknown';
+      doc.text(statusText, margin + 130, yPosition + 4);
       doc.text(
         app.assignedTo.length > 15
           ? app.assignedTo.substring(0, 15) + '...'
@@ -321,7 +323,7 @@ export const getApplicationPrintHTML = (application: ApplicationData): string =>
       <div style="text-align: center; margin-bottom: 20px;">
         <h2 style="margin: 0;">ARMS LICENSE APPLICATION</h2>
         <p style="margin: 5px 0;">Application ID: ${application.id}</p>
-        <p style="margin: 5px 0;">Status: ${application.status.toUpperCase()}</p>
+        <p style="margin: 5px 0;">Status: ${(application.status || 'unknown').toUpperCase()}</p>
       </div>
       
       <div style="border-top: 1px solid #ccc; padding-top: 15px; margin-bottom: 15px;">
@@ -373,7 +375,8 @@ export const getApplicationPrintHTML = (application: ApplicationData): string =>
 export const getBatchReportHTML = (applications: ApplicationData[], reportTitle: string = "Applications Report"): string => {
   // Create a summary of applications by status
   const statusCounts: Record<string, number> = applications.reduce((acc, app) => {
-    acc[app.status] = (acc[app.status] || 0) + 1;
+    const status = app.status || 'unknown';
+    acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -393,8 +396,8 @@ export const getBatchReportHTML = (applications: ApplicationData[], reportTitle:
       <td>${app.applicationType}</td>
       <td>${formatDate(app.applicationDate)}</td>
       <td>
-        <span class="status-pill status-${app.status}">
-          ${app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+        <span class="status-pill status-${app.status || 'unknown'}">
+          ${app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Unknown'}
         </span>
       </td>
       <td>${app.assignedTo}</td>

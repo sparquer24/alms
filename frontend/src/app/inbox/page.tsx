@@ -4,87 +4,26 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import ApplicationTable from '../../components/ApplicationTable';
-import { useAuthSync } from '../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { PageLayoutSkeleton } from '../../components/Skeleton';
 import { isAdminRole } from '../../utils/roleUtils';
 import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
-import { apiClient } from '../../config/authenticatedApiClient';
+import { useInbox } from '../../context/InboxContext';
+import axiosInstance from '../../api/axiosConfig';
+import { normalizeRenewalApplication } from '../../utils/applicationFormatters';
 
 type FreshFormViewType = 'fresh' | 'renewal';
 
-const normalizeRenewalApplication = (application: any, submittedOnly: boolean): ApplicationData => {
-  const applicantName =
-    application?.applicantName ||
-    [application?.firstName, application?.middleName, application?.lastName].filter(Boolean).join(' ') ||
-    'Unknown Applicant';
-
-  return {
-    id: String(application?.id || ''),
-    acknowledgementNo: application?.acknowledgementNo,
-    firstName: application?.firstName,
-    middleName: application?.middleName,
-    lastName: application?.lastName,
-    applicantName,
-    applicantMobile: application?.mobileNumber || application?.contactInfo?.mobileNumber || '',
-    applicantEmail: application?.email || application?.contactInfo?.email || undefined,
-    mobileNumber: application?.mobileNumber || application?.contactInfo?.mobileNumber || '',
-    email: application?.email || application?.contactInfo?.email || undefined,
-    parentOrSpouseName: application?.parentOrSpouseName,
-    sex: application?.sex,
-    dob: application?.dateOfBirth ? new Date(application.dateOfBirth).toISOString() : undefined,
-    dobInWords: application?.dobInWords,
-    panNumber: application?.panNumber,
-    aadharNumber: application?.aadharNumber,
-    applicationType: 'Renewal Application',
-    applicationDate: application?.createdAt || new Date().toISOString(),
-    applicationTime: application?.createdAt ? new Date(application.createdAt).toTimeString() : undefined,
-    status: application?.workflowStatus?.name || (submittedOnly ? 'Submitted' : 'Draft'),
-    status_id: application?.workflowStatusId ?? (application?.isSubmit ? 1 : 9),
-    workflowStatus: application?.workflowStatus,
-    assignedTo: String(application?.currentUserId || ''),
-    lastUpdated: application?.updatedAt || application?.createdAt || new Date().toISOString(),
-    createdAt: application?.createdAt,
-    updatedAt: application?.updatedAt,
-    documents: Array.isArray(application?.documents) ? application.documents : [],
-    currentUser: application?.currentUser,
-    history: Array.isArray(application?.history) ? application.history : [],
-    workflowHistories: Array.isArray(application?.workflowHistories) ? application.workflowHistories : [],
-    actions: application?.actions || {
-      canForward: false,
-      canReport: true,
-      canApprove: false,
-      canReject: false,
-      canRaiseRedflag: false,
-      canReturn: false,
-      canDispose: false,
-    },
-    usersInHierarchy: Array.isArray(application?.usersInHierarchy) ? application.usersInHierarchy : [],
-    // Keep linkage IDs for renewal edit-routing in draft mode.
-    ...( {
-      renewalId: application?.id,
-      renewalApplicationId: application?.id,
-      applicationId:
-        application?.applicationId ||
-        application?.freshApplicationId ||
-        application?.sourceApplicationId ||
-        application?.renewalLicenseId ||
-        '',
-      freshApplicationId: application?.freshApplicationId || application?.applicationId || '',
-      sourceApplicationId: application?.sourceApplicationId || application?.applicationId || '',
-      renewalLicenseId: application?.renewalLicenseId || '',
-    } as any),
-  };
-};
-
+// Helper function for fetching renewal applications
 const fetchRenewalApplications = async (submittedOnly: boolean): Promise<ApplicationData[]> => {
   try {
-    const response = await apiClient.get<any>('/renewal-forms', {
-      page: 1,
-      limit: 1000,
-      ordering: 'DESC',
-      orderBy: 'createdAt',
+    const response = await axiosInstance.get('/renewal-forms', {
+      params: {
+        page: 1,
+        limit: 1000,
+      },
     });
 
     const renewalApplications = Array.isArray(response?.data)
@@ -97,25 +36,38 @@ const fetchRenewalApplications = async (submittedOnly: boolean): Promise<Applica
       .filter((application: any) => (submittedOnly ? application?.isSubmit === true : application?.isSubmit === false))
       .map((application: any) => normalizeRenewalApplication(application, submittedOnly));
   } catch (error) {
-    console.error('[InboxContent] failed to fetch renewal applications:', error);
     return [];
   }
 };
 
-// Component that uses useSearchParams - needs to be wrapped in Suspense
 function InboxContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const queryType = searchParams?.get('type') || 'all'; // Default to 'all' if no type specified
+  const queryType = searchParams?.get('type') || 'all';
   const shouldRefresh = searchParams?.get('refresh') === 'true';
   const isFreshFormsPage = queryType === 'freshform';
   const isDraftsPage = queryType === 'drafts';
 
-  const [type, setType] = useState<string | null>(null);
   const [selectedFormType, setSelectedFormType] = useState<FreshFormViewType>('fresh');
-  const [applications, setApplications] = useState<ApplicationData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole, initialized } = useAuth();
+
+  // Use inbox context for shared applications and loading state
+  const { applications: contextApplications, isLoading: isContextLoading } = useInbox();
+
+  // Local applications state for special cases (freshform, drafts)
+  const [localApplications, setLocalApplications] = useState<ApplicationData[]>([]);
+  const [localLoading, setLocalLoading] = useState(false);
+
+  // Combine context and local applications based on query type
+  // For 'all' and 'renewal', use context; for freshform/drafts use local
+  const applications = (queryType === 'renewal'
+    ? contextApplications
+    : (queryType === 'freshform' || queryType === 'drafts')
+      ? localApplications
+      : contextApplications) || [];
+
+  // Determine loading state - use local loading for freshform/drafts, context loading otherwise
+  const isLoading = (queryType === 'freshform' || queryType === 'drafts') ? localLoading : isContextLoading;
 
   // Handle refresh parameter - only refresh once per login
   useEffect(() => {
@@ -123,7 +75,7 @@ function InboxContent() {
       const refreshed = getCookie('pageRefreshed');
       if (!refreshed) {
         const timer = setTimeout(() => {
-          setCookie('pageRefreshed', 'true', { maxAge: 60 * 5 }); // 5 minute expiry
+          setCookie('pageRefreshed', 'true', { maxAge: 60 * 5 });
           window.location.reload();
         }, 1000);
         return () => clearTimeout(timer);
@@ -133,123 +85,67 @@ function InboxContent() {
 
   // Redirect admin users to admin dashboard
   useEffect(() => {
-    if (!authLoading && isAdminRole(userRole)) {
+    if (initialized && isAdminRole(userRole)) {
       const redirectPath = getRoleBasedRedirectPath(userRole);
       router.push(redirectPath);
-      return;
     }
-  }, [authLoading, userRole, router]);
+  }, [initialized, userRole, router]);
+
+  // NOTE: selectedFormType intentionally keeps its current value when navigating
+  // between pages. Resetting it here would prevent renewal drafts from being
+  // shown if the user had previously switched to the renewal tab.
 
   useEffect(() => {
-    if (!queryType) return;
-    setType(queryType);
-  }, [queryType]);
-
-  useEffect(() => {
-    if (isFreshFormsPage || isDraftsPage) {
-      setSelectedFormType('fresh');
-    }
-  }, [isFreshFormsPage, isDraftsPage]);
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (initialized && !isAuthenticated) {
       router.push('/login');
-      return;
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [initialized, isAuthenticated, router]);
 
+  // Fetch local data for freshform/drafts pages
   useEffect(() => {
-    if (!type) return;
-
-    const fetchApplications = async () => {
-      try {
-        setIsLoading(true);
-        // debug: log requested type
-        console.debug('[InboxContent] fetching applications for type:', type);
-
-        if (type === 'freshform') {
-          if (selectedFormType === 'renewal') {
-            const renewalApps = await fetchRenewalApplications(true);
-            console.debug('[InboxContent] renewal applications fetched:', renewalApps.length);
-            setApplications(renewalApps);
-          } else {
-            const freshApps = await fetchApplicationsByStatusKey('freshform');
-            console.debug('[InboxContent] fresh applications fetched:', freshApps.length);
-            setApplications(freshApps);
+    if (queryType === 'freshform' || queryType === 'drafts') {
+      const fetchApplications = async () => {
+        try {
+          setLocalLoading(true);
+          if (queryType === 'freshform') {
+            if (selectedFormType === 'renewal') {
+              const renewalApps = await fetchRenewalApplications(true);
+              setLocalApplications(renewalApps);
+            } else {
+              const freshApps = await fetchApplicationsByStatusKey('freshform');
+              setLocalApplications(freshApps);
+            }
+          } else if (queryType === 'drafts') {
+            if (selectedFormType === 'renewal') {
+              const renewalDraftApps = await fetchRenewalApplications(false);
+              setLocalApplications(renewalDraftApps);
+            } else {
+              const freshDraftApps = await fetchApplicationsByStatusKey('drafts');
+              setLocalApplications(freshDraftApps);
+            }
           }
-          return;
+        } catch {
+          setLocalApplications([]);
+        } finally {
+          setLocalLoading(false);
         }
-
-        if (type === 'drafts') {
-          if (selectedFormType === 'renewal') {
-            const renewalDraftApps = await fetchRenewalApplications(false);
-            console.debug('[InboxContent] renewal draft applications fetched:', renewalDraftApps.length);
-            setApplications(renewalDraftApps);
-          } else {
-            const freshDraftApps = await fetchApplicationsByStatusKey('drafts');
-            console.debug('[InboxContent] fresh draft applications fetched:', freshDraftApps.length);
-            setApplications(freshDraftApps);
-          }
-          return;
-        }
-        
-        // If type is 'all', fetch from all inbox categories and combine
-        if (type === 'all') {
-          const [forwarded, returned, redflagged, reenquiry] = await Promise.all([
-            fetchApplicationsByStatusKey('forwarded'),
-            fetchApplicationsByStatusKey('returned'),
-            fetchApplicationsByStatusKey('redflagged'),
-            fetchApplicationsByStatusKey('reenquiry')
-          ]);
-          
-          // Combine all results and remove duplicates based on application ID
-          const combined = [...forwarded, ...returned, ...redflagged, ...reenquiry];
-          const uniqueApps = combined.filter((app, index, self) =>
-            index === self.findIndex((a) => a.id === app.id)
-          );
-          
-          console.debug('[InboxContent] combined inbox applications:', uniqueApps.length);
-          setApplications(uniqueApps);
-        } else {
-          const apps = await fetchApplicationsByStatusKey(type);
-          console.debug(
-            '[InboxContent] fetch result length for',
-            type,
-            ':',
-            Array.isArray(apps) ? apps.length : typeof apps,
-            apps && apps[0] ? apps[0] : null
-          );
-          setApplications(apps);
-        }
-      } catch {
-        setApplications([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (!authLoading && isAuthenticated) fetchApplications();
-    else if (!authLoading && !isAuthenticated) setIsLoading(false);
-  }, [type, selectedFormType, authLoading, isAuthenticated]);
-
-  if (!type) return <PageLayoutSkeleton />;
+      };
+      if (initialized && isAuthenticated) fetchApplications();
+    }
+  }, [queryType, selectedFormType, initialized, isAuthenticated]);
 
   const getPageTitle = () => {
-    switch (type) {
+    switch (queryType) {
       case 'all':
-        return 'All Inbox Applications';
+        return 'All Applications';
       case 'forwarded':
         return 'Forwarded Applications';
       case 'returned':
         return 'Returned Applications';
       case 'redflagged':
         return 'Red Flagged Applications';
-      case 'disposed':
-        return 'Disposed Applications';
       case 'drafts':
         return selectedFormType === 'renewal' ? 'Renewal Draft Applications' : 'Draft Applications';
-      case 'finaldisposal':
-        return 'Final Disposal Applications';
       case 'sent':
         return 'Sent Applications';
       case 'closed':
@@ -265,41 +161,11 @@ function InboxContent() {
 
   return (
     <div className='max-w-8xl w-full mx-auto'>
-      <div className='bg-white rounded-lg shadow p-6'>
-        <h1 className='text-2xl font-bold mb-4'>{getPageTitle()}</h1>
+      <div className='bg-white rounded-lg shadow p-4 sm:p-5'>
+        <h1 className='text-2xl font-bold mb-3'>{getPageTitle()}</h1>
 
-        {(type === 'freshform' || type === 'drafts') && (
-          <div className='mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4'>
-            <div className='mb-3 text-sm font-medium text-slate-700'>Select form type</div>
-            <div className='flex flex-wrap items-center gap-4'>
-              <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300'>
-                <input
-                  type='radio'
-                  name='fresh-form-type'
-                  value='fresh'
-                  checked={selectedFormType === 'fresh'}
-                  onChange={() => setSelectedFormType('fresh')}
-                  className='h-4 w-4 accent-blue-700'
-                />
-                Fresh Application Form
-              </label>
-              <label className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300'>
-                <input
-                  type='radio'
-                  name='fresh-form-type'
-                  value='renewal'
-                  checked={selectedFormType === 'renewal'}
-                  onChange={() => setSelectedFormType('renewal')}
-                  className='h-4 w-4 accent-blue-700'
-                />
-                Renewal Application Form
-              </label>
-            </div>
-          </div>
-        )}
-
-        {type === 'all' && (
-          <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
+        {queryType === 'all' && (
+          <div className='mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
             <div className='flex items-center'>
               <svg
                 xmlns='http://www.w3.org/2000/svg'
@@ -314,24 +180,48 @@ function InboxContent() {
                 />
               </svg>
               <span className='text-blue-800 font-medium'>
-                Showing all inbox applications (Forwarded, Returned, Red Flagged, and Re-Enquiry)
+                Showing approved applications only
               </span>
             </div>
           </div>
         )}
 
-        {(type === 'freshform' || type === 'drafts') && (
-          <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
-            <span className='text-blue-800 font-medium'>
-              Showing {selectedFormType === 'renewal' ? 'renewal' : 'fresh'} application form records
-            </span>
+        {/* Tab switcher for pages that support both fresh and renewal application types */}
+        {(isDraftsPage || isFreshFormsPage) && (
+          <div className='mb-4 flex gap-2'>
+            <button
+              type='button'
+              onClick={() => setSelectedFormType('fresh')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedFormType === 'fresh'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              aria-pressed={selectedFormType === 'fresh'}
+            >
+              Fresh License
+            </button>
+            <button
+              type='button'
+              onClick={() => setSelectedFormType('renewal')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                selectedFormType === 'renewal'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              aria-pressed={selectedFormType === 'renewal'}
+            >
+              Renewal Application
+            </button>
           </div>
         )}
 
         <ApplicationTable
           applications={applications}
           isLoading={isLoading}
-          pageType={type || undefined}
+          pageType={queryType}
+          selectedFormType={selectedFormType}
+          onSelectedFormTypeChange={setSelectedFormType}
           showActionColumn={true}
         />
       </div>

@@ -2,18 +2,20 @@
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'react-toastify';
+import { ApplicationFormSkeleton } from '../../../components/Skeleton';
 import { ApplicationService } from '../../../api/applicationService';
 import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
-import { applyPrefilledDocumentUploads, syncPendingRenewalDocuments } from '../../../utils/renewalFileUpload';
-import { usePrefilledDocumentSync } from '../../../hooks/usePrefilledDocumentSync';
 import {
-  asPendingRenewalDocument,
-  collectRenewalFileIds,
+  applyPrefilledDocumentUploads,
+  syncPendingRenewalDocuments,
 } from '../../../utils/renewalFileUpload';
+import { usePrefilledDocumentSync } from '../../../hooks/usePrefilledDocumentSync';
+import { asPendingRenewalDocument, collectRenewalFileIds } from '../../../utils/renewalFileUpload';
 import PersonalDetailsSection from '../../../components/forms/renewal/sections/PersonalDetailsSection';
 import AddressDetailsSection from '../../../components/forms/renewal/sections/AddressDetailsSection';
 import OccupationSection from '../../../components/forms/renewal/sections/OccupationSection';
@@ -23,6 +25,8 @@ import LicenseDetailsSection from '../../../components/forms/renewal/sections/Li
 import BiometricInformation from '../../../components/forms/renewal/sections/BiometricInformation';
 import DocumentsSection from '../../../components/forms/renewal/sections/DocumentsSection';
 import DeclarationSection from '../../../components/forms/renewal/sections/DeclarationSection';
+import MantraSDKService from '../../../services/mantraSDKService';
+import BiometricAPIService from '../../../services/biometricAPIService';
 
 type RenewalFormState = {
   renewalApplicationId: string;
@@ -52,9 +56,14 @@ type RenewalFormState = {
   presentDistrict: string;
   presentZone: string;
   presentDivision: string;
-  presentPincode: string;
   presentPoliceStation: string;
+  presentStateName?: string;
+  presentDistrictName?: string;
+  presentZoneName?: string;
+  presentDivisionName?: string;
+  presentPoliceStationName?: string;
   jurisdictionPoliceStation: string;
+  presentPincode: string;
   residingSince: string;
   sameAsPresent: boolean;
   permanentAddress: string;
@@ -62,8 +71,13 @@ type RenewalFormState = {
   permanentDistrict: string;
   permanentZone: string;
   permanentDivision: string;
-  permanentPincode: string;
   permanentPoliceStation: string;
+  permanentStateName?: string;
+  permanentDistrictName?: string;
+  permanentZoneName?: string;
+  permanentDivisionName?: string;
+  permanentPoliceStationName?: string;
+  permanentPincode: string;
   officePhone: string;
   residencePhone: string;
   officeMobile: string;
@@ -109,6 +123,22 @@ type RenewalFormState = {
   offence: string;
   sentence: string;
   sentenceDate: string;
+  // License History fields
+  hasAppliedBefore: boolean;
+  applicationDate: string;
+  authorityAppliedTo: string;
+  applicationResult: string;
+  licenseRevokedOrSuspended: boolean;
+  revokedByAuthority: string;
+  revokedReason: string;
+  familyMemberHasLicense: boolean;
+  familyMemberName: string;
+  familyLicenseNumber: string;
+  weaponEndorsedList: any[];
+  hasSafeCustody: boolean;
+  safeCustodyDetails: string;
+  hasTrainingUnderRule10: boolean;
+  trainingDetails: string;
   idProofUploaded?: File | null;
   addressProofUploaded?: File | null;
   photographUploaded?: File | null;
@@ -119,6 +149,8 @@ type RenewalFormState = {
   otherStateLicenseUploaded?: File | null;
   existingArmsLicenseUploaded?: File | null;
   safeCustodyUploaded?: File | null;
+  specialEvidenceUploaded?: File | null;
+  specialEvidenceFiles?: (File | any)[];
   selectedFingerprint?: string;
   signature?: string;
   irisScan?: string;
@@ -158,9 +190,14 @@ const initialFormState: RenewalFormState = {
   presentDistrict: '',
   presentZone: '',
   presentDivision: '',
-  presentPincode: '',
   presentPoliceStation: '',
+  presentStateName: '',
+  presentDistrictName: '',
+  presentZoneName: '',
+  presentDivisionName: '',
+  presentPoliceStationName: '',
   jurisdictionPoliceStation: '',
+  presentPincode: '',
   residingSince: '',
   sameAsPresent: false,
   permanentAddress: '',
@@ -168,8 +205,13 @@ const initialFormState: RenewalFormState = {
   permanentDistrict: '',
   permanentZone: '',
   permanentDivision: '',
-  permanentPincode: '',
   permanentPoliceStation: '',
+  permanentStateName: '',
+  permanentDistrictName: '',
+  permanentZoneName: '',
+  permanentDivisionName: '',
+  permanentPoliceStationName: '',
+  permanentPincode: '',
   officePhone: '',
   residencePhone: '',
   officeMobile: '',
@@ -215,6 +257,22 @@ const initialFormState: RenewalFormState = {
   offence: '',
   sentence: '',
   sentenceDate: '',
+  // License History fields
+  hasAppliedBefore: false,
+  applicationDate: '',
+  authorityAppliedTo: '',
+  applicationResult: '',
+  licenseRevokedOrSuspended: false,
+  revokedByAuthority: '',
+  revokedReason: '',
+  familyMemberHasLicense: false,
+  familyMemberName: '',
+  familyLicenseNumber: '',
+  weaponEndorsedList: [],
+  hasSafeCustody: false,
+  safeCustodyDetails: '',
+  hasTrainingUnderRule10: false,
+  trainingDetails: '',
   idProofUploaded: null,
   addressProofUploaded: null,
   photographUploaded: null,
@@ -225,6 +283,8 @@ const initialFormState: RenewalFormState = {
   otherStateLicenseUploaded: null,
   existingArmsLicenseUploaded: null,
   safeCustodyUploaded: null,
+  specialEvidenceUploaded: null,
+  specialEvidenceFiles: [],
   selectedFingerprint: 'RIGHT_THUMB',
   signature: '',
   irisScan: '',
@@ -244,7 +304,13 @@ const formatDate = (value: any) => {
 
 const extractData = (response: any) => {
   const root = response?.data ?? response?.body ?? response;
-  if (root && typeof root === 'object' && root.data && typeof root.data === 'object' && !Array.isArray(root.data)) {
+  if (
+    root &&
+    typeof root === 'object' &&
+    root.data &&
+    typeof root.data === 'object' &&
+    !Array.isArray(root.data)
+  ) {
     return root.data;
   }
   return root;
@@ -290,21 +356,13 @@ const parseApplicantNameParts = (fullName: string) => {
 };
 
 const getApplicantNameFields = (data: any, personalDetails?: any) => {
-  const first = getTextValue(
-    data?.firstName,
-    personalDetails?.firstName,
-    data?.applicantFirstName
-  );
+  const first = getTextValue(data?.firstName, personalDetails?.firstName, data?.applicantFirstName);
   const middle = getTextValue(
     data?.middleName,
     personalDetails?.middleName,
     data?.applicantMiddleName
   );
-  const last = getTextValue(
-    data?.lastName,
-    personalDetails?.lastName,
-    data?.applicantLastName
-  );
+  const last = getTextValue(data?.lastName, personalDetails?.lastName, data?.applicantLastName);
 
   if (first || middle || last) {
     return { applicantName: first, applicantMiddleName: middle, applicantLastName: last };
@@ -324,7 +382,9 @@ const getApplicantNameFields = (data: any, personalDetails?: any) => {
 };
 
 const getSexValue = (value: any) => {
-  const normalized = String(value || '').trim().toUpperCase();
+  const normalized = String(value || '')
+    .trim()
+    .toUpperCase();
   if (['M', 'MALE'].includes(normalized)) return 'MALE';
   if (['F', 'FEMALE'].includes(normalized)) return 'FEMALE';
   if (!normalized) return '';
@@ -362,20 +422,20 @@ const normalizeArmsCategoryForApi = (value?: string) => {
 const hasCompleteAddressPayload = (formData: RenewalFormState) =>
   Boolean(
     getTextValue(formData.presentAddress) &&
-      toNumber(formData.presentState) !== undefined &&
-      toNumber(formData.presentDistrict) !== undefined &&
-      toNumber(formData.presentPoliceStation) !== undefined &&
-      toNumber(formData.presentZone) !== undefined &&
-      toNumber(formData.presentDivision) !== undefined &&
-      getTextValue(formData.residingSince)
+    toNumber(formData.presentState) !== undefined &&
+    toNumber(formData.presentDistrict) !== undefined &&
+    toNumber(formData.presentPoliceStation) !== undefined &&
+    toNumber(formData.presentZone) !== undefined &&
+    toNumber(formData.presentDivision) !== undefined &&
+    getTextValue(formData.residingSince)
   );
 
 const hasCompleteOccupationPayload = (formData: RenewalFormState) =>
   Boolean(
     getTextValue(formData.occupation) &&
-      getTextValue(formData.officeBusinessAddress) &&
-      toNumber(formData.officeBusinessState) !== undefined &&
-      toNumber(formData.officeBusinessDistrict) !== undefined
+    getTextValue(formData.officeBusinessAddress) &&
+    toNumber(formData.officeBusinessState) !== undefined &&
+    toNumber(formData.officeBusinessDistrict) !== undefined
   );
 
 const mapLicensePurposeToUiValue = (value?: string) => {
@@ -429,11 +489,11 @@ const hasSavedAddress = (addr: any) => {
   if (typeof addr === 'string') return addr.trim().length > 0;
   return Boolean(
     getAddressLine(addr) ||
-      addr.stateId ||
-      addr.districtId ||
-      addr.zoneId ||
-      addr.divisionId ||
-      addr.policeStationId
+    addr.stateId ||
+    addr.districtId ||
+    addr.zoneId ||
+    addr.divisionId ||
+    addr.policeStationId
   );
 };
 
@@ -444,24 +504,53 @@ const mapPresentAddressFields = (data: any) => {
   return {
     presentAddress: getAddressLine(presentAddress),
     presentState: normalizeLocationId(presentAddress?.stateId ?? presentAddress?.state?.id),
-    presentDistrict: normalizeLocationId(presentAddress?.districtId ?? presentAddress?.district?.id),
-    presentZone: normalizeLocationId(presentAddress?.zoneId ?? presentAddress?.zone?.id),
-    presentDivision: normalizeLocationId(presentAddress?.divisionId ?? presentAddress?.division?.id),
-    presentPincode: getTextValue(
-      presentAddress?.pincode,
-      presentAddress?.pinCode,
-      presentAddress?.postalCode,
-      data?.presentPincode,
-      data?.pincode,
-      data?.presentAddressPincode
+    presentDistrict: normalizeLocationId(
+      presentAddress?.districtId ?? presentAddress?.district?.id
     ),
-    presentPoliceStation: normalizeLocationId(presentAddress?.policeStationId ?? presentAddress?.policeStation?.id),
+    presentZone: normalizeLocationId(presentAddress?.zoneId ?? presentAddress?.zone?.id),
+    presentDivision: normalizeLocationId(
+      presentAddress?.divisionId ?? presentAddress?.division?.id
+    ),
+    presentPoliceStation: normalizeLocationId(
+      presentAddress?.policeStationId ?? presentAddress?.policeStation?.id
+    ),
+    presentStateName: getTextValue(presentAddress?.state?.name, presentAddress?.stateName),
+    presentDistrictName: getTextValue(presentAddress?.district?.name, presentAddress?.districtName),
+    presentZoneName: getTextValue(presentAddress?.zone?.name, presentAddress?.zoneName),
+    presentDivisionName: getTextValue(presentAddress?.division?.name, presentAddress?.divisionName),
+    presentPoliceStationName: getTextValue(
+      presentAddress?.policeStation?.name,
+      presentAddress?.policeStationName
+    ),
+    presentPincode: getTextValue(presentAddress?.pincode, presentAddress?.postalCode, data?.presentPincode),
     jurisdictionPoliceStation: getTextValue(data?.jurisdictionPoliceStation),
-    residingSince: formatDate(presentAddress?.sinceResiding || data?.residingSince || data?.presentSince),
-    sameAsPresent: Boolean(data?.sameAsPresent),
-    officePhone: getTextValue(presentAddress?.telephoneOffice, data?.telephoneOffice, data?.officePhone),
-    residencePhone: getTextValue(presentAddress?.telephoneResidence, data?.telephoneResidence, data?.residencePhone),
-    officeMobile: getTextValue(presentAddress?.officeMobileNumber, data?.officeMobileNumber, data?.officeMobile),
+    residingSince: formatDate(
+      presentAddress?.sinceResiding || data?.residingSince || data?.presentSince
+    ),
+    sameAsPresent: Boolean(data?.sameAsPresent) || Boolean(
+      data?.permanentAddress &&
+      getAddressLine(presentAddress) === getAddressLine(data.permanentAddress) &&
+      normalizeLocationId(presentAddress?.stateId ?? presentAddress?.state?.id) === normalizeLocationId(data.permanentAddress.stateId ?? data.permanentAddress.state?.id) &&
+      normalizeLocationId(presentAddress?.districtId ?? presentAddress?.district?.id) === normalizeLocationId(data.permanentAddress.districtId ?? data.permanentAddress.district?.id) &&
+      normalizeLocationId(presentAddress?.zoneId ?? presentAddress?.zone?.id) === normalizeLocationId(data.permanentAddress.zoneId ?? data.permanentAddress.zone?.id) &&
+      normalizeLocationId(presentAddress?.divisionId ?? presentAddress?.division?.id) === normalizeLocationId(data.permanentAddress.divisionId ?? data.permanentAddress.division?.id) &&
+      normalizeLocationId(presentAddress?.policeStationId ?? presentAddress?.policeStation?.id) === normalizeLocationId(data.permanentAddress.policeStationId ?? data.permanentAddress.policeStation?.id)
+    ),
+    officePhone: getTextValue(
+      presentAddress?.telephoneOffice,
+      data?.telephoneOffice,
+      data?.officePhone
+    ),
+    residencePhone: getTextValue(
+      presentAddress?.telephoneResidence,
+      data?.telephoneResidence,
+      data?.residencePhone
+    ),
+    officeMobile: getTextValue(
+      presentAddress?.officeMobileNumber,
+      data?.officeMobileNumber,
+      data?.officeMobile
+    ),
     alternativeMobile: getTextValue(presentAddress?.alternativeMobile, data?.alternativeMobile),
   };
 };
@@ -473,11 +562,25 @@ const mapPermanentAddressFields = (data: any) => {
   return {
     permanentAddress: getAddressLine(permanentAddress),
     permanentState: normalizeLocationId(permanentAddress?.stateId ?? permanentAddress?.state?.id),
-    permanentDistrict: normalizeLocationId(permanentAddress?.districtId ?? permanentAddress?.district?.id),
+    permanentDistrict: normalizeLocationId(
+      permanentAddress?.districtId ?? permanentAddress?.district?.id
+    ),
     permanentZone: normalizeLocationId(permanentAddress?.zoneId ?? permanentAddress?.zone?.id),
-    permanentDivision: normalizeLocationId(permanentAddress?.divisionId ?? permanentAddress?.division?.id),
-    permanentPincode: getTextValue(permanentAddress?.pincode, data?.permanentPincode),
-    permanentPoliceStation: normalizeLocationId(permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id),
+    permanentDivision: normalizeLocationId(
+      permanentAddress?.divisionId ?? permanentAddress?.division?.id
+    ),
+    permanentPoliceStation: normalizeLocationId(
+      permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id
+    ),
+    permanentPincode: getTextValue(permanentAddress?.pincode, permanentAddress?.postalCode, data?.permanentPincode),
+    permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
+    permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
+    permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
+    permanentDivisionName: getTextValue(permanentAddress?.division?.name, permanentAddress?.divisionName),
+    permanentPoliceStationName: getTextValue(
+      permanentAddress?.policeStation?.name,
+      permanentAddress?.policeStationName
+    ),
   };
 };
 
@@ -487,7 +590,6 @@ const ADDRESS_FORM_KEYS: (keyof RenewalFormState)[] = [
   'presentDistrict',
   'presentZone',
   'presentDivision',
-  'presentPincode',
   'presentPoliceStation',
   'jurisdictionPoliceStation',
   'residingSince',
@@ -573,7 +675,9 @@ const LICENSE_DETAIL_FORM_KEYS: (keyof RenewalFormState)[] = [
 ];
 
 const normalizeArmsCategory = (value?: string) => {
-  const normalized = String(value || '').trim().toUpperCase();
+  const normalized = String(value || '')
+    .trim()
+    .toUpperCase();
   if (normalized === 'RESTRICTED' || normalized === 'PERMISSIBLE') return normalized;
   return '';
 };
@@ -591,7 +695,7 @@ const weaponNameToSelectValue = (name?: string) => {
 const mapArmsOptionToCategory = (armsOption?: string): string => {
   if (!armsOption) return '';
   const normalized = String(armsOption).toUpperCase();
-  
+
   // Map common arm types to RESTRICTED or PERMISSIBLE
   if (normalized.includes('PISTOL') || normalized.includes('REVOLVER')) {
     return 'RESTRICTED';
@@ -621,8 +725,7 @@ const parseCarryAreaFlags = (areaOfValidity?: string) => {
   return {
     carryAreaDistrict: area.includes('District-wide') || /\bDISTRICT\b/i.test(area),
     carryAreaState:
-      area.includes('State-wide') ||
-      (/\bSTATE\b/i.test(area) && !/Throughout India/i.test(area)),
+      area.includes('State-wide') || (/\bSTATE\b/i.test(area) && !/Throughout India/i.test(area)),
     carryAreaIndia: area.includes('Throughout India') || /\bINDIA\b/i.test(area),
   };
 };
@@ -637,7 +740,11 @@ const buildAreaOfValidityPayload = (formData: RenewalFormState) => {
   return areas.length ? areas.join(', ') : undefined;
 };
 
-const BIOMETRIC_FORM_KEYS: (keyof RenewalFormState)[] = ['selectedFingerprint', 'signature', 'irisScan'];
+const BIOMETRIC_FORM_KEYS: (keyof RenewalFormState)[] = [
+  'selectedFingerprint',
+  'signature',
+  'irisScan',
+];
 
 const DOCUMENT_FORM_KEYS = [
   'idProofUploaded',
@@ -658,12 +765,12 @@ const hasSavedOccupation = (data: any) => {
   const occ = data?.occupationAndBusiness;
   return Boolean(
     occ &&
-      (occ.occupation ||
-        occ.officeAddress ||
-        occ.stateId ||
-        occ.districtId ||
-        occ.cropLocation ||
-        occ.areaUnderCultivation)
+    (occ.occupation ||
+      occ.officeAddress ||
+      occ.stateId ||
+      occ.districtId ||
+      occ.cropLocation ||
+      occ.areaUnderCultivation)
   );
 };
 
@@ -671,16 +778,18 @@ const hasSavedCriminal = (data: any) =>
   Boolean(Array.isArray(data?.criminalHistories) && data.criminalHistories.length > 0);
 
 const getPrimaryLicenseHistory = (data: any) => {
-  if (Array.isArray(data?.licenseHistories) && data.licenseHistories.length) return data.licenseHistories[0];
-  if (Array.isArray(data?.licenseHistory) && data.licenseHistory.length) return data.licenseHistory[0];
+  if (Array.isArray(data?.licenseHistories) && data.licenseHistories.length)
+    return data.licenseHistories[0];
+  if (Array.isArray(data?.licenseHistory) && data.licenseHistory.length)
+    return data.licenseHistory[0];
   return data?.previousApplicationDetails || null;
 };
 
 const hasSavedLicenseHistory = (data: any) =>
   Boolean(
     getPrimaryLicenseHistory(data) ||
-      (Array.isArray(data?.licenseHistories) && data.licenseHistories.length > 0) ||
-      (Array.isArray(data?.licenseHistory) && data.licenseHistory.length > 0)
+    (Array.isArray(data?.licenseHistories) && data.licenseHistories.length > 0) ||
+    (Array.isArray(data?.licenseHistory) && data.licenseHistory.length > 0)
   );
 
 const hasSavedLicenseDetails = (data: any) =>
@@ -690,10 +799,10 @@ const hasSavedBiometric = (data: any) => {
   const biometric = data?.biometricData?.biometricData || data?.biometricData;
   return Boolean(
     biometric &&
-      (biometric.id ||
-        biometric.signature ||
-        biometric.irisScan ||
-        (Array.isArray(biometric.fingerprints) && biometric.fingerprints.length > 0))
+    (biometric.id ||
+      biometric.signature ||
+      biometric.irisScan ||
+      (Array.isArray(biometric.fingerprints) && biometric.fingerprints.length > 0))
   );
 };
 
@@ -721,8 +830,8 @@ const normalizeUploadRecord = (file: any) => {
       typeof file?.id === 'number'
         ? file.id
         : typeof file?.fileId === 'number'
-        ? file.fileId
-        : undefined,
+          ? file.fileId
+          : undefined,
     fileName: file?.fileName || file?.name || file?.file_name || 'document',
     fileUrl: file?.fileUrl || file?.url || file?.path || file?.file_url,
     fileType,
@@ -758,7 +867,7 @@ const resolveFreshApplicationId = (renewalData: any, urlApplicationId: string) =
     urlApplicationId,
     renewalData?.applicationId,
     renewalData?.freshApplicationId,
-    renewalData?.sourceApplicationId,
+    renewalData?.sourceApplicationId
   );
 
 const fetchFreshApplicationWithFiles = async (applicationId: string) => {
@@ -785,7 +894,7 @@ const fetchFreshApplicationWithFiles = async (applicationId: string) => {
 const mergeDocumentFieldsFromFresh = (
   merged: RenewalFormState,
   fresh: RenewalFormState,
-  renewalFileIds?: ReadonlySet<number>,
+  renewalFileIds?: ReadonlySet<number>
 ) => {
   for (const key of DOCUMENT_FORM_KEYS) {
     if (key === 'specialEvidenceFiles') continue;
@@ -798,16 +907,8 @@ const mergeDocumentFieldsFromFresh = (
     }
   }
 
-  const mergedEvidence = Array.isArray(merged.specialEvidenceFiles) ? merged.specialEvidenceFiles : [];
-  const freshEvidence = Array.isArray(fresh.specialEvidenceFiles) ? fresh.specialEvidenceFiles : [];
-  if (!mergedEvidence.length && freshEvidence.length) {
-    merged.specialEvidenceFiles = freshEvidence
-      .map((file) => asPendingRenewalDocument(file, renewalFileIds ?? null))
-      .filter(Boolean) as RenewalFormState['specialEvidenceFiles'];
-    merged.specialEvidenceUploaded =
-      asPendingRenewalDocument(fresh.specialEvidenceUploaded, renewalFileIds ?? null) ??
-      fresh.specialEvidenceUploaded;
-  }
+  // Note: specialEvidenceFiles/specialEvidenceUploaded intentionally NOT copied
+  // from fresh application -- renewal form should only show its own uploaded evidence.
 };
 
 const restoreSectionFromFresh = (
@@ -887,7 +988,10 @@ const mergeRenewalStateOverFresh = (
     if (!normalizeArmsCategory(renewalLicense?.armsCategory)) {
       partialLicenseKeys.push('armsOptionType', 'licenseType');
     }
-    if (!Array.isArray(renewalLicense?.requestedWeapons) || renewalLicense.requestedWeapons.length === 0) {
+    if (
+      !Array.isArray(renewalLicense?.requestedWeapons) ||
+      renewalLicense.requestedWeapons.length === 0
+    ) {
       partialLicenseKeys.push('requestedWeaponIds', 'weaponType', 'weaponId');
     }
 
@@ -897,8 +1001,6 @@ const mergeRenewalStateOverFresh = (
 
     const licenseFieldKeys = [
       ...LICENSE_DETAIL_FORM_KEYS,
-      'specialEvidenceUploaded',
-      'specialEvidenceFiles',
     ] as const;
     for (const key of licenseFieldKeys) {
       const renewalValue = (renewal as Record<string, unknown>)[key];
@@ -922,37 +1024,23 @@ const mergeRenewalStateOverFresh = (
     merged.presentPincode = fresh.presentPincode;
   }
 
-  const renewalClaimFiles = getUploadedFiles(renewalData).filter((file: any) => {
-    const type = String(file?.fileType || file?.type || '').toUpperCase();
-    return type === 'CLAIM_DOCS' || type === 'CLAIM_DOCUMENTS';
-  });
-  if (!renewalClaimFiles.length) {
-    restoreSectionFromFresh(merged, fresh, ['specialEvidenceUploaded', 'specialEvidenceFiles']);
-  }
-
   if (!hasSavedBiometric(renewalData)) {
     restoreSectionFromFresh(merged, fresh, BIOMETRIC_FORM_KEYS);
   }
 
-  const renewalFileIds = collectRenewalFileIds(renewalData);
-
-  if (!hasSavedDocuments(renewalData)) {
-    restoreSectionFromFresh(merged, fresh, DOCUMENT_FORM_KEYS);
-    for (const key of DOCUMENT_FORM_KEYS) {
-      if (key === 'specialEvidenceFiles') {
-        if (Array.isArray(merged.specialEvidenceFiles)) {
-          merged.specialEvidenceFiles = merged.specialEvidenceFiles
-            .map((file) => asPendingRenewalDocument(file, renewalFileIds))
-            .filter(Boolean) as RenewalFormState['specialEvidenceFiles'];
-        }
-        continue;
-      }
-      const pending = asPendingRenewalDocument((merged as Record<string, unknown>)[key], renewalFileIds);
-      if (pending) (merged as Record<string, unknown>)[key] = pending;
-    }
+  if (renewalData?.isDeclarationAccepted !== undefined || renewalData?.isAwareOfLegalConsequences !== undefined || renewalData?.isTermsAccepted !== undefined || renewalData?.declaration) {
+    merged.declaration = {
+      agreeToTruth: Boolean(renewalData?.declaration?.agreeToTruth ?? renewalData?.isDeclarationAccepted),
+      understandLegalConsequences: Boolean(renewalData?.declaration?.understandLegalConsequences ?? renewalData?.isAwareOfLegalConsequences),
+      agreeToTerms: Boolean(renewalData?.declaration?.agreeToTerms ?? renewalData?.isTermsAccepted),
+    };
   }
 
-  mergeDocumentFieldsFromFresh(merged, fresh, renewalFileIds);
+  const renewalFileIds = collectRenewalFileIds(renewalData);
+
+  // Populate document fields strictly from renewalData (not from fresh application)
+  const mappedDocs = mapDocumentUploadFields(renewalData, collectRenewalFileIds(renewalData));
+  Object.assign(merged, mappedDocs);
 
   return merged;
 };
@@ -976,7 +1064,10 @@ const mapOccupationFields = (data: any) => {
 const mapSpecialEvidenceFields = (data: any) => {
   const uploads = getUploadedFiles(data);
   const hasSpecialClaim = Boolean(
-    getTextValue(data?.licenseDetails?.[0]?.specialConsiderationReason, data?.specialConsiderationClaim)?.trim()
+    getTextValue(
+      data?.licenseDetails?.[0]?.specialConsiderationReason,
+      data?.specialConsiderationClaim
+    )?.trim()
   );
 
   let claimFiles = uploads.filter((file: any) => {
@@ -1013,7 +1104,10 @@ const mapSpecialEvidenceFields = (data: any) => {
 };
 
 const mapLicenseDetailFields = (data: any) => {
-  const primary = Array.isArray(data?.licenseDetails) && data.licenseDetails.length ? data.licenseDetails[0] : null;
+  const primary =
+    Array.isArray(data?.licenseDetails) && data.licenseDetails.length
+      ? data.licenseDetails[0]
+      : null;
   if (!primary) return {};
 
   const requestedWeapons = Array.isArray(primary?.requestedWeapons) ? primary.requestedWeapons : [];
@@ -1022,10 +1116,18 @@ const mapLicenseDetailFields = (data: any) => {
     .filter((id: number) => !Number.isNaN(id));
 
   return {
-    armsOptionType: normalizeArmsCategory(primary?.armsCategory ?? primary?.armsOption ?? data?.armsOption),
+    armsOptionType: normalizeArmsCategory(
+      primary?.armsCategory ?? primary?.armsOption ?? data?.armsOption
+    ),
     ...parseCarryAreaFlags(primary?.areaOfValidity),
-    ammunitionDescription: getTextValue(primary?.ammunitionDescription, data?.ammunitionDescription),
-    specialConsiderationClaim: getTextValue(primary?.specialConsiderationReason, data?.specialConsiderationClaim),
+    ammunitionDescription: getTextValue(
+      primary?.ammunitionDescription,
+      data?.ammunitionDescription
+    ),
+    specialConsiderationClaim: getTextValue(
+      primary?.specialConsiderationReason,
+      data?.specialConsiderationClaim
+    ),
     formIVPlaceArea: getTextValue(primary?.licencePlaceArea, data?.formIVPlaceArea),
     formIVWildBeastsSpec: getTextValue(
       primary?.wildBeastsSpecification,
@@ -1034,8 +1136,12 @@ const mapLicenseDetailFields = (data: any) => {
     ),
     requestedWeaponIds,
     weaponId: requestedWeaponIds[0] ? String(requestedWeaponIds[0]) : '',
-    weaponType: requestedWeapons[0] ? weaponNameToSelectValue(requestedWeapons[0]?.name) : getTextValue(data?.weaponType),
-    weaponReason: mapLicensePurposeToUiValue(getTextValue(primary?.needForLicense, data?.weaponReason)),
+    weaponType: requestedWeapons[0]
+      ? weaponNameToSelectValue(requestedWeapons[0]?.name)
+      : getTextValue(data?.weaponType),
+    weaponReason: mapLicensePurposeToUiValue(
+      getTextValue(primary?.needForLicense, data?.weaponReason)
+    ),
     licenseValidity: getTextValue(primary?.licenseValidity, data?.licenseValidity),
     licenseType: normalizeArmsCategory(primary?.armsCategory) || getTextValue(data?.licenseType),
     ...mapSpecialEvidenceFields(data),
@@ -1043,11 +1149,15 @@ const mapLicenseDetailFields = (data: any) => {
 };
 
 const mapLicenseResultToUi = (value?: string) => {
-  const normalized = String(value || '').trim().toUpperCase();
+  const normalized = String(value || '')
+    .trim()
+    .toUpperCase();
   if (normalized === 'APPROVED') return 'approved';
   if (normalized === 'REJECTED') return 'rejected';
   if (normalized === 'PENDING') return 'pending';
-  return String(value || '').trim().toLowerCase();
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 };
 
 const mapLicenseHistoryFields = (data: any) => {
@@ -1063,18 +1173,33 @@ const mapLicenseHistoryFields = (data: any) => {
     : undefined;
 
   return {
-    hasPreviousLicense: Boolean(data?.hasPreviousLicense || data?.licenseHistories?.length || data?.licenseHistory?.length),
+    hasPreviousLicense: Boolean(
+      data?.hasPreviousLicense || data?.licenseHistories?.length || data?.licenseHistory?.length
+    ),
     previousApplicationDetails: licenseHistory || undefined,
     hasAppliedBefore: Boolean(licenseHistory?.hasAppliedBefore || data?.hasAppliedBefore),
     applicationDate: formatDate(licenseHistory?.dateAppliedFor || data?.applicationDate),
-    authorityAppliedTo: getTextValue(licenseHistory?.previousAuthorityName, data?.authorityAppliedTo),
+    authorityAppliedTo: getTextValue(
+      licenseHistory?.previousAuthorityName,
+      data?.authorityAppliedTo
+    ),
     applicationResult: getTextValue(licenseHistory?.previousResult, data?.applicationResult),
-    licenseRevokedOrSuspended: Boolean(licenseHistory?.hasLicenceSuspended || data?.licenseRevokedOrSuspended),
-    revokedByAuthority: getTextValue(licenseHistory?.suspensionAuthorityName, data?.revokedByAuthority),
+    licenseRevokedOrSuspended: Boolean(
+      licenseHistory?.hasLicenceSuspended || data?.licenseRevokedOrSuspended
+    ),
+    revokedByAuthority: getTextValue(
+      licenseHistory?.suspensionAuthorityName,
+      data?.revokedByAuthority
+    ),
     revokedReason: getTextValue(licenseHistory?.suspensionReason, data?.revokedReason),
-    familyMemberHasLicense: Boolean(licenseHistory?.hasFamilyLicence || data?.familyMemberHasLicense),
+    familyMemberHasLicense: Boolean(
+      licenseHistory?.hasFamilyLicence || data?.familyMemberHasLicense
+    ),
     familyMemberName: getTextValue(licenseHistory?.familyMemberName, data?.familyMemberName),
-    familyLicenseNumber: getTextValue(licenseHistory?.familyLicenceNumber, data?.familyLicenseNumber),
+    familyLicenseNumber: getTextValue(
+      licenseHistory?.familyLicenceNumber,
+      data?.familyLicenseNumber
+    ),
     hasSafeCustody: Boolean(licenseHistory?.hasSafePlace || data?.hasSafeCustody),
     safeCustodyDetails: getTextValue(licenseHistory?.safePlaceDetails, data?.safeCustodyDetails),
     hasTrainingUnderRule10: Boolean(licenseHistory?.hasTraining || data?.hasTrainingUnderRule10),
@@ -1100,28 +1225,45 @@ const mapCriminalHistoryFields = (data: any) => {
   }
 
   return {
-    convictedStatus: primaryCriminal ? Boolean(primaryCriminal.isConvicted) : Boolean(data?.convictedStatus),
-    bondStatus: primaryCriminal ? Boolean(primaryCriminal.isBondExecuted) : Boolean(data?.bondStatus),
-    bondSentenceDate: primaryCriminal?.bondDate ? formatDate(primaryCriminal.bondDate) : getTextValue(data?.bondSentenceDate),
+    convictedStatus: primaryCriminal
+      ? Boolean(primaryCriminal.isConvicted)
+      : Boolean(data?.convictedStatus),
+    bondStatus: primaryCriminal
+      ? Boolean(primaryCriminal.isBondExecuted)
+      : Boolean(data?.bondStatus),
+    bondSentenceDate: primaryCriminal?.bondDate
+      ? formatDate(primaryCriminal.bondDate)
+      : getTextValue(data?.bondSentenceDate),
     bondPeriod: getTextValue(primaryCriminal?.bondPeriod, data?.bondPeriod),
-    prohibitedStatus: primaryCriminal ? Boolean(primaryCriminal.isProhibited) : Boolean(data?.prohibitedStatus),
+    prohibitedStatus: primaryCriminal
+      ? Boolean(primaryCriminal.isProhibited)
+      : Boolean(data?.prohibitedStatus),
     prohibitedSentenceDate: primaryCriminal?.prohibitionDate
       ? formatDate(primaryCriminal.prohibitionDate)
       : getTextValue(data?.prohibitedSentenceDate),
     prohibitedPeriod: getTextValue(primaryCriminal?.prohibitionPeriod, data?.prohibitedPeriod),
     firNumber: getTextValue(firDetails?.[0]?.firNumber, data?.firNumber),
     underSection: getTextValue(firDetails?.[0]?.underSection, data?.underSection),
-    policeStationCriminal: getTextValue(firDetails?.[0]?.policeStation, data?.policeStationCriminal),
+    policeStationCriminal: getTextValue(
+      firDetails?.[0]?.policeStation,
+      data?.policeStationCriminal
+    ),
     criminalUnit: getTextValue(firDetails?.[0]?.unit, data?.criminalUnit),
-    criminalDistrict: getTextValue(firDetails?.[0]?.district, firDetails?.[0]?.District, data?.criminalDistrict),
+    criminalDistrict: getTextValue(
+      firDetails?.[0]?.district,
+      firDetails?.[0]?.District,
+      data?.criminalDistrict
+    ),
     criminalState: getTextValue(firDetails?.[0]?.state, data?.criminalState),
     offence: getTextValue(firDetails?.[0]?.offence, data?.offence),
     sentence: getTextValue(firDetails?.[0]?.sentence, data?.sentence),
     sentenceDate: firDetails?.[0]?.date
       ? formatDate(firDetails[0].date)
       : firDetails?.[0]?.DateOfSentence
-      ? formatDate(firDetails[0].DateOfSentence)
-      : getTextValue(data?.sentenceDate),
+        ? formatDate(firDetails[0].DateOfSentence)
+        : firDetails?.[0]?.sentenceDate
+          ? formatDate(firDetails[0].sentenceDate)
+          : getTextValue(data?.sentenceDate),
   };
 };
 
@@ -1131,10 +1273,9 @@ const mapBiometricFields = (data: any) => {
   const biometric = data?.biometricData?.biometricData || data?.biometricData || null;
 
   return {
-    selectedFingerprint: getTextValue(
-      biometric?.fingerprints?.[0]?.position,
-      data?.selectedFingerprint
-    ) || initialFormState.selectedFingerprint,
+    selectedFingerprint:
+      getTextValue(biometric?.fingerprints?.[0]?.position, data?.selectedFingerprint) ||
+      initialFormState.selectedFingerprint,
     signature: getTextValue(biometric?.signature, data?.signature),
     irisScan: getTextValue(biometric?.irisScan, data?.irisScan),
   };
@@ -1189,7 +1330,10 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
     addressProofUploaded: pickField('addressProofUploaded', 'ADDRESS_PROOF'),
     photographUploaded: pickField('photographUploaded', 'PHOTOGRAPH'),
     panCardUploaded: pickField('panCardUploaded', 'PAN_CARD'),
-    characterCertificateUploaded: pickField('characterCertificateUploaded', 'CHARACTER_CERTIFICATE'),
+    characterCertificateUploaded: pickField(
+      'characterCertificateUploaded',
+      'CHARACTER_CERTIFICATE'
+    ),
     trainingCertificateUploaded: pickField('trainingCertificateUploaded', 'TRAINING_CERTIFICATE'),
     medicalCertificateUploaded: pickField('medicalCertificateUploaded', 'MEDICAL_REPORT'),
     otherStateLicenseUploaded: pickField('otherStateLicenseUploaded', 'OTHER_STATE_LICENSE'),
@@ -1199,8 +1343,8 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
     specialEvidenceFiles: claimFiles.length
       ? claimFiles
       : Array.isArray(data?.specialEvidenceFiles)
-      ? data.specialEvidenceFiles.map((file: any) => toRenewalFieldValue(file)).filter(Boolean)
-      : [],
+        ? data.specialEvidenceFiles.map((file: any) => toRenewalFieldValue(file)).filter(Boolean)
+        : [],
   };
 
   if (
@@ -1211,7 +1355,7 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
     mapped.specialEvidenceUploaded = mapped.specialEvidenceFiles[0];
   }
 
-  const hasAnyDocument = DOCUMENT_FORM_KEYS.some((key) => {
+  const hasAnyDocument = DOCUMENT_FORM_KEYS.some(key => {
     if (key === 'specialEvidenceFiles') {
       return Array.isArray(mapped.specialEvidenceFiles) && mapped.specialEvidenceFiles.length > 0;
     }
@@ -1221,16 +1365,30 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
   return hasAnyDocument ? mapped : {};
 };
 
-const buildFieldStateFromFreshApplication = (applicationId: string, data: any): RenewalFormState => {
-  const firstName = getTextValue(data?.firstName, data?.personalDetails?.firstName, data?.applicantName, data?.name);
+const buildFieldStateFromFreshApplication = (
+  applicationId: string,
+  data: any
+): RenewalFormState => {
+  const firstName = getTextValue(
+    data?.firstName,
+    data?.personalDetails?.firstName,
+    data?.applicantName,
+    data?.name
+  );
   const middleName = getTextValue(data?.middleName, data?.personalDetails?.middleName);
   const lastName = getTextValue(data?.lastName, data?.personalDetails?.lastName);
 
   let extractedAddress: Record<string, string> = {};
   let extractedOccupation: Record<string, string> = {};
   try {
-    extractedAddress = ApplicationService.extractSectionData(data, 'address') as Record<string, string>;
-    extractedOccupation = ApplicationService.extractSectionData(data, 'occupation') as Record<string, string>;
+    extractedAddress = ApplicationService.extractSectionData(data, 'address') as Record<
+      string,
+      string
+    >;
+    extractedOccupation = ApplicationService.extractSectionData(data, 'occupation') as Record<
+      string,
+      string
+    >;
   } catch {
     extractedAddress = {};
     extractedOccupation = {};
@@ -1240,16 +1398,25 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
     ...initialFormState,
     applicationId,
     licenseNumber: getLicenseNumber(data),
-    acknowledgementNo: getTextValue(data?.acknowledgementNo, data?.personalDetails?.acknowledgementNo),
+    acknowledgementNo: getTextValue(
+      data?.acknowledgementNo,
+      data?.personalDetails?.acknowledgementNo
+    ),
     applicantName: firstName,
     applicantMiddleName: middleName,
     applicantLastName: lastName,
-    fatherName: getTextValue(data?.parentOrSpouseName, data?.fatherName, data?.personalDetails?.parentOrSpouseName),
+    fatherName: getTextValue(
+      data?.parentOrSpouseName,
+      data?.fatherName,
+      data?.personalDetails?.parentOrSpouseName
+    ),
     motherName: getTextValue(data?.motherName),
     maritalStatus: getTextValue(data?.maritalStatus),
     nationality: getTextValue(data?.nationality) || 'Indian',
     applicantGender: getSexValue(data?.sex || data?.gender || data?.personalDetails?.sex),
-    applicantDateOfBirth: formatDate(data?.dateOfBirth || data?.personalDetails?.dateOfBirth || data?.dob),
+    applicantDateOfBirth: formatDate(
+      data?.dateOfBirth || data?.personalDetails?.dateOfBirth || data?.dob
+    ),
     placeOfBirth: getTextValue(data?.placeOfBirth, data?.personalDetails?.placeOfBirth),
     applicantIdType: getTextValue(data?.applicantIdType),
     applicantIdNumber: getTextValue(data?.applicantIdNumber),
@@ -1276,12 +1443,21 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
           presentZone: extractedAddress.presentZone || '',
           presentDivision: extractedAddress.presentDivision || '',
           presentPoliceStation: extractedAddress.presentPoliceStation || '',
-          residingSince: extractedAddress.presentSince || formatDate(getPresentAddress(data)?.sinceResiding),
+          presentStateName: extractedAddress.presentStateName || '',
+          presentDistrictName: extractedAddress.presentDistrictName || '',
+          presentZoneName: extractedAddress.presentZoneName || '',
+          presentDivisionName: extractedAddress.presentDivisionName || '',
+          presentPoliceStationName: extractedAddress.presentPoliceStationName || '',
+          residingSince:
+            extractedAddress.presentSince || formatDate(getPresentAddress(data)?.sinceResiding),
           officePhone: extractedAddress.telephoneOffice || '',
           residencePhone: extractedAddress.telephoneResidence || '',
           officeMobile: extractedAddress.officeMobileNumber || '',
           alternativeMobile: extractedAddress.alternativeMobile || '',
-          sameAsPresent: extractedAddress.sameAsPresent ?? Boolean(data?.sameAsPresent),
+          sameAsPresent:
+            extractedAddress.sameAsPresent !== undefined
+              ? String(extractedAddress.sameAsPresent).toLowerCase() === 'true'
+              : Boolean(data?.sameAsPresent),
         }
       : {}),
     ...(extractedAddress.permanentAddress
@@ -1292,6 +1468,11 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
           permanentZone: extractedAddress.permanentZone || '',
           permanentDivision: extractedAddress.permanentDivision || '',
           permanentPoliceStation: extractedAddress.permanentPoliceStation || '',
+          permanentStateName: extractedAddress.permanentStateName || '',
+          permanentDistrictName: extractedAddress.permanentDistrictName || '',
+          permanentZoneName: extractedAddress.permanentZoneName || '',
+          permanentDivisionName: extractedAddress.permanentDivisionName || '',
+          permanentPoliceStationName: extractedAddress.permanentPoliceStationName || '',
         }
       : {}),
 
@@ -1302,6 +1483,8 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
           officeBusinessAddress: extractedOccupation.officeAddress || '',
           officeBusinessState: extractedOccupation.officeState || '',
           officeBusinessDistrict: extractedOccupation.officeDistrict || '',
+          officeBusinessStateName: extractedOccupation.officeStateName || '',
+          officeBusinessDistrictName: extractedOccupation.officeDistrictName || '',
           cropProtectionLocation: extractedOccupation.cropLocation || '',
           cultivatedArea: extractedOccupation.areaUnderCultivation || '',
         }
@@ -1310,7 +1493,7 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
       ? { officeBusinessStateName: data.occupationAndBusiness.state.name }
       : {}),
     ...(data?.occupationAndBusiness?.district?.name
-      ? { officeBusinessDistrictName: data.occupationAndBusiness.district.name }
+      ? { officeBusinessDistrictName: data?.occupationAndBusiness.district.name }
       : {}),
 
     applicationType: 'Renewal',
@@ -1319,11 +1502,12 @@ const buildFieldStateFromFreshApplication = (applicationId: string, data: any): 
     ...mapLicenseHistoryFields(data),
     ...mapCriminalHistoryFields(data),
     ...mapBiometricFields(data),
-    ...mapDocumentUploadFields(data),
+    // Not prefill document upload fields from the fresh application here.
+    // Renewal documents should be uploaded separately in the renewal form.
 
     declaration: {
-      agreeToTruth: Boolean(data?.isAwareOfLegalConsequences || data?.isDeclarationAccepted),
-      understandLegalConsequences: Boolean(data?.isAwareOfLegalConsequences || data?.isDeclarationAccepted),
+      agreeToTruth: Boolean(data?.isDeclarationAccepted),
+      understandLegalConsequences: Boolean(data?.isAwareOfLegalConsequences),
       agreeToTerms: Boolean(data?.isTermsAccepted),
     },
     hasSubmittedTrueInfo: Boolean(data?.isSubmit),
@@ -1385,6 +1569,22 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
   licenseType: formData.licenseType,
   hasPreviousLicense: formData.hasPreviousLicense,
   previousApplicationDetails: formData.previousApplicationDetails,
+  // License History fields
+  hasAppliedBefore: formData.hasAppliedBefore,
+  applicationDate: formData.applicationDate,
+  authorityAppliedTo: formData.authorityAppliedTo,
+  applicationResult: formData.applicationResult,
+  licenseRevokedOrSuspended: formData.licenseRevokedOrSuspended,
+  revokedByAuthority: formData.revokedByAuthority,
+  revokedReason: formData.revokedReason,
+  familyMemberHasLicense: formData.familyMemberHasLicense,
+  familyMemberName: formData.familyMemberName,
+  familyLicenseNumber: formData.familyLicenseNumber,
+  weaponEndorsedList: formData.weaponEndorsedList,
+  hasSafeCustody: formData.hasSafeCustody,
+  safeCustodyDetails: formData.safeCustodyDetails,
+  hasTrainingUnderRule10: formData.hasTrainingUnderRule10,
+  trainingDetails: formData.trainingDetails,
   declaration: formData.declaration,
   hasSubmittedTrueInfo: formData.hasSubmittedTrueInfo,
 });
@@ -1392,7 +1592,7 @@ const buildRenewalPayload = (formData: RenewalFormState) => ({
 const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   // Build nested structure matching the new API request format
   const payload: Record<string, any> = {};
-  
+
   const personalDetails: Record<string, any> = {};
   const addressDetails: Record<string, any> = {};
   const occupationAndBusiness: Record<string, any> = {};
@@ -1429,32 +1629,43 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
 
   // Occupation and Business
   if (formData.occupation) occupationAndBusiness.occupation = formData.occupation;
-  if (formData.officeBusinessAddress) occupationAndBusiness.officeAddress = formData.officeBusinessAddress;
+  if (formData.officeBusinessAddress)
+    occupationAndBusiness.officeAddress = formData.officeBusinessAddress;
   const occStateId = toNumber(formData.officeBusinessState);
   if (occStateId !== undefined) occupationAndBusiness.stateId = occStateId;
   const occDistrictId = toNumber(formData.officeBusinessDistrict);
   if (occDistrictId !== undefined) occupationAndBusiness.districtId = occDistrictId;
-  if (formData.cropProtectionLocation) occupationAndBusiness.cropLocation = formData.cropProtectionLocation;
-  if (formData.cultivatedArea) occupationAndBusiness.areaUnderCultivation = formData.cultivatedArea;
+  if (formData.cropProtectionLocation)
+    occupationAndBusiness.cropLocation = formData.cropProtectionLocation;
+  const cultAreaNum = toNumber(formData.cultivatedArea);
+  if (cultAreaNum !== undefined) occupationAndBusiness.areaUnderCultivation = cultAreaNum;
 
   // License Details - with reverse mapping to API enum values
   if (formData.weaponReason) {
     const needForLicense = mapUiValueToLicensePurpose(formData.weaponReason);
     if (needForLicense) licenseDetails.needForLicense = needForLicense;
   }
-  
+
   // Map arms category from weaponType or armsOptionType
   const armsCategory = mapArmsOptionToCategory(formData.weaponType || formData.armsOptionType);
   if (armsCategory) {
     licenseDetails.armsCategory = armsCategory;
   }
-  
-  if (formData.licenseValidity) licenseDetails.areaOfValidity = formData.licenseValidity;
-  if (formData.licenseType) licenseDetails.ammunitionDescription = formData.licenseType;
-  if (formData.declaration?.understandLegalConsequences) {
-    licenseDetails.specialConsiderationReason = 'Application submitted with legal acknowledgement';
+
+  // Map area of validity from checkboxes
+  const areaOfValidityParts: string[] = [];
+  if (formData.carryAreaDistrict) areaOfValidityParts.push('DISTRICT');
+  if (formData.carryAreaState) areaOfValidityParts.push('STATE');
+  if (formData.carryAreaIndia) areaOfValidityParts.push('INDIA');
+  if (areaOfValidityParts.length > 0) {
+    licenseDetails.areaOfValidity = areaOfValidityParts.join(', ');
   }
-  
+
+  if (formData.ammunitionDescription) licenseDetails.ammunitionDescription = formData.ammunitionDescription;
+  if (formData.specialConsiderationClaim) licenseDetails.specialConsiderationReason = formData.specialConsiderationClaim;
+  if (formData.formIVPlaceArea) licenseDetails.licencePlaceArea = formData.formIVPlaceArea;
+  if (formData.formIVWildBeastsSpec) licenseDetails.wildBeastsSpecification = formData.formIVWildBeastsSpec;
+
   // Convert requestedWeaponIds to array of numbers
   const weaponIds: number[] = [];
   if (formData.requestedWeaponIds && Array.isArray(formData.requestedWeaponIds)) {
@@ -1473,8 +1684,104 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
   // Add non-empty sections to payload
   if (Object.keys(personalDetails).length > 0) payload.personalDetails = personalDetails;
   if (Object.keys(addressDetails).length > 0) payload.addressDetails = addressDetails;
-  if (Object.keys(occupationAndBusiness).length > 0) payload.occupationAndBusiness = occupationAndBusiness;
+  if (Object.keys(occupationAndBusiness).length > 0)
+    payload.occupationAndBusiness = occupationAndBusiness;
   if (Object.keys(licenseDetails).length > 0) payload.licenseDetails = licenseDetails;
+
+  // License History - map all fields to request body
+  const licenseHistoryPayload: Record<string, any> = {
+    hasAppliedBefore: Boolean(formData.hasAppliedBefore),
+    dateAppliedFor: formData.applicationDate || undefined,
+    previousAuthorityName: formData.authorityAppliedTo || '',
+    previousResult: formData.applicationResult ? formData.applicationResult.toUpperCase() : '',
+    hasLicenceSuspended: Boolean(formData.licenseRevokedOrSuspended),
+    suspensionAuthorityName: formData.revokedByAuthority || '',
+    suspensionReason: formData.revokedReason || '',
+    hasFamilyLicence: Boolean(formData.familyMemberHasLicense),
+    familyMemberName: formData.familyMemberName || '',
+    familyLicenceNumber: formData.familyLicenseNumber || '',
+    familyWeaponsEndorsed: formData.weaponEndorsedList
+      ? formData.weaponEndorsedList.map((w: any) => w?.value || w).filter(Boolean)
+      : [],
+    hasSafePlace: Boolean(formData.hasSafeCustody),
+    safePlaceDetails: formData.safeCustodyDetails || '',
+    hasTraining: Boolean(formData.hasTrainingUnderRule10),
+    trainingDetails: formData.trainingDetails || ''
+  };
+  payload.licenseHistories = [licenseHistoryPayload];
+
+  // Criminal History - map all fields to request body
+  payload.criminalHistories = [{
+    isConvicted: Boolean(formData.convictedStatus),
+    isBondExecuted: Boolean(formData.bondStatus),
+    bondDate: formData.bondSentenceDate || undefined,
+    bondPeriod: formData.bondPeriod || '',
+    isProhibited: Boolean(formData.prohibitedStatus),
+    prohibitionDate: formData.prohibitedSentenceDate || undefined,
+    prohibitionPeriod: formData.prohibitedPeriod || '',
+    firDetails: [{
+      firNumber: formData.firNumber || '',
+      underSection: formData.underSection || '',
+      policeStation: formData.policeStationCriminal || '',
+      unit: formData.criminalUnit || '',
+      district: formData.criminalDistrict || '',
+      state: formData.criminalState || '',
+      offence: formData.offence || '',
+      sentence: formData.sentence || '',
+      sentenceDate: formData.sentenceDate || undefined
+    }]
+  }];
+
+  // Biometric Details
+  payload.biometricData = {
+    fingerprints: formData.selectedFingerprint || null,
+    signature: formData.signature || null,
+    irisScan: formData.irisScan || null
+  };
+
+  // Document Uploads
+  const getFileUrlAndName = (fileState: any) => {
+    if (!fileState) return null;
+    if (typeof fileState === 'string') return { fileUrl: fileState, fileName: 'document' };
+    if (fileState.url || fileState.fileUrl) {
+      return {
+        fileUrl: fileState.url || fileState.fileUrl,
+        fileName: fileState.name || fileState.fileName || 'document',
+        fileSize: fileState.size || fileState.fileSize || 0
+      };
+    }
+    return null;
+  };
+
+  const documentKeysMap: Record<string, string> = {
+    idProofUploaded: 'AADHAR_CARD',
+    panCardUploaded: 'PAN_CARD',
+    trainingCertificateUploaded: 'TRAINING_CERTIFICATE',
+    medicalCertificateUploaded: 'MEDICAL_REPORT',
+    otherStateLicenseUploaded: 'OTHER_STATE_LICENSE',
+    existingArmsLicenseUploaded: 'EXISTING_LICENSE',
+    safeCustodyUploaded: 'SAFE_CUSTODY',
+    photographUploaded: 'PHOTOGRAPH',
+    claimDocsUploaded: 'CLAIM_DOCS',
+    otherUploaded: 'OTHER',
+  };
+
+  const fileUploads: any[] = [];
+  Object.entries(documentKeysMap).forEach(([formKey, fileType]) => {
+    const fileData = getFileUrlAndName((formData as any)[formKey]);
+    if (fileData) {
+      fileUploads.push({
+        fileType,
+        fileUrl: fileData.fileUrl,
+        fileName: fileData.fileName,
+        fileSize: fileData.fileSize || 0
+      });
+    }
+  });
+
+  if (fileUploads.length > 0) {
+    payload.fileUploads = fileUploads;
+  }
 
   payload.acceptanceFlags = {
     isDeclarationAccepted: Boolean(formData.declaration?.agreeToTruth),
@@ -1490,66 +1797,65 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
   const nameFields = getApplicantNameFields(data, personalDetails);
 
   return {
-  ...initialFormState,
-  renewalApplicationId: getTextValue(data?.id, data?.renewalApplicationId),
-  applicationId: getTextValue(data?.applicationId, data?.freshApplicationId, data?.sourceApplicationId),
-  licenseNumber: getTextValue(data?.licenseNumber),
-  acknowledgementNo: getTextValue(data?.acknowledgementNo, personalDetails?.acknowledgementNo),
-  ...nameFields,
-  fatherName: getTextValue(data?.parentOrSpouseName, personalDetails?.parentOrSpouseName),
-  motherName: getTextValue(data?.motherName, personalDetails?.motherName),
-  maritalStatus: getTextValue(data?.maritalStatus, personalDetails?.maritalStatus),
-  nationality: getTextValue(data?.nationality, personalDetails?.nationality) || 'Indian',
-  applicantGender: getSexValue(data?.sex || personalDetails?.sex),
-  applicantDateOfBirth: formatDate(data?.dateOfBirth || personalDetails?.dateOfBirth),
-  placeOfBirth: getTextValue(data?.placeOfBirth, personalDetails?.placeOfBirth),
-  applicantIdType: getTextValue(data?.applicantIdType, personalDetails?.applicantIdType),
-  applicantIdNumber: getTextValue(data?.applicantIdNumber, personalDetails?.applicantIdNumber),
-  aadharNumber: getTextValue(data?.aadharNumber, personalDetails?.aadharNumber),
-  panNumber: getTextValue(data?.panNumber, personalDetails?.panNumber),
-  applicantMobile: getTextValue(data?.applicantMobile, personalDetails?.applicantMobile),
-  applicantEmail: getTextValue(data?.applicantEmail, personalDetails?.applicantEmail),
-  filledBy: getTextValue(data?.filledBy, personalDetails?.filledBy),
-  dobInWords: getTextValue(data?.dobInWords, personalDetails?.dobInWords),
-  ...mapPresentAddressFields(data),
-  ...mapPermanentAddressFields(data),
-  ...mapOccupationFields(data),
-  applicationType: getTextValue(data?.applicationType) || 'Renewal',
-  ...mapLicenseDetailFields(data),
-  ...mapLicenseHistoryFields(data),
-  ...mapCriminalHistoryFields(data),
-  ...mapBiometricFields(data),
-  ...mapDocumentUploadFields(data, collectRenewalFileIds(data)),
-  declaration: {
-    agreeToTruth: Boolean(data?.declaration?.agreeToTruth || data?.acceptanceFlags?.isDeclarationAccepted),
-    understandLegalConsequences: Boolean(
-      data?.declaration?.understandLegalConsequences || data?.acceptanceFlags?.isAwareOfLegalConsequences
+    ...initialFormState,
+    renewalApplicationId: getTextValue(data?.id, data?.renewalApplicationId),
+    applicationId: getTextValue(
+      data?.applicationId,
+      data?.freshApplicationId,
+      data?.sourceApplicationId
     ),
-    agreeToTerms: Boolean(data?.declaration?.agreeToTerms || data?.acceptanceFlags?.isTermsAccepted),
-  },
-  hasSubmittedTrueInfo: Boolean(data?.hasSubmittedTrueInfo || data?.isSubmit),
+    licenseNumber: getTextValue(data?.licenseNumber),
+    acknowledgementNo: getTextValue(data?.acknowledgementNo, personalDetails?.acknowledgementNo),
+    ...nameFields,
+    fatherName: getTextValue(data?.parentOrSpouseName, personalDetails?.parentOrSpouseName),
+    motherName: getTextValue(data?.motherName, personalDetails?.motherName),
+    maritalStatus: getTextValue(data?.maritalStatus, personalDetails?.maritalStatus),
+    nationality: getTextValue(data?.nationality, personalDetails?.nationality) || 'Indian',
+    applicantGender: getSexValue(data?.sex || personalDetails?.sex),
+    applicantDateOfBirth: formatDate(data?.dateOfBirth || personalDetails?.dateOfBirth),
+    placeOfBirth: getTextValue(data?.placeOfBirth, personalDetails?.placeOfBirth),
+    applicantIdType: getTextValue(data?.applicantIdType, personalDetails?.applicantIdType),
+    applicantIdNumber: getTextValue(data?.applicantIdNumber, personalDetails?.applicantIdNumber),
+    aadharNumber: getTextValue(data?.aadharNumber, personalDetails?.aadharNumber),
+    panNumber: getTextValue(data?.panNumber, personalDetails?.panNumber),
+    applicantMobile: getTextValue(
+      data?.applicantMobile,
+      personalDetails?.applicantMobile,
+      data?.presentAddress?.officeMobileNumber,
+      data?.permanentAddress?.officeMobileNumber
+    ),
+    applicantEmail: getTextValue(data?.applicantEmail, personalDetails?.applicantEmail),
+    filledBy: getTextValue(data?.filledBy, personalDetails?.filledBy),
+    dobInWords: getTextValue(data?.dobInWords, personalDetails?.dobInWords),
+    ...mapPresentAddressFields(data),
+    ...mapPermanentAddressFields(data),
+    ...mapOccupationFields(data),
+    applicationType: getTextValue(data?.applicationType) || 'Renewal',
+    ...mapLicenseDetailFields(data),
+    ...mapLicenseHistoryFields(data),
+    ...mapCriminalHistoryFields(data),
+    ...mapBiometricFields(data),
+    ...mapDocumentUploadFields(data, collectRenewalFileIds(data)),
+    declaration: {
+      agreeToTruth: Boolean(
+        data?.declaration?.agreeToTruth ?? data?.isDeclarationAccepted
+      ),
+      understandLegalConsequences: Boolean(
+        data?.declaration?.understandLegalConsequences ??
+        data?.isAwareOfLegalConsequences
+      ),
+      agreeToTerms: Boolean(
+        data?.declaration?.agreeToTerms ?? data?.isTermsAccepted
+      ),
+    },
+    hasSubmittedTrueInfo: Boolean(data?.hasSubmittedTrueInfo || data?.isSubmit),
   };
 };
 
-const buildFormDataFromRenewalRecord = async (renewalData: any, applicationId: string) => {
-  const renewalState = buildRootDataFromRenewal(renewalData);
-  const freshAppId = resolveFreshApplicationId(renewalData, applicationId);
-
-  if (!freshAppId) {
-    return renewalState;
-  }
-
-  try {
-    const freshData = await fetchFreshApplicationWithFiles(freshAppId);
-    if (freshData) {
-      const freshState = buildFieldStateFromFreshApplication(freshAppId, freshData);
-      return mergeRenewalStateOverFresh(freshState, renewalState, renewalData);
-    }
-  } catch (freshError) {
-    console.warn('Unable to fetch fresh application fallback data', freshError);
-  }
-
-  return renewalState;
+const buildFormDataFromRenewalRecord = async (renewalData: any, _applicationId: string) => {
+  // When a renewal record exists, use it as the sole source of truth.
+  // Do NOT fetch fresh application data — renewal data takes full precedence.
+  return buildRootDataFromRenewal(renewalData);
 };
 
 const loadExistingRenewalByLicenseNumber = async (
@@ -1580,13 +1886,13 @@ const loadExistingRenewalByLicenseNumber = async (
   const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
   const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
     existingRenewalId,
-    mergedFormData,
+    mergedFormData
   );
-  setFormData(syncedForm);
+  setFormData(syncedForm as RenewalFormState);
   setStatusMessage(
     synced
-      ? `Loaded renewal ${existingRenewalId}; prefilled documents saved via upload-file.`
-      : `Loaded existing renewal application ${existingRenewalId} for license ${licenseNumber}.`,
+      ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, existingRenewalId)}; prefilled documents saved via upload-file.`
+      : `Loaded existing renewal application ${getTextValue(renewalData?.acknowledgementNo, existingRenewalId)} for license ${licenseNumber}.`
   );
   router.replace(
     `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
@@ -1622,7 +1928,9 @@ const createDraftRenewalFromFreshApplication = async (
   setFormData(prefilledForm);
 
   try {
-    const createResponse = await RenewalService.createRenewalForm(buildRenewalPayload(prefilledForm));
+    const createResponse = await RenewalService.createRenewalForm(
+      buildRenewalPayload(prefilledForm)
+    );
     const created = extractData(createResponse);
     const newRenewalId = getTextValue(created?.id, created?.renewalApplicationId);
 
@@ -1631,13 +1939,16 @@ const createDraftRenewalFromFreshApplication = async (
     }
 
     createdRenewalIdRef.current = newRenewalId;
-    const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(newRenewalId, prefilledForm);
-    setFormData(syncedForm);
-    setStatusMessage(
-      synced
-        ? `Created renewal ${newRenewalId}; prefilled documents saved via upload-file.`
-        : `Created renewal application ${newRenewalId}.`,
+    const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
+      newRenewalId,
+      prefilledForm
     );
+setFormData(syncedForm as RenewalFormState);
+     setStatusMessage(
+       synced
+         ? `Created renewal ${getTextValue(created?.acknowledgementNo, newRenewalId)}; prefilled documents saved via upload-file.`
+         : `Created renewal application ${getTextValue(created?.acknowledgementNo, newRenewalId)}.`
+     );
     router.replace(
       `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(newRenewalId)}`
     );
@@ -1667,9 +1978,18 @@ const createDraftRenewalFromFreshApplication = async (
 function RenewalFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const applicationId = searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
+  const urlApplicationId =
+    searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
   const createdRenewalIdRef = useRef<string | null>(null);
+  const personalSectionRef = React.useRef<any>(null);
+  const addressSectionRef = React.useRef<any>(null);
+  const occupationSectionRef = React.useRef<any>(null);
+  const criminalSectionRef = React.useRef<any>(null);
+  const licenseHistorySectionRef = React.useRef<any>(null);
+  const licenseDetailsSectionRef = React.useRef<any>(null);
+  const documentsSectionRef = React.useRef<any>(null);
+  const declarationSectionRef = React.useRef<any>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1679,44 +1999,480 @@ function RenewalFormPageContent() {
   const [formData, setFormData] = useState<RenewalFormState>(initialFormState);
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
 
+  // Biometric verification states
+  const [enteredAppId, setEnteredAppId] = useState(urlApplicationId || '');
+  const resolvedApplicationId = urlApplicationId || enteredAppId;
+  const [isVerified, setIsVerified] = useState(false);
+  const [verificationChecking, setVerificationChecking] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'>('ENTER_APP_ID');
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [biometricTargetThumb, setBiometricTargetThumb] = useState<string | null>(null);
+  const [applicantDetails, setApplicantDetails] = useState<{
+    name: string;
+    licenseNumber: string;
+    applicationId: string;
+  } | null>(null);
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [deviceChecking, setDeviceChecking] = useState(false);
+  const [fingerprintCapturing, setFingerprintCapturing] = useState(false);
+  const [verificationMsg, setVerificationMsg] = useState<string | null>(null);
+  const [enrolledTemplates, setEnrolledTemplates] = useState<any[]>([]);
+
+  // States matching fresh biometric capture UI
+  const [mantraSDKReady, setMantraSDKReady] = useState(false);
+  const [showFingerprintPreviewModal, setShowFingerprintPreviewModal] = useState(false);
+  const [pendingCaptureResult, setPendingCaptureResult] = useState<any | null>(null);
+  const [fingerprintPreviewImage, setFingerprintPreviewImage] = useState<string | null>(null);
+  const [showDeviceSettings, setShowDeviceSettings] = useState(false);
+  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
+  const [showCapturingModal, setShowCapturingModal] = useState(false);
+  const [capturingStep, setCapturingStep] = useState<string>('');
+  const [diagnosticLoading, setDiagnosticLoading] = useState<string | null>(null);
+  const [diagnosticResults, setDiagnosticResults] = useState<Record<string, any>>({});
+
+  const checkDeviceConnection = async () => {
+    try {
+      setDeviceChecking(true);
+      const initialized = await MantraSDKService.initialize();
+      setMantraSDKReady(initialized);
+      if (initialized) {
+        const status = await MantraSDKService.isDeviceConnected();
+        setDeviceConnected(status.isConnected);
+      } else {
+        setDeviceConnected(false);
+      }
+    } catch {
+      setDeviceConnected(false);
+    } finally {
+      setDeviceChecking(false);
+    }
+  };
+
+  // Diagnostic test functions matching fresh biometric capture UI
+  const testCheckDevice = async () => {
+    const result = await MantraSDKService.isDeviceConnected();
+    if (!result.isConnected) {
+      throw new Error(result.errorMessage || 'Device not connected');
+    }
+    return { connected: result.isConnected, info: result };
+  };
+
+  const testGetConnectedDevice = async () => {
+    const result = await MantraSDKService.getConnectedDeviceList();
+    if (!result || result.length === 0) {
+      throw new Error('No connected devices found');
+    }
+    return { devices: result };
+  };
+
+  const testGetSupportedDevice = async () => {
+    const result = await MantraSDKService.getSupportedDeviceList();
+    if (!result || result.length === 0) {
+      throw new Error('No supported devices found');
+    }
+    return { devices: result };
+  };
+
+  const testGetInfo = async () => {
+    const result = await MantraSDKService.getDeviceInfo();
+    if (!result) {
+      throw new Error('Failed to get device info');
+    }
+    return { info: result };
+  };
+
+  const testCapture = async () => {
+    const result = await MantraSDKService.captureFinger(60, 10000);
+    if (!result.success) {
+      const error = new Error(result.errorMessage || 'Capture failed');
+      (error as any).errorCode = result.errorCode;
+      throw error;
+    }
+    return {
+      success: true,
+      quality: result.quality,
+      template: result.template ? 'Present' : 'Missing',
+    };
+  };
+
+  const testGetImage = async () => {
+    const result = await MantraSDKService.getImage('0');
+    if (!result) {
+      throw new Error('Failed to get fingerprint image');
+    }
+    return { imageSize: result.length, format: 'BMP (base64)' };
+  };
+
+  const testGetTemplate = async () => {
+    const result = await MantraSDKService.getTemplate();
+    if (!result) {
+      throw new Error('Failed to get template');
+    }
+    return { template: result ? 'Present' : 'Missing', size: result ? result.length : 0 };
+  };
+
+  const testMatch = async () => {
+    if (enrolledTemplates.length === 0) {
+      throw new Error('No enrolled fingerprints to match against');
+    }
+    const template = await MantraSDKService.getTemplate();
+    if (!template) {
+      throw new Error('No template available from last capture');
+    }
+    const result = await MantraSDKService.verifyTemplate(enrolledTemplates[0].template, template, 65);
+    return { matchScore: result.score, matched: result.isMatch };
+  };
+
+  const runDiagnostic = async (testName: string, testFn: () => Promise<any>) => {
+    try {
+      setDiagnosticLoading(testName);
+      const result = await testFn();
+      setDiagnosticResults((prev: any) => ({
+        ...prev,
+        [testName]: {
+          success: true,
+          data: result,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      }));
+      toast.success(`✓ ${testName} passed`);
+    } catch (error: any) {
+      setDiagnosticResults((prev: any) => ({
+        ...prev,
+        [testName]: {
+          success: false,
+          error: error.message,
+          errorCode: error.errorCode,
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      }));
+      toast.error(`✗ ${testName} failed: ${error.message}`);
+    } finally {
+      setDiagnosticLoading(null);
+    }
+  };
+
+  const checkBiometricRequirement = async (appId: string) => {
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+
+      // Fetch fresh application to confirm existence and get details
+      const freshResponse = await ApplicationService.getApplication(appId);
+      const freshData = extractData(freshResponse);
+      if (!freshData) {
+        throw new Error('No application data found for the provided Application ID.');
+      }
+
+      // Check if fresh application has enrolled fingerprints directly in biometricData
+      const numericAppId = String(freshData.id || freshData.applicationId || appId);
+      const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
+      const fingerprints = bioData?.fingerprints || [];
+      
+      const userThumbprints = fingerprints
+        .filter((f: any) => f.position === 'RIGHT_THUMB' || f.position === 'LEFT_THUMB')
+        .map((f: any) => ({
+          template: f.template,
+          fingerPosition: f.position,
+          applicationId: numericAppId
+        }));
+
+      const name = [
+        freshData.firstName,
+        freshData.middleName,
+        freshData.lastName
+      ].filter(Boolean).join(' ') || freshData.applicantName || 'Applicant';
+
+      const details = {
+        name,
+        licenseNumber: getLicenseNumber(freshData) || 'Pending',
+        applicationId: numericAppId
+      };
+      setApplicantDetails(details);
+
+      if (userThumbprints.length > 0) {
+        // Biometrics enrolled - require verification
+        setEnrolledTemplates(userThumbprints);
+        const target = userThumbprints[0].fingerPosition;
+        setBiometricTargetThumb(target);
+        setVerificationStatus('VERIFYING_BIOMETRICS');
+        checkDeviceConnection();
+      } else {
+        // No biometrics enrolled - proceed directly to form
+        setIsVerified(true);
+        setVerificationStatus('VERIFIED');
+      }
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to fetch application details.');
+      setVerificationStatus('ENTER_APP_ID');
+    } finally {
+      setVerificationChecking(false);
+    }
+  };
+
+  const resolveAppIdAndCheck = async (rId: string) => {
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+      const renewalResponse = await RenewalService.getRenewalForm(rId);
+      const renewalData = extractData(renewalResponse);
+      const appId = resolveFreshApplicationId(renewalData, '');
+      if (!appId) {
+        throw new Error('Could not resolve original Application ID from renewal.');
+      }
+      setEnteredAppId(appId);
+      await checkBiometricRequirement(appId);
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to resolve application details.');
+      setVerificationStatus('ENTER_APP_ID');
+      setVerificationChecking(false);
+    }
+  };
+
+  const handleVerifyBiometrics = async () => {
+    try {
+      setFingerprintCapturing(true);
+      setShowCapturingModal(true);
+      setCapturingStep('Initializing fingerprint device...');
+      setVerificationError(null);
+
+      const status = await MantraSDKService.isDeviceConnected();
+      if (!status.isConnected) {
+        setVerificationError('Fingerprint device is not connected. Please connect the device and try again.');
+        setDeviceConnected(false);
+        setShowDeviceSettings(true);
+        setShowCapturingModal(false);
+        setFingerprintCapturing(false);
+        return;
+      }
+
+      setCapturingStep('Place your thumb on the scanner...');
+      const captureResult = await MantraSDKService.captureFinger(60, 10000);
+      if (!captureResult.success) {
+        setVerificationError(`Fingerprint capture failed: ${captureResult.errorMessage}`);
+        setShowCapturingModal(false);
+        setFingerprintCapturing(false);
+        return;
+      }
+
+      setCapturingStep('Processing captured fingerprint...');
+      setCapturingStep('Generating preview...');
+
+      try {
+        let previewImage: string | null = captureResult.bitmapData || null;
+        if (!previewImage) {
+          previewImage = await MantraSDKService.getImage('0');
+        }
+        setPendingCaptureResult(captureResult);
+        if (previewImage) {
+          setFingerprintPreviewImage(`data:image/bmp;base64,${previewImage}`);
+        } else {
+          setFingerprintPreviewImage(null);
+        }
+        setShowCapturingModal(false);
+        setShowFingerprintPreviewModal(true);
+      } catch (imageError) {
+        setPendingCaptureResult(captureResult);
+        setFingerprintPreviewImage(null);
+        setShowCapturingModal(false);
+        setShowFingerprintPreviewModal(true);
+      }
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Biometric verification failed.');
+      setShowCapturingModal(false);
+    } finally {
+      setFingerprintCapturing(false);
+      setCapturingStep('');
+    }
+  };
+
+  const handleAcceptFingerprintPreview = async () => {
+    if (!pendingCaptureResult) {
+      setVerificationError('Invalid capture data');
+      return;
+    }
+
+    try {
+      setFingerprintCapturing(true);
+      setVerificationChecking(true);
+      
+      let matchFound = false;
+      const liveTemplate = pendingCaptureResult.template;
+      
+      for (const storedFp of enrolledTemplates) {
+        try {
+          const matchResult = await MantraSDKService.verifyTemplate(storedFp.template, liveTemplate, 65);
+          if (matchResult.isMatch || matchResult.score >= 65) {
+            matchFound = true;
+            break;
+          }
+        } catch (matchErr) {
+          console.warn('[Mantra verifyTemplate] Match failed for template comparison', matchErr);
+        }
+      }
+
+      setShowFingerprintPreviewModal(false);
+      setFingerprintPreviewImage(null);
+      setPendingCaptureResult(null);
+
+      if (matchFound) {
+        setVerificationMsg('Verification successful!');
+        setIsVerified(true);
+        setVerificationStatus('VERIFIED');
+      } else {
+        setVerificationError('Verification failed: Scanned fingerprint does not match. Please try again.');
+      }
+    } catch (error: any) {
+      setVerificationError(error.message || 'Verification check failed.');
+    } finally {
+      setFingerprintCapturing(false);
+      setVerificationChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (renewalId) {
+      resolveAppIdAndCheck(renewalId);
+    } else if (urlApplicationId) {
+      setEnteredAppId(urlApplicationId);
+      checkBiometricRequirement(urlApplicationId);
+    } else {
+      setVerificationStatus('ENTER_APP_ID');
+      setIsLoading(false);
+    }
+  }, [urlApplicationId, renewalId]);
+
+  const handleFormPatch = (patch: Record<string, unknown>) => {
+    setFormData(prev => ({ ...prev, ...patch }));
+    const documentKeys = Object.keys(patch).filter(key =>
+      (DOCUMENT_FORM_KEYS as readonly string[]).includes(key)
+    );
+    if (documentKeys.length) {
+      setDocumentsErrors(prevErrs => {
+        if (!prevErrs) return prevErrs;
+        const copy = { ...prevErrs };
+        let changed = false;
+        documentKeys.forEach(key => {
+          if (patch[key] && key in copy) {
+            delete copy[key];
+            changed = true;
+          }
+        });
+        return changed ? copy : prevErrs;
+      });
+    }
+  };
+
+  const scheduleSectionFocus = (
+    sectionRef: React.RefObject<any>,
+    sectionKey?: keyof typeof expandedSections
+  ) => {
+    if (sectionKey) {
+      setExpandedSections(prev => ({ ...prev, [sectionKey]: true }));
+    }
+
+    setTimeout(() => {
+      try {
+        sectionRef.current?.focusFirstInvalid();
+      } catch {
+        // ignore if section not mounted yet
+      }
+    }, 0);
+  };
+
   const { isSyncingPrefilled: isSyncingEvidence } = usePrefilledDocumentSync(
     isLoading ? '' : activeRenewalId,
     formData,
-    (patch) => setFormData((prev) => ({ ...prev, ...patch })),
+    handleFormPatch,
     setError,
-    (msg) => {
+    msg => {
       if (msg) setStatusMessage(msg);
     },
-    'evidence',
+    'evidence'
   );
 
   const [expandedSections, setExpandedSections] = useState({
     personal: true,
-    address: false,
-    occupation: false,
-    criminal: false,
-    licenseHistory: false,
-    licenseDetails: false,
-    biometric: false,
-    documents: false,
-    declaration: false,
+    address: true,
+    occupation: true,
+    criminal: true,
+    licenseHistory: true,
+    licenseDetails: true,
+    biometric: true,
+    documents: true,
+    declaration: true,
   });
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
+  const [personalErrors, setPersonalErrors] = useState<Record<string, string>>({});
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [occupationErrors, setOccupationErrors] = useState<Record<string, string>>({});
+  const [criminalErrors, setCriminalErrors] = useState<Record<string, string>>({});
+  const [licenseHistoryErrors, setLicenseHistoryErrors] = useState<Record<string, string>>({});
+  const [licenseDetailsErrors, setLicenseDetailsErrors] = useState<Record<string, string>>({});
+  const [documentsErrors, setDocumentsErrors] = useState<Record<string, string>>({});
+  const [biometricErrors, setBiometricErrors] = useState<Record<string, string>>({});
+  const [declarationErrors, setDeclarationErrors] = useState<Record<string, string>>({});
 
   const toggleSection = (key: keyof typeof expandedSections) => {
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return;
+    }
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  
-
   useEffect(() => {
-    if (!applicationId && !renewalId) {
+    if (!isVerified) return;
+    const resolvedApplicationId = urlApplicationId || enteredAppId;
+    if (!resolvedApplicationId && !renewalId) {
       setError('No application context was provided.');
       setIsLoading(false);
       return;
     }
+
+    const loadRenewalById = async (rId: string) => {
+      const renewalResponse = await RenewalService.getRenewalForm(rId);
+      const renewalData = extractData(renewalResponse);
+      if (!renewalData) {
+        throw new Error('No saved renewal data was returned for the renewal ID.');
+      }
+
+      const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
+      const isSubmitted = Boolean(renewalData?.isSubmit);
+      if (workflowCode === 'APPROVED' || isSubmitted) {
+        setIsReadOnly(true);
+        setShowReadOnlyModal(true);
+      }
+
+      setRenewalRecord(renewalData);
+
+      // Fetch fresh application data to display and pre-fill renewal form
+      const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
+      let mergedFormData: RenewalFormState;
+      if (freshData) {
+        const freshFormState = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
+        const renewalFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
+        mergedFormData = mergeRenewalStateOverFresh(freshFormState, renewalFormData, renewalData);
+      } else {
+        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
+      }
+
+      const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
+        rId,
+        mergedFormData
+      );
+      setFormData(syncedForm as RenewalFormState);
+      setStatusMessage(
+        synced
+          ? `Loaded renewal ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, rId)}; prefilled documents saved via upload-file.`
+          : `Loaded renewal application ${getTextValue(renewalData?.acknowledgementNo, renewalData?.id, rId)}.`
+      );
+      return renewalData;
+    };
 
     const load = async () => {
       try {
@@ -1724,49 +2480,54 @@ function RenewalFormPageContent() {
         setError(null);
         setStatusMessage(null);
 
+        // Path A: renewalId is already known — load renewal directly, no fresh data needed.
         if (renewalId) {
-          const renewalResponse = await RenewalService.getRenewalForm(renewalId);
-          const renewalData = extractData(renewalResponse);
-          if (!renewalData) {
-            throw new Error('No saved renewal data was returned for the renewal ID.');
-          }
-
-          setRenewalRecord(renewalData);
-          const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
-          const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
-            renewalId,
-            mergedFormData,
-          );
-          setFormData(syncedForm);
-          setStatusMessage(
-            synced
-              ? `Loaded renewal ${getTextValue(renewalData?.id, renewalId)}; prefilled documents saved via upload-file.`
-              : `Loaded renewal application ${getTextValue(renewalData?.id, renewalId)}.`,
-          );
+          await loadRenewalById(renewalId);
           return;
         }
 
-        const freshData = await fetchFreshApplicationWithFiles(applicationId);
+        // Path B: Only applicationId — fetch fresh app, check for existing renewal.
+        // Step 1: Fetch fresh application data to extract licenseNumber.
+        const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
 
         if (!freshData) {
           throw new Error('No fresh application data found for the provided ID.');
         }
 
-        console.log('Renewal load:', { applicationId, fileUploads: collectUploadedFilesFromApi(freshData) });
-        const prefilledForm = buildFieldStateFromFreshApplication(applicationId, freshData);
+        const licenseNumber = getLicenseNumber(freshData);
 
-        // Validate that the fresh application has been submitted
-        const applicationCheckResponse = await ApplicationService.getApplication(applicationId);
-        console.log('Application check response:', applicationCheckResponse);
-        
-        // Check if application is submitted (isSubmit should be true)
-        const isSubmitted = applicationCheckResponse?.isSubmit === true || applicationCheckResponse?.data?.isSubmit === true;
+        // Step 2: Search for existing renewal by licenseNumber.
+        if (licenseNumber) {
+          const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
+
+          if (existingRenewal) {
+            // Existing renewal found — load renewal data as sole source of truth.
+            const existingRenewalId = getTextValue(existingRenewal?.id, existingRenewal?.renewalApplicationId);
+            if (existingRenewalId) {
+              createdRenewalIdRef.current = existingRenewalId;
+              await loadRenewalById(existingRenewalId);
+              // Update URL to include renewalId.
+              router.replace(
+                `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+              );
+              return;
+            }
+          }
+        }
+
+        const prefilledForm = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
+
+        // Validate that the fresh application has been submitted.
+        const applicationCheckResponse = await ApplicationService.getApplication(resolvedApplicationId);
+        const isSubmitted =
+          applicationCheckResponse?.isSubmit === true ||
+          applicationCheckResponse?.data?.isSubmit === true;
         if (!isSubmitted) {
           throw new Error('Your application has not been submitted.');
         }
 
         await createDraftRenewalFromFreshApplication(
-          applicationId,
+          resolvedApplicationId,
           prefilledForm,
           setRenewalRecord,
           setFormData,
@@ -1782,14 +2543,62 @@ function RenewalFormPageContent() {
     };
 
     load();
-  }, [applicationId, renewalId, router]);
+  }, [isVerified, urlApplicationId, enteredAppId, renewalId, router]);
 
   function handleChange(
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | { target: { name: string; value: unknown; type?: string; checked?: boolean } }
-  ) {
-    const { name, type, value, checked } = event.target as { name: string; value?: unknown; type?: string; checked?: boolean };
+          event:
+            | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+            | { target: { name: string; value: unknown; type?: string; checked?: boolean } }
+        ) {
+          if (isReadOnly) {
+            setShowReadOnlyModal(true);
+            return;
+          }
+    const { name, type, value, checked } = event.target as {
+      name: string;
+      value?: unknown;
+      type?: string;
+      checked?: boolean;
+    };
     const rawValue =
-      value !== undefined ? value : type === 'checkbox' ? Boolean(checked) : (event.target as HTMLInputElement).value;
+      value !== undefined
+        ? value
+        : type === 'checkbox'
+          ? Boolean(checked)
+          : (event.target as HTMLInputElement).value;
+
+    const clearErrorKeys = (
+      setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+      keys: string[]
+    ) => {
+      setErrors(prevErrs => {
+        if (!prevErrs) return prevErrs;
+        const copy = { ...prevErrs };
+        let changed = false;
+        keys.forEach(key => {
+          if (key in copy) {
+            delete copy[key];
+            changed = true;
+          }
+        });
+        return changed ? copy : prevErrs;
+      });
+    };
+
+    const clearFieldError = (fieldName: string) => {
+      clearErrorKeys(setPersonalErrors, [fieldName]);
+      clearErrorKeys(setAddressErrors, [fieldName]);
+      clearErrorKeys(setOccupationErrors, [fieldName]);
+      clearErrorKeys(setCriminalErrors, [fieldName]);
+      clearErrorKeys(setLicenseHistoryErrors, [fieldName]);
+      clearErrorKeys(setLicenseDetailsErrors, [fieldName]);
+      clearErrorKeys(setDocumentsErrors, [fieldName]);
+      if (fieldName.startsWith('declaration.')) {
+        clearErrorKeys(setDeclarationErrors, [fieldName.replace('declaration.', '')]);
+      } else {
+        clearErrorKeys(setDeclarationErrors, [fieldName]);
+      }
+    };
 
     setFormData(prev => {
       const next = { ...prev } as RenewalFormState & Record<string, any>;
@@ -1804,8 +2613,163 @@ function RenewalFormPageContent() {
         next[name] = rawValue;
       }
 
+      // clear validation error for this field as user edits (both personal and address)
+      clearFieldError(name);
+
+      if (name === 'sameAsPresent' && rawValue === true) {
+        next.permanentAddress = next.presentAddress || '';
+        next.permanentState = next.presentState || '';
+        next.permanentDistrict = next.presentDistrict || '';
+        next.permanentZone = next.presentZone || '';
+        next.permanentDivision = next.presentDivision || '';
+        next.permanentPoliceStation = next.presentPoliceStation || '';
+        next.permanentPincode = next.presentPincode || '';
+        next.permanentStateName = next.presentStateName || '';
+        next.permanentDistrictName = next.presentDistrictName || '';
+        next.permanentZoneName = next.presentZoneName || '';
+        next.permanentDivisionName = next.presentDivisionName || '';
+        next.permanentPoliceStationName = next.presentPoliceStationName || '';
+      } else if (name === 'sameAsPresent' && rawValue === false) {
+        // Clear permanent address fields when unchecked so user can enter different address
+      }
+
+      // If sameAsPresent is checked, keep permanent fields in sync when present fields change
+      if (next.sameAsPresent) {
+        if (name === 'presentAddress') next.permanentAddress = rawValue as any;
+        if (name === 'presentState') {
+          next.permanentState = rawValue as any;
+          next.permanentStateName = next.presentStateName;
+        }
+        if (name === 'presentStateName') next.permanentStateName = rawValue as any;
+        if (name === 'presentDistrict') {
+          next.permanentDistrict = rawValue as any;
+          next.permanentDistrictName = next.presentDistrictName;
+        }
+        if (name === 'presentDistrictName') next.permanentDistrictName = rawValue as any;
+        if (name === 'presentZone') {
+          next.permanentZone = rawValue as any;
+          next.permanentZoneName = next.presentZoneName;
+        }
+        if (name === 'presentZoneName') next.permanentZoneName = rawValue as any;
+        if (name === 'presentDivision') {
+          next.permanentDivision = rawValue as any;
+          next.permanentDivisionName = next.presentDivisionName;
+        }
+        if (name === 'presentDivisionName') next.permanentDivisionName = rawValue as any;
+        if (name === 'presentPoliceStation') {
+          next.permanentPoliceStation = rawValue as any;
+          next.permanentPoliceStationName = next.presentPoliceStationName;
+        }
+        if (name === 'presentPoliceStationName') next.permanentPoliceStationName = rawValue as any;
+        if (name === 'presentPincode') next.permanentPincode = rawValue as any;
+      }
+
+      if (name === 'convictedStatus' && rawValue === false) {
+        next.firNumber = '';
+        next.underSection = '';
+        next.policeStationCriminal = '';
+        next.criminalUnit = '';
+        next.criminalDistrict = '';
+        next.criminalState = '';
+        next.offence = '';
+        next.sentence = '';
+        next.sentenceDate = '';
+      }
+
+      if (name === 'bondStatus' && rawValue === false) {
+        next.bondSentenceDate = '';
+        next.bondPeriod = '';
+      }
+
+      if (name === 'prohibitedStatus' && rawValue === false) {
+        next.prohibitedSentenceDate = '';
+        next.prohibitedPeriod = '';
+      }
+
+      if (name === 'hasAppliedBefore' && rawValue === false) {
+        next.applicationDate = '';
+        next.authorityAppliedTo = '';
+        next.applicationResult = '';
+      }
+
+      if (name === 'licenseRevokedOrSuspended' && rawValue === false) {
+        next.revokedByAuthority = '';
+        next.revokedReason = '';
+      }
+
+      if (name === 'familyMemberHasLicense' && rawValue === false) {
+        next.familyMemberName = '';
+        next.familyLicenseNumber = '';
+      }
+
+      if (name === 'hasSafeCustody' && rawValue === false) {
+        next.safeCustodyDetails = '';
+      }
+
+      if (name === 'hasTrainingUnderRule10' && rawValue === false) {
+        next.trainingDetails = '';
+      }
+
       return next;
     });
+
+    if (name === 'sameAsPresent' && rawValue === true) {
+      clearErrorKeys(setAddressErrors, [
+        'permanentAddress',
+        'permanentState',
+        'permanentDistrict',
+        'permanentZone',
+        'permanentDivision',
+        'permanentPoliceStation',
+        'permanentPincode',
+      ]);
+    }
+
+    if (name === 'convictedStatus' && rawValue === false) {
+      clearErrorKeys(setCriminalErrors, [
+        'firNumber',
+        'underSection',
+        'policeStationCriminal',
+        'criminalUnit',
+        'criminalDistrict',
+        'criminalState',
+        'offence',
+        'sentence',
+        'sentenceDate',
+      ]);
+    }
+
+    if (name === 'bondStatus' && rawValue === false) {
+      clearErrorKeys(setCriminalErrors, ['bondSentenceDate', 'bondPeriod']);
+    }
+
+    if (name === 'prohibitedStatus' && rawValue === false) {
+      clearErrorKeys(setCriminalErrors, ['prohibitedSentenceDate', 'prohibitedPeriod']);
+    }
+
+    if (name === 'hasAppliedBefore' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, [
+        'applicationDate',
+        'authorityAppliedTo',
+        'applicationResult',
+      ]);
+    }
+
+    if (name === 'licenseRevokedOrSuspended' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['revokedByAuthority', 'revokedReason']);
+    }
+
+    if (name === 'familyMemberHasLicense' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['familyMemberName', 'familyLicenseNumber']);
+    }
+
+    if (name === 'hasSafeCustody' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['safeCustodyDetails']);
+    }
+
+    if (name === 'hasTrainingUnderRule10' && rawValue === false) {
+      clearErrorKeys(setLicenseHistoryErrors, ['trainingDetails']);
+    }
   }
 
   function handleFileChange(name: string, file: File | null) {
@@ -1874,6 +2838,162 @@ function RenewalFormPageContent() {
       return false;
     }
 
+    // Client-side validation before saving/submitting
+    const validatePersonalDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: keyof RenewalFormState, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key as string] = `${label} is required`;
+      };
+
+      requireField('applicantName', 'First name');
+      requireField('applicantLastName', 'Last name');
+      requireField('filledBy', 'Application filled by');
+      requireField('fatherName', 'Parent/Spouse name');
+      requireField('applicantDateOfBirth', 'Date of birth');
+      requireField('dobInWords', 'Date of birth in words');
+      requireField('panNumber', 'PAN');
+      requireField('aadharNumber', 'Aadhar number');
+
+      if (
+        data.panNumber &&
+        String(data.panNumber).trim().length > 0 &&
+        String(data.panNumber).trim().length !== 10
+      )
+        errs['panNumber'] = 'PAN must be 10 characters';
+      if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim()))
+        errs['aadharNumber'] = 'Aadhar must be 12 digits';
+
+      if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
+      return errs;
+    };
+
+    const preSaveErrors = validatePersonalDetails(formData);
+    if (Object.keys(preSaveErrors).length > 0) {
+      setPersonalErrors(preSaveErrors);
+      scheduleSectionFocus(personalSectionRef, 'personal');
+      setError('Please fix validation errors before continuing.');
+      return false;
+    }
+
+    // Address validation (core fields required)
+    const validateAddressDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      requireField('presentAddress', 'Present address');
+      requireField('presentState', 'Present state');
+      requireField('presentDistrict', 'Present district');
+      // Residing since is optional as it may not always be available
+      // Location hierarchy (zone, division, police station) may be optional based on jurisdiction
+
+      if (!data.sameAsPresent) {
+        requireField('permanentAddress', 'Permanent address');
+        requireField('permanentState', 'Permanent state');
+        requireField('permanentDistrict', 'Permanent district');
+        // Location hierarchy for permanent is optional
+      }
+
+      return errs;
+    };
+
+    const addressValidationErrors = validateAddressDetails(formData);
+    if (Object.keys(addressValidationErrors).length > 0) {
+      setAddressErrors(addressValidationErrors);
+      scheduleSectionFocus(addressSectionRef, 'address');
+      setError('Please fix validation errors in Address Details before continuing.');
+      return false;
+    }
+
+    // Occupation validation (all required)
+    const validateOccupationDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      requireField('occupation', 'Occupation');
+      requireField('officeBusinessAddress', 'Office/Business address');
+      requireField('officeBusinessState', 'Office/Business state');
+      requireField('officeBusinessDistrict', 'Office/Business district');
+      requireField('cropProtectionLocation', 'Location');
+      requireField('cultivatedArea', 'Area of land under cultivation');
+
+      return errs;
+    };
+
+    const occupationValidationErrors = validateOccupationDetails(formData);
+    if (Object.keys(occupationValidationErrors).length > 0) {
+      setOccupationErrors(occupationValidationErrors);
+      scheduleSectionFocus(occupationSectionRef, 'occupation');
+      setError('Please fix validation errors in Occupation section before continuing.');
+      return false;
+    }
+
+    // Criminal and License History sections are not applicable for Renewal Forms
+
+    const validateLicenseDetails = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      const requireField = (key: string, label: string) => {
+        const v = (data as any)[key];
+        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+      };
+
+      requireField('weaponReason', 'Need for license (15)');
+      requireField('ammunitionDescription', 'Ammunition Description');
+
+      // Only require these if they are relevant or just let them be optional since they are optional in DTO
+      // requireField('specialConsiderationClaim', 'Claims for special consideration (18)');
+      // requireField('formIVPlaceArea', 'Place or area for which the licence is sought (19a)');
+      // requireField('formIVWildBeastsSpec', 'Specification of the wild beasts (19b)');
+
+      if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
+        errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
+      }
+      if (!data.armsOptionType) {
+        errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
+      }
+      const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
+        ? data.requestedWeaponIds
+        : data.weaponId
+          ? [Number(String(data.weaponId))]
+          : [];
+      if (!selectedWeaponIds.length) {
+        errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
+      }
+
+      return errs;
+    };
+
+    const licenseDetailsValidationErrors = validateLicenseDetails(formData);
+    if (Object.keys(licenseDetailsValidationErrors).length > 0) {
+      setLicenseDetailsErrors(licenseDetailsValidationErrors);
+      scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+      setError('Please fix validation errors in License Details before continuing.');
+      return false;
+    }
+
+    const validateDocumentsUpload = (data: RenewalFormState) => {
+      const errs: Record<string, string> = {};
+      if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
+      if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
+      if (!data.medicalCertificateUploaded)
+        errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
+      return errs;
+    };
+
+    const documentsValidationErrors = validateDocumentsUpload(formData);
+    if (Object.keys(documentsValidationErrors).length > 0) {
+      setDocumentsErrors(documentsValidationErrors);
+      scheduleSectionFocus(documentsSectionRef, 'documents');
+      setError('Please upload required documents before continuing.');
+      return false;
+    }
+
     try {
       setIsSaving(true);
       setError(null);
@@ -1891,38 +3011,66 @@ function RenewalFormPageContent() {
       await RenewalService.updateRenewalForm(activeRenewalId, payload, { isSubmit });
 
       const reloadResponse = await RenewalService.getRenewalForm(activeRenewalId);
-      let saved = extractData(reloadResponse);
+      const saved = extractData(reloadResponse);
       setRenewalRecord(saved);
 
       if (saved) {
         const mergedFormData = await buildFormDataFromRenewalRecord(
           saved,
-          resolveFreshApplicationId(saved, applicationId),
+          resolveFreshApplicationId(saved, resolvedApplicationId)
         );
-        const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, mergedFormData);
-        setFormData(syncedForm);
+        const { formData: syncedForm } = await applyPrefilledDocumentUploads(
+          activeRenewalId,
+          mergedFormData
+        );
+        setFormData(syncedForm as RenewalFormState);
       }
 
       // If this was a submit (isSubmit === true), trigger the INITIATE workflow action
       if (isSubmit) {
-        setStatusMessage(`Renewal application ${getTextValue(saved?.id, activeRenewalId)} submitted successfully.`);
+        setStatusMessage(
+          `Renewal application ${getTextValue(saved?.id, activeRenewalId)} submitted successfully.`
+        );
       } else {
         setStatusMessage(`Saved renewal draft ${getTextValue(saved?.id, activeRenewalId)}.`);
       }
       return true;
     } catch (saveError: any) {
-      setError(saveError?.message || (isSubmit ? 'Failed to submit renewal application.' : 'Failed to save renewal draft.'));
+      setError(
+        saveError?.message ||
+          (isSubmit ? 'Failed to submit renewal application.' : 'Failed to save renewal draft.')
+      );
       return false;
     } finally {
       setIsSaving(false);
     }
   };
 
-  const saveRenewalDraft = () => persistRenewalForm(false);
+  const saveRenewalDraft = () => {
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return;
+    }
+    persistRenewalForm(false);
+  };
 
   const saveAndContinue = async () => {
-    if (!formData.declaration?.agreeToTruth) {
-      setError('Please accept all declarations before submitting the Renewal Application.');
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return false;
+    }
+    const declarationErrors: Record<string, string> = {};
+    if (!formData.declaration?.agreeToTruth)
+      declarationErrors['agreeToTruth'] = 'Please accept this declaration.';
+    if (!formData.declaration?.understandLegalConsequences)
+      declarationErrors['understandLegalConsequences'] = 'Please accept this declaration.';
+    if (!formData.declaration?.agreeToTerms)
+      declarationErrors['agreeToTerms'] = 'Please accept the terms and conditions.';
+
+    if (Object.keys(declarationErrors).length > 0) {
+      setDeclarationErrors(declarationErrors);
+      scheduleSectionFocus(declarationSectionRef, 'declaration');
+      setError('Please accept all declarations before submitting the application.');
       return false;
     }
 
@@ -1936,7 +3084,7 @@ function RenewalFormPageContent() {
 
   const handleSuccessContinue = () => {
     setShowSuccessModal(false);
-    router.push('/inbox?type=forwarded');
+    router.push('/inbox?type=all');
   };
 
   const reloadRenewalData = async () => {
@@ -1953,11 +3101,13 @@ function RenewalFormPageContent() {
       setRenewalRecord(renewalData);
       const merged = await buildFormDataFromRenewalRecord(
         renewalData,
-        resolveFreshApplicationId(renewalData, applicationId),
+        resolveFreshApplicationId(renewalData, resolvedApplicationId)
       );
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
-      setFormData(syncedForm);
-      setStatusMessage(`Reloaded renewal application ${getTextValue(renewalData?.id, activeRenewalId)}.`);
+      setFormData(syncedForm as RenewalFormState);
+      setStatusMessage(
+        `Reloaded renewal data for ID ${getTextValue(renewalData?.id, activeRenewalId)}.`
+      );
     } catch (reloadError: any) {
       setError(reloadError?.message || 'Failed to reload renewal data.');
     } finally {
@@ -1965,38 +3115,678 @@ function RenewalFormPageContent() {
     }
   };
 
-  return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
-          <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
-            <div className='flex items-center justify-center'>
-              <div className='rounded-full bg-green-100 p-3'>
-                <svg className='h-6 w-6 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-                </svg>
+    if (!isVerified) {
+      return (
+        <div className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]" role='main'>
+          <div className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]' aria-hidden='true' />
+          <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
+            <div className="max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300">
+              {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
+                <div className="space-y-6 py-8 text-center">
+                  <div className="mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center">
+                    <span className="text-xl">🪪</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">Loading Application Context...</h3>
+                  <p className="text-sm text-gray-500">Checking biometric requirements</p>
+                </div>
+              ) : verificationStatus === 'ENTER_APP_ID' && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="mb-6 flex justify-center">
+                      <img
+                        src='/icon-alms.svg'
+                        alt='ALMS Logo'
+                        width={100}
+                        height={100}
+                        className='drop-shadow-md h-auto'
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                      License Renewal Verification
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Please enter your Fresh Application ID to verify your identity and start the renewal process.
+                    </p>
+                  </div>
+                  
+                  {verificationError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {verificationError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="app-id" className="block text-sm font-semibold text-gray-700 mb-1">
+                        Fresh Application ID
+                      </label>
+                      <input
+                        id="app-id"
+                        type="text"
+                        value={enteredAppId}
+                        onChange={(e) => setEnteredAppId(e.target.value)}
+                        placeholder="e.g. 12345"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => checkBiometricRequirement(enteredAppId)}
+                      disabled={verificationChecking || !enteredAppId.trim()}
+                      className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]"
+                    >
+                      {verificationChecking ? 'Checking...' : 'Verify Application'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {verificationStatus === 'VERIFYING_BIOMETRICS' && applicantDetails && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="mb-6 flex justify-center">
+                      <img
+                        src='/icon-alms.svg'
+                        alt='ALMS Logo'
+                        width={100}
+                        height={100}
+                        className='drop-shadow-md h-auto'
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                      Biometric Identity Match
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Verify you are the same applicant as registered in the original application.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">Applicant Name</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">Application ID</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 font-medium">License Number</span>
+                      <span className="text-gray-800 font-semibold">{applicantDetails.licenseNumber}</span>
+                    </div>
+                  </div>
+
+                  {verificationError && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {verificationError}
+                    </div>
+                  )}
+
+                  {/* Signature/Thumb Impression section layout from fresh form */}
+                  <div className='p-6 rounded-xl border border-gray-200 bg-white shadow-sm space-y-4 text-left'>
+                    <div className='flex justify-between items-center mb-2'>
+                      <div className='font-semibold text-gray-800'>Signature / Thumb Impression</div>
+                      <div className='flex items-center gap-2'>
+                        {/* Info Icon with Tooltip */}
+                        <div className='relative'>
+                          <button
+                            type='button'
+                            onClick={() => setShowInfoTooltip(!showInfoTooltip)}
+                            className='p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors'
+                            title='Device setup information'
+                          >
+                            <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                              <path
+                                fillRule='evenodd'
+                                d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                                clipRule='evenodd'
+                              />
+                            </svg>
+                          </button>
+                          {/* Info Tooltip Popover */}
+                          {showInfoTooltip && (
+                            <div className='absolute right-0 top-8 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4'>
+                              <div className='flex justify-between items-start mb-3'>
+                                <h4 className='font-semibold text-gray-800 flex items-center gap-2'>
+                                  <svg className='w-5 h-5 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
+                                    <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
+                                  </svg>
+                                  Device Setup Guide
+                                </h4>
+                                <button type='button' onClick={() => setShowInfoTooltip(false)} className='text-gray-400 hover:text-gray-600'>✕</button>
+                              </div>
+                              <div className='space-y-2 text-sm text-gray-600'>
+                                <p>✔ Connect Mantra MFS500 via USB</p>
+                                <p>✔ Install Mantra drivers</p>
+                                <p>✔ Run Mantra RD Service</p>
+                                <p>✔ Start MorfinAuth SDK on port 8030</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type='button'
+                          onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                          className='px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-1'
+                          title='Open device diagnostics and settings'
+                        >
+                          ⚙️ Settings
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className='space-y-2'>
+                      <div className='mb-4'>
+                        <label className='block text-sm font-semibold text-gray-700 mb-1'>Required Hand & Finger</label>
+                        <select
+                          value={biometricTargetThumb || 'RIGHT_THUMB'}
+                          disabled
+                          className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed text-gray-700 font-semibold'
+                        >
+                          <option value="RIGHT_THUMB">Right Hand Thumb</option>
+                          <option value="LEFT_THUMB">Left Hand Thumb</option>
+                        </select>
+                        <p className="text-sm text-blue-600 mt-1 font-medium">Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}.</p>
+                      </div>
+
+                      {/* Mantra SDK Fingerprint Capture */}
+                      {mantraSDKReady && deviceConnected ? (
+                        <div className='flex items-center space-x-3'>
+                          <button
+                            type='button'
+                            onClick={handleVerifyBiometrics}
+                            disabled={fingerprintCapturing}
+                            className='px-5 py-2.5 bg-[#D4AF37] hover:bg-[#C4A02F] text-gray-900 rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md'
+                          >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                            </svg>
+                            {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
+                          </button>
+                          <span className='text-sm text-green-600 font-medium'>✓ Device Ready</span>
+                        </div>
+                      ) : (
+                        <div className='flex items-center space-x-3'>
+                          <button
+                            type='button'
+                            onClick={() => checkDeviceConnection()}
+                            className='px-5 py-2.5 bg-gray-300 text-gray-600 rounded-md font-semibold cursor-not-allowed flex items-center gap-2'
+                            disabled
+                          >
+                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                            </svg>
+                            Scan Fingerprint
+                          </button>
+                          <span className='text-sm text-gray-500 font-medium'>
+                            {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        setVerificationStatus('ENTER_APP_ID');
+                        setVerificationError(null);
+                      }}
+                      className="w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      Change Application ID
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {/* ⚙️ DEVICE SETTINGS & DIAGNOSTICS MODAL */}
+            {showDeviceSettings && (
+              <div
+                className='fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+                style={{
+                  display: 'flex',
+                  visibility: 'visible',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div className='bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto flex flex-col'>
+                  <div className='border-b px-6 py-4 sticky top-0 bg-white flex justify-between items-center z-10'>
+                    <div>
+                      <h2 className='text-2xl font-bold text-gray-800'>Device Settings & Diagnostics</h2>
+                      <p className='text-sm text-gray-500 mt-1'>
+                        Test Mantra MFS500 device connectivity and API endpoints
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowDeviceSettings(false)}
+                      className='text-gray-600 hover:text-gray-900 text-2xl font-bold'
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className='px-6 py-6 overflow-y-auto flex-1'>
+                    <div
+                      className='mb-6 p-4 rounded-lg border-2'
+                      style={{
+                        backgroundColor: deviceConnected ? '#ecfdf5' : '#fef2f2',
+                        borderColor: deviceConnected ? '#10b981' : '#ef4444',
+                      }}
+                    >
+                      <p
+                        className='font-semibold'
+                        style={{ color: deviceConnected ? '#059669' : '#dc2626' }}
+                      >
+                        {deviceConnected ? '✓ Device Connected' : '✗ Device Not Connected'}
+                      </p>
+                      <p className='text-sm text-gray-600 mt-1'>
+                        {deviceConnected
+                          ? 'Device is online and ready for testing'
+                          : 'Device is offline. Please check the connection and restart the device service.'}
+                      </p>
+                    </div>
+
+                    <div className='grid grid-cols-2 gap-3 mb-6'>
+                      <button
+                        onClick={() => runDiagnostic('Check Device', testCheckDevice)}
+                        disabled={diagnosticLoading === 'Check Device'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Check Device' ? '⟳ Testing...' : 'Check Device'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Connected Device', testGetConnectedDevice)}
+                        disabled={diagnosticLoading === 'Get Connected Device'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Connected Device' ? '⟳ Testing...' : 'Get Connected Device'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Supported Device', testGetSupportedDevice)}
+                        disabled={diagnosticLoading === 'Get Supported Device'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Supported Device' ? '⟳ Testing...' : 'Get Supported Device'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Info', testGetInfo)}
+                        disabled={diagnosticLoading === 'Get Info'}
+                        className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Info' ? '⟳ Testing...' : 'Get Info'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Capture', testCapture)}
+                        disabled={diagnosticLoading === 'Capture' || !deviceConnected}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Capture' ? '⟳ Testing...' : 'Capture'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Image', testGetImage)}
+                        disabled={diagnosticLoading === 'Get Image'}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Image' ? '⟳ Testing...' : 'Get Image'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Get Template', testGetTemplate)}
+                        disabled={diagnosticLoading === 'Get Template'}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Get Template' ? '⟳ Testing...' : 'Get Template'}
+                      </button>
+
+                      <button
+                        onClick={() => runDiagnostic('Match', testMatch)}
+                        disabled={diagnosticLoading === 'Match' || enrolledTemplates.length === 0}
+                        className='px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
+                      >
+                        {diagnosticLoading === 'Match' ? '⟳ Testing...' : 'Match'}
+                      </button>
+                    </div>
+
+                    {Object.keys(diagnosticResults).length > 0 && (
+                      <div className='mt-6 pt-6 border-t border-gray-200'>
+                        <div className='flex justify-between items-center mb-4'>
+                          <p className='font-bold text-lg text-gray-800'>📊 Test Results</p>
+                          <span className='text-sm text-gray-600'>
+                            {Object.values(diagnosticResults).filter((r: any) => r.success).length}/
+                            {Object.keys(diagnosticResults).length} Passed
+                          </span>
+                        </div>
+
+                        <div className='space-y-3'>
+                          {Object.entries(diagnosticResults).map(([testName, result]: [string, any]) => (
+                            <div
+                              key={testName}
+                              className='p-4 rounded-lg border-2 transition-all'
+                              style={{
+                                backgroundColor: result.success ? '#ecfdf5' : '#fef2f2',
+                                borderColor: result.success ? '#10b981' : '#ef4444',
+                              }}
+                            >
+                              <div className='flex justify-between items-start'>
+                                <div className='flex-1'>
+                                  <p
+                                    className='font-bold flex items-center gap-2'
+                                    style={{ color: result.success ? '#059669' : '#dc2626' }}
+                                  >
+                                    {result.success ? '✓' : '✗'} {testName}
+                                  </p>
+                                  {result.timestamp && (
+                                    <p className='text-xs text-gray-500 mt-1'>{result.timestamp}</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {result.success ? (
+                                <div className='mt-3 text-sm text-gray-700'>
+                                  <details className='cursor-pointer'>
+                                    <summary className='font-medium text-gray-700 hover:text-gray-900'>
+                                      📋 View Details
+                                    </summary>
+                                    <pre className='bg-gray-100 p-3 rounded border border-gray-300 text-xs overflow-auto max-h-48 mt-2 text-gray-800'>
+                                      {JSON.stringify(result.data, null, 2)}
+                                    </pre>
+                                  </details>
+                                </div>
+                              ) : (
+                                <div className='mt-3 text-sm' style={{ color: '#991b1b' }}>
+                                  <p className='font-semibold'>{result.error || 'Unknown error'}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {Object.keys(diagnosticResults).length > 0 && (
+                      <button
+                        onClick={() => setDiagnosticResults({})}
+                        className='mt-6 w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium text-sm'
+                      >
+                        Clear Results
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setShowDeviceSettings(false)}
+                      className='mt-4 w-full px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold'
+                    >
+                      Close Settings
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
-            <p className='text-center text-gray-600'>{successMessage}</p>
-            <button
-              onClick={handleSuccessContinue}
-              className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
-            >
-              Continue
-            </button>
+            )}
+
+            {/* Fingerprint Preview Modal */}
+            {showFingerprintPreviewModal && pendingCaptureResult && (
+              <div
+                className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+                style={{ display: 'flex', visibility: 'visible' }}
+              >
+                <div className='bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto border border-gray-200'>
+                  <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
+                    <div className='flex items-center gap-4'>
+                      <div className='bg-white/20 rounded-full p-3'>
+                        <svg className='w-8 h-8 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11' />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className='text-xl font-bold text-white'>Fingerprint Preview</h2>
+                        <p className='text-blue-100 text-sm mt-1'>Review quality before verifying identity</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className='px-6 py-6'>
+                    <div className='mb-6'>
+                      <div
+                        className={`p-4 rounded-xl border-2 ${
+                          (pendingCaptureResult?.quality || 0) >= 80
+                            ? 'bg-green-50 border-green-300'
+                            : (pendingCaptureResult?.quality || 0) >= 60
+                              ? 'bg-yellow-50 border-yellow-300'
+                              : 'bg-red-50 border-red-300'
+                        }`}
+                      >
+                        <div className='flex items-center justify-between mb-3'>
+                          <div className='flex items-center gap-2'>
+                            <span
+                              className={`font-semibold ${
+                                (pendingCaptureResult?.quality || 0) >= 80
+                                  ? 'text-green-700'
+                                  : (pendingCaptureResult?.quality || 0) >= 60
+                                    ? 'text-yellow-700'
+                                    : 'text-red-700'
+                              }`}
+                            >
+                              {(pendingCaptureResult?.quality || 0) >= 80
+                                ? 'Excellent Quality'
+                                : (pendingCaptureResult?.quality || 0) >= 60
+                                  ? 'Good Quality'
+                                  : 'Low Quality - Consider Retaking'}
+                            </span>
+                          </div>
+                          <span
+                            className={`text-3xl font-bold ${
+                              (pendingCaptureResult?.quality || 0) >= 80
+                                ? 'text-green-600'
+                                : (pendingCaptureResult?.quality || 0) >= 60
+                                  ? 'text-yellow-600'
+                                  : 'text-red-600'
+                            }`}
+                          >
+                            {pendingCaptureResult?.quality || 0}%
+                          </span>
+                        </div>
+                        <div className='w-full bg-gray-200 rounded-full h-3 overflow-hidden'>
+                          <div
+                            className={`h-3 rounded-full transition-all duration-500 ${
+                              (pendingCaptureResult?.quality || 0) >= 80
+                                ? 'bg-green-500'
+                                : (pendingCaptureResult?.quality || 0) >= 60
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                            }`}
+                            style={{ width: `${pendingCaptureResult?.quality || 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className='mb-6'>
+                      <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                        Captured Fingerprint
+                      </h3>
+                      <div className='flex justify-center bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-6 min-h-[280px] items-center border border-gray-200'>
+                        {fingerprintPreviewImage ? (
+                          <div className='flex flex-col items-center gap-3'>
+                            <div className='relative'>
+                              <img
+                                src={fingerprintPreviewImage}
+                                alt='Fingerprint Preview'
+                                className='max-w-full max-h-80 border-4 border-white rounded-lg shadow-lg'
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className='text-center py-8'>
+                            <p className='text-gray-500 font-medium'>No preview image available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className='mb-6'>
+                      <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                        Finger Position
+                      </h3>
+                      <div className='flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200'>
+                        <div className='bg-blue-600 rounded-full p-2 text-white'>
+                          👆
+                        </div>
+                        <div>
+                          <p className='font-bold text-blue-900'>
+                            {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}
+                          </p>
+                          <p className='text-xs text-blue-700'>Matches required biometric type</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className='flex justify-end gap-3 pt-4 border-t border-gray-100'>
+                      <button
+                        onClick={() => {
+                          setShowFingerprintPreviewModal(false);
+                          setFingerprintPreviewImage(null);
+                          setPendingCaptureResult(null);
+                        }}
+                        className='px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors'
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowFingerprintPreviewModal(false);
+                          setFingerprintPreviewImage(null);
+                          setPendingCaptureResult(null);
+                          handleVerifyBiometrics();
+                        }}
+                        className='px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors'
+                      >
+                        Retake
+                      </button>
+                      <button
+                        onClick={handleAcceptFingerprintPreview}
+                        className='px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-sm'
+                      >
+                        Accept & Verify
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Capturing Status Modal */}
+            {showCapturingModal && (
+              <div
+                className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+                style={{ display: 'flex', visibility: 'visible' }}
+              >
+                <div className='bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center space-y-4'>
+                  <div className='mx-auto w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin flex items-center justify-center'>
+                    <span className='text-2xl'>👆</span>
+                  </div>
+                  <h3 className='text-lg font-bold text-gray-900'>Biometric Scan in Progress</h3>
+                  <p className='text-sm text-gray-500'>{capturingStep}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
+      );
+    }
 
-      <div className='mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-8 sm:px-6 lg:px-8'>
+    return (
+      <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+            <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+              <div className='flex items-center justify-center'>
+                <div className='rounded-full bg-green-100 p-3'>
+                  <svg
+                    className='h-6 w-6 text-green-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M5 13l4 4L19 7'
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
+              <p className='text-center text-gray-600'>{successMessage}</p>
+              <button
+                onClick={handleSuccessContinue}
+                className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Read-Only Modal */}
+        {showReadOnlyModal && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+            <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+              <div className='flex items-center justify-center'>
+                <div className='rounded-full bg-blue-100 p-3'>
+                  <svg
+                    className='h-6 w-6 text-blue-600'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h2 className='text-center text-lg font-semibold text-gray-900'>Application Read-Only</h2>
+              <p className='text-center text-gray-600'>
+                Your renewal application has already been submitted.
+              </p>
+              <button
+                onClick={() => setShowReadOnlyModal(false)}
+                className='w-full rounded-md bg-[#001F54] hover:bg-[#012a73] text-white font-medium py-2 px-4 transition'
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
+      <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
-          <RenewalHeader applicationId={applicationId} renewalId={renewalId || createdRenewalIdRef.current || ''} summaryData={renewalRecord || formData} />
+          <RenewalHeader
+            applicationId={urlApplicationId || enteredAppId}
+            renewalId={renewalId || createdRenewalIdRef.current || ''}
+            summaryData={formData || renewalRecord}
+          />
 
           <form
             onSubmit={e => {
               e.preventDefault();
+              if (isReadOnly) {
+                setShowReadOnlyModal(true);
+                return;
+              }
               saveAndContinue();
             }}
             className='space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-gray-100'
@@ -2004,100 +3794,197 @@ function RenewalFormPageContent() {
             <div className='rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900'>
               <div className='flex flex-wrap items-center gap-3'>
                 <span className='font-semibold'>Fresh Application ID:</span>
-                <span>{applicationId || 'Not provided'}</span>
+                <span>{urlApplicationId || enteredAppId || 'Not provided'}</span>
                 <span className='font-semibold'>Renewal ID:</span>
                 <span>{renewalId || createdRenewalIdRef.current || 'Pending'}</span>
-                {statusMessage && <span className='ml-auto font-medium text-blue-700'>{statusMessage}</span>}
+                {statusMessage && (
+                  <span className='ml-auto font-medium text-blue-700'>{statusMessage}</span>
+                )}
               </div>
             </div>
 
-            {isLoading && <div className='rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600'>Loading renewal data...</div>}
-            {error && <div className='rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700'>{error}</div>}
-
-            {!isLoading && (
-            <>
-            <AccordionSection title='Personal Information' isOpen={expandedSections.personal} onToggle={() => toggleSection('personal')}>
-              <PersonalDetailsSection formData={formData} onChange={handleChange} />
-            </AccordionSection>
-
-            <AccordionSection title='Address Details' isOpen={expandedSections.address} onToggle={() => toggleSection('address')}>
-              <AddressDetailsSection formData={formData} onChange={handleChange} />
-            </AccordionSection>
-
-            <AccordionSection title='Occupation/Business' isOpen={expandedSections.occupation} onToggle={() => toggleSection('occupation')}>
-              <OccupationSection formData={formData} onChange={handleChange} />
-            </AccordionSection>
-
-            <AccordionSection title='Criminal History' isOpen={expandedSections.criminal} onToggle={() => toggleSection('criminal')}>
-              <CriminalHistory formData={formData} onChange={handleChange} />
-            </AccordionSection>
-
-            <AccordionSection title='License History' isOpen={expandedSections.licenseHistory} onToggle={() => toggleSection('licenseHistory')}>
-              <LicenseHistory formData={formData} onChange={handleChange} />
-            </AccordionSection>
-
-            <AccordionSection title='License Details' isOpen={expandedSections.licenseDetails} onToggle={() => toggleSection('licenseDetails')}>
-              <LicenseDetailsSection
-                formData={formData}
-                renewalId={activeRenewalId}
-                isSyncingPrefilled={isSyncingEvidence}
-                onChange={handleChange}
-                onPatch={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
-                onError={setError}
-                onStatus={setStatusMessage}
-              />
-            </AccordionSection>
-
-            <AccordionSection title='Biometric Information' isOpen={expandedSections.biometric} onToggle={() => toggleSection('biometric')}>
-              <BiometricInformation formData={formData} onChange={handleChange} onFileChange={handleFileChange} />
-            </AccordionSection>
-
-            <AccordionSection title='Documents Upload' isOpen={expandedSections.documents} onToggle={() => toggleSection('documents')}>
-              <DocumentsSection
-                formData={formData}
-                renewalId={activeRenewalId}
-                onPatch={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
-                onError={setError}
-                onStatus={setStatusMessage}
-              />
-            </AccordionSection>
-
-            <AccordionSection title='Declaration' isOpen={expandedSections.declaration} onToggle={() => toggleSection('declaration')}>
-              <DeclarationSection formData={formData} onChange={handleChange} />
-            </AccordionSection>
-            </>
+            {isLoading && (
+              <ApplicationFormSkeleton />
+            )}
+            {error && (
+              <div className='rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
+                {error}
+              </div>
             )}
 
             {!isLoading && (
-            <div className='flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4'>
-              <button
-                type='button'
-                onClick={reloadRenewalData}
-                disabled={isLoading}
-                className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
-              >
-                Reload Saved Renewal Data
-              </button>
+              <>
+                <AccordionSection
+                  title='Personal Information'
+                  isOpen={expandedSections.personal}
+                  onToggle={() => toggleSection('personal')}
+                >
+                  <PersonalDetailsSection
+                    ref={personalSectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={personalErrors}
+                  />
+                </AccordionSection>
 
-              <div className='flex flex-wrap items-center gap-3'>
-                <button
-                  type='button'
-                  onClick={() => saveRenewalDraft()}
-                  disabled={isSaving}
-                  className='rounded-md border border-[#001F54] px-4 py-2 text-sm font-medium text-[#001F54] hover:bg-[#001F54]/5 disabled:cursor-not-allowed disabled:opacity-60'
+                <AccordionSection
+                  title='Address Details'
+                  isOpen={expandedSections.address}
+                  onToggle={() => toggleSection('address')}
                 >
-                  {isSaving ? 'Saving...' : 'Save Renewal Draft'}
-                </button>
-                <button
-                  type='button'
-                  onClick={saveAndContinue}
-                  disabled={isSaving}
-                  className='rounded-md bg-[#001F54] px-5 py-2 text-sm font-medium text-white hover:bg-[#012a73] disabled:cursor-not-allowed disabled:opacity-60'
+                  <AddressDetailsSection
+                    ref={addressSectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={addressErrors}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='Occupation/Business'
+                  isOpen={expandedSections.occupation}
+                  onToggle={() => toggleSection('occupation')}
                 >
-                  {isSaving ? 'Submitting...' : 'Save & Continue'}
-                </button>
+                  <OccupationSection
+                    ref={occupationSectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={occupationErrors}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='Criminal History'
+                  isOpen={expandedSections.criminal}
+                  onToggle={() => toggleSection('criminal')}
+                >
+                  <CriminalHistory
+                    ref={criminalSectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={criminalErrors}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='License History'
+                  isOpen={expandedSections.licenseHistory}
+                  onToggle={() => toggleSection('licenseHistory')}
+                >
+                  <LicenseHistory
+                    ref={licenseHistorySectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={licenseHistoryErrors}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='License Details'
+                  isOpen={expandedSections.licenseDetails}
+                  onToggle={() => toggleSection('licenseDetails')}
+                >
+                  <LicenseDetailsSection
+                    formData={formData}
+                    renewalId={activeRenewalId}
+                    isSyncingPrefilled={isSyncingEvidence}
+                    onChange={handleChange}
+                    onPatch={patch => setFormData(prev => ({ ...prev, ...patch }))}
+                    onError={setError}
+                    onStatus={setStatusMessage}
+                    errors={licenseDetailsErrors}
+                    ref={licenseDetailsSectionRef}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='Biometric Information'
+                  isOpen={expandedSections.biometric}
+                  onToggle={() => toggleSection('biometric')}
+                >
+                  <BiometricInformation
+                    formData={formData}
+                    renewalId={activeRenewalId}
+                    onChange={handleChange}
+                    onFileChange={handleFileChange}
+                    errors={biometricErrors}
+                    onPrevious={() => {
+                      if (renewalId)
+                        router.push(
+                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
+                        );
+                      else router.back();
+                    }}
+                    onNext={() => {
+                      if (activeRenewalId)
+                        router.push(
+                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
+                        );
+                    }}
+                    onSaveToDraft={saveRenewalDraft}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='Documents Upload'
+                  isOpen={expandedSections.documents}
+                  onToggle={() => toggleSection('documents')}
+                >
+                  <DocumentsSection
+                    ref={documentsSectionRef}
+                    formData={formData}
+                    renewalId={activeRenewalId}
+                    onPatch={handleFormPatch}
+                    onError={setError}
+                    onStatus={setStatusMessage}
+                    errors={documentsErrors}
+                    onReload={reloadRenewalData}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
+                  title='Declaration'
+                  isOpen={expandedSections.declaration}
+                  onToggle={() => toggleSection('declaration')}
+                >
+                  <DeclarationSection
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={declarationErrors}
+                  />
+                </AccordionSection>
+              </>
+            )}
+
+            {!isLoading && (
+              <div className='flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-4'>
+                <div className='flex flex-wrap items-center gap-3'>
+                  <button
+                    type='button'
+                    onClick={() => saveRenewalDraft()}
+                    disabled={isSaving}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isReadOnly
+                        ? 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        : 'border-[#001F54] text-[#001F54] hover:bg-[#001F54]/5'
+                    }`}
+                  >
+                    {isSaving ? 'Saving...' : 'Save Renewal Draft'}
+                  </button>
+                  <button
+                    type='button'
+                    onClick={saveAndContinue}
+                    disabled={isSaving}
+                    className={`rounded-md px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isReadOnly
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-[#001F54] hover:bg-[#012a73]'
+                    }`}
+                  >
+                    {isSaving ? 'Submitting...' : 'Save & Continue'}
+                  </button>
+                </div>
               </div>
-            </div>
             )}
           </form>
         </div>
@@ -2108,13 +3995,22 @@ function RenewalFormPageContent() {
 
 export default function RenewalFormPage() {
   return (
-    <Suspense fallback={<div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-6 text-sm text-gray-600'>Loading renewal form...</div>}>
+    <Suspense
+      fallback={<ApplicationFormSkeleton />}
+    >
       <RenewalFormPageContent />
     </Suspense>
   );
 }
 
-function AccordionSection(props: Readonly<{ title: string; isOpen: boolean; onToggle: () => void; children: React.ReactNode }>) {
+function AccordionSection(
+  props: Readonly<{
+    title: string;
+    isOpen: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+  }>
+) {
   const { title, isOpen, onToggle, children } = props;
 
   return (
@@ -2129,14 +4025,13 @@ function AccordionSection(props: Readonly<{ title: string; isOpen: boolean; onTo
         <span className='text-sm font-semibold text-[#001F54]'>{isOpen ? '▲' : '▼'}</span>
       </button>
 
-      <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+      >
         <div className='overflow-hidden'>
-          <div className='border-t border-gray-100 px-5 py-4'>
-            {children}
-          </div>
+          <div className='border-t border-gray-100 px-5 py-4'>{children}</div>
         </div>
       </div>
     </section>
   );
 }
-

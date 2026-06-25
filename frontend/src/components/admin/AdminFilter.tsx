@@ -15,14 +15,23 @@ interface AdminFilterProps {
       type: 'text' | 'select' | 'date';
       placeholder?: string;
       options?: FilterOption[];
+      showLabel?: boolean;
       onChange: (value: string) => void;
     };
   };
   onClear?: () => void;
   className?: string;
+  showBorder?: boolean;
+  compact?: boolean;
 }
 
-export const AdminFilter: React.FC<AdminFilterProps> = ({ filters, onClear, className = '' }) => {
+export const AdminFilter: React.FC<AdminFilterProps> = ({
+  filters,
+  onClear,
+  className = '',
+  showBorder = true,
+  compact = false,
+}) => {
   const { colors } = useAdminTheme();
   const filterKeys = Object.keys(filters);
 
@@ -32,29 +41,29 @@ export const AdminFilter: React.FC<AdminFilterProps> = ({ filters, onClear, clas
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: AdminFilters.containerGap,
-        padding: AdminFilters.containerPadding,
+        gap: compact ? '8px' : AdminFilters.containerGap,
+        padding: compact ? '6px 10px' : AdminFilters.containerPadding,
         backgroundColor: colors.surface,
         borderRadius: AdminBorderRadius.lg,
-        border: `1px solid ${colors.border}`,
+        border: showBorder ? `1px solid ${colors.border}` : 'none',
         alignItems: 'center',
       }}
     >
       {filterKeys.map(key => {
         const filter = filters[key];
         const commonInputStyles = {
-          padding: '10px 12px',
+          padding: compact ? '8px 10px' : '10px 12px',
           borderRadius: AdminBorderRadius.md,
           border: `1px solid ${colors.border}`,
           backgroundColor: colors.background,
           color: colors.text.primary,
           fontSize: '14px',
-          height: AdminFilters.inputHeight,
+          height: compact ? '36px' : AdminFilters.inputHeight,
           fontFamily: 'inherit',
         };
 
         return (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: AdminSpacing.sm }}>
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: compact ? '6px' : AdminSpacing.sm }}>
             {filter.type === 'text' && (
               <input
                 type='text'
@@ -71,7 +80,7 @@ export const AdminFilter: React.FC<AdminFilterProps> = ({ filters, onClear, clas
                 onChange={e => filter.onChange(e.target.value)}
                 style={commonInputStyles}
               >
-                <option value=''>{filter.label}</option>
+                {filter.showLabel !== false && <option value=''>{filter.label}</option>}
                 {filter.options?.map(opt => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}

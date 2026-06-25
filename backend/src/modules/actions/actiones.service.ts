@@ -11,7 +11,7 @@ export class ActionesService {
    * - If no userId: return all active actions.
    *    * - If applicationId is provided: filter out APPROVED action if already approved, REJECT action if already rejected.
    */
-  async getActiones(userId?: number, applicationId?: number): Promise<Actiones[]> {
+  async getActiones(userId?: number, applicationId?: number, applicationType?: string): Promise<Actiones[]> {
     try {
       // No userId → return all active actions
       if (userId === undefined || userId === null) {
@@ -48,11 +48,20 @@ export class ActionesService {
 
           // If applicationId is provided, filter based on application status
       if (applicationId) {
-        const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-          where: { id: applicationId },
-          select: { isApproved: true, isRejected: true }
-        });
 
+        let application;
+        if (applicationType?.toLocaleLowerCase() === 'fresh license' || applicationType?.toLocaleLowerCase() === 'freshlicenseapplicationform' || applicationType?.toLocaleLowerCase() === 'flawupdate') {
+          application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { isApproved: true, isRejected: true }
+          });
+        }
+        else if (!application && applicationType?.toLocaleLowerCase() && ['renewal application', 'renewalapplicationform', 'renewalupdate', 'renewalform', 'renewalapplicationform'].includes(applicationType)) {
+          application = await prisma.renewalFormPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { isApproved: true, isRejected: true }
+          });
+        }
         if (application) {
           // If application is approved, filter out APPROVED action
           if (application.isApproved) {

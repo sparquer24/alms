@@ -38,7 +38,7 @@ const PERMISSION_LIST: Permission[] = [
   },
   { key: 'canViewDisposed', label: 'View Disposed Applications', category: 'View Permissions' },
   { key: 'canViewSent', label: 'View Sent Applications', category: 'View Permissions' },
-  { key: 'canViewFinalDisposal', label: 'View Final Disposal', category: 'View Permissions' },
+  { key: 'canViewApplicationl', label: 'View Applications', category: 'View Permissions' },
   { key: 'canViewReports', label: 'View Reports', category: 'View Permissions' },
 
   // Action Permissions

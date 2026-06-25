@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DashboardApi } from '../config/APIClient';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ApplicationStatusChart,
   ApplicationTrendChart,

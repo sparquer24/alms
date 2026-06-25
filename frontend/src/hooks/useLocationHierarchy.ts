@@ -15,6 +15,11 @@ export interface AddressLocationValues {
   zone: string;
   division: string;
   policeStation: string;
+  stateName?: string;
+  districtName?: string;
+  zoneName?: string;
+  divisionName?: string;
+  policeStationName?: string;
 }
 
 interface LocationHierarchyActions {
@@ -32,6 +37,11 @@ interface LocationHierarchyActions {
     divisionOptions: { value: string; label: string }[];
     policeStationOptions: { value: string; label: string }[];
   };
+  loadStates: () => Promise<void>;
+  loadDistricts: (stateId: string) => Promise<void>;
+  loadZones: (districtId: string) => Promise<void>;
+  loadDivisions: (zoneId: string) => Promise<void>;
+  loadPoliceStations: (divisionId: string) => Promise<void>;
 }
 
 const initialState: LocationHierarchyState = {
@@ -53,13 +63,16 @@ const initialState: LocationHierarchyState = {
   error: null,
 };
 
-export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarchyActions] => {
+export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [LocationHierarchyState, LocationHierarchyActions] => {
   const [state, setState] = useState<LocationHierarchyState>(initialState);
+  const isRenewal = options?.isRenewal;
 
   // Load states on component mount
   useEffect(() => {
-    loadStates();
-  }, []);
+    if (!isRenewal) {
+      loadStates();
+    }
+  }, [isRenewal]);
 
   const loadStates = async () => {
     setState(prev => ({ ...prev, loadingStates: true, error: null }));
@@ -210,27 +223,53 @@ export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarc
   const hydrateFromValues = async (values: AddressLocationValues) => {
     if (!values.state) return;
 
-    setState(prev => ({
-      ...prev,
-      selectedState: values.state,
-      selectedDistrict: values.district || '',
-      selectedZone: values.zone || '',
-      selectedDivision: values.division || '',
-      selectedPoliceStation: values.policeStation || '',
-    }));
+    setState(prev => {
+      const updatedState = {
+        ...prev,
+        selectedState: values.state,
+        selectedDistrict: values.district || '',
+        selectedZone: values.zone || '',
+        selectedDivision: values.division || '',
+        selectedPoliceStation: values.policeStation || '',
+      };
 
-    await loadDistricts(values.state);
+      // Populate options arrays if names are provided, to avoid blank dropdowns and API calls
+      if (values.state && values.stateName) {
+        updatedState.states = [{ id: Number(values.state), name: values.stateName }];
+      }
+      if (values.district && values.districtName) {
+        updatedState.districts = [{ id: Number(values.district), name: values.districtName, stateId: Number(values.state) }];
+      }
+      if (values.zone && values.zoneName) {
+        updatedState.zones = [{ id: Number(values.zone), name: values.zoneName, districtId: Number(values.district) }];
+      }
+      if (values.division && values.divisionName) {
+        updatedState.divisions = [{ id: Number(values.division), name: values.divisionName, zoneId: Number(values.zone) }];
+      }
+      if (values.policeStation && values.policeStationName) {
+        updatedState.policeStations = [{ id: Number(values.policeStation), name: values.policeStationName, divisionId: Number(values.division) }];
+      }
 
+      return updatedState;
+    });
+
+    // Load dependent options if the values are pre-selected, so the dropdowns can show the selected names.
+    const promises: Promise<any>[] = [];
+    if (values.state) {
+      promises.push(loadDistricts(values.state));
+    }
     if (values.district) {
-      await loadZones(values.district);
+      promises.push(loadZones(values.district));
     }
-
     if (values.zone) {
-      await loadDivisions(values.zone);
+      promises.push(loadDivisions(values.zone));
+    }
+    if (values.division) {
+      promises.push(loadPoliceStations(values.division));
     }
 
-    if (values.division) {
-      await loadPoliceStations(values.division);
+    if (promises.length > 0) {
+      await Promise.all(promises);
     }
   };
 
@@ -266,6 +305,11 @@ export const useLocationHierarchy = (): [LocationHierarchyState, LocationHierarc
     hydrateFromValues,
     resetHierarchy,
     getSelectOptions,
+    loadStates,
+    loadDistricts,
+    loadZones,
+    loadDivisions,
+    loadPoliceStations,
   };
 
   return [state, actions];

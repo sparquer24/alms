@@ -124,7 +124,7 @@ export class RenewalWorkflowService {
     remarks: string
   ): Promise<any> {
     try {
-      const actionId = await this.getActionIdByCode('APPROVE');
+      const actionId = await this.getActionIdByCode('APPROVED');
       const result = await RenewalService.handleWorkflowAction(
         applicationId,
         actionId,

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IoMdHome } from 'react-icons/io';
 
 // Type assertion for react-icons to fix React 18 compatibility
@@ -45,12 +45,72 @@ const stepToSlug = (name: string) =>
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApplicationService } from '../../../../api/applicationService';
 
+// Shared skeleton component for loading states — defined outside component to avoid re-creation on every render
+function FormStepSkeleton() {
+  return (
+    <div
+      className='relative min-h-screen'
+      style={{
+        backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+        backgroundSize: 'cover',
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className='flex justify-center' style={{ paddingTop: 100, minHeight: '100vh' }}>
+        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full p-6'>
+          <div className='animate-pulse space-y-8'>
+            {/* Step header skeleton */}
+            <div className='flex items-center justify-center space-x-4 mb-8'>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className='h-3 w-20 bg-gray-200 rounded'></div>
+              ))}
+            </div>
+            {/* Form fields skeleton */}
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className='space-y-2'>
+                  <div className='h-4 w-32 bg-gray-200 rounded'></div>
+                  <div className='h-10 w-full bg-gray-200 rounded-lg'></div>
+                </div>
+              ))}
+            </div>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className='space-y-2'>
+                  <div className='h-4 w-32 bg-gray-200 rounded'></div>
+                  <div className='h-10 w-full bg-gray-200 rounded-lg'></div>
+                </div>
+              ))}
+            </div>
+            <div className='flex justify-between pt-6'>
+              <div className='h-12 w-24 bg-gray-200 rounded-lg'></div>
+              <div className='h-12 w-32 bg-gray-200 rounded-lg'></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const StepPage: React.FC<StepPageProps> = ({ params }) => {
   const router = useRouter();
   const [step, setStep] = useState<string | null>(null);
   const [allowedToEdit, setAllowedToEdit] = useState<boolean | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [lockedSteps, setLockedSteps] = useState<Set<number>>(new Set());
+  const isNavigatingRef = useRef(false);
+
+  // Compute current step index from the URL slug — must be before useEffect that references it
+  const currentStep = React.useMemo(() => {
+    if (!step) return 0;
+    if (step === 'preview') return 8;
+    if (step === 'declaration') return 9;
+    const idx = steps.findIndex(s => stepToSlug(s) === step);
+    return idx >= 0 ? idx : 0;
+  }, [step]);
   const searchParams = useSearchParams();
   const applicantId =
     searchParams?.get('id') ||
@@ -64,6 +124,47 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       setStep(resolvedParams.step);
     });
   }, [params]);
+
+  /**
+   * Determine which steps should be locked based on application data.
+   * Step 0 is always unlocked. Step N is unlocked when step N-1 has saved data.
+   * The current step is always unlocked so the user can stay on their page.
+   */
+  const getLockedSteps = (data: any, currentIdx: number, hasAppId: boolean): Set<number> => {
+    const unlocked = new Set<number>();
+    
+    // Step 0 is always unlocked
+    unlocked.add(0);
+
+    if (data) {
+      // Check each step's completion based on data fields
+      if (data.firstName) unlocked.add(1);       // Personal Info → Address Details
+      if (data.presentAddress || data.addresses?.length > 0) unlocked.add(2); // Address → Occupation
+      if (data.occupationAndBusiness) unlocked.add(3); // Occupation → Criminal History
+      if (data.criminalHistories?.length > 0) unlocked.add(4); // Criminal → License History
+      if (data.licenseHistories?.length > 0) unlocked.add(5); // License History → License Details
+      if (data.licenseDetails?.length > 0) unlocked.add(6); // License Details → Biometric
+      // Check biometric data OR photograph in fileUploads
+      const hasBiometric = data.biometricData?.biometricData?.fingerprints?.length > 0
+        || data.biometricData?.fingerprints?.length > 0
+        || data.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
+      if (hasBiometric) unlocked.add(7); // Biometric → Documents Upload
+      if (data.fileUploads?.length >= 3) unlocked.add(8); // Documents → Preview
+    } else if (hasAppId) {
+      // If we have an applicantId but no data yet, at least allow address step
+      unlocked.add(1);
+    }
+
+    // Always unlock the current step so the user can stay on their page
+    unlocked.add(currentIdx);
+
+    // Compute locked = all steps minus unlocked
+    const locked = new Set<number>();
+    for (let i = 0; i < steps.length; i++) {
+      if (!unlocked.has(i)) locked.add(i);
+    }
+    return locked;
+  };
 
   // Form-level guard: only allow editing when application is in DRAFT state.
   // Also fetch application data for validation
@@ -96,93 +197,25 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
     // Intentionally run only when applicantId changes
   }, [applicantId, router]);
 
-  /**
-   * Validate if all required data is present before allowing navigation to Declaration step
-   * Returns an array of missing fields, empty if all data is present
-   */
-  const validateApplicationData = (): string[] => {
-    const missingFields: string[] = [];
-
-    if (!applicationData) {
-      missingFields.push('Application data not loaded');
-      return missingFields;
+  // Compute locked steps when applicationData or currentStep changes
+  useEffect(() => {
+    if (allowedToEdit) {
+      setLockedSteps(getLockedSteps(applicationData, currentStep, !!applicantId));
     }
+  }, [applicationData, allowedToEdit, currentStep, applicantId]);
 
-    // Check presentAddress
-    if (!applicationData.presentAddress) {
-      missingFields.push('Present Address');
-    }
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
 
-    // Check permanentAddress
-    if (!applicationData.permanentAddress) {
-      missingFields.push('Permanent Address');
-    }
-
-    // Check occupationAndBusiness
-    if (!applicationData.occupationAndBusiness) {
-      missingFields.push('Occupation/Business Information');
-    }
-
-    // Check biometricData - check for fingerprints or photo
-    const biometricData =
-      applicationData.biometricData?.biometricData || applicationData.biometricData;
-    const hasFingerprints =
-      biometricData?.fingerprints &&
-      Array.isArray(biometricData.fingerprints) &&
-      biometricData.fingerprints.length > 0;
-    const hasPhoto = applicationData.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
-    if (!hasFingerprints && !hasPhoto) {
-      missingFields.push('Biometric Information (Photograph or Fingerprint)');
-    }
-
-    // Check fileUploads - at least 3 documents should be uploaded
-    const uploadedFilesCount = applicationData.fileUploads?.length || 0;
-    if (
-      !applicationData.fileUploads ||
-      !Array.isArray(applicationData.fileUploads) ||
-      uploadedFilesCount < 3
-    ) {
-      const remaining = 3 - uploadedFilesCount;
-      missingFields.push(
-        `Document Uploads (Need ${remaining} more document${remaining > 1 ? 's' : ''}, minimum 3 required)`
-      );
-    }
-
-    return missingFields;
-  };
-
-  // Show loading while params are being resolved
-  if (!step) {
-    return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-lg'>Loading...</div>
-      </div>
-    );
-  }
-
-  // While we check whether editing is allowed, show a loading state
-  if (allowedToEdit === null) {
-    return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-lg'>Checking application status...</div>
-      </div>
-    );
+  // Show skeleton only on initial load (params not resolved yet, permissions not checked yet)
+  // Do NOT show skeleton on navigation — let the current form stay visible until the new page loads
+  if (!step || allowedToEdit === null) {
+    return <FormStepSkeleton />;
   }
 
   let StepComponent: React.ComponentType<any> | null = null;
-  let currentStep = 0;
-
-  // Find the index of the current step by slug
-  // Special handling for preview and declaration which use different slug patterns
-  let stepIndex;
-  if (step === 'preview') {
-    stepIndex = 8; // Preview is at index 7 (adjusted after removing biometric step)
-  } else if (step === 'declaration') {
-    stepIndex = 9; // Declaration & Submit is at index 8 (adjusted)
-  } else {
-    stepIndex = steps.findIndex(s => stepToSlug(s) === step);
-  }
-  currentStep = stepIndex >= 0 ? stepIndex : 0;
 
   switch (step) {
     case stepToSlug('Personal Information'):
@@ -221,9 +254,16 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
   // Handler to change step and update the URL
   const handleStepClick = async (idx: number) => {
+    // Guard against rapid double-clicks while navigation is in progress
+    if (isNavigatingRef.current) return;
+
     // Compute dynamic preview/declaration indices to avoid hardcoding after step removal
     const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
     const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
+
+    // Set ref to prevent double-clicks (does NOT trigger re-render, so no skeleton flash)
+    isNavigatingRef.current = true;
+
     // preserve any existing search params (including optional application id) when navigating
     const currentParams = new URLSearchParams(searchParams ? searchParams.toString() : '');
     const pushWithParams = (path: string) => {
@@ -246,6 +286,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
           if (!latestData) {
             setValidationError('Application data not loaded. Please complete all steps first.');
+            isNavigatingRef.current = false;
             return;
           }
 
@@ -292,14 +333,17 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
             setValidationError(
               `Please complete the following before submitting:\n• ${missingFields.join('\n• ')}`
             );
+            isNavigatingRef.current = false;
             return;
           }
         } catch (err) {
           setValidationError('Failed to validate application data. Please try again.');
+          isNavigatingRef.current = false;
           return;
         }
       } else {
         setValidationError('Please create and save an application first.');
+        isNavigatingRef.current = false;
         return;
       }
 
@@ -307,6 +351,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
       setValidationError(null);
     }
 
+    // Navigate directly — the component unmounts on route change
     if (idx === previewIndex) {
       pushWithParams('/forms/createFreshApplication/preview');
     } else if (idx === declarationIndex) {
@@ -318,7 +363,7 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
 
   // Handler for go home button
   const handleGoHome = () => {
-    router.push('/inbox?type=drafts');
+    router.push('/inbox?type=all');
   };
 
   // Show home button on all steps
@@ -345,20 +390,16 @@ const StepPage: React.FC<StepPageProps> = ({ params }) => {
           </button>
         </div>
       )}
-      <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick} />
+      <StepHeader steps={steps} currentStep={currentStep} onStepClick={handleStepClick} lockedSteps={lockedSteps} />
       <div
-        className=' flex max-w-8xl px-4  justify-center sm:px-8 '
+        className='flex max-w-8xl px-4  justify-center sm:px-8'
         style={{
-          paddingTop: 100, // match header height (80px)
+          paddingTop: 100, // match header height
           minHeight: '100vh',
         }}
       >
         <div
-          className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl w-full flex flex-col p-0'
-          style={{
-            maxHeight: 'calc(100vh - 80px )',
-            overflowY: 'auto',
-          }}
+          className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full flex flex-col p-0'
         >
           {StepComponent && <StepComponent />}
         </div>

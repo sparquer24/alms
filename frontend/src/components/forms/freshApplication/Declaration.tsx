@@ -114,7 +114,7 @@ const Declaration = () => {
 
   const handleNavigateHome = () => {
     setShowSuccessModal(false);
-    router.push('/inbox?type=freshform'); // Navigate to dashboard or home page
+    router.push('/inbox?type=all'); // Navigate to dashboard or home page
   };
 
   return (
@@ -129,11 +129,7 @@ const Declaration = () => {
           {/* Display Application ID and License ID if available */}
           {(applicantId || almsLicenseId) && (
             <div className='mb-6 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded text-lg font-semibold max-w-md mx-auto text-center'>
-              {/* <div>Application ID: <span className="font-bold">{applicantId ?? '—'}</span></div> */}
-              {almsLicenseId && (
-                <strong className='text-sm mt-1'>License ID: {almsLicenseId}</strong>
-              )}
-            </div>
+              {/* <div>Application ID: <span className="font-bold">{applicantId ?? '—'}</span></div> */}</div>
           )}{' '}
           {error && (
             <div className='mb-4 p-4 bg-red-50 border border-red-200 rounded-md max-w-lg mx-auto'>

@@ -1,9 +1,10 @@
-export const logError = (_message: string, _error?: unknown): void => {
-  // Intentionally empty - logging disabled for production
+export const logError = (message: string, error?: unknown): void => {
+  // In a real production app, this would send to Sentry, DataDog, etc.
+  console.error(`[ERROR] ${message}`, error || '');
 };
 
-export const logDebug = (_message: string): void => {
+export const logDebug = (message: string): void => {
   if (process.env.NODE_ENV === 'development') {
-    // Intentionally empty - debug logging disabled
+    console.debug(`[DEBUG] ${message}`);
   }
 };

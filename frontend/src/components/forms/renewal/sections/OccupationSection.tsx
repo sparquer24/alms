@@ -1,49 +1,67 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
-import { locationAPI, toSelectOptions } from '../../../../api/locationApi';
+import { useLocationHierarchy } from '../../../../hooks/useLocationHierarchy';
 
-const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }> = ({ formData, onChange }) => {
-  const [stateOptions, setStateOptions] = useState<{ value: string; label: string }[]>([]);
-  const [districtOptions, setDistrictOptions] = useState<{ value: string; label: string }[]>([]);
-  const [loadingStates, setLoadingStates] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
+type ErrorsMap = Record<string, string | undefined>;
 
+const OccupationSection = forwardRef(function OccupationSection(
+  props: { formData: any; onChange: (e: any) => void; errors?: ErrorsMap },
+  ref,
+) {
+  const { formData, onChange, errors = {} } = props;
+
+  // Location hierarchy for state and district
+  const [locationState, locationActions] = useLocationHierarchy({ isRenewal: true });
+
+  // Sync location state with form values (only when data is loaded from backend)
   useEffect(() => {
-    const loadStates = async () => {
-      try {
-        setLoadingStates(true);
-        const states = await locationAPI.getAllStates();
-        setStateOptions(toSelectOptions(states));
-      } finally {
-        setLoadingStates(false);
-      }
+    if (!formData.officeBusinessState) return;
+
+    const values = {
+      state: formData.officeBusinessState,
+      district: formData.officeBusinessDistrict || '',
+      zone: '',
+      division: '',
+      policeStation: '',
+      stateName: formData.officeBusinessStateName,
+      districtName: formData.officeBusinessDistrictName,
     };
-    loadStates();
-  }, []);
 
-  useEffect(() => {
-    const stateId = formData.officeBusinessState;
-    if (!stateId || !/^\d+$/.test(String(stateId))) {
-      setDistrictOptions([]);
-      return;
+    // Only sync if the selected state/district is different from location state
+    const isOutOfSync = 
+      formData.officeBusinessState !== locationState.selectedState ||
+      formData.officeBusinessDistrict !== locationState.selectedDistrict;
+
+    if (isOutOfSync) {
+      locationActions.hydrateFromValues(values);
     }
+  }, [
+    formData.officeBusinessState,
+    formData.officeBusinessDistrict,
+    locationState.selectedState,
+    locationState.selectedDistrict,
+    formData.officeBusinessStateName,
+    formData.officeBusinessDistrictName
+  ]);
 
-    const loadDistricts = async () => {
-      try {
-        setLoadingDistricts(true);
-        const districts = await locationAPI.getDistrictsByState(Number(stateId));
-        setDistrictOptions(toSelectOptions(districts));
-      } finally {
-        setLoadingDistricts(false);
+  useImperativeHandle(ref, () => ({
+    focusFirstInvalid: () => {
+      const firstKey = Object.keys(errors).find(k => !!errors[k]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus(); } catch { /* ignore */ }
+        }
       }
-    };
-    loadDistricts();
-  }, [formData.officeBusinessState]);
+    },
+  }));
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    const label = stateOptions.find((option) => option.value === value)?.label || '';
+    const label = locationActions.getSelectOptions().stateOptions.find((option) => option.value === value)?.label || '';
+    locationActions.setSelectedState(value);
     onChange({ target: { name: 'officeBusinessState', value } });
     onChange({ target: { name: 'officeBusinessStateName', value: label } });
     onChange({ target: { name: 'officeBusinessDistrict', value: '' } });
@@ -52,7 +70,8 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
 
   const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    const label = districtOptions.find((option) => option.value === value)?.label || '';
+    const label = locationActions.getSelectOptions().districtOptions.find((option) => option.value === value)?.label || '';
+    locationActions.setSelectedDistrict(value);
     onChange({ target: { name: 'officeBusinessDistrict', value } });
     onChange({ target: { name: 'officeBusinessDistrictName', value: label } });
   };
@@ -60,17 +79,19 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
   return (
     <div className='space-y-6'>
       <div>
-        <Input label='10. Occupation' name='occupation' value={formData.occupation || ''} onChange={onChange} placeholder='Enter occupation' />
+        <Input label='10. Occupation' name='occupation' value={formData.occupation || ''} onChange={onChange} placeholder='Enter occupation' required error={errors['occupation']} />
       </div>
 
       <div>
         <TextArea
-          label='11. Office/Business address *'
+          label='11. Office/Business address'
           name='officeBusinessAddress'
           value={formData.officeBusinessAddress || ''}
           onChange={onChange}
           placeholder='Enter office or business address'
           rows={2}
+          required
+          error={errors['officeBusinessAddress']}
         />
       </div>
 
@@ -80,24 +101,38 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
           name='officeBusinessState'
           value={formData.officeBusinessState || ''}
           onChange={handleStateChange}
-          options={stateOptions}
-          placeholder={loadingStates ? 'Loading states...' : 'Select state'}
-          disabled={loadingStates}
+          onFocus={() => {
+            if (locationState.states.length <= 1) {
+              locationActions.loadStates();
+            }
+          }}
+          options={locationActions.getSelectOptions().stateOptions}
+          placeholder={locationState.loadingStates ? 'Loading states...' : 'Select state'}
+          disabled={locationState.loadingStates}
+          required
+          error={errors['officeBusinessState']}
         />
         <Select
           label='District'
           name='officeBusinessDistrict'
           value={formData.officeBusinessDistrict || ''}
           onChange={handleDistrictChange}
-          options={districtOptions}
+          onFocus={() => {
+            if (formData.officeBusinessState && locationState.districts.length <= 1) {
+              locationActions.loadDistricts(formData.officeBusinessState);
+            }
+          }}
+          options={locationActions.getSelectOptions().districtOptions}
           placeholder={
-            loadingDistricts
+            locationState.loadingDistricts
               ? 'Loading districts...'
               : !formData.officeBusinessState
               ? 'Select state first'
               : 'Select district'
           }
-          disabled={loadingDistricts || !formData.officeBusinessState}
+          disabled={locationState.loadingDistricts || !formData.officeBusinessState}
+          required
+          error={errors['officeBusinessDistrict']}
         />
       </div>
 
@@ -112,6 +147,8 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
             value={formData.cropProtectionLocation || ''}
             onChange={onChange}
             placeholder='Enter location'
+            required
+            error={errors['cropProtectionLocation']}
           />
           <Input
             label='Area of land under cultivation'
@@ -119,11 +156,13 @@ const OccupationSection: React.FC<{ formData: any; onChange: (e: any) => void }>
             value={formData.cultivatedArea || ''}
             onChange={onChange}
             placeholder='Enter area (in acres)'
+            required
+            error={errors['cultivatedArea']}
           />
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default OccupationSection;

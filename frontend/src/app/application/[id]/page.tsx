@@ -4,12 +4,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
-import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
-import { useNotifications } from '../../../config/notificationContext';
-import NotificationDropdown from '../../../components/NotificationDropdown';
-import Link from 'next/link';
+
+
+
 import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
@@ -22,143 +22,64 @@ import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls
 import { RenewalService } from '../../../api/renewalService';
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
-import QRCodeDisplay from '../../../components/QRCodeDisplay';
+
 import { useGlobalAction } from '../../../context/GlobalActionContext';
 
-// --- Small UI formatting helpers to present user-readable data ---
-const humanize = (val?: any) => {
-  if (val === null || val === undefined) return '—';
-  const s = String(val);
-  if (!s) return '—';
-  return s
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-};
+// Import redesigned components and Lucide icons
+import { StatusBadge, DetailItem, SectionCard, SummaryCard, DocumentTable } from '../components/RedesignedComponents';
+import PrintApplicationForm from '../components/PrintApplicationForm';
+import {
+  UserRound,
+  UserCheck,
+  CalendarDays,
+  CreditCard,
+  Fingerprint,
+  FileCheck,
+  UserCog,
+  BadgeCheck,
+  Clock3,
+  Shield,
+  Target,
+  ShieldCheck,
+  Crosshair,
+  MapPin,
+  LocateFixed,
+  Package,
+  FileText,
+  History,
+  ClipboardCheck,
+  Building2,
+  ShieldAlert,
+  AlertTriangle,
+  Users,
+  TriangleAlert,
+  FileWarning,
+  Calendar,
+  Ban,
+  Scale,
+  FileSearch,
+  Building,
+  Landmark,
+  BriefcaseBusiness,
+  MapPinned,
+  FolderOpen,
+  Eye,
+  Download,
+  Printer
+} from 'lucide-react';
 
-const formatGender = (g?: string) => {
-  if (!g) return '—';
-  const s = String(g).trim().toLowerCase();
-  if (s === 'm' || s === 'male') return 'Male';
-  if (s === 'f' || s === 'female') return 'Female';
-  if (s === 'o' || s === 'other') return 'Other';
-  return humanize(s);
-};
+import { humanize, formatGender, formatStatusLabel, formatApplicationType, formatPhone } from '../../../utils/formatters';
+import { normalizeRenewalApplication } from '../../../utils/applicationFormatters';
+import { openAttachment } from '../../../utils/attachmentViewer';
+import { generateApplicationPrintHtml } from '../../../utils/printGenerators';
+import { getStatusStyle } from '../../../utils/statusColors';
 
-const formatStatusLabel = (statusOrObj?: any) => {
-  if (!statusOrObj) return '—';
-  if (typeof statusOrObj === 'string' || typeof statusOrObj === 'number')
-    return humanize(statusOrObj);
-  // If object with name property (workflowStatus), use that
-  if (statusOrObj.name) return humanize(statusOrObj.name);
-  return humanize(JSON.stringify(statusOrObj));
-};
-
-const formatApplicationType = (t?: any) => {
-  if (!t) return 'Fresh License';
-  const map: Record<string, string> = {
-    fresh: 'Fresh License',
-    renewal: 'Renewal',
-    duplicate: 'Duplicate',
-  };
-  const key = String(t).trim().toLowerCase();
-  return map[key] || humanize(key);
-};
-
-const formatPhone = (p?: string) => {
-  if (!p) return '—';
-  const digits = String(p).replace(/[^0-9+]/g, '');
-  if (digits.length >= 10 && digits.length <= 13) {
-    return digits.replace(/(\+?\d{0,3})(\d{3})(\d{3})(\d{2,4})/, (m, c1, a, b, c) => {
-      return [c1, a, b, c].filter(Boolean).join(' ');
-    });
-  }
-  return p;
-};
-
-const normalizeRenewalApplication = (renewalApp: any): ApplicationData => {
-  const applicantName =
-    renewalApp?.applicantName ||
-    [renewalApp?.firstName, renewalApp?.middleName, renewalApp?.lastName].filter(Boolean).join(' ') ||
-    'Unknown Applicant';
-
-  return {
-    id: String(renewalApp?.id || ''),
-    acknowledgementNo: renewalApp?.acknowledgementNo,
-    firstName: renewalApp?.firstName,
-    middleName: renewalApp?.middleName,
-    lastName: renewalApp?.lastName,
-    applicantName,
-    applicantMobile: renewalApp?.applicantMobile || renewalApp?.mobileNumber || '',
-    applicantEmail: renewalApp?.applicantEmail || renewalApp?.email || undefined,
-    mobileNumber: renewalApp?.applicantMobile || renewalApp?.mobileNumber || '',
-    email: renewalApp?.applicantEmail || renewalApp?.email || undefined,
-    parentOrSpouseName: renewalApp?.parentOrSpouseName,
-    sex: renewalApp?.sex,
-    gender: renewalApp?.sex ? (formatGender(renewalApp.sex) as any) : undefined,
-    dob: renewalApp?.dateOfBirth || undefined,
-    dateOfBirth: renewalApp?.dateOfBirth || undefined,
-    dobInWords: renewalApp?.dobInWords,
-    panNumber: renewalApp?.panNumber,
-    aadharNumber: renewalApp?.aadharNumber,
-    placeOfBirth: renewalApp?.placeOfBirth || undefined,
-    applicationType: 'Renewal Application',
-    applicationDate: renewalApp?.createdAt || new Date().toISOString(),
-    applicationTime: renewalApp?.createdAt ? new Date(renewalApp.createdAt).toTimeString() : undefined,
-    status: renewalApp?.workflowStatus?.name || renewalApp?.status || (renewalApp?.isSubmit ? 'Submitted' : 'Draft'),
-    status_id: renewalApp?.workflowStatusId ?? (renewalApp?.isSubmit ? 1 : 0),
-    workflowStatus: renewalApp?.workflowStatus
-      ? {
-          id: renewalApp.workflowStatus.id || 0,
-          code: renewalApp.workflowStatus.code || '',
-          name: renewalApp.workflowStatus.name || '',
-        }
-      : undefined,
-    currentUser:
-      renewalApp?.currentUser ||
-      (renewalApp?.currentUserId
-        ? {
-            id: renewalApp.currentUserId,
-            username: renewalApp.currentUserName || renewalApp.currentUserUsername || undefined,
-          }
-        : undefined),
-    previousUser: renewalApp?.previousUser || undefined,
-    assignedTo: String(renewalApp?.currentUserId || ''),
-    lastUpdated: renewalApp?.updatedAt || renewalApp?.createdAt || new Date().toISOString(),
-    createdAt: renewalApp?.createdAt,
-    updatedAt: renewalApp?.updatedAt,
-    documents: Array.isArray(renewalApp?.documents)
-      ? renewalApp.documents
-      : Array.isArray(renewalApp?.fileUploads)
-      ? renewalApp.fileUploads.map((upload: any) => ({
-          ...upload,
-          name: upload?.fileName || upload?.name || '',
-          url:
-            upload?.fileUrl || upload?.url || upload?.path || upload?.downloadUrl || '',
-          type: upload?.fileType || upload?.type || '',
-        }))
-      : [],
-    workflowHistories: Array.isArray(renewalApp?.workflowHistories) ? renewalApp.workflowHistories : [],
-    // Use nested objects directly from response - now included by updated backend
-    presentAddress: renewalApp?.presentAddress || undefined,
-    permanentAddress: renewalApp?.permanentAddress || undefined,
-    occupationAndBusiness: renewalApp?.occupationAndBusiness || undefined,
-    licenseDetails: Array.isArray(renewalApp?.licenseDetails) ? renewalApp.licenseDetails : (renewalApp?.licenseDetails ? [renewalApp.licenseDetails] : []),
-    biometricData: renewalApp?.biometricData || undefined,
-    actions: {
-      canForward: false,
-      canReport: true,
-      canApprove: false,
-      canReject: false,
-      canRaiseRedflag: false,
-      canReturn: false,
-      canDispose: false,
-    },
-    usersInHierarchy: Array.isArray(renewalApp?.usersInHierarchy) ? renewalApp.usersInHierarchy : [],
-  };
+const hexToRgba = (hex: string, alpha: number): string => {
+  const cleanHex = hex.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 interface ApplicationDetailPageProps {
@@ -168,7 +89,7 @@ interface ApplicationDetailPageProps {
 }
 
 export default function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
-  const { isAuthenticated, user, userRole, isLoading: authLoading } = useAuthSync();
+  const { isAuthenticated, user, userRole, isLoading: authLoading, initialized } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -183,9 +104,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [isProcessing, setIsProcessing] = useState(false);
   const [isForwarding, setIsForwarding] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const { unreadCount } = useNotifications();
-  const [displayName, setDisplayName] = useState<string | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [selectedAction, setSelectedAction] = useState<
@@ -235,148 +153,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     return Array.isArray(rawDetails) ? rawDetails.filter(Boolean) : [rawDetails];
   }, [application]);
 
-  useEffect(() => {
-    const name = user?.name || user?.username;
-    if (!authLoading && name) setDisplayName(name);
-  }, [user, authLoading]);
+  const applicantName = useMemo(() => {
+    return [
+      application?.firstName,
+      application?.middleName,
+      application?.lastName,
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+      application?.applicantName ||
+      'N/A';
+  }, [application]);
 
-  // Open attachments from history with a robust viewer (PDF/image) in a new tab
-  const openAttachment = (att: any) => {
-    try {
-      const rawUrl =
-        typeof att?.url === 'string'
-          ? att.url
-          : typeof att?.fileUrl === 'string'
-          ? att.fileUrl
-          : '';
-      const fileName = att?.name || att?.fileName || 'attachment';
-      if (!rawUrl) return;
 
-      const isHttpUrl = /^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('/');
-      const isDataUrl = rawUrl.startsWith('data:');
-
-      // Helper: open a blob/content in a simple viewer HTML
-      const openInViewer = (objectUrl: string, contentType: string) => {
-        const viewer = window.open('', '_blank');
-        if (!viewer) {
-          // Popup blocked -> download
-          const a = document.createElement('a');
-          a.href = objectUrl;
-          a.download = fileName;
-          a.rel = 'noopener';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          return;
-        }
-        const isPdf = /pdf/i.test(contentType);
-        const isImage = /^image\//i.test(contentType);
-        const isHtml = /html|text\//i.test(contentType) || fileName.toLowerCase().endsWith('.html');
-        const safeTitle = fileName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-        let body = '';
-        if (isPdf) {
-          body =
-            `<object data="${objectUrl}" type="application/pdf" style="width:100%;height:100vh;">` +
-            `<p>PDF preview unavailable. <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a></p>` +
-            `</object>`;
-        } else if (isImage) {
-          body = `<img src="${objectUrl}" alt="${safeTitle}" style="max-width:100%;height:auto;display:block;margin:0 auto;padding:16px;" />`;
-        } else if (isHtml || contentType.includes('plain')) {
-          // For ground reports and HTML content, try to render as iframe
-          body = `<iframe src="${objectUrl}" style="width:100%;height:100vh;border:none;"></iframe>
-                  <div style="position:fixed;bottom:20px;right:20px;">
-                    <a href="${objectUrl}" target="_self" download="${safeTitle}" style="padding:10px 20px;background:#3b82f6;color:white;text-decoration:none;border-radius:6px;">Download</a>
-                  </div>`;
-        } else {
-          body = `<div style="padding:16px;font-family:system-ui,Segoe UI,Arial;">
-             <p>Preview not supported for this file type (${contentType}).</p>
-             <a href="${objectUrl}" target="_self" download="${safeTitle}">Download ${safeTitle}</a>
-           </div>`;
-        }
-
-        viewer.document.open();
-        viewer.document.write(
-          `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${safeTitle}</title><style>body{margin:0;padding:0;}</style></head><body style="margin:0;">${body}</body></html>`
-        );
-        viewer.document.close();
-      };
-
-      if (isHttpUrl) {
-        // Let browser handle http(s) directly (respecting Content-Disposition)
-        const win = window.open(rawUrl, '_blank', 'noopener');
-        if (!win) {
-          const a = document.createElement('a');
-          a.href = rawUrl;
-          a.download = fileName;
-          a.rel = 'noopener';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }
-        return;
-      }
-
-      // Build Blob from data URL or bare base64
-      let base64Data = '';
-      // Infer content type from name if not provided
-      let contentType =
-        att?.contentType ||
-        (() => {
-          const lower = (fileName || '').toLowerCase();
-          if (lower.endsWith('.pdf')) return 'application/pdf';
-          if (lower.endsWith('.png')) return 'image/png';
-          if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-          if (lower.endsWith('.gif')) return 'image/gif';
-          if (lower.endsWith('.svg')) return 'image/svg+xml';
-          if (lower.endsWith('.txt')) return 'text/plain';
-          return 'application/octet-stream';
-        })();
-      if (isDataUrl) {
-        const match = rawUrl.match(/^data:([^;]+);base64,(.*)$/i);
-        if (match) {
-          contentType = match[1] || contentType;
-          base64Data = match[2] || '';
-        } else {
-          // Non-base64 data URL; open as-is
-          const win = window.open(rawUrl, '_blank', 'noopener');
-          if (!win) {
-            const a = document.createElement('a');
-            a.href = rawUrl;
-            a.download = fileName;
-            a.rel = 'noopener';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          }
-          return;
-        }
-      } else {
-        // Bare base64 string; normalize URL-safe base64 and pad
-        base64Data = rawUrl;
-      }
-
-      // Normalize base64 (URL-safe -> standard) and remove whitespace
-      let normalized = (base64Data || '').replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
-      const padding = normalized.length % 4;
-      if (padding) normalized += '='.repeat(4 - padding);
-
-      // Decode base64 to Blob
-      const byteChars = atob(normalized);
-      const len = byteChars.length;
-      const u8 = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        u8[i] = byteChars.charCodeAt(i);
-      }
-      const blob = new Blob([u8.buffer], { type: contentType });
-      const blobUrl = URL.createObjectURL(blob);
-      openInViewer(blobUrl, contentType);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-    } catch (e) {
-      // Last-resort message
-      alert('Unable to preview file. It may still be downloadable from the history.');
-    }
-  };
 
   // Handle params Promise for React 18 compatibility
   useEffect(() => {
@@ -386,10 +175,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [params]);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (initialized && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, initialized, router]);
 
   // Show header and sidebar like other pages (Settings, etc.)
   useEffect(() => {
@@ -469,36 +258,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     router.push('/');
   };
 
-  // Accepts either a status string or a numeric statusId and returns
-  // Tailwind classes for the badge. We coerce the input to string to
-  // make the helper robust when application stores numeric status ids.
-  const getStatusBadgeClass = (status?: string | number) => {
-    const raw = status ?? '';
-    const s = String(raw).toLowerCase();
-    switch (s) {
-      case 'forwarded':
-      case 'forwarded'.toString():
-        return 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm';
-      case 'pending':
-        return 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm';
-      case 'approved':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm';
-      case 'rejected':
-        return 'bg-red-50 text-red-700 border-red-200 shadow-sm';
-      case 'returned':
-        return 'bg-orange-50 text-orange-700 border-orange-200 shadow-sm';
-      case 'red-flagged':
-      case 'redflagged':
-      case 'red_flagged':
-        return 'bg-red-50 text-red-700 border-red-200 shadow-sm';
-      case 'disposed':
-        return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
-      default:
-        // Unknown status (including numeric ids we don't explicitly map)
-        // fall back to neutral styling.
-        return 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm';
-    }
-  };
+
   const handleProcessApplication = async (action: string, reason: string) => {
     if (!application) return;
 
@@ -640,231 +400,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   };
 
-  // Print attached documents (not UI chrome). Excludes processing UI; includes application history.
+  // Print the redesigned dashboard layout directly
   const handleBrowserPrint = () => {
-    if (!application) {
-      alert('No application loaded to print.');
-      return;
-    }
-
-    try {
-      // Collect attachments from top-level `documents` (UI) and workflow histories
-      const attachments: Array<any> = [];
-      if ((application as any).documents && Array.isArray((application as any).documents)) {
-        attachments.push(...(application as any).documents);
-      }
-      // Backwards-compat: accept `attachments` field if present
-      if ((application as any).attachments && Array.isArray((application as any).attachments)) {
-        attachments.push(...(application as any).attachments);
-      }
-      if (
-        (application as any).workflowHistories &&
-        Array.isArray((application as any).workflowHistories)
-      ) {
-        (application as any).workflowHistories.forEach((h: any) => {
-          if (h.attachments && Array.isArray(h.attachments)) attachments.push(...h.attachments);
-        });
-      }
-
-      if (attachments.length === 0) {
-        // If there are no attachments, still provide history-only printable document
-        if (!confirm('No attached documents found. Print application history only?')) {
-          setShowPrintOptions(false);
-          return;
-        }
-      }
-
-      // Build application header
-      const appTitle = `Application ${String(application.id)}`;
-      const applicantName =
-        (application as any).applicantName || (application as any).fullName || '';
-
-      // Build history HTML
-      let historyHtml = '';
-      if (
-        (application as any).workflowHistories &&
-        Array.isArray((application as any).workflowHistories)
-      ) {
-        historyHtml += `<section class="history"><h2>Application History</h2>`;
-        historyHtml += `<ol class="history-list">`;
-        (application as any).workflowHistories.forEach((h: any) => {
-          const when = h?.createdAt || h?.date || '';
-          const who = h?.performedBy || h?.user || h?.actor || '';
-          const action = h?.action || h?.status || '';
-          const comment = h?.comments || h?.comment || h?.notes || '';
-          historyHtml += `<li class="history-item"><div class="meta"><div class="when">${String(when)}</div><div class="who">${String(who)}</div><div class="action">${String(action)}</div></div>`;
-          if (comment) historyHtml += `<div class="comment">${String(comment)}</div>`;
-          historyHtml += `</li>`;
-        });
-        historyHtml += `</ol></section>`;
-      }
-
-      // Build attachments HTML — each attachment on its own page-break block
-      let attachmentsHtml = '';
-      attachments.forEach((att: any, idx: number) => {
-        const name = att?.name || att?.fileName || `attachment-${idx + 1}`;
-        const url = att?.url || att?.path || att?.downloadUrl;
-        const type = att?.contentType || att?.mime || '';
-        if (!url) return;
-
-        // Normalize a human friendly label for the document type/category
-        const label = (att?.type || att?.category || '').toString();
-        attachmentsHtml += `<section class="doc-block" data-attachment-index="${idx}">
-            <h3 class="doc-title">${String(name)}</h3>
-            ${label ? `<div class="doc-label" style="font-size:12px;color:#374151;margin-bottom:6px;">${label.toUpperCase()}</div>` : ''}`;
-
-        // Embed PDFs and other embeddable types using object/iframe; images with img tag
-        if (/pdf/i.test(type) || name.toLowerCase().endsWith('.pdf')) {
-          attachmentsHtml += `<object data="${url}" type="application/pdf" class="embedded-doc">`;
-          attachmentsHtml += `<p>Unable to display PDF. <a href="${url}" target="_blank" rel="noopener">Open or download</a></p>`;
-          attachmentsHtml += `</object>`;
-        } else if (/^image\//i.test(type) || /\.(png|jpe?g|gif|svg)$/i.test(name)) {
-          attachmentsHtml += `<img src="${url}" alt="${String(name)}" class="embedded-image" />`;
-        } else {
-          // Fallback: provide a download link and attempt iframe
-          attachmentsHtml += `<iframe src="${url}" class="embedded-doc-iframe"></iframe>`;
-          attachmentsHtml += `<p><a href="${url}" target="_blank" rel="noopener">Open ${String(name)}</a></p>`;
-        }
-
-        attachmentsHtml += `</section>`;
-      });
-
-      // Compose full HTML for the print window — styled to match the public application page
-      const statusLabel = formatStatusLabel(
-        (application as any).workflowStatus || (application as any).status
-      );
-      const html = `<!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width,initial-scale=1" />
-          <title>${appTitle} - Documents</title>
-          <style>
-            html,body{height:100%;}
-            body{font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:#111; margin:0; background:#f8fafc}
-            .page{max-width:900px;margin:24px auto;background:#fff;border:1px solid #e6eef8;border-radius:10px;overflow:hidden}
-            .print-header{background:#001F54;color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center}
-            .brand{display:flex;gap:12px;align-items:center}
-            .brand .logo{width:44px;height:44px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;border-radius:8px}
-            .brand h1{margin:0;font-size:18px}
-            .brand p{margin:0;font-size:12px;opacity:0.9}
-            .status-badge{background:#fff;color:#001F54;padding:6px 12px;border-radius:999px;font-weight:600;font-size:13px}
-            .content{padding:20px 28px}
-            .card{background:#fff;padding:18px;border-radius:8px;border:1px solid #eef2f7;margin-bottom:18px}
-            .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-            .photo{width:140px;height:180px;object-fit:cover;border:1px solid #e6eef8;border-radius:6px}
-            h2{font-size:16px;margin:0 0 8px}
-            .muted{color:#6b7280;font-size:13px}
-            .label{font-size:12px;color:#6b7280}
-            .value{font-weight:600;color:#111}
-            .documents{margin-top:8px}
-            .doc-item{padding:12px;border:1px solid #eef2f7;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-            .doc-meta{display:flex;gap:12px;align-items:center}
-            .doc-type{font-size:12px;color:#065f46;font-weight:700}
-            .doc-name{font-size:13px;color:#0f172a}
-            .doc-actions button{margin-left:8px;padding:8px 12px;border-radius:6px;border:1px solid #e6eef8;background:#fff;cursor:pointer}
-            .history{margin-top:12px}
-            .history-item{padding:12px;border-left:4px solid #e6eef8;background:#fbfdff;margin-bottom:8px;border-radius:4px}
-            .history-meta{display:flex;gap:12px;color:#374151;font-size:13px}
-            @media print{ body{background:#fff} .print-header{page-break-after:avoid} .doc-item{page-break-inside:avoid} .history-item{page-break-inside:avoid} }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="print-header">
-              <div class="brand">
-                <div class="logo">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C7.03 2 3 6.03 3 11c0 5.86 5.06 10.48 9 11 3.94-.52 9-5.14 9-11 0-4.97-4.03-9-9-9z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </div>
-                <div>
-                  <h1>Arms License Application</h1>
-                  <p>Public / Official Printout</p>
-                </div>
-              </div>
-              <div class="status-badge">${String(statusLabel).toUpperCase()}</div>
-            </div>
-
-            <div class="content">
-              <div class="card">
-                <div style="display:flex;gap:18px;align-items:flex-start">
-                  <div style="flex:1">
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                      <div>
-                        <div class="label">Application ID</div>
-                        <div class="value">${String((application as any).id || applicationId || (application as any).applicationId || '')}</div>
-                      </div>
-                      <div style="text-align:right">
-                        ${(application as any).acknowledgementNo || (application as any).acknowledgement_no ? `<div class="label">Acknowledgement No.</div><div class="value">${String((application as any).acknowledgementNo || (application as any).acknowledgement_no)}</div>` : ''}
-                      </div>
-                    </div>
-
-                    <h2 style="margin-top:12px">Applicant Information</h2>
-                    <div class="grid" style="grid-template-columns:2fr 140px;">
-                      <div>
-                        <div class="label">Full Name</div>
-                        <div class="value">${String(applicantName || (application as any).applicantName || '')}</div>
-                        <div style="height:8px"></div>
-                        <div class="label">Date of Birth</div>
-                        <div class="value">${String((application as any).dateOfBirth || (application as any).dob || '')}</div>
-                        <div style="height:8px"></div>
-                        <div class="label">Gender</div>
-                        <div class="value">${String((application as any).sex || (application as any).gender || '')}</div>
-                      </div>
-                      <div style="text-align:right">
-                        ${(application as any).photoUrl || (application as any).photo ? `<img src="${(application as any).photoUrl || (application as any).photo}" class="photo"/>` : `<div class="photo" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;background:#f3f4f6">No Photo</div>`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="card">
-                <h2>Documents Uploaded</h2>
-                <div class="documents">
-                  ${attachmentsHtml || '<div class="muted">No documents uploaded</div>'}
-                </div>
-              </div>
-
-              <div class="card">
-                <h2>Application History</h2>
-                <div class="history">
-                  ${historyHtml || '<div class="muted">No history available</div>'}
-                </div>
-              </div>
-
-              <div style="text-align:center;margin-top:12px;color:#6b7280;font-size:12px">Generated: ${new Date().toLocaleString()}</div>
-
-              <div style="margin-top:18px;text-align:center;">
-                <button onclick="window.print();" style="padding:8px 14px;margin-right:8px;border-radius:6px;border:1px solid #e6eef8;background:#fff">Print</button>
-                <button onclick="window.close();" style="padding:8px 14px;border-radius:6px;border:1px solid #e6eef8;background:#fff">Close</button>
-              </div>
-            </div>
-          </div>
-          <script>
-            function tryPrint(){ try{ window.focus(); window.print(); }catch(e){} }
-            window.addEventListener('load', function(){ setTimeout(tryPrint, 500); });
-          </script>
-        </body>
-      </html>`;
-
-      const w = window.open('', '_blank');
-      if (!w) {
-        alert('Popup blocked. Please allow popups for this site to print documents.');
-        setShowPrintOptions(false);
-        return;
-      }
-
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-
-      setShowPrintOptions(false);
-    } catch (err) {
-      console.error('Print failed', err);
-      // Fallback: inform user and do not print the UI
-      alert('Unable to produce printable document. Please try downloading attachments manually.');
-      setShowPrintOptions(false);
-    }
+    window.print();
   };
 
   // Handle divider drag start
@@ -924,14 +462,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       /* ignore */
     }
 
-    // Redirect to inbox/forwarded after successful proceedings action
+    // Redirect to inbox/all after successful proceedings action
     setTimeout(() => {
-      router.push('/inbox?type=forwarded');
+      router.push('/inbox?type=all');
     }, 2000);
   };
 
   // Show skeleton loading while authenticating or loading data
-  if (authLoading || loading) {
+  if (!initialized || authLoading || loading) {
     return <PageLayoutSkeleton />;
   }
   if (!isAuthenticated) {
@@ -941,134 +479,33 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   return (
     <div className='flex flex-col min-h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
-      {/* Custom Header with Breadcrumb, Title and Status */}
-      <header className='fixed top-0 left-0 right-0 bg-[#001F54] shadow-lg z-10'>
-        <div className='px-6 py-4'>
-          {/* Title and Status Row */}
-          <div className='flex items-center justify-between'>
-            <nav className='mb-2' aria-label='Breadcrumb'>
-              <ol className='flex items-center space-x-2 text-sm'>
-                <li>
-                  <button
-                    onClick={() => router.push('/inbox/forwarded')}
-                    className='text-white text-opacity-70 hover:text-opacity-100 transition-colors'
-                  >
-                    Home
-                  </button>
-                </li>
-                <li className='text-white text-opacity-50'>/</li>
-                <li>
-                  <span className='text-white text-opacity-70'>Application Details</span>
-                </li>
-                <li className='text-white text-opacity-50'>/</li>
-                <li>
-                  <span className='font-medium text-white'>
-                    Application ID: {applicationId || '...'}
-                  </span>
-                </li>
-              </ol>
-            </nav>
-            {/* Current Status and Right Side Actions */}
-            <div className='flex items-center space-x-3'>
-              <div className='flex items-center space-x-2 bg-white bg-opacity-10 rounded-lg px-4 py-2'>
-                <div className='w-8 h-8 bg-white bg-opacity-20 rounded-lg flex items-center justify-center'>
-                  <svg
-                    className='w-5 h-5 text-white'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <span
-                    className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${getStatusBadgeClass(
-                      application ? (application.status ?? application.status_id) : undefined
-                    )}`}
-                  >
-                    {application
-                      ? formatStatusLabel(
-                          application.workflowStatus || application.status || application.status_id
-                        )
-                      : 'Loading'}
-                  </span>
-                </div>
-              </div>
-              {/* Notification Bell */}
-              <div className='relative'>
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full'
-                  aria-label='Toggle notifications'
-                  aria-expanded={showNotifications}
-                >
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    className='h-6 w-6'
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    stroke='currentColor'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'
-                    />
-                  </svg>
-                  {unreadCount > 0 && (
-                    <span className='absolute top-1 right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full'>
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                {showNotifications && (
-                  <NotificationDropdown onClose={() => setShowNotifications(false)} />
-                )}
-              </div>
-              {/* Print Button */}
-              <button
-                onClick={() => window.print()}
-                className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md'
-                aria-label='Print page'
-                title='Print'
-              >
-                <svg
-                  xmlns='http://www.w3.org/2000/svg'
-                  className='h-6 w-6'
-                  fill='none'
-                  viewBox='0 0 24 24'
-                  stroke='currentColor'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M6 9V2h12v7m-6 4v6m-6 0h12'
-                  />
-                </svg>
-              </button>
-              {/* User Profile Avatar */}
-              {!authLoading && displayName && (
-                <Link
-                  href='/settings'
-                  className='flex items-center hover:bg-white hover:bg-opacity-10 rounded-full p-1 transition-colors'
-                >
-                  <div className='bg-white text-[#001F54] rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm'>
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Use shared Header with breadcrumbs and status badge */}
+      <Header
+        breadcrumbs={[
+          { label: 'Home', onClick: () => router.push('/') },
+          { label: isRenewalView ? 'Renewal Application' : 'Fresh Application' },
+          { label: applicationId ? `Application ID: ${applicationId}` : '...' }
+        ]}
+        applicationTypeLabel={isRenewalView ? 'Renewal Application' : 'Fresh Application'}
+        statusBadge={application ? {
+          label: formatStatusLabel(application.workflowStatus || application.status || application.status_id),
+          style: (() => {
+            const style = getStatusStyle(
+              application.workflowStatus?.name ||
+              application.workflowStatus?.code ||
+              application.status ||
+              application.status_id
+            );
+            return {
+              backgroundColor: style.bg,
+              color: style.text,
+              borderColor: style.border
+            };
+          })()
+        } : undefined}
+        hideCreateForm={true}
+        hidePrint={true}
+      />
 
       <main className='flex-1 p-6 overflow-y-auto mt-[120px]'>
         <div className='bg-white rounded-lg shadow'>
@@ -1156,1210 +593,345 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             return application;
           })() ? (
             <>
-              {/* Applicant Information Block */}
-              <div className='p-6 lg:p-8' ref={printRef}>
-                <div className='mb-8'>
-                  <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center justify-between'>
-                    <span className='flex items-center'>
-                      <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
-                      Applicant Information
-                    </span>
-                    <div className='flex items-center space-x-2'>
-                      <button
-                        type='button'
-                        onClick={() => handleBrowserPrint()}
-                        className='inline-flex items-center px-3 py-1.5 bg-white text-[#001F54] border border-gray-200 rounded-md shadow-sm text-sm hover:bg-gray-50'
-                        title='Print application details'
-                      >
-                        Print
-                      </button>
-                    </div>
-                  </h2>
-
-                  <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-                    {/* Main details - left (spans 2/3) */}
-                    <div className='lg:col-span-2'>
-                      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6'>
-                        {/* Full Name - Spans full width of this column set */}
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Full Name</p>
-                          <p className='font-semibold text-gray-900'>
-                            {[
-                              application?.firstName,
-                              application?.middleName,
-                              application?.lastName,
-                            ]
-                              .filter(Boolean)
-                              .join(' ') ||
-                              application?.applicantName ||
-                              'N/A'}
-                          </p>
-                        </div>
-
-                        {application?.parentOrSpouseName && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>
-                              Parent/Spouse Name
-                            </p>
-                            <p className='font-semibold text-gray-900'>
-                              {application.parentOrSpouseName}
-                            </p>
-                          </div>
-                        )}
-
-                        {application?.sex && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>Gender</p>
-                            <p className='font-semibold text-gray-900'>
-                              {formatGender(application.sex)}
-                            </p>
-                          </div>
-                        )}
-
-                        {application?.placeOfBirth && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>Place of Birth</p>
-                            <p className='font-semibold text-gray-900'>
-                              {application.placeOfBirth}
-                            </p>
-                          </div>
-                        )}
-
-                        {(application?.dateOfBirth || application?.dob) && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>Date of Birth</p>
-                            <p className='font-semibold text-gray-900'>
-                              {application?.dateOfBirth
-                                ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                  })
-                                : application?.dob
-                                  ? new Date(application.dob).toLocaleDateString('en-IN', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric',
-                                    })
-                                  : 'N/A'}
-                            </p>
-                            {application?.dobInWords && (
-                              <p className='text-xs text-gray-500 mt-1 italic'>
-                                {application.dobInWords}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {application?.panNumber && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>PAN Number</p>
-                            <p className='font-semibold text-gray-900 font-mono'>
-                              {application.panNumber}
-                            </p>
-                          </div>
-                        )}
-
-                        {application?.aadharNumber && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>Aadhar Number</p>
-                            <p className='font-semibold text-gray-900 font-mono'>
-                              {application.aadharNumber}
-                            </p>
-                          </div>
-                        )}
-
-                        {application?.acknowledgementNo && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>
-                              Acknowledgement Number
-                            </p>
-                            <p className='font-semibold text-gray-900 font-mono'>
-                              {application.acknowledgementNo}
-                            </p>
-                          </div>
-                        )}
-
-                        {application?.currentUser && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>Current User</p>
-                            <p className='font-semibold text-gray-900'>
-                              {application.currentUser.username}
-                            </p>
-                          </div>
-                        )}
-
-                        {application?.workflowStatus && (
-                          <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                            <p className='text-sm text-gray-500 font-medium mb-1'>
-                              Workflow Status
-                            </p>
-                            <p className='font-semibold text-gray-900'>
-                              {formatStatusLabel(application.workflowStatus)}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Application Type</p>
-                          <p className='font-semibold text-gray-900'>
-                            {formatApplicationType(application?.applicationType)}
-                          </p>
-                        </div>
-
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>
-                            Date & Time of Submission
-                          </p>
-                          <p className='font-semibold text-gray-900'>
-                            {application?.applicationDate
-                              ? new Date(application.applicationDate).toLocaleString('en-IN', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                              : 'N/A'}
-                          </p>
-                        </div>
+              {/* Redesigned Sections */}
+              <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
+                {/* 1. Application Information Section */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
+                        <UserRound className="w-5 h-5" />
                       </div>
+                      <h3 className="font-bold text-slate-800 text-lg tracking-tight">Application Information</h3>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleBrowserPrint}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden"
+                      title="Print application details"
+                    >
+                      <Printer className="w-4.5 h-4.5 text-slate-500" />
+                      Print Details
+                    </button>
+                  </div>
 
-                    {/* Right-side card - photo in top-right and form-like summary */}
-                    <aside className='lg:col-span-1 border border-gray-200 rounded-xl p-4 bg-gray-50 shadow-sm h-fit'>
-                      <div className='ml-2 '>
-                        <img
-                          src={(application as any)?.photoUrl as string}
-                          alt='Applicant Photo'
-                          className='w-60 h-60 object-cover rounded-md border'
-                        />
-                      </div>
-
-                      {/* QR Code Section - Only visible to ZS role */}
-                      {application && (
-                        <div className='mt-4'>
-                          <QRCodeDisplay applicationId={application.id} userRole={userRole} />
-                        </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left 2 columns: Applicant Details */}
+                    <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <DetailItem label="Full Name" value={applicantName} icon={UserRound} className="md:col-span-2" />
+                      {application?.parentOrSpouseName && (
+                        <DetailItem label="Parent / Spouse Name" value={application.parentOrSpouseName} icon={Users} />
                       )}
+                      {application?.sex && (
+                        <DetailItem label="Gender" value={formatGender(application.sex)} icon={UserCheck} />
+                      )}
+                      {application?.placeOfBirth && (
+                        <DetailItem label="Place of Birth" value={application.placeOfBirth} icon={MapPin} />
+                      )}
+                      {(application?.dateOfBirth || application?.dob) && (
+                        <DetailItem label="Date of Birth" value={
+                          application?.dateOfBirth
+                            ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+                            : application?.dob
+                              ? new Date(application.dob).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+                              : null
+                        } icon={CalendarDays} />
+                      )}
+                      {application?.panNumber && (
+                        <DetailItem label="PAN Number" value={application.panNumber} icon={CreditCard} mono />
+                      )}
+                      {application?.aadharNumber && (
+                        <DetailItem label="Aadhar Number" value={application.aadharNumber} icon={Fingerprint} mono />
+                      )}
+                      {application?.acknowledgementNo && (
+                        <DetailItem label="Acknowledgement Number" value={application.acknowledgementNo} icon={FileCheck} mono />
+                      )}
+                      {application?.currentUser && (
+                        <DetailItem label="Current User" value={application.currentUser.username} icon={UserCog} />
+                      )}
+                      {application?.workflowStatus && (
+                        <DetailItem label="Workflow Status" value={<StatusBadge status={application.workflowStatus} />} icon={BadgeCheck} />
+                      )}
+                      <DetailItem label="Application Type" value={<StatusBadge status={application?.applicationType || 'N/A'} label={formatApplicationType(application?.applicationType)} />} icon={Clock3} />
+                      {application?.applicationDate && (
+                        <DetailItem label="Date & Time of Submission" value={
+                          new Date(application.applicationDate).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        } icon={CalendarDays} className="md:col-span-2" />
+                      )}
+                    </div>
 
-                      {/* Profile summary - compact, printable */}
-                      <div className='mt-6 bg-white rounded-lg p-4 border border-gray-100'>
-                        <h3 className='text-sm font-semibold text-gray-700 mb-3'>Profile</h3>
-                        <dl className='grid grid-cols-1 gap-y-2 text-sm text-gray-700'>
-                          <div className='flex justify-between'>
-                            <dt className='text-gray-500'>Application ID</dt>
-                            <dd className='font-medium'>
-                              {application?.id || applicationId || '—'}
-                            </dd>
-                          </div>
-                          <div className='flex justify-between'>
-                            <dt className='text-gray-500'>Name</dt>
-                            <dd className='font-medium'>
-                              {[
-                                application?.firstName,
-                                application?.middleName,
-                                application?.lastName,
-                              ]
-                                .filter(Boolean)
-                                .join(' ') ||
-                                application?.applicantName ||
-                                '—'}
-                            </dd>
-                          </div>
-                          {application?.parentOrSpouseName && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Parent / Spouse</dt>
-                              <dd className='font-medium'>{application.parentOrSpouseName}</dd>
-                            </div>
-                          )}
-                          {application?.mobileNumber && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Mobile</dt>
-                              <dd className='font-medium'>
-                                {formatPhone(application.mobileNumber)}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.email && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Email</dt>
-                              <dd className='font-medium truncate'>{application.email}</dd>
-                            </div>
-                          )}
-                          {(application?.dateOfBirth || application?.dob) && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>DOB</dt>
-                              <dd className='font-medium'>
-                                {application?.dateOfBirth
-                                  ? new Date(application.dateOfBirth).toLocaleDateString('en-IN')
-                                  : application?.dob
-                                    ? new Date(application.dob).toLocaleDateString('en-IN')
-                                    : '—'}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.sex && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Gender</dt>
-                              <dd className='font-medium'>{formatGender(application.sex)}</dd>
-                            </div>
-                          )}
-                          {application?.aadharNumber && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Aadhar</dt>
-                              <dd className='font-medium font-mono'>{application.aadharNumber}</dd>
-                            </div>
-                          )}
-                          {application?.panNumber && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>PAN</dt>
-                              <dd className='font-medium font-mono'>{application.panNumber}</dd>
-                            </div>
-                          )}
-                          {application?.presentAddress?.addressLine && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Present Address</dt>
-                              <dd className='font-medium text-right max-w-[220px] truncate'>
-                                {application.presentAddress.addressLine}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.permanentAddress?.addressLine && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Permanent Address</dt>
-                              <dd className='font-medium text-right max-w-[220px] truncate'>
-                                {application.permanentAddress.addressLine}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.occupationAndBusiness?.occupation && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Occupation</dt>
-                              <dd className='font-medium'>
-                                {application.occupationAndBusiness.occupation}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.applicationType && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Application Type</dt>
-                              <dd className='font-medium'>
-                                {formatApplicationType(application.applicationType)}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.applicationDate && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Submitted</dt>
-                              <dd className='font-medium'>
-                                {new Date(application.applicationDate).toLocaleString('en-IN', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </dd>
-                            </div>
-                          )}
-                          {application?.currentUser && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Current Handler</dt>
-                              <dd className='font-medium'>{application.currentUser.username}</dd>
-                            </div>
-                          )}
-                          {application?.workflowStatus?.name && (
-                            <div className='flex justify-between'>
-                              <dt className='text-gray-500'>Status</dt>
-                              <dd className='font-medium'>
-                                {formatStatusLabel(application.workflowStatus)}
-                              </dd>
-                            </div>
-                          )}
-                        </dl>
-                      </div>
-                    </aside>
+                    {/* Right column: Photo & Quick Summary */}
+                    <div>
+                      <SummaryCard application={application} applicationId={applicationId} applicantName={applicantName} />
+                    </div>
                   </div>
                 </div>
 
-                {/* Biometric section removed - photo moved to right-side summary card */}
+                {/* 2. Three-Column Row: License Details, License History, Criminal History */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* License Details Card */}
+                  {(() => {
+                    const license = (licenseDetails[0] || {}) as any;
+                    const requestedWeapons = Array.isArray(license?.requestedWeapons)
+                      ? license.requestedWeapons
+                      : license?.requestedWeaponIds;
+                    const weaponsLabel = Array.isArray(requestedWeapons)
+                      ? requestedWeapons
+                          .map((w: any) => typeof w === 'object' ? w?.name || w?.type || w?.id : w)
+                          .filter(Boolean)
+                          .join(', ')
+                      : '';
+                    const evidenceFiles = license?.uploadedFiles || license?.specialClaimsEvidence || [];
+                    const normalizedEvidence = Array.isArray(evidenceFiles) ? evidenceFiles.filter(Boolean) : [];
 
-                {/* Present Address Section */}
-                {application?.presentAddress && (
-                  <div className='mb-8'>
-                    <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center'>
-                      <div className='w-1 h-6 bg-purple-600 rounded-full mr-3'></div>
-                      Present Address
-                    </h2>
-                    <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                      {application.presentAddress.addressLine && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2 lg:col-span-4'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Address</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.presentAddress.addressLine}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.presentAddress.state && (
-
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-
-                          <p className='text-sm text-gray-500 font-medium mb-1'>State</p>
-
-                          <p className='font-semibold text-gray-900'>
-
-                            {typeof application.presentAddress.state === 'object'
-
-                              ? (application.presentAddress.state as any).name
-
-                              : application.presentAddress.state}
-
-                          </p>
-
-                        </div>
-
-                      )}
-
-
-
-                      {application.presentAddress.district && (
-
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-
-                          <p className='text-sm text-gray-500 font-medium mb-1'>District</p>
-
-                          <p className='font-semibold text-gray-900'>
-
-                            {typeof application.presentAddress.district === 'object'
-
-                              ? (application.presentAddress.district as any).name
-
-                              : application.presentAddress.district}
-
-                          </p>
-
-                        </div>
-
-                      )}
-
-                      {application.presentAddress.zone && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Zone</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.presentAddress.zone.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.presentAddress.division && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Division</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.presentAddress.division.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.presentAddress.policeStation && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Police Station</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.presentAddress.policeStation.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.presentAddress.sinceResiding && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Residing Since</p>
-                          <p className='font-semibold text-gray-900'>
-                            {new Date(application.presentAddress.sinceResiding).toLocaleDateString(
-                              'en-IN',
-                              {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              }
-                            )}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Permanent Address Section */}
-                {application?.permanentAddress && (
-                  <div className='mb-8'>
-                    <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center'>
-                      <div className='w-1 h-6 bg-indigo-600 rounded-full mr-3'></div>
-                      Permanent Address
-                    </h2>
-                    <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                      {application.permanentAddress.addressLine && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2 lg:col-span-4'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Address</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.permanentAddress.addressLine}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.permanentAddress.state && (
-
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-
-                          <p className='text-sm text-gray-500 font-medium mb-1'>State</p>
-
-                          <p className='font-semibold text-gray-900'>
-
-                            {typeof application.permanentAddress.state === 'object'
-
-                              ? (application.permanentAddress.state as any).name
-
-                              : application.permanentAddress.state}
-
-                          </p>
-
-                        </div>
-
-                      )}
-
-
-
-                      {application.permanentAddress.district && (
-
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-
-                          <p className='text-sm text-gray-500 font-medium mb-1'>District</p>
-
-                          <p className='font-semibold text-gray-900'>
-
-                            {typeof application.permanentAddress.district === 'object'
-
-                              ? (application.permanentAddress.district as any).name
-
-                              : application.permanentAddress.district}
-
-                          </p>
-
-                        </div>
-
-                      )}
-
-                      {application.permanentAddress.zone && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Zone</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.permanentAddress.zone.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.permanentAddress.division && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Division</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.permanentAddress.division.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.permanentAddress.policeStation && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Police Station</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.permanentAddress.policeStation.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.permanentAddress.sinceResiding && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Residing Since</p>
-                          <p className='font-semibold text-gray-900'>
-                            {new Date(
-                              application.permanentAddress.sinceResiding
-                            ).toLocaleDateString('en-IN', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Occupation & Business Section */}
-                {application?.occupationAndBusiness && (
-                  <div className='mb-8'>
-                    <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center'>
-                      <div className='w-1 h-6 bg-teal-600 rounded-full mr-3'></div>
-                      Occupation & Business Details
-                    </h2>
-                    <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                      {application.occupationAndBusiness.occupation && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Occupation</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.occupationAndBusiness.occupation}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.occupationAndBusiness.officeAddress && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Office Address</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.occupationAndBusiness.officeAddress}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.occupationAndBusiness.state && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>State</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.occupationAndBusiness.state.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.occupationAndBusiness.district && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>District</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.occupationAndBusiness.district.name}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.occupationAndBusiness.cropLocation && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>Crop Location</p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.occupationAndBusiness.cropLocation}
-                          </p>
-                        </div>
-                      )}
-
-                      {application.occupationAndBusiness.areaUnderCultivation && (
-                        <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
-                          <p className='text-sm text-gray-500 font-medium mb-1'>
-                            Area Under Cultivation
-                          </p>
-                          <p className='font-semibold text-gray-900'>
-                            {application.occupationAndBusiness.areaUnderCultivation}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* License Details Section */}
-                {licenseDetails.length > 0 && (
-                  <div className='mb-8'>
-                    <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center'>
-                      <div className='w-1 h-6 bg-blue-700 rounded-full mr-3'></div>
-                      License Details
-                    </h2>
-
-                    <div className='space-y-4'>
-                      {licenseDetails.map((license: any, idx: number) => {
-                        const requestedWeapons = Array.isArray(license?.requestedWeapons)
-                          ? license.requestedWeapons
-                          : license?.requestedWeaponIds;
-                        const weaponsLabel = Array.isArray(requestedWeapons)
-                          ? requestedWeapons
-                              .map((w: any) =>
-                                typeof w === 'object' ? w?.name || w?.type || w?.id : w
-                              )
-                              .filter(Boolean)
-                              .join(', ')
-                          : '';
-                        const evidenceFiles =
-                          license?.uploadedFiles || license?.specialClaimsEvidence || [];
-                        const normalizedEvidence = Array.isArray(evidenceFiles)
-                          ? evidenceFiles.filter(Boolean)
-                          : [];
-
-                        return (
-                          <div
-                            key={idx}
-                            className='bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm'
-                          >
-                            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-                              {license?.needForLicense && (
-                                <div className='bg-white rounded-lg p-3'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Need For License
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.needForLicense}
-                                  </p>
-                                </div>
-                              )}
-                              {license?.armsCategory && (
-                                <div className='bg-white rounded-lg p-3'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Arms Category
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.armsCategory}
-                                  </p>
-                                </div>
-                              )}
-                              {weaponsLabel && (
-                                <div className='bg-white rounded-lg p-3'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Requested Weapons
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>{weaponsLabel}</p>
-                                </div>
-                              )}
-                              {license?.areaOfValidity && (
-                                <div className='bg-white rounded-lg p-3'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Area of Validity
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.areaOfValidity}
-                                  </p>
-                                </div>
-                              )}
-                              {license?.licencePlaceArea && (
-                                <div className='bg-white rounded-lg p-3'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Licence Place / Area
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.licencePlaceArea}
-                                  </p>
-                                </div>
-                              )}
-                              {license?.ammunitionDescription && (
-                                <div className='bg-white rounded-lg p-3 md:col-span-2'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Ammunition Description
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.ammunitionDescription}
-                                  </p>
-                                </div>
-                              )}
-                              {license?.specialConsiderationReason && (
-                                <div className='bg-white rounded-lg p-3 md:col-span-2'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Special Consideration Reason
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.specialConsiderationReason}
-                                  </p>
-                                </div>
-                              )}
-                              {license?.wildBeastsSpecification && (
-                                <div className='bg-white rounded-lg p-3 md:col-span-2'>
-                                  <p className='text-sm text-gray-500 font-medium mb-1'>
-                                    Wild Beasts Specification
-                                  </p>
-                                  <p className='font-semibold text-gray-900'>
-                                    {license.wildBeastsSpecification}
-                                  </p>
-                                </div>
-                              )}
+                    return (
+                      <SectionCard title="License Details" icon={Shield} iconColorClass="text-blue-600 bg-blue-50 border-blue-100">
+                        <div className="space-y-4 flex-1">
+                          <DetailItem label="Need for License" value={license.needForLicense} icon={Target} />
+                          <DetailItem label="Arms Category" value={license.armsCategory} icon={ShieldCheck} />
+                          <DetailItem label="Requested Weapons" value={weaponsLabel} icon={Crosshair} />
+                          <DetailItem label="Area of Validity" value={license.areaOfValidity} icon={MapPin} />
+                          <DetailItem label="Licence Place / Area" value={license.licencePlaceArea} icon={LocateFixed} />
+                          <DetailItem label="Ammunition Description" value={license.ammunitionDescription} icon={Package} />
+                          <DetailItem label="Special Consideration Reason" value={license.specialConsiderationReason} icon={FileText} />
+                          {license.wildBeastsSpecification && (
+                            <DetailItem label="Wild Beasts Specification" value={license.wildBeastsSpecification} icon={FileText} />
+                          )}
+                          
+                          {normalizedEvidence.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Evidence / Attachments</p>
+                              <div className="flex flex-wrap gap-2">
+                                {normalizedEvidence.map((file: any, fileIdx: number) => {
+                                  const fileLabel = truncateFilename(file?.name || file?.fileName || file?.originalName || 'File', 10);
+                                  return (
+                                    <button
+                                      key={fileIdx}
+                                      type="button"
+                                      onClick={() => openAttachment(file)}
+                                      className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-blue-600 font-semibold hover:bg-blue-50 transition-colors"
+                                      title={file?.name || file?.fileName || file?.originalName}
+                                    >
+                                      <FileText className="w-3.5 h-3.5 text-rose-500" />
+                                      <span className="truncate max-w-[120px]">{fileLabel}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-
-                            {normalizedEvidence.length > 0 && (
-                              <div className='mt-4'>
-                                <p className='text-sm font-semibold text-gray-800 mb-2'>
-                                  Evidence / Attachments
-                                </p>
-                                <div className='flex flex-wrap gap-3'>
-                                  {normalizedEvidence.map((file: any, fileIdx: number) => {
-                                    const fileLabel = truncateFilename(
-                                      file?.name || file?.fileName || file?.originalName || 'File',
-                                      10
-                                    );
-                                    return (
-                                      <button
-                                        key={fileIdx}
-                                        type='button'
-                                        onClick={() => openAttachment(file)}
-                                        className='inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-50'
-                                        title={file?.name || file?.fileName || file?.originalName}
-                                      >
-                                        <svg
-                                          className='w-4 h-4 text-red-500'
-                                          fill='none'
-                                          stroke='currentColor'
-                                          viewBox='0 0 24 24'
-                                        >
-                                          <path
-                                            strokeLinecap='round'
-                                            strokeLinejoin='round'
-                                            strokeWidth={2}
-                                            d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-                                          />
-                                        </svg>
-                                        <span className='truncate max-w-[120px]'>{fileLabel}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* License History Section */}
-                {application?.licenseHistories && application.licenseHistories.length > 0 && (
-                  <div className='mb-8'>
-                    <h3 className='text-lg font-bold text-gray-900 mb-4 flex items-center'>
-                      <div className='w-1 h-5 bg-cyan-600 rounded-full mr-3'></div>
-                      License History
-                    </h3>
-                    <div className='space-y-4'>
-                      {application.licenseHistories.map((license: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className='bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-xl p-6 shadow-sm'
-                        >
-                          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-                            {license.hasAppliedBefore !== undefined && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Previously Applied
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.hasAppliedBefore ? 'Yes' : 'No'}
-                                </p>
-                              </div>
-                            )}
-                            {license.previousResult && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Previous Result
-                                </p>
-                                <p
-                                  className={`font-semibold ${
-                                    license.previousResult === 'APPROVED'
-                                      ? 'text-green-600'
-                                      : license.previousResult === 'REJECTED'
-                                        ? 'text-red-600'
-                                        : 'text-gray-900'
-                                  }`}
-                                >
-                                  {license.previousResult}
-                                </p>
-                              </div>
-                            )}
-                            {license.previousAuthorityName && (
-                              <div className='bg-white rounded-lg p-3 md:col-span-2'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Previous Authority
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.previousAuthorityName}
-                                </p>
-                              </div>
-                            )}
-                            {license.hasLicenceSuspended !== undefined && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  License Suspended
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.hasLicenceSuspended ? 'Yes' : 'No'}
-                                </p>
-                              </div>
-                            )}
-                            {license.suspensionReason && (
-                              <div className='bg-white rounded-lg p-3 md:col-span-2'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Suspension Reason
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.suspensionReason}
-                                </p>
-                              </div>
-                            )}
-                            {license.hasFamilyLicence !== undefined && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Family License
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.hasFamilyLicence ? 'Yes' : 'No'}
-                                </p>
-                              </div>
-                            )}
-                            {license.familyMemberName && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Family Member Name
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.familyMemberName}
-                                </p>
-                              </div>
-                            )}
-                            {license.familyLicenceNumber && (
-                              <div className='bg-white rounded-lg p-3 md:col-span-2'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Family License Number
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {license.familyLicenceNumber}
-                                </p>
-                              </div>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </SectionCard>
+                    );
+                  })()}
 
-                {/* Criminal History Section */}
-                {application?.criminalHistories && application.criminalHistories.length > 0 && (
-                  <div className='mb-8'>
-                    <h3 className='text-lg font-bold text-gray-900 mb-4 flex items-center'>
-                      <div className='w-1 h-5 bg-red-600 rounded-full mr-3'></div>
-                      Criminal History
-                    </h3>
-                    <div className='space-y-4'>
-                      {application.criminalHistories.map((criminal: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className='bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 rounded-xl p-6 shadow-sm'
-                        >
-                          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4'>
-                            {criminal.isConvicted !== undefined && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>Convicted</p>
-                                <p
-                                  className={`font-semibold ${criminal.isConvicted ? 'text-red-600' : 'text-green-600'}`}
-                                >
-                                  {criminal.isConvicted ? 'Yes' : 'No'}
-                                </p>
-                              </div>
-                            )}
-                            {criminal.isBondExecuted !== undefined && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>
-                                  Bond Executed
-                                </p>
-                                <p className='font-semibold text-gray-900'>
-                                  {criminal.isBondExecuted ? 'Yes' : 'No'}
-                                </p>
-                              </div>
-                            )}
-                            {criminal.bondDate && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>Bond Date</p>
-                                <p className='font-semibold text-gray-900'>
-                                  {new Date(criminal.bondDate).toLocaleDateString('en-IN')}
-                                </p>
-                              </div>
-                            )}
-                            {criminal.isProhibited !== undefined && (
-                              <div className='bg-white rounded-lg p-3'>
-                                <p className='text-sm text-gray-500 font-medium mb-1'>Prohibited</p>
-                                <p className='font-semibold text-gray-900'>
-                                  {criminal.isProhibited ? 'Yes' : 'No'}
-                                </p>
-                              </div>
-                            )}
-                          </div>
+                  {/* License History Card */}
+                  {(() => {
+                    const history = ((application?.licenseHistories && application.licenseHistories[0]) || {}) as any;
+                    return (
+                      <SectionCard title="License History" icon={History} iconColorClass="text-amber-600 bg-amber-50 border-amber-100">
+                        <div className="space-y-4 flex-1">
+                          <DetailItem label="Previously Applied" value={history.hasAppliedBefore !== undefined ? (history.hasAppliedBefore ? 'Yes' : 'No') : null} icon={ClipboardCheck} />
+                          <DetailItem label="Previous Result" value={history.previousResult} icon={BadgeCheck} />
+                          <DetailItem label="Previous Authority" value={history.previousAuthorityName} icon={Building2} />
+                          <DetailItem label="License Suspended" value={history.hasLicenceSuspended !== undefined ? (history.hasLicenceSuspended ? 'Yes' : 'No') : null} icon={ShieldAlert} />
+                          <DetailItem label="Suspension Reason" value={history.suspensionReason} icon={AlertTriangle} />
+                          <DetailItem label="Family License" value={history.hasFamilyLicence !== undefined ? (history.hasFamilyLicence ? 'Yes' : 'No') : null} icon={Users} />
+                          <DetailItem label="Family Member Name" value={history.familyMemberName} icon={UserRound} />
+                          <DetailItem label="Family License Number" value={history.familyLicenceNumber} icon={ShieldCheck} />
+                        </div>
+                      </SectionCard>
+                    );
+                  })()}
 
-                          {/* FIR Details */}
+                  {/* Criminal History Card */}
+                  {(() => {
+                    const criminal = ((application?.criminalHistories && application.criminalHistories[0]) || {}) as any;
+                    return (
+                      <SectionCard title="Criminal History" icon={TriangleAlert} iconColorClass="text-red-600 bg-red-50 border-red-100">
+                        <div className="space-y-4 flex-1">
+                          <DetailItem label="Convicted" value={criminal.isConvicted !== undefined ? (criminal.isConvicted ? 'Yes' : 'No') : null} icon={Ban} />
+                          <DetailItem label="Bond Executed" value={criminal.isBondExecuted !== undefined ? (criminal.isBondExecuted ? 'Yes' : 'No') : null} icon={FileWarning} />
+                          <DetailItem label="Bond Date" value={criminal.bondDate ? new Date(criminal.bondDate).toLocaleDateString('en-IN') : null} icon={Calendar} />
+                          <DetailItem label="Prohibited" value={criminal.isProhibited !== undefined ? (criminal.isProhibited ? 'Yes' : 'No') : null} icon={Scale} />
+                          
                           {criminal.firDetails && criminal.firDetails.length > 0 && (
-                            <div className='mt-4'>
-                              <h4 className='text-sm font-bold text-gray-700 mb-3'>FIR Details</h4>
-                              <div className='space-y-3'>
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                                <FileSearch className="w-3.5 h-3.5" />
+                                FIR Details
+                              </h4>
+                              <div className="space-y-3">
                                 {criminal.firDetails.map((fir: any, firIdx: number) => (
-                                  <div
-                                    key={firIdx}
-                                    className='bg-white rounded-lg p-4 border border-gray-200'
-                                  >
-                                    <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
-                                      {fir.firNumber && (
-                                        <div>
-                                          <p className='text-xs text-gray-500 font-medium'>
-                                            FIR Number
-                                          </p>
-                                          <p className='font-semibold text-gray-900 text-sm'>
-                                            {fir.firNumber}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {fir.District && (
-                                        <div>
-                                          <p className='text-xs text-gray-500 font-medium'>
-                                            District
-                                          </p>
-                                          <p className='font-semibold text-gray-900 text-sm'>
-                                            {fir.District}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {fir.policeStation && (
-                                        <div>
-                                          <p className='text-xs text-gray-500 font-medium'>
-                                            Police Station
-                                          </p>
-                                          <p className='font-semibold text-gray-900 text-sm'>
-                                            {fir.policeStation}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {fir.offence && (
-                                        <div className='md:col-span-2'>
-                                          <p className='text-xs text-gray-500 font-medium'>
-                                            Offence
-                                          </p>
-                                          <p className='font-semibold text-gray-900 text-sm'>
-                                            {fir.offence}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {fir.underSection && (
-                                        <div>
-                                          <p className='text-xs text-gray-500 font-medium'>
-                                            Under Section
-                                          </p>
-                                          <p className='font-semibold text-gray-900 text-sm'>
-                                            {fir.underSection}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {fir.DateOfSentence && (
-                                        <div>
-                                          <p className='text-xs text-gray-500 font-medium'>
-                                            Date of Sentence
-                                          </p>
-                                          <p className='font-semibold text-gray-900 text-sm'>
-                                            {fir.DateOfSentence}
-                                          </p>
-                                        </div>
-                                      )}
+                                  <div key={firIdx} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <span className="text-slate-400 font-semibold uppercase block">FIR Number</span>
+                                        <span className="font-bold text-slate-700">{fir.firNumber || '—'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 font-semibold uppercase block">District</span>
+                                        <span className="font-bold text-slate-700">{fir.District || '—'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 font-semibold uppercase block">Police Station</span>
+                                        <span className="font-bold text-slate-700">{fir.policeStation || '—'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-slate-400 font-semibold uppercase block">Under Section</span>
+                                        <span className="font-bold text-slate-700">{fir.underSection || '—'}</span>
+                                      </div>
                                     </div>
+                                    {fir.offence && (
+                                      <div>
+                                        <span className="text-slate-400 font-semibold uppercase block">Offence</span>
+                                        <span className="font-medium text-slate-700">{fir.offence}</span>
+                                      </div>
+                                    )}
+                                    {fir.DateOfSentence && (
+                                      <div>
+                                        <span className="text-slate-400 font-semibold uppercase block">Sentence Date</span>
+                                        <span className="font-medium text-slate-700">{fir.DateOfSentence}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </SectionCard>
+                    );
+                  })()}
+                </div>
 
-                {/* Status-specific information */}
-                {(application?.returnReason ||
-                  application?.flagReason ||
-                  application?.disposalReason) && (
-                  <div className='mb-8'>
-                    <h3 className='text-lg font-bold text-gray-900 mb-4 flex items-center'>
-                      <div className='w-1 h-5 bg-orange-500 rounded-full mr-3'></div>
+                {/* 3. Three-Column Address Row: Present, Permanent, Occupation */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Present Address Details */}
+                  {(() => {
+                    const present = (application?.presentAddress || {}) as any;
+                    const presentState = typeof present.state === 'object' ? present.state?.name : present.state;
+                    const presentDistrict = typeof present.district === 'object' ? present.district?.name : present.district;
+
+                    return (
+                      <SectionCard title="Present Address Details" icon={MapPin} iconColorClass="text-purple-600 bg-purple-50 border-purple-100">
+                        <div className="space-y-4 flex-1">
+                          <DetailItem label="Address" value={present.addressLine} icon={Building} />
+                          <DetailItem label="State" value={presentState} icon={Landmark} />
+                          <DetailItem label="District" value={presentDistrict} icon={Building2} />
+                          <DetailItem label="Zone" value={present.zone?.name} icon={MapPin} />
+                          <DetailItem label="Division" value={present.division?.name} icon={MapPin} />
+                          <DetailItem label="Police Station" value={present.policeStation?.name} icon={Building2} />
+                          <DetailItem label="Residing Since" value={present.sinceResiding ? new Date(present.sinceResiding).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : null} icon={Calendar} />
+                        </div>
+                      </SectionCard>
+                    );
+                  })()}
+
+                  {/* Permanent Address Details */}
+                  {(() => {
+                    const permanent = (application?.permanentAddress || {}) as any;
+                    const permanentState = typeof permanent.state === 'object' ? permanent.state?.name : permanent.state;
+                    const permanentDistrict = typeof permanent.district === 'object' ? permanent.district?.name : permanent.district;
+
+                    return (
+                      <SectionCard title="Permanent Address Details" icon={MapPin} iconColorClass="text-indigo-600 bg-indigo-50 border-indigo-100">
+                        <div className="space-y-4 flex-1">
+                          <DetailItem label="Address" value={permanent.addressLine} icon={Building} />
+                          <DetailItem label="State" value={permanentState} icon={Landmark} />
+                          <DetailItem label="District" value={permanentDistrict} icon={Building2} />
+                          <DetailItem label="Zone" value={permanent.zone?.name} icon={MapPin} />
+                          <DetailItem label="Division" value={permanent.division?.name} icon={MapPin} />
+                          <DetailItem label="Police Station" value={permanent.policeStation?.name} icon={Building2} />
+                          <DetailItem label="Residing Since" value={permanent.sinceResiding ? new Date(permanent.sinceResiding).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : null} icon={Calendar} />
+                        </div>
+                      </SectionCard>
+                    );
+                  })()}
+
+                  {/* Occupation & Business Details */}
+                  {(() => {
+                    const occ = (application?.occupationAndBusiness || {}) as any;
+                    return (
+                      <SectionCard title="Occupation & Business Details" icon={BriefcaseBusiness} iconColorClass="text-teal-600 bg-teal-50 border-teal-100">
+                        <div className="space-y-4 flex-1">
+                          <DetailItem label="Occupation" value={occ.occupation} icon={BriefcaseBusiness} />
+                          <DetailItem label="Office Address" value={occ.officeAddress} icon={Building} />
+                          <DetailItem label="State" value={occ.state?.name} icon={Landmark} />
+                          <DetailItem label="District" value={occ.district?.name} icon={Building2} />
+                          <DetailItem label="Crop Location" value={occ.cropLocation} icon={MapPinned} />
+                          <DetailItem label="Area Under Cultivation" value={occ.areaUnderCultivation} icon={Building} />
+                        </div>
+                      </SectionCard>
+                    );
+                  })()}
+                </div>
+
+                {/* Additional Status-Specific Information */}
+                {(application?.returnReason || application?.flagReason || application?.disposalReason) && (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+                    <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-2">
+                      <div className="w-1 h-5 bg-orange-500 rounded-full"></div>
                       Additional Information
                     </h3>
 
                     {application.returnReason && (
-                      <div className='p-4 bg-orange-50 border border-orange-200 rounded-xl mb-4'>
-                        <h4 className='font-bold text-orange-800 mb-2 flex items-center'>
-                          <svg className='w-4 h-4 mr-2' fill='currentColor' viewBox='0 0 20 20'>
-                            <path
-                              fillRule='evenodd'
-                              d='M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z'
-                              clipRule='evenodd'
-                            />
-                          </svg>
+                      <div className="p-4 bg-orange-50/50 border border-orange-200 rounded-xl">
+                        <h4 className="font-bold text-orange-800 text-sm mb-1.5 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-orange-600" />
                           Return Reason
                         </h4>
-                        <p className='text-gray-900'>{application.returnReason}</p>
+                        <p className="text-slate-700 text-sm font-medium">{application.returnReason}</p>
                       </div>
                     )}
 
                     {application.flagReason && (
-                      <div className='p-4 bg-red-50 border border-red-200 rounded-xl mb-4'>
-                        <h4 className='font-bold text-red-800 mb-2 flex items-center'>
-                          <svg className='w-4 h-4 mr-2' fill='currentColor' viewBox='0 0 20 20'>
-                            <path
-                              fillRule='evenodd'
-                              d='M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z'
-                              clipRule='evenodd'
-                            />
-                          </svg>
+                      <div className="p-4 bg-rose-50/50 border border-rose-200 rounded-xl">
+                        <h4 className="font-bold text-rose-800 text-sm mb-1.5 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
                           Red Flag Reason
                         </h4>
-                        <p className='text-gray-900'>{application.flagReason}</p>
+                        <p className="text-slate-700 text-sm font-medium">{application.flagReason}</p>
                       </div>
                     )}
 
                     {application.disposalReason && (
-                      <div className='p-4 bg-gray-50 border border-gray-200 rounded-xl'>
-                        <h4 className='font-bold text-gray-800 mb-2 flex items-center'>
-                          <svg className='w-4 h-4 mr-2' fill='currentColor' viewBox='0 0 20 20'>
-                            <path
-                              fillRule='evenodd'
-                              d='M9 2a1 1 0 000 2h2a1 1 0 100-2H9z'
-                              clipRule='evenodd'
-                            />
-                            <path
-                              fillRule='evenodd'
-                              d='M4 5a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 2a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z'
-                              clipRule='evenodd'
-                            />
-                          </svg>
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <h4 className="font-bold text-slate-800 text-sm mb-1.5 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-slate-600" />
                           Disposal Reason
                         </h4>
-                        <p className='text-gray-900'>{application.disposalReason}</p>
+                        <p className="text-slate-700 text-sm font-medium">{application.disposalReason}</p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Documents Section */}
-                <div className='mb-8'>
-                  <h2 className='text-xl font-bold text-gray-900 mb-6 flex items-center'>
-                    <div className='w-1 h-6 bg-green-600 rounded-full mr-3'></div>
-                    Documents Uploaded
-                  </h2>
-
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                    {/* If documents are available in application data, use them */}
-                    {application?.documents && application.documents.length > 0 ? (
-                      application.documents.map((doc, index) => (
-                        <div
-                          key={index}
-                          className='bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200'
-                        >
-                          <div className='flex items-center justify-between'>
-                            <div className='flex items-center'>
-                              <div
-                                className={`p-2 rounded-lg mr-3 ${
-                                  String(doc.type || '')
-                                    .toLowerCase()
-                                    .includes('image')
-                                    ? 'bg-green-100 text-green-600'
-                                    : String(doc.type || '')
-                                          .toLowerCase()
-                                          .includes('pdf')
-                                      ? 'bg-red-100 text-red-600'
-                                      : 'bg-blue-100 text-blue-600'
-                                }`}
-                              >
-                                <svg
-                                  xmlns='http://www.w3.org/2000/svg'
-                                  className='h-6 w-6'
-                                  fill='none'
-                                  viewBox='0 0 24 24'
-                                  stroke='currentColor'
-                                >
-                                  {String(doc.type || '')
-                                    .toLowerCase()
-                                    .includes('image') ? (
-                                    <path
-                                      strokeLinecap='round'
-                                      strokeLinejoin='round'
-                                      strokeWidth={1}
-                                      d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'
-                                    />
-                                  ) : (
-                                    <path
-                                      strokeLinecap='round'
-                                      strokeLinejoin='round'
-                                      strokeWidth={1}
-                                      d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-                                    />
-                                  )}
-                                </svg>
-                              </div>
-                              <div>
-                                <span className='font-medium text-gray-900'>
-                                  {String(doc.type || doc.fileType || '').toUpperCase() || 'DOCUMENT'}
-                                </span>
-                                <p className='text-xs text-gray-500 mt-1 break-words'>
-                                  {String(doc.name || doc.fileName || 'file')}
-                                </p>
-                              </div>
-                            </div>
-                            <div className='flex space-x-2'>
-                              <button
-                                onClick={() => openAttachment(doc)}
-                                className='text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors'
-                              >
-                                View
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const a = document.createElement('a');
-                                  a.href = doc.url || doc.fileUrl || doc.path || doc.downloadUrl || '';
-                                  a.download = doc.name || doc.fileName || 'download';
-                                  a.rel = 'noopener';
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                }}
-                                className='text-gray-600 hover:text-gray-800 font-medium text-sm px-3 py-1 rounded-lg hover:bg-gray-50 transition-colors'
-                              >
-                                Download
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className='col-span-full flex flex-col items-center justify-center py-12 text-center'>
-                        <svg
-                          className='w-16 h-16 text-gray-300 mb-4'
-                          fill='none'
-                          stroke='currentColor'
-                          viewBox='0 0 24 24'
-                        >
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={1}
-                            d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-                          />
-                        </svg>
-                        <p className='text-gray-500 text-sm font-medium'>No documents uploaded</p>
-                        <p className='text-gray-400 text-xs mt-1'>
-                          Documents will appear here once uploaded
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                {/* 4. Uploaded Documents Section */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
+                    <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                    Uploaded Documents
+                  </h3>
+                  <DocumentTable documents={application?.documents || []} />
                 </div>
               </div>
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
-                <div
-                  className='p-6 lg:p-8 border-t border-gray-100 bg-white max-h-[calc(100vh-2
-                0px)]'
+                 <div
+                  className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'
                 >
                   <div
                     ref={containerRef}
-                    className='flex h-screen items-stretch gap-0 relative'
+                    className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
                     style={{
                       display: 'flex',
                     }}
                   >
                     {/* Action Buttons - Full Width Editor (2 columns) */}
                     <div
-                      className='flex flex-col h-screen overflow-hidden'
+                      className='flex flex-col h-full overflow-hidden pr-4'
                       style={{
                         width: `${dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',
@@ -2405,14 +977,18 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           // Try multiple possible field names for application's current user ID
                           const appData = application as any;
                           const applicationUserId = Number(application?.currentUser?.id) || null;
-                          // Helpful debug info (kept minimal)
+                          const statusName = (application?.workflowStatus?.name || '').toLowerCase();
+                          const statusId = Number(application?.status_id || application?.workflowStatus?.id);
+                          const isClosed = statusName === 'closed' || statusId === 10;
+
                           const canTakeAction =
                             currentUserId &&
                             applicationUserId &&
-                            currentUserId == applicationUserId;
+                            currentUserId == applicationUserId &&
+                            !isClosed;
 
-                          return canTakeAction;
-                        })() ? (
+                          return { canTakeAction, isClosed };
+                        })()?.canTakeAction ? (
                           <>
                             {/* Proceedings Form - Always Open */}
                             <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
@@ -2446,19 +1022,29 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 />
                               </svg>
                               <div>
-                                <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
-                                  Action Not Available
-                                </h4>
-                                <p className='text-sm text-yellow-700 leading-relaxed'>
-                                  At this point, you cannot take action on this request. This
-                                  application is currently assigned to another user.
-                                </p>
-                                {application?.currentUser && (
-                                  <p className='text-sm text-yellow-700 mt-2'>
-                                    <span className='font-medium'>Current handler:</span>{' '}
-                                    {application.currentUser.username}
-                                  </p>
-                                )}
+                                {(() => {
+                                  const statusName = (application?.workflowStatus?.name || '').toLowerCase();
+                                  const statusId = Number(application?.status_id || application?.workflowStatus?.id);
+                                  const isClosed = statusName === 'closed' || statusId === 10;
+                                  return (
+                                    <>
+                                      <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
+                                        {isClosed ? 'Application Closed' : 'Action Not Available'}
+                                      </h4>
+                                      <p className='text-sm text-yellow-700 leading-relaxed'>
+                                        {isClosed 
+                                          ? 'This application has been closed. No further actions can be taken on it.' 
+                                          : 'At this point, you cannot take action on this request. This application is currently assigned to another user.'}
+                                      </p>
+                                      {!isClosed && application?.currentUser && (
+                                        <p className='text-sm text-yellow-700 mt-2'>
+                                          <span className='font-medium'>Current handler:</span>{' '}
+                                          {application.currentUser.username}
+                                        </p>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -2482,7 +1068,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className='flex flex-col h-screen overflow-hidden'
+                      className='flex flex-col h-full overflow-hidden pl-4'
                       style={{
                         width: `${100 - dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',
@@ -2497,36 +1083,23 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
                         <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
-                          {application &&
-                          application.workflowHistories &&
-                          application.workflowHistories.length > 0 ? (
-                            <div className='space-y-5'>
-                              {application.workflowHistories.map((h, idx) => {
-                                const actionLower = h.actionTaken.toLowerCase();
-                                const color = actionLower.includes('forward')
-                                  ? 'border-orange-500'
-                                  : actionLower.includes('approve')
-                                    ? 'border-green-500'
-                                    : actionLower.includes('reject') ||
-                                        actionLower.includes('return')
-                                      ? 'border-red-500'
-                                      : 'border-blue-500';
-
-                                const bgColor = actionLower.includes('forward')
-                                  ? 'bg-orange-50'
-                                  : actionLower.includes('approve')
-                                    ? 'bg-green-50'
-                                    : actionLower.includes('reject') ||
-                                        actionLower.includes('return')
-                                      ? 'bg-red-50'
-                                      : 'bg-blue-50';
-                                const attachmentsArr = h.attachments;
-                                const hasAttachments =
-                                  Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
-                                const hasRemarks = !!h.remarks;
-                                const hasDetails = hasAttachments || hasRemarks;
-                                const isExpanded = !!expandedHistory[idx];
-                                const historyDate = new Date(h.createdAt);
+{application &&
+                           application.workflowHistories &&
+                           application.workflowHistories.length > 0 ? (
+                             <div className='space-y-5'>
+                               {application.workflowHistories.map((h, idx) => {
+                                 const actionTaken = h?.actionTaken || (h as any)?.action || 'Unknown Action';
+                                 const statusStyle = getStatusStyle(actionTaken);
+                                 const borderColor = statusStyle.border;
+                                 const backgroundColor = hexToRgba(borderColor, 0.05);
+                                 const attachmentsArr = h.attachments || [];
+                                 const hasAttachments =
+                                   Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
+                                 const hasRemarks = !!(h.remarks || (h as any).comment);
+                                 const hasDetails = hasAttachments || hasRemarks;
+                                 const createdAt = h.createdAt || (h as any).date || (h as any).timestamp;
+                                 const isExpanded = !!expandedHistory[idx];
+                                 const historyDate = createdAt ? new Date(createdAt) : new Date();
                                 const formattedDate = historyDate.toLocaleDateString('en-IN', {
                                   year: 'numeric',
                                   month: 'short',
@@ -2538,15 +1111,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 });
 
                                 // Extract user and role names from nested objects (backend returns nested structure)
-                                const previousUserName = h.previousUserName || h.previousUser?.username || 'Unknown User';
-                                const previousRoleName = h.previousRoleName || h.previousRole?.name || 'Role';
-                                const nextUserName = h.nextUserName || h.nextUser?.username;
-                                const nextRoleName = h.nextRoleName || h.nextRole?.name;
+                                const previousUserName = (h as any).previousUserName || (h as any).previousUser?.username || 'Unknown User';
+                                const previousRoleName = (h as any).previousRoleName || (h as any).previousRole?.name || 'Role';
+                                const nextUserName = (h as any).nextUserName || (h as any).nextUser?.username;
+                                const nextRoleName = (h as any).nextRoleName || (h as any).nextRole?.name;
 
                                 return (
                                   <div
                                     key={h.id}
-                                    className={`border-l-4 ${color} ${bgColor} pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm`}
+                                    className='border-l-4 pl-4 pr-4 py-3 rounded-r-lg transition-all duration-200 hover:shadow-sm'
+                                    style={{
+                                      borderLeftColor: borderColor,
+                                      backgroundColor: backgroundColor,
+                                    }}
                                   >
                                     <div className='flex items-start justify-between'>
                                       <div className='flex-1'>
@@ -2556,10 +1133,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                         <p className='text-xs text-gray-600 mt-0.5'>
                                           {previousRoleName}
                                         </p>
-                                        <p className='text-sm text-gray-700 font-medium mt-1'>
-                                          {h.actionTaken}
-                                        </p>
-                                        {nextUserName && (
+<p className='text-sm text-gray-700 font-medium mt-1'>
+                                           {actionTaken}
+                                         </p>
+                                        {nextUserName && !(h.previousUserId && h.nextUserId && Number(h.previousUserId) === Number(h.nextUserId)) && (
                                           <p className='text-xs text-gray-600 mt-1'>
                                             → Forwarded to:{' '}
                                             <span className='font-medium'>{nextUserName}</span> (
@@ -2991,6 +1568,70 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           </div>
         </div>
       )}
+
+      {/* Print-Only Layout Component */}
+      {application && (
+        <div className="hidden print:block print:w-full print:bg-white print:text-black">
+          <PrintApplicationForm application={application} applicantName={applicantName} />
+        </div>
+      )}
+
+      {/* Global CSS style block to completely hide the normal app shell and details on print */}
+      <style jsx global>{`
+        @media print {
+          /* Force hide standard app shell containers, sidebar, headers, and footer */
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            width: 210mm;
+            height: 297mm;
+          }
+          header, footer, aside, nav, button, .print\:hidden,
+          .flex.h-screen, main, [data-printable='application-card'] {
+            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+          }
+          /* Override body elements and next container */
+          #__next, #__next > div {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+          }
+          /* Ensure print form container is visible starting immediately on page 1 */
+          .hidden.print\:block {
+            display: block !important;
+            position: relative !important;
+            top: 0 !important;
+            left: 0 !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 0 !important;
+          }
+          body {
+            padding: 10mm 15mm !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

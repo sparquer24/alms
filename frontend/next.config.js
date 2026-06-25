@@ -10,9 +10,8 @@ config({ path: path.resolve(__dirname, '../.env') });
 
 const nextConfig = {
   reactStrictMode: true,
-  // Use standalone output for Docker/production deployment
-  output: 'standalone',
-  // Set output file tracing root for monorepo
+  // Tell Next.js the tracing root is this frontend directory, not the monorepo root.
+  // This prevents it from misreading the root package-lock.json and confusing App Router with Pages Router.
   outputFileTracingRoot: path.resolve(__dirname),
   // Image optimization enabled
   images: {
@@ -23,7 +22,6 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
   // Performance optimizations
   experimental: {
-    forceSwcTransforms: true,
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react', '@heroicons/react'],
   },
   // Compiler optimizations
@@ -32,12 +30,11 @@ const nextConfig = {
   },
   // TypeScript configuration for production builds
   typescript: {
-    // Ignore TypeScript errors during production build to match local behavior
-    ignoreBuildErrors: process.env.NODE_ENV === 'production',
+    // We fixed all type errors! Do not ignore them anymore!
+    ignoreBuildErrors: false,
   },
   // ESLint configuration
   eslint: {
-    // Ignore ESLint errors during production build  
     ignoreDuringBuilds: true,
   },
   // Custom webpack config for bundle optimization
@@ -71,13 +68,31 @@ const nextConfig = {
   async generateBuildId() {
     return 'build-' + Date.now();
   },
-  // Disable prerendering for error pages
+  // Proxy /api/* requests to the backend server
+  // Set BACKEND_URL env var at runtime (e.g., http://host.docker.internal:3001)
   async rewrites() {
     return {
       beforeFiles: [],
       afterFiles: [],
-      fallback: []
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/:path*`,
+        },
+      ],
     };
+  },
+  // Add security headers
+  async headers() {
+    return [{
+      source: '/(.*)',
+      headers: [
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
+      ],
+    }];
   }
 };
 

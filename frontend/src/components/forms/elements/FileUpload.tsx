@@ -1,5 +1,6 @@
 // components/ui/FileUpload.tsx
 import React from 'react';
+import { toast } from 'react-toastify';
 
 interface FileUploadProps {
   label: string;
@@ -13,6 +14,7 @@ interface FileUploadProps {
   className?: string;
   variant?: 'default' | 'browseCard';
   hintText?: string;
+  disabled?: boolean;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -27,11 +29,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   className = '',
   variant = 'default',
   hintText,
+  disabled = false,
 }) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       onFileSelect(e.target.files[0]);
     }
+  };
+
+  const handleBrowseClick = () => {
+    if (disabled) {
+      toast.error('Save the renewal draft first to enable file uploads.');
+      return;
+    }
+    fileInputRef.current?.click();
   };
 
   if (variant === 'browseCard') {
@@ -50,18 +63,33 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             accept={acceptedTypes}
             onChange={handleFileChange}
             className="hidden"
+            ref={fileInputRef}
           />
 
-          <label htmlFor={name} className="cursor-pointer inline-flex flex-col items-center text-blue-700 hover:text-blue-900">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12" />
-            </svg>
-            <span className="underline text-sm mt-1">Browse</span>
-            <span className="text-[11px] text-gray-500 mt-1">Max 10 MB per file</span>
-          </label>
-
-          {uploaded && fileName && (
-            <p className="mt-2 text-xs text-green-700 truncate">{fileName}</p>
+          {uploaded && fileName ? (
+            <div className="flex flex-col items-center">
+              <p className="text-xs text-green-700 truncate mb-2">{fileName}</p>
+              <span
+                className={`cursor-pointer inline-flex items-center px-3 py-1 text-sm ${disabled ? 'text-gray-400 cursor-not-allowed pointer-events-none' : 'text-blue-700 hover:text-blue-900 border border-blue-300 rounded hover:bg-blue-50 transition-colors'}`}
+                onClick={handleBrowseClick}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+                Replace
+              </span>
+            </div>
+          ) : (
+            <span
+              className={`cursor-pointer inline-flex flex-col items-center ${disabled ? 'text-gray-400 cursor-not-allowed pointer-events-none' : 'text-blue-700 hover:text-blue-900'}`}
+              onClick={handleBrowseClick}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              <span className={`underline text-sm mt-1 ${disabled ? 'pointer-events-none' : ''}`}>Browse</span>
+              <span className="text-[11px] text-gray-500 mt-1">Max 10 MB per file</span>
+            </span>
           )}
 
           <p className="mt-2 text-[11px] text-gray-500 text-left">{hintText || 'Supported formats: .jpg, .jpeg, .png, .pdf'}</p>
@@ -87,10 +115,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           accept={acceptedTypes}
           onChange={handleFileChange}
           className="hidden"
+          ref={fileInputRef}
         />
-        <label
-          htmlFor={name}
-          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+        <span
+          onClick={handleBrowseClick}
+          className={`cursor-pointer inline-flex items-center px-4 py-2 rounded-md transition-colors ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -107,7 +136,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             />
           </svg>
           {uploaded ? 'Replace File' : 'Upload File'}
-        </label>
+        </span>
         
         {uploaded && fileName && (
           <div className="mt-3 flex items-center justify-center">

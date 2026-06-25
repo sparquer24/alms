@@ -1,22 +1,22 @@
 'use client';
 
-import { useAuthSync } from '../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { LayoutProvider } from '@/config/layoutContext';
-import { isAdminRole } from '@/utils/roleUtils';
-import { ROLE_CODES } from '@/constants';
+import { normalizeRole } from '@/utils/roleUtils';
 import Footer from '@/components/Footer';
 
 export default function SuperAdminLayout({ children }: { children: any }) {
-  const { userRole, token, isLoading } = useAuthSync();
+  const { userRole, token, isLoading, initialized } = useAuth();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    // Only check auth once and don't redirect immediately
-    if (checked || isLoading) return;
+    // Wait until auth is initialized and we have the necessary values
+    if (!initialized || isLoading) return;
+    if (checked) return;
 
     // Check token
     if (!token) {
@@ -25,16 +25,16 @@ export default function SuperAdminLayout({ children }: { children: any }) {
     }
 
     // Check role exists
-    if (!userRole) {
+    const effectiveRole = normalizeRole(userRole);
+    if (!effectiveRole) {
       router.replace('/login?error=no_role');
       return;
     }
 
     // Check if user is SUPER_ADMIN
-    const normalizedRole = String(userRole).toUpperCase();
-    if (normalizedRole !== ROLE_CODES.SUPER_ADMIN) {
+    if (effectiveRole !== 'SUPER_ADMIN') {
       // Not a super admin, redirect to appropriate page
-      if (isAdminRole(userRole)) {
+      if (effectiveRole === 'ADMIN') {
         router.replace('/admin/userManagement');
       } else {
         router.replace('/');
@@ -43,10 +43,10 @@ export default function SuperAdminLayout({ children }: { children: any }) {
     }
 
     setChecked(true);
-  }, [token, userRole, isLoading, checked, router]);
+  }, [token, userRole, isLoading, initialized, checked, router]);
 
   // Show loading while checking authentication
-  if (isLoading || !checked) {
+  if (isLoading || !checked || !initialized) {
     return (
       <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
         <div className='text-center'>
@@ -58,8 +58,8 @@ export default function SuperAdminLayout({ children }: { children: any }) {
   }
 
   // Don't render anything if user is not authenticated as super admin
-  const normalizedRole = String(userRole).toUpperCase();
-  if (!token || !userRole || normalizedRole !== ROLE_CODES.SUPER_ADMIN) {
+  const effectiveRole = normalizeRole(userRole);
+  if (!token || !effectiveRole || effectiveRole !== 'SUPER_ADMIN') {
     return null; // Don't render anything while redirecting
   }
 

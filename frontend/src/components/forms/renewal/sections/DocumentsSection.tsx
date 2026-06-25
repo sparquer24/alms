@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useState } from 'react';
+import { toast } from 'react-toastify';
 import { FileUpload } from '../../elements/FileUpload';
 import { openDocumentFile } from '../../../../services/fileHandler';
 import {
@@ -8,25 +9,46 @@ import {
 } from '../../../../utils/renewalFileUpload';
 import { usePrefilledDocumentSync } from '../../../../hooks/usePrefilledDocumentSync';
 
+type ErrorsMap = Record<string, string | undefined>;
+
 const DOCUMENT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: 'idProofUploaded', label: 'Aadhar Card', required: true },
-  { key: 'panCardUploaded', label: 'PAN Card' },
+  { key: 'panCardUploaded', label: 'PAN Card', required: true },
   { key: 'trainingCertificateUploaded', label: 'Training certificate' },
-  { key: 'medicalCertificateUploaded', label: 'Medical Reports' },
+  { key: 'medicalCertificateUploaded', label: 'Medical Certificate', required: true },
   { key: 'otherStateLicenseUploaded', label: 'Other state Arms License (optional)' },
   { key: 'existingArmsLicenseUploaded', label: 'Existing Arms License (optional)' },
   { key: 'safeCustodyUploaded', label: 'Safe custody (optional)' },
 ];
 
-const DocumentsSection: React.FC<{
-  formData: any;
-  renewalId: string;
-  onPatch: (patch: Record<string, unknown>) => void;
-  onError?: (message: string) => void;
-  onStatus?: (message: string | null) => void;
-}> = ({ formData, renewalId, onPatch, onError, onStatus }) => {
+const DocumentsSection = forwardRef(function DocumentsSection(
+  props: {
+    formData: any;
+    renewalId: string;
+    onPatch: (patch: Record<string, unknown>) => void;
+    onError?: (message: string) => void;
+    onStatus?: (message: string | null) => void;
+    errors?: ErrorsMap;
+    onReload?: () => Promise<void>;
+  },
+  ref: any,
+) {
+  const { formData, renewalId, onPatch, onError, onStatus, errors = {}, onReload } = props;
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusFirstInvalid: () => {
+      const firstKey = Object.keys(errors).find((key) => !!errors[key]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus(); } catch { /* ignore */ }
+        }
+      }
+    },
+  }));
 
   const { isSyncingPrefilled } = usePrefilledDocumentSync(
     renewalId,
@@ -39,7 +61,7 @@ const DocumentsSection: React.FC<{
 
   const handleSelect = (fieldKey: string) => async (file: File) => {
     if (!renewalId) {
-      onError?.('Save the renewal draft first so a renewal ID is available for uploads.');
+      toast.error('Save the renewal draft first so a renewal ID is available for uploads.');
       return;
     }
 
@@ -64,6 +86,9 @@ const DocumentsSection: React.FC<{
       return;
     }
 
+    const confirmed = window.confirm('Are you sure you want to delete this document? This action cannot be undone.');
+    if (!confirmed) return;
+
     setDeletingFileId(fileId);
     onStatus?.('Removing document...');
 
@@ -71,8 +96,14 @@ const DocumentsSection: React.FC<{
       await deleteRenewalDocument(fileId);
       onPatch({ [fieldKey]: null });
       onStatus?.('Document removed.');
+      toast.success('Document deleted successfully.');
+      if (onReload) {
+        await onReload();
+      }
     } catch (err: any) {
-      onError?.(err?.message || 'Failed to delete document.');
+      const errMsg = err?.response?.data?.error || err?.message || 'Failed to delete document.';
+      onError?.(errMsg);
+      toast.error(errMsg);
     } finally {
       setDeletingFileId(null);
     }
@@ -80,7 +111,7 @@ const DocumentsSection: React.FC<{
 
   return (
     <div className='space-y-4'>
-      <p className='text-sm font-medium'>18. Claims for special consideration for obtaining the license, if any</p>
+      <p className='text-sm font-medium'>Claims for special consideration for obtaining the license, if any</p>
       <p className='text-xs text-gray-500'>(attach documentary evidence)</p>
 
       {!renewalId && (
@@ -90,7 +121,7 @@ const DocumentsSection: React.FC<{
       )}
       {renewalId && isSyncingPrefilled && (
         <p className='text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2'>
-          Saving prefilled documents via upload-file API…
+          Saving prefilled documents via upload-file API&hellip;
         </p>
       )}
 
@@ -105,7 +136,7 @@ const DocumentsSection: React.FC<{
           const canDeleteViaApi = Boolean(meta.id && renewalId);
 
           return (
-            <div key={key}>
+            <div key={key} id={key} className={errors[key] ? 'rounded-md border border-red-200 bg-red-50 p-2' : ''}>
               <FileUpload
                 label={label}
                 name={key}
@@ -120,41 +151,47 @@ const DocumentsSection: React.FC<{
                     ? 'Uploading...'
                     : meta.fileName
                 }
+                disabled={!renewalId}
               />
+              {errors[key] && (
+                <p className='text-red-500 text-xs mt-1'>{errors[key]}</p>
+              )}
               {showUploaded && (
-            <div className='mt-2 space-y-2 text-xs'>
-              {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
-              {meta.fileType && <p className='text-gray-600'>File type: {meta.fileType}</p>}
-              <div className='flex flex-wrap items-center gap-3'>
-                {meta.fileUrl && (
-                  <button
-                    type='button'
-                    className='text-blue-600 underline hover:text-blue-800'
-                    onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
-                    disabled={isUploading || isDeleting}
-                  >
-                    View document
-                  </button>
-                )}
-                {(canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
-                  <button
-                    type='button'
-                    className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
-                    onClick={handleDelete(key, meta.id)}
-                    disabled={isUploading || isDeleting || !renewalId}
-                  >
-                    {isDeleting ? 'Removing...' : 'Remove'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+                <div className='mt-2 space-y-2 text-xs'>
+                  {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
+                  {meta.fileType && <p className='text-gray-600'>File type: {meta.fileType}</p>}
+                  <div className='flex flex-wrap items-center gap-3'>
+                    {meta.fileUrl && (
+                      <button
+                        type='button'
+                        className='text-blue-600 underline hover:text-blue-800'
+                        onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
+                        disabled={isUploading || isDeleting}
+                      >
+                        View document
+                      </button>
+                    )}
+                    {(canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
+                      <button
+                        type='button'
+                        className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                        onClick={handleDelete(key, meta.id)}
+                        disabled={isUploading || isDeleting || !renewalId}
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
     </div>
   );
-};
+});
+
+DocumentsSection.displayName = 'DocumentsSection';
 
 export default DocumentsSection;

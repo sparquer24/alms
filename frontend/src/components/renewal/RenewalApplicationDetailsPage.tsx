@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RenewalService } from '../../api/renewalService';
+import { getStatusStyle } from '../../utils/statusColors';
 
 interface RenewalApplicationDetails {
   id: number | string;
@@ -38,15 +39,6 @@ const getStatusLabel = (application: RenewalApplicationDetails | null) => {
   return application.workflowStatus?.name || (application.isSubmit ? 'Submitted' : 'Draft');
 };
 
-const getStatusClass = (label: string) => {
-  const normalized = label.toLowerCase();
-  if (normalized.includes('draft')) return 'bg-slate-100 text-slate-700';
-  if (normalized.includes('submit')) return 'bg-blue-100 text-blue-800';
-  if (normalized.includes('approve')) return 'bg-green-100 text-green-800';
-  if (normalized.includes('reject')) return 'bg-red-100 text-red-800';
-  return 'bg-gray-100 text-gray-700';
-};
-
 export default function RenewalApplicationDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -65,7 +57,8 @@ export default function RenewalApplicationDetailsPage() {
         setError(null);
 
         const response = await RenewalService.getRenewalForm(id);
-        const payload = (response as any)?.data ?? response;
+        const root = (response as any)?.data ?? (response as any)?.body ?? response;
+        const payload = root?.data && typeof root.data === 'object' && !Array.isArray(root.data) ? root.data : root;
 
         if (!payload) {
           throw new Error('Renewal application not found');
@@ -84,6 +77,7 @@ export default function RenewalApplicationDetailsPage() {
   }, [id]);
 
   const statusLabel = getStatusLabel(application);
+  const statusStyle = getStatusStyle(statusLabel);
 
   if (loading) {
     return (
@@ -130,14 +124,21 @@ export default function RenewalApplicationDetailsPage() {
 
   return (
     <div className='min-h-screen bg-slate-50 px-4 py-8'>
-      <div className='mx-auto max-w-5xl'>
+      <div className='mx-auto max-w-5xl 2xl:max-w-[1200px]'>
         <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
           <div className='bg-gradient-to-r from-[#001F54] to-[#0d2f6b] px-6 py-5 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
             <div>
               <p className='text-sm text-blue-100'>Renewal Application</p>
               <h1 className='text-2xl font-semibold'>Application #{application.id}</h1>
             </div>
-            <span className={`inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold ${getStatusClass(statusLabel)}`}>
+            <span
+              className='inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold border'
+              style={{
+                backgroundColor: statusStyle.bg,
+                color: statusStyle.text,
+                borderColor: statusStyle.border,
+              }}
+            >
               {statusLabel}
             </span>
           </div>
@@ -158,7 +159,7 @@ export default function RenewalApplicationDetailsPage() {
           <div className='border-t border-slate-200 px-6 py-5 flex flex-wrap gap-3'>
             <button
               type='button'
-              onClick={() => router.push(`/forms/renewal?applicationId=${encodeURIComponent(String(application.id))}`)}
+              onClick={() => router.push(`/forms/renewal?renewalId=${encodeURIComponent(String(id))}`)}
               className='rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800'
             >
               Open Renewal Form

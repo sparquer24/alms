@@ -4,14 +4,32 @@ import { Input } from '../elements/Input';
 import { TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { LocationHierarchy } from '../elements/LocationHierarchy';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { AddressFormData } from '../../../types/location';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import { getUserFromCookie } from '../../../utils/authCookies';
+import { FieldRule } from '../../../utils/validation/types';
+import { useFormValidation } from '../../../hooks/useFormValidation';
 
-// Get user location data for pre-filling
+// ─── Validation rules ─────────────────────────────────────────────────────────
+
+const addressRules: FieldRule[] = [
+	{ name: 'presentAddress', type: 'address', required: true, minLength: 10, maxLength: 250, errorMessages: { required: 'Present Address is required.' } },
+	{ name: 'presentState', type: 'select', required: true, errorMessages: { required: 'Present state is required' } },
+	{ name: 'presentDistrict', type: 'select', required: true, errorMessages: { required: 'Present district is required' } },
+	{ name: 'presentSince', type: 'date', required: true, noFuture: true, errorMessages: { required: 'Residing since date is required' } },
+	{ name: 'permanentAddress', type: 'address', required: true, minLength: 10, maxLength: 250, condition: (form) => !form.sameAsPresent },
+	{ name: 'officeMobileNumber', type: 'mobile', required: true, errorMessages: { required: 'Mobile Number is required.', format: 'Mobile Number must contain exactly 10 digits.' } },
+	{ name: 'telephoneResidence', type: 'phone', errorMessages: { format: 'Residence Number must contain 10 to 15 digits.' } },
+	{ name: 'alternativeMobile', type: 'mobile', required: false, notEqualField: 'officeMobileNumber', errorMessages: { format: 'Alternative Mobile Number must contain exactly 10 digits.', matchField: 'Alternative Mobile Number cannot be the same as Mobile Number.' } },
+	{ name: 'telephoneOffice', type: 'phone', errorMessages: { format: 'Telephone Number must contain 10 to 15 digits.' } },
+];
+
+// ─── Get user location defaults for pre-filling ───────────────────────────────
+
 const getUserLocationDefaults = () => {
 	const userData = getUserFromCookie();
 	if (userData && userData.location) {
@@ -34,6 +52,8 @@ const getUserLocationDefaults = () => {
 	};
 };
 
+// ─── Initial state ────────────────────────────────────────────────────────────
+
 const initialState: AddressFormData = {
 	presentAddress: '',
 	presentState: '',
@@ -55,28 +75,11 @@ const initialState: AddressFormData = {
 	alternativeMobile: '',
 };
 
-// Validation rules for address information
-const validateAddressInfo = (formData: any) => {
-	const validationErrors = [];
-	
-	if (!formData.presentAddress?.trim()) {
-		validationErrors.push('Present address is required');
-	}
-	if (!formData.presentState?.trim()) {
-		validationErrors.push('Present state is required');
-	}
-	if (!formData.presentDistrict?.trim()) {
-		validationErrors.push('Present district is required');
-	}
-	if (!formData.permanentAddress?.trim()) {
-		validationErrors.push('Permanent address is required');
-	}
-	
-	return validationErrors;
-};
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const AddressDetails: React.FC = () => {
 	const router = useRouter();
+	const validation = useFormValidation(addressRules);
 	
 	const {
 		form,
@@ -91,44 +94,115 @@ const AddressDetails: React.FC = () => {
 		saveFormData,
 		navigateToNext,
 		loadExistingData,
+		fieldErrors,
+		setFieldErrors,
 	} = useApplicationForm({
 		initialState,
 		formSection: 'address',
-		validationRules: validateAddressInfo,
+		validationRules: validation.validateAll,
 	});
+
+	const [isZSRole, setIsZSRole] = React.useState(false);
 
 	// Pre-fill Present Address location fields only if they're empty (no existing data)
 	useEffect(() => {
 		// Wait for loading to complete
 		if (isLoading) return;
+
+		const userData = getUserFromCookie();
+		const isZS = userData?.role?.name === 'ZS' || userData?.role === 'ZS';
+		setIsZSRole(isZS);
 		
 		// Only pre-fill if all three fields are empty (no existing data)
 		if (!form.presentState && !form.presentDistrict && !form.presentZone) {
 			const locationDefaults = getUserLocationDefaults();
 			
 			if (locationDefaults.presentState) {
-				setForm((prev: any) => ({
-					...prev,
-					presentState: locationDefaults.presentState,
-					presentDistrict: locationDefaults.presentDistrict,
-					presentZone: locationDefaults.presentZone,
-				}));
+				// Prevent infinite loop by only updating if different
+				if (form.presentState !== locationDefaults.presentState || 
+					form.presentDistrict !== locationDefaults.presentDistrict || 
+					form.presentZone !== locationDefaults.presentZone) {
+					setForm((prev: any) => ({
+						...prev,
+						presentState: locationDefaults.presentState,
+						presentDistrict: locationDefaults.presentDistrict,
+						presentZone: locationDefaults.presentZone,
+					}));
+				}
 			}
 		}
 	}, [isLoading, form.presentState, form.presentDistrict, form.presentZone]);
 
-	// Enhanced handleChange to support both input and textarea
+	// ── Sync permanent address when sameAsPresent is checked ──
+	useEffect(() => {
+		if (form.sameAsPresent) {
+			setForm((prev: any) => ({
+				...prev,
+				permanentAddress: prev.presentAddress,
+				permanentState: prev.presentState,
+				permanentDistrict: prev.presentDistrict,
+				permanentZone: prev.presentZone,
+				permanentDivision: prev.presentDivision,
+				permanentPoliceStation: prev.presentPoliceStation,
+			}));
+			// Clear permanent address errors when syncing
+			setFieldErrors((prev: any) => {
+				const cleaned = { ...prev };
+				delete cleaned.permanentAddress;
+				delete cleaned.permanentState;
+				delete cleaned.permanentDistrict;
+				delete cleaned.permanentZone;
+				delete cleaned.permanentDivision;
+				delete cleaned.permanentPoliceStation;
+				return cleaned;
+			});
+		}
+	}, [
+		form.sameAsPresent,
+		form.presentAddress,
+		form.presentState,
+		form.presentDistrict,
+		form.presentZone,
+		form.presentDivision,
+		form.presentPoliceStation,
+	]);
+
+	// ── handleChange with real-time validation + input filtering ──
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		const { name, value } = e.target;
-		setForm((prev: any) => ({ ...prev, [name]: value }));
+		const { value: filtered, error } = validation.processChange(name, value, form);
+		setForm((prev: any) => ({ ...prev, [name]: filtered }));
+		setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+	};
+
+	// ── Blur handler: auto-trim + re-validate ──
+	const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		const { name, value } = e.target;
+		const { value: trimmed, error } = validation.processBlur(name, value, form);
+		if (trimmed !== value) setForm((prev: any) => ({ ...prev, [name]: trimmed }));
+		setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+	};
+
+	// ── Trim all values before submission ──
+	const getTrimmedForm = () => {
+		const trimmed: any = {};
+		for (const key of Object.keys(form)) {
+			trimmed[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+		}
+		return trimmed;
 	};
 
 	const handleSaveToDraft = async () => {
-		await saveFormData();
+		const trimmed = getTrimmedForm();
+		setForm(trimmed);
+		await saveFormData(undefined, trimmed);
 	};
 
 	const handleNext = async () => {
-		const savedApplicantId = await saveFormData();
+		const trimmed = getTrimmedForm();
+		setForm(trimmed);
+
+		const savedApplicantId = await saveFormData(undefined, trimmed, true);
 		
 		if (savedApplicantId) {
 			navigateToNext(FORM_ROUTES.OCCUPATION_DETAILS, savedApplicantId);
@@ -147,6 +221,9 @@ const AddressDetails: React.FC = () => {
 
 	const handleLocationChange = (field: string, value: string) => {
 		setForm((prev: any) => ({ ...prev, [field]: value }));
+		if (fieldErrors[field]) {
+			setFieldErrors((prev: any) => ({ ...prev, [field]: '' }));
+		}
 	};
 
 	const handleCheckbox = (checked: boolean) => {
@@ -154,6 +231,7 @@ const AddressDetails: React.FC = () => {
 		if (checked) {
 			setForm((prev: any) => ({
 				...prev,
+				sameAsPresent: true,
 				permanentAddress: prev.presentAddress,
 				permanentState: prev.presentState,
 				permanentDistrict: prev.presentDistrict,
@@ -161,19 +239,23 @@ const AddressDetails: React.FC = () => {
 				permanentDivision: prev.presentDivision,
 				permanentPoliceStation: prev.presentPoliceStation,
 			}));
+			// Clear all permanent address errors
+			setFieldErrors((prev: any) => {
+				const cleaned = { ...prev };
+				delete cleaned.permanentAddress;
+				delete cleaned.permanentState;
+				delete cleaned.permanentDistrict;
+				delete cleaned.permanentZone;
+				delete cleaned.permanentDivision;
+				delete cleaned.permanentPoliceStation;
+				return cleaned;
+			});
 		}
 	};
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">Address Details</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="Address Details" rows={5} />;
 	}
 
 	return (
@@ -185,7 +267,7 @@ const AddressDetails: React.FC = () => {
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
 					<div className="flex flex-col">
 						{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
+						{almsLicenseId && <strong className='text-sm'>Acknowledgement No.: {almsLicenseId}</strong>}
 					</div>
 					{typeof loadExistingData === 'function' && (
 						<button
@@ -219,8 +301,12 @@ const AddressDetails: React.FC = () => {
 						name="presentAddress"
 						value={form.presentAddress}
 						onChange={handleChange}
-						placeholder="Enter present address"
+						onBlur={handleBlur as any}
+						placeholder="e.g., H.No. 12-34, Main Road, Secunderabad"
 						rows={2}
+						maxLength={250}
+						error={fieldErrors.presentAddress}
+						required
 					/>
 				</div>
 				
@@ -232,14 +318,20 @@ const AddressDetails: React.FC = () => {
 						zone: form.presentZone,
 						division: form.presentDivision,
 						policeStation: form.presentPoliceStation,
+						stateName: form.presentStateName,
+						districtName: form.presentDistrictName,
+						zoneName: form.presentZoneName,
+						divisionName: form.presentDivisionName,
+						policeStationName: form.presentPoliceStationName,
 					}}
 					onChange={handleLocationChange}
 					required={true}
 					className="col-span-2"
+					errors={fieldErrors}
 					disabledFields={{
-						state: true,
-						district: true,
-						zone: true,
+						state: isZSRole,
+						district: isZSRole,
+						zone: isZSRole,
 					}}
 				/>
 				
@@ -250,6 +342,9 @@ const AddressDetails: React.FC = () => {
 					value={form.presentSince}
 					onChange={handleChange}
 					placeholder="DD/MM/YYYY"
+					error={fieldErrors.presentSince}
+					max={new Date().toISOString().split('T')[0]}
+					required
 				/>
 			</div>
 			<div className="text-xs text-gray-700 mb-2">
@@ -270,8 +365,14 @@ const AddressDetails: React.FC = () => {
 						name="permanentAddress"
 						value={form.permanentAddress}
 						onChange={handleChange}
-						placeholder="Enter permanent address"
+						onBlur={!form.sameAsPresent ? handleBlur as any : undefined}
+						placeholder="e.g., Plot 56, Gandhi Nagar, Vizag"
 						rows={2}
+						maxLength={250}
+						error={!form.sameAsPresent ? fieldErrors.permanentAddress : undefined}
+						required={!form.sameAsPresent}
+						disabled={form.sameAsPresent}
+						readOnly={form.sameAsPresent}
 					/>
 				</div>
 				
@@ -283,31 +384,49 @@ const AddressDetails: React.FC = () => {
 						zone: form.permanentZone,
 						division: form.permanentDivision,
 						policeStation: form.permanentPoliceStation,
+						stateName: form.permanentStateName,
+						districtName: form.permanentDistrictName,
+						zoneName: form.permanentZoneName,
+						divisionName: form.permanentDivisionName,
+						policeStationName: form.permanentPoliceStationName,
 					}}
 					onChange={handleLocationChange}
-					required={true}
+					required={!form.sameAsPresent}
 					disabled={form.sameAsPresent}
 					className="col-span-2"
+					errors={!form.sameAsPresent ? fieldErrors : {}}
 				/>
 			</div>
 			<div className="text-xs text-gray-700 mb-4">
 				NOTE: Nearest Police Station means the Police Station under whose jurisdiction the place given in the address comes
-			</div>
-			<div className="bg-blue-50 rounded-lg p-4 grid grid-cols-4 gap-4 mb-2 h-30">
+			</div>          <div className="bg-blue-50 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
 				<Input
 					label="Mobile Number\Office"
 					name="officeMobileNumber"
 					value={form.officeMobileNumber}
 					onChange={handleChange}
-					placeholder="0000 0000 0000"
+					onBlur={handleBlur as any}
+					placeholder="e.g., 9876543210"
+					error={fieldErrors.officeMobileNumber}
+					maxLength={10}
+					required
 				/>
-				<Input
-					label="Residence"
-					name="telephoneResidence"
-					value={form.telephoneResidence}
-					onChange={handleChange}
-					placeholder="0000 0000 0000"
-				/>
+				<div className="flex flex-col">
+					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="telephoneResidence">
+						Residence
+						<span className="ml-1 text-xs text-gray-400 align-middle">(optional)</span>
+					</label>
+					<Input
+						label=""
+						name="telephoneResidence"
+						value={form.telephoneResidence}
+						onChange={handleChange}
+						onBlur={handleBlur as any}
+						placeholder="e.g., 04027654321"
+						error={fieldErrors.telephoneResidence}
+						maxLength={15}
+					/>
+				</div>
 				<div className="flex flex-col">
 					<label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="alternativeMobile">
 						Alternative Mobile Number
@@ -318,7 +437,10 @@ const AddressDetails: React.FC = () => {
 						name="alternativeMobile"
 						value={form.alternativeMobile}
 						onChange={handleChange}
-						placeholder="0000 0000 0000"
+						onBlur={handleBlur as any}
+						placeholder="e.g., 8765432109"
+						error={fieldErrors.alternativeMobile}
+						maxLength={10}
 					/>
 				</div>
 				<div className="flex flex-col">
@@ -331,7 +453,10 @@ const AddressDetails: React.FC = () => {
 						name="telephoneOffice"
 						value={form.telephoneOffice}
 						onChange={handleChange}
-						placeholder="0000 0000 0000"
+						onBlur={handleBlur as any}
+						placeholder="e.g., 04023456789"
+						error={fieldErrors.telephoneOffice}
+						maxLength={15}
 					/>
 				</div>
 
@@ -342,6 +467,8 @@ const AddressDetails: React.FC = () => {
 				onNext={handleNext}
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
+				disableActions={!validation.isValid(form)}
+				errors={fieldErrors}
 			/>
 		</form>
 	);

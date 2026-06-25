@@ -10,6 +10,10 @@ import { useRouter } from 'next/navigation';
 import FormFooter from '../elements/footer';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { FieldRule } from '../../../utils/validation/types';
+import { useFormValidation } from '../../../hooks/useFormValidation';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const initialState = {
   acknowledgementNo: '',
@@ -26,51 +30,149 @@ const initialState = {
   dobInWords: '',
 };
 
-// Validation rules for personal information
-const validatePersonalInfo = (formData: any) => {
-  const validationErrors = [];
+// ─── Validation Rules ─────────────────────────────────────────────────────────
 
-  if (!formData.firstName?.trim()) {
-    validationErrors.push('First name is required');
-  }
-  if (!formData.lastName?.trim()) {
-    validationErrors.push('Last name is required');
-  }
-  if (!formData.parentOrSpouseName?.trim()) {
-    validationErrors.push('Parent/Spouse name is required');
-  }
-  if (!formData.sex) {
-    validationErrors.push('Please select sex');
-  }
+const personalInfoRules: FieldRule[] = [
+  { name: 'firstName', type: 'text', required: true },
+  { name: 'middleName', type: 'text', required: false },
+  { name: 'lastName', type: 'text', required: true },
+  { name: 'filledBy', type: 'text', required: true },
+  { name: 'parentOrSpouseName', type: 'text', required: true },
+  { name: 'sex', type: 'select', required: true, errorMessages: { required: 'Please select Gender.' } },
+  { name: 'placeOfBirth', type: 'text', required: true },
+  { name: 'dateOfBirth', type: 'date', required: true, noFuture: true, minAge: 21, maxAge: 30, errorMessages: { noFuture: 'Date of Birth cannot be a future date.', minAge: 'Applicant must be at least 21 years old.', maxAge: 'Applicant must not be older than 30 years.' } },
+  { name: 'panNumber', type: 'pan', required: true },
+  { name: 'aadharNumber', type: 'aadhaar', required: true, errorMessages: { format: 'Aadhaar Number must contain exactly 12 digits.' } },
+];
 
-  return validationErrors;
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Convert a Date to "Twenty-Fifth January Two Thousand Five" style string */
+function dateToDobInWords(dateStr: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr + 'T00:00:00'); // avoid timezone shift
+  if (isNaN(date.getTime())) return '';
+
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen',
+  ];
+  const tens = ['', '', 'Twenty', 'Thirty'];
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const ordinalSuffix = (n: number) => {
+    if (n === 1 || n === 21 || n === 31) return 'First';
+    if (n === 2 || n === 22) return 'Second';
+    if (n === 3 || n === 23) return 'Third';
+    if (n >= 4 && n <= 19) return ones[n] + 'th';
+    if (n === 20) return 'Twentieth';
+    if (n === 30) return 'Thirtieth';
+    // 21-31 (except above)
+    const t = Math.floor(n / 10);
+    const o = n % 10;
+    return tens[t] + '-' + ones[o] + 'th';
+  };
+
+  const numberToWords = (n: number): string => {
+    if (n === 0) return 'Zero';
+    if (n < 20) return ones[n];
+    if (n < 100) {
+      const t = Math.floor(n / 10);
+      const o = n % 10;
+      return tens[t] + (o ? ' ' + ones[o] : '');
+    }
+    if (n < 1000) {
+      const h = Math.floor(n / 100);
+      const rem = n % 100;
+      return ones[h] + ' Hundred' + (rem ? ' ' + numberToWords(rem) : '');
+    }
+    if (n < 10000) {
+      const th = Math.floor(n / 1000);
+      const rem = n % 1000;
+      return ones[th] + ' Thousand' + (rem ? ' ' + numberToWords(rem) : '');
+    }
+    return String(n);
+  };
+
+  const day = date.getDate();
+  const month = date.getMonth();
+  const year = date.getFullYear();
+
+  return `${ordinalSuffix(day)} ${months[month]} ${numberToWords(year)}`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const PersonalInformation: React.FC = () => {
   const router = useRouter();
   const [isMounted, setIsMounted] = React.useState(false);
+  const validation = useFormValidation(personalInfoRules);
 
   const {
     form,
+    setForm,
     applicantId,
     almsLicenseId,
     isSubmitting,
     isLoading,
     submitError,
     submitSuccess,
-    handleChange,
     saveFormData,
     navigateToNext,
     loadExistingData,
+    fieldErrors,
+    setFieldErrors,
   } = useApplicationForm({
     initialState,
     formSection: 'personal',
-    validationRules: validatePersonalInfo,
+    validationRules: validation.validateAll,
   });
 
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // ── Auto-generate DOB in words when dateOfBirth changes ──
+  React.useEffect(() => {
+    const words = dateToDobInWords(form.dateOfBirth);
+    if (words !== form.dobInWords) {
+      setForm((prev: any) => ({ ...prev, dobInWords: words }));
+    }
+  }, [form.dateOfBirth]);
+
+  // ── Handle change with real-time validation ──
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    const { value: filtered, error } = validation.processChange(name, value, form);
+    setForm((prev: any) => ({ ...prev, [name]: filtered }));
+    setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+  };
+
+  // ── Blur handler: auto-trim + re-validate ──
+  const handleBlur = (
+    e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    const { value: trimmed, error } = validation.processBlur(name, value, form);
+    if (trimmed !== value) {
+      setForm((prev: any) => ({ ...prev, [name]: trimmed }));
+    }
+    setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+  };
+
+  // ── Trim all values before submission ──
+  const getTrimmedForm = () => {
+    const trimmed: any = {};
+    for (const key of Object.keys(form)) {
+      trimmed[key] = typeof form[key] === 'string' ? form[key].trim() : form[key];
+    }
+    return trimmed;
+  };
 
   // Manual data refresh functionality for cases where automatic loading doesn't work
   const handleRefreshData = async () => {
@@ -80,21 +182,35 @@ const PersonalInformation: React.FC = () => {
   };
 
   const handleSaveToDraft = async () => {
-    await saveFormData();
+    // Trim values before save
+    const trimmed = getTrimmedForm();
+    setForm(trimmed);
+    await saveFormData(undefined, trimmed);
   };
 
   const handleNext = async () => {
-    const savedApplicantId = await saveFormData();
+    // Trim values before validation and save
+    const trimmed = getTrimmedForm();
+    setForm(trimmed);
+
+    const savedApplicantId = await saveFormData(undefined, trimmed);
 
     if (savedApplicantId) {
       navigateToNext(FORM_ROUTES.ADDRESS_DETAILS, savedApplicantId);
-    } else {
     }
   };
 
   const handlePrevious = () => {
     router.back();
   };
+
+  // ── Mandatory label helper ──
+  const requiredLabel = (text: string) => (
+    <>
+      {text}
+      <span className='text-red-500 ml-1'>*</span>
+    </>
+  );
 
   return (
     <div className='p-6'>
@@ -105,9 +221,6 @@ const PersonalInformation: React.FC = () => {
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
             <strong>Application ID: {applicantId ?? '—'}</strong>
-            {almsLicenseId && (
-              <strong className='text-sm'>License ID: {almsLicenseId}</strong>
-            )}
           </div>
           <button
             type='button'
@@ -162,15 +275,20 @@ const PersonalInformation: React.FC = () => {
       )}
 
       
-      <div className='grid  grid-cols-4 gap-10 mb-4'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-4'>
+        {/* 1. Applicant First Name (mandatory) */}
         <Input
           label='1. Applicant First Name'
           name='firstName'
           value={form.firstName}
           onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder='e.g., Ramesh'
           required
-          //placeholder="Enter first name"
+          error={fieldErrors.firstName}
         />
+
+        {/* Applicant Middle Name (optional) */}
         <div className='flex flex-col'>
           <label className='block text-sm font-medium text-gray-700 mb-1' htmlFor='middleName'>
             Applicant Middle Name
@@ -181,40 +299,59 @@ const PersonalInformation: React.FC = () => {
             name='middleName'
             value={form.middleName}
             onChange={handleChange}
-            //placeholder="Enter middle name"
+            onBlur={handleBlur}
+            placeholder='e.g., Kumar'
+            error={fieldErrors.middleName}
           />
         </div>
+
+        {/* Applicant Last Name (mandatory) */}
         <Input
           label='Applicant Last Name'
           name='lastName'
           value={form.lastName}
           onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder='e.g., Sharma'
           required
-          //placeholder="Enter last name"
+          error={fieldErrors.lastName}
         />
+
+        {/* Application filled by (ZS name) (mandatory) */}
         <div className='flex flex-col'>
           <label htmlFor='filledBy' className='block text-sm font-medium text-gray-700 mb-1'>
             Application filled by (ZS name)
-            <br />
+            <span className='text-red-500 ml-1'>*</span>
           </label>
           <Input
             label=''
             name='filledBy'
             value={form.filledBy}
             onChange={handleChange}
-            //    //placeholder="Self/Agent/Other"
+            onBlur={handleBlur}
+            placeholder='e.g., Suresh Reddy'
+            error={fieldErrors.filledBy}
           />
         </div>
+
+        {/* 2. Parent/ Spouse Name (mandatory) */}
         <Input
           label='2. Parent/ Spouse Name'
           name='parentOrSpouseName'
           value={form.parentOrSpouseName}
           onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder='e.g., Rajesh Sharma'
           required
-          //placeholder="Enter parent/spouse name"
+          error={fieldErrors.parentOrSpouseName}
         />
+
+        {/* 3. Sex/Gender (mandatory) */}
         <div className='flex flex-col'>
-          <span className='block text-sm font-medium text-gray-700 mb-1'>3. Sex</span>
+          <span className='block text-sm font-medium text-gray-700 mb-1'>
+            3. Sex
+            <span className='text-red-500 ml-1'>*</span>
+          </span>
           <div className='flex items-center gap-6'>
             <label className='flex items-center gap-2'>
               <input
@@ -222,7 +359,12 @@ const PersonalInformation: React.FC = () => {
                 name='sex'
                 value='MALE'
                 checked={form.sex === 'MALE'}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const { name, value } = e.target;
+                  setForm((prev: any) => ({ ...prev, [name]: value }));
+                  const { error } = validation.processChange(name, value, { ...form, [name]: value });
+                  setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+                }}
                 suppressHydrationWarning
               />
               Male
@@ -234,27 +376,41 @@ const PersonalInformation: React.FC = () => {
                 name='sex'
                 value='FEMALE'
                 checked={form.sex === 'FEMALE'}
-                onChange={handleChange}
+                onChange={(e) => {
+                  const { name, value } = e.target;
+                  setForm((prev: any) => ({ ...prev, [name]: value }));
+                  const { error } = validation.processChange(name, value, { ...form, [name]: value });
+                  setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+                }}
                 suppressHydrationWarning
               />
               Female
               <IoMdFemaleFixed className='text-xl' />
             </label>
           </div>
+          {fieldErrors.sex && <p className="text-red-500 text-xs mt-1">{fieldErrors.sex}</p>}
         </div>
+
+        {/* 4. Place of Birth (Nativity) (mandatory) */}
         <Input
           label='4. Place of Birth (Nativity)'
           name='placeOfBirth'
           value={form.placeOfBirth}
           onChange={handleChange}
-          //placeholder="Enter place of birth"
+          onBlur={handleBlur}
+          placeholder='e.g., Hyderabad'
+          required
+          error={fieldErrors.placeOfBirth}
         />
+
+        {/* 5. Date of Birth (mandatory) */}
         <div className='flex flex-col'>
           <label
             htmlFor='dateOfBirth'
             className='block text-sm font-medium text-gray-700 mb-1 relative group'
           >
             5. Date of birth in Christian era
+            <span className='text-red-500 ml-1'>*</span>
             <span className='ml-1 text-blue-500 cursor-help'>ⓘ</span>
             <span className='invisible group-hover:visible absolute left-0 top-full mt-1 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10'>
               Must be 21 years old on the date of application
@@ -266,31 +422,45 @@ const PersonalInformation: React.FC = () => {
             type='date'
             value={form.dateOfBirth}
             onChange={handleChange}
-            //placeholder="mm/dd/yyyy"
+            onBlur={handleBlur}
+            max={new Date().toISOString().split('T')[0]}
+            error={fieldErrors.dateOfBirth}
           />
         </div>
+
+        {/* 6. PAN (mandatory) */}
         <Input
           label='6. PAN'
           name='panNumber'
           value={form.panNumber}
           onChange={handleChange}
-          //placeholder="10-CHARACTER PAN NUMBER"
+          onBlur={handleBlur}
+          placeholder='e.g., ABCDE1234F'
+          required
+          error={fieldErrors.panNumber}
           maxLength={10}
         />
+
+        {/* 7. Aadhaar Number (mandatory) */}
         <Input
           label='7. Aadhar Number'
           name='aadharNumber'
           value={form.aadharNumber}
           onChange={handleChange}
-          //placeholder="12-digit Aadhar number"
+          onBlur={handleBlur}
+          placeholder='e.g., 123456789012'
+          required
+          error={fieldErrors.aadharNumber}
           maxLength={12}
         />
+
+        {/* Date of Birth in Words (read-only, auto-generated) */}
         <Input
           label='Date of Birth in Words'
           name='dobInWords'
           value={form.dobInWords}
-          onChange={handleChange}
-          //placeholder="Enter DOB in words"
+          onChange={() => {}}
+          readOnly
         />
       </div>
 
@@ -300,6 +470,8 @@ const PersonalInformation: React.FC = () => {
         onPrevious={handlePrevious}
         hidePrevious={true}
         isLoading={isSubmitting}
+        disableActions={!validation.isValid(form)}
+        errors={fieldErrors}
       />
     </div>
   );

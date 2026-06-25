@@ -2,99 +2,54 @@
 
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import type { AppDispatch } from '../store/store';
 import { useRouter, usePathname } from 'next/navigation';
-import { selectIsAuthenticated, selectCurrentUser } from '../store/slices/authSlice';
+import type { AppDispatch } from '../store/store';
+import { selectIsAuthenticated, selectCurrentUser, selectAuthLoading, selectAuthInitialized } from '../store/slices/authSlice';
 import { initializeAuth } from '../store/thunks/authThunks';
-import { getCookie } from 'cookies-next';
 import { shouldRedirectOnStartup } from '../config/roleRedirections';
-import { logError, logDebug } from '@/utils/loggingUtils';
+import { normalizeRole } from '../utils/roleUtils';
 
-/**
- * Component to initialize auth state on app startup
- * This should be rendered once at the root level
- */
 export const AuthInitializer = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
+
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const currentUser = useSelector(selectCurrentUser);
+  const isLoading = useSelector(selectAuthLoading);
+  const initialized = useSelector(selectAuthInitialized);
 
-  // Defensive init: some third-party bundles or browser extensions
-  // (e.g. a floating sidebar script) may read a localStorage key like
-  // "floatingSidebar" and call Object.keys on it. If that key is missing
-  // or contains "null", Object.keys will throw. Ensure a safe default.
+  // Initialize auth once on mount only
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const key = 'floatingSidebar';
-        const raw = localStorage.getItem(key);
-        if (raw === null || raw === 'null') {
-          localStorage.setItem(key, JSON.stringify({}));
-          // keep quiet in normal runs; debug available via existing logger
-          // logDebug(`AuthInitializer: initialized ${key} to {}`);
-        }
-      }
-    } catch (err) {
-      // Non-fatal: if localStorage is disabled or access throws, continue.
-      // use existing logging util if available
-      // eslint-disable-next-line no-console
-      console.debug('AuthInitializer: safe storage init failed', err);
-    }
+    dispatch(initializeAuth());
+    // Intentionally empty dependency array - run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Handle redirection after initialization for page refresh scenarios
   useEffect(() => {
-    // Initialize auth state on startup: validate token via API and persist canonical user.
-    try {
-      // initializeAuth performs getMe, writes cookies if needed, and may redirect.
-      void dispatch(initializeAuth());
-    } catch (error) {
-      logError('AuthInitializer: Failed to initialize auth state', error);
-    }
-  }, [dispatch]);
+    // Only act after initialization and when on root path
+    if (!initialized) return;
+    if (isLoading) return;
+    if (!isAuthenticated || !currentUser) return;
+    if (!pathname) return;
 
-  useEffect(() => {
-    // Handle role-based redirection after auth state is restored
-    // Only run on initial mount and pathname changes, not on every auth state change
-    const handleRedirection = async () => {
-      try {
-        if (!pathname) {
-          logError('AuthInitializer: Missing pathname for redirection');
-          return;
-        }
+    // Normalize the role from the current user
+    const normalizedRole = normalizeRole(currentUser?.role);
 
-        // Don't redirect if we're not authenticated yet
-        if (!isAuthenticated) {
-          return;
-        }
 
-        // Prefer role from Redux-hydrated user, fallback to role cookie
-        const roleFromState = currentUser?.role;
-        const roleFromCookie = getCookie('role') as string | undefined;
-        const effectiveRole = roleFromState || (roleFromCookie ? String(roleFromCookie).toUpperCase() : undefined);
+    // Skip redirection on the root path '/' - layouts handle their own redirects
+    // This prevents double-redirects with the login page
+    if (pathname === '/') {
+      const redirectPath = shouldRedirectOnStartup(normalizedRole, pathname);
 
-        logDebug(`AuthInitializer: isAuthenticated=${isAuthenticated} roleFromState=${roleFromState} roleFromCookie=${roleFromCookie} pathname=${pathname}`);
-
-        if (effectiveRole) {
-          const redirectPath = shouldRedirectOnStartup(effectiveRole, pathname);
-          if (redirectPath) {
-            logDebug(`AuthInitializer: Redirecting ${effectiveRole} user to: ${redirectPath}`);
-            await router.push(redirectPath);
-          } else {
-            logDebug(`AuthInitializer: No redirect needed for ${effectiveRole} at ${pathname}`);
-          }
-        }
-      } catch (error) {
-        logError('AuthInitializer: Error during role-based redirection', error);
+      if (redirectPath) {
+        router.replace(redirectPath);
       }
-    };
+    }
+  }, [initialized, isLoading, isAuthenticated, currentUser, pathname, router]);
 
-    handleRedirection();
-  }, [pathname, router]);
+  return null;
+};
 
-  return null; // This component doesn't render anything
-}
-
-// Named export to avoid SSR issues with default export
 export default AuthInitializer;

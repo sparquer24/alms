@@ -5,47 +5,47 @@
 
 // Base API URL
 // Normalize and trim trailing slash so constructed endpoints are consistent
-export const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
+export const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$/, '');
 
 // Authentication APIs
 export const AUTH_APIS = {
-  LOGIN: `${BASE_URL}/auth/login`,
-  GET_CURRENT_USER: `${BASE_URL}/auth/me`,
-  CHANGE_PASSWORD: `${BASE_URL}/auth/change-password`,
-  RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
-  REFRESH_TOKEN: `${BASE_URL}/auth/refresh-token`,
+  LOGIN: `/auth/login`,
+  GET_CURRENT_USER: `/auth/me`,
+  CHANGE_PASSWORD: `/auth/change-password`,
+  RESET_PASSWORD: `/auth/reset-password`,
+  REFRESH_TOKEN: `/auth/refresh-token`,
 };
 
 // Application Management APIs
 export const APPLICATION_APIS = {
-  GET_ALL: `${BASE_URL}/applications`,
-  GET_BY_ID: (id: string) => `${BASE_URL}/applications/${id}`,
-  CREATE: `${BASE_URL}/applications`,
-  UPDATE_STATUS: (id: string) => `${BASE_URL}/applications/${id}/status`,
-  FORWARD: (id: string) => `${BASE_URL}/applications/${id}/forward`,
-  BATCH_PROCESS: `${BASE_URL}/applications/batch`,
+  GET_ALL: `/applications`,
+  GET_BY_ID: (id: string) => `/applications/${id}`,
+  CREATE: `/applications`,
+  UPDATE_STATUS: (id: string) => `/applications/${id}/status`,
+  FORWARD: (id: string) => `/applications/${id}/forward`,
+  BATCH_PROCESS: `/applications/batch`,
 };
 
 // Document Management APIs
 export const DOCUMENT_APIS = {
-  UPLOAD: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
-  GET_ALL: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/documents`,
+  UPLOAD: (applicationId: string) => `/applications/${applicationId}/documents`,
+  GET_ALL: (applicationId: string) => `/applications/${applicationId}/documents`,
   DELETE: (applicationId: string, documentId: string) =>
-    `${BASE_URL}/applications/${applicationId}/documents/${documentId}`,
+    `/applications/${applicationId}/documents/${documentId}`,
 };
 
 // Report APIs
 export const REPORT_APIS = {
-  STATISTICS: `${BASE_URL}/reports/statistics`,
-  APPLICATIONS_BY_STATUS: `${BASE_URL}/reports/applications-by-status`,
-  GENERATE_PDF: (applicationId: string) => `${BASE_URL}/applications/${applicationId}/pdf`,
+  STATISTICS: `/reports/statistics`,
+  APPLICATIONS_BY_STATUS: `/reports/applications-by-status`,
+  GENERATE_PDF: (applicationId: string) => `/applications/${applicationId}/pdf`,
 };
 
 // User Management APIs
 export const USER_APIS = {
-  GET_BY_ROLE: `${BASE_URL}/users`,
-  GET_PREFERENCES: `${BASE_URL}/users/preferences`,
-  UPDATE_PREFERENCES: `${BASE_URL}/users/preferences`,
+  GET_BY_ROLE: `/users`,
+  GET_PREFERENCES: `/users/preferences`,
+  UPDATE_PREFERENCES: `/users/preferences`,
 };
 
 // Notification APIs
@@ -58,19 +58,15 @@ export const DASHBOARD_APIS = {
 
 // Role-Based Action APIs
 export const ROLE_APIS = {
-  GET_AVAILABLE_ACTIONS: `${BASE_URL}/roles/actions`,
-  GET_HIERARCHY: `${BASE_URL}/roles/hierarchy`,
+  GET_AVAILABLE_ACTIONS: `/roles/actions`,
+  GET_HIERARCHY: `/roles/hierarchy`,
 };
 
-// QR Code APIs
-export const QRCODE_APIS = {
-  GENERATE: (applicationId: string) => `${BASE_URL}/qrcode/generate/${applicationId}`,
-  CHECK_PERMISSION: (applicationId: string) => `${BASE_URL}/qrcode/check/${applicationId}`,
-};
+
 
 // Public APIs (no authentication required)
 export const PUBLIC_APIS = {
-  GET_APPLICATION: (applicationId: string) => `${BASE_URL}/public/application/${applicationId}`,
+  GET_APPLICATION: (applicationId: string) => `/public/application/${applicationId}`,
 };
 
 // API Request Parameter Types

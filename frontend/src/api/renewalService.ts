@@ -32,6 +32,7 @@ const RENEWAL_FILE_TYPE_MAP: Record<string, string> = {
   signature: 'SIGNATURE_THUMB',
   irisScan: 'IRIS_SCAN',
   claimDocsUploaded: 'CLAIM_DOCS',
+  specialEvidenceUploaded: 'CLAIM_DOCS',
   rejectedLicenseUploaded: 'REJECTED_LICENSE',
   otherUploaded: 'OTHER',
   addressProofUploaded: 'OTHER',

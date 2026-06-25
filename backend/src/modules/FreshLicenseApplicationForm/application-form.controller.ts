@@ -36,7 +36,7 @@ export class ApplicationFormController {
     try {
   // Pass the DTO object directly to the service, and include the authenticated user id so
   // the service can set currentUserId/currentRoleId on creation when available.
-  const payload = { ...(dto as any), currentUserId: req.user?.sub };
+  const payload = { ...(dto as any), currentUserId: Number(req.user?.sub) };
   const [error, applicationId] = await this.applicationFormService.createPersonalDetails(payload);
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
@@ -46,6 +46,9 @@ export class ApplicationFormController {
 
       return { success: true, applicationId, message: 'Personal details saved with DRAFT status' };
     } catch (err: any) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
       const errorMessage = err?.message || err;
       const errorDetails = err;
       throw new HttpException({ success: false, error: errorMessage, details: errorDetails }, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -390,7 +393,7 @@ export class ApplicationFormController {
       }
 
       // Get authenticated user ID from JWT token
-      const currentUserId = req.user?.sub;
+      const currentUserId = Number(req.user?.sub);
 
   const [error, result] = await this.applicationFormService.patchApplicationDetails(applicationIdNum, isSubmit || false, dto, currentUserId);
       
@@ -512,7 +515,7 @@ export class ApplicationFormController {
       );
     }
   }
-  @Delete(':id')
+  @Delete('file/:id')
   @ApiOperation({
     summary: 'Delete file record for application',
     description: 'Delete a specific file record associated with an application. This does not delete the actual file from storage.'
@@ -525,7 +528,49 @@ export class ApplicationFormController {
   @ApiResponse({
     status: 200,
     description: 'File record deleted successfully',
-    
+    schema: {
+      example: {
+        success: true,
+        message: 'File record deleted successfully',
+        data: {
+          id: 1,
+          applicationId: 123,
+          fileType: 'AADHAR_CARD',
+          fileName: 'aadhar_card.pdf',
+          fileUrl: 'uploads/application-123/files/AADHAR_CARD_1696507200000_aadhar_card.pdf'
+        }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Bad request - Invalid file ID format or file not found',
+    schema: {
+      example: {
+        success: false,
+        error: 'Invalid file ID format or file not found'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Unauthorized - Invalid token',
+    schema: {
+      example: {
+        success: false,
+        error: 'Unauthorized - Invalid token'
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error',
+    schema: {
+      example: {
+        success: false,
+        error: 'Internal server error'
+      }
+    }
   })
   async deleteFileRecord(@Param('id') id: string) {
     try {

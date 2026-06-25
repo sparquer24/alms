@@ -13,11 +13,18 @@
 }
 
 .tableWrapper {
-  overflow-x: hidden;
+  overflow-x: auto; /* Enable horizontal scrolling for responsiveness */
   overflow-y: auto; /* Enable vertical scrolling */
-  /* Limit the table wrapper height so the header (inside the thead) can stick
-     to the top while only the tbody scrolls. Adjust 60vh as necessary for your layout. */
-  max-height: 60vh;
+  /* Full height for single scrollbar - parent controls the viewport height */
+  height: calc(100vh - 240px);
+  min-height: 300px;
+  max-height: calc(100vh - 240px);
+}
+
+@media (min-width: 1024px) {
+  .tableWrapper {
+    overflow-x: auto; /* Allow horizontal scroll if table is wider than layout */
+  }
 }
 
 /* Responsive: on small screens use full width (no offset) */
@@ -44,24 +51,25 @@
 }
 
 .tableHeaderCell {
-  padding: 0.5rem 1rem;
+  padding: 0.625rem 0.75rem; /* Reduced padding (10px vertical, 12px horizontal) */
   text-align: left;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #000000;
-  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+  font-weight: 500; /* Medium font weight instead of overly bold */
+  color: #1f2937;
   border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap; /* Prevent any wrapping */
+  vertical-align: middle; /* Vertically centered alignment */
 }
 
 .tableRow {
-  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  transition: background-color 0.2s ease;
   position: relative;
+  height: 3.5rem; /* Consistent row height */
 }
 
 /* Zebra striping for readability */
 .tableRow:nth-child(even) {
-  background-color: #f9fafb;
+  background-color: #fafbfc; /* Modern portal soft zebra */
 }
 
 /* Unread emphasis: keep existing bold from tailwind, add subtle left indicator when bold present */
@@ -72,65 +80,35 @@ tr.font-bold::before {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: #6366f1;
+  background: #2563eb; /* cleaner blue indicator */
   border-top-right-radius: 2px;
   border-bottom-right-radius: 2px;
 }
 
 .tableRow:hover {
-  color: #ffffff; 
-    background-color: #092da487; /* App primary color */
-/* Light font color */
+  background-color: #f0f7ff; /* professional soft blue hover */
 }
 
 /* Keyboard accessibility */
 .tableRow:focus-within {
-  outline: 2px solid #6366f1;
+  outline: 2px solid #2563eb;
   outline-offset: -2px;
 }
 
 .tableCell {
-  padding: 0.5rem 1rem;
-  white-space: normal;
-  word-break: break-word;
+  padding: 0.625rem 0.75rem; /* Reduced padding (10px vertical, 12px horizontal) */
   font-size: 0.875rem;
   color: #374151;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
 }
 
 .tableRow:hover .tableCell {
-  color: #ffffff; /* Ensure text changes to white on hover */
+  color: #111827;
 }
 
-/* Override Tailwind text color utilities inside hovered row to force white text EXCEPT status pill */
-.tableRow:hover td { /* base cell text */
-  color: #ffffff;
-}
-.tableRow:hover td *:not(.statusPill) {
-  color: #ffffff !important;
-}
-
-/* Slightly adjust buttons on hover for better contrast while keeping white text */
-.tableRow:hover td button {
-  background-color: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.38);
-  color: #ffffff !important;
-}
-.tableRow:hover td button:hover {
-  background-color: rgba(255, 255, 255, 0.28);
-}
-
-/* Status pill refinement */
-.statusPill {
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-  letter-spacing: .25px;
-  transition: background-color 0.25s ease, color 0.25s ease;
-}
-
-/* Keep status pill text readable (override global white enforcement) */
-.tableRow:hover .statusPill {
-  color: inherit;
-  mix-blend-mode: normal;
+.tableRow:hover td button:not(.statusPill) {
+  color: #1d4ed8 !important;
 }
 
 .idLink {
@@ -141,12 +119,12 @@ tr.font-bold::before {
 }
 
 .idLink:hover {
-  color: #ffffff;
+  color: #1d4ed8;
   text-decoration: underline;
 }
 
 .tableRow:hover .idLink {
-  color: #ffffff;
+  color: #1d4ed8;
 }
 
 .statusPill {
@@ -154,9 +132,24 @@ tr.font-bold::before {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
+  width: 6.25rem; /* smaller fixed equal width (100px) */
+  height: 1.625rem; /* smaller fixed equal height (26px) */
+  font-size: 0.7rem; /* slightly smaller text size */
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  letter-spacing: .25px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.nowrapCell {
+  white-space: nowrap !important;
+}
+
+.truncateCell {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 /* Status pill colors */
@@ -282,7 +275,7 @@ tr.font-bold::before {
 .tableWrapper table thead th {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 10;
   background: #f9fafb; /* same as header background */
 }
 

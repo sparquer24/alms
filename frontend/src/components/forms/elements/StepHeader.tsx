@@ -1,71 +1,56 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 interface StepHeaderProps {
   steps: string[];
   currentStep: number;
   onStepClick?: (step: number) => void;
+  lockedSteps?: Set<number>;
 }
 
 export const StepHeader: React.FC<StepHeaderProps> = ({
   steps,
   currentStep,
   onStepClick = () => {},
+  lockedSteps = new Set(),
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [pressedIndex, setPressedIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (pressedIndex !== null) {
-      const t = setTimeout(() => setPressedIndex(null), 220);
-      return () => clearTimeout(t);
-    }
-  }, [pressedIndex]);
-
   const handleClick = (idx: number) => {
-    if (isLoading) return;
-    setPressedIndex(idx);
-    setIsLoading(true);
-
-    // small visual press before switching
-    setTimeout(() => {
-      try {
-        onStepClick(idx);
-      } finally {
-        // keep skeleton visible briefly for smoothness
-        setTimeout(() => setIsLoading(false), 450);
-      }
-    }, 160);
+    if (lockedSteps.has(idx)) return;
+    onStepClick(idx);
   };
 
   return (
       <header className='w-full fixed top-0 left-0 z-40 h-20' aria-hidden={false}>
-      <div className='w-full flex justify-center py-2 px-3'>
-        <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase'>
-          FRESH APPLICATION FORM
-        </h1>
+      <div className='w-full'>
+        <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
+          <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>
+            FRESH APPLICATION FORM
+          </h1>
+        </div>
       </div>
         <div
-          className='max-w-7xl mx-auto rounded-lg shadow px-2 py-1 mt-0  bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
-          <div className='flex space-x-2  px-2 py-1 justify-center items-center'>
+          className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
+          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
-              const pressed = pressedIndex === idx;
+              const locked = lockedSteps.has(idx);
               return (
                 <div key={idx} className='flex flex-col items-center'>
                   <button
                     type='button'
                     onClick={() => handleClick(idx)}
                     suppressHydrationWarning
+                    disabled={locked}
+                    title={locked ? 'Complete the previous step first' : stepName}
                     aria-current={active ? 'step' : undefined}
-                    aria-disabled={isLoading}
-                    className={`px-3 py-2 text-sm font-medium transition-transform duration-150 transform-gpu focus:outline-none flex flex-col items-center select-none
+                    className={`px-3 py-2 text-sm font-medium transition-all duration-150 transform-gpu focus:outline-none flex flex-col items-center select-none
                       ${
                         active
                           ? 'bg-white text-[#0d2977]'
+                          : locked
+                          ? 'bg-transparent text-blue-300/50 cursor-not-allowed'
                           : 'bg-transparent text-blue-100 hover:bg-white hover:text-[#0d2977] rounded-sm'
                       }
-                      ${pressed ? 'scale-95' : 'scale-100'}
                     `}
                     style={{
                       borderTopLeftRadius: '10px',
@@ -73,7 +58,12 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                       minWidth: 88,
                     }}
                   >
-                    <span className={`text-xs ${active ? 'font-bold' : 'font-semibold'}`}>
+                    {locked && (
+                      <svg className='w-3 h-3 mb-0.5 text-blue-300/60' fill='currentColor' viewBox='0 0 20 20'>
+                        <path fillRule='evenodd' d='M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z' clipRule='evenodd' />
+                      </svg>
+                    )}
+                    <span className={`text-xs ${active ? 'font-bold' : 'font-semibold'} ${locked ? 'text-blue-300/50' : ''}`}>
                       {stepName}
                     </span>
                   </button>
@@ -85,13 +75,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
             })}
           </div>
 
-          {isLoading && (
-            <div className='mt-2 px-2'>
-              <div className='animate-pulse'>
-                <div className='h-2 rounded bg-white/30 w-3/4 mx-auto' />
-              </div>
-            </div>
-          )}
+
         </div>
     </header>
   );

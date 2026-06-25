@@ -1,50 +1,43 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { getCookie } from 'cookies-next';
 import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
+import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
+import { navigateToDefaultMenu } from '../../utils/navigationUtils';
 
-// Type assertions for Next.js components to fix React 18 compatibility
 const ImageFixed = Image as any;
-const LinkFixed = Link as any;
 import { useDispatch, useSelector } from 'react-redux';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { login } from '../../store/thunks/authThunks';
 import {
   selectAuthLoading,
   selectAuthError,
-  setError,
   selectIsAuthenticated,
+  selectAuthInitialized,
   selectCurrentUser,
+  setError,
 } from '../../store/slices/authSlice';
-import { getRoleBasedRedirectPath } from '../../config/roleRedirections';
 import type { AppDispatch } from '../../store/store';
 import { LoginSkeleton } from '../../components/Skeleton';
+import { normalizeRole } from '../../utils/roleUtils';
 
-// Types
+
 interface LoginFormData {
   username: string;
   password: string;
 }
 
-interface ErrorMapping {
-  [key: string]: string;
-}
-
-// Constants
-const ERROR_MESSAGES: ErrorMapping = {
+const ERROR_MESSAGES: Record<string, string> = {
   invalid_role: 'Your account has an invalid role. Please contact system administrator.',
   unhandled_role: 'Your role is not properly configured. Please contact system administrator.',
   no_role: 'No role assigned to your account. Please contact system administrator.',
   default: 'Authentication error. Please try logging in again.',
-} as const;
+};
 
-// const BACKGROUND_IMAGE = '/backgroundIMGALMS.jpeg';
 const LOGO_IMAGE = '/icon-alms.svg';
 
-// Custom hooks
 const useLoginForm = () => {
   const [formData, setFormData] = useState<LoginFormData>({
     username: '',
@@ -63,12 +56,7 @@ const useLoginForm = () => {
     return formData.username.trim().length > 0 && formData.password.trim().length > 0;
   }, [formData]);
 
-  return {
-    formData,
-    updateField,
-    resetForm,
-    isFormValid,
-  };
+  return { formData, updateField, resetForm, isFormValid };
 };
 
 const useUrlErrorHandler = (dispatch: AppDispatch) => {
@@ -76,25 +64,19 @@ const useUrlErrorHandler = (dispatch: AppDispatch) => {
 
   useEffect(() => {
     const urlError = searchParams?.get('error');
-
     if (urlError) {
       const errorMessage = ERROR_MESSAGES[urlError] || ERROR_MESSAGES.default;
       dispatch(setError(errorMessage));
     }
-  }, [searchParams, dispatch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 };
 
-// Components
 const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
   <div className='bg-red-50 border border-red-400 rounded-md p-4 mb-4 shadow-sm' role='alert'>
     <div className='flex items-center'>
       <div className='flex-shrink-0'>
-        <svg
-          className='h-5 w-5 text-red-500'
-          viewBox='0 0 20 20'
-          fill='currentColor'
-          aria-hidden='true'
-        >
+        <svg className='h-5 w-5 text-red-500' viewBox='0 0 20 20' fill='currentColor' aria-hidden='true'>
           <path
             fillRule='evenodd'
             d='M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
@@ -136,21 +118,9 @@ const FormInput: React.FC<{
   autoComplete?: string;
   required?: boolean;
   className?: string;
-}> = ({
-  id,
-  type,
-  placeholder,
-  value,
-  onChange,
-  disabled = false,
-  autoComplete,
-  required = false,
-  className = '',
-}) => (
+}> = ({ id, type, placeholder, value, onChange, disabled = false, autoComplete, required = false, className = '' }) => (
   <div>
-    <label htmlFor={id} className='sr-only'>
-      {placeholder}
-    </label>
+    <label htmlFor={id} className='sr-only'>{placeholder}</label>
     <input
       id={id}
       name={id}
@@ -173,80 +143,38 @@ const FormInput: React.FC<{
   </div>
 );
 
-// Force dynamic rendering to avoid static generation issues with useSearchParams
 export const dynamic = 'force-dynamic';
 
-// Component that uses useSearchParams - needs to be wrapped in Suspense
 function LoginContent() {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const searchParams = useSearchParams();
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  // Redux selectors
-  const isLoading = useSelector(selectAuthLoading);
+  const isAuthLoading = useSelector(selectAuthLoading);
+  const isLoading = isAuthLoading || isNavigating;
   const error = useSelector(selectAuthError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const authInitialized = useSelector(selectAuthInitialized);
   const currentUser = useSelector(selectCurrentUser);
 
-  // Custom hooks
+  // If the user is already authenticated, redirect them away from login page
+  // This effect only runs once on mount to avoid duplicate redirects
+  useEffect(() => {
+    if (!authInitialized || !isAuthenticated) return;
+    if (!currentUser) return;
+
+    // Get role from current user and redirect
+    const userRole = currentUser?.role ? normalizeRole(currentUser.role) : null;
+    if (userRole) {
+      const redirectPath = getRoleBasedRedirectPath(userRole);
+      router.replace(redirectPath);
+    }
+  }, [authInitialized, isAuthenticated, currentUser, router]);
+
   const { formData, updateField, resetForm, isFormValid } = useLoginForm();
   useUrlErrorHandler(dispatch);
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      setIsRedirecting(true);
-      const redirectPath = getRoleBasedRedirectPath(currentUser?.role);
-      if (redirectPath && typeof redirectPath === 'string') {
-        // Perform a full navigation so the server middleware/layout sees the
-        // newly-set cookies and any server components (eg. sidebar) are
-        // rendered with the correct data. Use a tiny delay so cookies
-        // written by thunks have a chance to flush.
-        const separator = redirectPath.includes('?') ? '&' : '?';
-        setTimeout(() => {
-          window.location.assign(redirectPath + separator + 'refresh=true');
-        }, 50);
-      } else {
-        // Fallback to root (full navigation)
-        setTimeout(() => {
-          window.location.assign('/?refresh=true');
-        }, 50);
-      }
-    }
-  }, [isAuthenticated, currentUser, router]);
-
-  // On initial mount, if auth, role and user cookies already exist then
-  // redirect to root. This keeps users from seeing the login page when a
-  // valid cookie set exists (server or another tab may have established it).
-  useEffect(() => {
-    try {
-      const cAuth = getCookie('auth');
-      const cRole: any = getCookie('role');
-      const cUser = getCookie('user');
-      if (cAuth && cRole && cUser) {
-        // Use full navigation so server-side layout/middleware reads cookies
-        // and renders the correct navigation/sidebar state immediately.
-        const roleUpper = String(cRole).toUpperCase();
-        const redirectPath = getRoleBasedRedirectPath(roleUpper);
-
-        try {
-          setTimeout(() => {
-            const separator = redirectPath.includes('?') ? '&' : '?';
-            window.location.assign(redirectPath + separator + 'refresh=true');
-          }, 50);
-        } catch (e) {
-          // Fallback: do a direct assign
-          const separator = redirectPath.includes('?') ? '&' : '?';
-          window.location.assign(redirectPath + separator + 'refresh=true');
-        }
-      }
-    } catch (e) {
-      // best-effort; ignore errors
-      // console.warn('Cookie check failed on login page:', e);
-    }
-  }, [router]);
-
-  // Form submission handler
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -257,13 +185,12 @@ function LoginContent() {
       }
 
       try {
-        const loginPayload = {
+        const result = await dispatch(login({
           username: formData.username.trim(),
           password: formData.password,
-        };
-        const result = await dispatch(login(loginPayload)).unwrap();
+        })).unwrap();
+
         if (result && result.user) {
-          // Normalize role to uppercase string for consistent redirects
           const extractRole = (u: any): string | undefined => {
             if (!u) return undefined;
             const roleObj = u.role ?? u;
@@ -281,45 +208,34 @@ function LoginContent() {
           const normalizedRole = extractRole(result.user);
           if (!normalizedRole) {
             dispatch(setError('No role assigned to your account.'));
-            setIsRedirecting(false);
-          } else {
-            // Compute role-based redirect and then navigate immediately so the
-            // user lands on the appropriate client route after login.
-            const redirectPath = getRoleBasedRedirectPath(normalizedRole);
-            dispatch(setError(''));
-            setIsRedirecting(true);
-            // Use role-based redirect path for all users including ADMIN and SUPER_ADMIN
-            setTimeout(() => {
-              try {
-                if (redirectPath && typeof redirectPath === 'string') {
-                  const separator = redirectPath.includes('?') ? '&' : '?';
-                  window.location.assign(redirectPath + separator + 'refresh=true');
-                } else {
-                  // Fallback to role-based redirect or root
-                  const fallbackPath = getRoleBasedRedirectPath(normalizedRole) || '/';
-                  const separator = fallbackPath.includes('?') ? '&' : '?';
-                  window.location.assign(fallbackPath + separator + 'refresh=true');
-                }
-              } catch (e) {
-                // As final fallback do a direct assign without try/catch
-                const fallbackPath = getRoleBasedRedirectPath(normalizedRole) || '/';
-                const separator = fallbackPath.includes('?') ? '&' : '?';
-                window.location.assign(fallbackPath + separator + 'refresh=true');
-              }
-            }, 50);
+            return;
           }
-        } else {
-          dispatch(setError('No user found after login.'));
+          // Use navigateToDefaultMenu for dynamic role-based routing
+          // based on the user's role configuration menu items.
+          // Fall back to getRoleBasedRedirectPath if navigateToDefaultMenu fails.
+          const navigated = navigateToDefaultMenu(normalizedRole, router);
+          if (!navigated) {
+            const redirectPath = getRoleBasedRedirectPath(normalizedRole);
+            // For admin/superAdmin routes, use a full navigation so the Next.js middleware
+            // can verify the JWT in the edge runtime.
+            if (redirectPath.startsWith('/admin') || redirectPath.startsWith('/superAdmin')) {
+              setIsNavigating(true);
+              window.location.assign(redirectPath);
+            } else {
+              setIsNavigating(true);
+              router.push(redirectPath);
+            }
+          } else {
+            setIsNavigating(true);
+          }
         }
-      } catch (err) {
-        // Error is handled by the thunk and stored in Redux state
+      } catch {
         resetForm();
       }
     },
-    [dispatch, formData, isFormValid, resetForm]
+    [dispatch, formData, isFormValid, resetForm, router]
   );
 
-  // Memoized form inputs to prevent unnecessary re-renders
   const usernameInput = useMemo(
     () => (
       <FormInput
@@ -354,24 +270,17 @@ function LoginContent() {
     [formData.password, isLoading, updateField]
   );
 
-  // Show LoginSkeleton while loading or redirecting
-  if (isLoading || isRedirecting) {
-    return <LoginSkeleton />;
-  }
-
   return (
     <div
       className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
       role='main'
     >
-      {/* Overlay */}
       <div
         className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
         aria-hidden='true'
       />
       <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
-        <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40'>
-          {/* Header */}
+        <div className={`max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300 ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}>
           <div className='flex flex-col items-center'>
             <div className='mb-6'>
               <ImageFixed
@@ -379,7 +288,6 @@ function LoginContent() {
                 alt='ALMS Logo'
                 width={120}
                 height={120}
-                // Ensure aspect ratio is preserved if CSS changes one dimension
                 className='drop-shadow-md h-auto'
                 priority
               />
@@ -390,32 +298,22 @@ function LoginContent() {
             <p className='mt-2 text-center text-sm text-gray-700'>
               Sign in to access your dashboard
             </p>
+            <Link
+              href="/"
+              className="mt-4 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              ← Back to Home
+            </Link>
           </div>
 
-          {/* Error Message */}
           {error && <ErrorMessage message={error} />}
 
-          {/* Login Form */}
           <form className='mt-8 space-y-6' onSubmit={handleSubmit} noValidate>
             <div className='rounded-md shadow-sm -space-y-px'>
               {usernameInput}
               {passwordInput}
             </div>
 
-            {/* Forgot Password Link 
-          <div className='flex items-center justify-between'>
-            <div className='text-sm'></div>
-            <div className='text-sm'>
-              <LinkFixed
-                href='/reset-password'
-                className='font-medium text-[#D4AF37] hover:text-[#C4A02F] transition-colors focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2 rounded'
-              >
-                Forgot your password?
-              </LinkFixed>
-            </div>
-          </div> */}
-
-            {/* Submit Button */}
             <div>
               <button
                 type='submit'
@@ -440,19 +338,7 @@ function LoginContent() {
   );
 }
 
-// Main component with Suspense boundary
 export default function Login() {
-  // Show a skeleton loading screen for 1-2 seconds on initial mount
-  // to provide a smoother perceived load when navigating to /login.
-  const [showSkeleton, setShowSkeleton] = useState(true);
-  useEffect(() => {
-    // 1.5s chosen as a middle-ground between 1 and 2 seconds
-    const timer = setTimeout(() => setShowSkeleton(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (showSkeleton) return <LoginSkeleton />;
-
   return (
     <Suspense fallback={<LoginSkeleton />}>
       <LoginContent />

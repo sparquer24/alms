@@ -20,6 +20,9 @@ export interface User {
     action: string;
     resource: string;
   }[];
+  location?: any;
+  stateId?: any;
+  state?: any;
 }
 
 export interface AuthState {
@@ -105,8 +108,8 @@ export interface ApplicationData {
   applicationType: string;
   applicationDate: string;
   applicationTime?: string;
-  status: ApplicationStatus;
-  status_id: string | number; // Numeric status ID for backend compatibility
+  status?: ApplicationStatus;
+  status_id?: string | number; // Numeric status ID for backend compatibility
   workflowStatus?: {
     id: number;
     code: string;
@@ -226,14 +229,21 @@ export interface ApplicationData {
   comments?: string[]; // Legacy field for comments array
   documents?: Array<{
     id?: string;
-    name: string;
-    type: string;
-    url: string;
+    name?: string;
+    fileName?: string;
+    type?: string;
+    fileType?: string;
+    url?: string;
+    fileUrl?: string;
+    path?: string;
+    downloadUrl?: string;
     uploadedAt?: string;
     size?: number;
+    [key: string]: any;
   }>;
   // Optional resolved photo URL (may come from biometricData or fileUploads)
   photoUrl?: string;
+  biometricData?: any;
   history?: Array<{
     actionTaken: any;
     attachments: any;
@@ -322,6 +332,10 @@ export interface ApplicationData {
     canReturn: boolean;
     canDispose: boolean;
   };
+  isApproved?: boolean;
+  isRejected?: boolean;
+  isRecommended?: boolean;
+  isNotRecommended?: boolean;
   usersInHierarchy?: Array<{
     id: number;
     userName?: string;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthSync } from '../../../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { PageLayoutSkeleton } from '../../../components/Skeleton';
 
 export default function ChangePassword() {
@@ -13,7 +13,7 @@ export default function ChangePassword() {
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { token, isAuthenticated, isLoading: authLoading } = useAuthSync();
+  const { token, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
   
   // Check authentication
@@ -43,7 +43,7 @@ export default function ChangePassword() {
     
     try {
       // Call the API to change password
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/change-password`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

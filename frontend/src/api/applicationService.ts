@@ -170,7 +170,9 @@ export class ApplicationService {
    * @returns Application data
    */
   static async getApplication(applicantId: string, isOwned?: boolean) {
-    let url = `/application-form?applicationId=${applicantId}`;
+    const isAck = typeof applicantId === 'string' && applicantId.startsWith('ALMS');
+    const param = isAck ? 'acknowledgementNo' : 'applicationId';
+    let url = `/application-form?${param}=${applicantId}`;
     
     // Add isOwned parameter if provided
     if (isOwned !== undefined) {
@@ -226,6 +228,11 @@ export class ApplicationService {
           presentZone: presentAddr.zoneId ? String(presentAddr.zoneId) : '',
           presentDivision: presentAddr.divisionId ? String(presentAddr.divisionId) : '',
           presentPoliceStation: presentAddr.policeStationId ? String(presentAddr.policeStationId) : '',
+          presentStateName: presentAddr.state?.name || '',
+          presentDistrictName: presentAddr.district?.name || '',
+          presentZoneName: presentAddr.zone?.name || '',
+          presentDivisionName: presentAddr.division?.name || '',
+          presentPoliceStationName: presentAddr.policeStation?.name || '',
           presentSince: presentAddr.sinceResiding ? new Date(presentAddr.sinceResiding).toISOString().split('T')[0] : '',
           // Permanent address fields
           permanentAddress: permanentAddr.addressLine || '',
@@ -234,6 +241,11 @@ export class ApplicationService {
           permanentZone: permanentAddr.zoneId ? String(permanentAddr.zoneId) : '',
           permanentDivision: permanentAddr.divisionId ? String(permanentAddr.divisionId) : '',
           permanentPoliceStation: permanentAddr.policeStationId ? String(permanentAddr.policeStationId) : '',
+          permanentStateName: permanentAddr.state?.name || '',
+          permanentDistrictName: permanentAddr.district?.name || '',
+          permanentZoneName: permanentAddr.zone?.name || '',
+          permanentDivisionName: permanentAddr.division?.name || '',
+          permanentPoliceStationName: permanentAddr.policeStation?.name || '',
           // Contact details
           telephoneOffice: presentAddr.telephoneOffice || permanentAddr.telephoneOffice || '',
           telephoneResidence: presentAddr.telephoneResidence || permanentAddr.telephoneResidence || '',
@@ -249,6 +261,8 @@ export class ApplicationService {
           officeAddress: occupationData.officeAddress || '',
           officeState: occupationData.stateId ? String(occupationData.stateId) : '',
           officeDistrict: occupationData.districtId ? String(occupationData.districtId) : '',
+          officeStateName: occupationData.state?.name || '',
+          officeDistrictName: occupationData.district?.name || '',
           cropLocation: occupationData.cropLocation || '',
           areaUnderCultivation: occupationData.areaUnderCultivation ? String(occupationData.areaUnderCultivation) : '',
         };
@@ -263,11 +277,14 @@ export class ApplicationService {
         };
       case 'license-details':
         const licenseDetailsData = applicationData.licenseDetails || [];
+        const specialClaimsFiles = applicationData.fileUploads
+          ? applicationData.fileUploads.filter((file: any) => file.fileType === 'OTHER')
+          : [];
         
         // Return in the new format that matches our form structure
         if (licenseDetailsData.length > 0) {
           // Transform backend data to match frontend form structure
-          const transformedLicenseDetails = licenseDetailsData.map((detail: any) => {
+          const transformedLicenseDetails = licenseDetailsData.map((detail: any, index: number) => {
             // Extract weapon IDs from requestedWeapons relationship
             const requestedWeaponIds = detail.requestedWeapons 
               ? detail.requestedWeapons.map((weapon: any) => weapon.id)
@@ -277,7 +294,8 @@ export class ApplicationService {
             
             return {
               ...cleanDetail,
-              requestedWeaponIds // Override with extracted IDs
+              requestedWeaponIds, // Override with extracted IDs
+              uploadedFiles: index === 0 ? specialClaimsFiles : []
             };
           });
           
@@ -295,7 +313,8 @@ export class ApplicationService {
               ammunitionDescription: '',
               specialConsiderationReason: '',
               licencePlaceArea: '',
-              wildBeastsSpecification: ''
+              wildBeastsSpecification: '',
+              uploadedFiles: specialClaimsFiles
             }]
           };
         }
@@ -345,9 +364,11 @@ export class ApplicationService {
         }
 
         return {
-          ...formData,
-          sex: formData.sex?.toUpperCase(),
-          dateOfBirth: formattedDateOfBirth,
+           "personalDetails": {
+            ...formData,
+            sex: formData.sex?.toUpperCase(),
+            dateOfBirth: formattedDateOfBirth,
+          }
         };
       case 'address':
         // Validate and format presentSince date

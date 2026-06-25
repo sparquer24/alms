@@ -21,10 +21,11 @@ const Undo2Fixed = Undo2 as any;
 const FlagFixed = Flag as any;
 const FolderCheckFixed = FolderCheck as any;
 const RefreshCcwFixed = RefreshCcw as any;
+const ListFixed = List as any;
 
 import { logoutUser } from '../store/thunks/authThunks';
 import { toggleInbox, openInbox, closeInbox } from '../store/slices/uiSlice';
-import { useAuthSync } from '../hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../config/layoutContext';
 import { useInbox } from '../context/InboxContext';
 import { useGlobalAction } from '../context/GlobalActionContext';
@@ -52,17 +53,20 @@ interface MenuItemProps {
   label: string;
   count?: number;
   active?: boolean;
+  loading?: boolean;
   onClick?: () => void;
   onActivate?: () => void;
 }
-const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: MenuItemProps) => (
+const MenuItem = memo(({ icon, label, count, active, loading, onClick, onActivate }: MenuItemProps) => (
   <li>
     <button
       type='button'
       onMouseDown={onActivate}
       onClick={onClick}
+      disabled={loading}
       className={`flex items-center w-full px-4 py-2 rounded-md text-left transition-colors duration-150
-        ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-700'}`}
+        ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-700'}
+        ${loading ? 'opacity-60 cursor-wait' : ''}`}
       aria-pressed={active}
       aria-current={active ? 'page' : undefined}
       role='menuitem'
@@ -75,7 +79,14 @@ const MenuItem = memo(({ icon, label, count, active, onClick, onActivate }: Menu
       }}
     >
       <span className='inline-flex items-center justify-center w-6 h-6 mr-2' aria-hidden='true'>
-        {icon}
+        {loading ? (
+          <svg className='animate-spin h-4 w-4' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+            <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+            <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+          </svg>
+        ) : (
+          icon
+        )}
       </span>
       <span className='flex-grow'>{label}</span>
       {count !== undefined && (
@@ -94,6 +105,7 @@ const InboxSubMenuItem = memo(
     icon,
     count,
     active,
+    loading,
     onClick,
     onActivate,
   }: {
@@ -102,6 +114,7 @@ const InboxSubMenuItem = memo(
     icon: React.ReactNode;
     count?: number;
     active: boolean;
+    loading?: boolean;
     onClick: (name: string) => void;
     onActivate?: (name: string) => void;
   }) => {
@@ -116,8 +129,8 @@ const InboxSubMenuItem = memo(
 
     const className = useMemo(
       () =>
-        `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-700'}`,
-      [active]
+        `flex items-center w-full px-2 py-1 rounded-md text-left text-sm transition-colors duration-150 ${active ? 'bg-[#001F54] text-white' : 'hover:bg-gray-100 text-gray-700'} ${loading ? 'opacity-60 cursor-wait' : ''}`,
+      [active, loading]
     );
 
     return (
@@ -126,6 +139,7 @@ const InboxSubMenuItem = memo(
           type='button'
           onMouseDown={() => onActivate?.(name)}
           onClick={handleClick}
+          disabled={loading}
           className={className}
           aria-pressed={active}
           aria-current={active ? 'page' : undefined}
@@ -141,7 +155,14 @@ const InboxSubMenuItem = memo(
             className='inline-flex items-center justify-center w-6 h-6 mr-2 transition-colors'
             aria-hidden='true'
           >
-            {icon}
+            {loading ? (
+              <svg className='animate-spin h-4 w-4' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+                <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+              </svg>
+            ) : (
+              icon
+            )}
           </span>
           <span className='flex-grow'>{label}</span>
           {typeof count === 'number' && count > 0 && (
@@ -170,7 +191,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { userRole, token, user } = useAuthSync();
+  const { userRole, token, user } = useAuth();
   const { loadType, selectedType, isLoading: isInboxLoading } = useInbox();
   const { isActionInProgress, startAction, endAction, canNavigateTo, setActiveNavigationPath } =
     useGlobalAction();
@@ -363,7 +384,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         .map(c => c.trim())
         .find(c => c.startsWith('user='));
       if (!raw) return undefined;
-      let value = raw.substring('user='.length);
+      const value = raw.substring('user='.length);
       let decoded = decodeURIComponent(value);
       if (decoded.startsWith('j:')) decoded = decoded.slice(2);
       if (
@@ -728,7 +749,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   // Auto-load inbox when activeItem points to inbox-{type}
   // We intentionally exclude `activeStatusIds` from deps to avoid triggering
   // the effect when we restore status ids from localStorage (which would loop).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     try {
       if (activeItem && activeItem.startsWith('inbox-')) {
@@ -797,17 +818,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       try {
         // Freeze active highlight briefly on menu navigation
-        freezeActive(2000);
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] handleMenuClick - item.name:',
-            item.name,
-            'userRole:',
-            userRole,
-            'cookieRole:',
-            cookieRole
-          );
-        }
+        freezeActive(1000);
 
         if (item.name.toLowerCase() !== 'inbox') {
           dispatch(closeInbox());
@@ -824,15 +835,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // Get effective role (use userRole, fall back to cookieRole)
         const effectiveRole = userRole || cookieRole;
 
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] effectiveRole:',
-            effectiveRole,
-            'isAdminRole result:',
-            isAdminRole(effectiveRole)
-          );
-        }
-
         // Check if this is an admin user navigating to an admin menu item
         if (isAdminRole(effectiveRole)) {
           // Check if SUPER_ADMIN or ADMIN and get appropriate path
@@ -841,22 +843,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             ? getSuperAdminPathForMenuItem(item.name)
             : getAdminPathForMenuItem(item.name);
 
-          if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.log(
-              '[Sidebar] Admin user detected. Role:',
-              effectiveRole,
-              'Path for',
-              item.name,
-              ':',
-              adminPath
-            );
-          }
-
           if (adminPath) {
-            // This is a valid admin menu item
-            if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-              console.log('[Sidebar] Navigating to admin path:', adminPath);
-            }
 
             // Only navigate if not already on this path
             if (typeof window !== 'undefined') {
@@ -890,7 +877,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           'sent',
           'closed',
           'drafts',
-          'finaldisposal',
+          "applications"
         ]);
 
         if (key && topLevelInboxLike.has(key)) {
@@ -963,20 +950,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           return;
         }
 
-        // Handle applications menu item
-        if (item.name.toLowerCase() === 'applications') {
-          const applicationsPath = '/inbox/applications';
-          const actionId = 'sidebar-applications';
-          if (!canNavigateTo(applicationsPath, actionId)) {
-            return;
-          }
-          setActiveItem(key);
-          persistActiveNavToLocal(key);
-          dispatch(closeInbox());
-          setActiveNavigationPath(applicationsPath);
-          router.push(applicationsPath);
-          return;
-        }
+
 
         const type = item.name.replace(/\s+/g, '');
         const wasTopLevel = key && topLevelInboxLike.has(key);
@@ -1005,7 +979,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (isSamePath) {
             // If already on this page, force reload data
-            void loadType(type, true, item.statusIds).catch(() => {});
+            await loadType(type, true, item.statusIds).catch(() => {});
             if (onTableReload) onTableReload(key);
           } else {
             router.push(target);
@@ -1022,7 +996,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (isSamePath) {
             // If already on this page, force reload data
-            void loadType(type, true, item.statusIds).catch(() => {});
+            await loadType(type, true, item.statusIds).catch(() => {});
           } else {
             router.push(target);
             scheduleInboxForwardedRefresh(target);
@@ -1030,9 +1004,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } finally {
         // Always release the lock for this actionId
-        setTimeout(() => {
-          endAction(actionId);
-        }, 500);
+        endAction(actionId);
       }
     },
     [
@@ -1081,7 +1053,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   }, [dispatch, isInboxOpen, normalizeNavKey, persistActiveNavToLocal, setActiveItem, router]);
 
   const handleInboxSubItemClick = useCallback(
-    (subItem: string) => {
+    async (subItem: string) => {
       const actionId = `inbox-${subItem.toLowerCase().replace(/\s+/g, '')}`;
 
       // Prevent repeated clicks on the same sub-item while its action is in progress
@@ -1124,19 +1096,22 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
 
         // Resolve statusIds fallback logic
-        let customStatusIds: number[] | undefined = activeStatusIds;
+        let customStatusIds: number[] | undefined = undefined;
         try {
-          if (!customStatusIds) {
-            const inboxMenu = menuItems.find(
-              mi =>
-                String(mi.name || '')
-                  .replace(/\s+/g, '')
-                  .toLowerCase() === 'inbox'
-            );
-            if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
-              customStatusIds = inboxMenu.statusIds;
-          }
-          if (!customStatusIds) {
+          const isAllTab = String(subItem).toLowerCase() === 'all';
+          if (isAllTab) {
+            customStatusIds = activeStatusIds;
+            if (!customStatusIds) {
+              const inboxMenu = menuItems.find(
+                mi =>
+                  String(mi.name || '')
+                    .replace(/\s+/g, '')
+                    .toLowerCase() === 'inbox'
+              );
+              if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
+                customStatusIds = inboxMenu.statusIds;
+            }
+          } else {
             const direct = menuItems.find(
               mi =>
                 String(mi.name || '')
@@ -1163,7 +1138,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // If user clicked the same inbox type that's already selected, force a reload
         const forceReload =
           !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
-        void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
+        await loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
 
         const targetBase = '/inbox';
         const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
@@ -1185,9 +1160,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } finally {
         // Always release the lock for this actionId
-        setTimeout(() => {
-          endAction(actionId);
-        }, 500);
+        endAction(actionId);
       }
     },
     [
@@ -1225,6 +1198,10 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   /* ----------------------------
      Icons / inboxSubItems
   -----------------------------*/
+  const allApplicationsIcon = useMemo(
+    () => <ListFixed className='w-6 h-6 mr-2' aria-label='All Applications' />,
+    []
+  );
   const forwardedIcon = useMemo(
     () => <CornerUpRightFixed className='w-6 h-6 mr-2' aria-label='Forwarded' />,
     []
@@ -1244,32 +1221,38 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
   const inboxSubItems = useMemo(() => {
     const set = new Set<string>();
+    set.add('all'); // 'all' (All Applications) is always first
     menuItems.forEach(mi => {
       try {
         const k = normalizeNavKey(mi.name as string);
-        if (k.startsWith('inbox-')) {
+        if (k.startsWith('inbox-') && k !== 'inbox-all') {
           set.add(k.replace('inbox-', ''));
         }
       } catch (e) {}
     });
-    const fallbacks = ['forwarded', 'returned', 'redflagged', 'reenquiry'];
+    const fallbacks = ['all', 'forwarded', 'returned', 'redflagged', 'reenquiry'];
     if (set.size === 0) fallbacks.forEach(f => set.add(f));
     else fallbacks.forEach(f => set.add(f)); // ensure common types present
 
     const iconMap: Record<string, React.ReactNode> = {
+      all: allApplicationsIcon,
       forwarded: forwardedIcon,
       returned: returnedIcon,
       redflagged: redFlaggedIcon,
       reenquiry: reenquiryIcon,
     };
     const countMap: Record<string, number> = {
+      all: 0,
       forwarded: applicationCounts?.forwardedCount || 0,
       returned: applicationCounts?.returnedCount || 0,
       redflagged: applicationCounts?.redFlaggedCount || 0,
       reenquiry: applicationCounts?.reEnquiryCount || 0,
     };
-    const labelFor = (n: string) =>
-      n.toLowerCase() === 'redflagged' ? 'Red Flagged' : n.charAt(0).toUpperCase() + n.slice(1);
+    const labelFor = (n: string) => {
+      if (n.toLowerCase() === 'all') return 'All Applications';
+      if (n.toLowerCase() === 'redflagged') return 'Red Flagged';
+      return n.charAt(0).toUpperCase() + n.slice(1);
+    };
     return Array.from(set).map(name => ({
       name,
       label: labelFor(name),
@@ -1313,7 +1296,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         <HamburgerButton open={mobileSidebarOpen} onClick={() => setMobileSidebarOpen(v => !v)} />
       </div>
       <aside
-        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0
+        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0 flex flex-col
         ${showSidebar || mobileSidebarOpen ? 'opacity-100 transform translate-x-0' : 'opacity-0 pointer-events-none -translate-x-full'}
         md:opacity-100 md:transform md:translate-x-0 md:pointer-events-auto`}
       >
@@ -1373,6 +1356,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                   <ul className='ml-8 mt-1 space-y-1' role='menu'>
                     {inboxSubItems.map(sub => {
                       const isActive = activeItem === normalizeNavKey(`inbox-${sub.name}`);
+                      const subActionId = `inbox-${sub.name.toLowerCase().replace(/\s+/g, '')}`;
+                      const isSubLoading = isActionInProgress(subActionId);
                       return (
                         <InboxSubMenuItem
                           key={`inbox-sub-${sub.name}`}
@@ -1381,6 +1366,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                           icon={sub.icon}
                           count={sub.count}
                           active={isActive}
+                          loading={isSubLoading}
                           onClick={handleInboxSubItemClick}
                           onActivate={name => {
                             try {
@@ -1453,12 +1439,16 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
                   isActive = true;
                 }
 
+                const menuActionId = `menu-${normalizedKey || item.name?.toLowerCase().replace(/\s+/g, '')}`;
+                const isLoading = isActionInProgress(menuActionId);
+
                 return (
                   <MenuItem
                     key={`menu-${normalizedKey}`}
                     icon={item.icon}
                     label={item.label}
                     active={isActive}
+                    loading={isLoading}
                     onClick={() => handleMenuClick({ name: item.name, statusIds: item.statusIds })}
                     onActivate={() => {
                       try {
@@ -1472,7 +1462,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           </ul>
         </nav>
 
-        <div className='absolute bottom-0 w-full p-4 border-t border-gray-200'>
+        <div className='p-4 border-t border-gray-200 mt-auto'>
           <button
             type='button'
             onClick={handleLogout}

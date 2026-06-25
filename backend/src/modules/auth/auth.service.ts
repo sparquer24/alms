@@ -18,65 +18,45 @@ export class AuthService {
     }
   }
 
-  /**
-   * Hash a password using bcrypt
-   * @param password - Plain text password
-   * @returns Hashed password
-   */
   async hashPassword(password: string): Promise<string> {
     return await bcrypt.hash(password, this.saltRounds);
   }
 
-  /**
-   * Verify a password against a hash
-   * @param password - Plain text password
-   * @param hash - Hashed password
-   * @returns Whether the password matches
-   */
   async verifyPassword(password: string, hash: string): Promise<boolean> {
     return await bcrypt.compare(password, hash);
   }
 
-  /**
-   * Authenticate user with username and password
-   * @param loginData - Login credentials
-   * @returns Authentication result with token
-   */
   async authenticateUser(loginData: LoginRequest): Promise<LoginResponse> {
     const { username, password } = loginData;
 
     try {
-      // For now, using dummy validation
       const user = await this.validateUser(username, password);
 
       if (!user) {
         throw new UnauthorizedException(ERROR_MESSAGES.INVALID_CREDENTIALS);
       }
 
-      // If the user's role exists but is not active, reject login
       if (user.role && typeof user.role.is_active !== 'undefined' && !user.role.is_active) {
-        // Build a helpful identifier for the inactive role (prefer code, then name, then id)
         const roleIdent = user.role.code ?? user.role.name ?? (user.role.id ? String(user.role.id) : 'unknown');
         throw new UnauthorizedException(`${ERROR_MESSAGES.ROLE_INACTIVE}: ${roleIdent}`);
       }
 
-      // Generate JWT token
       const token = this.generateToken(user);
 
       const response = {
         success: true,
         token,
         user: {
-          id: user.id,
+          id: String(user.id),
           username: user.username,
           email: user.email,
+          name: user.name ?? user.username,
           role: user.role
         }
       };
 
       return response;
     } catch (error: any) {
-      // Log the real error for debugging
       this.logger.error(`Authentication failed for user: ${username}`, error?.stack || error);
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -85,16 +65,8 @@ export class AuthService {
     }
   }
 
-  /**
-   * Validate user credentials
-   * @param username - Username
-   * @param password - Password
-   * @returns User data or null
-   */
   private async validateUser(username: string, password: string): Promise<any> {
     try {
-      // Check user credentials against the database
-      // cast prisma to any to allow selecting newly added role configuration fields
       const user = await (prisma as any).users.findFirst({
         where: { username },
         select: {
@@ -124,45 +96,26 @@ export class AuthService {
               can_create_freshLicence: true,
             }
           },
-          state: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          district: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          zone: {
-            select: {
-              id: true,
-              name: true
-            }
-          }
+          state: { select: { id: true, name: true } },
+          district: { select: { id: true, name: true } },
+          zone: { select: { id: true, name: true } }
         }
       } as any);
 
-      // If user not found, return null
       if (!user) {
         return null;
       }
 
-      // Verify password using bcrypt
       const isPasswordValid = await this.verifyPassword(password, user.password);
 
       if (!isPasswordValid) {
         return null;
       }
 
-      // Extract location IDs from relations (use relation objects if available, fallback to direct ID fields)
       const stateId = user.state?.id || user.stateId;
       const districtId = user.district?.id || user.districtId;
       const zoneId = user.zone?.id || user.zoneId;
 
-      // Return user data (excluding password)
       const userData = {
         id: user.id,
         username: user.username,
@@ -179,22 +132,21 @@ export class AuthService {
     }
   }
 
-  /**
-   * Generate JWT token for user
-   * @param user - User data
-   * @returns JWT token
-   */
   private generateToken(user: any): string {
+    const roleCode = typeof user.role === 'string' ? user.role : user.role?.code;
+    const roleId = typeof user.role === 'object' ? user.role?.id : undefined;
     const payload = {
-      sub: user.id,
+      sub: String(user.id),
       username: user.username,
       email: user.email,
       user_id: user.id,
-      role_id: user.role?.id,
-      role_code: user.role?.code, // Add role_code for permission checks
-      state_id: user.stateId, // Add state_id for state-based filtering
-      district_id: user.districtId, // Add district_id for location context
-      zone_id: user.zoneId // Add zone_id for location context
+      role_code: roleCode,
+      role_id: roleId,
+      role: roleCode,
+      state_id: user.stateId,
+      district_id: user.districtId,
+      zone_id: user.zoneId,
+      name: user.name ?? user.username,
     };
 
     return jwt.sign(payload, this.jwtSecret!, {
@@ -202,11 +154,6 @@ export class AuthService {
     });
   }
 
-  /**
-   * Verify JWT token
-   * @param token - JWT token
-   * @returns Decoded token payload
-   */
   verifyToken(token: string): any {
     try {
       return jwt.verify(token, this.jwtSecret!);
@@ -215,11 +162,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Get user by id including role and location hierarchy
-   * @param userId - numeric user id
-   * @returns user with role, state, district, division, zone and policeStation
-   */
   async getUserWithLocation(userId: number) {
     return await (prisma as any).users.findUnique({
       where: { id: Number(userId) },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuthSync } from '@/hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -78,7 +78,7 @@ const toPieChartData = (src: any): PieChartData => {
 };
 
 export default function AdminDashboard() {
-  const { userRole, token } = useAuthSync();
+  const { userRole, token } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,12 +1,28 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 import { Input } from '../../elements/Input';
 import { FormField } from '../../elements/FormField';
 
-const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => void }> = ({
-  formData,
-  onChange,
-}) => {
+type ErrorsMap = Record<string, string | undefined>;
+
+const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
+  props: { formData: any; onChange: (e: any) => void; errors?: ErrorsMap },
+  ref,
+) {
+  const { formData, onChange, errors = {} } = props;
   const gender = String(formData.applicantGender || '').toUpperCase();
+
+  useImperativeHandle(ref, () => ({
+    focusFirstInvalid: () => {
+      const firstKey = Object.keys(errors).find(k => !!errors[k]);
+      if (firstKey) {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus(); } catch { /* ignore focus errors */ }
+        }
+      }
+    },
+  }));
 
   return (
     <section className='p-6 rounded-2xl border border-gray-100 bg-white shadow-sm'>
@@ -19,20 +35,18 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           value={formData.applicantName || ''}
           onChange={onChange}
           placeholder='Enter first name'
+          required
+          error={errors['applicantName']}
         />
 
-        <div className='flex flex-col w-full'>
-          <label htmlFor='applicantMiddleName' className='block text-sm font-medium text-gray-700 mb-1'>
-            Applicant Middle Name
-            <span className='ml-1 text-xs text-gray-400 align-middle'>(optional)</span>
-          </label>
-          <Input
-            name='applicantMiddleName'
-            value={formData.applicantMiddleName || ''}
-            onChange={onChange}
-            placeholder='Enter middle name'
-          />
-        </div>
+        <Input
+          label={'Applicant Middle Name (optional)'}
+          name='applicantMiddleName'
+          value={formData.applicantMiddleName || ''}
+          onChange={onChange}
+          placeholder='Enter middle name'
+          error={errors['applicantMiddleName']}
+        />
 
         <Input
           label='Applicant Last Name'
@@ -40,14 +54,19 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           value={formData.applicantLastName || ''}
           onChange={onChange}
           placeholder='Enter last name'
+          required
+          error={errors['applicantLastName']}
         />
 
-        <div className='flex flex-col w-full'>
-          <label htmlFor='filledBy' className='block text-sm font-medium text-gray-700 mb-1'>
-            Application filled by (ZS name)
-          </label>
-          <Input name='filledBy' value={formData.filledBy || ''} onChange={onChange} placeholder='Enter ZS name' />
-        </div>
+        <Input
+          label='Application filled by (ZS name)'
+          name='filledBy'
+          value={formData.filledBy || ''}
+          onChange={onChange}
+          placeholder='Enter ZS name'
+          required
+          error={errors['filledBy']}
+        />
 
         <Input
           label='Parent/ Spouse Name'
@@ -55,9 +74,11 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           value={formData.fatherName || ''}
           onChange={onChange}
           placeholder='Enter parent or spouse name'
+          required
+          error={errors['fatherName']}
         />
 
-        <FormField label='Sex'>
+        <FormField label='Sex' required error={errors['applicantGender']}>
           <div className='flex flex-wrap items-center gap-4 pt-1'>
             <label className='inline-flex items-center gap-2 cursor-pointer'>
               <input
@@ -104,6 +125,8 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           value={formData.placeOfBirth || ''}
           onChange={onChange}
           placeholder='Enter place of birth'
+          required
+          error={errors['placeOfBirth']}
         />
 
         <Input
@@ -112,6 +135,9 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           type='date'
           value={formData.applicantDateOfBirth || ''}
           onChange={onChange}
+          required
+          error={errors['applicantDateOfBirth']}
+          max={new Date(new Date().setFullYear(new Date().getFullYear() - 21)).toISOString().split('T')[0]}
         />
 
         <Input
@@ -121,6 +147,8 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           onChange={onChange}
           placeholder='Enter PAN'
           maxLength={10}
+          required
+          error={errors['panNumber']}
         />
 
         <Input
@@ -130,6 +158,8 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           onChange={onChange}
           placeholder='Enter Aadhar number'
           maxLength={12}
+          required
+          error={errors['aadharNumber']}
         />
 
         <Input
@@ -138,10 +168,12 @@ const PersonalDetailsSection: React.FC<{ formData: any; onChange: (e: any) => vo
           value={formData.dobInWords || ''}
           onChange={onChange}
           placeholder='Enter date of birth in words'
+          required
+          error={errors['dobInWords']}
         />
       </div>
     </section>
   );
-};
+});
 
 export default PersonalDetailsSection;

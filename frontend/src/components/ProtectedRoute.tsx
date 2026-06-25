@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCookie } from 'cookies-next';
 import { getAuthTokenFromCookie, getUserFromCookie } from '../utils/authCookies';
+import { PageLayoutSkeleton } from './Skeleton';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -30,8 +31,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }, [router]);
 
   if (isAuthenticated === null) {
-    // Show a loading spinner while checking auth
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    // Show a premium visual layout skeleton while checking auth instead of plain text
+    return <PageLayoutSkeleton />;
   }
 
   if (!isAuthenticated) return null;

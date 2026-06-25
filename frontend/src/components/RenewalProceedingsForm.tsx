@@ -139,6 +139,40 @@ export default function RenewalProceedingsForm({
   const draftRef = useRef<HTMLDivElement | null>(null);
   const nextUserRef = useRef<HTMLDivElement | null>(null);
 
+  const currentRole = roleFromCookie || userRole;
+  
+  const currentZSUserOption = React.useMemo(() => {
+    try {
+      const userCookie = getCookie('user');
+      if (userCookie && typeof userCookie === 'string') {
+        const currentUserObj = JSON.parse(userCookie);
+        if (currentUserObj && currentUserObj.id) {
+          return {
+            value: String(currentUserObj.id),
+            label: `${currentUserObj.username || 'Unknown User'} (${currentUserObj.role?.code || currentRole || 'ZS'})`,
+          };
+        }
+      }
+    } catch (e) {}
+    return null;
+  }, [currentRole]);
+
+  const isCloseActionForZSWithSpecialStatus = React.useMemo(() => {
+    const isSpecialStatus =
+      applicationData?.isApproved === true ||
+      applicationData?.isRejected === true ||
+      applicationData?.isRecommended === true ||
+      applicationData?.isNotRecommended === true;
+    return currentRole === 'ZS' && selectedAction?.code?.toUpperCase() === 'CLOSE' && isSpecialStatus;
+  }, [currentRole, selectedAction, applicationData]);
+
+  // Auto-select ZS user if Close action is selected under special conditions
+  useEffect(() => {
+    if (isCloseActionForZSWithSpecialStatus && currentZSUserOption) {
+      setNextUser(currentZSUserOption);
+    }
+  }, [isCloseActionForZSWithSpecialStatus, currentZSUserOption]);
+
   // Convert workflow actions to action options
   const actionOptions: ActionOption[] = actions.map(action => ({
     value: action.id,
@@ -298,7 +332,10 @@ Regards,`;
     const errors: Record<string, string> = {};
     if (!selectedAction) errors.action = 'Please select an action type.';
     if (!remarks.trim()) errors.remarks = 'Please add remarks before submitting.';
-    if (!nextUser) errors.nextUser = 'Please select the next proceeding officer.';
+    
+    const hasNextUserVal = isCloseActionForZSWithSpecialStatus ? !!currentZSUserOption : !!nextUser;
+    if (!hasNextUserVal) errors.nextUser = 'Please select the next proceeding officer.';
+    
     if (roleFromCookie === 'SHO' && !draftLetter.trim())
       errors.draftLetter = 'Ground Report Letter is required for submission.';
 
@@ -317,7 +354,9 @@ Regards,`;
       attachments: [],
     };
 
-    if (nextUser?.value) {
+    if (isCloseActionForZSWithSpecialStatus && currentZSUserOption) {
+      payload.nextUserId = Number(currentZSUserOption.value);
+    } else if (nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
     }
 
@@ -463,10 +502,10 @@ Regards,`;
             </div>
           ) : (
             <SelectFixed
-              options={userOptions}
-              value={nextUser}
+              options={isCloseActionForZSWithSpecialStatus && currentZSUserOption ? [currentZSUserOption] : userOptions}
+              value={isCloseActionForZSWithSpecialStatus && currentZSUserOption ? currentZSUserOption : nextUser}
               onChange={setNextUser}
-              isDisabled={isSubmitting || fetchingUsers}
+              isDisabled={isSubmitting || fetchingUsers || isCloseActionForZSWithSpecialStatus}
               placeholder='Select next proceeding officer...'
               classNamePrefix='react-select'
               styles={{
@@ -489,7 +528,7 @@ Regards,`;
             Remarks <span className='text-red-500'>*</span>
           </label>
           <TiptapRichTextEditor
-            content={remarks}
+            value={remarks}
             onChange={setRemarks}
             placeholder='Enter your remarks here...'
             disabled={isSubmitting}
@@ -506,7 +545,7 @@ Regards,`;
               Ground Report <span className='text-red-500'>*</span>
             </label>
             <TiptapRichTextEditor
-              content={draftLetter}
+              value={draftLetter}
               onChange={setDraftLetter}
               placeholder='Enter ground report here...'
               disabled={isSubmitting}

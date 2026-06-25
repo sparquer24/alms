@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ApplicationApi, ReportApi, DocumentApi } from '../config/APIClient';
-import { useAuth } from '../config/auth';
+import { useAuth } from '@/hooks/useAuth';
 import CascadingLocationSelect from './CascadingLocationSelect';
 import { WeaponsService } from '../services/weapons';
 
@@ -152,6 +152,7 @@ const formSteps = [
 export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplicationFormProps) {
   const { userId, userRole } = useAuth();
   const [formStep, setFormStep] = useState(0); // Start at 0 to match arrays
+  const [maxStep, setMaxStep] = useState(0); // Track the furthest validated step
   const [districts, setDistricts] = useState<string[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(true);
   const [policeStations, setPoliceStations] = useState<{id: number, name: string}[]>([]);
@@ -869,7 +870,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       if (isValid) {
         // Make sure we don't go beyond the max step
         if (formStep < formSteps.length - 1) {
-          setFormStep(prev => prev + 1);
+          const nextStep = formStep + 1;
+          setFormStep(nextStep);
+          setMaxStep(prev => Math.max(prev, nextStep));
         }
       } else {
       }
@@ -1107,6 +1110,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         if (confirmLoad) {
           setFormData(savedFormData);
           setFormStep(savedFormStep);
+          setMaxStep(prev => Math.max(prev, savedFormStep));
         }
       }
     } catch (error) {
@@ -1478,6 +1482,13 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check internet connection first
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setApiError('You are currently offline. Please check your internet connection to submit the application.');
+      return;
+    }
+
     setApiError(null);
     setApiErrorDetails(null);
     setShowErrorDetails(false);
@@ -1501,14 +1512,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       } catch (apiError: any) {
         // If we get 413 error, retry without file uploads
         if (apiError?.response?.status === 413 || apiError?.status === 413 || apiError?.message?.includes('413') || apiError?.message?.includes('too large')) {
-          setApiError('Request too large. Submitting application without file attachments...');
-
           // Retry with empty file uploads
           fileUploads = [];
           payload = createPayload(formData, userId ?? "", []);
           resp = await ApplicationApi.create(payload as any);
-          // Update user about missing files
-          setApiError('Application submitted successfully, but files were too large to include. Please upload documents separately.');
+          // Instead of setting an apiError for a successful submission, set a success/warning message
+          setSaveMessage({ type: 'success', text: 'Application submitted successfully, but files were too large to include. Please upload documents separately.' });
         } else {
           throw apiError; // Re-throw if it's not a 413 error
         }
@@ -1607,6 +1616,11 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
+      // Improve network error UX
+      if (errorMessage === 'Network Error' || error?.message === 'Network Error') {
+        errorMessage = 'Network error occurred. Please check your internet connection and try again.';
+      }
+
       setApiError(errorMessage);
     }
   };
@@ -1645,44 +1659,29 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   };
 
   return (
-    <>
-  <div className="max-w-8xl mx-auto h-full overflow-hidden grid ">
-        {/* Fixed Header with Messages */}
-        <div className="">
-          {/* Success/Error messages */}
-          {saveMessage && (
-            <div className={`mb-4 rounded-md ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-              {saveMessage.text}
-            </div>
-          )}
-          {apiError && (
-            <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 border border-red-200">
-              {apiError}
-            </div>
-          )}
-        </div>
-
-        {/* Fresh Application Form Title (static within layout) */}
-        <div className="w-full z-10 shadow-sm border-b">
-          <div className="px-6 py-1">
-            <div className="flex items-center justify-between">
+    <div className="w-full flex flex-col h-[calc(100vh-4rem)] bg-gray-50 items-center overflow-hidden">
+      <div className="w-full max-w-7xl flex flex-col flex-1 overflow-hidden">
+        {/* Unified Header & Navigator */}
+        <div className="flex-shrink-0 w-full z-10 bg-white border border-gray-200 border-t-0 rounded-b-2xl shadow-sm flex flex-col px-6 py-4 mb-6">
+           <div className="w-full flex items-center justify-between mb-4">
               <BackButton />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#022258] to-[#1e3a8a] bg-clip-text text-transparent  flex-1 text-center">
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#022258] to-[#1e3a8a] bg-clip-text text-transparent flex-1 text-center">
                 Fresh Application Form
               </h1>
-            </div>
-          </div>
-          <div className="bg-transparent px-6 pb-1">
-            <div className="border border-gray-300 rounded-lg shadow-lg overflow-hidden">
+              <div className="w-10"></div> {/* Spacer */}
+           </div>
+           
+           <div className="w-full border border-gray-100 rounded-lg overflow-hidden bg-white">
               <div className="bg-gradient-to-r from-[#022258] to-[#1e3a8a]">
-                <div className="flex space-x-1 p-2 tab-array">
+                <div className="flex space-x-1 p-2 tab-array overflow-x-auto hide-scrollbar w-full">
                   {formSteps.map((section, index) => (
-                    <button
+                    <div
                       key={index}
-                      onClick={() => setFormStep(index)}
-                      className={`relative px-2 py-2 text-xs font-medium whitespace-nowrap transition-all duration-300 rounded-lg transform hover:scale-105 ${formStep === index
-                        ? "bg-white text-[#022258] shadow-lg border-2 border-blue-200 font-bold"
-                        : "text-blue-100 hover:text-white hover:bg-blue-600/30 border-2 border-transparent"
+                      className={`relative px-2 py-2 text-xs font-medium whitespace-nowrap transition-all duration-300 rounded-lg ${formStep === index
+                        ? "bg-white text-[#022258] shadow-lg border-2 border-blue-200 font-bold transform scale-105"
+                        : index < formStep
+                          ? "text-blue-100 border-2 border-transparent"
+                          : "text-blue-200 opacity-50 border-2 border-transparent"
                         }`}
                     >
                       <div className="flex flex-col items-center px-1">
@@ -1692,63 +1691,60 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       {formStep === index && (
                         <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white"></div>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Step Navigation - Part of sticky header */}
+           </div>
         </div>
 
-        {/* Content under header; only inner card scrolls */}
-  <div className="px-6 pt-0 pb-2 min-h-0 h-full overflow-hidden">
-          {/* Success/Error messages (below fixed header) */}
-          {saveMessage && (
-            <div className={`mb-4 p-3 rounded-md ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-              {saveMessage.text}
-            </div>
-          )}
-          {apiError && (
-            <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 border border-red-200">
-              {apiError}
-            </div>
-          )}
-          <div ref={formContentRef} className="bg-white rounded-lg shadow-lg border border-gray-200 h-full overflow-y-auto">
-            <form onSubmit={handleSubmit} className="p-8">
+        {/* Form Container */}
+        <div className="w-full flex-1 flex flex-col overflow-hidden px-6 pb-6 min-w-0">
+            {/* Success/Error messages */}
+            {saveMessage && (
+              <div className={`mb-4 p-3 rounded-md w-full ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {saveMessage.text}
+              </div>
+            )}
+            {apiError && (
+              <div className="mb-4 p-3 rounded-md w-full bg-red-50 text-red-700 border border-red-200">
+                {apiError}
+              </div>
+            )}
+            <div ref={formContentRef} className="w-full bg-white rounded-lg shadow-md border border-gray-200 flex-1 overflow-y-auto min-w-0">
+              <form onSubmit={handleSubmit} className="p-8 w-full">
               {/* Step 0: Personal Information */}
               {formStep === 0 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-800">Personal Information</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Personal Information</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-6">
                     {/* Row 1: First, Middle, Last Name */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Applicant First Name<span className="text-red-500">*</span></label>
-                      <input type="text" name="applicantName" value={formData.applicantName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Applicant First Name<span className="text-red-500">*</span></label>
+                      <input type="text" name="applicantName" value={formData.applicantName} onChange={handleChange} className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.applicantName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`} />
                       {errors.applicantName && <p className="text-red-500 text-xs mt-1">{errors.applicantName}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Applicant Middle Name</label>
-                      <input type="text" name="applicantMiddleName" value={formData.applicantMiddleName} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Applicant Middle Name</label>
+                      <input type="text" name="applicantMiddleName" value={formData.applicantMiddleName} onChange={handleChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Applicant Last Name</label>
-                      <input type="text" name="applicantLastName" value={formData.applicantLastName} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Applicant Last Name</label>
+                      <input type="text" name="applicantLastName" value={formData.applicantLastName} onChange={handleChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" />
                     </div>
 
                     {/* Row 2: Application filled by, Parent/Spouse, Sex, Place of Birth */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Application filled by <span className="text-xs text-gray-400">(Zonal Superintendent name)</span></label>
-                      <input type="text" name="applicationFilledBy" value={formData.applicationFilledBy} onChange={handleChange} placeholder="Self/Agent/Other" className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Application filled by <span className="text-xs text-gray-400">(Zonal Superintendent name)</span></label>
+                      <input type="text" name="applicationFilledBy" value={formData.applicationFilledBy} onChange={handleChange} placeholder="Self/Agent/Other" className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Parent/ Spouse Name</label>
-                      <input type="text" name="fatherName" value={formData.fatherName} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.fatherName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Parent/ Spouse Name</label>
+                      <input type="text" name="fatherName" value={formData.fatherName} onChange={handleChange} className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.fatherName ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`} />
                       {errors.fatherName && <p className="text-red-500 text-xs mt-1">{errors.fatherName}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Sex</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Sex</label>
                       <div className="flex items-center gap-4 mt-1">
                         <label className="inline-flex items-center">
                           <input type="radio" name="applicantGender" value="male" checked={formData.applicantGender === 'male'} onChange={handleChange} className="h-4 w-4 text-[#6366F1]" />
@@ -1762,27 +1758,27 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       {errors.applicantGender && <p className="text-red-500 text-xs mt-1">{errors.applicantGender}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Place of Birth (Nativity)</label>
-                      <input type="text" name="placeOfBirth" value={formData.placeOfBirth} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Place of Birth (Nativity)</label>
+                      <input type="text" name="placeOfBirth" value={formData.placeOfBirth} onChange={handleChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" />
                     </div>
 
                     {/* Row 3: Date of Birth, PAN, Aadhar, Date of Birth in Words */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Date of birth in Christian era <span className="text-xs text-gray-400">(Must be 21 years old on the date of application)</span></label>
-                      <input type="date" name="applicantDateOfBirth" value={formData.applicantDateOfBirth} onChange={handleChange} className={`mt-1 block w-full p-2 border ${errors.applicantDateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`} />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Date of birth in Christian era <span className="text-xs text-gray-400">(Must be 21 years old on the date of application)</span></label>
+                      <input type="date" name="applicantDateOfBirth" value={formData.applicantDateOfBirth} onChange={handleChange} className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.applicantDateOfBirth ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`} />
                       {errors.applicantDateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.applicantDateOfBirth}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">PAN</label>
-                      <input type="text" name="panNumber" value={formData.panNumber} onChange={handleChange} maxLength={10} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" placeholder="10-character PAN number" style={{ textTransform: 'uppercase' }} />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">PAN</label>
+                      <input type="text" name="panNumber" value={formData.panNumber} onChange={handleChange} maxLength={10} className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" placeholder="10-character PAN number" style={{ textTransform: 'uppercase' }} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Aadhar Number</label>
-                      <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} maxLength={12} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" placeholder="12-digit Aadhar number" />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Aadhar Number</label>
+                      <input type="text" name="aadharNumber" value={formData.aadharNumber} onChange={handleChange} maxLength={12} className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" placeholder="12-digit Aadhar number" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Date of Birth in Words</label>
-                      <input type="text" name="dateOfBirthInWords" value={formData.dateOfBirthInWords} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]" />
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Date of Birth in Words</label>
+                      <input type="text" name="dateOfBirthInWords" value={formData.dateOfBirthInWords} onChange={handleChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out" />
                     </div>
                   </div>
 
@@ -1809,18 +1805,18 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                 </div>
               )} 
                {/* Step 1: Address Details */}
-
+              {formStep === 1 && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-3 ">Present Address</h3>
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Present Address</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="col-span-1 md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Complete Address <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Complete Address <span className="text-red-500">*</span></label>
                         <textarea
                           name="applicantAddress"
                           value={formData.applicantAddress}
                           onChange={handleChange}
-                          className={`mt-1 block w-full p-2 border ${errors.applicantAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.applicantAddress ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                           rows={2}
                         />
                         {errors.applicantAddress && <p className="text-red-500 text-xs mt-1">{errors.applicantAddress}</p>}
@@ -1837,13 +1833,13 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Pincode <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Pincode <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           name="presentPincode"
                           value={formData.presentPincode}
                           onChange={handleChange}
-                          className={`mt-1 block w-full p-2 border ${errors.presentPincode ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.presentPincode ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                           maxLength={6}
                         />
                         {errors.presentPincode && <p className="text-red-500 text-xs mt-1">{errors.presentPincode}</p>}
@@ -1852,24 +1848,24 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       {/* Police station is selected via cascading selector. Keep pincode next to it. */}
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Since when residing at present address</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Since when residing at present address</label>
                         <input
                           type="date"
                           name="residingSince"
                           value={formData.residingSince}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Jurisdiction Police Station <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           name="jurisdictionPoliceStation"
                           value={formData.jurisdictionPoliceStation}
                           onChange={handleChange}
-                          className={`mt-1 block w-full p-2 border ${errors.jurisdictionPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.jurisdictionPoliceStation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                           placeholder="Selected in location above"
                         />
                         {errors.jurisdictionPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.jurisdictionPoliceStation}</p>}
@@ -1893,13 +1889,13 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     <h3 className="text-lg font-medium text-gray-800 mb-3">Permanent Address</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="col-span-1 md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Complete Address {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Complete Address {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
                         <textarea
                           name="permanentAddress"
                           value={formData.permanentAddress}
                           onChange={handleChange}
                           disabled={formData.sameAsPresent === true}
-                          className={`mt-1 block w-full p-2 border ${errors.permanentAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.permanentAddress ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                           rows={2}
                         />
                         {errors.permanentAddress && <p className="text-red-500 text-xs mt-1">{errors.permanentAddress}</p>}
@@ -1945,28 +1941,28 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Pincode {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Pincode {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
                         <input
                           type="text"
                           name="permanentPincode"
                           value={formData.permanentPincode}
                           onChange={handleChange}
                           disabled={formData.sameAsPresent === true}
-                          className={`mt-1 block w-full p-2 border ${errors.permanentPincode ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.permanentPincode ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                           maxLength={6}
                         />
                         {errors.permanentPincode && <p className="text-red-500 text-xs mt-1">{errors.permanentPincode}</p>}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Jurisdiction Police Station {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Jurisdiction Police Station {formData.sameAsPresent ? '' : <span className="text-red-500">*</span>}</label>
                         <input
                           type="text"
                           name="permanentPoliceStation"
                           value={formData.permanentPoliceStation}
                           onChange={handleChange}
                           disabled={formData.sameAsPresent === true}
-                          className={`mt-1 block w-full p-2 border ${errors.permanentPoliceStation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                          className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.permanentPoliceStation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                           placeholder="Selected in location above"
                         />
                         {errors.permanentPoliceStation && <p className="text-red-500 text-xs mt-1">{errors.permanentPoliceStation}</p>}
@@ -1978,89 +1974,90 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     <h3 className="text-lg font-medium text-gray-800 mb-3">Contact Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Office Phone</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Office Phone</label>
                         <input
                           type="tel"
                           name="officePhone"
                           value={formData.officePhone}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Residence Phone</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Residence Phone</label>
                         <input
                           type="tel"
                           name="residencePhone"
                           value={formData.residencePhone}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Office Mobile</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Office Mobile</label>
                         <input
                           type="tel"
                           name="officeMobile"
                           value={formData.officeMobile}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Alternative Mobile</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Alternative Mobile</label>
                         <input
                           type="tel"
                           name="alternativeMobile"
                           value={formData.alternativeMobile}
                           onChange={handleChange}
-                          className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                          className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         />
                       </div>
                     </div>
                   </div>
-                </div>    
+                </div>
+              )}
               {/* Step 2: Weapon Details */}
               {formStep === 2 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-800">Occupation & Business Details</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Occupation & Business Details</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Occupation <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Occupation <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         name="occupation"
                         value={formData.occupation}
                         onChange={handleChange}
-                        className={`mt-1 block w-full p-2 border ${errors.occupation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                        className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.occupation ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                         placeholder="e.g., Farmer, Business, Service, etc."
                       />
                       {errors.occupation && <p className="text-red-500 text-xs mt-1">{errors.occupation}</p>}
                     </div>
 
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Office/Business Address</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Office/Business Address</label>
                       <textarea
                         name="officeBusinessAddress"
                         value={formData.officeBusinessAddress}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         rows={3}
                         placeholder="Complete office or business address"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Office/Business State</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Office/Business State</label>
                       <select
                         name="officeBusinessState"
                         value={formData.officeBusinessState}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                       >
                         <option value="">Select State</option>
                         <option value="Telangana">Telangana</option>
@@ -2073,12 +2070,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Office/Business District</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Office/Business District</label>
                       <select
                         name="officeBusinessDistrict"
                         value={formData.officeBusinessDistrict}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                       >
                         <option value="">Select District</option>
                         {districts.map((district) => (
@@ -2088,25 +2085,25 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Crop Protection Location</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Crop Protection Location</label>
                       <input
                         type="text"
                         name="cropProtectionLocation"
                         value={formData.cropProtectionLocation}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         placeholder="Location where crop protection is needed (if applicable)"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Area Under Cultivation (in acres)</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Area Under Cultivation (in acres)</label>
                       <input
                         type="number"
                         name="cultivatedArea"
                         value={formData.cultivatedArea}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         placeholder="0"
                         min="0"
                       />
@@ -2119,7 +2116,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {formStep === 3 && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-gray-800">Criminal History</h3>
+                    <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Criminal History</h3>
                     <button
                       type="button"
                       onClick={addCriminalHistoryEntry}
@@ -2148,7 +2145,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="col-span-1 md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">
                             Whether the applicant has been convicted?
                           </label>
                           <div className="flex gap-4">
@@ -2178,7 +2175,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         </div>
 
                         <div className="col-span-1 md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">
                             Is any criminal case pending against the applicant?
                           </label>
                           <div className="flex gap-4">
@@ -2210,51 +2207,51 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         {criminalRecord.isCriminalCasePending === 'Yes' && (
                           <>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">FIR Number</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">FIR Number</label>
                               <input
                                 type="text"
                                 value={criminalRecord.firNumber}
                                 onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'firNumber', e.target.value)}
-                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">Police Station</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Police Station</label>
                               <input
                                 type="text"
                                 value={criminalRecord.policeStation}
                                 onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'policeStation', e.target.value)}
-                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">Section of Law</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Section of Law</label>
                               <input
                                 type="text"
                                 value={criminalRecord.sectionOfLaw}
                                 onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'sectionOfLaw', e.target.value)}
-                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">Date of Offence</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Date of Offence</label>
                               <input
                                 type="date"
                                 value={criminalRecord.dateOfOffence}
                                 onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'dateOfOffence', e.target.value)}
-                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700">Case Status</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Case Status</label>
                               <select
                                 value={criminalRecord.caseStatus}
                                 onChange={(e) => handleArrayFieldChange('criminalHistory', index, 'caseStatus', e.target.value)}
-                                className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                               >
                                 <option value="">Select Status</option>
                                 <option value="Pending">Pending</option>
@@ -2273,38 +2270,38 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {/* Step 4: License Details */}
               {formStep === 4 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-800">License Details</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">License Details</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Need for license</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Need for license</label>
                       <textarea
                         name="licenseNeed"
                         value={formData.licenseNeed}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         rows={3}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Description of arms</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Description of arms</label>
                       <textarea
                         name="armsDescription"
                         value={formData.armsDescription}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         rows={3}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Arms Category</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Arms Category</label>
                       <select
                         name="armsCategory"
                         value={formData.armsCategory}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                       >
                         <option value="restricted">Restricted</option>
                         <option value="permissible">Permissible</option>
@@ -2317,12 +2314,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">Application Type <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Application Type <span className="text-red-500">*</span></label>
                             <select
                               name="applicationType"
                               value={formData.applicationType}
                               onChange={handleChange}
-                              className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                             >
                               <option value="New License">New License</option>
                               <option value="Renewal">Renewal</option>
@@ -2331,7 +2328,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">Weapon Type <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Weapon Type <span className="text-red-500">*</span></label>
                             <select
                               name="weaponType"
                               value={String(formData.weaponId ?? '')}
@@ -2344,7 +2341,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                                   weaponType: sel?.name || '',
                                 }));
                               }}
-                              className={`mt-1 block w-full p-2 border ${errors.weaponType ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                              className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.weaponType ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                               disabled={loadingWeapons}
                             >
                               <option value="">{loadingWeapons ? 'Loading weapons…' : 'Select Weapon Type'}</option>
@@ -2356,12 +2353,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">License Type</label>
+                            <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">License Type</label>
                             <select
                               name="licenseType"
                               value={formData.licenseType}
                               onChange={handleChange}
-                              className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                             >
                               <option value="Regular">Regular</option>
                               <option value="Sports">Sports</option>
@@ -2371,12 +2368,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">License Validity (Years)</label>
+                            <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">License Validity (Years)</label>
                             <select
                               name="licenseValidity"
                               value={formData.licenseValidity}
                               onChange={handleChange}
-                              className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                              className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                             >
                               <option value="3">3 Years</option>
                               <option value="5">5 Years</option>
@@ -2385,12 +2382,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Reason for Weapon <span className="text-red-500">*</span></label>
+                          <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Reason for Weapon <span className="text-red-500">*</span></label>
                           <textarea
                             name="weaponReason"
                             value={formData.weaponReason}
                             onChange={handleChange}
-                            className={`mt-1 block w-full p-2 border ${errors.weaponReason ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]`}
+                            className={`mt-1 block w-full px-4 py-3 bg-gray-50 border ${errors.weaponReason ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10 bg-red-50/50' : 'border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10'} rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-4 transition-all duration-200 ease-in-out`}
                             rows={3}
                             placeholder="Please provide a detailed reason why you need this weapon"
                           />
@@ -2430,7 +2427,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Have you applied before?</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Have you applied before?</label>
                               <div className="flex space-x-4">
                                 <label className="inline-flex items-center">
                                   <input
@@ -2458,7 +2455,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Do you have any other pending applications for arms license?</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Do you have any other pending applications for arms license?</label>
                               <div className="flex space-x-4">
                                 <label className="inline-flex items-center">
                                   <input
@@ -2486,7 +2483,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Does any family member have an arms license?</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Does any family member have an arms license?</label>
                               <div className="flex space-x-4">
                                 <label className="inline-flex items-center">
                                   <input
@@ -2514,7 +2511,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Do you have a safe place for keeping arms?</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Do you have a safe place for keeping arms?</label>
                               <div className="flex space-x-4">
                                 <label className="inline-flex items-center">
                                   <input
@@ -2542,7 +2539,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             </div>
 
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Have you undergone training in the use of firearms?</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Have you undergone training in the use of firearms?</label>
                               <div className="flex space-x-4">
                                 <label className="inline-flex items-center">
                                   <input
@@ -2570,7 +2567,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             </div>
 
                             <div className="col-span-1 md:col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Have you previously held an arms license?</label>
+                              <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Have you previously held an arms license?</label>
                               <div className="flex space-x-4">
                                 <label className="inline-flex items-center">
                                   <input
@@ -2600,42 +2597,42 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                             {licenseRecord.hasPreviousLicense === 'yes' && (
                               <>
                                 <div>
-                                  <label className="block text-sm font-medium text-gray-700">Previous License Number</label>
+                                  <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Previous License Number</label>
                                   <input
                                     type="text"
                                     value={licenseRecord.previousLicenseNumber}
                                     onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'previousLicenseNumber', e.target.value)}
-                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                                   />
                                 </div>
 
                                 <div>
-                                  <label className="block text-sm font-medium text-gray-700">License Issue Date</label>
+                                  <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">License Issue Date</label>
                                   <input
                                     type="date"
                                     value={licenseRecord.licenseIssueDate}
                                     onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'licenseIssueDate', e.target.value)}
-                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                                   />
                                 </div>
 
                                 <div>
-                                  <label className="block text-sm font-medium text-gray-700">License Expiry Date</label>
+                                  <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">License Expiry Date</label>
                                   <input
                                     type="date"
                                     value={licenseRecord.licenseExpiryDate}
                                     onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'licenseExpiryDate', e.target.value)}
-                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                                   />
                                 </div>
 
                                 <div>
-                                  <label className="block text-sm font-medium text-gray-700">Issuing Authority</label>
+                                  <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Issuing Authority</label>
                                   <input
                                     type="text"
                                     value={licenseRecord.issuingAuthority}
                                     onChange={(e) => handleArrayFieldChange('licenseHistory', index, 'issuingAuthority', e.target.value)}
-                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                                   />
                                 </div>
                               </>
@@ -2646,7 +2643,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Areas within which applicant wishes to carry arms</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Areas within which applicant wishes to carry arms</label>
                       <div className="mt-2 space-y-2">
                         <label className="inline-flex items-center">
                           <input
@@ -2687,38 +2684,38 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Claims for special consideration</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Claims for special consideration</label>
                       <textarea
                         name="specialConsideration"
                         value={formData.specialConsideration}
                         onChange={handleChange}
-                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                         rows={3}
                       />
                     </div>
 
                     <div className="col-span-1 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Details for an application for license in Form IV</label>
+                      <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Details for an application for license in Form IV</label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Place or area for which the licence is sought</label>
+                          <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Place or area for which the licence is sought</label>
                           <input
                             type="text"
                             name="formIVDetails.licenseArea"
                             value={formData.formIVDetails.licenseArea}
                             onChange={handleChange}
-                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                            className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Specification of wild beasts</label>
+                          <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1">Specification of wild beasts</label>
                           <input
                             type="text"
                             name="formIVDetails.wildBeastSpecification"
                             value={formData.formIVDetails.wildBeastSpecification}
                             onChange={handleChange}
-                            className="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]"
+                            className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                           />
                         </div>
                       </div>
@@ -2733,14 +2730,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {/* Step 6: Documents Upload */}
               {formStep === 6 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-gray-800">Documents Upload</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Documents Upload</h3>
                   <p className="text-sm text-gray-600 mb-4">
                     Please upload all required documents in PDF, JPG, or PNG format. Each file should be less than 5MB.
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Aadhaar Card */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">Aadhaar Card <span className="text-red-500">*</span></h4>
                       <div className="mt-2">
                         <input
@@ -2752,7 +2749,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="idProofUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2777,7 +2774,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     {/* PAN Card */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">PAN Card</h4>
                       <div className="mt-2">
                         <input
@@ -2789,7 +2786,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="panCardUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5  0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2812,7 +2809,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     {/* Address Proof */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">Address Proof <span className="text-red-500">*</span></h4>
                       <div className="mt-2">
                         <input
@@ -2824,7 +2821,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="addressProofUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2850,7 +2847,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     {/* Photograph */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">Passport Size Photograph <span className="text-red-500">*</span></h4>
                       <div className="mt-2">
                         <input
@@ -2862,7 +2859,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="photographUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2888,7 +2885,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     {/* Character Certificate */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">Character Certificate</h4>
                       <div className="mt-2">
                         <input
@@ -2900,7 +2897,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="characterCertificateUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2922,7 +2919,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     {/* Medical Certificate */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">Medical Certificate</h4>
                       <div className="mt-2">
                         <input
@@ -2934,7 +2931,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="medicalCertificateUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2956,7 +2953,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </div>
 
                     {/* Training Certificate */}
-                    <div className="border border-gray-200 rounded-md p-4">
+                    <div className="border border-gray-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border-dashed">
                       <h4 className="font-medium text-gray-800 mb-2">Training Certificate</h4>
                       <div className="mt-2">
                         <input
@@ -2968,7 +2965,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         />
                         <label
                           htmlFor="trainingCertificateUploaded"
-                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                          className="cursor-pointer inline-flex items-center px-5 py-2.5 bg-indigo-50 text-indigo-700 font-medium rounded-lg hover:bg-indigo-100 transition-colors duration-200"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 11115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -2989,7 +2986,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Other State License</label>
+                        <label className="block text-sm font-semibold text-slate-700 tracking-tight mb-1 mb-2">Other State License</label>
                         <input
                           type="file"
                           name="otherStateLicenseUploaded"
@@ -3016,7 +3013,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {/* Step 7: Preview */}
               {formStep === 7 && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-bold text-gray-800">Application Preview</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Application Preview</h3>
                   <p className="text-sm text-gray-600">Please review all your information before submitting the application.</p>
 
                   <div className="space-y-6 max-h-[60vh] overflow-y-auto">
@@ -3204,7 +3201,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
               {/* Step 8: Declaration */}
               {formStep === 8 && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-bold text-gray-800">Declaration & Submit</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4 tracking-tight">Declaration & Submit</h3>
 
                   {/* Declaration Checkboxes */}
                   <div className="space-y-4">
@@ -3403,7 +3400,6 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
           </div>
         </div>
       </div>
-    </>
-
+    </div>
   );
 }

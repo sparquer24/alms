@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthSync } from '@/hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { Sidebar } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { getCookie } from 'cookies-next';
@@ -17,7 +17,7 @@ const PERMISSION_CATEGORIES = {
     "canViewRedFlagged",
     "canViewDisposed",
     "canViewSent",
-    "canViewFinalDisposal",
+    "canViewApplication",
     "canViewReports",
     "canAccessSettings"
   ],
@@ -86,7 +86,7 @@ const mockPermissions = [
     roles: ["APPLICANT", "SHO", "ACP", "DCP"]
   },
   {
-    id: "canViewFinalDisposal",
+    id: "canViewApplication",
     name: "View Final Disposal",
     category: "View Permissions",
     description: "Ability to view final disposal applications",
@@ -224,7 +224,7 @@ export default function PermissionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-  const { isAuthenticated, isLoading: authLoading, userRole } = useAuthSync();
+  const { isAuthenticated, isLoading: authLoading, userRole } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

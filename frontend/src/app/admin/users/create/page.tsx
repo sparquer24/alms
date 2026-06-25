@@ -21,6 +21,7 @@ const CreateUserPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,6 +33,7 @@ const CreateUserPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setIsSubmitting(true);
 
     try {
       const response = await fetch('/admin/users', {
@@ -52,6 +54,8 @@ const CreateUserPage: React.FC = () => {
       setRole(roles[0]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -76,7 +80,8 @@ const CreateUserPage: React.FC = () => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            className="w-full border rounded px-3 py-2"
+            disabled={isSubmitting}
+            className="w-full border rounded px-3 py-2 disabled:bg-gray-100"
           />
         </div>
 
@@ -87,7 +92,8 @@ const CreateUserPage: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full border rounded px-3 py-2"
+            disabled={isSubmitting}
+            className="w-full border rounded px-3 py-2 disabled:bg-gray-100"
           />
         </div>
 
@@ -98,7 +104,8 @@ const CreateUserPage: React.FC = () => {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             required
-            className="w-full border rounded px-3 py-2"
+            disabled={isSubmitting}
+            className="w-full border rounded px-3 py-2 disabled:bg-gray-100"
           />
         </div>
 
@@ -109,7 +116,8 @@ const CreateUserPage: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full border rounded px-3 py-2"
+            disabled={isSubmitting}
+            className="w-full border rounded px-3 py-2 disabled:bg-gray-100"
           />
         </div>
 
@@ -118,7 +126,8 @@ const CreateUserPage: React.FC = () => {
           <select
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className="w-full border rounded px-3 py-2"
+            disabled={isSubmitting}
+            className="w-full border rounded px-3 py-2 disabled:bg-gray-100"
           >
             {roles.map((r) => (
               <option key={r} value={r}>
@@ -130,9 +139,20 @@ const CreateUserPage: React.FC = () => {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+          disabled={isSubmitting}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Create User
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Creating...
+            </span>
+          ) : (
+            'Create User'
+          )}
         </button>
       </form>
       )}

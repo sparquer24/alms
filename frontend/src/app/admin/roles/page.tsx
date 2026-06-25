@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthSync } from '@/hooks/useAuthSync';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { AdminRoleService } from '@/services/admin/roles';
 import type { AdminRole } from '@/store/slices/adminRoleSlice';
@@ -28,7 +28,7 @@ const PERMISSION_CATEGORIES = {
     { key: 'canViewRedFlagged', label: 'View Red Flagged Applications' },
     { key: 'canViewDisposed', label: 'View Disposed Applications' },
     { key: 'canViewSent', label: 'View Sent Applications' },
-    { key: 'canViewFinalDisposal', label: 'View Final Disposal' },
+    { key: 'canViewApplication', label: 'View Applicationl' },
     { key: 'canViewReports', label: 'View Reports' },
     { key: 'canAccessSettings', label: 'Access Settings' },
   ],
@@ -170,7 +170,7 @@ const PermissionEditorModal: React.FC<{
 };
 
 export default function UserRolesMappingPage() {
-  const { userRole } = useAuthSync();
+  const { userRole } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();

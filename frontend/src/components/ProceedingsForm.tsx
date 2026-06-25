@@ -211,6 +211,41 @@ export default function ProceedingsForm({
   const hierarchyApplicationType = resolveHierarchyApplicationType(applicationData?.applicationType);
   const workflowApplicationType = resolveWorkflowApplicationType(applicationData?.applicationType);
 
+  const currentRole = roleFromCookie || userRole;
+
+  const currentZSUserOption = useMemo(() => {
+    try {
+      const userCookie = getCookie('user');
+      if (userCookie && typeof userCookie === 'string') {
+        const currentUserObj = JSON.parse(userCookie);
+        if (currentUserObj && currentUserObj.id) {
+          return {
+            value: String(currentUserObj.id),
+            label: `${currentUserObj.username || 'Unknown User'} (${currentUserObj.role?.code || currentRole || 'ZS'})`,
+          };
+        }
+      }
+    } catch (e) {}
+    return null;
+  }, [currentRole]);
+
+  const isCloseActionForZSWithSpecialStatus = useMemo(() => {
+    const isSpecialStatus =
+      applicationData?.isApproved === true ||
+      applicationData?.isRejected === true ||
+      applicationData?.isRecommended === true ||
+      applicationData?.isNotRecommended === true;
+    return currentRole === 'ZS' && selectedAction?.code?.toUpperCase() === 'CLOSE' && isSpecialStatus;
+  }, [currentRole, selectedAction, applicationData]);
+
+  // Auto-select ZS user if Close action is selected under special conditions
+  useEffect(() => {
+    if (isCloseActionForZSWithSpecialStatus && currentZSUserOption) {
+      setNextUser(currentZSUserOption);
+    }
+  }, [isCloseActionForZSWithSpecialStatus, currentZSUserOption]);
+
+
   // Fetch actions from backend on mount
   useEffect(() => {
     let mounted = true;
@@ -226,7 +261,7 @@ export default function ProceedingsForm({
             try {
               const t = String(cookieAuth || '');
               const masked = t.length > 8 ? `${t.slice(0, 4)}...${t.slice(-4)}` : t;
-              // eslint-disable-next-line no-console
+               
             } catch (e) {}
           }
         } catch (e) {}
@@ -359,7 +394,10 @@ export default function ProceedingsForm({
     const errors: Record<string, string> = {};
     if (!selectedAction) errors.action = 'Please select an action type.';
     if (!remarks.trim()) errors.remarks = 'Please add remarks before submitting.';
-    if (!nextUser) errors.nextUser = 'Please select the next proceeding officer.';
+    
+    const hasNextUserVal = isCloseActionForZSWithSpecialStatus ? !!currentZSUserOption : !!nextUser;
+    if (!hasNextUserVal) errors.nextUser = 'Please select the next proceeding officer.';
+    
     if (roleFromCookie === 'SHO' && !draftLetter.trim())
       errors.draftLetter = 'Ground Report Letter is required for submission.';
 
@@ -382,9 +420,12 @@ export default function ProceedingsForm({
     };
 
     // Add next user as next proceeding officer (if provided)
-    if (nextUser?.value) {
+    if (isCloseActionForZSWithSpecialStatus && currentZSUserOption) {
+      payload.nextUserId = Number(currentZSUserOption.value);
+    } else if (nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
     }
+
 
     // Include ground report as PDF (Base64) for SHO
     if (roleFromCookie === 'SHO' && draftLetter.trim()) {
@@ -1081,14 +1122,14 @@ ${content}
               </label>
               <div className={styles.selectContainer} ref={nextUserRef}>
                 <SelectFixed
-                  options={userOptions}
-                  value={nextUser}
+                  options={isCloseActionForZSWithSpecialStatus && currentZSUserOption ? [currentZSUserOption] : userOptions}
+                  value={isCloseActionForZSWithSpecialStatus && currentZSUserOption ? currentZSUserOption : nextUser}
                   onChange={setNextUser}
                   placeholder={
                     fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
                   }
                   isLoading={fetchingUsers}
-                  isDisabled={isSubmitting || fetchingUsers}
+                  isDisabled={isSubmitting || fetchingUsers || isCloseActionForZSWithSpecialStatus}
                   className='text-sm'
                   styles={{
                     control: (provided: any, state: any) => ({

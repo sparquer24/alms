@@ -2,6 +2,7 @@
 import React from 'react';
 import { Input } from '../elements/Input';
 import { useRouter } from 'next/navigation';
+import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
@@ -17,16 +18,16 @@ const initialState = {
 
 // Validation rules for occupation information
 const validateOccupationInfo = (formData: any) => {
-	const validationErrors = [];
+	const errors: Record<string, string> = {};
 	
 	if (!formData.occupation?.trim()) {
-		validationErrors.push('Occupation is required');
+		errors.occupation = 'Occupation is required';
 	}
 	if (!formData.annualIncome?.trim()) {
-		validationErrors.push('Annual income is required');
+		errors.annualIncome = 'Annual income is required';
 	}
 	
-	return validationErrors;
+	return errors;
 };
 
 const OccupationDetails: React.FC = () => {
@@ -40,14 +41,24 @@ const OccupationDetails: React.FC = () => {
 		submitError,
 		submitSuccess,
 		isLoading,
-		handleChange,
+		handleChange: baseHandleChange,
 		saveFormData,
 		navigateToNext,
+		fieldErrors,
+		setFieldErrors,
+
 	} = useApplicationForm({
 		initialState,
 		formSection: 'occupation',
 		validationRules: validateOccupationInfo,
 	});
+
+	const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+		baseHandleChange(e as any);
+		if (fieldErrors[e.target.name]) {
+			setFieldErrors((prev: any) => ({ ...prev, [e.target.name]: '' }));
+		}
+	};
 
 	const handleSaveToDraft = async () => {
 		await saveFormData();
@@ -71,14 +82,7 @@ const OccupationDetails: React.FC = () => {
 
 	// Show loading state if data is being loaded
 	if (isLoading) {
-		return (
-			<div className="p-6">
-				<h2 className="text-xl font-bold mb-4">Occupation and Business Details</h2>
-				<div className="flex justify-center items-center py-8">
-					<div className="text-gray-500">Loading...</div>
-				</div>
-			</div>
-		);
+		return <FormSkeleton title="Occupation and Business Details" rows={3} />;
 	}
 
 	return (
@@ -89,9 +93,7 @@ const OccupationDetails: React.FC = () => {
 		{(applicantId || almsLicenseId) && (
 			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
 				<div className="flex flex-col">
-					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-					{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-				</div>
+					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
 			</div>
 		)}			{/* Display success/error messages */}
 			{submitSuccess && (
@@ -112,6 +114,7 @@ const OccupationDetails: React.FC = () => {
 					value={form.occupation}
 					onChange={handleChange}
 					placeholder="Enter your occupation"
+					error={fieldErrors.occupation}
 					required
 				/>
 				<Input
@@ -120,6 +123,7 @@ const OccupationDetails: React.FC = () => {
 					value={form.employerName}
 					onChange={handleChange}
 					placeholder="Enter employer name"
+					error={fieldErrors.employerName}
 				/>
 				<Input
 					label="Business Details"
@@ -127,6 +131,7 @@ const OccupationDetails: React.FC = () => {
 					value={form.businessDetails}
 					onChange={handleChange}
 					placeholder="Enter business details"
+					error={fieldErrors.businessDetails}
 				/>
 				<Input
 					label="Annual Income"
@@ -135,6 +140,7 @@ const OccupationDetails: React.FC = () => {
 					value={form.annualIncome}
 					onChange={handleChange}
 					placeholder="Enter annual income"
+					error={fieldErrors.annualIncome}
 					required
 				/>
 				<Input
@@ -144,6 +150,7 @@ const OccupationDetails: React.FC = () => {
 					value={form.workExperience}
 					onChange={handleChange}
 					placeholder="Enter years of experience"
+					error={fieldErrors.workExperience}
 				/>
 				<Input
 					label="Business Type"
@@ -151,6 +158,7 @@ const OccupationDetails: React.FC = () => {
 					value={form.businessType}
 					onChange={handleChange}
 					placeholder="Enter business type"
+					error={fieldErrors.businessType}
 				/>
 			</div>
 			

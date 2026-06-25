@@ -120,7 +120,7 @@ export class BiometricController {
             const result = await this.biometricService.enrollFingerprint(
                 applicantId,
                 enrollmentData,
-                req.user?.sub || 0,
+                Number(req.user?.sub) || 0,
             );
             return result;
         } catch (error: any) {
@@ -169,7 +169,7 @@ export class BiometricController {
                 body.fingerPosition,
                 body.fingerTemplate,
                 body.description || `Fingerprint - ${body.fingerPosition}`,
-                req.user?.sub || 0,
+                Number(req.user?.sub) || 0,
             );
             return result;
         } catch (error: any) {
@@ -212,7 +212,7 @@ export class BiometricController {
             const result = await this.biometricService.verifyFingerprint(
                 applicantId,
                 verificationData,
-                req.user?.sub || 0,
+                Number(req.user?.sub) || 0,
             );
             return result;
         } catch (error: any) {
@@ -287,7 +287,7 @@ export class BiometricController {
             const result = await this.biometricService.deleteEnrolledFingerprint(
                 applicantId,
                 fingerprintId,
-                req.user?.sub || 0,
+                Number(req.user?.sub) || 0,
             );
             return result;
         } catch (error: any) {

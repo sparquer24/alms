@@ -29,5 +29,8 @@
   "bugs": {
     "url": "https://github.com/sparquer24/alms/issues"
   },
-  "homepage": "https://github.com/sparquer24/alms#readme"
+  "homepage": "https://github.com/sparquer24/alms#readme",
+  "dependencies": {
+    "freebuff": "^0.0.100"
+  }
 }

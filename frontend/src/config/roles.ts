@@ -57,7 +57,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   const canAccessSettingsRaw: boolean | undefined = roleData.canAccessSettings ?? roleData.can_access_settings;
   let permissionsRaw: string[] | string | undefined = roleData.permissions;
   if (permissionsRaw === undefined) permissionsRaw = roleData.permission_list ?? roleData.PermissionList;
-  let menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
+  const menuItemsRaw: MenuItem[] | string[] | string | undefined = roleData.menuItems ?? roleData.menu_items;
 
   // Parse stringified JSON arrays if needed
   const safeParse = <T,>(v: any): T | undefined => {
@@ -120,9 +120,8 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'sent', statusIds: [11, 1, 9] },
       { name: 'closed', statusIds: [10] },
       { name: 'drafts', statusIds: [13] },
-      { name: 'finaldisposal', statusIds: [7] },
+      { name: 'Applications', statusIds: [11, 3] },
       { name: 'analytics' },
-      { name: 'applications' },
     ],
     'SHO': [
       { name: 'inbox', statusIds: [1, 9] },
