@@ -36,7 +36,10 @@ const formatDateTime = (value?: string) => {
 
 const getStatusLabel = (application: RenewalApplicationDetails | null) => {
   if (!application) return 'Unknown';
-  return application.workflowStatus?.name || (application.isSubmit ? 'Submitted' : 'Draft');
+  if (application.workflowStatus?.name) return application.workflowStatus.name;
+  if (application.workflowStatus?.code) return application.workflowStatus.code;
+  if (application.isSubmit === true) return 'Submitted';
+  return 'Draft';
 };
 
 export default function RenewalApplicationDetailsPage() {
@@ -57,10 +60,31 @@ export default function RenewalApplicationDetailsPage() {
         setError(null);
 
         const response = await RenewalService.getRenewalForm(id);
-        const root = (response as any)?.data ?? (response as any)?.body ?? response;
-        const payload = root?.data && typeof root.data === 'object' && !Array.isArray(root.data) ? root.data : root;
 
-        if (!payload) {
+        // Handle various API response formats:
+        // 1. { data: { data: {...} } } - nested data wrapper
+        // 2. { data: {...} } - single data wrapper
+        // 3. {...} - direct response
+        let payload: any = response;
+        
+        // Extract the data property first
+        if ((response as any)?.data !== undefined) {
+          payload = (response as any).data;
+        }
+        
+        // If data has a nested data property (some APIs wrap response twice)
+        if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+          payload = payload.data;
+        }
+        
+        // Ensure payload has the expected fields by checking for common identifiers
+        const hasValidPayload = payload && (
+          payload.id !== undefined ||
+          payload.acknowledgementNo !== undefined ||
+          payload.licenseNumber !== undefined
+        );
+
+        if (!hasValidPayload) {
           throw new Error('Renewal application not found');
         }
 
@@ -152,7 +176,8 @@ export default function RenewalApplicationDetailsPage() {
             <InfoCard label='Date of Birth' value={formatDateTime(application.dateOfBirth)} />
             <InfoCard label='PAN Number' value={application.panNumber || 'N/A'} />
             <InfoCard label='Aadhaar Number' value={application.aadharNumber || 'N/A'} />
-            <InfoCard label='Created At' value={formatDateTime(application.createdAt)} />
+            <InfoCard label='Application Status' value={statusLabel} />
+            <InfoCard label='Application Date' value={formatDateTime(application.createdAt)} />
             <InfoCard label='Updated At' value={formatDateTime(application.updatedAt)} />
           </div>
 
