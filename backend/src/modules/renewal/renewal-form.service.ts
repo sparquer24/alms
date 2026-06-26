@@ -678,6 +678,7 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
                 include: {role: true},
@@ -809,6 +810,7 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
                 include: {role: true},

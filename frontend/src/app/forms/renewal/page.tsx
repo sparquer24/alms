@@ -2403,6 +2403,20 @@ function RenewalFormPageContent() {
     declaration: true,
   });
 
+  const [sectionCompleted, setSectionCompleted] = useState<Record<string, boolean>>({
+    personal: false,
+    address: false,
+    occupation: false,
+    criminal: false,
+    licenseDetails: false,
+    licenseHistory: false,
+    biometric: false,
+    documents: false,
+  });
+
+  const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
+
+  const [savingSection, setSavingSection] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -2830,6 +2844,328 @@ function RenewalFormPageContent() {
     return base;
   };
 
+  const validatePersonalDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: keyof RenewalFormState, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key as string] = `${label} is required`;
+    };
+    requireField('applicantName', 'First name');
+    requireField('applicantLastName', 'Last name');
+    requireField('filledBy', 'Application filled by');
+    requireField('fatherName', 'Parent/Spouse name');
+    requireField('applicantDateOfBirth', 'Date of birth');
+    requireField('dobInWords', 'Date of birth in words');
+    requireField('panNumber', 'PAN');
+    requireField('aadharNumber', 'Aadhar number');
+
+    if (
+      data.panNumber &&
+      String(data.panNumber).trim().length > 0 &&
+      String(data.panNumber).trim().length !== 10
+    )
+      errs['panNumber'] = 'PAN must be 10 characters';
+    if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim()))
+      errs['aadharNumber'] = 'Aadhar must be 12 digits';
+
+    if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
+    return errs;
+  };
+
+  const validateAddressDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+    requireField('presentAddress', 'Present address');
+    requireField('presentState', 'Present state');
+    requireField('presentDistrict', 'Present district');
+    if (!data.sameAsPresent) {
+      requireField('permanentAddress', 'Permanent address');
+      requireField('permanentState', 'Permanent state');
+      requireField('permanentDistrict', 'Permanent district');
+    }
+    return errs;
+  };
+
+  const validateOccupationDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+    requireField('occupation', 'Occupation');
+    requireField('officeBusinessAddress', 'Office/Business address');
+    requireField('officeBusinessState', 'Office/Business state');
+    requireField('officeBusinessDistrict', 'Office/Business district');
+    requireField('cropProtectionLocation', 'Location');
+    requireField('cultivatedArea', 'Area of land under cultivation');
+    return errs;
+  };
+
+  const validateLicenseDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+    requireField('weaponReason', 'Need for license (15)');
+    requireField('ammunitionDescription', 'Ammunition Description');
+    if (!data.specialEvidenceUploaded) {
+      errs['specialEvidenceUploaded'] = 'Documentary evidence is required.';
+    }
+    if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
+      errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
+    }
+    if (!data.armsOptionType) {
+      errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
+    }
+    const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
+      ? data.requestedWeaponIds
+      : data.weaponId
+        ? [Number(String(data.weaponId))]
+        : [];
+    if (!selectedWeaponIds.length) {
+      errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
+    }
+    return errs;
+  };
+
+  const validateCriminalHistory = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+
+    if (data.convictedStatus) {
+      requireField('firNumber', 'FIR Number');
+      requireField('underSection', 'Under Section');
+      requireField('policeStationCriminal', 'Police Station');
+      requireField('criminalUnit', 'Unit');
+      requireField('criminalDistrict', 'District');
+      requireField('criminalState', 'State');
+      requireField('offence', 'Offence');
+      requireField('sentence', 'Sentence');
+      requireField('sentenceDate', 'Date of Sentence');
+    }
+
+    if (data.bondStatus) {
+      requireField('bondSentenceDate', 'Date of Sentence');
+      requireField('bondPeriod', 'Period of which bond');
+    }
+
+    if (data.prohibitedStatus) {
+      requireField('prohibitedSentenceDate', 'Date of Sentence');
+      requireField('prohibitedPeriod', 'Period of which bound');
+    }
+
+    return errs;
+  };
+
+  const validateLicenseHistory = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+
+    if (data.hasAppliedBefore) {
+      requireField('applicationDate', 'Date of Application');
+      requireField('authorityAppliedTo', 'Authority Applied To');
+      requireField('applicationResult', 'Result');
+    }
+
+    if (data.licenseRevokedOrSuspended) {
+      requireField('revokedByAuthority', 'Revoked by Authority');
+      requireField('revokedReason', 'Reason');
+    }
+
+    if (data.familyMemberHasLicense) {
+      requireField('familyMemberName', 'Name');
+      requireField('familyLicenseNumber', 'License Number');
+      
+      const weapons = Array.isArray(data.weaponEndorsedList) ? data.weaponEndorsedList : [];
+      if (weapons.length === 0) {
+        errs['weaponEndorsedList'] = 'At least one weapon is required';
+      } else {
+        const hasEmptyWeapon = weapons.some((w: any) => {
+          if (typeof w === 'string') return w.trim() === '';
+          return !w.value || String(w.value).trim() === '';
+        });
+        if (hasEmptyWeapon) {
+          errs['weaponEndorsedList'] = 'Please select all weapons';
+        }
+      }
+    }
+
+    if (data.hasSafeCustody) {
+      requireField('safeCustodyDetails', 'Safe Custody Details');
+    }
+
+    if (data.hasTrainingUnderRule10) {
+      requireField('trainingDetails', 'Training Details');
+    }
+
+    return errs;
+  };
+
+  const validateDocumentsUpload = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
+    if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
+    if (!data.medicalCertificateUploaded)
+      errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
+    return errs;
+  };
+
+  const buildSectionSpecificPayload = (sectionKey: string, formData: RenewalFormState): Record<string, any> => {
+    const full = buildRenewalPatchPayload(formData);
+    switch (sectionKey) {
+      case 'personal':
+        return full.personalDetails ? { personalDetails: full.personalDetails } : {};
+      case 'address':
+        return full.addressDetails ? { addressDetails: full.addressDetails } : {};
+      case 'occupation':
+        return full.occupationAndBusiness ? { occupationAndBusiness: full.occupationAndBusiness } : {};
+      case 'criminal':
+        return { criminalHistories: full.criminalHistories };
+      case 'licenseDetails':
+        return full.licenseDetails ? { licenseDetails: full.licenseDetails } : {};
+      case 'licenseHistory':
+        return { licenseHistories: full.licenseHistories };
+      case 'biometric':
+        return { biometricData: full.biometricData };
+      case 'documents':
+        return full.fileUploads ? { fileUploads: full.fileUploads } : {};
+      default:
+        return {};
+    }
+  };
+
+  const handleSectionComplete = async (sectionKey: string) => {
+    const activeRenewalId = renewalId || createdRenewalIdRef.current;
+    if (!activeRenewalId) {
+      toast.error('Renewal ID not available yet. Please wait for the form to load.');
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+      return;
+    }
+
+    // Run section-specific validation
+    let sectionErrors: Record<string, string> = {};
+    if (sectionKey === 'personal') {
+      sectionErrors = validatePersonalDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setPersonalErrors(sectionErrors);
+        scheduleSectionFocus(personalSectionRef, 'personal');
+      }
+    } else if (sectionKey === 'address') {
+      sectionErrors = validateAddressDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setAddressErrors(sectionErrors);
+        scheduleSectionFocus(addressSectionRef, 'address');
+      }
+    } else if (sectionKey === 'occupation') {
+      sectionErrors = validateOccupationDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setOccupationErrors(sectionErrors);
+        scheduleSectionFocus(occupationSectionRef, 'occupation');
+      }
+    } else if (sectionKey === 'criminal') {
+      sectionErrors = validateCriminalHistory(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        // We don't have a specific state for criminalErrors in page.tsx right now, 
+        // but returning them stops completion. We can add setCriminalErrors if needed, 
+        // or just rely on toast. 
+        // For now, this effectively stops it from saving and shows the generic "Failed to save" or "Fix validation errors" via toast.
+      }
+    } else if (sectionKey === 'licenseDetails') {
+      sectionErrors = validateLicenseDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setLicenseDetailsErrors(sectionErrors);
+        scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+      }
+    } else if (sectionKey === 'licenseHistory') {
+      sectionErrors = validateLicenseHistory(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        // Also missing setLicenseHistoryErrors state, but returning errors prevents completion
+      }
+    } else if (sectionKey === 'documents') {
+      sectionErrors = validateDocumentsUpload(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setDocumentsErrors(sectionErrors);
+        scheduleSectionFocus(documentsSectionRef, 'documents');
+      }
+    }
+
+    if (Object.keys(sectionErrors).length > 0) {
+      toast.error('Please fix validation errors in this section before marking it complete.');
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSavingSection(sectionKey);
+      setError(null);
+      const sectionPayload = buildSectionSpecificPayload(sectionKey, formData);
+      if (Object.keys(sectionPayload).length === 0) {
+        toast.warning('No data to save for this section.');
+        setSectionCompleted(prev => ({ ...prev, [sectionKey]: true }));
+        return;
+      }
+      await RenewalService.updateRenewalForm(activeRenewalId, sectionPayload);
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: true }));
+      toast.success(`${sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)} section saved successfully.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save section. Please try again.');
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+    } finally {
+      setIsSaving(false);
+      setSavingSection(null);
+    }
+  };
+
+  useEffect(() => {
+    // Dynamically uncheck sections if required fields become missing/invalid
+    setSectionCompleted(prev => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (prev.personal && Object.keys(validatePersonalDetails(formData)).length > 0) {
+        next.personal = false;
+        changed = true;
+      }
+      if (prev.address && Object.keys(validateAddressDetails(formData)).length > 0) {
+        next.address = false;
+        changed = true;
+      }
+      if (prev.occupation && Object.keys(validateOccupationDetails(formData)).length > 0) {
+        next.occupation = false;
+        changed = true;
+      }
+      if (prev.criminal && Object.keys(validateCriminalHistory(formData)).length > 0) {
+        next.criminal = false;
+        changed = true;
+      }
+      if (prev.licenseDetails && Object.keys(validateLicenseDetails(formData)).length > 0) {
+        next.licenseDetails = false;
+        changed = true;
+      }
+      if (prev.licenseHistory && Object.keys(validateLicenseHistory(formData)).length > 0) {
+        next.licenseHistory = false;
+        changed = true;
+      }
+      if (prev.documents && Object.keys(validateDocumentsUpload(formData)).length > 0) {
+        next.documents = false;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [formData]);
+
   const persistRenewalForm = async (isSubmit: boolean) => {
     const activeRenewalId = renewalId || createdRenewalIdRef.current;
 
@@ -2839,35 +3175,6 @@ function RenewalFormPageContent() {
     }
 
     // Client-side validation before saving/submitting
-    const validatePersonalDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: keyof RenewalFormState, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key as string] = `${label} is required`;
-      };
-
-      requireField('applicantName', 'First name');
-      requireField('applicantLastName', 'Last name');
-      requireField('filledBy', 'Application filled by');
-      requireField('fatherName', 'Parent/Spouse name');
-      requireField('applicantDateOfBirth', 'Date of birth');
-      requireField('dobInWords', 'Date of birth in words');
-      requireField('panNumber', 'PAN');
-      requireField('aadharNumber', 'Aadhar number');
-
-      if (
-        data.panNumber &&
-        String(data.panNumber).trim().length > 0 &&
-        String(data.panNumber).trim().length !== 10
-      )
-        errs['panNumber'] = 'PAN must be 10 characters';
-      if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim()))
-        errs['aadharNumber'] = 'Aadhar must be 12 digits';
-
-      if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
-      return errs;
-    };
-
     const preSaveErrors = validatePersonalDetails(formData);
     if (Object.keys(preSaveErrors).length > 0) {
       setPersonalErrors(preSaveErrors);
@@ -2875,30 +3182,6 @@ function RenewalFormPageContent() {
       setError('Please fix validation errors before continuing.');
       return false;
     }
-
-    // Address validation (core fields required)
-    const validateAddressDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      requireField('presentAddress', 'Present address');
-      requireField('presentState', 'Present state');
-      requireField('presentDistrict', 'Present district');
-      // Residing since is optional as it may not always be available
-      // Location hierarchy (zone, division, police station) may be optional based on jurisdiction
-
-      if (!data.sameAsPresent) {
-        requireField('permanentAddress', 'Permanent address');
-        requireField('permanentState', 'Permanent state');
-        requireField('permanentDistrict', 'Permanent district');
-        // Location hierarchy for permanent is optional
-      }
-
-      return errs;
-    };
 
     const addressValidationErrors = validateAddressDetails(formData);
     if (Object.keys(addressValidationErrors).length > 0) {
@@ -2908,24 +3191,6 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    // Occupation validation (all required)
-    const validateOccupationDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      requireField('occupation', 'Occupation');
-      requireField('officeBusinessAddress', 'Office/Business address');
-      requireField('officeBusinessState', 'Office/Business state');
-      requireField('officeBusinessDistrict', 'Office/Business district');
-      requireField('cropProtectionLocation', 'Location');
-      requireField('cultivatedArea', 'Area of land under cultivation');
-
-      return errs;
-    };
-
     const occupationValidationErrors = validateOccupationDetails(formData);
     if (Object.keys(occupationValidationErrors).length > 0) {
       setOccupationErrors(occupationValidationErrors);
@@ -2934,40 +3199,11 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    // Criminal and License History sections are not applicable for Renewal Forms
-
-    const validateLicenseDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      requireField('weaponReason', 'Need for license (15)');
-      requireField('ammunitionDescription', 'Ammunition Description');
-
-      // Only require these if they are relevant or just let them be optional since they are optional in DTO
-      // requireField('specialConsiderationClaim', 'Claims for special consideration (18)');
-      // requireField('formIVPlaceArea', 'Place or area for which the licence is sought (19a)');
-      // requireField('formIVWildBeastsSpec', 'Specification of the wild beasts (19b)');
-
-      if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
-        errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
-      }
-      if (!data.armsOptionType) {
-        errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
-      }
-      const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
-        ? data.requestedWeaponIds
-        : data.weaponId
-          ? [Number(String(data.weaponId))]
-          : [];
-      if (!selectedWeaponIds.length) {
-        errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
-      }
-
-      return errs;
-    };
+    const criminalValidationErrors = validateCriminalHistory(formData);
+    if (Object.keys(criminalValidationErrors).length > 0) {
+      setError('Please fix validation errors in Criminal History before continuing.');
+      return false;
+    }
 
     const licenseDetailsValidationErrors = validateLicenseDetails(formData);
     if (Object.keys(licenseDetailsValidationErrors).length > 0) {
@@ -2977,14 +3213,11 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    const validateDocumentsUpload = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
-      if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
-      if (!data.medicalCertificateUploaded)
-        errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
-      return errs;
-    };
+    const licenseHistoryValidationErrors = validateLicenseHistory(formData);
+    if (Object.keys(licenseHistoryValidationErrors).length > 0) {
+      setError('Please fix validation errors in License History before continuing.');
+      return false;
+    }
 
     const documentsValidationErrors = validateDocumentsUpload(formData);
     if (Object.keys(documentsValidationErrors).length > 0) {
@@ -3074,12 +3307,31 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    const success = await persistRenewalForm(true);
-    if (success) {
+    const activeRenewalId = renewalId || createdRenewalIdRef.current;
+    if (!activeRenewalId) {
+      setError('Renewal ID not available yet.');
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      const submitPayload = {
+        isDeclarationAccepted: true,
+        isAwareOfLegalConsequences: true,
+        isTermsAccepted: true,
+        isSubmit: true,
+      };
+      await RenewalService.updateRenewalForm(activeRenewalId, submitPayload, { isSubmit: true });
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
+      return true;
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit renewal application.');
+      return false;
+    } finally {
+      setIsSaving(false);
     }
-    return success;
   };
 
   const handleSuccessContinue = () => {
@@ -3818,6 +4070,14 @@ function RenewalFormPageContent() {
                   title='Personal Information'
                   isOpen={expandedSections.personal}
                   onToggle={() => toggleSection('personal')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.personal}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('personal');
+                    else setSectionCompleted(prev => ({ ...prev, personal: false }));
+                  }}
+                  isSavingSection={savingSection === 'personal'}
+                  isReadOnly={isReadOnly}
                 >
                   <PersonalDetailsSection
                     ref={personalSectionRef}
@@ -3831,6 +4091,14 @@ function RenewalFormPageContent() {
                   title='Address Details'
                   isOpen={expandedSections.address}
                   onToggle={() => toggleSection('address')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.address}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('address');
+                    else setSectionCompleted(prev => ({ ...prev, address: false }));
+                  }}
+                  isSavingSection={savingSection === 'address'}
+                  isReadOnly={isReadOnly}
                 >
                   <AddressDetailsSection
                     ref={addressSectionRef}
@@ -3844,6 +4112,14 @@ function RenewalFormPageContent() {
                   title='Occupation/Business'
                   isOpen={expandedSections.occupation}
                   onToggle={() => toggleSection('occupation')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.occupation}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('occupation');
+                    else setSectionCompleted(prev => ({ ...prev, occupation: false }));
+                  }}
+                  isSavingSection={savingSection === 'occupation'}
+                  isReadOnly={isReadOnly}
                 >
                   <OccupationSection
                     ref={occupationSectionRef}
@@ -3857,6 +4133,14 @@ function RenewalFormPageContent() {
                   title='Criminal History'
                   isOpen={expandedSections.criminal}
                   onToggle={() => toggleSection('criminal')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.criminal}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('criminal');
+                    else setSectionCompleted(prev => ({ ...prev, criminal: false }));
+                  }}
+                  isSavingSection={savingSection === 'criminal'}
+                  isReadOnly={isReadOnly}
                 >
                   <CriminalHistory
                     ref={criminalSectionRef}
@@ -3867,22 +4151,17 @@ function RenewalFormPageContent() {
                 </AccordionSection>
 
                 <AccordionSection
-                  title='License History'
-                  isOpen={expandedSections.licenseHistory}
-                  onToggle={() => toggleSection('licenseHistory')}
-                >
-                  <LicenseHistory
-                    ref={licenseHistorySectionRef}
-                    formData={formData}
-                    onChange={handleChange}
-                    errors={licenseHistoryErrors}
-                  />
-                </AccordionSection>
-
-                <AccordionSection
                   title='License Details'
                   isOpen={expandedSections.licenseDetails}
                   onToggle={() => toggleSection('licenseDetails')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.licenseDetails}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('licenseDetails');
+                    else setSectionCompleted(prev => ({ ...prev, licenseDetails: false }));
+                  }}
+                  isSavingSection={savingSection === 'licenseDetails'}
+                  isReadOnly={isReadOnly}
                 >
                   <LicenseDetailsSection
                     formData={formData}
@@ -3898,9 +4177,38 @@ function RenewalFormPageContent() {
                 </AccordionSection>
 
                 <AccordionSection
+                  title='License History'
+                  isOpen={expandedSections.licenseHistory}
+                  onToggle={() => toggleSection('licenseHistory')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.licenseHistory}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('licenseHistory');
+                    else setSectionCompleted(prev => ({ ...prev, licenseHistory: false }));
+                  }}
+                  isSavingSection={savingSection === 'licenseHistory'}
+                  isReadOnly={isReadOnly}
+                >
+                  <LicenseHistory
+                    ref={licenseHistorySectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={licenseHistoryErrors}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
                   title='Biometric Information'
                   isOpen={expandedSections.biometric}
                   onToggle={() => toggleSection('biometric')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.biometric}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('biometric');
+                    else setSectionCompleted(prev => ({ ...prev, biometric: false }));
+                  }}
+                  isSavingSection={savingSection === 'biometric'}
+                  isReadOnly={isReadOnly}
                 >
                   <BiometricInformation
                     formData={formData}
@@ -3926,9 +4234,17 @@ function RenewalFormPageContent() {
                 </AccordionSection>
 
                 <AccordionSection
-                  title='Documents Upload'
+                  title='Upload Documents'
                   isOpen={expandedSections.documents}
                   onToggle={() => toggleSection('documents')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.documents}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('documents');
+                    else setSectionCompleted(prev => ({ ...prev, documents: false }));
+                  }}
+                  isSavingSection={savingSection === 'documents'}
+                  isReadOnly={isReadOnly}
                 >
                   <DocumentsSection
                     ref={documentsSectionRef}
@@ -3957,7 +4273,25 @@ function RenewalFormPageContent() {
             )}
 
             {!isLoading && (
-              <div className='flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-4'>
+              <div className='flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4'>
+                {/* Section completion progress */}
+                <div className='flex items-center gap-2 text-sm text-gray-600'>
+                  <span className='font-medium'>
+                    {Object.values(sectionCompleted).filter(Boolean).length} / {Object.values(sectionCompleted).length} sections completed
+                  </span>
+                  <div className='flex gap-1'>
+                    {Object.entries(sectionCompleted).map(([key, done]) => (
+                      <span
+                        key={key}
+                        title={key}
+                        className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                          done ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
                 <div className='flex flex-wrap items-center gap-3'>
                   <button
                     type='button'
@@ -3974,14 +4308,15 @@ function RenewalFormPageContent() {
                   <button
                     type='button'
                     onClick={saveAndContinue}
-                    disabled={isSaving}
-                    className={`rounded-md px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isReadOnly
+                    disabled={isSaving || !allSectionsCompleted || isReadOnly}
+                    title={!allSectionsCompleted ? 'Please complete all sections before submitting' : ''}
+                    className={`rounded-md px-5 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isReadOnly || !allSectionsCompleted
                         ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-[#001F54] hover:bg-[#012a73]'
+                        : 'bg-[#001F54] hover:bg-[#012a73] shadow-sm hover:shadow-md'
                     }`}
                   >
-                    {isSaving ? 'Submitting...' : 'Save & Continue'}
+                    {isSaving ? 'Submitting...' : 'Submit'}
                   </button>
                 </div>
               </div>
@@ -4009,21 +4344,109 @@ function AccordionSection(
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
+    showCompletionCheckbox?: boolean;
+    isCompleted?: boolean;
+    onCompletionChange?: (checked: boolean) => void;
+    isSavingSection?: boolean;
+    isReadOnly?: boolean;
   }>
 ) {
-  const { title, isOpen, onToggle, children } = props;
+  const {
+    title,
+    isOpen,
+    onToggle,
+    children,
+    showCompletionCheckbox,
+    isCompleted,
+    onCompletionChange,
+    isSavingSection,
+    isReadOnly,
+  } = props;
 
   return (
-    <section className='rounded-2xl border border-gray-100 bg-white shadow-sm'>
-      <button
-        type='button'
-        onClick={onToggle}
-        className='flex w-full items-center justify-between px-5 py-4 text-left'
-        aria-expanded={isOpen}
-      >
-        <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
-        <span className='text-sm font-semibold text-[#001F54]'>{isOpen ? '▲' : '▼'}</span>
-      </button>
+    <section
+      className={`rounded-2xl border bg-white shadow-sm transition-colors duration-200 ${
+        showCompletionCheckbox && isCompleted
+          ? 'border-green-300 ring-1 ring-green-200'
+          : 'border-gray-100'
+      }`}
+    >
+      <div className='flex w-full items-center justify-between px-5 py-4'>
+        {/* Toggle button takes most of the header */}
+        <button
+          type='button'
+          onClick={onToggle}
+          className='flex flex-1 items-center gap-3 text-left'
+          aria-expanded={isOpen}
+        >
+          {/* Status indicator dot */}
+          {showCompletionCheckbox && (
+            <span
+              className={`flex-shrink-0 w-2.5 h-2.5 rounded-full transition-colors ${
+                isCompleted ? 'bg-green-500' : 'bg-gray-300'
+              }`}
+            />
+          )}
+          <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
+          {showCompletionCheckbox && isCompleted && (
+            <span className='ml-1 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5'>
+              ✓ Saved
+            </span>
+          )}
+        </button>
+
+        <div className='flex items-center gap-4 flex-shrink-0'>
+          {/* Completion checkbox */}
+          {showCompletionCheckbox && (
+            <label
+              className='flex items-center gap-2 cursor-pointer select-none'
+              onClick={e => e.stopPropagation()}
+              title={isCompleted ? 'Section saved — uncheck to revise' : 'Check to save this section'}
+            >
+              <span className='text-xs font-medium text-gray-500 whitespace-nowrap'>
+                {isCompleted ? 'Completed' : 'Mark complete'}
+              </span>
+              <span className='relative'>
+                <input
+                  type='checkbox'
+                  checked={isCompleted ?? false}
+                  disabled={isSavingSection || isReadOnly}
+                  onChange={e => onCompletionChange?.(e.target.checked)}
+                  className='sr-only peer'
+                  aria-label={`Mark ${title} as complete`}
+                />
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-md border-2 transition-all duration-200 ${
+                    isCompleted
+                      ? 'border-green-500 bg-green-500 text-white'
+                      : 'border-gray-300 bg-white hover:border-[#001F54]'
+                  } ${
+                    (isSavingSection || isReadOnly) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
+                  {isCompleted ? (
+                    <svg className='w-3.5 h-3.5' viewBox='0 0 12 12' fill='none' stroke='currentColor'>
+                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M2 6l3 3 5-5' />
+                    </svg>
+                  ) : isSavingSection ? (
+                    <span className='w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin' />
+                  ) : null}
+                </span>
+              </span>
+            </label>
+          )}
+
+          {/* Expand / collapse arrow */}
+          <button
+            type='button'
+            onClick={onToggle}
+            className='text-sm font-semibold text-[#001F54] w-6 text-center'
+            aria-label={isOpen ? 'Collapse section' : 'Expand section'}
+          >
+            {isOpen ? '▲' : '▼'}
+          </button>
+        </div>
+      </div>
 
       <div
         className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
