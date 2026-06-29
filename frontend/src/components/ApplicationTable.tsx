@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useGlobalAction } from '../context/GlobalActionContext';
 import { TableSkeleton } from './Skeleton';
 import { ApplicationApi, RenewalApi } from '../config/APIClient';
+import { RenewalService } from '../api/renewalService';
 import { Edit, Trash2, Eye } from 'lucide-react';
 import { getStatusStyle } from '../utils/statusColors';
 
@@ -71,8 +72,6 @@ interface ApplicationTableProps {
   selectedFormType?: 'fresh' | 'renewal';
   onSelectedFormTypeChange?: (value: 'fresh' | 'renewal') => void;
 }
-
-
 
 const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
   ({
@@ -154,8 +153,22 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Compute visible table column names so header and export use same labels
     const tableColumns = React.useMemo(() => {
       const base = isSentPage
-        ? ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Action Taken At', 'Action Taken']
-        : ['S. No.', 'Acknowledgement No.', 'Applicant Name', 'Application Type', 'Date & Time', 'Status'];
+        ? [
+            'S. No.',
+            'Acknowledgement No.',
+            'Applicant Name',
+            'Application Type',
+            'Action Taken At',
+            'Action Taken',
+          ]
+        : [
+            'S. No.',
+            'Acknowledgement No.',
+            'Applicant Name',
+            'Application Type',
+            'Date & Time',
+            'Status',
+          ];
       if (showActionColumn) base.push('Action');
       return base;
     }, [isSentPage, isRenewalPage, showActionColumn]);
@@ -221,17 +234,35 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             if (isRenewalDraft) {
               const renewalId = String(
                 (draftApp as any)?.renewalId ||
-                (draftApp as any)?.renewalApplicationId ||
-                draftApp?.id ||
-                id
+                  (draftApp as any)?.renewalApplicationId ||
+                  draftApp?.id ||
+                  id
               );
-              const applicationId = String(
+              let applicationId = String(
                 (draftApp as any)?.applicationId ||
-                (draftApp as any)?.freshApplicationId ||
-                (draftApp as any)?.sourceApplicationId ||
-                (draftApp as any)?.renewalLicenseId ||
-                ''
+                  (draftApp as any)?.freshApplicationId ||
+                  (draftApp as any)?.sourceApplicationId ||
+                  (draftApp as any)?.renewalLicenseId ||
+                  ''
               );
+
+              // If applicationId is empty, fetch the renewal form to get the linked applicationId
+              if (!applicationId && renewalId) {
+                try {
+                  const renewalResponse = await RenewalService.getRenewalForm(renewalId);
+                  const renewalData = renewalResponse?.data || renewalResponse;
+                  applicationId = String(
+                    renewalData?.applicationId ||
+                      renewalData?.freshApplicationId ||
+                      renewalData?.sourceApplicationId ||
+                      renewalData?.renewalLicenseId ||
+                      ''
+                  );
+                } catch (err) {
+                  // If fetch fails, continue with empty applicationId - the renewal form will handle it
+                  console.error('Failed to fetch renewal form for applicationId:', err);
+                }
+              }
 
               await router.push(
                 `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(renewalId)}`
@@ -339,7 +370,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     if (isLoading) {
       return <TableSkeleton rows={8} columns={6} />;
     }
-
 
     return (
       <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
@@ -455,12 +485,12 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
             <colgroup>
               {(() => {
                 const cols = isSentPage
-                  ? (showActionColumn
+                  ? showActionColumn
                     ? ['5%', '20%', '15%', '12%', '20%', '18%', '10%']
-                    : ['5%', '22%', '18%', '15%', '20%', '20%'])
-                  : (showActionColumn
+                    : ['5%', '22%', '18%', '15%', '20%', '20%']
+                  : showActionColumn
                     ? ['5%', '20%', '16%', '14%', '17%', '18%', '10%']
-                    : ['5%', '22%', '18%', '16%', '19%', '20%']);
+                    : ['5%', '22%', '18%', '16%', '19%', '20%'];
                 return cols.map((w, i) => <col key={i} style={{ width: w }} />);
               })()}
             </colgroup>
@@ -495,21 +525,21 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 </tr>
               ) : (
                 effectiveApplications.map((app, index) => (
-<TableRow
-                     key={`${app.id}-${index}`}
-                     app={app}
-                     index={index}
-                     handleViewApplication={handleViewApplication}
-                     handleEditDraft={handleEditDraft}
-                     isDraftsPage={isDraftsPage}
-                     isSentPage={isSentPage}
-                     isRenewalPage={isRenewalPage}
-                     userRole={userRole || null}
-                     isApplicationUnread={isApplicationUnread}
-                     formatDateTime={formatDateTime}
-                     showActionColumn={showActionColumn}
-                     loadingRowId={loadingRowId}
-                   />
+                  <TableRow
+                    key={`${app.id}-${index}`}
+                    app={app}
+                    index={index}
+                    handleViewApplication={handleViewApplication}
+                    handleEditDraft={handleEditDraft}
+                    isDraftsPage={isDraftsPage}
+                    isSentPage={isSentPage}
+                    isRenewalPage={isRenewalPage}
+                    userRole={userRole || null}
+                    isApplicationUnread={isApplicationUnread}
+                    formatDateTime={formatDateTime}
+                    showActionColumn={showActionColumn}
+                    loadingRowId={loadingRowId}
+                  />
                 ))
               )}
             </tbody>
@@ -552,31 +582,31 @@ const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ typ
 // TableHeader removed; controls and column headers are rendered separately above.
 
 const TableRow: React.FC<{
-   app: ApplicationData;
-   index: number;
-   handleViewApplication: (id: string) => void;
-   handleEditDraft: (id: string) => Promise<void>;
-   isDraftsPage: boolean;
-   isSentPage?: boolean;
-   isRenewalPage?: boolean;
-   userRole: string | null;
-   isApplicationUnread: (app: ApplicationData) => boolean;
-   formatDateTime: (dateStr: string) => string;
-   showActionColumn?: boolean;
-   loadingRowId?: string | null;
+  app: ApplicationData;
+  index: number;
+  handleViewApplication: (id: string) => void;
+  handleEditDraft: (id: string) => Promise<void>;
+  isDraftsPage: boolean;
+  isSentPage?: boolean;
+  isRenewalPage?: boolean;
+  userRole: string | null;
+  isApplicationUnread: (app: ApplicationData) => boolean;
+  formatDateTime: (dateStr: string) => string;
+  showActionColumn?: boolean;
+  loadingRowId?: string | null;
 }> = ({
-   app,
-   index,
-   handleViewApplication,
-   handleEditDraft,
-   isDraftsPage,
-   isSentPage = false,
-   isRenewalPage = false,
-   userRole,
-   isApplicationUnread,
-   formatDateTime,
-   showActionColumn = true,
-   loadingRowId,
+  app,
+  index,
+  handleViewApplication,
+  handleEditDraft,
+  isDraftsPage,
+  isSentPage = false,
+  isRenewalPage = false,
+  userRole,
+  isApplicationUnread,
+  formatDateTime,
+  showActionColumn = true,
+  loadingRowId,
 }) => {
   const isRowLoading = String(loadingRowId) === String(app.id);
   // Check if user is ZS role
@@ -601,16 +631,38 @@ const TableRow: React.FC<{
         aria-label={`Row for sent application ${app.id}`}
       >
         <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
-        <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
+        <td
+          className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`}
+          title={(app as any).acknowledgementNo || 'N/A'}
+        >
           {(app as any).acknowledgementNo || 'N/A'}
         </td>
-        
-        <td className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`} title={app.applicantName || 'N/A'}>
+
+        <td
+          className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`}
+          title={app.applicantName || 'N/A'}
+        >
           <div className='flex items-center gap-2 w-full min-w-0'>
             {isRowLoading && (
-              <svg className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-                <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+              <svg
+                className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                />
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                />
               </svg>
             )}
             <button
@@ -627,7 +679,10 @@ const TableRow: React.FC<{
             </button>
           </div>
         </td>
-        <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={app.applicationType || 'N/A'}>
+        <td
+          className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`}
+          title={app.applicationType || 'N/A'}
+        >
           {app.applicationType || 'N/A'}
         </td>
         <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
@@ -649,14 +704,20 @@ const TableRow: React.FC<{
             } else if (normalized === 'reject') {
               displayStr = 'Rejected';
             } else {
-              displayStr = displayStr.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+              displayStr = displayStr
+                .replace(/[-_]+/g, ' ')
+                .replace(/\b\w/g, (c: string) => c.toUpperCase());
             }
 
             const style = getStatusStyle(actionStr);
             return (
               <span
                 className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill}`}
-                style={{ backgroundColor: style.bg, color: style.text, border: `1px solid ${style.border}` }}
+                style={{
+                  backgroundColor: style.bg,
+                  color: style.text,
+                  border: `1px solid ${style.border}`,
+                }}
               >
                 {displayStr}
               </span>
@@ -676,9 +737,25 @@ const TableRow: React.FC<{
               title='View Details'
             >
               {isRowLoading ? (
-                <svg className='animate-spin h-5 w-5 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-                  <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                  <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+                <svg
+                  className='animate-spin h-5 w-5 text-blue-600'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  />
                 </svg>
               ) : (
                 <EyeFixed className='w-5 h-5' />
@@ -698,18 +775,42 @@ const TableRow: React.FC<{
       aria-label={`Row for application ${app.id}`}
     >
       <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
-      <td className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`} title={(app as any).acknowledgementNo || 'N/A'}>
+      <td
+        className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`}
+        title={(app as any).acknowledgementNo || 'N/A'}
+      >
         {(app as any).acknowledgementNo || 'N/A'}
       </td>
-      <td className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`} title={app.applicantName || 'N/A'}>
+      <td
+        className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`}
+        title={app.applicantName || 'N/A'}
+      >
         {isDrafts ? (
-          <span className='text-gray-900 truncate block' style={{ maxWidth: '100%' }}>{app.applicantName}</span>
+          <span className='text-gray-900 truncate block' style={{ maxWidth: '100%' }}>
+            {app.applicantName}
+          </span>
         ) : (
           <div className='flex items-center gap-2 w-full min-w-0'>
             {isRowLoading && (
-              <svg className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-                <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+              <svg
+                className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                />
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                />
               </svg>
             )}
             <button
@@ -727,7 +828,7 @@ const TableRow: React.FC<{
           </div>
         )}
       </td>
-<td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+      <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
       <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
         {formatDateTime(app.applicationDate)}
       </td>
@@ -741,7 +842,11 @@ const TableRow: React.FC<{
           return (
             <span
               className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill}`}
-              style={{ backgroundColor: style.bg, color: style.text, border: `1px solid ${style.border}` }}
+              style={{
+                backgroundColor: style.bg,
+                color: style.text,
+                border: `1px solid ${style.border}`,
+              }}
               title={`Status: ${display}`}
               aria-label={`Status: ${display}`}
             >
@@ -782,9 +887,25 @@ const TableRow: React.FC<{
               title='View Details'
             >
               {isRowLoading ? (
-                <svg className='animate-spin h-5 w-5 text-blue-600' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-                  <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-                  <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z' />
+                <svg
+                  className='animate-spin h-5 w-5 text-blue-600'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  />
                 </svg>
               ) : (
                 <EyeFixed className='w-5 h-5' />

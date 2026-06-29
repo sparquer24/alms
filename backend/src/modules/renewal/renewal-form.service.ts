@@ -703,7 +703,25 @@ export class RenewalFormService {
       if (!application) {
         throw new NotFoundException('Renewal application not found.');
       }
-       return application;
+
+      // Resolve the fresh application ID linked to this renewal.
+      // The relationship is: renewal.licenseNumber === freshApp.acknowledgementNo
+      let freshApplicationId: number | null = null;
+      if (application.licenseNumber) {
+        const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
+          where: { acknowledgementNo: application.licenseNumber },
+          select: { id: true },
+        });
+        if (freshApp) {
+          freshApplicationId = freshApp.id;
+        }
+      }
+
+      return {
+        ...application,
+        applicationId: freshApplicationId,
+        freshApplicationId: freshApplicationId,
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

@@ -33,7 +33,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onStatus?: (message: string | null) => void;
     errors?: ErrorsMap;
   },
-  ref: any,
+  ref: any
 ) {
   const {
     formData,
@@ -52,12 +52,16 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
-      const firstKey = Object.keys(errors).find((key) => !!errors[key]);
+      const firstKey = Object.keys(errors).find(key => !!errors[key]);
       if (firstKey) {
         const el = document.getElementById(firstKey);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          try { (el as HTMLElement).focus(); } catch { /* ignore */ }
+          try {
+            (el as HTMLElement).focus();
+          } catch {
+            /* ignore */
+          }
         }
       }
     },
@@ -84,42 +88,52 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
   const selectedWeaponIds: number[] = Array.isArray(formData.requestedWeaponIds)
     ? formData.requestedWeaponIds
     : formData.weaponId
-    ? [Number(formData.weaponId)].filter((id) => !Number.isNaN(id))
-    : [];
-
+      ? [Number(formData.weaponId)].filter(id => !Number.isNaN(id))
+      : [];
+  useEffect(() => {
+    if (selectedWeaponIds.length > 0 && weapons.length === 0) {
+      loadWeapons();
+    }
+  }, [selectedWeaponIds, weapons.length, loadWeapons]);
   const specialEvidenceFiles: any[] = Array.isArray(formData.specialEvidenceFiles)
     ? formData.specialEvidenceFiles
     : formData.specialEvidenceUploaded
-    ? [formData.specialEvidenceUploaded]
-    : [];
+      ? [formData.specialEvidenceUploaded]
+      : [];
 
   const handleWeaponAdd = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const weaponId = Number(e.target.value);
     if (!weaponId) return;
 
     const nextIds = selectedWeaponIds.includes(weaponId)
-      ? selectedWeaponIds.filter((id) => id !== weaponId)
+      ? selectedWeaponIds.filter(id => id !== weaponId)
       : [...selectedWeaponIds, weaponId];
 
-    const firstWeapon = weapons.find((w) => w.id === nextIds[0]);
+    const firstWeapon = weapons.find(w => w.id === nextIds[0]);
 
     onChange({ target: { name: 'requestedWeaponIds', value: nextIds } });
     onChange({ target: { name: 'weaponId', value: nextIds[0] ? String(nextIds[0]) : '' } });
     onChange({
-      target: { name: 'weaponType', value: firstWeapon ? weaponNameToSelectValue(firstWeapon.name) : '' },
+      target: {
+        name: 'weaponType',
+        value: firstWeapon ? weaponNameToSelectValue(firstWeapon.name) : '',
+      },
     });
 
     e.target.value = '';
   };
 
   const removeWeapon = (weaponId: number) => {
-    const nextIds = selectedWeaponIds.filter((id) => id !== weaponId);
-    const firstWeapon = weapons.find((w) => w.id === nextIds[0]);
+    const nextIds = selectedWeaponIds.filter(id => id !== weaponId);
+    const firstWeapon = weapons.find(w => w.id === nextIds[0]);
 
     onChange({ target: { name: 'requestedWeaponIds', value: nextIds } });
     onChange({ target: { name: 'weaponId', value: nextIds[0] ? String(nextIds[0]) : '' } });
     onChange({
-      target: { name: 'weaponType', value: firstWeapon ? weaponNameToSelectValue(firstWeapon.name) : '' },
+      target: {
+        name: 'weaponType',
+        value: firstWeapon ? weaponNameToSelectValue(firstWeapon.name) : '',
+      },
     });
   };
 
@@ -202,36 +216,47 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
         />
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>Areas within which applicant wishes to carry arms <span className='text-red-500 ml-1'>*</span></p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>
+            Areas within which applicant wishes to carry arms{' '}
+            <span className='text-red-500 ml-1'>*</span>
+          </p>
           <p className='text-xs text-gray-500 mb-2'>Tick any of the options</p>
-          {errors['carryAreaDistrict'] && !formData.carryAreaDistrict && !formData.carryAreaState && !formData.carryAreaIndia && (
-            <p className='text-red-500 text-xs mb-2'>{errors['carryAreaDistrict']}</p>
-          )}
+          {errors['carryAreaDistrict'] &&
+            !formData.carryAreaDistrict &&
+            !formData.carryAreaState &&
+            !formData.carryAreaIndia && (
+              <p className='text-red-500 text-xs mb-2'>{errors['carryAreaDistrict']}</p>
+            )}
           <div className='flex flex-wrap items-center gap-4'>
             <Checkbox
               label='District'
               name='carryAreaDistrict'
               checked={Boolean(formData.carryAreaDistrict)}
-              onChange={(v) => onChange({ target: { name: 'carryAreaDistrict', value: v } })}
+              onChange={v => onChange({ target: { name: 'carryAreaDistrict', value: v } })}
             />
             <Checkbox
               label='State'
               name='carryAreaState'
               checked={Boolean(formData.carryAreaState)}
-              onChange={(v) => onChange({ target: { name: 'carryAreaState', value: v } })}
+              onChange={v => onChange({ target: { name: 'carryAreaState', value: v } })}
             />
             <Checkbox
               label='Throughout India'
               name='carryAreaIndia'
               checked={Boolean(formData.carryAreaIndia)}
-              onChange={(v) => onChange({ target: { name: 'carryAreaIndia', value: v } })}
+              onChange={v => onChange({ target: { name: 'carryAreaIndia', value: v } })}
             />
           </div>
         </div>
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>Description of arms for which license is being sought <span className='text-red-500 ml-1'>*</span></p>
-          <p className='text-sm mb-1'>(a) Select any of the options <span className='text-red-500 ml-1'>*</span></p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>
+            Description of arms for which license is being sought{' '}
+            <span className='text-red-500 ml-1'>*</span>
+          </p>
+          <p className='text-sm mb-1'>
+            (a) Select any of the options <span className='text-red-500 ml-1'>*</span>
+          </p>
           <div className='flex items-center gap-4 mb-2'>
             <label className='inline-flex items-center gap-2'>
               <input
@@ -255,7 +280,9 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             </label>
           </div>
           {errors['armsOptionType'] && (
-            <p id='armsOptionType' className='text-red-500 text-xs mb-2'>{errors['armsOptionType']}</p>
+            <p id='armsOptionType' className='text-red-500 text-xs mb-2'>
+              {errors['armsOptionType']}
+            </p>
           )}
           <Select
             label='(b) Select weapon types (multiple allowed)'
@@ -266,7 +293,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             required
             error={errors['weaponType']}
             placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
-            options={weapons.map((weapon) => ({
+            options={weapons.map(weapon => ({
               value: String(weapon.id),
               label: weapon.name,
             }))}
@@ -275,8 +302,8 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             <div className='mt-2'>
               <p className='text-sm font-medium text-gray-700 mb-1'>Selected weapons</p>
               <div className='flex flex-wrap gap-2'>
-                {selectedWeaponIds.map((weaponId) => {
-                  const weapon = weapons.find((w) => w.id === weaponId);
+                {selectedWeaponIds.map(weaponId => {
+                  const weapon = weapons.find(w => w.id === weaponId);
                   return (
                     <span
                       key={weaponId}
@@ -298,7 +325,9 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             </div>
           )}
           {errors['requestedWeaponIds'] && selectedWeaponIds.length === 0 && (
-            <p id='requestedWeaponIds' className='text-red-500 text-xs mt-1'>{errors['requestedWeaponIds']}</p>
+            <p id='requestedWeaponIds' className='text-red-500 text-xs mt-1'>
+              {errors['requestedWeaponIds']}
+            </p>
           )}
         </div>
 
@@ -337,16 +366,16 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
               uploadingEvidence
                 ? 'Uploading...'
                 : isSyncingPrefilled &&
-                  specialEvidenceFiles.some((f) => {
-                    const m = getDocumentUploadMeta(f);
-                    return m.fileUrl && !m.id;
-                  })
-                ? 'Uploading prefilled file...'
-                : specialEvidenceFiles.length === 1
-                ? getDocumentUploadMeta(specialEvidenceFiles[0]).fileName
-                : specialEvidenceFiles.length > 1
-                ? `${specialEvidenceFiles.length} files uploaded`
-                : undefined
+                    specialEvidenceFiles.some(f => {
+                      const m = getDocumentUploadMeta(f);
+                      return m.fileUrl && !m.id;
+                    })
+                  ? 'Uploading prefilled file...'
+                  : specialEvidenceFiles.length === 1
+                    ? getDocumentUploadMeta(specialEvidenceFiles[0]).fileName
+                    : specialEvidenceFiles.length > 1
+                      ? `${specialEvidenceFiles.length} files uploaded`
+                      : undefined
             }
           />
           {specialEvidenceFiles.map((file, index) => {
@@ -386,7 +415,10 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
         </div>
 
         <div>
-          <p className='block text-sm font-medium text-gray-700 mb-1'>Details for an application for license in Form IV <span className='text-red-500 ml-1'>*</span></p>
+          <p className='block text-sm font-medium text-gray-700 mb-1'>
+            Details for an application for license in Form IV{' '}
+            <span className='text-red-500 ml-1'>*</span>
+          </p>
           <Input
             label='(a) Place or area for which the licence is sought'
             name='formIVPlaceArea'
