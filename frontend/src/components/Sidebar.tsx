@@ -305,6 +305,20 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
     }
   }, [pathname, cookieRole, userRole, adminMenuContext, activeItem]);
 
+  // Sync active menu key with pathname for /cancelForm/* routes
+  useEffect(() => {
+    if (!pathname) return;
+    if (pathname.startsWith('/cancelForm')) {
+      const cancelKey = 'cancelform';
+      if (activeFreezeRef.current && activeItem === cancelKey) return;
+      setActiveItem(cancelKey);
+      try {
+        localStorage.setItem('activeNavItem', cancelKey);
+      } catch (e) { /* ignore */ }
+    }
+  }, [pathname, activeItem]);
+
+
   // Preload admin pages once on mount
   useEffect(() => {
     const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
@@ -877,7 +891,8 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           'sent',
           'closed',
           'drafts',
-          "applications"
+          "applications",
+          'cancelform',
         ]);
 
         if (key && topLevelInboxLike.has(key)) {
@@ -947,6 +962,21 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           dispatch(closeInbox());
           setActiveNavigationPath(analyticsPath);
           router.push(analyticsPath);
+          return;
+        }
+
+        // Handle cancelform menu item
+        if (item.name.toLowerCase().replace(/\s+/g, '') === 'cancelform') {
+          const cancelPath = '/cancelForm';
+          const cancelActionId = 'sidebar-cancelform';
+          if (!canNavigateTo(cancelPath, cancelActionId)) {
+            return;
+          }
+          setActiveItem(key);
+          persistActiveNavToLocal(key);
+          dispatch(closeInbox());
+          setActiveNavigationPath(cancelPath);
+          router.push(cancelPath);
           return;
         }
 

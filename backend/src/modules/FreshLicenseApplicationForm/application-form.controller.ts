@@ -651,7 +651,7 @@ export class ApplicationFormController {
   @ApiQuery({ name: 'statusIds', required: false, type: String })
   @ApiQuery({ name: 'isOwned', required: false, type: Boolean, default: false})
   @ApiQuery({ name: 'isSent', required: false, type: Boolean, default: false})
-  @ApiQuery({ name: 'applicationType', required: false, type: String, description: 'Filter by application type: FreshLicense, RenewalForm, CancelForm. If omitted, returns all types.' })
+  @ApiQuery({ name: 'applicationType', required: false, type: String, description: 'Filter by application type: FreshLicense, RenewalForm, CancelForm. If omitted, returns all types. Also supports: CancelLicense (cancelled/completed cancellations).' })
   @ApiResponse({ status: 200, description: 'Applications retrieved successfully' })
   async getApplications(
     @Request() req: any,

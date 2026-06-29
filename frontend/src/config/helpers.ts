@@ -21,6 +21,11 @@ export const APPLICATION_TYPES = [
     label: 'Renewal Application',
     enabled: true,
   },
+  {
+    key: 'cancel',
+    label: 'Cancel Application',
+    enabled: true,
+  },
   // Add more types as needed
 ];
 

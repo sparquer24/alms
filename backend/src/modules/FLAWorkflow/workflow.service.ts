@@ -54,6 +54,37 @@ export class WorkflowService {
           updatedAt: true,
         }
       });
+    } else if (
+      applicationType === 'CancelFormRequest' ||
+      applicationType === 'CancelApplication' ||
+      applicationType === 'CancelForm' ||
+      applicationType === 'cancel'
+    ) {
+      const cancelRequests = await this.prisma.cancelFormRequests.findMany({
+        select: {
+          id: true,
+          workFlowStatusId: true,
+          requestedBy: true,
+          actionedBy: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      });
+      return cancelRequests.map(r => ({
+        id: r.id,
+        workflowStatusId: r.workFlowStatusId,
+        currentUserId: r.actionedBy || r.requestedBy,
+        previousUserId: r.requestedBy,
+        isApproved: r.status === 'APPROVED',
+        isRejected: r.status === 'REJECTED',
+        isRecommended: false,
+        isNotRecommended: false,
+        isPending: r.status === 'PENDING',
+        isReEnquiry: false,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }));
     } else {
       throw new Error(`Invalid applicationType: ${applicationType}`);
     }
@@ -383,9 +414,15 @@ export class WorkflowService {
       }
     });
 
-     if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
+      if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
         await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      } else if (applicationType.toLowerCase() == 'cancelform' || applicationType.toLowerCase() == 'cancelapplicationform') {
+      } else if (
+        applicationType.toLowerCase() == 'cancelform' ||
+        applicationType.toLowerCase() == 'cancelapplicationform' ||
+        applicationType.toLowerCase() == 'cancelformrequest' ||
+        applicationType.toLowerCase() == 'cancelapplication' ||
+        applicationType.toLowerCase() == 'cancelrequest'
+      ) {
         await this.cancelFormApplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       } else{
         await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)

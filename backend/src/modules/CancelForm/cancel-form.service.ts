@@ -18,46 +18,36 @@ export class CancelFormService {
     currentUserId: number,
   ): Promise<any> {
     try {
-      // Validate application exists based on application type
-      const isRenewal = dto.applicationType.toLowerCase().includes('renewal');
-      let application: any;
+      console.log('--- createCancelRequest Start ---');
+      console.log('DTO:', JSON.stringify(dto, null, 2));
+      console.log('currentUserId:', currentUserId);
 
-      if (isRenewal) {
-        application = await prisma.renewalFormPersonalDetails.findUnique({
-          where: { id: dto.applicationId },
-          select: {
-            id: true,
-            isApproved: true,
-            isRejected: true,
-            currentUserId: true,
-            workflowStatus: {
-              select: { code: true },
-            },
+      // Validate application exists — search both tables since frontend sends "Cancel Application"
+      // as the applicationType (not the original application type).
+      let application: any = null;
+      let isRenewal = false;
+
+      // First try fresh license table
+      application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: dto.applicationId },
+        select: {
+          id: true,
+          isApproved: true,
+          isRejected: true,
+          currentUserId: true,
+          workflowStatus: {
+            select: { code: true },
           },
-        });
-      } else {
-        application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-          where: { id: dto.applicationId },
-          select: {
-            id: true,
-            isApproved: true,
-            isRejected: true,
-            currentUserId: true,
-            workflowStatus: {
-              select: { code: true },
-            },
-          },
-        });
-      }
+        },
+      });
+      console.log('Fresh license application check result:', application);
 
       if (!application) {
-        throw new NotFoundException('Application not found.');
+        console.log('Application NOT found for ID:', dto.applicationId);
+        throw new NotFoundException('Application not found. Please verify the application ID.');
       }
 
       // Validate application is in a cancellable state
-      if (application.isApproved) {
-        throw new BadRequestException('Cannot cancel an approved application.');
-      }
       if (application.isRejected) {
         throw new BadRequestException('Cannot cancel a rejected application.');
       }
@@ -76,7 +66,21 @@ export class CancelFormService {
       if (existingPending) {
         throw new BadRequestException('A pending cancel request already exists for this application.');
       }
+      console.log("line number 69")
+      // Validate that the current user exists in the database (avoids P2003 on requestedBy FK)
+      const userExists = await prisma.users.findUnique({
+        where: { id: currentUserId },
+        select: { id: true },
+      });
+      if (!userExists) {
+        throw new BadRequestException(
+          `Authenticated user (id: ${currentUserId}) not found in the system. Please re-login.`,
+        );
+      }
 
+      // Determine the effectiveUserId for workflow history (must be a valid user)
+      const effectiveUserId = currentUserId || application.currentUserId;
+      console.log("line number 83 ")
       // Find the initial workflow status (INITIATE/INITIATED) — same pattern as Fresh/Renewal submission
       const initiateStatus = await prisma.statuses.findFirst({
         where: {
@@ -89,6 +93,13 @@ export class CancelFormService {
       // Wrap creation and workflow history in a transaction for atomicity
       const cancelRequest = await prisma.$transaction(async (tx: any) => {
         // Create the cancel request
+        console.log('applicationId:', dto.applicationId);
+        console.log('applicationType:', dto.applicationType);
+        console.log('cancellationReason:', dto.cancellationReason);
+        console.log('remarks:', dto.remarks);
+        console.log('requestedBy:', currentUserId);
+        console.log('requestedDate:', new Date());
+        console.log('workFlowStatusId:', initiateStatus?.id);
         const created = await tx.cancelFormRequests.create({
           data: {
             applicationId: dto.applicationId,
@@ -98,7 +109,6 @@ export class CancelFormService {
             status: 'PENDING',
             requestedBy: currentUserId,
             requestedDate: new Date(),
-            // Set initial workflow status — same pattern as Fresh/Renewal submission
             workFlowStatusId: initiateStatus?.id || null,
           },
           include: {
@@ -112,9 +122,15 @@ export class CancelFormService {
           },
         });
 
-        // Create a workflow history entry on the original application (same pattern as Fresh/Renewal)
-        if (initiateStatus) {
-          const effectiveUserId = currentUserId || application.currentUserId;
+        // Create a workflow history entry on the original application
+        // Follows the same pattern as Fresh/Renewal application submission
+        if (initiateStatus && effectiveUserId) {
+          // Fetch user's role (same as fresh app pattern)
+          const currentUser = await tx.users.findUnique({
+            where: { id: effectiveUserId },
+            select: { roleId: true },
+          });
+          const currentUserRoleId = currentUser?.roleId || null;
 
           if (isRenewal) {
             await tx.renewalApplicationsFormWorkflowHistories.create({
@@ -122,6 +138,8 @@ export class CancelFormService {
                 applicationId: dto.applicationId,
                 previousUserId: effectiveUserId,
                 nextUserId: effectiveUserId,
+                previousRoleId: currentUserRoleId,
+                nextRoleId: currentUserRoleId,
                 actionTaken: initiateStatus.code,
                 remarks: `Cancel request submitted. Reason: ${dto.cancellationReason}`,
               },
@@ -132,6 +150,8 @@ export class CancelFormService {
                 applicationId: dto.applicationId,
                 previousUserId: effectiveUserId,
                 nextUserId: effectiveUserId,
+                previousRoleId: currentUserRoleId,
+                nextRoleId: currentUserRoleId,
                 actionTaken: initiateStatus.code,
                 remarks: `Cancel request submitted. Reason: ${dto.cancellationReason}`,
               },
@@ -148,8 +168,18 @@ export class CancelFormService {
         throw error;
       }
       if (error.code === 'P2003') {
-        throw new BadRequestException('Invalid user or application reference.');
+        // Log the exact field causing the foreign key violation for debugging
+        const field = error.meta?.field_name || error.meta?.modelName || 'unknown field';
+        console.error(`[CancelFormService] P2003 FK violation on field: ${field}`, {
+          applicationId: dto.applicationId,
+          currentUserId,
+          errorMeta: error.meta,
+        });
+        throw new BadRequestException(
+          `Invalid reference: foreign key constraint failed on field "${field}". Ensure applicationId and user are valid.`,
+        );
       }
+      console.error('[CancelFormService] createCancelRequest error:', error);
       throw new InternalServerErrorException(
         `Failed to create cancel request: ${error?.message || 'Unknown error'}`,
       );
@@ -473,6 +503,17 @@ export class CancelFormService {
                 },
               });
             }
+
+            // 4. Create CancelWorkflowHistories record for renewal applications
+            await tx.cancelWorkflowHistories.create({
+              data: {
+                applicationId: cancelRequest.applicationId,
+                previousUserId: currentUserId,
+                nextUserId: currentUserId,
+                actionTaken: ACTION_CODES.CANCEL,
+                remarks: cancelRequest.remarks,
+              },
+            });
           } else {
             await tx.freshLicenseApplicationPersonalDetails.update({
               where: { id: cancelRequest.applicationId },
@@ -495,6 +536,17 @@ export class CancelFormService {
                 },
               });
             }
+
+            // 4. Create CancelWorkflowHistories record for fresh applications
+            await tx.cancelWorkflowHistories.create({
+              data: {
+                applicationId: cancelRequest.applicationId,
+                previousUserId: currentUserId,
+                nextUserId: currentUserId,
+                actionTaken: ACTION_CODES.CANCEL,
+                remarks: cancelRequest.remarks,
+              },
+            });
           }
 
           cancelActionResult = {

@@ -122,6 +122,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'drafts', statusIds: [13] },
       { name: 'Applications', statusIds: [11, 3] },
       { name: 'analytics' },
+      { name: 'cancelform' },
     ],
     'SHO': [
       { name: 'inbox', statusIds: [1, 9] },
@@ -130,10 +131,12 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     'ACP': [
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11, 1] },
+      { name: 'cancelform' },
     ],
     'DCP': [
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
+      { name: 'cancelform' },
     ],
 
     // Administrative & Support Roles
@@ -153,11 +156,13 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
       { name: 'analytics' },
+      { name: 'cancelform' },
     ],
     'CP': [
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
       { name: 'analytics' },
+      { name: 'cancelform' },
     ],
     'ARMS_SUPDT': [
       { name: 'inbox', statusIds: [1, 9] },

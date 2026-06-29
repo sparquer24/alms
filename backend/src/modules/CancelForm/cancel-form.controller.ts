@@ -30,7 +30,7 @@ export class CancelFormController {
         summary: 'Cancel a fresh license application',
         value: {
           applicationId: 1,
-          applicationType: 'FreshLicenseApplicationForm',
+          applicationType: 'CancelApplication',
           cancellationReason: 'Applicant no longer requires the arms license',
           remarks: 'Applicant has submitted a voluntary surrender letter',
         },
@@ -39,7 +39,7 @@ export class CancelFormController {
         summary: 'Cancel a renewal application',
         value: {
           applicationId: 2,
-          applicationType: 'RenewalApplicationForm',
+          applicationType: 'CancelApplication',
           cancellationReason: 'Duplicate application submitted in error',
         },
       },
