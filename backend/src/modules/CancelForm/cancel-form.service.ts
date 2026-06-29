@@ -505,9 +505,10 @@ export class CancelFormService {
             }
 
             // 4. Create CancelWorkflowHistories record for renewal applications
+            // NOTE: applicationId references CancelFormRequests.id (fk_cancel_workflow_application)
             await tx.cancelWorkflowHistories.create({
               data: {
-                applicationId: cancelRequest.applicationId,
+                applicationId: cancelRequest.id,
                 previousUserId: currentUserId,
                 nextUserId: currentUserId,
                 actionTaken: ACTION_CODES.CANCEL,
@@ -538,9 +539,10 @@ export class CancelFormService {
             }
 
             // 4. Create CancelWorkflowHistories record for fresh applications
+            // NOTE: applicationId references CancelFormRequests.id (fk_cancel_workflow_application)
             await tx.cancelWorkflowHistories.create({
               data: {
-                applicationId: cancelRequest.applicationId,
+                applicationId: cancelRequest.id,
                 previousUserId: currentUserId,
                 nextUserId: currentUserId,
                 actionTaken: ACTION_CODES.CANCEL,
