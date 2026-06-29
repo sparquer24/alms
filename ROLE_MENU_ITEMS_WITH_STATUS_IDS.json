@@ -167,6 +167,27 @@
       "permissions": ["read", "write"],
       "can_access_settings": true
     },
+    "RANGE": {
+      "code": "RANGE",
+      "name": "Range Officer",
+      "dashboard_title": "Range Dashboard",
+      "menu_items": [
+        {
+          "name": "inbox",
+          "statusIds": [1, 9, 11]
+        },
+        {
+          "name": "sent",
+          "statusIds": [11, 3]
+        },
+        {
+          "name": "closed",
+          "statusIds": [10, 7]
+        }
+      ],
+      "permissions": ["read", "write"],
+      "can_access_settings": true
+    },
     "JTCP": {
       "code": "JTCP",
       "name": "Joint Commissioner of Police",

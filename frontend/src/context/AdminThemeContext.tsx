@@ -14,19 +14,13 @@ interface AdminThemeContextType {
 const AdminThemeContext = createContext<AdminThemeContextType | undefined>(undefined);
 
 export const AdminThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<ThemeMode>(AdminThemeDefaults.mode);
+  const [theme, setTheme] = useState<ThemeMode>('light');
   const [mounted, setMounted] = useState(false);
 
   // Load theme from localStorage on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('admin-theme') as ThemeMode | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setTheme(prefersDark ? 'dark' : 'light');
-    }
+    // Force light theme to match the UI theme
+    setTheme('light');
     setMounted(true);
   }, []);
 
@@ -34,21 +28,15 @@ export const AdminThemeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (!mounted) return;
 
-    localStorage.setItem('admin-theme', theme);
-
-    // Update document class for Tailwind dark mode
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme, mounted]);
+    localStorage.setItem('admin-theme', 'light');
+    document.documentElement.classList.remove('dark');
+  }, [mounted]);
 
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+    // Theme toggling is disabled to maintain a consistent UI theme
   };
 
-  const colors = theme === 'light' ? AdminColors.light : AdminColors.dark;
+  const colors = AdminColors.light;
 
   return (
     <AdminThemeContext.Provider value={{ theme, toggleTheme, colors }}>

@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     "./src/app/**/*.{js,ts,jsx,tsx}",
     "./src/components/**/*.{js,ts,jsx,tsx}",
@@ -10,6 +11,7 @@ module.exports = {
       fontSize: {
         '6xs': '0.625rem', // 10px
         '7xs': '0.5rem', // 8px
+      },
       colors: {
         'alms-navy': '#001F54',
         'alms-navy-dark': '#00163D',
@@ -19,5 +21,4 @@ module.exports = {
     },
   },
   plugins: [],
-}
 }
