@@ -155,6 +155,7 @@ export class RenewalFormService {
         addressLine: patchData.addressDetails.addressLine,
         stateId: patchData.addressDetails.stateId,
         districtId: patchData.addressDetails.districtId,
+        rangeOfficeId: patchData.addressDetails.rangeOfficeId,
         policeStationId: patchData.addressDetails.policeStationId,
         zoneId: patchData.addressDetails.zoneId,
         divisionId: patchData.addressDetails.divisionId,
@@ -432,8 +433,10 @@ export class RenewalFormService {
               addressLine: true,
               stateId: true,
               districtId: true,
+              rangeOfficeId: true,
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
+              RangeOffices: { select: { id: true, name: true } },
             }
           },
           permanentAddress: {
@@ -442,8 +445,10 @@ export class RenewalFormService {
               addressLine: true,
               stateId: true,
               districtId: true,
+              rangeOfficeId: true,
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
+              RangeOffices: { select: { id: true, name: true } },
             }
           },
           occupationAndBusiness: {
@@ -650,6 +655,7 @@ export class RenewalFormService {
             include: {
               state: true,
               district: true,
+              RangeOffices: true,
               zone: true,
               division: true,
               policeStation: true,
@@ -659,6 +665,7 @@ export class RenewalFormService {
             include: {
               state: true,
               district: true,
+              RangeOffices: true,
               zone: true,
               division: true,
               policeStation: true,
@@ -782,6 +789,7 @@ export class RenewalFormService {
           include: {
             state: true,
             district: true,
+            RangeOffices: true,
             zone: true,
             division: true,
             policeStation: true,
@@ -791,6 +799,7 @@ export class RenewalFormService {
           include: {
             state: true,
             district: true,
+            RangeOffices: true,
             zone: true,
             division: true,
             policeStation: true,

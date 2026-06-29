@@ -46,9 +46,17 @@ export const LocationService = {
     });
   },
 
-  // GET /locations/zones?districtId={districtId}&stateId={stateId}
-  getZones(params: { districtId: number | string; stateId?: number | string }): Promise<BasicItem[]> {
-    return fetchWithCache(`zones-${params.districtId}`, async () => {
+  // GET /locations/range-offices?districtId={districtId}
+  getRangeOffices(districtId: number | string): Promise<BasicItem[]> {
+    return fetchWithCache(`range-offices-${districtId}`, async () => {
+      const res: any = await apiClient.get('/locations/range-offices', { districtId });
+      return normalizeList(res);
+    });
+  },
+
+  // GET /locations/zones?rangeOfficeId={rangeOfficeId}
+  getZones(params: { rangeOfficeId: number | string; districtId?: number | string }): Promise<BasicItem[]> {
+    return fetchWithCache(`zones-${params.rangeOfficeId}`, async () => {
       const res: any = await apiClient.get('/locations/zones', params);
       return normalizeList(res);
     });
@@ -87,6 +95,7 @@ export const LocationService = {
 export type LocationSelection = {
   state?: BasicItem | null;
   district?: BasicItem | null;
+  rangeOffice?: BasicItem | null;
   zone?: BasicItem | null;
   division?: BasicItem | null;
   station?: BasicItem | null;

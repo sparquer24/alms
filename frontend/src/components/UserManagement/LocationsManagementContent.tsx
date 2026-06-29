@@ -31,8 +31,11 @@ interface State extends Location {}
 interface District extends Location {
   stateId: number;
 }
-interface Zone extends Location {
+interface RangeOffice extends Location {
   districtId: number;
+}
+interface Zone extends Location {
+  rangeOfficeId: number;
 }
 interface Division extends Location {
   zoneId: number;
@@ -41,10 +44,10 @@ interface PoliceStation extends Location {
   divisionId: number;
 }
 
-type LocationLevel = 'state' | 'district' | 'zone' | 'division' | 'station';
-type LocationEntity = State | District | Zone | Division | PoliceStation;
+type LocationLevel = 'state' | 'district' | 'range' | 'zone' | 'division' | 'station';
+type LocationEntity = State | District | RangeOffice | Zone | Division | PoliceStation;
 
-const HIERARCHY_ORDER: LocationLevel[] = ['state', 'district', 'zone', 'division', 'station'];
+const HIERARCHY_ORDER: LocationLevel[] = ['state', 'district', 'range', 'zone', 'division', 'station'];
 
 const LOCATION_HIERARCHY: Record<
   LocationLevel,
@@ -52,6 +55,7 @@ const LOCATION_HIERARCHY: Record<
 > = {
   state: { label: 'States', singular: 'State', endpoint: 'locations/states' },
   district: { label: 'Districts', singular: 'District', endpoint: 'locations/districts' },
+  range: { label: 'Range Offices', singular: 'Range Office', endpoint: 'locations/range-offices' },
   zone: { label: 'Zones', singular: 'Zone', endpoint: 'locations/zones' },
   division: { label: 'Divisions', singular: 'Division', endpoint: 'locations/divisions' },
   station: {
@@ -133,6 +137,7 @@ export default function LocationsManagementContent() {
   const [selectedPath, setSelectedPath] = useState<Record<LocationLevel, Location | null>>({
     state: null,
     district: null,
+    range: null,
     zone: null,
     division: null,
     station: null,
@@ -158,7 +163,8 @@ export default function LocationsManagementContent() {
   const getParentId = (): number | undefined => {
     const parentMap = {
       district: selectedPath.state?.id,
-      zone: selectedPath.district?.id,
+      range: selectedPath.district?.id,
+      zone: selectedPath.range?.id,
       division: selectedPath.zone?.id,
       station: selectedPath.division?.id,
       state: undefined,
@@ -181,7 +187,8 @@ export default function LocationsManagementContent() {
     const paramMap: Record<LocationLevel, string> = {
       state: '',
       district: 'stateId',
-      zone: 'districtId',
+      range: 'districtId',
+      zone: 'rangeOfficeId',
       division: 'zoneId',
       station: 'divisionId',
     };

@@ -71,6 +71,7 @@ async function main() {
     { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
+    { code: 'RANGE', name: 'Range Officer', dashboardTitle: 'Range Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
     { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
     { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
     { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
@@ -327,270 +328,328 @@ async function main() {
       console.error('State not found. Cannot create district.');
       return;
     }
-
     district = await prisma.districts.create({ data: { name: 'Hyderabad', stateId: state.id } });
     console.log(`Created district: Hyderabad in state: ${state.name}`);
   }
 
-  console.log('Seeding zones...');
-  // Seed zones for Hyderabad district using dynamic district ID
-  const zonesToSeed = [
-    { name: "Central Zone", districtName: "Hyderabad" },
-    { name: "East Zone", districtName: "Hyderabad" },
-    { name: "North Zone", districtName: "Hyderabad" },
-    { name: "South East Zone", districtName: "Hyderabad" },
-    { name: "South West Zone", districtName: "Hyderabad" },
-    { name: "South Zone", districtName: "Hyderabad" },
-    { name: "West Zone", districtName: "Hyderabad" },
+  console.log('Seeding Range Offices...');
+  const rangeOfficesToSeed = [
+    { name: "South Range ADDL.CP", districtName: "Hyderabad" },
+    { name: "North Range JT.CP", districtName: "Hyderabad" }
   ];
 
+  const rangeOfficeMap: Record<string, number> = {};
+  for (const ro of rangeOfficesToSeed) {
+    let existingRo = await prisma.rangeOffices.findUnique({ where: { name: ro.name } });
+    if (!existingRo) {
+      const targetDistrict = await prisma.districts.findUnique({ where: { name: ro.districtName } });
+      if (!targetDistrict) {
+        console.error(`District '${ro.districtName}' not found for Range Office '${ro.name}'. Skipping.`);
+        continue;
+      }
+      try {
+        existingRo = await prisma.rangeOffices.create({
+          data: {
+            name: ro.name,
+            districtId: targetDistrict.id,
+            updatedAt: new Date()
+          }
+        });
+        console.log(`Created Range Office: ${ro.name}`);
+      } catch (error) {
+        console.error(`Error creating Range Office ${ro.name}:`, error);
+        continue;
+      }
+    } else {
+      console.log(`Range Office '${ro.name}' already exists. Updating values...`);
+      const targetDistrict = await prisma.districts.findUnique({ where: { name: ro.districtName } });
+      if (targetDistrict) {
+        try {
+          existingRo = await prisma.rangeOffices.update({
+            where: { id: existingRo.id },
+            data: {
+              districtId: targetDistrict.id,
+            }
+          });
+        } catch (error) {
+          console.error(`Error updating Range Office ${ro.name}:`, error);
+        }
+      }
+    }
+    rangeOfficeMap[ro.name] = existingRo.id;
+  }
+
+  console.log('Seeding zones...');
+  const zonesToSeed = [
+    // South Range
+    { name: "Charminar DCP", rangeOfficeName: "South Range ADDL.CP", districtName: "Hyderabad" },
+    { name: "Shamshabad DCP", rangeOfficeName: "South Range ADDL.CP", districtName: "Hyderabad" },
+    { name: "Golconda DCP", rangeOfficeName: "South Range ADDL.CP", districtName: "Hyderabad" },
+    { name: "Rajendra Nagar DCP", rangeOfficeName: "South Range ADDL.CP", districtName: "Hyderabad" },
+    // North Range
+    { name: "Secunderabad DCP", rangeOfficeName: "North Range JT.CP", districtName: "Hyderabad" },
+    { name: "Jubilee Hills DCP", rangeOfficeName: "North Range JT.CP", districtName: "Hyderabad" },
+    { name: "Khairatabad DCP", rangeOfficeName: "North Range JT.CP", districtName: "Hyderabad" }
+  ];
+
+  const zoneMap: Record<string, number> = {};
   for (const zone of zonesToSeed) {
-    // Check if zone already exists
-    const existingZone = await prisma.zones.findUnique({ where: { name: zone.name } });
-    if (existingZone) {
-      console.log(`Zone '${zone.name}' already exists. Skipping.`);
-      continue;
+    let existingZone = await prisma.zones.findUnique({ where: { name: zone.name } });
+    if (!existingZone) {
+      const targetDistrict = await prisma.districts.findUnique({ where: { name: zone.districtName } });
+      if (!targetDistrict) {
+        console.error(`District '${zone.districtName}' not found for zone '${zone.name}'. Skipping.`);
+        continue;
+      }
+      const roId = rangeOfficeMap[zone.rangeOfficeName];
+      try {
+        existingZone = await prisma.zones.create({
+          data: {
+            name: zone.name,
+            rangeOfficeId: roId || null,
+          },
+        });
+        console.log(`Created zone: ${zone.name} under Range: ${zone.rangeOfficeName}`);
+      } catch (error) {
+        console.error(`Error creating zone ${zone.name}:`, error);
+        continue;
+      }
+    } else {
+      console.log(`Zone '${zone.name}' already exists. Updating values...`);
+      try {
+        const roId = rangeOfficeMap[zone.rangeOfficeName];
+        existingZone = await prisma.zones.update({
+          where: { id: existingZone.id },
+          data: {
+            rangeOfficeId: roId || null,
+          }
+        });
+      } catch (error) {
+        console.error(`Error updating zone ${zone.name}:`, error);
+      }
     }
-
-    // Get the actual district ID
-    const targetDistrict = await prisma.districts.findUnique({ where: { name: zone.districtName } });
-    if (!targetDistrict) {
-      console.error(`District '${zone.districtName}' not found for zone '${zone.name}'. Skipping.`);
-      continue;
-    }
-
-    try {
-      await prisma.zones.create({
-        data: {
-          name: zone.name,
-          districtId: targetDistrict.id,
-        },
-      });
-      console.log(`Created zone: ${zone.name} in district: ${zone.districtName}`);
-    } catch (error) {
-      console.error(`Error creating zone ${zone.name}:`, error);
-    }
+    zoneMap[zone.name] = existingZone.id;
   }
 
   console.log('Seeding divisions...');
-
-  // Fetch zones from database to get actual IDs
-  const zonesFromDb = await prisma.zones.findMany();
-  const zoneMap: Record<string, number> = {};
-  zonesFromDb.forEach(zone => {
-    zoneMap[zone.name] = zone.id;
-  });
-
-  // Seed divisions with dynamic zone mapping
   const divisionsToSeed = [
-    // Central Zone
-    { name: "Abids", zoneName: "Central Zone" },
-    { name: "Chikkadpally", zoneName: "Central Zone" },
-    { name: "Gandhinagar", zoneName: "Central Zone" },
-    { name: "Saifabad", zoneName: "Central Zone" },
-    // East Zone
-    { name: "Kachiguda", zoneName: "East Zone" },
-    { name: "Chilkalguda", zoneName: "East Zone" },
-    { name: "Osmania University", zoneName: "East Zone" },
-    { name: "Sultan Bazar", zoneName: "East Zone" },
-    // North Zone
-    { name: "Begumpet", zoneName: "North Zone" },
-    { name: "Gopalpuram", zoneName: "North Zone" },
-    { name: "Mahankali", zoneName: "North Zone" },
-    { name: "Trimulgherry", zoneName: "North Zone" },
-    // South East Zone
-    { name: "Chandrayangutta", zoneName: "South East Zone" },
-    { name: "Santosh Nagar", zoneName: "South East Zone" },
-    { name: "Saidabad", zoneName: "South East Zone" },
-    { name: "Malakpet", zoneName: "South East Zone" },
-    // South West Zone
-    { name: "Asif Nagar", zoneName: "South West Zone" },
-    { name: "Goshamahal", zoneName: "South West Zone" },
-    { name: "Golconda", zoneName: "South West Zone" },
-    { name: "Kulsumpura", zoneName: "South West Zone" },
-    // South Zone
-    { name: "Charminar", zoneName: "South Zone" },
-    { name: "Falaknuma", zoneName: "South Zone" },
-    { name: "Chatrinaka", zoneName: "South Zone" },
-    { name: "Mirchowk", zoneName: "South Zone" },
-    // West Zone
-    { name: "Banjara Hills", zoneName: "West Zone" },
-    { name: "Jubilee Hills", zoneName: "West Zone" },
-    { name: "Panjagutta", zoneName: "West Zone" },
-    { name: "SR Nagar", zoneName: "West Zone" }
+    // Charminar DCP
+    { name: "Charminar ACP", zoneName: "Charminar DCP" },
+    { name: "Malakpet ACP", zoneName: "Charminar DCP" },
+    { name: "Mirchowk ACP", zoneName: "Charminar DCP" },
+    { name: "Saidabad ACP", zoneName: "Charminar DCP" },
+    { name: "Santosh Nagar ACP", zoneName: "Charminar DCP" },
+    // Shamshabad DCP
+    { name: "Adibatla ACP", zoneName: "Shamshabad DCP" },
+    { name: "RGIA ACP", zoneName: "Shamshabad DCP" },
+    // Golconda DCP
+    { name: "Asif Nagar ACP", zoneName: "Golconda DCP" },
+    { name: "Goshamahal ACP", zoneName: "Golconda DCP" },
+    { name: "Kulsumpura ACP", zoneName: "Golconda DCP" },
+    { name: "Tolichowki ACP", zoneName: "Golconda DCP" },
+    // Rajendra Nagar DCP
+    { name: "Rajendra Nagar ACP", zoneName: "Rajendra Nagar DCP" },
+    { name: "Chandrayangutta ACP", zoneName: "Rajendra Nagar DCP" },
+    { name: "Falaknuma ACP", zoneName: "Rajendra Nagar DCP" },
+    // Secunderabad DCP
+    { name: "Chikkadpally ACP", zoneName: "Secunderabad DCP" },
+    { name: "Chilkalguda ACP", zoneName: "Secunderabad DCP" },
+    { name: "Gandhinagar ACP", zoneName: "Secunderabad DCP" },
+    { name: "Mahankali ACP", zoneName: "Secunderabad DCP" },
+    { name: "Osmania University ACP", zoneName: "Secunderabad DCP" },
+    // Jubilee Hills DCP
+    { name: "Jubilee Hills ACP", zoneName: "Jubilee Hills DCP" },
+    { name: "Banjara Hills ACP", zoneName: "Jubilee Hills DCP" },
+    { name: "SR Nagar ACP", zoneName: "Jubilee Hills DCP" },
+    // Khairatabad DCP
+    { name: "Abids ACP", zoneName: "Khairatabad DCP" },
+    { name: "Panjagutta ACP", zoneName: "Khairatabad DCP" },
+    { name: "Saifabad ACP", zoneName: "Khairatabad DCP" },
+    { name: "Sultan Bazar ACP", zoneName: "Khairatabad DCP" }
   ];
 
+  const divisionMap: Record<string, number> = {};
   for (const division of divisionsToSeed) {
-    // Check if division already exists
-    const existingDivision = await prisma.divisions.findUnique({ where: { name: division.name } });
-    if (existingDivision) {
-      console.log(`Division '${division.name}' already exists. Skipping.`);
-      continue;
+    let existingDivision = await prisma.divisions.findUnique({ where: { name: division.name } });
+    if (!existingDivision) {
+      const zoneId = zoneMap[division.zoneName];
+      if (!zoneId) {
+        console.error(`Zone '${division.zoneName}' not found for division '${division.name}'. Skipping.`);
+        continue;
+      }
+      try {
+        existingDivision = await prisma.divisions.create({
+          data: {
+            name: division.name,
+            zoneId: zoneId,
+          },
+        });
+        console.log(`Created division: ${division.name} in zone: ${division.zoneName}`);
+      } catch (error) {
+        console.error(`Error creating division ${division.name}:`, error);
+        continue;
+      }
+    } else {
+      console.log(`Division '${division.name}' already exists. Updating values...`);
+      try {
+        const zoneId = zoneMap[division.zoneName];
+        if (zoneId) {
+          existingDivision = await prisma.divisions.update({
+            where: { id: existingDivision.id },
+            data: {
+              zoneId: zoneId,
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`Error updating division ${division.name}:`, error);
+      }
     }
-
-    // Get the actual zone ID from the zone map
-    const zoneId = zoneMap[division.zoneName];
-    if (!zoneId) {
-      console.error(`Zone '${division.zoneName}' not found for division '${division.name}'. Skipping.`);
-      continue;
-    }
-
-    try {
-      await prisma.divisions.create({
-        data: {
-          name: division.name,
-          zoneId: zoneId,
-        },
-      });
-      console.log(`Created division: ${division.name} in zone: ${division.zoneName}`);
-    } catch (error) {
-      console.error(`Error creating division ${division.name}:`, error);
-    }
+    divisionMap[division.name] = existingDivision.id;
   }
 
   console.log('Seeding police stations...');
-
-  // Fetch divisions from database to get actual IDs
-  const divisionsFromDb = await prisma.divisions.findMany();
-  const divisionMap: Record<string, number> = {};
-  divisionsFromDb.forEach(division => {
-    divisionMap[division.name] = division.id;
-  });
-
-  // Seed police stations with dynamic division mapping
   const policeStationsToSeed = [
-    // Central Zone - Abids Division
-    { name: "Abids Road PS", divisionName: "Abids" },
-    { name: "Begum Bazar PS", divisionName: "Abids" },
-    // Central Zone - Chikkadpally Division
-    { name: "Chikkadapally PS", divisionName: "Chikkadpally" },
-    { name: "Musheerabad PS", divisionName: "Chikkadpally" },
-    // Central Zone - Gandhinagar Division
-    { name: "Gandhi Nagar PS", divisionName: "Gandhinagar" },
-    { name: "DOMALGUDA PS", divisionName: "Gandhinagar" },
-    { name: "SECRETARIAT PS", divisionName: "Gandhinagar" },
-    // Central Zone - Saifabad Division
-    { name: "Saifabad PS", divisionName: "Saifabad" },
-    { name: "Nampally PS", divisionName: "Saifabad" },
-    { name: "KHAIRATABAD PS", divisionName: "Saifabad" },
+    // Charminar ACP
+    { name: "Charminar PS", divisionName: "Charminar ACP" },
+    { name: "Hussainialam PS", divisionName: "Charminar ACP" },
+    { name: "Moghalpura PS", divisionName: "Charminar ACP" },
+    { name: "Shalibanda PS", divisionName: "Charminar ACP" },
+    // Malakpet ACP
+    { name: "Malakpet PS", divisionName: "Malakpet ACP" },
+    { name: "Chaderghat PS", divisionName: "Malakpet ACP" },
+    { name: "Dabeerpura PS", divisionName: "Malakpet ACP" },
+    // Mirchowk ACP
+    { name: "Mirchowk PS", divisionName: "Mirchowk ACP" },
+    { name: "Bhavani Nagar PS", divisionName: "Mirchowk ACP" },
+    { name: "Rein Bazar PS", divisionName: "Mirchowk ACP" },
+    // Saidabad ACP
+    { name: "Saidabad PS", divisionName: "Saidabad ACP" },
+    { name: "Madannapet PS", divisionName: "Saidabad ACP" },
+    // Santosh Nagar ACP
+    { name: "Santosh Nagar PS", divisionName: "Santosh Nagar ACP" },
+    { name: "IS Sadan PS", divisionName: "Santosh Nagar ACP" },
+    { name: "Chatrinaka PS", divisionName: "Santosh Nagar ACP" },
 
-    // East Zone - Kachiguda Division
-    { name: "Amberpet PS", divisionName: "Kachiguda" },
-    { name: "Kachiguda PS", divisionName: "Kachiguda" },
-    // East Zone - Chilkalguda Division
-    { name: "Lalaguda PS", divisionName: "Chilkalguda" },
-    { name: "Chilkalguda PS", divisionName: "Chilkalguda" },
-    { name: "WARASIGUDA PS", divisionName: "Chilkalguda" },
-    // East Zone - Osmania University Division
-    { name: "Osmania University PS", divisionName: "Osmania University" },
-    { name: "Nallakunta PS", divisionName: "Osmania University" },
-    // East Zone - Sultan Bazar Division
-    { name: "Sultan Bazar PS", divisionName: "Sultan Bazar" },
-    { name: "Afzal Gunj PS", divisionName: "Sultan Bazar" },
-    { name: "Narayanaguda PS", divisionName: "Sultan Bazar" },
+    // Adibatla ACP
+    { name: "Adibatla PS", divisionName: "Adibatla ACP" },
+    { name: "Balapur PS", divisionName: "Adibatla ACP" },
+    { name: "Meerpet PS", divisionName: "Adibatla ACP" },
+    // RGIA ACP
+    { name: "RGIA PS", divisionName: "RGIA ACP" },
+    { name: "Pahadi Shareef PS", divisionName: "RGIA ACP" },
 
-    // North Zone - Begumpet Division
-    { name: "Begumpet PS", divisionName: "Begumpet" },
-    { name: "Bowenpally PS", divisionName: "Begumpet" },
-    // North Zone - Gopalpuram Division
-    { name: "Gopalpuram PS", divisionName: "Gopalpuram" },
-    { name: "Tukaramgate PS", divisionName: "Gopalpuram" },
-    { name: "Marredpally PS", divisionName: "Gopalpuram" },
-    // North Zone - Mahankali Division
-    { name: "Ramgopalpet PS", divisionName: "Mahankali" },
-    { name: "Mahankali PS", divisionName: "Mahankali" },
-    { name: "Market PS", divisionName: "Mahankali" },
-    // North Zone - Trimulgherry Division
-    { name: "Bollarum PS", divisionName: "Trimulgherry" },
-    { name: "Trimulgherry PS", divisionName: "Trimulgherry" },
-    { name: "Karkhana PS", divisionName: "Trimulgherry" },
+    // Asif Nagar ACP
+    { name: "Asif Nagar PS", divisionName: "Asif Nagar ACP" },
+    { name: "Mehdipatnam PS", divisionName: "Asif Nagar ACP" },
+    { name: "Habeeb Nagar PS", divisionName: "Asif Nagar ACP" },
+    { name: "Masab Tank PS", divisionName: "Asif Nagar ACP" },
+    // Goshamahal ACP
+    { name: "Goshamahal PS", divisionName: "Goshamahal ACP" },
+    { name: "Begum Bazaar PS", divisionName: "Goshamahal ACP" },
+    { name: "Afzalgunj PS", divisionName: "Goshamahal ACP" },
+    // Kulsumpura ACP
+    { name: "Kulsumpura PS", divisionName: "Kulsumpura ACP" },
+    { name: "Tappachabutra PS", divisionName: "Kulsumpura ACP" },
+    { name: "Gudimalkapur PS", divisionName: "Kulsumpura ACP" },
+    { name: "Mangalhat PS", divisionName: "Kulsumpura ACP" },
+    // Tolichowki ACP
+    { name: "Tolichowki PS", divisionName: "Tolichowki ACP" },
+    { name: "Golconda PS", divisionName: "Tolichowki ACP" },
+    { name: "Langar House PS", divisionName: "Tolichowki ACP" },
 
-    // South East Zone - Chandrayangutta Division
-    { name: "Chandrayangutta PS", divisionName: "Chandrayangutta" },
-    { name: "BANDLAGUDA PS", divisionName: "Chandrayangutta" },
-    { name: "Kanchanbagh PS", divisionName: "Chandrayangutta" },
-    // South East Zone - Santosh Nagar Division
-    { name: "Santosh Nagar PS", divisionName: "Santosh Nagar" },
-    { name: "I S SADAN PS", divisionName: "Santosh Nagar" },
-    // South East Zone - Saidabad Division
-    { name: "Madannapet PS", divisionName: "Saidabad" },
-    { name: "Saidabad PS", divisionName: "Saidabad" },
-    // South East Zone - Malakpet Division
-    { name: "Malakpet PS", divisionName: "Malakpet" },
-    { name: "Chaderghat PS", divisionName: "Malakpet" },
-    { name: "Dabeerpura PS", divisionName: "Malakpet" },
+    // Rajendra Nagar ACP
+    { name: "Rajendra Nagar PS", divisionName: "Rajendra Nagar ACP" },
+    { name: "Attapur PS", divisionName: "Rajendra Nagar ACP" },
+    // Chandrayangutta ACP
+    { name: "Chandrayangutta PS", divisionName: "Chandrayangutta ACP" },
+    { name: "Bandlaguda PS", divisionName: "Chandrayangutta ACP" },
+    { name: "Kanchanbagh PS", divisionName: "Chandrayangutta ACP" },
+    { name: "Mailardevpally PS", divisionName: "Chandrayangutta ACP" },
+    // Falaknuma ACP
+    { name: "Falaknuma PS", divisionName: "Falaknuma ACP" },
+    { name: "Kamatipura PS", divisionName: "Falaknuma ACP" },
+    { name: "Bahadurpura PS", divisionName: "Falaknuma ACP" },
+    { name: "Kalapathar PS", divisionName: "Falaknuma ACP" },
 
-    // South West Zone - Asif Nagar Division
-    { name: "Asif Nagar PS", divisionName: "Asif Nagar" },
-    { name: "Humayun Nagar PS", divisionName: "Asif Nagar" },
-    { name: "Habeeb Nagar PS", divisionName: "Asif Nagar" },
-    // South West Zone - Goshamahal Division
-    { name: "Shahinayathgunj PS", divisionName: "Goshamahal" },
-    { name: "Mangalhat PS", divisionName: "Goshamahal" },
-    // South West Zone - Golconda Division
-    { name: "Golconda PS", divisionName: "Golconda" },
-    { name: "Langar House PS", divisionName: "Golconda" },
-    // South West Zone - Kulsumpura Division
-    { name: "GUDIMALKAPUR PS", divisionName: "Kulsumpura" },
-    { name: "Kulsumpura PS", divisionName: "Kulsumpura" },
-    { name: "Tapachabutra PS", divisionName: "Kulsumpura" },
+    // Chikkadpally ACP
+    { name: "Chikkadpally PS", divisionName: "Chikkadpally ACP" },
+    { name: "Musheerabad PS", divisionName: "Chikkadpally ACP" },
+    { name: "Kachiguda PS", divisionName: "Chikkadpally ACP" },
+    // Chilkalguda ACP
+    { name: "Chilkalguda PS", divisionName: "Chilkalguda ACP" },
+    { name: "Lalaguda PS", divisionName: "Chilkalguda ACP" },
+    { name: "Warasiguda PS", divisionName: "Chilkalguda ACP" },
+    // Gandhinagar ACP
+    { name: "Gandhinagar PS", divisionName: "Gandhinagar ACP" },
+    { name: "Domalguda PS", divisionName: "Gandhinagar ACP" },
+    // Mahankali ACP
+    { name: "Mahankali PS", divisionName: "Mahankali ACP" },
+    { name: "Ramgopalpet PS", divisionName: "Mahankali ACP" },
+    // Osmania University ACP
+    { name: "Osmania University PS", divisionName: "Osmania University ACP" },
+    { name: "Amberpet PS", divisionName: "Osmania University ACP" },
+    { name: "Nallakunta PS", divisionName: "Osmania University ACP" },
 
-    // South Zone - Charminar Division
-    { name: "Charminar PS", divisionName: "Charminar" },
-    { name: "Kamatipura PS", divisionName: "Charminar" },
-    { name: "Hussainialam PS", divisionName: "Charminar" },
-    // South Zone - Falaknuma Division
-    { name: "Falaknuma PS", divisionName: "Falaknuma" },
-    { name: "Bahadurpura PS", divisionName: "Falaknuma" },
-    { name: "Kalapathar PS", divisionName: "Falaknuma" },
-    // South Zone - Chatrinaka Division
-    { name: "Moghalpura PS", divisionName: "Chatrinaka" },
-    { name: "Chatrinaka PS", divisionName: "Chatrinaka" },
-    { name: "Shalibanda PS", divisionName: "Chatrinaka" },
-    // South Zone - Mirchowk Division
-    { name: "Mirchowk PS", divisionName: "Mirchowk" },
-    { name: "Bhavaninagar PS", divisionName: "Mirchowk" },
-    { name: "Rein Bazar PS", divisionName: "Mirchowk" },
+    // Jubilee Hills ACP
+    { name: "Jubilee Hills PS", divisionName: "Jubilee Hills ACP" },
+    { name: "Film Nagar PS", divisionName: "Jubilee Hills ACP" },
+    // Banjara Hills ACP
+    { name: "Banjara Hills PS", divisionName: "Banjara Hills ACP" },
+    { name: "Madhura Nagar PS", divisionName: "Banjara Hills ACP" },
+    // SR Nagar ACP
+    { name: "SR Nagar PS", divisionName: "SR Nagar ACP" },
+    { name: "Borabanda PS", divisionName: "SR Nagar ACP" },
+    { name: "Sanath Nagar PS", divisionName: "SR Nagar ACP" },
 
-    // West Zone - Banjara Hills Division
-    { name: "Banjara Hills PS", divisionName: "Banjara Hills" },
-    { name: "MASAB TANK PS", divisionName: "Banjara Hills" },
-    // West Zone - Jubilee Hills Division
-    { name: "Jubilee Hills PS", divisionName: "Jubilee Hills" },
-    { name: "FILM NAGAR PS", divisionName: "Jubilee Hills" },
-    // West Zone - Panjagutta Division
-    { name: "Panjagutta PS", divisionName: "Panjagutta" },
-    { name: "MADHURA NAGAR PS", divisionName: "Panjagutta" },
-    // West Zone - SR Nagar Division
-    { name: "S.R. Nagar PS", divisionName: "SR Nagar" },
-    { name: "BORABANDA PS", divisionName: "SR Nagar" }
+    // Abids ACP
+    { name: "Abids PS", divisionName: "Abids ACP" },
+    { name: "Nampally PS", divisionName: "Abids ACP" },
+    // Panjagutta ACP
+    { name: "Panjagutta PS", divisionName: "Panjagutta ACP" },
+    { name: "Khairatabad PS", divisionName: "Panjagutta ACP" },
+    // Saifabad ACP
+    { name: "Saifabad PS", divisionName: "Saifabad ACP" },
+    { name: "Lake PS", divisionName: "Saifabad ACP" },
+    // Sultan Bazar ACP
+    { name: "Sultan Bazar PS", divisionName: "Sultan Bazar ACP" },
+    { name: "Narayanaguda PS", divisionName: "Sultan Bazar ACP" }
   ];
 
   for (const policeStation of policeStationsToSeed) {
-    // Check if police station already exists
     const existingPoliceStation = await prisma.policeStations.findUnique({ where: { name: policeStation.name } });
-    if (existingPoliceStation) {
-      console.log(`Police Station '${policeStation.name}' already exists. Skipping.`);
-      continue;
-    }
-
-    // Get the actual division ID from the division map
-    const divisionId = divisionMap[policeStation.divisionName];
-    if (!divisionId) {
-      console.error(`Division '${policeStation.divisionName}' not found for police station '${policeStation.name}'. Skipping.`);
-      continue;
-    }
-
-    try {
-      await prisma.policeStations.create({
-        data: {
-          name: policeStation.name,
-          divisionId: divisionId,
-        },
-      });
-      console.log(`Created police station: ${policeStation.name} in division: ${policeStation.divisionName}`);
-    } catch (error) {
-      console.error(`Error creating police station ${policeStation.name}:`, error);
+    if (!existingPoliceStation) {
+      const divisionId = divisionMap[policeStation.divisionName];
+      if (!divisionId) {
+        console.error(`Division '${policeStation.divisionName}' not found for police station '${policeStation.name}'. Skipping.`);
+        continue;
+      }
+      try {
+        await prisma.policeStations.create({
+          data: {
+            name: policeStation.name,
+            divisionId: divisionId,
+          },
+        });
+        console.log(`Created police station: ${policeStation.name} in division: ${policeStation.divisionName}`);
+      } catch (error) {
+        console.error(`Error creating police station ${policeStation.name}:`, error);
+      }
+    } else {
+      console.log(`Police Station '${policeStation.name}' already exists. Updating values...`);
+      try {
+        const divisionId = divisionMap[policeStation.divisionName];
+        if (divisionId) {
+          await prisma.policeStations.update({
+            where: { id: existingPoliceStation.id },
+            data: {
+              divisionId: divisionId,
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`Error updating police station ${policeStation.name}:`, error);
+      }
     }
   }
 
@@ -941,9 +1000,35 @@ async function main() {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.users.findFirst({ where: { username: user.username } });
+    const existingUser = await prisma.users.findFirst({
+      where: {
+        OR: [
+          { username: user.username },
+          { email: user.email }
+        ]
+      }
+    });
     if (existingUser) {
-      console.log(`User '${user.username}' already exists. Skipping.`);
+      console.log(`User '${user.username}' or email '${user.email}' already exists. Updating values...`);
+      try {
+        const updateData: any = {
+          roleId: roleMap[user.role],
+        };
+        if (user.stateId !== undefined) updateData.stateId = user.stateId;
+        if (user.districtId !== undefined) updateData.districtId = user.districtId;
+        if (user.policeStationId !== undefined) updateData.policeStationId = user.policeStationId;
+        if (user.zoneId !== undefined) updateData.zoneId = user.zoneId;
+        if (user.divisionId !== undefined) updateData.divisionId = user.divisionId;
+        if (user.rangeOfficeId !== undefined) updateData.rangeOfficeId = user.rangeOfficeId;
+
+        await prisma.users.update({
+          where: { id: existingUser.id },
+          data: updateData
+        });
+        console.log(`Updated user: ${user.username}`);
+      } catch (error) {
+        console.error(`Error updating user ${user.username}:`, error);
+      }
       continue;
     }
 
@@ -1099,6 +1184,9 @@ async function main() {
 
     // CADO - Chief Administrative Officer
     { roleCode: 'CADO', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // RANGE - Range Officer
+    { roleCode: 'RANGE', actionCodes: ['FORWARD', 'RE_ENQUIRY', 'RETURN'] },
 
     // AS - Arms Superintendent
     { roleCode: 'AS', actionCodes: ['FORWARD', 'RETURN'] },
