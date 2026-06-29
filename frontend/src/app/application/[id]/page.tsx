@@ -8,8 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
 
-
-
 import { ApplicationData } from '../../../types';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
@@ -26,7 +24,13 @@ import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 import { useGlobalAction } from '../../../context/GlobalActionContext';
 
 // Import redesigned components and Lucide icons
-import { StatusBadge, DetailItem, SectionCard, SummaryCard, DocumentTable } from '../components/RedesignedComponents';
+import {
+  StatusBadge,
+  DetailItem,
+  SectionCard,
+  SummaryCard,
+  DocumentTable,
+} from '../components/RedesignedComponents';
 import PrintApplicationForm from '../components/PrintApplicationForm';
 import {
   UserRound,
@@ -65,10 +69,16 @@ import {
   FolderOpen,
   Eye,
   Download,
-  Printer
+  Printer,
 } from 'lucide-react';
 
-import { humanize, formatGender, formatStatusLabel, formatApplicationType, formatPhone } from '../../../utils/formatters';
+import {
+  humanize,
+  formatGender,
+  formatStatusLabel,
+  formatApplicationType,
+  formatPhone,
+} from '../../../utils/formatters';
 import { normalizeRenewalApplication } from '../../../utils/applicationFormatters';
 import { openAttachment } from '../../../utils/attachmentViewer';
 import { generateApplicationPrintHtml } from '../../../utils/printGenerators';
@@ -154,18 +164,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [application]);
 
   const applicantName = useMemo(() => {
-    return [
-      application?.firstName,
-      application?.middleName,
-      application?.lastName,
-    ]
-      .filter(Boolean)
-      .join(' ') ||
+    return (
+      [application?.firstName, application?.middleName, application?.lastName]
+        .filter(Boolean)
+        .join(' ') ||
       application?.applicantName ||
-      'N/A';
+      'N/A'
+    );
   }, [application]);
-
-
 
   // Handle params Promise for React 18 compatibility
   useEffect(() => {
@@ -257,7 +263,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     // Navigate back to main page with no filters
     router.push('/');
   };
-
 
   const handleProcessApplication = async (action: string, reason: string) => {
     if (!application) return;
@@ -484,25 +489,31 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         breadcrumbs={[
           { label: 'Home', onClick: () => router.push('/') },
           { label: isRenewalView ? 'Renewal Application' : 'Fresh Application' },
-          { label: applicationId ? `Application ID: ${applicationId}` : '...' }
+          { label: applicationId ? `Application ID: ${applicationId}` : '...' },
         ]}
         applicationTypeLabel={isRenewalView ? 'Renewal Application' : 'Fresh Application'}
-        statusBadge={application ? {
-          label: formatStatusLabel(application.workflowStatus || application.status || application.status_id),
-          style: (() => {
-            const style = getStatusStyle(
-              application.workflowStatus?.name ||
-              application.workflowStatus?.code ||
-              application.status ||
-              application.status_id
-            );
-            return {
-              backgroundColor: style.bg,
-              color: style.text,
-              borderColor: style.border
-            };
-          })()
-        } : undefined}
+        statusBadge={
+          application
+            ? {
+                label: formatStatusLabel(
+                  application.workflowStatus || application.status || application.status_id
+                ),
+                style: (() => {
+                  const style = getStatusStyle(
+                    application.workflowStatus?.name ||
+                      application.workflowStatus?.code ||
+                      application.status ||
+                      application.status_id
+                  );
+                  return {
+                    backgroundColor: style.bg,
+                    color: style.text,
+                    borderColor: style.border,
+                  };
+                })(),
+              }
+            : undefined
+        }
         hideCreateForm={true}
         hidePrint={true}
       />
@@ -596,79 +607,155 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               {/* Redesigned Sections */}
               <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
                 {/* 1. Application Information Section */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
-                        <UserRound className="w-5 h-5" />
+                <div className='bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
+                  <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
+                    <div className='flex items-center gap-3'>
+                      <div className='p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600'>
+                        <UserRound className='w-5 h-5' />
                       </div>
-                      <h3 className="font-bold text-slate-800 text-lg tracking-tight">Application Information</h3>
+                      <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
+                        Application Information
+                      </h3>
                     </div>
                     <button
-                      type="button"
+                      type='button'
                       onClick={handleBrowserPrint}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden"
-                      title="Print application details"
+                      className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden'
+                      title='Print application details'
                     >
-                      <Printer className="w-4.5 h-4.5 text-slate-500" />
+                      <Printer className='w-4.5 h-4.5 text-slate-500' />
                       Print Details
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
                     {/* Left 2 columns: Applicant Details */}
-                    <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <DetailItem label="Full Name" value={applicantName} icon={UserRound} className="md:col-span-2" />
+                    <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4'>
+                      <DetailItem
+                        label='Full Name'
+                        value={applicantName}
+                        icon={UserRound}
+                        className='md:col-span-2'
+                      />
                       {application?.parentOrSpouseName && (
-                        <DetailItem label="Parent / Spouse Name" value={application.parentOrSpouseName} icon={Users} />
+                        <DetailItem
+                          label='Parent / Spouse Name'
+                          value={application.parentOrSpouseName}
+                          icon={Users}
+                        />
                       )}
                       {application?.sex && (
-                        <DetailItem label="Gender" value={formatGender(application.sex)} icon={UserCheck} />
+                        <DetailItem
+                          label='Gender'
+                          value={formatGender(application.sex)}
+                          icon={UserCheck}
+                        />
                       )}
                       {application?.placeOfBirth && (
-                        <DetailItem label="Place of Birth" value={application.placeOfBirth} icon={MapPin} />
+                        <DetailItem
+                          label='Place of Birth'
+                          value={application.placeOfBirth}
+                          icon={MapPin}
+                        />
                       )}
                       {(application?.dateOfBirth || application?.dob) && (
-                        <DetailItem label="Date of Birth" value={
-                          application?.dateOfBirth
-                            ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
-                            : application?.dob
-                              ? new Date(application.dob).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
-                              : null
-                        } icon={CalendarDays} />
+                        <DetailItem
+                          label='Date of Birth'
+                          value={
+                            application?.dateOfBirth
+                              ? new Date(application.dateOfBirth).toLocaleDateString('en-IN', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })
+                              : application?.dob
+                                ? new Date(application.dob).toLocaleDateString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })
+                                : null
+                          }
+                          icon={CalendarDays}
+                        />
                       )}
                       {application?.panNumber && (
-                        <DetailItem label="PAN Number" value={application.panNumber} icon={CreditCard} mono />
+                        <DetailItem
+                          label='PAN Number'
+                          value={application.panNumber}
+                          icon={CreditCard}
+                          mono
+                        />
                       )}
                       {application?.aadharNumber && (
-                        <DetailItem label="Aadhar Number" value={application.aadharNumber} icon={Fingerprint} mono />
+                        <DetailItem
+                          label='Aadhar Number'
+                          value={application.aadharNumber}
+                          icon={Fingerprint}
+                          mono
+                        />
                       )}
                       {application?.acknowledgementNo && (
-                        <DetailItem label="Acknowledgement Number" value={application.acknowledgementNo} icon={FileCheck} mono />
+                        <DetailItem
+                          label='Acknowledgement Number'
+                          value={application.acknowledgementNo}
+                          icon={FileCheck}
+                          mono
+                        />
                       )}
                       {application?.currentUser && (
-                        <DetailItem label="Current User" value={application.currentUser.username} icon={UserCog} />
+                        <DetailItem
+                          label='Current User'
+                          value={application.currentUser.username}
+                          icon={UserCog}
+                        />
                       )}
                       {application?.workflowStatus && (
-                        <DetailItem label="Workflow Status" value={<StatusBadge status={application.workflowStatus} />} icon={BadgeCheck} />
+                        <DetailItem
+                          label='Workflow Status'
+                          value={<StatusBadge status={application.workflowStatus} />}
+                          icon={BadgeCheck}
+                        />
                       )}
-                      <DetailItem label="Application Type" value={<StatusBadge status={application?.applicationType || 'N/A'} label={formatApplicationType(application?.applicationType)} />} icon={Clock3} />
+                      <DetailItem
+                        label='Application Type'
+                        value={
+                          <StatusBadge
+                            status={application?.applicationType || 'N/A'}
+                            label={formatApplicationType(application?.applicationType)}
+                          />
+                        }
+                        icon={Clock3}
+                      />
                       {application?.applicationDate && (
-                        <DetailItem label="Date & Time of Submission" value={
-                          new Date(application.applicationDate).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                        } icon={CalendarDays} className="md:col-span-2" />
+                        <DetailItem
+                          label='Date & Time of Submission'
+                          value={new Date(application.applicationDate).toLocaleString('en-IN', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          icon={CalendarDays}
+                          className='md:col-span-2'
+                        />
                       )}
                     </div>
 
                     {/* Right column: Photo & Quick Summary */}
                     <div>
-                      <SummaryCard application={application} applicationId={applicationId} applicantName={applicantName} />
+                      <SummaryCard
+                        application={application}
+                        applicationId={applicationId}
+                        applicantName={applicantName}
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Three-Column Row: License Details, License History, Criminal History */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
                   {/* License Details Card */}
                   {(() => {
                     const license = (licenseDetails[0] || {}) as any;
@@ -677,43 +764,89 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       : license?.requestedWeaponIds;
                     const weaponsLabel = Array.isArray(requestedWeapons)
                       ? requestedWeapons
-                          .map((w: any) => typeof w === 'object' ? w?.name || w?.type || w?.id : w)
+                          .map((w: any) =>
+                            typeof w === 'object' ? w?.name || w?.type || w?.id : w
+                          )
                           .filter(Boolean)
                           .join(', ')
                       : '';
-                    const evidenceFiles = license?.uploadedFiles || license?.specialClaimsEvidence || [];
-                    const normalizedEvidence = Array.isArray(evidenceFiles) ? evidenceFiles.filter(Boolean) : [];
+                    const evidenceFiles =
+                      license?.uploadedFiles || license?.specialClaimsEvidence || [];
+                    const normalizedEvidence = Array.isArray(evidenceFiles)
+                      ? evidenceFiles.filter(Boolean)
+                      : [];
 
                     return (
-                      <SectionCard title="License Details" icon={Shield} iconColorClass="text-blue-600 bg-blue-50 border-blue-100">
-                        <div className="space-y-4 flex-1">
-                          <DetailItem label="Need for License" value={license.needForLicense} icon={Target} />
-                          <DetailItem label="Arms Category" value={license.armsCategory} icon={ShieldCheck} />
-                          <DetailItem label="Requested Weapons" value={weaponsLabel} icon={Crosshair} />
-                          <DetailItem label="Area of Validity" value={license.areaOfValidity} icon={MapPin} />
-                          <DetailItem label="Licence Place / Area" value={license.licencePlaceArea} icon={LocateFixed} />
-                          <DetailItem label="Ammunition Description" value={license.ammunitionDescription} icon={Package} />
-                          <DetailItem label="Special Consideration Reason" value={license.specialConsiderationReason} icon={FileText} />
+                      <SectionCard
+                        title='License Details'
+                        icon={Shield}
+                        iconColorClass='text-blue-600 bg-blue-50 border-blue-100'
+                      >
+                        <div className='space-y-4 flex-1'>
+                          <DetailItem
+                            label='Need for License'
+                            value={license.needForLicense}
+                            icon={Target}
+                          />
+                          <DetailItem
+                            label='Arms Category'
+                            value={license.armsCategory}
+                            icon={ShieldCheck}
+                          />
+                          <DetailItem
+                            label='Requested Weapons'
+                            value={weaponsLabel}
+                            icon={Crosshair}
+                          />
+                          <DetailItem
+                            label='Area of Validity'
+                            value={license.areaOfValidity}
+                            icon={MapPin}
+                          />
+                          <DetailItem
+                            label='Licence Place / Area'
+                            value={license.licencePlaceArea}
+                            icon={LocateFixed}
+                          />
+                          <DetailItem
+                            label='Ammunition Description'
+                            value={license.ammunitionDescription}
+                            icon={Package}
+                          />
+                          <DetailItem
+                            label='Special Consideration Reason'
+                            value={license.specialConsiderationReason}
+                            icon={FileText}
+                          />
                           {license.wildBeastsSpecification && (
-                            <DetailItem label="Wild Beasts Specification" value={license.wildBeastsSpecification} icon={FileText} />
+                            <DetailItem
+                              label='Wild Beasts Specification'
+                              value={license.wildBeastsSpecification}
+                              icon={FileText}
+                            />
                           )}
-                          
+
                           {normalizedEvidence.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Evidence / Attachments</p>
-                              <div className="flex flex-wrap gap-2">
+                            <div className='mt-4 pt-4 border-t border-slate-100'>
+                              <p className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'>
+                                Evidence / Attachments
+                              </p>
+                              <div className='flex flex-wrap gap-2'>
                                 {normalizedEvidence.map((file: any, fileIdx: number) => {
-                                  const fileLabel = truncateFilename(file?.name || file?.fileName || file?.originalName || 'File', 10);
+                                  const fileLabel = truncateFilename(
+                                    file?.name || file?.fileName || file?.originalName || 'File',
+                                    10
+                                  );
                                   return (
                                     <button
                                       key={fileIdx}
-                                      type="button"
+                                      type='button'
                                       onClick={() => openAttachment(file)}
-                                      className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-blue-600 font-semibold hover:bg-blue-50 transition-colors"
+                                      className='inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-blue-600 font-semibold hover:bg-blue-50 transition-colors'
                                       title={file?.name || file?.fileName || file?.originalName}
                                     >
-                                      <FileText className="w-3.5 h-3.5 text-rose-500" />
-                                      <span className="truncate max-w-[120px]">{fileLabel}</span>
+                                      <FileText className='w-3.5 h-3.5 text-rose-500' />
+                                      <span className='truncate max-w-[120px]'>{fileLabel}</span>
                                     </button>
                                   );
                                 })}
@@ -727,18 +860,84 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                   {/* License History Card */}
                   {(() => {
-                    const history = ((application?.licenseHistories && application.licenseHistories[0]) || {}) as any;
+                    const history = ((application?.licenseHistories &&
+                      application.licenseHistories[0]) ||
+                      {}) as any;
+                    const familyWeapons = Array.isArray(history.familyWeaponsEndorsed)
+                      ? history.familyWeaponsEndorsed.filter(Boolean).join(', ')
+                      : null;
                     return (
-                      <SectionCard title="License History" icon={History} iconColorClass="text-amber-600 bg-amber-50 border-amber-100">
-                        <div className="space-y-4 flex-1">
-                          <DetailItem label="Previously Applied" value={history.hasAppliedBefore !== undefined ? (history.hasAppliedBefore ? 'Yes' : 'No') : null} icon={ClipboardCheck} />
-                          <DetailItem label="Previous Result" value={history.previousResult} icon={BadgeCheck} />
-                          <DetailItem label="Previous Authority" value={history.previousAuthorityName} icon={Building2} />
-                          <DetailItem label="License Suspended" value={history.hasLicenceSuspended !== undefined ? (history.hasLicenceSuspended ? 'Yes' : 'No') : null} icon={ShieldAlert} />
-                          <DetailItem label="Suspension Reason" value={history.suspensionReason} icon={AlertTriangle} />
-                          <DetailItem label="Family License" value={history.hasFamilyLicence !== undefined ? (history.hasFamilyLicence ? 'Yes' : 'No') : null} icon={Users} />
-                          <DetailItem label="Family Member Name" value={history.familyMemberName} icon={UserRound} />
-                          <DetailItem label="Family License Number" value={history.familyLicenceNumber} icon={ShieldCheck} />
+                      <SectionCard
+                        title='License History'
+                        icon={History}
+                        iconColorClass='text-amber-600 bg-amber-50 border-amber-100'
+                      >
+                        <div className='space-y-4 flex-1'>
+                          <DetailItem
+                            label='Previously Applied'
+                            value={
+                              history.hasAppliedBefore !== undefined
+                                ? history.hasAppliedBefore
+                                  ? 'Yes'
+                                  : 'No'
+                                : null
+                            }
+                            icon={ClipboardCheck}
+                          />
+                          <DetailItem
+                            label='Previous Result'
+                            value={history.previousResult}
+                            icon={BadgeCheck}
+                          />
+                          <DetailItem
+                            label='Previous Authority'
+                            value={history.previousAuthorityName}
+                            icon={Building2}
+                          />
+                          <DetailItem
+                            label='License Suspended'
+                            value={
+                              history.hasLicenceSuspended !== undefined
+                                ? history.hasLicenceSuspended
+                                  ? 'Yes'
+                                  : 'No'
+                                : null
+                            }
+                            icon={ShieldAlert}
+                          />
+                          <DetailItem
+                            label='Suspension Reason'
+                            value={history.suspensionReason}
+                            icon={AlertTriangle}
+                          />
+                          <DetailItem
+                            label='Family License'
+                            value={
+                              history.hasFamilyLicence !== undefined
+                                ? history.hasFamilyLicence
+                                  ? 'Yes'
+                                  : 'No'
+                                : null
+                            }
+                            icon={Users}
+                          />
+                          <DetailItem
+                            label='Family Member Name'
+                            value={history.familyMemberName}
+                            icon={UserRound}
+                          />
+                          <DetailItem
+                            label='Family License Number'
+                            value={history.familyLicenceNumber}
+                            icon={ShieldCheck}
+                          />
+                          {familyWeapons && (
+                            <DetailItem
+                              label='Family Weapons Endorsed'
+                              value={familyWeapons}
+                              icon={Crosshair}
+                            />
+                          )}
                         </div>
                       </SectionCard>
                     );
@@ -746,52 +945,123 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                   {/* Criminal History Card */}
                   {(() => {
-                    const criminal = ((application?.criminalHistories && application.criminalHistories[0]) || {}) as any;
+                    const criminal = ((application?.criminalHistories &&
+                      application.criminalHistories[0]) ||
+                      {}) as any;
                     return (
-                      <SectionCard title="Criminal History" icon={TriangleAlert} iconColorClass="text-red-600 bg-red-50 border-red-100">
-                        <div className="space-y-4 flex-1">
-                          <DetailItem label="Convicted" value={criminal.isConvicted !== undefined ? (criminal.isConvicted ? 'Yes' : 'No') : null} icon={Ban} />
-                          <DetailItem label="Bond Executed" value={criminal.isBondExecuted !== undefined ? (criminal.isBondExecuted ? 'Yes' : 'No') : null} icon={FileWarning} />
-                          <DetailItem label="Bond Date" value={criminal.bondDate ? new Date(criminal.bondDate).toLocaleDateString('en-IN') : null} icon={Calendar} />
-                          <DetailItem label="Prohibited" value={criminal.isProhibited !== undefined ? (criminal.isProhibited ? 'Yes' : 'No') : null} icon={Scale} />
-                          
+                      <SectionCard
+                        title='Criminal History'
+                        icon={TriangleAlert}
+                        iconColorClass='text-red-600 bg-red-50 border-red-100'
+                      >
+                        <div className='space-y-4 flex-1'>
+                          <DetailItem
+                            label='Convicted'
+                            value={
+                              criminal.isConvicted !== undefined
+                                ? criminal.isConvicted
+                                  ? 'Yes'
+                                  : 'No'
+                                : null
+                            }
+                            icon={Ban}
+                          />
+                          <DetailItem
+                            label='Bond Executed'
+                            value={
+                              criminal.isBondExecuted !== undefined
+                                ? criminal.isBondExecuted
+                                  ? 'Yes'
+                                  : 'No'
+                                : null
+                            }
+                            icon={FileWarning}
+                          />
+                          <DetailItem
+                            label='Bond Date'
+                            value={
+                              criminal.bondDate
+                                ? new Date(criminal.bondDate).toLocaleDateString('en-IN')
+                                : null
+                            }
+                            icon={Calendar}
+                          />
+                          <DetailItem
+                            label='Prohibited'
+                            value={
+                              criminal.isProhibited !== undefined
+                                ? criminal.isProhibited
+                                  ? 'Yes'
+                                  : 'No'
+                                : null
+                            }
+                            icon={Scale}
+                          />
+
                           {criminal.firDetails && criminal.firDetails.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                                <FileSearch className="w-3.5 h-3.5" />
+                            <div className='mt-4 pt-4 border-t border-slate-100'>
+                              <h4 className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5'>
+                                <FileSearch className='w-3.5 h-3.5' />
                                 FIR Details
                               </h4>
-                              <div className="space-y-3">
+                              <div className='space-y-3'>
                                 {criminal.firDetails.map((fir: any, firIdx: number) => (
-                                  <div key={firIdx} className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-2">
-                                    <div className="grid grid-cols-2 gap-2">
+                                  <div
+                                    key={firIdx}
+                                    className='bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-2'
+                                  >
+                                    <div className='grid grid-cols-2 gap-2'>
                                       <div>
-                                        <span className="text-slate-400 font-semibold uppercase block">FIR Number</span>
-                                        <span className="font-bold text-slate-700">{fir.firNumber || '—'}</span>
+                                        <span className='text-slate-400 font-semibold uppercase block'>
+                                          FIR Number
+                                        </span>
+                                        <span className='font-bold text-slate-700'>
+                                          {fir.firNumber || '—'}
+                                        </span>
                                       </div>
                                       <div>
-                                        <span className="text-slate-400 font-semibold uppercase block">District</span>
-                                        <span className="font-bold text-slate-700">{fir.District || '—'}</span>
+                                        <span className='text-slate-400 font-semibold uppercase block'>
+                                          District
+                                        </span>
+                                        <span className='font-bold text-slate-700'>
+                                          {fir.District || '—'}
+                                        </span>
                                       </div>
                                       <div>
-                                        <span className="text-slate-400 font-semibold uppercase block">Police Station</span>
-                                        <span className="font-bold text-slate-700">{fir.policeStation || '—'}</span>
+                                        <span className='text-slate-400 font-semibold uppercase block'>
+                                          Police Station
+                                        </span>
+                                        <span className='font-bold text-slate-700'>
+                                          {fir.policeStation || '—'}
+                                        </span>
                                       </div>
                                       <div>
-                                        <span className="text-slate-400 font-semibold uppercase block">Under Section</span>
-                                        <span className="font-bold text-slate-700">{fir.underSection || '—'}</span>
+                                        <span className='text-slate-400 font-semibold uppercase block'>
+                                          Under Section
+                                        </span>
+                                        <span className='font-bold text-slate-700'>
+                                          {fir.underSection || '—'}
+                                        </span>
                                       </div>
                                     </div>
                                     {fir.offence && (
                                       <div>
-                                        <span className="text-slate-400 font-semibold uppercase block">Offence</span>
-                                        <span className="font-medium text-slate-700">{fir.offence}</span>
+                                        <span className='text-slate-400 font-semibold uppercase block'>
+                                          Offence
+                                        </span>
+                                        <span className='font-medium text-slate-700'>
+                                          {fir.offence}
+                                        </span>
                                       </div>
                                     )}
                                     {fir.DateOfSentence && (
                                       <div>
-                                        <span className="text-slate-400 font-semibold uppercase block">Sentence Date</span>
-                                        <span className="font-medium text-slate-700">{fir.DateOfSentence}</span>
+                                        <span className='text-slate-400 font-semibold uppercase block'>
+                                          Sentence Date
+                                        </span>
+                                        <span className='font-medium text-slate-700'>
+                                          {fir.DateOfSentence}
+                                        </span>
                                       </div>
                                     )}
                                   </div>
@@ -806,23 +1076,51 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </div>
 
                 {/* 3. Three-Column Address Row: Present, Permanent, Occupation */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
                   {/* Present Address Details */}
                   {(() => {
                     const present = (application?.presentAddress || {}) as any;
-                    const presentState = typeof present.state === 'object' ? present.state?.name : present.state;
-                    const presentDistrict = typeof present.district === 'object' ? present.district?.name : present.district;
+                    const presentState =
+                      typeof present.state === 'object' ? present.state?.name : present.state;
+                    const presentDistrict =
+                      typeof present.district === 'object'
+                        ? present.district?.name
+                        : present.district;
 
                     return (
-                      <SectionCard title="Present Address Details" icon={MapPin} iconColorClass="text-purple-600 bg-purple-50 border-purple-100">
-                        <div className="space-y-4 flex-1">
-                          <DetailItem label="Address" value={present.addressLine} icon={Building} />
-                          <DetailItem label="State" value={presentState} icon={Landmark} />
-                          <DetailItem label="District" value={presentDistrict} icon={Building2} />
-                          <DetailItem label="Zone" value={present.zone?.name} icon={MapPin} />
-                          <DetailItem label="Division" value={present.division?.name} icon={MapPin} />
-                          <DetailItem label="Police Station" value={present.policeStation?.name} icon={Building2} />
-                          <DetailItem label="Residing Since" value={present.sinceResiding ? new Date(present.sinceResiding).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : null} icon={Calendar} />
+                      <SectionCard
+                        title='Present Address Details'
+                        icon={MapPin}
+                        iconColorClass='text-purple-600 bg-purple-50 border-purple-100'
+                      >
+                        <div className='space-y-4 flex-1'>
+                          <DetailItem label='Address' value={present.addressLine} icon={Building} />
+                          <DetailItem label='State' value={presentState} icon={Landmark} />
+                          <DetailItem label='District' value={presentDistrict} icon={Building2} />
+                          <DetailItem label='Zone' value={present.zone?.name} icon={MapPin} />
+                          <DetailItem
+                            label='Division'
+                            value={present.division?.name}
+                            icon={MapPin}
+                          />
+                          <DetailItem
+                            label='Police Station'
+                            value={present.policeStation?.name}
+                            icon={Building2}
+                          />
+                          <DetailItem
+                            label='Residing Since'
+                            value={
+                              present.sinceResiding
+                                ? new Date(present.sinceResiding).toLocaleDateString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })
+                                : null
+                            }
+                            icon={Calendar}
+                          />
                         </div>
                       </SectionCard>
                     );
@@ -831,19 +1129,51 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   {/* Permanent Address Details */}
                   {(() => {
                     const permanent = (application?.permanentAddress || {}) as any;
-                    const permanentState = typeof permanent.state === 'object' ? permanent.state?.name : permanent.state;
-                    const permanentDistrict = typeof permanent.district === 'object' ? permanent.district?.name : permanent.district;
+                    const permanentState =
+                      typeof permanent.state === 'object' ? permanent.state?.name : permanent.state;
+                    const permanentDistrict =
+                      typeof permanent.district === 'object'
+                        ? permanent.district?.name
+                        : permanent.district;
 
                     return (
-                      <SectionCard title="Permanent Address Details" icon={MapPin} iconColorClass="text-indigo-600 bg-indigo-50 border-indigo-100">
-                        <div className="space-y-4 flex-1">
-                          <DetailItem label="Address" value={permanent.addressLine} icon={Building} />
-                          <DetailItem label="State" value={permanentState} icon={Landmark} />
-                          <DetailItem label="District" value={permanentDistrict} icon={Building2} />
-                          <DetailItem label="Zone" value={permanent.zone?.name} icon={MapPin} />
-                          <DetailItem label="Division" value={permanent.division?.name} icon={MapPin} />
-                          <DetailItem label="Police Station" value={permanent.policeStation?.name} icon={Building2} />
-                          <DetailItem label="Residing Since" value={permanent.sinceResiding ? new Date(permanent.sinceResiding).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : null} icon={Calendar} />
+                      <SectionCard
+                        title='Permanent Address Details'
+                        icon={MapPin}
+                        iconColorClass='text-indigo-600 bg-indigo-50 border-indigo-100'
+                      >
+                        <div className='space-y-4 flex-1'>
+                          <DetailItem
+                            label='Address'
+                            value={permanent.addressLine}
+                            icon={Building}
+                          />
+                          <DetailItem label='State' value={permanentState} icon={Landmark} />
+                          <DetailItem label='District' value={permanentDistrict} icon={Building2} />
+                          <DetailItem label='Zone' value={permanent.zone?.name} icon={MapPin} />
+                          <DetailItem
+                            label='Division'
+                            value={permanent.division?.name}
+                            icon={MapPin}
+                          />
+                          <DetailItem
+                            label='Police Station'
+                            value={permanent.policeStation?.name}
+                            icon={Building2}
+                          />
+                          <DetailItem
+                            label='Residing Since'
+                            value={
+                              permanent.sinceResiding
+                                ? new Date(permanent.sinceResiding).toLocaleDateString('en-IN', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })
+                                : null
+                            }
+                            icon={Calendar}
+                          />
                         </div>
                       </SectionCard>
                     );
@@ -853,14 +1183,38 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   {(() => {
                     const occ = (application?.occupationAndBusiness || {}) as any;
                     return (
-                      <SectionCard title="Occupation & Business Details" icon={BriefcaseBusiness} iconColorClass="text-teal-600 bg-teal-50 border-teal-100">
-                        <div className="space-y-4 flex-1">
-                          <DetailItem label="Occupation" value={occ.occupation} icon={BriefcaseBusiness} />
-                          <DetailItem label="Office Address" value={occ.officeAddress} icon={Building} />
-                          <DetailItem label="State" value={occ.state?.name} icon={Landmark} />
-                          <DetailItem label="District" value={occ.district?.name} icon={Building2} />
-                          <DetailItem label="Crop Location" value={occ.cropLocation} icon={MapPinned} />
-                          <DetailItem label="Area Under Cultivation" value={occ.areaUnderCultivation} icon={Building} />
+                      <SectionCard
+                        title='Occupation & Business Details'
+                        icon={BriefcaseBusiness}
+                        iconColorClass='text-teal-600 bg-teal-50 border-teal-100'
+                      >
+                        <div className='space-y-4 flex-1'>
+                          <DetailItem
+                            label='Occupation'
+                            value={occ.occupation}
+                            icon={BriefcaseBusiness}
+                          />
+                          <DetailItem
+                            label='Office Address'
+                            value={occ.officeAddress}
+                            icon={Building}
+                          />
+                          <DetailItem label='State' value={occ.state?.name} icon={Landmark} />
+                          <DetailItem
+                            label='District'
+                            value={occ.district?.name}
+                            icon={Building2}
+                          />
+                          <DetailItem
+                            label='Crop Location'
+                            value={occ.cropLocation}
+                            icon={MapPinned}
+                          />
+                          <DetailItem
+                            label='Area Under Cultivation'
+                            value={occ.areaUnderCultivation}
+                            icon={Building}
+                          />
                         </div>
                       </SectionCard>
                     );
@@ -868,49 +1222,57 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 </div>
 
                 {/* Additional Status-Specific Information */}
-                {(application?.returnReason || application?.flagReason || application?.disposalReason) && (
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-                    <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-2">
-                      <div className="w-1 h-5 bg-orange-500 rounded-full"></div>
+                {(application?.returnReason ||
+                  application?.flagReason ||
+                  application?.disposalReason) && (
+                  <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4'>
+                    <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-2'>
+                      <div className='w-1 h-5 bg-orange-500 rounded-full'></div>
                       Additional Information
                     </h3>
 
                     {application.returnReason && (
-                      <div className="p-4 bg-orange-50/50 border border-orange-200 rounded-xl">
-                        <h4 className="font-bold text-orange-800 text-sm mb-1.5 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-orange-600" />
+                      <div className='p-4 bg-orange-50/50 border border-orange-200 rounded-xl'>
+                        <h4 className='font-bold text-orange-800 text-sm mb-1.5 flex items-center gap-2'>
+                          <AlertTriangle className='w-4 h-4 text-orange-600' />
                           Return Reason
                         </h4>
-                        <p className="text-slate-700 text-sm font-medium">{application.returnReason}</p>
+                        <p className='text-slate-700 text-sm font-medium'>
+                          {application.returnReason}
+                        </p>
                       </div>
                     )}
 
                     {application.flagReason && (
-                      <div className="p-4 bg-rose-50/50 border border-rose-200 rounded-xl">
-                        <h4 className="font-bold text-rose-800 text-sm mb-1.5 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      <div className='p-4 bg-rose-50/50 border border-rose-200 rounded-xl'>
+                        <h4 className='font-bold text-rose-800 text-sm mb-1.5 flex items-center gap-2'>
+                          <AlertTriangle className='w-4 h-4 text-rose-600' />
                           Red Flag Reason
                         </h4>
-                        <p className="text-slate-700 text-sm font-medium">{application.flagReason}</p>
+                        <p className='text-slate-700 text-sm font-medium'>
+                          {application.flagReason}
+                        </p>
                       </div>
                     )}
 
                     {application.disposalReason && (
-                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                        <h4 className="font-bold text-slate-800 text-sm mb-1.5 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-slate-600" />
+                      <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl'>
+                        <h4 className='font-bold text-slate-800 text-sm mb-1.5 flex items-center gap-2'>
+                          <AlertTriangle className='w-4 h-4 text-slate-600' />
                           Disposal Reason
                         </h4>
-                        <p className="text-slate-700 text-sm font-medium">{application.disposalReason}</p>
+                        <p className='text-slate-700 text-sm font-medium'>
+                          {application.disposalReason}
+                        </p>
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* 4. Uploaded Documents Section */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                  <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-6">
-                    <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
+                <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
+                  <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-6'>
+                    <div className='w-1 h-5 bg-emerald-500 rounded-full'></div>
                     Uploaded Documents
                   </h3>
                   <DocumentTable documents={application?.documents || []} />
@@ -919,9 +1281,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
-                 <div
-                  className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'
-                >
+                <div className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'>
                   <div
                     ref={containerRef}
                     className='flex h-[600px] items-stretch gap-0 relative w-full overflow-hidden'
@@ -977,8 +1337,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                           // Try multiple possible field names for application's current user ID
                           const appData = application as any;
                           const applicationUserId = Number(application?.currentUser?.id) || null;
-                          const statusName = (application?.workflowStatus?.name || '').toLowerCase();
-                          const statusId = Number(application?.status_id || application?.workflowStatus?.id);
+                          const statusName = (
+                            application?.workflowStatus?.name || ''
+                          ).toLowerCase();
+                          const statusId = Number(
+                            application?.status_id || application?.workflowStatus?.id
+                          );
                           const isClosed = statusName === 'closed' || statusId === 10;
 
                           const canTakeAction =
@@ -1023,8 +1387,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               </svg>
                               <div>
                                 {(() => {
-                                  const statusName = (application?.workflowStatus?.name || '').toLowerCase();
-                                  const statusId = Number(application?.status_id || application?.workflowStatus?.id);
+                                  const statusName = (
+                                    application?.workflowStatus?.name || ''
+                                  ).toLowerCase();
+                                  const statusId = Number(
+                                    application?.status_id || application?.workflowStatus?.id
+                                  );
                                   const isClosed = statusName === 'closed' || statusId === 10;
                                   return (
                                     <>
@@ -1032,8 +1400,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                         {isClosed ? 'Application Closed' : 'Action Not Available'}
                                       </h4>
                                       <p className='text-sm text-yellow-700 leading-relaxed'>
-                                        {isClosed 
-                                          ? 'This application has been closed. No further actions can be taken on it.' 
+                                        {isClosed
+                                          ? 'This application has been closed. No further actions can be taken on it.'
                                           : 'At this point, you cannot take action on this request. This application is currently assigned to another user.'}
                                       </p>
                                       {!isClosed && application?.currentUser && (
@@ -1083,23 +1451,25 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
                         <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
-{application &&
-                           application.workflowHistories &&
-                           application.workflowHistories.length > 0 ? (
-                             <div className='space-y-5'>
-                               {application.workflowHistories.map((h, idx) => {
-                                 const actionTaken = h?.actionTaken || (h as any)?.action || 'Unknown Action';
-                                 const statusStyle = getStatusStyle(actionTaken);
-                                 const borderColor = statusStyle.border;
-                                 const backgroundColor = hexToRgba(borderColor, 0.05);
-                                 const attachmentsArr = h.attachments || [];
-                                 const hasAttachments =
-                                   Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
-                                 const hasRemarks = !!(h.remarks || (h as any).comment);
-                                 const hasDetails = hasAttachments || hasRemarks;
-                                 const createdAt = h.createdAt || (h as any).date || (h as any).timestamp;
-                                 const isExpanded = !!expandedHistory[idx];
-                                 const historyDate = createdAt ? new Date(createdAt) : new Date();
+                          {application &&
+                          application.workflowHistories &&
+                          application.workflowHistories.length > 0 ? (
+                            <div className='space-y-5'>
+                              {application.workflowHistories.map((h, idx) => {
+                                const actionTaken =
+                                  h?.actionTaken || (h as any)?.action || 'Unknown Action';
+                                const statusStyle = getStatusStyle(actionTaken);
+                                const borderColor = statusStyle.border;
+                                const backgroundColor = hexToRgba(borderColor, 0.05);
+                                const attachmentsArr = h.attachments || [];
+                                const hasAttachments =
+                                  Array.isArray(attachmentsArr) && attachmentsArr.length > 0;
+                                const hasRemarks = !!(h.remarks || (h as any).comment);
+                                const hasDetails = hasAttachments || hasRemarks;
+                                const createdAt =
+                                  h.createdAt || (h as any).date || (h as any).timestamp;
+                                const isExpanded = !!expandedHistory[idx];
+                                const historyDate = createdAt ? new Date(createdAt) : new Date();
                                 const formattedDate = historyDate.toLocaleDateString('en-IN', {
                                   year: 'numeric',
                                   month: 'short',
@@ -1111,10 +1481,18 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 });
 
                                 // Extract user and role names from nested objects (backend returns nested structure)
-                                const previousUserName = (h as any).previousUserName || (h as any).previousUser?.username || 'Unknown User';
-                                const previousRoleName = (h as any).previousRoleName || (h as any).previousRole?.name || 'Role';
-                                const nextUserName = (h as any).nextUserName || (h as any).nextUser?.username;
-                                const nextRoleName = (h as any).nextRoleName || (h as any).nextRole?.name;
+                                const previousUserName =
+                                  (h as any).previousUserName ||
+                                  (h as any).previousUser?.username ||
+                                  'Unknown User';
+                                const previousRoleName =
+                                  (h as any).previousRoleName ||
+                                  (h as any).previousRole?.name ||
+                                  'Role';
+                                const nextUserName =
+                                  (h as any).nextUserName || (h as any).nextUser?.username;
+                                const nextRoleName =
+                                  (h as any).nextRoleName || (h as any).nextRole?.name;
 
                                 return (
                                   <div
@@ -1133,16 +1511,21 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                         <p className='text-xs text-gray-600 mt-0.5'>
                                           {previousRoleName}
                                         </p>
-<p className='text-sm text-gray-700 font-medium mt-1'>
-                                           {actionTaken}
-                                         </p>
-                                        {nextUserName && !(h.previousUserId && h.nextUserId && Number(h.previousUserId) === Number(h.nextUserId)) && (
-                                          <p className='text-xs text-gray-600 mt-1'>
-                                            → Forwarded to:{' '}
-                                            <span className='font-medium'>{nextUserName}</span> (
-                                            {nextRoleName})
-                                          </p>
-                                        )}
+                                        <p className='text-sm text-gray-700 font-medium mt-1'>
+                                          {actionTaken}
+                                        </p>
+                                        {nextUserName &&
+                                          !(
+                                            h.previousUserId &&
+                                            h.nextUserId &&
+                                            Number(h.previousUserId) === Number(h.nextUserId)
+                                          ) && (
+                                            <p className='text-xs text-gray-600 mt-1'>
+                                              → Forwarded to:{' '}
+                                              <span className='font-medium'>{nextUserName}</span> (
+                                              {nextRoleName})
+                                            </p>
+                                          )}
                                         <p className='text-xs text-gray-500 mt-1 flex items-center'>
                                           <svg
                                             className='w-3 h-3 mr-1'
@@ -1571,7 +1954,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
       {/* Print-Only Layout Component */}
       {application && (
-        <div className="hidden print:block print:w-full print:bg-white print:text-black">
+        <div className='hidden print:block print:w-full print:bg-white print:text-black'>
           <PrintApplicationForm application={application} applicantName={applicantName} />
         </div>
       )}
@@ -1580,7 +1963,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       <style jsx global>{`
         @media print {
           /* Force hide standard app shell containers, sidebar, headers, and footer */
-          html, body {
+          html,
+          body {
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
@@ -1588,8 +1972,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             width: 210mm;
             height: 297mm;
           }
-          header, footer, aside, nav, button, .print\:hidden,
-          .flex.h-screen, main, [data-printable='application-card'] {
+          header,
+          footer,
+          aside,
+          nav,
+          button,
+          .print\:hidden,
+          .flex.h-screen,
+          main,
+          [data-printable='application-card'] {
             display: none !important;
             height: 0 !important;
             margin: 0 !important;
@@ -1603,7 +1994,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             left: -9999px !important;
           }
           /* Override body elements and next container */
-          #__next, #__next > div {
+          #__next,
+          #__next > div {
             display: block !important;
             margin: 0 !important;
             padding: 0 !important;
