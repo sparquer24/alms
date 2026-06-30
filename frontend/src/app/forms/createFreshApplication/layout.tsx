@@ -68,7 +68,7 @@ function FreshApplicationLayoutContent({
   const isNavigatingRef = useRef(false);
 
   // Get active step name from URL
-  const activeStepSlug = pathname.split('/').pop() || '';
+  const activeStepSlug = (pathname || '').split('/').pop() || '';
   const currentStep = React.useMemo(() => {
     if (!activeStepSlug) return 0;
     if (activeStepSlug === 'preview') return 8;
