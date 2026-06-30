@@ -34,6 +34,7 @@ export const apiConfig = {
     zones: '/locations/zones',
     divisions: '/locations/divisions',
     policeStations: '/locations/police-stations',
+    rangeOffices: '/locations/range-offices',
     hierarchy: '/locations/hierarchy',
   },
 

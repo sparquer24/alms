@@ -94,10 +94,11 @@ export class UserProfileResponse {
     can_create_freshLicence: boolean;
   };
 
-  @ApiProperty({ description: 'User location hierarchy (state, district, division, zone, policeStation)', required: false, example: { state: { id: '1', name: 'State A' }, district: { id: '2', name: 'District B' } } })
+  @ApiProperty({ description: 'User location hierarchy (state, district, rangeOffice, division, zone, policeStation)', required: false, example: { state: { id: '1', name: 'State A' }, district: { id: '2', name: 'District B' } } })
   location?: {
     state?: { id: string; name: string };
     district?: { id: string; name: string };
+    rangeOffice?: { id: string; name: string };
     division?: { id: string; name: string };
     zone?: { id: string; name: string };
     policeStation?: { id: string; name?: string };

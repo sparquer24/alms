@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminFormSkeleton } from '@/components/admin';
 
 const roles = ['Admin', 'User', 'Manager'];
 
+// Component that uses useSearchParams - needs to be wrapped in Suspense
+// Skeleton component for the edit form page
 const EditFormSkeleton = () => (
   <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
     <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
@@ -15,21 +17,24 @@ const EditFormSkeleton = () => (
   </div>
 );
 
-interface EditUserClientProps {
-  userIdPromise: Promise<{ id: string }>;
-}
-
-const EditUserContent = ({ userId }: { userId: string | null }) => {
+const EditUserContent = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(roles[0]);
+  const [policeStationId, setPoliceStationId] = useState('');
+  const [stateId, setStateId] = useState('');
+  const [districtId, setDistrictId] = useState('');
+  const [zoneId, setZoneId] = useState('');
+  const [divisionId, setDivisionId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const userId = searchParams?.get('id');
 
   useEffect(() => {
     const fetchUserDetails = async () => {
@@ -69,7 +74,7 @@ const EditUserContent = ({ userId }: { userId: string | null }) => {
       const response = await fetch(`/admin/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, phone, password:password || undefined, roleCode: role}),
+        body: JSON.stringify({ username, email, phone, password:password || undefined, roleCode: role, policeStationId, stateId:Number(stateId), districtId:Number(districtId), zoneId:Number(zoneId), divisionId:Number(divisionId)}),
       });
 
       if (!response.ok) {
@@ -188,16 +193,13 @@ const EditUserContent = ({ userId }: { userId: string | null }) => {
   );
 };
 
-export default function EditUserClient({ userIdPromise }: EditUserClientProps) {
-  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    userIdPromise.then(resolved => setResolvedUserId(resolved.id));
-  }, [userIdPromise]);
-
+// Main component with Suspense boundary
+const EditUserPage = () => {
   return (
     <Suspense fallback={<EditFormSkeleton />}>
-      <EditUserContent userId={resolvedUserId} />
+      <EditUserContent />
     </Suspense>
   );
-}
+};
+
+export default EditUserPage;

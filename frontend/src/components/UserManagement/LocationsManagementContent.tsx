@@ -148,6 +148,37 @@ export default function LocationsManagementContent() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingItem, setEditingItem] = useState<LocationEntity | null>(null);
   const [formData, setFormData] = useState({ name: '' });
+  const [eligibleUsers, setEligibleUsers] = useState<any[]>([]);
+  const [assignedUserId, setAssignedUserId] = useState<number | null>(null);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  useEffect(() => {
+    if (showModal && modalMode === 'edit' && editingItem) {
+      const fetchUsers = async () => {
+        setIsLoadingUsers(true);
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/locations/eligible-users?type=${currentLevel}&id=${editingItem.id}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setEligibleUsers(data.eligibleUsers || []);
+              setAssignedUserId(data.assignedUser?.id || null);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch eligible users', error);
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      };
+      fetchUsers();
+    } else {
+      setEligibleUsers([]);
+      setAssignedUserId(null);
+    }
+  }, [showModal, modalMode, editingItem, currentLevel]);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,6 +188,8 @@ export default function LocationsManagementContent() {
     setFormData({ name: '' });
     setEditingItem(null);
     setModalMode('create');
+    setEligibleUsers([]);
+    setAssignedUserId(null);
   };
 
   // Get parent ID based on current level
@@ -300,6 +333,7 @@ export default function LocationsManagementContent() {
     const payload = {
       name: formData.name.trim(),
       ...(parentId && { parentId }),
+      ...(modalMode === 'edit' && { assignedUserId }),
     };
 
     if (modalMode === 'edit' && editingItem) {
@@ -733,6 +767,42 @@ export default function LocationsManagementContent() {
                     disabled={isSaving}
                   />
                 </div>
+
+                {modalMode === 'edit' && (
+                  <div style={{ marginBottom: AdminSpacing.lg }}>
+                    <label
+                      style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
+                    >
+                      Assigned User
+                    </label>
+                    {isLoadingUsers ? (
+                      <div style={{ fontSize: '14px', color: colors.text.secondary }}>Loading eligible users...</div>
+                    ) : (
+                      <select
+                        value={assignedUserId || ''}
+                        onChange={e => setAssignedUserId(e.target.value ? Number(e.target.value) : null)}
+                        style={{
+                          width: '100%',
+                          padding: AdminSpacing.md,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: AdminBorderRadius.md,
+                          fontSize: '14px',
+                          backgroundColor: colors.background,
+                          color: colors.text.primary,
+                        }}
+                        disabled={isSaving}
+                      >
+                        <option value="">None (Unassigned)</option>
+                        {eligibleUsers.map((u: any) => (
+                          <option key={u.id} value={u.id}>
+                            {u.username} ({u.role?.name || u.role?.code}){u.email ? ` - ${u.email}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
 
                 <div style={{ display: 'flex', gap: AdminSpacing.md, justifyContent: 'flex-end' }}>
                   <button

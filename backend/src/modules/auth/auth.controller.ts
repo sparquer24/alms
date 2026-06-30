@@ -116,6 +116,7 @@ export class AuthController {
         division: user.division ? { id: String(user.division.id), name: user.division.name } : undefined,
         zone: user.zone ? { id: String(user.zone.id), name: user.zone.name } : undefined,
         policeStation: user.policeStation ? { id: String(user.policeStation.id), name: user.policeStation.name } : undefined,
+        rangeOffice: (user as any).RangeOffices ? { id: String((user as any).RangeOffices.id), name: (user as any).RangeOffices.name } : undefined,
       },
     };
   }

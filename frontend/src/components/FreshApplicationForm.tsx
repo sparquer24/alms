@@ -22,20 +22,20 @@ const BackButton: React.FC = () => {
 
 // Create a proper interface for the form data
 interface FormData {
-  applicantName: string;
-  applicantMobile: string;
-  applicantEmail: string;
-  fatherName: string;
-  gender: string;
-  dateOfBirth: string;
-  age: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  licenseType: string;
-  weaponType: string;
-  purposeOfWeapon: string;
+  applicantName?: string;
+  applicantMobile?: string;
+  applicantEmail?: string;
+  fatherName?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  age?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  licenseType?: string;
+  weaponType?: string;
+  purposeOfWeapon?: string;
   photoUrl?: string;
   idProofUrl?: string;
   addressProofUrl?: string;
@@ -94,7 +94,7 @@ interface FormData {
     licenseName?: string;
     authority?: string;
     result?: string;
-    status?: 'approved' | 'pending' | 'rejected';
+    status?: string;
     rejectedLicenseCopy?: string;
   };
   licenseSuspended?: boolean;
@@ -122,6 +122,30 @@ interface FormData {
   signature?: string;
   irisScan?: string;
   photograph?: string;
+  criminalHistory: {
+    convicted?: boolean;
+    isCriminalCasePending?: string;
+    firNumber?: string;
+    policeStation?: string;
+    sectionOfLaw?: string;
+    dateOfOffence?: string;
+    caseStatus?: string;
+  }[];
+  licenseHistory: {
+    hasAppliedBefore?: boolean;
+    hasOtherApplications?: boolean;
+    familyMemberHasArmsLicense?: boolean;
+    hasSafePlaceForArms?: boolean;
+    hasUndergoneTraining?: boolean;
+    hasPreviousLicense?: string;
+    previousLicenseNumber?: string;
+    licenseIssueDate?: string;
+    licenseExpiryDate?: string;
+    issuingAuthority?: string;
+    isLicenseRenewed?: string;
+    renewalDate?: string;
+    renewingAuthority?: string;
+  }[];
   [key: string]: string | undefined | boolean | any; // For other dynamic fields
 }
 
@@ -217,7 +241,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     otherStateLicenseUploaded: null
   });
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     // Personal Information
     applicantName: '',
     applicantMiddleName: '',
@@ -261,12 +285,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     applicantAddress: '',
     presentState: '',
     presentDistrict: '',
+    presentRangeOffice: '',
     presentPincode: '',
     presentPoliceStation: '',
     jurisdictionPoliceStation: '',
     permanentAddress: '',
     permanentState: '',
     permanentDistrict: '',
+    permanentRangeOffice: '',
     permanentPincode: '',
     permanentPoliceStation: '',
     sameAsPresent: false,
@@ -274,12 +300,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
   // IDs captured from cascading selector for present address
   presentStateId: undefined as any,
   presentDistrictId: undefined as any,
+  presentRangeOfficeId: undefined as any,
   presentZoneId: undefined as any,
   presentDivisionId: undefined as any,
   presentStationId: undefined as any,
   // Permanent IDs (from cascading selector)
   permanentStateId: undefined as any,
   permanentDistrictId: undefined as any,
+  permanentRangeOfficeId: undefined as any,
   permanentZoneId: undefined as any,
   permanentDivisionId: undefined as any,
   permanentStationId: undefined as any,
@@ -630,10 +658,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       ...prev,
       presentState: sel?.state?.name || '',
       presentDistrict: sel?.district?.name || '',
+      presentRangeOffice: sel?.rangeOffice?.name || '',
       presentPoliceStation: sel?.station?.name || '',
       jurisdictionPoliceStation: sel?.station?.name || prev.jurisdictionPoliceStation,
       presentStateId: sel?.state?.id,
       presentDistrictId: sel?.district?.id,
+      presentRangeOfficeId: sel?.rangeOffice?.id,
       presentZoneId: sel?.zone?.id,
       presentDivisionId: sel?.division?.id,
       presentStationId: sel?.station?.id,
@@ -697,10 +727,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         permanentAddress: prev.applicantAddress,
         permanentState: prev.presentState,
         permanentDistrict: prev.presentDistrict,
+        permanentRangeOffice: prev.presentRangeOffice,
         permanentPincode: prev.presentPincode,
         permanentPoliceStation: prev.presentPoliceStation,
         permanentStateId: prev.presentStateId,
         permanentDistrictId: prev.presentDistrictId,
+        permanentRangeOfficeId: prev.presentRangeOfficeId,
         permanentZoneId: prev.presentZoneId,
         permanentDivisionId: prev.presentDivisionId,
         permanentStationId: prev.presentStationId,
@@ -710,10 +742,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         prev.permanentAddress === next.permanentAddress &&
         prev.permanentState === next.permanentState &&
         prev.permanentDistrict === next.permanentDistrict &&
+        prev.permanentRangeOffice === next.permanentRangeOffice &&
         prev.permanentPincode === next.permanentPincode &&
         prev.permanentPoliceStation === next.permanentPoliceStation &&
         prev.permanentStateId === next.permanentStateId &&
         prev.permanentDistrictId === next.permanentDistrictId &&
+        prev.permanentRangeOfficeId === next.permanentRangeOfficeId &&
         prev.permanentZoneId === next.permanentZoneId &&
         prev.permanentDivisionId === next.permanentDivisionId &&
         prev.permanentStationId === next.permanentStationId;
@@ -725,10 +759,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
     formData.applicantAddress,
     formData.presentState,
     formData.presentDistrict,
+    formData.presentRangeOffice,
     formData.presentPincode,
     formData.presentPoliceStation,
     formData.presentStateId,
     formData.presentDistrictId,
+    formData.presentRangeOfficeId,
     formData.presentZoneId,
     formData.presentDivisionId,
     formData.presentStationId,
@@ -1066,8 +1102,8 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
       },
       licenseNeed: 'SELF_PROTECTION',
       armsDescription: 'Standard revolver for personal defense',
-      armsCategory: 'PERMISSIBLE',
-      carryArea: 'Hyderabad',
+      armsCategory: 'permissible' as 'permissible',
+      carryArea: 'district' as 'district' | 'state' | 'throughoutIndia',
       specialConsideration: '',
       specialConsiderationDocuments: {
         aadharCard: '',
@@ -1338,8 +1374,9 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
         addressLine: formData.applicantAddress || "",
         stateId: formData.presentStateId ?? getStateId(formData.presentState || ""),
         districtId: formData.presentDistrictId ?? getDistrictId(formData.presentDistrict || ""),
-  zoneId: formData.presentZoneId ?? undefined,
-  divisionId: formData.presentDivisionId ?? undefined,
+        rangeOfficeId: formData.presentRangeOfficeId ?? undefined,
+        zoneId: formData.presentZoneId ?? undefined,
+        divisionId: formData.presentDivisionId ?? undefined,
         policeStationId: formData.presentStationId ?? getPoliceStationId(formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
@@ -1348,11 +1385,12 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
 
       permanentAddress: {
         addressLine: formData.permanentAddress || formData.applicantAddress || "",
-  stateId: formData.permanentStateId ?? getStateId(formData.permanentState || formData.presentState || ""),
-  districtId: formData.permanentDistrictId ?? getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
-  zoneId: formData.permanentZoneId ?? (formData.sameAsPresent ? formData.presentZoneId : undefined),
-  divisionId: formData.permanentDivisionId ?? (formData.sameAsPresent ? formData.presentDivisionId : undefined),
-  policeStationId: formData.permanentStationId ?? getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
+        stateId: formData.permanentStateId ?? getStateId(formData.permanentState || formData.presentState || ""),
+        districtId: formData.permanentDistrictId ?? getDistrictId(formData.permanentDistrict || formData.presentDistrict || ""),
+        rangeOfficeId: formData.permanentRangeOfficeId ?? (formData.sameAsPresent ? formData.presentRangeOfficeId : undefined),
+        zoneId: formData.permanentZoneId ?? (formData.sameAsPresent ? formData.presentZoneId : undefined),
+        divisionId: formData.permanentDivisionId ?? (formData.sameAsPresent ? formData.presentDivisionId : undefined),
+        policeStationId: formData.permanentStationId ?? getPoliceStationId(formData.permanentPoliceStation || formData.presentPoliceStation || ""),
         sinceResiding: formData.residingSince
           ? new Date(formData.residingSince).toISOString()
           : new Date().toISOString()
@@ -1823,8 +1861,16 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                       </div>
                       <div className="col-span-1 md:col-span-2">
                         <CascadingLocationSelect
+                          value={{
+                            state: formData.presentStateId ? { id: formData.presentStateId, name: formData.presentState } as any : undefined,
+                            district: formData.presentDistrictId ? { id: formData.presentDistrictId, name: formData.presentDistrict } as any : undefined,
+                            rangeOffice: formData.presentRangeOfficeId ? { id: formData.presentRangeOfficeId, name: formData.presentRangeOffice } as any : undefined,
+                            zone: formData.presentZoneId ? { id: formData.presentZoneId, name: '' } as any : undefined,
+                            division: formData.presentDivisionId ? { id: formData.presentDivisionId, name: '' } as any : undefined,
+                            station: formData.presentStationId ? { id: formData.presentStationId, name: formData.presentPoliceStation } as any : undefined,
+                          }}
                           onChange={handlePresentLocationChange}
-                          labels={{ state: 'State', district: 'District', zone: 'Zone', division: 'Division', station: 'Nearest Police Station' }}
+                          labels={{ state: 'State', district: 'District', rangeOffice: 'Range Office', zone: 'Zone', division: 'Division', station: 'Nearest Police Station' }}
                           className="grid grid-cols-1 md:grid-cols-2 gap-4"
                         />
                         {errors.presentState && <p className="text-red-500 text-xs mt-1">{errors.presentState}</p>}
@@ -1906,12 +1952,14 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           value={formData.sameAsPresent ? {
                             state: formData.presentStateId ? { id: formData.presentStateId, name: formData.presentState } as any : undefined,
                             district: formData.presentDistrictId ? { id: formData.presentDistrictId, name: formData.presentDistrict } as any : undefined,
+                            rangeOffice: formData.presentRangeOfficeId ? { id: formData.presentRangeOfficeId, name: formData.presentRangeOffice } as any : undefined,
                             zone: formData.presentZoneId ? { id: formData.presentZoneId, name: '' } as any : undefined,
                             division: formData.presentDivisionId ? { id: formData.presentDivisionId, name: '' } as any : undefined,
                             station: formData.presentStationId ? { id: formData.presentStationId, name: formData.presentPoliceStation } as any : undefined,
                           } : {
                             state: formData.permanentStateId ? { id: formData.permanentStateId, name: formData.permanentState } as any : undefined,
                             district: formData.permanentDistrictId ? { id: formData.permanentDistrictId, name: formData.permanentDistrict } as any : undefined,
+                            rangeOffice: formData.permanentRangeOfficeId ? { id: formData.permanentRangeOfficeId, name: formData.permanentRangeOffice } as any : undefined,
                             zone: formData.permanentZoneId ? { id: formData.permanentZoneId, name: '' } as any : undefined,
                             division: formData.permanentDivisionId ? { id: formData.permanentDivisionId, name: '' } as any : undefined,
                             station: formData.permanentStationId ? { id: formData.permanentStationId, name: formData.permanentPoliceStation } as any : undefined,
@@ -1923,15 +1971,17 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                               ...prev,
                               permanentState: sel?.state?.name || '',
                               permanentDistrict: sel?.district?.name || '',
+                              permanentRangeOffice: sel?.rangeOffice?.name || '',
                               permanentPoliceStation: sel?.station?.name || '',
                               permanentStateId: sel?.state?.id,
                               permanentDistrictId: sel?.district?.id,
+                              permanentRangeOfficeId: sel?.rangeOffice?.id,
                               permanentZoneId: sel?.zone?.id,
                               permanentDivisionId: sel?.division?.id,
                               permanentStationId: sel?.station?.id,
                             }));
                           }}
-                          labels={{ state: 'State', district: 'District', zone: 'Zone', division: 'Division', station: 'Jurisdiction Police Station' }}
+                          labels={{ state: 'State', district: 'District', rangeOffice: 'Range Office', zone: 'Zone', division: 'Division', station: 'Jurisdiction Police Station' }}
                           className="grid grid-cols-1 md:grid-cols-2 gap-4"
                           disabled={formData.sameAsPresent === true}
                         />
@@ -2126,7 +2176,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     </button>
                   </div>
 
-                  {formData.criminalHistory.map((criminalRecord, index) => (
+                  {formData.criminalHistory.map((criminalRecord: any, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4">
                       <div className="flex justify-between items-center">
                         <h4 className="text-md font-medium text-gray-700">
@@ -2408,7 +2458,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                         </button>
                       </div>
 
-                      {formData.licenseHistory.map((licenseRecord, index) => (
+                      {formData.licenseHistory.map((licenseRecord: any, index: number) => (
                         <div key={index} className="space-y-4 bg-gray-50 p-4 rounded-lg mb-4 border">
                           <div className="flex justify-between items-center">
                             <h5 className="text-sm font-medium text-gray-700">
@@ -2702,7 +2752,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           <input
                             type="text"
                             name="formIVDetails.licenseArea"
-                            value={formData.formIVDetails.licenseArea}
+                            value={formData.formIVDetails?.licenseArea || ''}
                             onChange={handleChange}
                             className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                           />
@@ -2713,7 +2763,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                           <input
                             type="text"
                             name="formIVDetails.wildBeastSpecification"
-                            value={formData.formIVDetails.wildBeastSpecification}
+                            value={formData.formIVDetails?.wildBeastSpecification || ''}
                             onChange={handleChange}
                             className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all duration-200 ease-in-out"
                           />
@@ -3064,7 +3114,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-gray-800 mb-3">Criminal History</h4>
                       {formData.criminalHistory && formData.criminalHistory.length > 0 ? (
-                        formData.criminalHistory.map((record, index) => (
+                        formData.criminalHistory.map((record: any, index: number) => (
                           <div key={index} className="mb-3 p-3 bg-white rounded border">
                             <p className="text-sm font-medium">Record #{index + 1}</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mt-2">
@@ -3106,7 +3156,7 @@ export default function FreshApplicationForm({ onSubmit, onCancel }: FreshApplic
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-gray-800 mb-3">License History</h4>
                       {formData.licenseHistory && formData.licenseHistory.length > 0 ? (
-                        formData.licenseHistory.map((record, index) => (
+                        formData.licenseHistory.map((record: any, index: number) => (
                           <div key={index} className="mb-3 p-3 bg-white rounded border">
                             <p className="text-sm font-medium">License History #{index + 1}</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mt-2">

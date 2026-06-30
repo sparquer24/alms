@@ -98,7 +98,8 @@ export class AuthService {
           },
           state: { select: { id: true, name: true } },
           district: { select: { id: true, name: true } },
-          zone: { select: { id: true, name: true } }
+          zone: { select: { id: true, name: true } },
+          RangeOffices: { select: { id: true, name: true } }
         }
       } as any);
 
@@ -115,6 +116,7 @@ export class AuthService {
       const stateId = user.state?.id || user.stateId;
       const districtId = user.district?.id || user.districtId;
       const zoneId = user.zone?.id || user.zoneId;
+      const rangeOfficeId = user.RangeOffices?.id || user.rangeOfficeId;
 
       const userData = {
         id: user.id,
@@ -123,7 +125,8 @@ export class AuthService {
         role: user.role,
         stateId: stateId ? Number(stateId) : undefined,
         districtId: districtId ? Number(districtId) : undefined,
-        zoneId: zoneId ? Number(zoneId) : undefined
+        zoneId: zoneId ? Number(zoneId) : undefined,
+        rangeOfficeId: rangeOfficeId ? Number(rangeOfficeId) : undefined
       };
 
       return userData;
@@ -146,6 +149,7 @@ export class AuthService {
       state_id: user.stateId,
       district_id: user.districtId,
       zone_id: user.zoneId,
+      range_office_id: user.rangeOfficeId,
       name: user.name ?? user.username,
     };
 
@@ -195,6 +199,7 @@ export class AuthService {
         division: { select: { id: true, name: true } },
         zone: { select: { id: true, name: true } },
         policeStation: { select: { id: true, name: true } },
+        RangeOffices: { select: { id: true, name: true } },
       },
     } as any);
   }

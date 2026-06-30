@@ -11,11 +11,13 @@ const getUserLocationDefaults = () => {
     return {
       presentState: userData.location.state?.id ? String(userData.location.state.id) : '',
       presentDistrict: userData.location.district?.id ? String(userData.location.district.id) : '',
+      presentRangeOffice: userData.location.rangeOffice?.id ? String(userData.location.rangeOffice.id) : '',
       presentZone: userData.location.zone?.id ? String(userData.location.zone.id) : '',
       presentDivision: userData.location.division?.id ? String(userData.location.division.id) : '',
       presentPoliceStation: userData.location.policeStation?.id ? String(userData.location.policeStation.id) : '',
       presentStateName: userData.location.state?.name || '',
       presentDistrictName: userData.location.district?.name || '',
+      presentRangeOfficeName: userData.location.rangeOffice?.name || '',
       presentZoneName: userData.location.zone?.name || '',
       presentDivisionName: userData.location.division?.name || '',
       presentPoliceStationName: userData.location.policeStation?.name || '',
@@ -24,11 +26,13 @@ const getUserLocationDefaults = () => {
   return {
     presentState: '',
     presentDistrict: '',
+    presentRangeOffice: '',
     presentZone: '',
     presentDivision: '',
     presentPoliceStation: '',
     presentStateName: '',
     presentDistrictName: '',
+    presentRangeOfficeName: '',
     presentZoneName: '',
     presentDivisionName: '',
     presentPoliceStationName: '',
@@ -50,23 +54,26 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
     setIsZSRole(isZS);
 
     // Only pre-fill present address if all three fields are empty (no existing data) or if user is ZS role
-    if (isZS || (!formData.presentState && !formData.presentDistrict && !formData.presentZone)) {
+    if (isZS || (!formData.presentState && !formData.presentDistrict && !formData.presentRangeOffice)) {
       const locationDefaults = getUserLocationDefaults();
       
       if (locationDefaults.presentState) {
         // Prevent infinite loop by only updating if different
         const needsStateUpdate = formData.presentState !== locationDefaults.presentState;
         const needsDistrictUpdate = formData.presentDistrict !== locationDefaults.presentDistrict;
+        const needsRangeOfficeUpdate = locationDefaults.presentRangeOffice && (formData.presentRangeOffice !== locationDefaults.presentRangeOffice);
         const needsZoneUpdate = formData.presentZone !== locationDefaults.presentZone;
         const needsDivisionUpdate = locationDefaults.presentDivision && (formData.presentDivision !== locationDefaults.presentDivision);
         const needsPoliceStationUpdate = locationDefaults.presentPoliceStation && (formData.presentPoliceStation !== locationDefaults.presentPoliceStation);
 
-        if (needsStateUpdate || needsDistrictUpdate || needsZoneUpdate || needsDivisionUpdate || needsPoliceStationUpdate) {
+        if (needsStateUpdate || needsDistrictUpdate || needsRangeOfficeUpdate || needsZoneUpdate || needsDivisionUpdate || needsPoliceStationUpdate) {
           onChange({ target: { name: 'presentState', value: locationDefaults.presentState } });
           onChange({ target: { name: 'presentDistrict', value: locationDefaults.presentDistrict } });
+          onChange({ target: { name: 'presentRangeOffice', value: locationDefaults.presentRangeOffice } });
           onChange({ target: { name: 'presentZone', value: locationDefaults.presentZone } });
           onChange({ target: { name: 'presentStateName', value: locationDefaults.presentStateName } });
           onChange({ target: { name: 'presentDistrictName', value: locationDefaults.presentDistrictName } });
+          onChange({ target: { name: 'presentRangeOfficeName', value: locationDefaults.presentRangeOfficeName } });
           onChange({ target: { name: 'presentZoneName', value: locationDefaults.presentZoneName } });
 
           if (locationDefaults.presentDivision) {
@@ -82,23 +89,26 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
     }
 
     // Only pre-fill permanent address if all three fields are empty (no existing data) or if user is ZS role
-    if (isZS || (!formData.permanentState && !formData.permanentDistrict && !formData.permanentZone)) {
+    if (isZS || (!formData.permanentState && !formData.permanentDistrict && !formData.permanentRangeOffice)) {
       const locationDefaults = getUserLocationDefaults();
       
       if (locationDefaults.presentState) {
         // Prevent infinite loop by only updating if different
         const needsStateUpdate = formData.permanentState !== locationDefaults.presentState;
         const needsDistrictUpdate = formData.permanentDistrict !== locationDefaults.presentDistrict;
+        const needsRangeOfficeUpdate = locationDefaults.presentRangeOffice && (formData.permanentRangeOffice !== locationDefaults.presentRangeOffice);
         const needsZoneUpdate = formData.permanentZone !== locationDefaults.presentZone;
         const needsDivisionUpdate = locationDefaults.presentDivision && (formData.permanentDivision !== locationDefaults.presentDivision);
         const needsPoliceStationUpdate = locationDefaults.presentPoliceStation && (formData.permanentPoliceStation !== locationDefaults.presentPoliceStation);
 
-        if (needsStateUpdate || needsDistrictUpdate || needsZoneUpdate || needsDivisionUpdate || needsPoliceStationUpdate) {
+        if (needsStateUpdate || needsDistrictUpdate || needsRangeOfficeUpdate || needsZoneUpdate || needsDivisionUpdate || needsPoliceStationUpdate) {
           onChange({ target: { name: 'permanentState', value: locationDefaults.presentState } });
           onChange({ target: { name: 'permanentDistrict', value: locationDefaults.presentDistrict } });
+          onChange({ target: { name: 'permanentRangeOffice', value: locationDefaults.presentRangeOffice } });
           onChange({ target: { name: 'permanentZone', value: locationDefaults.presentZone } });
           onChange({ target: { name: 'permanentStateName', value: locationDefaults.presentStateName } });
           onChange({ target: { name: 'permanentDistrictName', value: locationDefaults.presentDistrictName } });
+          onChange({ target: { name: 'permanentRangeOfficeName', value: locationDefaults.presentRangeOfficeName } });
           onChange({ target: { name: 'permanentZoneName', value: locationDefaults.presentZoneName } });
 
           if (locationDefaults.presentDivision) {
@@ -113,8 +123,8 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
       }
     }
   }, [
-    formData.presentState, formData.presentDistrict, formData.presentZone, formData.presentDivision, formData.presentPoliceStation,
-    formData.permanentState, formData.permanentDistrict, formData.permanentZone, formData.permanentDivision, formData.permanentPoliceStation,
+    formData.presentState, formData.presentDistrict, formData.presentRangeOffice, formData.presentZone, formData.presentDivision, formData.presentPoliceStation,
+    formData.permanentState, formData.permanentDistrict, formData.permanentRangeOffice, formData.permanentZone, formData.permanentDivision, formData.permanentPoliceStation,
     onChange
   ]);
 
@@ -145,11 +155,13 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
             values={{
               state: formData.presentState || '',
               district: formData.presentDistrict || '',
+              rangeOffice: formData.presentRangeOffice || '',
               zone: formData.presentZone || '',
               division: formData.presentDivision || '',
               policeStation: formData.presentPoliceStation || '',
               stateName: formData.presentStateName,
               districtName: formData.presentDistrictName,
+              rangeOfficeName: formData.presentRangeOfficeName,
               zoneName: formData.presentZoneName,
               divisionName: formData.presentDivisionName,
               policeStationName: formData.presentPoliceStationName,
@@ -159,6 +171,7 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
             disabledFields={{
               state: isZSRole,
               district: isZSRole,
+              rangeOffice: isZSRole,
               zone: isZSRole
             }}
           />
@@ -193,11 +206,13 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
                 values={{
                   state: formData.permanentState || '',
                   district: formData.permanentDistrict || '',
+                  rangeOffice: formData.permanentRangeOffice || '',
                   zone: formData.permanentZone || '',
                   division: formData.permanentDivision || '',
                   policeStation: formData.permanentPoliceStation || '',
                   stateName: formData.permanentStateName,
                   districtName: formData.permanentDistrictName,
+                  rangeOfficeName: formData.permanentRangeOfficeName,
                   zoneName: formData.permanentZoneName,
                   divisionName: formData.permanentDivisionName,
                   policeStationName: formData.permanentPoliceStationName,

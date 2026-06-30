@@ -19,6 +19,8 @@ export const DASHBOARD_ROLE_CONFIG = ['SHO','DCP','CADO','STORE','JTCP','CP','AS
 export const LOCATION_HIERARCHY_ROLES = {
   // Roles that require district selection
   DISTRICT_REQUIRED: ['JTCP', 'CP', 'CADO', 'ADO', 'ZS', 'DCP', 'ACP', 'SHO', 'AS'] as string[],
+  // Roles that require range office selection
+  RANGE_OFFICE_REQUIRED: ['DCP', 'ZS', 'ACP', 'SHO'] as string[],
   // Roles that require zone selection
   ZONE_REQUIRED: ['DCP', 'ZS', 'ACP', 'SHO'] as string[],
   // Roles that require division selection
