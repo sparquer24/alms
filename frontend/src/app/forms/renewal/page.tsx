@@ -123,6 +123,7 @@ type RenewalFormState = {
   offence: string;
   sentence: string;
   sentenceDate: string;
+  firDetailsList: any[];
   // License History fields
   hasAppliedBefore: boolean;
   applicationDate: string;
@@ -257,6 +258,7 @@ const initialFormState: RenewalFormState = {
   offence: '',
   sentence: '',
   sentenceDate: '',
+  firDetailsList: [],
   // License History fields
   hasAppliedBefore: false,
   applicationDate: '',
@@ -522,20 +524,39 @@ const mapPresentAddressFields = (data: any) => {
       presentAddress?.policeStation?.name,
       presentAddress?.policeStationName
     ),
-    presentPincode: getTextValue(presentAddress?.pincode, presentAddress?.postalCode, data?.presentPincode),
+    presentPincode: getTextValue(
+      presentAddress?.pincode,
+      presentAddress?.postalCode,
+      data?.presentPincode
+    ),
     jurisdictionPoliceStation: getTextValue(data?.jurisdictionPoliceStation),
     residingSince: formatDate(
       presentAddress?.sinceResiding || data?.residingSince || data?.presentSince
     ),
-    sameAsPresent: Boolean(data?.sameAsPresent) || Boolean(
-      data?.permanentAddress &&
-      getAddressLine(presentAddress) === getAddressLine(data.permanentAddress) &&
-      normalizeLocationId(presentAddress?.stateId ?? presentAddress?.state?.id) === normalizeLocationId(data.permanentAddress.stateId ?? data.permanentAddress.state?.id) &&
-      normalizeLocationId(presentAddress?.districtId ?? presentAddress?.district?.id) === normalizeLocationId(data.permanentAddress.districtId ?? data.permanentAddress.district?.id) &&
-      normalizeLocationId(presentAddress?.zoneId ?? presentAddress?.zone?.id) === normalizeLocationId(data.permanentAddress.zoneId ?? data.permanentAddress.zone?.id) &&
-      normalizeLocationId(presentAddress?.divisionId ?? presentAddress?.division?.id) === normalizeLocationId(data.permanentAddress.divisionId ?? data.permanentAddress.division?.id) &&
-      normalizeLocationId(presentAddress?.policeStationId ?? presentAddress?.policeStation?.id) === normalizeLocationId(data.permanentAddress.policeStationId ?? data.permanentAddress.policeStation?.id)
-    ),
+    sameAsPresent:
+      Boolean(data?.sameAsPresent) ||
+      Boolean(
+        data?.permanentAddress &&
+        getAddressLine(presentAddress) === getAddressLine(data.permanentAddress) &&
+        normalizeLocationId(presentAddress?.stateId ?? presentAddress?.state?.id) ===
+          normalizeLocationId(data.permanentAddress.stateId ?? data.permanentAddress.state?.id) &&
+        normalizeLocationId(presentAddress?.districtId ?? presentAddress?.district?.id) ===
+          normalizeLocationId(
+            data.permanentAddress.districtId ?? data.permanentAddress.district?.id
+          ) &&
+        normalizeLocationId(presentAddress?.zoneId ?? presentAddress?.zone?.id) ===
+          normalizeLocationId(data.permanentAddress.zoneId ?? data.permanentAddress.zone?.id) &&
+        normalizeLocationId(presentAddress?.divisionId ?? presentAddress?.division?.id) ===
+          normalizeLocationId(
+            data.permanentAddress.divisionId ?? data.permanentAddress.division?.id
+          ) &&
+        normalizeLocationId(
+          presentAddress?.policeStationId ?? presentAddress?.policeStation?.id
+        ) ===
+          normalizeLocationId(
+            data.permanentAddress.policeStationId ?? data.permanentAddress.policeStation?.id
+          )
+      ),
     officePhone: getTextValue(
       presentAddress?.telephoneOffice,
       data?.telephoneOffice,
@@ -572,11 +593,21 @@ const mapPermanentAddressFields = (data: any) => {
     permanentPoliceStation: normalizeLocationId(
       permanentAddress?.policeStationId ?? permanentAddress?.policeStation?.id
     ),
-    permanentPincode: getTextValue(permanentAddress?.pincode, permanentAddress?.postalCode, data?.permanentPincode),
+    permanentPincode: getTextValue(
+      permanentAddress?.pincode,
+      permanentAddress?.postalCode,
+      data?.permanentPincode
+    ),
     permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
-    permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
+    permanentDistrictName: getTextValue(
+      permanentAddress?.district?.name,
+      permanentAddress?.districtName
+    ),
     permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
-    permanentDivisionName: getTextValue(permanentAddress?.division?.name, permanentAddress?.divisionName),
+    permanentDivisionName: getTextValue(
+      permanentAddress?.division?.name,
+      permanentAddress?.divisionName
+    ),
     permanentPoliceStationName: getTextValue(
       permanentAddress?.policeStation?.name,
       permanentAddress?.policeStationName
@@ -635,6 +666,7 @@ const CRIMINAL_FORM_KEYS: (keyof RenewalFormState)[] = [
   'offence',
   'sentence',
   'sentenceDate',
+  'firDetailsList',
 ];
 
 const LICENSE_HISTORY_EXTRA_KEYS = [
@@ -776,6 +808,58 @@ const hasSavedOccupation = (data: any) => {
 
 const hasSavedCriminal = (data: any) =>
   Boolean(Array.isArray(data?.criminalHistories) && data.criminalHistories.length > 0);
+
+const resolveFirDetailValue = (item: any, keys: string[], fallbackValue = '') => {
+  for (const key of keys) {
+    const value = item?.[key];
+    if (value === null || value === undefined) continue;
+    const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
+    if (normalized) return normalized;
+  }
+  return fallbackValue;
+};
+
+const normalizeFirDetailsList = (value: any, fallbackData: any = {}) => {
+  let firDetailsList: any = value || [];
+  if (typeof firDetailsList === 'string') {
+    try {
+      firDetailsList = JSON.parse(firDetailsList);
+    } catch {
+      firDetailsList = [];
+    }
+  }
+  if (firDetailsList && !Array.isArray(firDetailsList)) {
+    firDetailsList = [firDetailsList];
+  }
+  if (!Array.isArray(firDetailsList)) {
+    firDetailsList = [];
+  }
+
+  return firDetailsList.map((item: any, index: number) => {
+    const rawDateValue = resolveFirDetailValue(
+      item,
+      ['sentenceDate', 'date', 'DateOfSentence', 'dateOfSentence'],
+      fallbackData?.sentenceDate || ''
+    );
+    const normalizedDateValue = rawDateValue ? formatDate(rawDateValue) : '';
+    const districtValue = resolveFirDetailValue(
+      item,
+      ['district', 'District', 'districtName', 'DistrictName'],
+      fallbackData?.criminalDistrict || ''
+    );
+
+    return {
+      id: item?.id || `fir-${index}`,
+      ...(typeof item === 'object' && item ? item : {}),
+      district: districtValue,
+      District: districtValue,
+      sentenceDate: normalizedDateValue,
+      DateOfSentence: normalizedDateValue,
+      date: normalizedDateValue,
+      dateOfSentence: normalizedDateValue,
+    };
+  });
+};
 
 const getPrimaryLicenseHistory = (data: any) => {
   if (Array.isArray(data?.licenseHistories) && data.licenseHistories.length)
@@ -999,9 +1083,7 @@ const mergeRenewalStateOverFresh = (
       restoreSectionFromFresh(merged, fresh, partialLicenseKeys);
     }
 
-    const licenseFieldKeys = [
-      ...LICENSE_DETAIL_FORM_KEYS,
-    ] as const;
+    const licenseFieldKeys = [...LICENSE_DETAIL_FORM_KEYS] as const;
     for (const key of licenseFieldKeys) {
       const renewalValue = (renewal as Record<string, unknown>)[key];
       const freshValue = (fresh as Record<string, unknown>)[key];
@@ -1028,10 +1110,20 @@ const mergeRenewalStateOverFresh = (
     restoreSectionFromFresh(merged, fresh, BIOMETRIC_FORM_KEYS);
   }
 
-  if (renewalData?.isDeclarationAccepted !== undefined || renewalData?.isAwareOfLegalConsequences !== undefined || renewalData?.isTermsAccepted !== undefined || renewalData?.declaration) {
+  if (
+    renewalData?.isDeclarationAccepted !== undefined ||
+    renewalData?.isAwareOfLegalConsequences !== undefined ||
+    renewalData?.isTermsAccepted !== undefined ||
+    renewalData?.declaration
+  ) {
     merged.declaration = {
-      agreeToTruth: Boolean(renewalData?.declaration?.agreeToTruth ?? renewalData?.isDeclarationAccepted),
-      understandLegalConsequences: Boolean(renewalData?.declaration?.understandLegalConsequences ?? renewalData?.isAwareOfLegalConsequences),
+      agreeToTruth: Boolean(
+        renewalData?.declaration?.agreeToTruth ?? renewalData?.isDeclarationAccepted
+      ),
+      understandLegalConsequences: Boolean(
+        renewalData?.declaration?.understandLegalConsequences ??
+        renewalData?.isAwareOfLegalConsequences
+      ),
       agreeToTerms: Boolean(renewalData?.declaration?.agreeToTerms ?? renewalData?.isTermsAccepted),
     };
   }
@@ -1167,8 +1259,8 @@ const mapLicenseHistoryFields = (data: any) => {
   const familyWeapons = licenseHistory?.familyWeaponsEndorsed;
   const weaponEndorsedList = Array.isArray(familyWeapons)
     ? familyWeapons.map((weapon: string, index: number) => ({
-        id: `weapon-${index}-${weapon}`,
-        value: String(weapon).toLowerCase(),
+        id: `weapon-${index}-${String(weapon).replace(/\s+/g, '-').toLowerCase()}`,
+        value: String(weapon),
       }))
     : undefined;
 
@@ -1183,7 +1275,9 @@ const mapLicenseHistoryFields = (data: any) => {
       licenseHistory?.previousAuthorityName,
       data?.authorityAppliedTo
     ),
-    applicationResult: getTextValue(licenseHistory?.previousResult, data?.applicationResult),
+    applicationResult: mapLicenseResultToUi(
+      getTextValue(licenseHistory?.previousResult, data?.applicationResult)
+    ),
     licenseRevokedOrSuspended: Boolean(
       licenseHistory?.hasLicenceSuspended || data?.licenseRevokedOrSuspended
     ),
@@ -1211,18 +1305,9 @@ const mapLicenseHistoryFields = (data: any) => {
 const mapCriminalHistoryFields = (data: any) => {
   if (!hasSavedCriminal(data)) return {};
 
-  const primaryCriminal = data.criminalHistories[0];
-  let firDetails = primaryCriminal?.firDetails || [];
-  if (typeof firDetails === 'string') {
-    try {
-      firDetails = JSON.parse(firDetails);
-    } catch {
-      firDetails = [];
-    }
-  }
-  if (!Array.isArray(firDetails)) {
-    firDetails = [];
-  }
+  const primaryCriminal = data.criminalHistories?.[0];
+  const firDetailsList = normalizeFirDetailsList(primaryCriminal?.firDetails || [], data);
+  const firstFirDetail = firDetailsList?.[0];
 
   return {
     convictedStatus: primaryCriminal
@@ -1242,28 +1327,30 @@ const mapCriminalHistoryFields = (data: any) => {
       ? formatDate(primaryCriminal.prohibitionDate)
       : getTextValue(data?.prohibitedSentenceDate),
     prohibitedPeriod: getTextValue(primaryCriminal?.prohibitionPeriod, data?.prohibitedPeriod),
-    firNumber: getTextValue(firDetails?.[0]?.firNumber, data?.firNumber),
-    underSection: getTextValue(firDetails?.[0]?.underSection, data?.underSection),
-    policeStationCriminal: getTextValue(
-      firDetails?.[0]?.policeStation,
-      data?.policeStationCriminal
+    firDetailsList,
+    firNumber: getTextValue(firstFirDetail?.firNumber, data?.firNumber),
+    underSection: getTextValue(firstFirDetail?.underSection, data?.underSection),
+    policeStationCriminal: getTextValue(firstFirDetail?.policeStation, data?.policeStationCriminal),
+    criminalUnit: getTextValue(firstFirDetail?.unit, data?.criminalUnit),
+    criminalDistrict: resolveFirDetailValue(
+      firstFirDetail,
+      ['district', 'District', 'districtName', 'DistrictName'],
+      getTextValue(primaryCriminal?.district, primaryCriminal?.District, data?.criminalDistrict)
     ),
-    criminalUnit: getTextValue(firDetails?.[0]?.unit, data?.criminalUnit),
-    criminalDistrict: getTextValue(
-      firDetails?.[0]?.district,
-      firDetails?.[0]?.District,
-      data?.criminalDistrict
+    criminalState: resolveFirDetailValue(
+      firstFirDetail,
+      ['state', 'State', 'stateName', 'StateName'],
+      getTextValue(primaryCriminal?.state, primaryCriminal?.State, data?.criminalState)
     ),
-    criminalState: getTextValue(firDetails?.[0]?.state, data?.criminalState),
-    offence: getTextValue(firDetails?.[0]?.offence, data?.offence),
-    sentence: getTextValue(firDetails?.[0]?.sentence, data?.sentence),
-    sentenceDate: firDetails?.[0]?.date
-      ? formatDate(firDetails[0].date)
-      : firDetails?.[0]?.DateOfSentence
-        ? formatDate(firDetails[0].DateOfSentence)
-        : firDetails?.[0]?.sentenceDate
-          ? formatDate(firDetails[0].sentenceDate)
-          : getTextValue(data?.sentenceDate),
+    offence: getTextValue(firstFirDetail?.offence, data?.offence),
+    sentence: getTextValue(firstFirDetail?.sentence, data?.sentence),
+    sentenceDate: firstFirDetail?.sentenceDate
+      ? firstFirDetail.sentenceDate
+      : resolveFirDetailValue(
+          firstFirDetail,
+          ['DateOfSentence', 'date', 'sentenceDate', 'dateOfSentence'],
+          getTextValue(data?.sentenceDate)
+        ),
   };
 };
 
@@ -1661,10 +1748,13 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     licenseDetails.areaOfValidity = areaOfValidityParts.join(', ');
   }
 
-  if (formData.ammunitionDescription) licenseDetails.ammunitionDescription = formData.ammunitionDescription;
-  if (formData.specialConsiderationClaim) licenseDetails.specialConsiderationReason = formData.specialConsiderationClaim;
+  if (formData.ammunitionDescription)
+    licenseDetails.ammunitionDescription = formData.ammunitionDescription;
+  if (formData.specialConsiderationClaim)
+    licenseDetails.specialConsiderationReason = formData.specialConsiderationClaim;
   if (formData.formIVPlaceArea) licenseDetails.licencePlaceArea = formData.formIVPlaceArea;
-  if (formData.formIVWildBeastsSpec) licenseDetails.wildBeastsSpecification = formData.formIVWildBeastsSpec;
+  if (formData.formIVWildBeastsSpec)
+    licenseDetails.wildBeastsSpecification = formData.formIVWildBeastsSpec;
 
   // Convert requestedWeaponIds to array of numbers
   const weaponIds: number[] = [];
@@ -1706,37 +1796,77 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     hasSafePlace: Boolean(formData.hasSafeCustody),
     safePlaceDetails: formData.safeCustodyDetails || '',
     hasTraining: Boolean(formData.hasTrainingUnderRule10),
-    trainingDetails: formData.trainingDetails || ''
+    trainingDetails: formData.trainingDetails || '',
   };
   payload.licenseHistories = [licenseHistoryPayload];
 
   // Criminal History - map all fields to request body
-  payload.criminalHistories = [{
-    isConvicted: Boolean(formData.convictedStatus),
-    isBondExecuted: Boolean(formData.bondStatus),
-    bondDate: formData.bondSentenceDate || undefined,
-    bondPeriod: formData.bondPeriod || '',
-    isProhibited: Boolean(formData.prohibitedStatus),
-    prohibitionDate: formData.prohibitedSentenceDate || undefined,
-    prohibitionPeriod: formData.prohibitedPeriod || '',
-    firDetails: [{
-      firNumber: formData.firNumber || '',
-      underSection: formData.underSection || '',
-      policeStation: formData.policeStationCriminal || '',
-      unit: formData.criminalUnit || '',
-      district: formData.criminalDistrict || '',
-      state: formData.criminalState || '',
-      offence: formData.offence || '',
-      sentence: formData.sentence || '',
-      sentenceDate: formData.sentenceDate || undefined
-    }]
-  }];
+  const normalizedFirDetails =
+    Array.isArray(formData.firDetailsList) && formData.firDetailsList.length > 0
+      ? formData.firDetailsList.map((item: any) => {
+          const districtValue =
+            item?.district ||
+            item?.District ||
+            item?.districtName ||
+            item?.DistrictName ||
+            formData.criminalDistrict ||
+            '';
+          const sentenceDateValue =
+            item?.sentenceDate ||
+            item?.DateOfSentence ||
+            item?.date ||
+            item?.dateOfSentence ||
+            formData.sentenceDate ||
+            undefined;
+
+          return {
+            firNumber: item.firNumber || '',
+            underSection: item.underSection || '',
+            policeStation: item.policeStation || '',
+            unit: item.unit || '',
+            District: districtValue,
+            district: districtValue,
+            state: item.state || '',
+            offence: item.offence || '',
+            sentence: item.sentence || '',
+            DateOfSentence: sentenceDateValue,
+            sentenceDate: sentenceDateValue,
+          };
+        })
+      : [
+          {
+            firNumber: formData.firNumber || '',
+            underSection: formData.underSection || '',
+            policeStation: formData.policeStationCriminal || '',
+            unit: formData.criminalUnit || '',
+            District: formData.criminalDistrict || '',
+            district: formData.criminalDistrict || '',
+            state: formData.criminalState || '',
+            offence: formData.offence || '',
+            sentence: formData.sentence || '',
+            DateOfSentence: formData.sentenceDate || undefined,
+            sentenceDate: formData.sentenceDate || undefined,
+          },
+        ];
+
+  payload.criminalHistories = [
+    {
+      isConvicted: Boolean(formData.convictedStatus),
+      isBondExecuted: Boolean(formData.bondStatus),
+      bondDate: formData.bondSentenceDate || undefined,
+      bondPeriod: formData.bondPeriod || '',
+      isProhibited: Boolean(formData.prohibitedStatus),
+      prohibitionDate: formData.prohibitedSentenceDate || undefined,
+      prohibitionPeriod: formData.prohibitedPeriod || '',
+      firDetails: normalizedFirDetails,
+    },
+  ];
 
   // Biometric Details
   payload.biometricData = {
     fingerprints: formData.selectedFingerprint || null,
     signature: formData.signature || null,
-    irisScan: formData.irisScan || null
+    irisScan: formData.irisScan || null,
   };
 
   // Document Uploads
@@ -1747,7 +1877,7 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
       return {
         fileUrl: fileState.url || fileState.fileUrl,
         fileName: fileState.name || fileState.fileName || 'document',
-        fileSize: fileState.size || fileState.fileSize || 0
+        fileSize: fileState.size || fileState.fileSize || 0,
       };
     }
     return null;
@@ -1774,7 +1904,7 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
         fileType,
         fileUrl: fileData.fileUrl,
         fileName: fileData.fileName,
-        fileSize: fileData.fileSize || 0
+        fileSize: fileData.fileSize || 0,
       });
     }
   });
@@ -1837,16 +1967,11 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
     ...mapBiometricFields(data),
     ...mapDocumentUploadFields(data, collectRenewalFileIds(data)),
     declaration: {
-      agreeToTruth: Boolean(
-        data?.declaration?.agreeToTruth ?? data?.isDeclarationAccepted
-      ),
+      agreeToTruth: Boolean(data?.declaration?.agreeToTruth ?? data?.isDeclarationAccepted),
       understandLegalConsequences: Boolean(
-        data?.declaration?.understandLegalConsequences ??
-        data?.isAwareOfLegalConsequences
+        data?.declaration?.understandLegalConsequences ?? data?.isAwareOfLegalConsequences
       ),
-      agreeToTerms: Boolean(
-        data?.declaration?.agreeToTerms ?? data?.isTermsAccepted
-      ),
+      agreeToTerms: Boolean(data?.declaration?.agreeToTerms ?? data?.isTermsAccepted),
     },
     hasSubmittedTrueInfo: Boolean(data?.hasSubmittedTrueInfo || data?.isSubmit),
   };
@@ -1943,12 +2068,12 @@ const createDraftRenewalFromFreshApplication = async (
       newRenewalId,
       prefilledForm
     );
-setFormData(syncedForm as RenewalFormState);
-     setStatusMessage(
-       synced
-         ? `Created renewal ${getTextValue(created?.acknowledgementNo, newRenewalId)}; prefilled documents saved via upload-file.`
-         : `Created renewal application ${getTextValue(created?.acknowledgementNo, newRenewalId)}.`
-     );
+    setFormData(syncedForm as RenewalFormState);
+    setStatusMessage(
+      synced
+        ? `Created renewal ${getTextValue(created?.acknowledgementNo, newRenewalId)}; prefilled documents saved via upload-file.`
+        : `Created renewal application ${getTextValue(created?.acknowledgementNo, newRenewalId)}.`
+    );
     router.replace(
       `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(newRenewalId)}`
     );
@@ -2004,7 +2129,9 @@ function RenewalFormPageContent() {
   const resolvedApplicationId = urlApplicationId || enteredAppId;
   const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'>('ENTER_APP_ID');
+  const [verificationStatus, setVerificationStatus] = useState<
+    'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'
+  >('ENTER_APP_ID');
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [biometricTargetThumb, setBiometricTargetThumb] = useState<string | null>(null);
   const [applicantDetails, setApplicantDetails] = useState<{
@@ -2119,7 +2246,11 @@ function RenewalFormPageContent() {
     if (!template) {
       throw new Error('No template available from last capture');
     }
-    const result = await MantraSDKService.verifyTemplate(enrolledTemplates[0].template, template, 65);
+    const result = await MantraSDKService.verifyTemplate(
+      enrolledTemplates[0].template,
+      template,
+      65
+    );
     return { matchScore: result.score, matched: result.isMatch };
   };
 
@@ -2168,25 +2299,24 @@ function RenewalFormPageContent() {
       const numericAppId = String(freshData.id || freshData.applicationId || appId);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
-      
+
       const userThumbprints = fingerprints
         .filter((f: any) => f.position === 'RIGHT_THUMB' || f.position === 'LEFT_THUMB')
         .map((f: any) => ({
           template: f.template,
           fingerPosition: f.position,
-          applicationId: numericAppId
+          applicationId: numericAppId,
         }));
 
-      const name = [
-        freshData.firstName,
-        freshData.middleName,
-        freshData.lastName
-      ].filter(Boolean).join(' ') || freshData.applicantName || 'Applicant';
+      const name =
+        [freshData.firstName, freshData.middleName, freshData.lastName].filter(Boolean).join(' ') ||
+        freshData.applicantName ||
+        'Applicant';
 
       const details = {
         name,
         licenseNumber: getLicenseNumber(freshData) || 'Pending',
-        applicationId: numericAppId
+        applicationId: numericAppId,
       };
       setApplicantDetails(details);
 
@@ -2238,7 +2368,9 @@ function RenewalFormPageContent() {
 
       const status = await MantraSDKService.isDeviceConnected();
       if (!status.isConnected) {
-        setVerificationError('Fingerprint device is not connected. Please connect the device and try again.');
+        setVerificationError(
+          'Fingerprint device is not connected. Please connect the device and try again.'
+        );
         setDeviceConnected(false);
         setShowDeviceSettings(true);
         setShowCapturingModal(false);
@@ -2295,13 +2427,17 @@ function RenewalFormPageContent() {
     try {
       setFingerprintCapturing(true);
       setVerificationChecking(true);
-      
+
       let matchFound = false;
       const liveTemplate = pendingCaptureResult.template;
-      
+
       for (const storedFp of enrolledTemplates) {
         try {
-          const matchResult = await MantraSDKService.verifyTemplate(storedFp.template, liveTemplate, 65);
+          const matchResult = await MantraSDKService.verifyTemplate(
+            storedFp.template,
+            liveTemplate,
+            65
+          );
           if (matchResult.isMatch || matchResult.score >= 65) {
             matchFound = true;
             break;
@@ -2320,7 +2456,9 @@ function RenewalFormPageContent() {
         setIsVerified(true);
         setVerificationStatus('VERIFIED');
       } else {
-        setVerificationError('Verification failed: Scanned fingerprint does not match. Please try again.');
+        setVerificationError(
+          'Verification failed: Scanned fingerprint does not match. Please try again.'
+        );
       }
     } catch (error: any) {
       setVerificationError(error.message || 'Verification check failed.');
@@ -2403,6 +2541,20 @@ function RenewalFormPageContent() {
     declaration: true,
   });
 
+  const [sectionCompleted, setSectionCompleted] = useState<Record<string, boolean>>({
+    personal: false,
+    address: false,
+    occupation: false,
+    criminal: false,
+    licenseDetails: false,
+    licenseHistory: false,
+    biometric: false,
+    documents: false,
+  });
+
+  const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
+
+  const [savingSection, setSavingSection] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -2441,7 +2593,9 @@ function RenewalFormPageContent() {
         throw new Error('No saved renewal data was returned for the renewal ID.');
       }
 
-      const workflowCode = String(renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || '').toUpperCase();
+      const workflowCode = String(
+        renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || ''
+      ).toUpperCase();
       const isSubmitted = Boolean(renewalData?.isSubmit);
       if (workflowCode === 'APPROVED' || isSubmitted) {
         setIsReadOnly(true);
@@ -2454,8 +2608,14 @@ function RenewalFormPageContent() {
       const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
       let mergedFormData: RenewalFormState;
       if (freshData) {
-        const freshFormState = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
-        const renewalFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
+        const freshFormState = buildFieldStateFromFreshApplication(
+          resolvedApplicationId,
+          freshData
+        );
+        const renewalFormData = await buildFormDataFromRenewalRecord(
+          renewalData,
+          resolvedApplicationId
+        );
         mergedFormData = mergeRenewalStateOverFresh(freshFormState, renewalFormData, renewalData);
       } else {
         mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
@@ -2502,7 +2662,10 @@ function RenewalFormPageContent() {
 
           if (existingRenewal) {
             // Existing renewal found — load renewal data as sole source of truth.
-            const existingRenewalId = getTextValue(existingRenewal?.id, existingRenewal?.renewalApplicationId);
+            const existingRenewalId = getTextValue(
+              existingRenewal?.id,
+              existingRenewal?.renewalApplicationId
+            );
             if (existingRenewalId) {
               createdRenewalIdRef.current = existingRenewalId;
               await loadRenewalById(existingRenewalId);
@@ -2518,7 +2681,8 @@ function RenewalFormPageContent() {
         const prefilledForm = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
 
         // Validate that the fresh application has been submitted.
-        const applicationCheckResponse = await ApplicationService.getApplication(resolvedApplicationId);
+        const applicationCheckResponse =
+          await ApplicationService.getApplication(resolvedApplicationId);
         const isSubmitted =
           applicationCheckResponse?.isSubmit === true ||
           applicationCheckResponse?.data?.isSubmit === true;
@@ -2546,14 +2710,14 @@ function RenewalFormPageContent() {
   }, [isVerified, urlApplicationId, enteredAppId, renewalId, router]);
 
   function handleChange(
-          event:
-            | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-            | { target: { name: string; value: unknown; type?: string; checked?: boolean } }
-        ) {
-          if (isReadOnly) {
-            setShowReadOnlyModal(true);
-            return;
-          }
+    event:
+      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+      | { target: { name: string; value: unknown; type?: string; checked?: boolean } }
+  ) {
+    if (isReadOnly) {
+      setShowReadOnlyModal(true);
+      return;
+    }
     const { name, type, value, checked } = event.target as {
       name: string;
       value?: unknown;
@@ -2674,6 +2838,7 @@ function RenewalFormPageContent() {
         next.offence = '';
         next.sentence = '';
         next.sentenceDate = '';
+        next.firDetailsList = [];
       }
 
       if (name === 'bondStatus' && rawValue === false) {
@@ -2700,6 +2865,7 @@ function RenewalFormPageContent() {
       if (name === 'familyMemberHasLicense' && rawValue === false) {
         next.familyMemberName = '';
         next.familyLicenseNumber = '';
+        next.weaponEndorsedList = [];
       }
 
       if (name === 'hasSafeCustody' && rawValue === false) {
@@ -2736,6 +2902,7 @@ function RenewalFormPageContent() {
         'offence',
         'sentence',
         'sentenceDate',
+        'firDetailsList',
       ]);
     }
 
@@ -2760,7 +2927,11 @@ function RenewalFormPageContent() {
     }
 
     if (name === 'familyMemberHasLicense' && rawValue === false) {
-      clearErrorKeys(setLicenseHistoryErrors, ['familyMemberName', 'familyLicenseNumber']);
+      clearErrorKeys(setLicenseHistoryErrors, [
+        'familyMemberName',
+        'familyLicenseNumber',
+        'weaponEndorsedList',
+      ]);
     }
 
     if (name === 'hasSafeCustody' && rawValue === false) {
@@ -2830,6 +3001,350 @@ function RenewalFormPageContent() {
     return base;
   };
 
+  const validatePersonalDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: keyof RenewalFormState, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key as string] = `${label} is required`;
+    };
+    requireField('applicantName', 'First name');
+    requireField('applicantLastName', 'Last name');
+    requireField('filledBy', 'Application filled by');
+    requireField('fatherName', 'Parent/Spouse name');
+    requireField('applicantDateOfBirth', 'Date of birth');
+    requireField('dobInWords', 'Date of birth in words');
+    requireField('panNumber', 'PAN');
+    requireField('aadharNumber', 'Aadhar number');
+
+    if (
+      data.panNumber &&
+      String(data.panNumber).trim().length > 0 &&
+      String(data.panNumber).trim().length !== 10
+    )
+      errs['panNumber'] = 'PAN must be 10 characters';
+    if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim()))
+      errs['aadharNumber'] = 'Aadhar must be 12 digits';
+
+    if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
+    return errs;
+  };
+
+  const validateAddressDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+    requireField('presentAddress', 'Present address');
+    requireField('presentState', 'Present state');
+    requireField('presentDistrict', 'Present district');
+    if (!data.sameAsPresent) {
+      requireField('permanentAddress', 'Permanent address');
+      requireField('permanentState', 'Permanent state');
+      requireField('permanentDistrict', 'Permanent district');
+    }
+    return errs;
+  };
+
+  const validateOccupationDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+    requireField('occupation', 'Occupation');
+    requireField('officeBusinessAddress', 'Office/Business address');
+    requireField('officeBusinessState', 'Office/Business state');
+    requireField('officeBusinessDistrict', 'Office/Business district');
+    requireField('cropProtectionLocation', 'Location');
+    requireField('cultivatedArea', 'Area of land under cultivation');
+    return errs;
+  };
+
+  const validateLicenseDetails = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+    requireField('weaponReason', 'Need for license (15)');
+    requireField('ammunitionDescription', 'Ammunition Description');
+    if (!data.specialEvidenceUploaded) {
+      errs['specialEvidenceUploaded'] = 'Documentary evidence is required.';
+    }
+    if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
+      errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
+    }
+    if (!data.armsOptionType) {
+      errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
+    }
+    const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
+      ? data.requestedWeaponIds
+      : data.weaponId
+        ? [Number(String(data.weaponId))]
+        : [];
+    if (!selectedWeaponIds.length) {
+      errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
+    }
+    return errs;
+  };
+
+  const validateCriminalHistory = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+
+    if (data.convictedStatus) {
+      const firList = Array.isArray(data.firDetailsList) ? data.firDetailsList : [];
+      if (firList.length === 0) {
+        errs['firDetailsList'] = 'At least one FIR detail is required';
+      } else {
+        firList.forEach((item: any, idx: number) => {
+          const missing = [
+            { key: 'firNumber', label: 'FIR Number' },
+            { key: 'underSection', label: 'Under Section' },
+            { key: 'policeStation', label: 'Police Station' },
+            { key: 'unit', label: 'Unit' },
+            { key: 'district', label: 'District' },
+            { key: 'state', label: 'State' },
+            { key: 'offence', label: 'Offence' },
+            { key: 'sentence', label: 'Sentence' },
+            { key: 'sentenceDate', label: 'Date of Sentence' },
+          ];
+          missing.forEach(field => {
+            const value = item?.[field.key];
+            if (!value || String(value).trim() === '') {
+              errs['firDetailsList'] = 'Complete all FIR details';
+            }
+          });
+        });
+      }
+    }
+
+    if (data.bondStatus) {
+      requireField('bondSentenceDate', 'Date of Sentence');
+      requireField('bondPeriod', 'Period of which bond');
+    }
+
+    if (data.prohibitedStatus) {
+      requireField('prohibitedSentenceDate', 'Date of Sentence');
+      requireField('prohibitedPeriod', 'Period of which bound');
+    }
+
+    return errs;
+  };
+
+  const validateLicenseHistory = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    const requireField = (key: string, label: string) => {
+      const v = (data as any)[key];
+      if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
+    };
+
+    if (data.hasAppliedBefore) {
+      requireField('applicationDate', 'Date of Application');
+      requireField('authorityAppliedTo', 'Authority Applied To');
+      requireField('applicationResult', 'Result');
+    }
+
+    if (data.licenseRevokedOrSuspended) {
+      requireField('revokedByAuthority', 'Revoked by Authority');
+      requireField('revokedReason', 'Reason');
+    }
+
+    if (data.familyMemberHasLicense) {
+      requireField('familyMemberName', 'Name');
+      requireField('familyLicenseNumber', 'License Number');
+
+      const weapons = Array.isArray(data.weaponEndorsedList) ? data.weaponEndorsedList : [];
+      if (weapons.length === 0) {
+        errs['weaponEndorsedList'] = 'At least one weapon is required';
+      } else {
+        const hasEmptyWeapon = weapons.some((w: any) => {
+          if (typeof w === 'string') return w.trim() === '';
+          return !w.value || String(w.value).trim() === '';
+        });
+        if (hasEmptyWeapon) {
+          errs['weaponEndorsedList'] = 'Please select all weapons';
+        }
+      }
+    }
+
+    if (data.hasSafeCustody) {
+      requireField('safeCustodyDetails', 'Safe Custody Details');
+    }
+
+    if (data.hasTrainingUnderRule10) {
+      requireField('trainingDetails', 'Training Details');
+    }
+
+    return errs;
+  };
+
+  const validateDocumentsUpload = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
+    if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
+    if (!data.medicalCertificateUploaded)
+      errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
+    return errs;
+  };
+
+  const buildSectionSpecificPayload = (
+    sectionKey: string,
+    formData: RenewalFormState
+  ): Record<string, any> => {
+    const full = buildRenewalPatchPayload(formData);
+    switch (sectionKey) {
+      case 'personal':
+        return full.personalDetails ? { personalDetails: full.personalDetails } : {};
+      case 'address':
+        return full.addressDetails ? { addressDetails: full.addressDetails } : {};
+      case 'occupation':
+        return full.occupationAndBusiness
+          ? { occupationAndBusiness: full.occupationAndBusiness }
+          : {};
+      case 'criminal':
+        return { criminalHistories: full.criminalHistories };
+      case 'licenseDetails':
+        return full.licenseDetails ? { licenseDetails: full.licenseDetails } : {};
+      case 'licenseHistory':
+        return { licenseHistories: full.licenseHistories };
+      case 'biometric':
+        return { biometricData: full.biometricData };
+      case 'documents':
+        return full.fileUploads ? { fileUploads: full.fileUploads } : {};
+      default:
+        return {};
+    }
+  };
+
+  const handleSectionComplete = async (sectionKey: string) => {
+    const activeRenewalId = renewalId || createdRenewalIdRef.current;
+    if (!activeRenewalId) {
+      toast.error('Renewal ID not available yet. Please wait for the form to load.');
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+      return;
+    }
+
+    // Run section-specific validation
+    let sectionErrors: Record<string, string> = {};
+    if (sectionKey === 'personal') {
+      sectionErrors = validatePersonalDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setPersonalErrors(sectionErrors);
+        scheduleSectionFocus(personalSectionRef, 'personal');
+      }
+    } else if (sectionKey === 'address') {
+      sectionErrors = validateAddressDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setAddressErrors(sectionErrors);
+        scheduleSectionFocus(addressSectionRef, 'address');
+      }
+    } else if (sectionKey === 'occupation') {
+      sectionErrors = validateOccupationDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setOccupationErrors(sectionErrors);
+        scheduleSectionFocus(occupationSectionRef, 'occupation');
+      }
+    } else if (sectionKey === 'criminal') {
+      sectionErrors = validateCriminalHistory(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        // We don't have a specific state for criminalErrors in page.tsx right now,
+        // but returning them stops completion. We can add setCriminalErrors if needed,
+        // or just rely on toast.
+        // For now, this effectively stops it from saving and shows the generic "Failed to save" or "Fix validation errors" via toast.
+      }
+    } else if (sectionKey === 'licenseDetails') {
+      sectionErrors = validateLicenseDetails(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setLicenseDetailsErrors(sectionErrors);
+        scheduleSectionFocus(licenseDetailsSectionRef, 'licenseDetails');
+      }
+    } else if (sectionKey === 'licenseHistory') {
+      sectionErrors = validateLicenseHistory(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        // Also missing setLicenseHistoryErrors state, but returning errors prevents completion
+      }
+    } else if (sectionKey === 'documents') {
+      sectionErrors = validateDocumentsUpload(formData);
+      if (Object.keys(sectionErrors).length > 0) {
+        setDocumentsErrors(sectionErrors);
+        scheduleSectionFocus(documentsSectionRef, 'documents');
+      }
+    }
+
+    if (Object.keys(sectionErrors).length > 0) {
+      toast.error('Please fix validation errors in this section before marking it complete.');
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSavingSection(sectionKey);
+      setError(null);
+      const sectionPayload = buildSectionSpecificPayload(sectionKey, formData);
+      if (Object.keys(sectionPayload).length === 0) {
+        toast.warning('No data to save for this section.');
+        setSectionCompleted(prev => ({ ...prev, [sectionKey]: true }));
+        return;
+      }
+      await RenewalService.updateRenewalForm(activeRenewalId, sectionPayload);
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: true }));
+      toast.success(
+        `${sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)} section saved successfully.`
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save section. Please try again.');
+      setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
+    } finally {
+      setIsSaving(false);
+      setSavingSection(null);
+    }
+  };
+
+  useEffect(() => {
+    // Dynamically uncheck sections if required fields become missing/invalid
+    setSectionCompleted(prev => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (prev.personal && Object.keys(validatePersonalDetails(formData)).length > 0) {
+        next.personal = false;
+        changed = true;
+      }
+      if (prev.address && Object.keys(validateAddressDetails(formData)).length > 0) {
+        next.address = false;
+        changed = true;
+      }
+      if (prev.occupation && Object.keys(validateOccupationDetails(formData)).length > 0) {
+        next.occupation = false;
+        changed = true;
+      }
+      if (prev.criminal && Object.keys(validateCriminalHistory(formData)).length > 0) {
+        next.criminal = false;
+        changed = true;
+      }
+      if (prev.licenseDetails && Object.keys(validateLicenseDetails(formData)).length > 0) {
+        next.licenseDetails = false;
+        changed = true;
+      }
+      if (prev.licenseHistory && Object.keys(validateLicenseHistory(formData)).length > 0) {
+        next.licenseHistory = false;
+        changed = true;
+      }
+      if (prev.documents && Object.keys(validateDocumentsUpload(formData)).length > 0) {
+        next.documents = false;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [formData]);
+
   const persistRenewalForm = async (isSubmit: boolean) => {
     const activeRenewalId = renewalId || createdRenewalIdRef.current;
 
@@ -2839,35 +3354,6 @@ function RenewalFormPageContent() {
     }
 
     // Client-side validation before saving/submitting
-    const validatePersonalDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: keyof RenewalFormState, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key as string] = `${label} is required`;
-      };
-
-      requireField('applicantName', 'First name');
-      requireField('applicantLastName', 'Last name');
-      requireField('filledBy', 'Application filled by');
-      requireField('fatherName', 'Parent/Spouse name');
-      requireField('applicantDateOfBirth', 'Date of birth');
-      requireField('dobInWords', 'Date of birth in words');
-      requireField('panNumber', 'PAN');
-      requireField('aadharNumber', 'Aadhar number');
-
-      if (
-        data.panNumber &&
-        String(data.panNumber).trim().length > 0 &&
-        String(data.panNumber).trim().length !== 10
-      )
-        errs['panNumber'] = 'PAN must be 10 characters';
-      if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim()))
-        errs['aadharNumber'] = 'Aadhar must be 12 digits';
-
-      if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
-      return errs;
-    };
-
     const preSaveErrors = validatePersonalDetails(formData);
     if (Object.keys(preSaveErrors).length > 0) {
       setPersonalErrors(preSaveErrors);
@@ -2875,30 +3361,6 @@ function RenewalFormPageContent() {
       setError('Please fix validation errors before continuing.');
       return false;
     }
-
-    // Address validation (core fields required)
-    const validateAddressDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      requireField('presentAddress', 'Present address');
-      requireField('presentState', 'Present state');
-      requireField('presentDistrict', 'Present district');
-      // Residing since is optional as it may not always be available
-      // Location hierarchy (zone, division, police station) may be optional based on jurisdiction
-
-      if (!data.sameAsPresent) {
-        requireField('permanentAddress', 'Permanent address');
-        requireField('permanentState', 'Permanent state');
-        requireField('permanentDistrict', 'Permanent district');
-        // Location hierarchy for permanent is optional
-      }
-
-      return errs;
-    };
 
     const addressValidationErrors = validateAddressDetails(formData);
     if (Object.keys(addressValidationErrors).length > 0) {
@@ -2908,24 +3370,6 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    // Occupation validation (all required)
-    const validateOccupationDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      requireField('occupation', 'Occupation');
-      requireField('officeBusinessAddress', 'Office/Business address');
-      requireField('officeBusinessState', 'Office/Business state');
-      requireField('officeBusinessDistrict', 'Office/Business district');
-      requireField('cropProtectionLocation', 'Location');
-      requireField('cultivatedArea', 'Area of land under cultivation');
-
-      return errs;
-    };
-
     const occupationValidationErrors = validateOccupationDetails(formData);
     if (Object.keys(occupationValidationErrors).length > 0) {
       setOccupationErrors(occupationValidationErrors);
@@ -2934,40 +3378,11 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    // Criminal and License History sections are not applicable for Renewal Forms
-
-    const validateLicenseDetails = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      const requireField = (key: string, label: string) => {
-        const v = (data as any)[key];
-        if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-      };
-
-      requireField('weaponReason', 'Need for license (15)');
-      requireField('ammunitionDescription', 'Ammunition Description');
-
-      // Only require these if they are relevant or just let them be optional since they are optional in DTO
-      // requireField('specialConsiderationClaim', 'Claims for special consideration (18)');
-      // requireField('formIVPlaceArea', 'Place or area for which the licence is sought (19a)');
-      // requireField('formIVWildBeastsSpec', 'Specification of the wild beasts (19b)');
-
-      if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
-        errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
-      }
-      if (!data.armsOptionType) {
-        errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
-      }
-      const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
-        ? data.requestedWeaponIds
-        : data.weaponId
-          ? [Number(String(data.weaponId))]
-          : [];
-      if (!selectedWeaponIds.length) {
-        errs['requestedWeaponIds'] = 'Select at least one weapon type (16b)';
-      }
-
-      return errs;
-    };
+    const criminalValidationErrors = validateCriminalHistory(formData);
+    if (Object.keys(criminalValidationErrors).length > 0) {
+      setError('Please fix validation errors in Criminal History before continuing.');
+      return false;
+    }
 
     const licenseDetailsValidationErrors = validateLicenseDetails(formData);
     if (Object.keys(licenseDetailsValidationErrors).length > 0) {
@@ -2977,14 +3392,11 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    const validateDocumentsUpload = (data: RenewalFormState) => {
-      const errs: Record<string, string> = {};
-      if (!data.idProofUploaded) errs['idProofUploaded'] = 'Aadhar Card document is required.';
-      if (!data.panCardUploaded) errs['panCardUploaded'] = 'PAN Card document is required.';
-      if (!data.medicalCertificateUploaded)
-        errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
-      return errs;
-    };
+    const licenseHistoryValidationErrors = validateLicenseHistory(formData);
+    if (Object.keys(licenseHistoryValidationErrors).length > 0) {
+      setError('Please fix validation errors in License History before continuing.');
+      return false;
+    }
 
     const documentsValidationErrors = validateDocumentsUpload(formData);
     if (Object.keys(documentsValidationErrors).length > 0) {
@@ -3074,12 +3486,31 @@ function RenewalFormPageContent() {
       return false;
     }
 
-    const success = await persistRenewalForm(true);
-    if (success) {
+    const activeRenewalId = renewalId || createdRenewalIdRef.current;
+    if (!activeRenewalId) {
+      setError('Renewal ID not available yet.');
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      const submitPayload = {
+        isDeclarationAccepted: true,
+        isAwareOfLegalConsequences: true,
+        isTermsAccepted: true,
+        isSubmit: true,
+      };
+      await RenewalService.updateRenewalForm(activeRenewalId, submitPayload, { isSubmit: true });
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
+      return true;
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit renewal application.');
+      return false;
+    } finally {
+      setIsSaving(false);
     }
-    return success;
   };
 
   const handleSuccessContinue = () => {
@@ -3115,24 +3546,31 @@ function RenewalFormPageContent() {
     }
   };
 
-    if (!isVerified) {
-      return (
-        <div className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]" role='main'>
-          <div className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]' aria-hidden='true' />
-          <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
-            <div className="max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300">
-              {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
-                <div className="space-y-6 py-8 text-center">
-                  <div className="mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center">
-                    <span className="text-xl">🪪</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900">Loading Application Context...</h3>
-                  <p className="text-sm text-gray-500">Checking biometric requirements</p>
+  if (!isVerified) {
+    return (
+      <div
+        className="min-h-screen flex flex-col bg-cover bg-center bg-fixed relative overflow-hidden bg-[url('/backgroundIMGALMS.jpeg')]"
+        role='main'
+      >
+        <div
+          className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
+          aria-hidden='true'
+        />
+        <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
+          <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300'>
+            {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
+              <div className='space-y-6 py-8 text-center'>
+                <div className='mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center'>
+                  <span className='text-xl'>🪪</span>
                 </div>
-              ) : verificationStatus === 'ENTER_APP_ID' && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <div className="mb-6 flex justify-center">
+                <h3 className='text-lg font-bold text-gray-900'>Loading Application Context...</h3>
+                <p className='text-sm text-gray-500'>Checking biometric requirements</p>
+              </div>
+            ) : (
+              verificationStatus === 'ENTER_APP_ID' && (
+                <div className='space-y-6'>
+                  <div className='text-center'>
+                    <div className='mb-6 flex justify-center'>
                       <img
                         src='/icon-alms.svg'
                         alt='ALMS Logo'
@@ -3141,204 +3579,255 @@ function RenewalFormPageContent() {
                         className='drop-shadow-md h-auto'
                       />
                     </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
+                    <h2 className='text-2xl font-bold tracking-tight text-gray-900'>
                       License Renewal Verification
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                      Please enter your Fresh Application ID to verify your identity and start the renewal process.
+                    <p className='mt-2 text-sm text-gray-600'>
+                      Please enter your Fresh Application ID to verify your identity and start the
+                      renewal process.
                     </p>
                   </div>
-                  
+
                   {verificationError && (
-                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                    <div className='rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
                       {verificationError}
                     </div>
                   )}
 
-                  <div className="space-y-4">
+                  <div className='space-y-4'>
                     <div>
-                      <label htmlFor="app-id" className="block text-sm font-semibold text-gray-700 mb-1">
+                      <label
+                        htmlFor='app-id'
+                        className='block text-sm font-semibold text-gray-700 mb-1'
+                      >
                         Fresh Application ID
                       </label>
                       <input
-                        id="app-id"
-                        type="text"
+                        id='app-id'
+                        type='text'
                         value={enteredAppId}
-                        onChange={(e) => setEnteredAppId(e.target.value)}
-                        placeholder="e.g. 12345"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold"
+                        onChange={e => setEnteredAppId(e.target.value)}
+                        placeholder='e.g. 12345'
+                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold'
                       />
                     </div>
 
                     <button
                       onClick={() => checkBiometricRequirement(enteredAppId)}
                       disabled={verificationChecking || !enteredAppId.trim()}
-                      className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]"
+                      className='w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]'
                     >
                       {verificationChecking ? 'Checking...' : 'Verify Application'}
                     </button>
                   </div>
                 </div>
-              )}
+              )
+            )}
 
-              {verificationStatus === 'VERIFYING_BIOMETRICS' && applicantDetails && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <div className="mb-6 flex justify-center">
-                      <img
-                        src='/icon-alms.svg'
-                        alt='ALMS Logo'
-                        width={100}
-                        height={100}
-                        className='drop-shadow-md h-auto'
-                      />
-                    </div>
-                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-                      Biometric Identity Match
-                    </h2>
-                    <p className="mt-2 text-sm text-gray-600">
-                      Verify you are the same applicant as registered in the original application.
-                    </p>
+            {verificationStatus === 'VERIFYING_BIOMETRICS' && applicantDetails && (
+              <div className='space-y-6'>
+                <div className='text-center'>
+                  <div className='mb-6 flex justify-center'>
+                    <img
+                      src='/icon-alms.svg'
+                      alt='ALMS Logo'
+                      width={100}
+                      height={100}
+                      className='drop-shadow-md h-auto'
+                    />
                   </div>
+                  <h2 className='text-2xl font-bold tracking-tight text-gray-900'>
+                    Biometric Identity Match
+                  </h2>
+                  <p className='mt-2 text-sm text-gray-600'>
+                    Verify you are the same applicant as registered in the original application.
+                  </p>
+                </div>
 
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 font-medium">Applicant Name</span>
-                      <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 font-medium">Application ID</span>
-                      <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 font-medium">License Number</span>
-                      <span className="text-gray-800 font-semibold">{applicantDetails.licenseNumber}</span>
-                    </div>
+                <div className='bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2'>
+                  <div className='flex justify-between text-sm'>
+                    <span className='text-gray-500 font-medium'>Applicant Name</span>
+                    <span className='text-gray-800 font-semibold'>{applicantDetails.name}</span>
                   </div>
-
-                  {verificationError && (
-                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                      {verificationError}
-                    </div>
-                  )}
-
-                  {/* Signature/Thumb Impression section layout from fresh form */}
-                  <div className='p-6 rounded-xl border border-gray-200 bg-white shadow-sm space-y-4 text-left'>
-                    <div className='flex justify-between items-center mb-2'>
-                      <div className='font-semibold text-gray-800'>Signature / Thumb Impression</div>
-                      <div className='flex items-center gap-2'>
-                        {/* Info Icon with Tooltip */}
-                        <div className='relative'>
-                          <button
-                            type='button'
-                            onClick={() => setShowInfoTooltip(!showInfoTooltip)}
-                            className='p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors'
-                            title='Device setup information'
-                          >
-                            <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                              <path
-                                fillRule='evenodd'
-                                d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
-                                clipRule='evenodd'
-                              />
-                            </svg>
-                          </button>
-                          {/* Info Tooltip Popover */}
-                          {showInfoTooltip && (
-                            <div className='absolute right-0 top-8 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4'>
-                              <div className='flex justify-between items-start mb-3'>
-                                <h4 className='font-semibold text-gray-800 flex items-center gap-2'>
-                                  <svg className='w-5 h-5 text-blue-600' fill='currentColor' viewBox='0 0 20 20'>
-                                    <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z' clipRule='evenodd' />
-                                  </svg>
-                                  Device Setup Guide
-                                </h4>
-                                <button type='button' onClick={() => setShowInfoTooltip(false)} className='text-gray-400 hover:text-gray-600'>✕</button>
-                              </div>
-                              <div className='space-y-2 text-sm text-gray-600'>
-                                <p>✔ Connect Mantra MFS500 via USB</p>
-                                <p>✔ Install Mantra drivers</p>
-                                <p>✔ Run Mantra RD Service</p>
-                                <p>✔ Start MorfinAuth SDK on port 8030</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          type='button'
-                          onClick={() => setShowDeviceSettings(!showDeviceSettings)}
-                          className='px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-1'
-                          title='Open device diagnostics and settings'
-                        >
-                          ⚙️ Settings
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className='space-y-2'>
-                      <div className='mb-4'>
-                        <label className='block text-sm font-semibold text-gray-700 mb-1'>Required Hand & Finger</label>
-                        <select
-                          value={biometricTargetThumb || 'RIGHT_THUMB'}
-                          disabled
-                          className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed text-gray-700 font-semibold'
-                        >
-                          <option value="RIGHT_THUMB">Right Hand Thumb</option>
-                          <option value="LEFT_THUMB">Left Hand Thumb</option>
-                        </select>
-                        <p className="text-sm text-blue-600 mt-1 font-medium">Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}.</p>
-                      </div>
-
-                      {/* Mantra SDK Fingerprint Capture */}
-                      {mantraSDKReady && deviceConnected ? (
-                        <div className='flex items-center space-x-3'>
-                          <button
-                            type='button'
-                            onClick={handleVerifyBiometrics}
-                            disabled={fingerprintCapturing}
-                            className='px-5 py-2.5 bg-[#D4AF37] hover:bg-[#C4A02F] text-gray-900 rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md'
-                          >
-                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
-                            </svg>
-                            {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
-                          </button>
-                          <span className='text-sm text-green-600 font-medium'>✓ Device Ready</span>
-                        </div>
-                      ) : (
-                        <div className='flex items-center space-x-3'>
-                          <button
-                            type='button'
-                            onClick={() => checkDeviceConnection()}
-                            className='px-5 py-2.5 bg-gray-300 text-gray-600 rounded-md font-semibold cursor-not-allowed flex items-center gap-2'
-                            disabled
-                          >
-                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
-                            </svg>
-                            Scan Fingerprint
-                          </button>
-                          <span className='text-sm text-gray-500 font-medium'>
-                            {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                  <div className='flex justify-between text-sm'>
+                    <span className='text-gray-500 font-medium'>Application ID</span>
+                    <span className='text-gray-800 font-semibold'>
+                      {applicantDetails.applicationId}
+                    </span>
                   </div>
-
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => {
-                        setVerificationStatus('ENTER_APP_ID');
-                        setVerificationError(null);
-                      }}
-                      className="w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm"
-                    >
-                      Change Application ID
-                    </button>
+                  <div className='flex justify-between text-sm'>
+                    <span className='text-gray-500 font-medium'>License Number</span>
+                    <span className='text-gray-800 font-semibold'>
+                      {applicantDetails.licenseNumber}
+                    </span>
                   </div>
                 </div>
-              )}
+
+                {verificationError && (
+                  <div className='rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
+                    {verificationError}
+                  </div>
+                )}
+
+                {/* Signature/Thumb Impression section layout from fresh form */}
+                <div className='p-6 rounded-xl border border-gray-200 bg-white shadow-sm space-y-4 text-left'>
+                  <div className='flex justify-between items-center mb-2'>
+                    <div className='font-semibold text-gray-800'>Signature / Thumb Impression</div>
+                    <div className='flex items-center gap-2'>
+                      {/* Info Icon with Tooltip */}
+                      <div className='relative'>
+                        <button
+                          type='button'
+                          onClick={() => setShowInfoTooltip(!showInfoTooltip)}
+                          className='p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors'
+                          title='Device setup information'
+                        >
+                          <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
+                            <path
+                              fillRule='evenodd'
+                              d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                              clipRule='evenodd'
+                            />
+                          </svg>
+                        </button>
+                        {/* Info Tooltip Popover */}
+                        {showInfoTooltip && (
+                          <div className='absolute right-0 top-8 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4'>
+                            <div className='flex justify-between items-start mb-3'>
+                              <h4 className='font-semibold text-gray-800 flex items-center gap-2'>
+                                <svg
+                                  className='w-5 h-5 text-blue-600'
+                                  fill='currentColor'
+                                  viewBox='0 0 20 20'
+                                >
+                                  <path
+                                    fillRule='evenodd'
+                                    d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
+                                    clipRule='evenodd'
+                                  />
+                                </svg>
+                                Device Setup Guide
+                              </h4>
+                              <button
+                                type='button'
+                                onClick={() => setShowInfoTooltip(false)}
+                                className='text-gray-400 hover:text-gray-600'
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            <div className='space-y-2 text-sm text-gray-600'>
+                              <p>✔ Connect Mantra MFS500 via USB</p>
+                              <p>✔ Install Mantra drivers</p>
+                              <p>✔ Run Mantra RD Service</p>
+                              <p>✔ Start MorfinAuth SDK on port 8030</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => setShowDeviceSettings(!showDeviceSettings)}
+                        className='px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded flex items-center gap-1'
+                        title='Open device diagnostics and settings'
+                      >
+                        ⚙️ Settings
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className='space-y-2'>
+                    <div className='mb-4'>
+                      <label className='block text-sm font-semibold text-gray-700 mb-1'>
+                        Required Hand & Finger
+                      </label>
+                      <select
+                        value={biometricTargetThumb || 'RIGHT_THUMB'}
+                        disabled
+                        className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed text-gray-700 font-semibold'
+                      >
+                        <option value='RIGHT_THUMB'>Right Hand Thumb</option>
+                        <option value='LEFT_THUMB'>Left Hand Thumb</option>
+                      </select>
+                      <p className='text-sm text-blue-600 mt-1 font-medium'>
+                        Please scan your enrolled{' '}
+                        {biometricTargetThumb === 'LEFT_THUMB'
+                          ? 'Left hand thumb print'
+                          : 'Right hand thumb print'}
+                        .
+                      </p>
+                    </div>
+
+                    {/* Mantra SDK Fingerprint Capture */}
+                    {mantraSDKReady && deviceConnected ? (
+                      <div className='flex items-center space-x-3'>
+                        <button
+                          type='button'
+                          onClick={handleVerifyBiometrics}
+                          disabled={fingerprintCapturing}
+                          className='px-5 py-2.5 bg-[#D4AF37] hover:bg-[#C4A02F] text-gray-900 rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md'
+                        >
+                          <svg
+                            className='w-5 h-5'
+                            fill='none'
+                            stroke='currentColor'
+                            viewBox='0 0 24 24'
+                          >
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth={2}
+                              d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177'
+                            />
+                          </svg>
+                          {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
+                        </button>
+                        <span className='text-sm text-green-600 font-medium'>✓ Device Ready</span>
+                      </div>
+                    ) : (
+                      <div className='flex items-center space-x-3'>
+                        <button
+                          type='button'
+                          onClick={() => checkDeviceConnection()}
+                          className='px-5 py-2.5 bg-gray-300 text-gray-600 rounded-md font-semibold cursor-not-allowed flex items-center gap-2'
+                          disabled
+                        >
+                          <svg
+                            className='w-5 h-5'
+                            fill='none'
+                            stroke='currentColor'
+                            viewBox='0 0 24 24'
+                          >
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth={2}
+                              d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177'
+                            />
+                          </svg>
+                          Scan Fingerprint
+                        </button>
+                        <span className='text-sm text-gray-500 font-medium'>
+                          {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className='space-y-3'>
+                  <button
+                    onClick={() => {
+                      setVerificationStatus('ENTER_APP_ID');
+                      setVerificationError(null);
+                    }}
+                    className='w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm'
+                  >
+                    Change Application ID
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ⚙️ DEVICE SETTINGS & DIAGNOSTICS MODAL */}
             {showDeviceSettings && (
@@ -3354,7 +3843,9 @@ function RenewalFormPageContent() {
                 <div className='bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-y-auto flex flex-col'>
                   <div className='border-b px-6 py-4 sticky top-0 bg-white flex justify-between items-center z-10'>
                     <div>
-                      <h2 className='text-2xl font-bold text-gray-800'>Device Settings & Diagnostics</h2>
+                      <h2 className='text-2xl font-bold text-gray-800'>
+                        Device Settings & Diagnostics
+                      </h2>
                       <p className='text-sm text-gray-500 mt-1'>
                         Test Mantra MFS500 device connectivity and API endpoints
                       </p>
@@ -3398,19 +3889,27 @@ function RenewalFormPageContent() {
                       </button>
 
                       <button
-                        onClick={() => runDiagnostic('Get Connected Device', testGetConnectedDevice)}
+                        onClick={() =>
+                          runDiagnostic('Get Connected Device', testGetConnectedDevice)
+                        }
                         disabled={diagnosticLoading === 'Get Connected Device'}
                         className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
                       >
-                        {diagnosticLoading === 'Get Connected Device' ? '⟳ Testing...' : 'Get Connected Device'}
+                        {diagnosticLoading === 'Get Connected Device'
+                          ? '⟳ Testing...'
+                          : 'Get Connected Device'}
                       </button>
 
                       <button
-                        onClick={() => runDiagnostic('Get Supported Device', testGetSupportedDevice)}
+                        onClick={() =>
+                          runDiagnostic('Get Supported Device', testGetSupportedDevice)
+                        }
                         disabled={diagnosticLoading === 'Get Supported Device'}
                         className='px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-sm transition-colors'
                       >
-                        {diagnosticLoading === 'Get Supported Device' ? '⟳ Testing...' : 'Get Supported Device'}
+                        {diagnosticLoading === 'Get Supported Device'
+                          ? '⟳ Testing...'
+                          : 'Get Supported Device'}
                       </button>
 
                       <button
@@ -3465,47 +3964,53 @@ function RenewalFormPageContent() {
                         </div>
 
                         <div className='space-y-3'>
-                          {Object.entries(diagnosticResults).map(([testName, result]: [string, any]) => (
-                            <div
-                              key={testName}
-                              className='p-4 rounded-lg border-2 transition-all'
-                              style={{
-                                backgroundColor: result.success ? '#ecfdf5' : '#fef2f2',
-                                borderColor: result.success ? '#10b981' : '#ef4444',
-                              }}
-                            >
-                              <div className='flex justify-between items-start'>
-                                <div className='flex-1'>
-                                  <p
-                                    className='font-bold flex items-center gap-2'
-                                    style={{ color: result.success ? '#059669' : '#dc2626' }}
-                                  >
-                                    {result.success ? '✓' : '✗'} {testName}
-                                  </p>
-                                  {result.timestamp && (
-                                    <p className='text-xs text-gray-500 mt-1'>{result.timestamp}</p>
-                                  )}
+                          {Object.entries(diagnosticResults).map(
+                            ([testName, result]: [string, any]) => (
+                              <div
+                                key={testName}
+                                className='p-4 rounded-lg border-2 transition-all'
+                                style={{
+                                  backgroundColor: result.success ? '#ecfdf5' : '#fef2f2',
+                                  borderColor: result.success ? '#10b981' : '#ef4444',
+                                }}
+                              >
+                                <div className='flex justify-between items-start'>
+                                  <div className='flex-1'>
+                                    <p
+                                      className='font-bold flex items-center gap-2'
+                                      style={{ color: result.success ? '#059669' : '#dc2626' }}
+                                    >
+                                      {result.success ? '✓' : '✗'} {testName}
+                                    </p>
+                                    {result.timestamp && (
+                                      <p className='text-xs text-gray-500 mt-1'>
+                                        {result.timestamp}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
 
-                              {result.success ? (
-                                <div className='mt-3 text-sm text-gray-700'>
-                                  <details className='cursor-pointer'>
-                                    <summary className='font-medium text-gray-700 hover:text-gray-900'>
-                                      📋 View Details
-                                    </summary>
-                                    <pre className='bg-gray-100 p-3 rounded border border-gray-300 text-xs overflow-auto max-h-48 mt-2 text-gray-800'>
-                                      {JSON.stringify(result.data, null, 2)}
-                                    </pre>
-                                  </details>
-                                </div>
-                              ) : (
-                                <div className='mt-3 text-sm' style={{ color: '#991b1b' }}>
-                                  <p className='font-semibold'>{result.error || 'Unknown error'}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                {result.success ? (
+                                  <div className='mt-3 text-sm text-gray-700'>
+                                    <details className='cursor-pointer'>
+                                      <summary className='font-medium text-gray-700 hover:text-gray-900'>
+                                        📋 View Details
+                                      </summary>
+                                      <pre className='bg-gray-100 p-3 rounded border border-gray-300 text-xs overflow-auto max-h-48 mt-2 text-gray-800'>
+                                        {JSON.stringify(result.data, null, 2)}
+                                      </pre>
+                                    </details>
+                                  </div>
+                                ) : (
+                                  <div className='mt-3 text-sm' style={{ color: '#991b1b' }}>
+                                    <p className='font-semibold'>
+                                      {result.error || 'Unknown error'}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
                     )}
@@ -3540,13 +4045,25 @@ function RenewalFormPageContent() {
                   <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
                     <div className='flex items-center gap-4'>
                       <div className='bg-white/20 rounded-full p-3'>
-                        <svg className='w-8 h-8 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11' />
+                        <svg
+                          className='w-8 h-8 text-white'
+                          fill='none'
+                          stroke='currentColor'
+                          viewBox='0 0 24 24'
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={2}
+                            d='M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11'
+                          />
                         </svg>
                       </div>
                       <div>
                         <h2 className='text-xl font-bold text-white'>Fingerprint Preview</h2>
-                        <p className='text-blue-100 text-sm mt-1'>Review quality before verifying identity</p>
+                        <p className='text-blue-100 text-sm mt-1'>
+                          Review quality before verifying identity
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -3635,12 +4152,12 @@ function RenewalFormPageContent() {
                         Finger Position
                       </h3>
                       <div className='flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200'>
-                        <div className='bg-blue-600 rounded-full p-2 text-white'>
-                          👆
-                        </div>
+                        <div className='bg-blue-600 rounded-full p-2 text-white'>👆</div>
                         <div>
                           <p className='font-bold text-blue-900'>
-                            {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'}
+                            {biometricTargetThumb === 'LEFT_THUMB'
+                              ? 'Left hand thumb print'
+                              : 'Right hand thumb print'}
                           </p>
                           <p className='text-xs text-blue-700'>Matches required biometric type</p>
                         </div>
@@ -3699,78 +4216,80 @@ function RenewalFormPageContent() {
           </div>
         </div>
       </div>
-      );
-    }
+    );
+  }
 
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
-        {/* Success Modal */}
-        {showSuccessModal && (
-          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
-            <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
-              <div className='flex items-center justify-center'>
-                <div className='rounded-full bg-green-100 p-3'>
-                  <svg
-                    className='h-6 w-6 text-green-600'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M5 13l4 4L19 7'
-                    />
-                  </svg>
-                </div>
+  return (
+    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+          <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+            <div className='flex items-center justify-center'>
+              <div className='rounded-full bg-green-100 p-3'>
+                <svg
+                  className='h-6 w-6 text-green-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M5 13l4 4L19 7'
+                  />
+                </svg>
               </div>
-              <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
-              <p className='text-center text-gray-600'>{successMessage}</p>
-              <button
-                onClick={handleSuccessContinue}
-                className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
-              >
-                Continue
-              </button>
             </div>
+            <h2 className='text-center text-lg font-semibold text-gray-900'>Success!</h2>
+            <p className='text-center text-gray-600'>{successMessage}</p>
+            <button
+              onClick={handleSuccessContinue}
+              className='w-full rounded-md bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 transition'
+            >
+              Continue
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Read-Only Modal */}
-        {showReadOnlyModal && (
-          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
-            <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
-              <div className='flex items-center justify-center'>
-                <div className='rounded-full bg-blue-100 p-3'>
-                  <svg
-                    className='h-6 w-6 text-blue-600'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-                    />
-                  </svg>
-                </div>
+      {/* Read-Only Modal */}
+      {showReadOnlyModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4'>
+          <div className='rounded-lg bg-white shadow-lg max-w-sm w-full p-6 space-y-4'>
+            <div className='flex items-center justify-center'>
+              <div className='rounded-full bg-blue-100 p-3'>
+                <svg
+                  className='h-6 w-6 text-blue-600'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                  />
+                </svg>
               </div>
-              <h2 className='text-center text-lg font-semibold text-gray-900'>Application Read-Only</h2>
-              <p className='text-center text-gray-600'>
-                Your renewal application has already been submitted.
-              </p>
-              <button
-                onClick={() => setShowReadOnlyModal(false)}
-                className='w-full rounded-md bg-[#001F54] hover:bg-[#012a73] text-white font-medium py-2 px-4 transition'
-              >
-                OK
-              </button>
             </div>
+            <h2 className='text-center text-lg font-semibold text-gray-900'>
+              Application Read-Only
+            </h2>
+            <p className='text-center text-gray-600'>
+              Your renewal application has already been submitted.
+            </p>
+            <button
+              onClick={() => setShowReadOnlyModal(false)}
+              className='w-full rounded-md bg-[#001F54] hover:bg-[#012a73] text-white font-medium py-2 px-4 transition'
+            >
+              OK
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
       <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
@@ -3803,9 +4322,7 @@ function RenewalFormPageContent() {
               </div>
             </div>
 
-            {isLoading && (
-              <ApplicationFormSkeleton />
-            )}
+            {isLoading && <ApplicationFormSkeleton />}
             {error && (
               <div className='rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
                 {error}
@@ -3818,6 +4335,14 @@ function RenewalFormPageContent() {
                   title='Personal Information'
                   isOpen={expandedSections.personal}
                   onToggle={() => toggleSection('personal')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.personal}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('personal');
+                    else setSectionCompleted(prev => ({ ...prev, personal: false }));
+                  }}
+                  isSavingSection={savingSection === 'personal'}
+                  isReadOnly={isReadOnly}
                 >
                   <PersonalDetailsSection
                     ref={personalSectionRef}
@@ -3831,6 +4356,14 @@ function RenewalFormPageContent() {
                   title='Address Details'
                   isOpen={expandedSections.address}
                   onToggle={() => toggleSection('address')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.address}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('address');
+                    else setSectionCompleted(prev => ({ ...prev, address: false }));
+                  }}
+                  isSavingSection={savingSection === 'address'}
+                  isReadOnly={isReadOnly}
                 >
                   <AddressDetailsSection
                     ref={addressSectionRef}
@@ -3844,6 +4377,14 @@ function RenewalFormPageContent() {
                   title='Occupation/Business'
                   isOpen={expandedSections.occupation}
                   onToggle={() => toggleSection('occupation')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.occupation}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('occupation');
+                    else setSectionCompleted(prev => ({ ...prev, occupation: false }));
+                  }}
+                  isSavingSection={savingSection === 'occupation'}
+                  isReadOnly={isReadOnly}
                 >
                   <OccupationSection
                     ref={occupationSectionRef}
@@ -3857,6 +4398,14 @@ function RenewalFormPageContent() {
                   title='Criminal History'
                   isOpen={expandedSections.criminal}
                   onToggle={() => toggleSection('criminal')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.criminal}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('criminal');
+                    else setSectionCompleted(prev => ({ ...prev, criminal: false }));
+                  }}
+                  isSavingSection={savingSection === 'criminal'}
+                  isReadOnly={isReadOnly}
                 >
                   <CriminalHistory
                     ref={criminalSectionRef}
@@ -3867,22 +4416,17 @@ function RenewalFormPageContent() {
                 </AccordionSection>
 
                 <AccordionSection
-                  title='License History'
-                  isOpen={expandedSections.licenseHistory}
-                  onToggle={() => toggleSection('licenseHistory')}
-                >
-                  <LicenseHistory
-                    ref={licenseHistorySectionRef}
-                    formData={formData}
-                    onChange={handleChange}
-                    errors={licenseHistoryErrors}
-                  />
-                </AccordionSection>
-
-                <AccordionSection
                   title='License Details'
                   isOpen={expandedSections.licenseDetails}
                   onToggle={() => toggleSection('licenseDetails')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.licenseDetails}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('licenseDetails');
+                    else setSectionCompleted(prev => ({ ...prev, licenseDetails: false }));
+                  }}
+                  isSavingSection={savingSection === 'licenseDetails'}
+                  isReadOnly={isReadOnly}
                 >
                   <LicenseDetailsSection
                     formData={formData}
@@ -3898,9 +4442,38 @@ function RenewalFormPageContent() {
                 </AccordionSection>
 
                 <AccordionSection
+                  title='License History'
+                  isOpen={expandedSections.licenseHistory}
+                  onToggle={() => toggleSection('licenseHistory')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.licenseHistory}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('licenseHistory');
+                    else setSectionCompleted(prev => ({ ...prev, licenseHistory: false }));
+                  }}
+                  isSavingSection={savingSection === 'licenseHistory'}
+                  isReadOnly={isReadOnly}
+                >
+                  <LicenseHistory
+                    ref={licenseHistorySectionRef}
+                    formData={formData}
+                    onChange={handleChange}
+                    errors={licenseHistoryErrors}
+                  />
+                </AccordionSection>
+
+                <AccordionSection
                   title='Biometric Information'
                   isOpen={expandedSections.biometric}
                   onToggle={() => toggleSection('biometric')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.biometric}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('biometric');
+                    else setSectionCompleted(prev => ({ ...prev, biometric: false }));
+                  }}
+                  isSavingSection={savingSection === 'biometric'}
+                  isReadOnly={isReadOnly}
                 >
                   <BiometricInformation
                     formData={formData}
@@ -3926,9 +4499,17 @@ function RenewalFormPageContent() {
                 </AccordionSection>
 
                 <AccordionSection
-                  title='Documents Upload'
+                  title='Upload Documents'
                   isOpen={expandedSections.documents}
                   onToggle={() => toggleSection('documents')}
+                  showCompletionCheckbox
+                  isCompleted={sectionCompleted.documents}
+                  onCompletionChange={checked => {
+                    if (checked) handleSectionComplete('documents');
+                    else setSectionCompleted(prev => ({ ...prev, documents: false }));
+                  }}
+                  isSavingSection={savingSection === 'documents'}
+                  isReadOnly={isReadOnly}
                 >
                   <DocumentsSection
                     ref={documentsSectionRef}
@@ -3957,7 +4538,26 @@ function RenewalFormPageContent() {
             )}
 
             {!isLoading && (
-              <div className='flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 pt-4'>
+              <div className='flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4'>
+                {/* Section completion progress */}
+                <div className='flex items-center gap-2 text-sm text-gray-600'>
+                  <span className='font-medium'>
+                    {Object.values(sectionCompleted).filter(Boolean).length} /{' '}
+                    {Object.values(sectionCompleted).length} sections completed
+                  </span>
+                  <div className='flex gap-1'>
+                    {Object.entries(sectionCompleted).map(([key, done]) => (
+                      <span
+                        key={key}
+                        title={key}
+                        className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                          done ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
                 <div className='flex flex-wrap items-center gap-3'>
                   <button
                     type='button'
@@ -3974,14 +4574,17 @@ function RenewalFormPageContent() {
                   <button
                     type='button'
                     onClick={saveAndContinue}
-                    disabled={isSaving}
-                    className={`rounded-md px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isReadOnly
+                    disabled={isSaving || !allSectionsCompleted || isReadOnly}
+                    title={
+                      !allSectionsCompleted ? 'Please complete all sections before submitting' : ''
+                    }
+                    className={`rounded-md px-5 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isReadOnly || !allSectionsCompleted
                         ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-[#001F54] hover:bg-[#012a73]'
+                        : 'bg-[#001F54] hover:bg-[#012a73] shadow-sm hover:shadow-md'
                     }`}
                   >
-                    {isSaving ? 'Submitting...' : 'Save & Continue'}
+                    {isSaving ? 'Submitting...' : 'Submit'}
                   </button>
                 </div>
               </div>
@@ -3995,9 +4598,7 @@ function RenewalFormPageContent() {
 
 export default function RenewalFormPage() {
   return (
-    <Suspense
-      fallback={<ApplicationFormSkeleton />}
-    >
+    <Suspense fallback={<ApplicationFormSkeleton />}>
       <RenewalFormPageContent />
     </Suspense>
   );
@@ -4009,21 +4610,123 @@ function AccordionSection(
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
+    showCompletionCheckbox?: boolean;
+    isCompleted?: boolean;
+    onCompletionChange?: (checked: boolean) => void;
+    isSavingSection?: boolean;
+    isReadOnly?: boolean;
   }>
 ) {
-  const { title, isOpen, onToggle, children } = props;
+  const {
+    title,
+    isOpen,
+    onToggle,
+    children,
+    showCompletionCheckbox,
+    isCompleted,
+    onCompletionChange,
+    isSavingSection,
+    isReadOnly,
+  } = props;
 
   return (
-    <section className='rounded-2xl border border-gray-100 bg-white shadow-sm'>
-      <button
-        type='button'
-        onClick={onToggle}
-        className='flex w-full items-center justify-between px-5 py-4 text-left'
-        aria-expanded={isOpen}
-      >
-        <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
-        <span className='text-sm font-semibold text-[#001F54]'>{isOpen ? '▲' : '▼'}</span>
-      </button>
+    <section
+      className={`rounded-2xl border bg-white shadow-sm transition-colors duration-200 ${
+        showCompletionCheckbox && isCompleted
+          ? 'border-green-300 ring-1 ring-green-200'
+          : 'border-gray-100'
+      }`}
+    >
+      <div className='flex w-full items-center justify-between px-5 py-4'>
+        {/* Toggle button takes most of the header */}
+        <button
+          type='button'
+          onClick={onToggle}
+          className='flex flex-1 items-center gap-3 text-left'
+          aria-expanded={isOpen}
+        >
+          {/* Status indicator dot */}
+          {showCompletionCheckbox && (
+            <span
+              className={`flex-shrink-0 w-2.5 h-2.5 rounded-full transition-colors ${
+                isCompleted ? 'bg-green-500' : 'bg-gray-300'
+              }`}
+            />
+          )}
+          <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
+          {showCompletionCheckbox && isCompleted && (
+            <span className='ml-1 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5'>
+              ✓ Saved
+            </span>
+          )}
+        </button>
+
+        <div className='flex items-center gap-4 flex-shrink-0'>
+          {/* Completion checkbox */}
+          {showCompletionCheckbox && (
+            <label
+              className='flex items-center gap-2 cursor-pointer select-none'
+              onClick={e => e.stopPropagation()}
+              title={
+                isCompleted ? 'Section saved — uncheck to revise' : 'Check to save this section'
+              }
+            >
+              <span className='text-xs font-medium text-gray-500 whitespace-nowrap'>
+                {isCompleted ? 'Completed' : 'Mark complete'}
+              </span>
+              <span className='relative'>
+                <input
+                  type='checkbox'
+                  checked={isCompleted ?? false}
+                  disabled={isSavingSection || isReadOnly}
+                  onChange={e => onCompletionChange?.(e.target.checked)}
+                  className='sr-only peer'
+                  aria-label={`Mark ${title} as complete`}
+                />
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-md border-2 transition-all duration-200 ${
+                    isCompleted
+                      ? 'border-green-500 bg-green-500 text-white'
+                      : 'border-gray-300 bg-white hover:border-[#001F54]'
+                  } ${
+                    isSavingSection || isReadOnly
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'cursor-pointer'
+                  }`}
+                >
+                  {isCompleted ? (
+                    <svg
+                      className='w-3.5 h-3.5'
+                      viewBox='0 0 12 12'
+                      fill='none'
+                      stroke='currentColor'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2.5}
+                        d='M2 6l3 3 5-5'
+                      />
+                    </svg>
+                  ) : isSavingSection ? (
+                    <span className='w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin' />
+                  ) : null}
+                </span>
+              </span>
+            </label>
+          )}
+
+          {/* Expand / collapse arrow */}
+          <button
+            type='button'
+            onClick={onToggle}
+            className='text-sm font-semibold text-[#001F54] w-6 text-center'
+            aria-label={isOpen ? 'Collapse section' : 'Expand section'}
+          >
+            {isOpen ? '▲' : '▼'}
+          </button>
+        </div>
+      </div>
 
       <div
         className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}

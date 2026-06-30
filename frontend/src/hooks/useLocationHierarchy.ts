@@ -69,10 +69,9 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
 
   // Load states on component mount
   useEffect(() => {
-    if (!isRenewal) {
-      loadStates();
-    }
-  }, [isRenewal]);
+    loadStates();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadStates = async () => {
     setState(prev => ({ ...prev, loadingStates: true, error: null }));

@@ -857,6 +857,7 @@ export class ApplicationFormService {
             include: {
               state: true,
               district: true,
+              RangeOffices: true,
               zone: true,
               division: true,
               policeStation: true
@@ -866,6 +867,7 @@ export class ApplicationFormService {
             include: {
               state: true,
               district: true,
+              RangeOffices: true,
               zone: true,
               division: true,
               policeStation: true
@@ -1023,6 +1025,7 @@ export class ApplicationFormService {
       const addressInclude = {
         state: true,
         district: true,
+        RangeOffices: true,
         zone: true,
         division: true,
         policeStation: true

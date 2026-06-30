@@ -47,6 +47,12 @@ export class CreateUsersDto {
     @Type(() => Number)
     districtId!: number;  
 
+    @ApiProperty({ example: 1, description: 'Range Office ID associated with the user' })
+    @IsOptional()
+    @IsNumber()
+    @Type(() => Number)
+    rangeOfficeId!: number;
+
     @ApiProperty({ example: 1, description: 'Zone ID associated with the user' })
     @IsOptional()
     @IsNumber()

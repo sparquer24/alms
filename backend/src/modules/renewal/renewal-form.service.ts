@@ -155,6 +155,7 @@ export class RenewalFormService {
         addressLine: patchData.addressDetails.addressLine,
         stateId: patchData.addressDetails.stateId,
         districtId: patchData.addressDetails.districtId,
+        rangeOfficeId: patchData.addressDetails.rangeOfficeId,
         policeStationId: patchData.addressDetails.policeStationId,
         zoneId: patchData.addressDetails.zoneId,
         divisionId: patchData.addressDetails.divisionId,
@@ -432,8 +433,10 @@ export class RenewalFormService {
               addressLine: true,
               stateId: true,
               districtId: true,
+              rangeOfficeId: true,
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
+              RangeOffices: { select: { id: true, name: true } },
             }
           },
           permanentAddress: {
@@ -442,8 +445,10 @@ export class RenewalFormService {
               addressLine: true,
               stateId: true,
               districtId: true,
+              rangeOfficeId: true,
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
+              RangeOffices: { select: { id: true, name: true } },
             }
           },
           occupationAndBusiness: {
@@ -650,6 +655,7 @@ export class RenewalFormService {
             include: {
               state: true,
               district: true,
+              RangeOffices: true,
               zone: true,
               division: true,
               policeStation: true,
@@ -659,6 +665,7 @@ export class RenewalFormService {
             include: {
               state: true,
               district: true,
+              RangeOffices: true,
               zone: true,
               division: true,
               policeStation: true,
@@ -678,6 +685,7 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
                 include: {role: true},
@@ -695,7 +703,25 @@ export class RenewalFormService {
       if (!application) {
         throw new NotFoundException('Renewal application not found.');
       }
-       return application;
+
+      // Resolve the fresh application ID linked to this renewal.
+      // The relationship is: renewal.licenseNumber === freshApp.acknowledgementNo
+      let freshApplicationId: number | null = null;
+      if (application.licenseNumber) {
+        const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
+          where: { acknowledgementNo: application.licenseNumber },
+          select: { id: true },
+        });
+        if (freshApp) {
+          freshApplicationId = freshApp.id;
+        }
+      }
+
+      return {
+        ...application,
+        applicationId: freshApplicationId,
+        freshApplicationId: freshApplicationId,
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -781,6 +807,7 @@ export class RenewalFormService {
           include: {
             state: true,
             district: true,
+            RangeOffices: true,
             zone: true,
             division: true,
             policeStation: true,
@@ -790,6 +817,7 @@ export class RenewalFormService {
           include: {
             state: true,
             district: true,
+            RangeOffices: true,
             zone: true,
             division: true,
             policeStation: true,
@@ -809,6 +837,7 @@ export class RenewalFormService {
           fileUploads: true,
           biometricData: true,
           workflowHistories: {
+            orderBy: { createdAt: 'desc' },
             include: {
               nextUser: {
                 include: {role: true},

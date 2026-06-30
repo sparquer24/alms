@@ -19,6 +19,10 @@ interface RenewalApplicationDetails {
   dobInWords?: string;
   panNumber?: string;
   aadharNumber?: string;
+  applicationId?: string | number;
+  freshApplicationId?: string | number;
+  sourceApplicationId?: string | number;
+  renewalLicenseId?: string | number;
   createdAt?: string;
   updatedAt?: string;
   isSubmit?: boolean;
@@ -36,7 +40,10 @@ const formatDateTime = (value?: string) => {
 
 const getStatusLabel = (application: RenewalApplicationDetails | null) => {
   if (!application) return 'Unknown';
-  return application.workflowStatus?.name || (application.isSubmit ? 'Submitted' : 'Draft');
+  if (application.workflowStatus?.name) return application.workflowStatus.name;
+  if (application.workflowStatus?.code) return application.workflowStatus.code;
+  if (application.isSubmit === true) return 'Submitted';
+  return 'Draft';
 };
 
 export default function RenewalApplicationDetailsPage() {
@@ -57,10 +64,31 @@ export default function RenewalApplicationDetailsPage() {
         setError(null);
 
         const response = await RenewalService.getRenewalForm(id);
-        const root = (response as any)?.data ?? (response as any)?.body ?? response;
-        const payload = root?.data && typeof root.data === 'object' && !Array.isArray(root.data) ? root.data : root;
 
-        if (!payload) {
+        // Handle various API response formats:
+        // 1. { data: { data: {...} } } - nested data wrapper
+        // 2. { data: {...} } - single data wrapper
+        // 3. {...} - direct response
+        let payload: any = response;
+
+        // Extract the data property first
+        if ((response as any)?.data !== undefined) {
+          payload = (response as any).data;
+        }
+
+        // If data has a nested data property (some APIs wrap response twice)
+        if (payload?.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+          payload = payload.data;
+        }
+
+        // Ensure payload has the expected fields by checking for common identifiers
+        const hasValidPayload =
+          payload &&
+          (payload.id !== undefined ||
+            payload.acknowledgementNo !== undefined ||
+            payload.licenseNumber !== undefined);
+
+        if (!hasValidPayload) {
           throw new Error('Renewal application not found');
         }
 
@@ -95,7 +123,9 @@ export default function RenewalApplicationDetailsPage() {
       <div className='min-h-screen bg-slate-50 flex items-center justify-center px-4'>
         <div className='max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200 text-center'>
           <h1 className='text-2xl font-bold text-slate-900'>Renewal Application Not Found</h1>
-          <p className='mt-3 text-slate-600'>{error || 'The selected renewal application could not be loaded.'}</p>
+          <p className='mt-3 text-slate-600'>
+            {error || 'The selected renewal application could not be loaded.'}
+          </p>
           <div className='mt-6 flex flex-wrap justify-center gap-3'>
             <button
               type='button'
@@ -119,7 +149,9 @@ export default function RenewalApplicationDetailsPage() {
 
   const applicantName =
     application.applicantName ||
-    [application.firstName, application.middleName, application.lastName].filter(Boolean).join(' ') ||
+    [application.firstName, application.middleName, application.lastName]
+      .filter(Boolean)
+      .join(' ') ||
     'N/A';
 
   return (
@@ -147,19 +179,35 @@ export default function RenewalApplicationDetailsPage() {
             <InfoCard label='Applicant Name' value={applicantName} />
             <InfoCard label='Licence Number' value={application.licenseNumber || 'N/A'} />
             <InfoCard label='Acknowledgement No.' value={application.acknowledgementNo || 'N/A'} />
-            <InfoCard label='Father / Spouse Name' value={application.parentOrSpouseName || 'N/A'} />
+            <InfoCard
+              label='Father / Spouse Name'
+              value={application.parentOrSpouseName || 'N/A'}
+            />
             <InfoCard label='Gender' value={application.sex || 'N/A'} />
             <InfoCard label='Date of Birth' value={formatDateTime(application.dateOfBirth)} />
             <InfoCard label='PAN Number' value={application.panNumber || 'N/A'} />
             <InfoCard label='Aadhaar Number' value={application.aadharNumber || 'N/A'} />
-            <InfoCard label='Created At' value={formatDateTime(application.createdAt)} />
+            <InfoCard label='Application Status' value={statusLabel} />
+            <InfoCard label='Application Date' value={formatDateTime(application.createdAt)} />
             <InfoCard label='Updated At' value={formatDateTime(application.updatedAt)} />
           </div>
 
           <div className='border-t border-slate-200 px-6 py-5 flex flex-wrap gap-3'>
             <button
               type='button'
-              onClick={() => router.push(`/forms/renewal?renewalId=${encodeURIComponent(String(id))}`)}
+              onClick={() => {
+                const linkedApplicationId = String(
+                  application?.applicationId ||
+                    application?.freshApplicationId ||
+                    application?.sourceApplicationId ||
+                    application?.renewalLicenseId ||
+                    ''
+                );
+                const url = linkedApplicationId
+                  ? `/forms/renewal?applicationId=${encodeURIComponent(linkedApplicationId)}&renewalId=${encodeURIComponent(String(id))}`
+                  : `/forms/renewal?renewalId=${encodeURIComponent(String(id))}`;
+                router.push(url);
+              }}
               className='rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800'
             >
               Open Renewal Form

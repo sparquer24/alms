@@ -12,6 +12,7 @@ export const ERROR_MESSAGES = {
 export const ROLE_CODES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
-  ZS: 'ZS'
+  ZS: 'ZS',
+  RANGE: 'RANGE'
 } as const;
 

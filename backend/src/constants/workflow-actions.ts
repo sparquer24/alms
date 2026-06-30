@@ -16,6 +16,7 @@ export const ROLE_CODES = {
   SHO: 'SHO',                  // Station House Officer
   ACP: 'ACP',                  // Assistant Commissioner of Police
   DCP: 'DCP',                  // Deputy Commissioner of Police
+  RANGE: 'RANGE',              // Range Officer
   AS: 'AS',                    // Arms Superintendent
   ADO: 'ADO',                  // Administrative Officer
   CADO: 'CADO',                // Chief Administrative Officer
