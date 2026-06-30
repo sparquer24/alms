@@ -38,11 +38,12 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     onPrevious?: () => void;
     onNext?: () => void;
     onSaveToDraft?: () => void;
+    isReadOnly?: boolean;
     errors?: ErrorsMap;
   },
   ref,
 ) {
-  const { formData, renewalId, onPrevious, onNext, onSaveToDraft, errors = {} } = props;
+  const { formData, renewalId, onPrevious, onNext, onSaveToDraft, isReadOnly = false, errors = {} } = props;
   const [form, setForm] = useState<BiometricForm>(initialState);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [streamActive, setStreamActive] = useState(false);
@@ -615,6 +616,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         <div>
           <div className='flex justify-between items-center mb-4'>
             <h3 className='text-lg font-semibold text-gray-800'>Signature / Thumb Impression</h3>
+            {!isReadOnly && (
             <div className='flex items-center gap-2'>
               <div className='relative'>
                 <button 
@@ -651,8 +653,11 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                 Settings
               </button>
             </div>
+            )}
           </div>
 
+          {!isReadOnly && (
+          <>
           <FormField 
             label='Select Hand & Finger' 
             required 
@@ -702,6 +707,8 @@ const BiometricInformation = forwardRef(function BiometricInformation(
               </p>
             )}
           </div>
+          </>
+          )}
 
           {enrolledFingerprints.length > 0 && (() => {
             const latestFp = enrolledFingerprints[enrolledFingerprints.length - 1];
@@ -752,7 +759,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
           })()}
         </div>
 
-        {/* Iris Scan Section */}
+        {!isReadOnly && (
         <div>
           <h3 className='text-lg font-semibold text-gray-800 mb-4'>Iris Scan</h3>
           <button 
@@ -771,6 +778,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
             ℹ️ Iris scanning will be available soon. Please check back later for updates.
           </p>
         </div>
+        )}
       </div>
 
       {/* Photograph Section */}
@@ -786,6 +794,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
 
         <div className='grid md:grid-cols-2 gap-6 items-stretch'>
           {/* Webcam & Upload Section */}
+          {!isReadOnly && (
           <div className='flex flex-col justify-between space-y-4 border border-gray-100 rounded-xl p-4 bg-slate-50/50'>
             <div className='space-y-3'>
               <button
@@ -832,6 +841,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
               </label>
             </div>
           </div>
+          )}
 
           {/* Preview Section */}
           <div className='flex flex-col items-center justify-center border border-gray-100 rounded-xl p-4 bg-slate-50/50 min-h-[200px]'>
@@ -850,7 +860,11 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                   </span>
                 </div>
                 
-                {showPhotoDeleteConfirm ? (
+                {isReadOnly ? (
+                  <div className='flex-1 text-center py-2 text-sm font-semibold text-green-600 bg-green-50 rounded-lg border border-green-200 mt-4'>
+                    ✓ Photo Saved
+                  </div>
+                ) : showPhotoDeleteConfirm ? (
                   <div className='mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-center w-full max-w-[260px] animate-fade-in'>
                     <p className='text-xs font-semibold text-red-700 leading-normal mb-3'>
                       Are you sure you want to delete the photograph? This action cannot be undone.

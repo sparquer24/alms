@@ -4481,6 +4481,7 @@ function RenewalFormPageContent() {
                     onChange={handleChange}
                     onFileChange={handleFileChange}
                     errors={biometricErrors}
+                    isReadOnly={isReadOnly}
                     onPrevious={() => {
                       if (renewalId)
                         router.push(
@@ -4519,6 +4520,7 @@ function RenewalFormPageContent() {
                     onError={setError}
                     onStatus={setStatusMessage}
                     errors={documentsErrors}
+                    isReadOnly={isReadOnly}
                     onReload={reloadRenewalData}
                   />
                 </AccordionSection>

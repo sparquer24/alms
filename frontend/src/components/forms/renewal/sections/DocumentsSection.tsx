@@ -29,11 +29,12 @@ const DocumentsSection = forwardRef(function DocumentsSection(
     onError?: (message: string) => void;
     onStatus?: (message: string | null) => void;
     errors?: ErrorsMap;
+    isReadOnly?: boolean;
     onReload?: () => Promise<void>;
   },
   ref: any,
 ) {
-  const { formData, renewalId, onPatch, onError, onStatus, errors = {}, onReload } = props;
+  const { formData, renewalId, onPatch, onError, onStatus, errors = {}, isReadOnly = false, onReload } = props;
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
 
@@ -142,7 +143,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                 name={key}
                 required={required}
                 variant='browseCard'
-                onFileSelect={handleSelect(key)}
+                onFileSelect={isReadOnly ? () => {} : handleSelect(key)}
                 uploaded={showUploaded}
                 fileName={
                   isFieldSyncing
@@ -151,7 +152,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                     ? 'Uploading...'
                     : meta.fileName
                 }
-                disabled={!renewalId}
+                disabled={!renewalId || isReadOnly}
               />
               {errors[key] && (
                 <p className='text-red-500 text-xs mt-1'>{errors[key]}</p>
@@ -171,7 +172,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                         View document
                       </button>
                     )}
-                    {(canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
+                    {!isReadOnly && (canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
                       <button
                         type='button'
                         className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
