@@ -20,7 +20,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
   };
 
   return (
-      <header className='w-full fixed top-0 left-0 z-40 h-20' aria-hidden={false}>
+    <header className='w-full z-40 relative' aria-hidden={false}>
       <div className='w-full'>
         <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
           <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>

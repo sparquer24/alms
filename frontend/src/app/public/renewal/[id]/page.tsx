@@ -1,26 +1,14 @@
-'use client';
+import React from 'react';
+import PublicRenewalPage from './PublicRenewalClient';
 
-import React, { useState, useEffect } from 'react';
-import PublicApplicationView from '../../../../components/PublicApplicationView';
-
-interface PublicRenewalPageProps {
-  params: Promise<{
-    id: string;
-  }>;
+interface Props {
+  params: Promise<{ id: string }>;
 }
 
-export default function PublicRenewalPage({ params }: PublicRenewalPageProps) {
-  const [applicationId, setApplicationId] = useState<string | null>(null);
+export async function generateStaticParams() {
+  return [{ id: '1' }];
+}
 
-  useEffect(() => {
-    params.then(resolvedParams => {
-      setApplicationId(resolvedParams.id);
-    });
-  }, [params]);
-
-  if (!applicationId) {
-    return null;
-  }
-
-  return <PublicApplicationView applicationId={applicationId} type="renewal" />;
+export default async function Page({ params }: Props) {
+  return <PublicRenewalPage params={params} />;
 }

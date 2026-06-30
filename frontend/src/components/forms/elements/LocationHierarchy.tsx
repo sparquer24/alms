@@ -64,6 +64,30 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     values.stateName, values.districtName, values.rangeOfficeName, values.zoneName, values.divisionName, values.policeStationName
   ]);
 
+  // Auto-select first Range Office when loaded and not set
+  React.useEffect(() => {
+    if (locationState.rangeOffices.length > 0 && !values.rangeOffice) {
+      const firstRO = locationState.rangeOffices[0];
+      const roId = String(firstRO.id);
+      locationActions.setSelectedRangeOffice(roId);
+      onChange(`${namePrefix}RangeOffice`, roId);
+      onChange(`${namePrefix}RangeOfficeName`, firstRO.name);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationState.rangeOffices, values.rangeOffice]);
+
+  // Auto-select first Zone when loaded and not set
+  React.useEffect(() => {
+    if (locationState.zones.length > 0 && !values.zone) {
+      const firstZone = locationState.zones[0];
+      const zoneId = String(firstZone.id);
+      locationActions.setSelectedZone(zoneId);
+      onChange(`${namePrefix}Zone`, zoneId);
+      onChange(`${namePrefix}ZoneName`, firstZone.name);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationState.zones, values.zone]);
+
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     const opts = locationActions.getSelectOptions();

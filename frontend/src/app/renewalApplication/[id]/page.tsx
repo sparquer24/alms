@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import ApplicationDetailPage from '../../application/[id]/page';
 
 interface Props {
@@ -10,5 +10,9 @@ export async function generateStaticParams() {
 }
 
 export default async function RenewalApplicationPage({ params }: Props) {
-	return <ApplicationDetailPage params={params} />;
+	return (
+		<Suspense fallback={<div>Loading renewal details...</div>}>
+			<ApplicationDetailPage params={params} />
+		</Suspense>
+	);
 }
