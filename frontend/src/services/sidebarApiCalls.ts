@@ -5,9 +5,11 @@
  */
 
 import { ApplicationApi } from '../config/APIClient';
+import axiosInstance from '../api/axiosConfig';
 import { APIApplication, ApiResponse } from '../types/api';
 import { ApplicationData } from '../types';
 import { statusIdMap } from '../config/statusMap';
+import { normalizeRenewalApplication } from '../utils/applicationFormatters';
 
 // Simple cache to prevent duplicate API calls
 const apiCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
@@ -36,13 +38,12 @@ export const STATUS_MAP = {
   redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
   approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
   freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)
-  final: statusIdMap.finaldisposal || [7],      // FINAL DISPOSAL 
-  finaldisposal: statusIdMap.finaldisposal || [7], // FINAL DISPOSAL
   closed: statusIdMap.closed || [10],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
   groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
-  drafts: statusIdMap.drafts || [13]            // DRAFTS (alias for draft)
+  drafts: statusIdMap.drafts || [13],            // DRAFTS (alias for draft)
+  applications: statusIdMap.applications || [10, 11, 3]
 };
 
 /**
@@ -103,7 +104,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
     status: statusName || detailedApp.status || undefined,
-    status_id: detailedApp.status?.id || detailedApp.statusId || 1,
+    status_id: detailedApp.workflowStatus?.id || detailedApp.workflowStatusId || detailedApp.status?.id || detailedApp.statusId || 1,
     workflowStatus: detailedApp.workflowStatus || undefined,
     assignedTo: detailedApp.currentUser?.username || String(detailedApp.currentUserId || ''),
     forwardedFrom: detailedApp.previousUser?.username || undefined,
@@ -165,7 +166,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     workflowHistories: detailedApp.workflowHistories || detailedApp.FreshLicenseApplicationsFormWorkflowHistories || detailedApp.workflowHistory || [],
     // Preserve contact and occupation info so UI can render easily
     contactInfo: detailedApp.contactInfo || detailedApp.contact_info || undefined,
-    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || undefined,
+    occupationAndBusiness: detailedApp.occupationInfo || detailedApp.occupation_info || detailedApp.occupationAndBusiness || undefined,
     acknowledgementNo: detailedApp.acknowledgementNo || detailedApp.acknowledgement_no || detailedApp.ackNo || undefined,
     // Preserve additional data fields
     licenseHistories: detailedApp.licenseHistories || [],
@@ -180,6 +181,10 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
       canReturn: !detailedApp.isApproved && !detailedApp.isRejected,
       canDispose: detailedApp.isApproved,
     },
+    isApproved: detailedApp.isApproved,
+    isRejected: detailedApp.isRejected,
+    isRecommended: detailedApp.isRecommended,
+    isNotRecommended: detailedApp.isNotRecommended,
     usersInHierarchy: Array.isArray(detailedApp.usersInHierarchy)
       ? detailedApp.usersInHierarchy
       : [],
@@ -420,27 +425,51 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   // Normalize statusKey to lowercase to be robust against URL/menu casing
   const key = String(statusKey || '').toLowerCase();
 
-  // Special handling for 'all' - fetch and combine all inbox categories
+  // Special handling for 'renewal' - fetch renewal applications list
+  if (key === 'renewal') {
+    try {
+      const response = await axiosInstance.get('/renewal-forms', {
+        params: {
+          page: 1,
+          limit: 1000,
+        },
+      });
+
+      const renewalApplications = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      const applications = renewalApplications
+        .filter((application: any) => application?.isSubmit === true)
+        .map((application: any) => normalizeRenewalApplication(application, true));
+
+      return applications;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Special handling for 'all' - fetch only approved applications
   if (key === 'all') {
     try {
-      // Fetch all inbox categories in parallel
-      const [forwarded, returned, redflagged, reenquiry] = await Promise.all([
-        fetchApplicationsByStatusKey('forwarded', customStatusIds),
-        fetchApplicationsByStatusKey('returned', customStatusIds),
-        fetchApplicationsByStatusKey('redflagged', customStatusIds),
-        fetchApplicationsByStatusKey('reenquiry', customStatusIds)
-      ]);
+      // Fetch only approved applications (exclude drafts, cancellations, etc.)
+      const freshApps = await fetchAllApplications({ limit: 1000 });
+      const approvedApps = freshApps.filter((app) => {
+        const statusName = (
+          app.workflowStatus?.name ||
+          (typeof app.status === 'string' ? app.status : (app.status as any)?.name) ||
+          ''
+        ).toLowerCase();
+        const statusId = app.status_id;
+        // Only include approved applications (exclude drafts, cancelled, and status IDs 12, 13)
+        return statusId !== 12 && statusId !== 13 && !statusName.includes('draft') && !statusName.includes('cancel');
+      });
 
-      // Combine all results and remove duplicates based on application ID
-      const combined = [...forwarded, ...returned, ...redflagged, ...reenquiry];
-      const uniqueApps = combined.filter((app, index, self) =>
-        index === self.findIndex((a) => a.id === app.id)
-      );
-
-      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all): Combined', uniqueApps.length, 'unique applications');
-      return uniqueApps;
+      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all): Filtered to', approvedApps.length, 'approved applications');
+      return approvedApps;
     } catch (error) {
-      console.error('❌ fetchApplicationsByStatusKey (all) error:', error);
       return [];
     }
   }
@@ -464,10 +493,8 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
         applicantName: item.applicantName,
         applicationDate: item.createdAt,
         lastUpdated: item.actionTakenAt || item.createdAt,
-        status: 'sent', // Use 'sent' as unique status to prevent appearing in other menus
-        status_id: 999, // Unique ID for sent status (not from database)
         // Preserve applicationType from backend ('fresh' or 'renewal')
-        applicationType: item.applicationType === 'renewal' ? 'Renewal Application' : 'Fresh License',
+        applicationType: item.applicationType,
         applicantMobile: '', // Not included in workflow history response
         currentUser: undefined,
         assignedTo: '', // Not included in workflow history response
@@ -493,7 +520,7 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
   }
   // debug: log statusKey -> statusIds mapping
   try {
-     
+
     console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey', { statusKey, key, customStatusIds, statusIds });
   } catch (e) { }
   if (statusIds.length === 0) {
@@ -629,7 +656,7 @@ export const fetchApplicationCounts = async (): Promise<{
  */
 const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData => {
   // Derive applicant name from available fields; some list endpoints may not include applicantFullName
-  
+
   // Determine if this is a renewal application
   const isRenewal = Boolean(
     apiApp?.renewalId ||
@@ -678,6 +705,10 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
       canReturn: !apiApp.isApproved && !apiApp.isRejected,
       canDispose: apiApp.isApproved,
     },
+    isApproved: apiApp.isApproved,
+    isRejected: apiApp.isRejected,
+    isRecommended: apiApp.isRecommended,
+    isNotRecommended: apiApp.isNotRecommended,
     usersInHierarchy: Array.isArray(apiApp.usersInHierarchy)
       ? apiApp.usersInHierarchy
       : undefined,
@@ -879,7 +910,7 @@ export const getApplicationByApplicationId = async (applicationId: string | numb
     const took = Date.now() - start;
     // Response may be wrapped in an ApiResponse { success, data } OR may be the raw application object.
     // Normalize both shapes for downstream processing and log timing for frontend diagnostics.
-     
+
     console.debug('[sidebarApiCalls] getApplicationByApplicationId fetch', { applicationId, took, rawResponse: response });
 
     // If API follows wrapped response pattern, extract data

@@ -80,7 +80,8 @@ export class FileUploadService {
 
   /**
    * Upload actual file to storage and then save metadata
-   * This method handles the full upload process including file storage
+   * This method handles the full upload process — converts the file to a base64
+   * data URL so the stored fileUrl can be displayed directly in the browser.
    */
   static async uploadFileWithStorage(
     applicationId: number,
@@ -89,13 +90,12 @@ export class FileUploadService {
     description?: string
   ): Promise<FileUploadResponse> {
     try {
-      // For now, we'll simulate file upload to storage
-      // In a real implementation, this would upload to S3, Azure Blob, etc.
-      const mockFileUrl = this.generateMockFileUrl(applicationId, file, fileType);
+      // Convert the file to a base64 data URL so it can be rendered inline
+      const base64Url = await this.fileToBase64(file);
 
       const uploadData: FileUploadRequest = {
         fileType,
-        fileUrl: mockFileUrl,
+        fileUrl: base64Url,
         fileName: file.name,
         fileSize: file.size,
         description
@@ -108,17 +108,19 @@ export class FileUploadService {
   }
 
   /**
-   * Generate a mock file URL for demonstration purposes
-   * Uses a configurable base URL to avoid unreachable example.com.
-   * Replace with actual storage URL generation in production.
+   * Convert a File to a base64 data URL string.
    */
-  private static generateMockFileUrl(applicationId: number, file: File, fileType: string): string {
-    const timestamp = Date.now();
-    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const base =
-      (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FILE_BASE_URL) ||
-      (typeof window !== 'undefined' ? window.location.origin : '');
-    return `${base}/files/${fileType}_${timestamp}_${sanitizedFileName}`;
+  private static fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = () => {
+        reject(new Error('Failed to convert file to base64'));
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   /**
@@ -143,6 +145,18 @@ export class FileUploadService {
     }
 
     return { isValid: true };
+  }
+
+  /**
+   * Delete an uploaded file by its ID
+   * Calls DELETE /api/application-form/file/{id}
+   */
+  static async deleteFile(fileId: number): Promise<void> {
+    try {
+      await apiClient.delete(`/application-form/file/${fileId}`);
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**

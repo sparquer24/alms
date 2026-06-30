@@ -6,17 +6,18 @@ import { LocationService, BasicItem, LocationSelection } from '../services/locat
 type Props = {
   value?: LocationSelection;
   onChange?: (sel: LocationSelection) => void;
-  labels?: Partial<Record<'state' | 'district' | 'zone' | 'division' | 'station', string>>;
-  requiredLevels?: Array<'state' | 'district' | 'zone' | 'division' | 'station'>;
+  labels?: Partial<Record<'state' | 'district' | 'rangeOffice' | 'zone' | 'division' | 'station', string>>;
+  requiredLevels?: Array<'state' | 'district' | 'rangeOffice' | 'zone' | 'division' | 'station'>;
   className?: string;
   disabled?: boolean;
-  tooltipMessages?: Partial<Record<'state' | 'district' | 'zone' | 'division' | 'station', string>>;
+  tooltipMessages?: Partial<Record<'state' | 'district' | 'rangeOffice' | 'zone' | 'division' | 'station', string>>;
   tooltipAutoHideMs?: number;
 };
 
 const defaultLabels = {
   state: 'State',
   district: 'District',
+  rangeOffice: 'Range Office',
   zone: 'Zone',
   division: 'Division',
   station: 'Police Station',
@@ -26,7 +27,7 @@ export default function CascadingLocationSelect({
   value,
   onChange,
   labels,
-  requiredLevels = ['state', 'district', 'zone', 'division', 'station'],
+  requiredLevels = ['state', 'district', 'rangeOffice', 'zone', 'division', 'station'],
   className,
   disabled,
   tooltipMessages,
@@ -36,12 +37,13 @@ export default function CascadingLocationSelect({
 
   const [states, setStates] = React.useState<BasicItem[]>([]);
   const [districts, setDistricts] = React.useState<BasicItem[]>([]);
+  const [rangeOffices, setRangeOffices] = React.useState<BasicItem[]>([]);
   const [zones, setZones] = React.useState<BasicItem[]>([]);
   const [divisions, setDivisions] = React.useState<BasicItem[]>([]);
   const [stations, setStations] = React.useState<BasicItem[]>([]);
 
   const [sel, setSel] = React.useState<LocationSelection>(value || {});
-  type Level = 'state'|'district'|'zone'|'division'|'station';
+  type Level = 'state' | 'district' | 'rangeOffice' | 'zone' | 'division' | 'station';
   const [tip, setTip] = React.useState<{ level: Level | null; message: string } | null>(null);
   const tipTimer = React.useRef<number | null>(null);
 
@@ -49,7 +51,8 @@ export default function CascadingLocationSelect({
     if (tooltipMessages && tooltipMessages[level]) return tooltipMessages[level] as string;
     switch (level) {
       case 'district': return `Please select ${lbl.state} before ${lbl.district}.`;
-      case 'zone': return `Please select ${lbl.district} before ${lbl.zone}.`;
+      case 'rangeOffice': return `Please select ${lbl.district} before ${lbl.rangeOffice}.`;
+      case 'zone': return `Please select ${lbl.rangeOffice} before ${lbl.zone}.`;
       case 'division': return `Please select ${lbl.zone} before ${lbl.division}.`;
       case 'station': return `Please select ${lbl.division} before ${lbl.station}.`;
       case 'state':
@@ -86,12 +89,13 @@ export default function CascadingLocationSelect({
     const same =
       sel.state?.id === value.state?.id &&
       sel.district?.id === value.district?.id &&
+      sel.rangeOffice?.id === value.rangeOffice?.id &&
       sel.zone?.id === value.zone?.id &&
       sel.division?.id === value.division?.id &&
       sel.station?.id === value.station?.id;
     if (!same) setSel(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value?.state?.id, value?.district?.id, value?.zone?.id, value?.division?.id, value?.station?.id]);
+  }, [value?.state?.id, value?.district?.id, value?.rangeOffice?.id, value?.zone?.id, value?.division?.id, value?.station?.id]);
 
   React.useEffect(() => {
     (async () => {
@@ -109,23 +113,32 @@ export default function CascadingLocationSelect({
     })();
   }, [sel.state?.id]);
 
-  // load zones when district changes
+  // load range offices when district changes
   React.useEffect(() => {
     (async () => {
-      if (!sel.district?.id) { setZones([]); return; }
-      const z = await LocationService.getZones({ districtId: sel.district.id, stateId: sel.state?.id });
+      if (!sel.district?.id) { setRangeOffices([]); return; }
+      const r = await LocationService.getRangeOffices(sel.district.id);
+      setRangeOffices(r);
+    })();
+  }, [sel.district?.id]);
+
+  // load zones when range office changes
+  React.useEffect(() => {
+    (async () => {
+      if (!sel.rangeOffice?.id) { setZones([]); return; }
+      const z = await LocationService.getZones({ rangeOfficeId: sel.rangeOffice.id });
       setZones(z);
     })();
-  }, [sel.district?.id, sel.state?.id]);
+  }, [sel.rangeOffice?.id]);
 
   // load divisions when zone changes
   React.useEffect(() => {
     (async () => {
       if (!sel.zone?.id) { setDivisions([]); return; }
-      const dv = await LocationService.getDivisions({ zoneId: sel.zone.id, districtId: sel.district?.id });
+      const dv = await LocationService.getDivisions({ zoneId: sel.zone.id });
       setDivisions(dv);
     })();
-  }, [sel.zone?.id, sel.district?.id]);
+  }, [sel.zone?.id]);
 
   // load stations when division changes
   React.useEffect(() => {
@@ -159,7 +172,7 @@ export default function CascadingLocationSelect({
           onChange={(e) => {
             const id = Number(e.target.value || 0);
             const item = states.find(s => s.id === id) || null;
-            setSel({ state: item, district: null, zone: null, division: null, station: null });
+            setSel({ state: item, district: null, rangeOffice: null, zone: null, division: null, station: null });
           }}
         >
           <option value="">Select {lbl.state}</option>
@@ -177,13 +190,13 @@ export default function CascadingLocationSelect({
           onChange={(e) => {
             const id = Number(e.target.value || 0);
             const item = districts.find(s => s.id === id) || null;
-            setSel(prev => ({ ...prev, district: item, zone: null, division: null, station: null }));
+            setSel(prev => ({ ...prev, district: item, rangeOffice: null, zone: null, division: null, station: null }));
           }}
         >
           <option value="">Select {lbl.district}</option>
           {opt(districts)}
         </select>
-    {(disabled || !sel.state) && (
+        {(disabled || !sel.state) && (
           <div
             className="absolute inset-0 bg-transparent cursor-default"
             onMouseEnter={() => showTip('district', true)}
@@ -192,6 +205,37 @@ export default function CascadingLocationSelect({
           />
         )}
         {tip?.level === 'district' && (
+          <div className="absolute top-full left-0 mt-1 z-10 text-xs text-white bg-black/90 px-2 py-1 rounded shadow">
+            {tip.message}
+          </div>
+        )}
+      </div>
+
+      {/* Range Office */}
+      <div className="mb-3 relative">
+        <label className="block text-sm font-medium text-gray-700">{lbl.rangeOffice}{isReq('rangeOffice') && ' *'}</label>
+        <select
+          className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+          disabled={disabled}
+          value={sel.rangeOffice?.id ?? ''}
+          onChange={(e) => {
+            const id = Number(e.target.value || 0);
+            const item = rangeOffices.find(s => s.id === id) || null;
+            setSel(prev => ({ ...prev, rangeOffice: item, zone: null, division: null, station: null }));
+          }}
+        >
+          <option value="">Select {lbl.rangeOffice}</option>
+          {opt(rangeOffices)}
+        </select>
+        {(disabled || !sel.district) && (
+          <div
+            className="absolute inset-0 bg-transparent cursor-default"
+            onMouseEnter={() => showTip('rangeOffice', true)}
+            onMouseLeave={hideTip}
+            aria-hidden="true"
+          />
+        )}
+        {tip?.level === 'rangeOffice' && (
           <div className="absolute top-full left-0 mt-1 z-10 text-xs text-white bg-black/90 px-2 py-1 rounded shadow">
             {tip.message}
           </div>
@@ -214,7 +258,7 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.zone}</option>
           {opt(zones)}
         </select>
-    {(disabled || !sel.district) && (
+        {(disabled || !sel.rangeOffice) && (
           <div
             className="absolute inset-0 bg-transparent cursor-default"
             onMouseEnter={() => showTip('zone', true)}
@@ -245,7 +289,7 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.division}</option>
           {opt(divisions)}
         </select>
-    {(disabled || !sel.zone) && (
+        {(disabled || !sel.zone) && (
           <div
             className="absolute inset-0 bg-transparent cursor-default"
             onMouseEnter={() => showTip('division', true)}
@@ -276,7 +320,7 @@ export default function CascadingLocationSelect({
           <option value="">Select {lbl.station}</option>
           {opt(stations)}
         </select>
-    {(disabled || !sel.division) && (
+        {(disabled || !sel.division) && (
           <div
             className="absolute inset-0 bg-transparent cursor-default"
             onMouseEnter={() => showTip('station', true)}

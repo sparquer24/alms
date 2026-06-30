@@ -132,6 +132,76 @@ export class RenewalFormController {
           "isSubmit": true
         }
       },
+      'Complete Criminal History': {
+        summary: 'Update criminal history with all possible fields',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: true,
+              firDetails: [
+                { firNumber: '123/2018', underSection: '302', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: 'Rioting', sentence: '2 years', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ],
+              isBondExecuted: true,
+              bondDate: '2019-03-20T00:00:00.000Z',
+              bondPeriod: '6 months',
+              isProhibited: true,
+              prohibitionDate: '2020-07-10T00:00:00.000Z',
+              prohibitionPeriod: '5 years'
+            }
+          ]
+        }
+      },
+      'No Criminal Record': {
+        summary: 'Clear criminal history (set all to false)',
+        value: {
+          criminalHistories: [
+            {
+              isConvicted: false,
+              isBondExecuted: false,
+              isProhibited: false
+            }
+          ]
+        }
+      },
+      'Complete License History': {
+        summary: 'Update license history with all possible fields',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: true,
+              dateAppliedFor: '2019-06-15T00:00:00.000Z',
+              previousAuthorityName: 'District Magistrate, Kolkata',
+              previousResult: 'REJECTED',
+              hasLicenceSuspended: true,
+              suspensionAuthorityName: 'District Magistrate, Mumbai',
+              suspensionReason: 'Violation of terms and conditions',
+              hasFamilyLicence: true,
+              familyMemberName: 'John Doe (Father)',
+              familyLicenceNumber: 'LIC123456789',
+              familyWeaponsEndorsed: ['Pistol .32', 'Rifle .22'],
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock in bedroom',
+              hasTraining: true,
+              trainingDetails: 'Basic firearms training from XYZ Academy, Certificate No: ABC123'
+            }
+          ]
+        }
+      },
+      'First Time Applicant (License History)': {
+        summary: 'License history for first-time applicant',
+        value: {
+          licenseHistories: [
+            {
+              hasAppliedBefore: false,
+              hasLicenceSuspended: false,
+              hasFamilyLicence: false,
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock system',
+              hasTraining: false
+            }
+          ]
+        }
+      },
     },
   })
   @ApiResponse({
@@ -141,13 +211,60 @@ export class RenewalFormController {
       success: true,
       message: 'Application details updated successfully',
       data: {
-        updatedSections: ['presentAddress', 'criminalHistories'],
+        updatedSections: ['presentAddress', 'criminalHistories', 'licenseHistories'],
         application: {
           id: 1,
-          acknowledgementNo: 'ALMS1696050000000',
-          firstName: 'John',
-          lastName: 'Doe',
-          // ... other application data with relations
+          acknowledgementNo: 'RENEWAL-1715754373000-12345678',
+          firstName: 'XYZ',
+          middleName: 'K',
+          lastName: 'Sharma',
+          parentOrSpouseName: 'Ramesh Sharma',
+          sex: 'MALE',
+          dateOfBirth: '1985-05-15T00:00:00.000Z',
+          licenseNumber: 'LIC123456789',
+          criminalHistories: [
+            {
+              id: 1,
+              applicationId: 1,
+              isConvicted: true,
+              firDetails: [
+                { firNumber: '123/2018', underSection: '302', policeStation: 'Central PS', unit: '2/3', District: 'Hyderabad', state: 'Telangana', offence: 'Rioting', sentence: '2 years', DateOfSentence: '2020-07-10T00:00:00.000Z' }
+              ],
+              isBondExecuted: true,
+              bondDate: '2019-03-20T00:00:00.000Z',
+              bondPeriod: '6 months',
+              isProhibited: true,
+              prohibitionDate: '2020-07-10T00:00:00.000Z',
+              prohibitionPeriod: '5 years',
+              createdAt: '2024-01-15T10:30:00.000Z',
+              updatedAt: '2024-01-15T10:30:00.000Z'
+            }
+          ],
+          licenseHistories: [
+            {
+              id: 1,
+              applicationId: 1,
+              hasAppliedBefore: true,
+              dateAppliedFor: '2019-06-15T00:00:00.000Z',
+              previousAuthorityName: 'District Magistrate, Kolkata',
+              previousResult: 'REJECTED',
+              hasLicenceSuspended: false,
+              suspensionAuthorityName: null,
+              suspensionReason: null,
+              hasFamilyLicence: true,
+              familyMemberName: 'John Doe (Father)',
+              familyLicenceNumber: 'LIC123456789',
+              familyWeaponsEndorsed: ['Pistol .32', 'Rifle .22'],
+              hasSafePlace: true,
+              safePlaceDetails: 'Steel almirah with double lock in bedroom',
+              hasTraining: true,
+              trainingDetails: 'Basic firearms training from XYZ Academy, Certificate No: ABC123',
+              createdAt: '2024-01-15T10:30:00.000Z',
+              updatedAt: '2024-01-15T10:30:00.000Z'
+            }
+          ],
+          workflowStatus: { id: 1, code: 'DRAFT', name: 'Draft' },
+          isSubmit: false
         }
       }
     }
@@ -210,7 +327,6 @@ export class RenewalFormController {
    * Delete a file from renewal application
    */
   @Delete('/file/:fileId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete a file from renewal application',
     description: 'Remove a specific file record from the application',
@@ -221,13 +337,28 @@ export class RenewalFormController {
     description: 'File ID to delete',
   })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'File deleted successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'File deleted successfully',
+        data: {
+          fileId: 1315
+        }
+      }
+    }
   }) 
+  @ApiResponse({ status: 400, description: 'Cannot delete file from non-DRAFT application' })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async deleteFile(@Param('fileId', ParseIntPipe) fileId: number): Promise<void> {
-    return this.renewalFormService.deleteFile(fileId);
+  async deleteFile(@Param('fileId', ParseIntPipe) fileId: number): Promise<any> {
+    await this.renewalFormService.deleteFile(fileId);
+    return {
+      success: true,
+      message: 'File deleted successfully',
+      data: { fileId },
+    };
   }
 
   /**
@@ -235,7 +366,6 @@ export class RenewalFormController {
    * Only allowed for DRAFT status applications
    */
   @Delete('/application/:applicationId')
-  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete entire renewal application',
     description: 'Delete the complete draft application with all child records. Only works for DRAFT status',
@@ -246,15 +376,29 @@ export class RenewalFormController {
     description: 'Application ID to delete',
   })
   @ApiResponse({
-    status: 204,
+    status: 200,
     description: 'Application deleted successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Application deleted successfully',
+        data: {
+          applicationId: 58
+        }
+      }
+    }
   })
   @ApiResponse({ status: 400, description: 'Application is not in DRAFT status' })
   @ApiResponse({ status: 404, description: 'Application not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async deleteApplication(@Param('applicationId') applicationId: string): Promise<void> {
+  async deleteApplication(@Param('applicationId') applicationId: string): Promise<any> {
     const applId = parseInt(applicationId, 10);
-    return this.renewalFormService.deleteApplicationById(applId);
+    await this.renewalFormService.deleteApplicationById(applId);
+    return {
+      success: true,
+      message: 'Application deleted successfully',
+      data: { applicationId: applId },
+    };
   }
 
   /**

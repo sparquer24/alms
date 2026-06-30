@@ -288,30 +288,62 @@ export default function FlowMappingContent() {
     .filter(Boolean) as Role[];
 
   const selectStyles = {
-    control: (base: any) => ({
+    control: (base: any, state: any) => ({
       ...base,
       borderRadius: AdminBorderRadius.md,
-      borderColor: formErrors.currentRole || formErrors.nextRoles ? '#ef4444' : colors.border,
-      backgroundColor: colors.background,
+      borderColor: formErrors.currentRole || formErrors.nextRoles
+        ? '#ef4444'
+        : state.isFocused
+        ? colors.status.info
+        : colors.border,
+      backgroundColor: colors.surface,
       color: colors.text.primary,
-      boxShadow: 'none',
+      boxShadow: state.isFocused ? `0 0 0 2px ${colors.status.info}30` : 'none',
+      borderWidth: '1px',
       '&:hover': {
-        borderColor: formErrors.currentRole || formErrors.nextRoles ? '#ef4444' : colors.border,
+        borderColor: formErrors.currentRole || formErrors.nextRoles
+          ? '#ef4444'
+          : state.isFocused
+          ? colors.status.info
+          : colors.border,
       },
     }),
-    option: (base: any) => ({
+    option: (base: any, state: any) => ({
       ...base,
-      backgroundColor: colors.background,
-      color: colors.text.primary,
-      '&:hover': {
+      backgroundColor: state.isSelected
+        ? colors.status.info
+        : state.isFocused
+        ? colors.hover
+        : colors.surface,
+      color: state.isSelected ? '#ffffff' : colors.text.primary,
+      cursor: 'pointer',
+      ':active': {
         backgroundColor: colors.status.info,
         color: '#ffffff',
       },
     }),
     menu: (base: any) => ({
       ...base,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       borderColor: colors.border,
+      borderWidth: '1px',
+      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    }),
+    menuList: (base: any) => ({
+      ...base,
+      backgroundColor: colors.surface,
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: colors.text.primary,
+    }),
+    input: (base: any) => ({
+      ...base,
+      color: colors.text.primary,
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: colors.text.secondary,
     }),
     multiValue: (base: any) => ({
       ...base,
@@ -343,11 +375,24 @@ export default function FlowMappingContent() {
         }}
       >
         {/* Header Section with Gradient Background */}
-        <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
-          <div className='bg-[#001F54] text-white px-6 py-8'>
-            <div className='text-white'>
-              <h1 className='text-3xl font-bold mb-2'>Flow Mapping</h1>
-              <p className='text-blue-100 text-lg'>
+        <div
+          style={{
+            backgroundColor: colors.surface,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+          }}
+        >
+          <div
+            style={{
+              background: `linear-gradient(135deg, #001F54 0%, #003F88 100%)`,
+              padding: '24px 32px',
+            }}
+          >
+            <div style={{ color: '#ffffff' }}>
+              <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 8px 0' }}>Flow Mapping</h1>
+              <p style={{ color: '#b3cbf2', fontSize: '15px', margin: 0, fontWeight: 500 }}>
                 Configure workflow routing between roles with circular dependency validation
               </p>
             </div>
@@ -540,7 +585,7 @@ export default function FlowMappingContent() {
                     padding: '10px 20px',
                     backgroundColor:
                       !currentRole || nextRoles.length === 0 || isSaving || isLoading
-                        ? colors.text.secondary
+                        ? colors.disabled
                         : colors.status.success,
                     color: '#ffffff',
                     border: 'none',
@@ -551,10 +596,23 @@ export default function FlowMappingContent() {
                         : 'pointer',
                     fontSize: '14px',
                     fontWeight: 600,
-                    opacity: !currentRole || nextRoles.length === 0 || isSaving ? 0.6 : 1,
-                    transition: 'all 0.2s ease',
+                    boxShadow: !currentRole || nextRoles.length === 0 || isSaving || isLoading
+                      ? 'none'
+                      : `0 4px 12px ${colors.status.success}30`,
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
+                  className="btn-success-animated"
                 >
+                  <style dangerouslySetInnerHTML={{__html: `
+                    .btn-success-animated:hover:not(:disabled) {
+                      transform: translateY(-1px);
+                      box-shadow: 0 6px 16px ${colors.status.success}50 !important;
+                      filter: brightness(1.05);
+                    }
+                    .btn-success-animated:active:not(:disabled) {
+                      transform: translateY(0);
+                    }
+                  `}} />
                   {saveFlowMappingMutation.isPending || validateFlowMutation.isPending
                     ? 'Saving...'
                     : 'Save Mapping'}
@@ -570,18 +628,28 @@ export default function FlowMappingContent() {
                     padding: '10px 20px',
                     backgroundColor: 'transparent',
                     color:
-                      !currentRole || !currentFlowMapping || isSaving
-                        ? colors.text.secondary
+                      !currentRole || !currentFlowMapping || isSaving || isLoading
+                        ? colors.text.muted
                         : colors.status.info,
-                    border: `1px solid ${!currentRole || !currentFlowMapping || isSaving ? colors.border : colors.status.info}`,
+                    border: `1px solid ${!currentRole || !currentFlowMapping || isSaving || isLoading ? colors.border : colors.status.info}`,
                     borderRadius: AdminBorderRadius.md,
                     cursor:
-                      !currentRole || !currentFlowMapping || isSaving ? 'not-allowed' : 'pointer',
+                      !currentRole || !currentFlowMapping || isSaving || isLoading ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
                     fontWeight: 600,
-                    opacity: !currentRole || !currentFlowMapping || isSaving ? 0.6 : 1,
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
+                  className="btn-info-animated"
                 >
+                  <style dangerouslySetInnerHTML={{__html: `
+                    .btn-info-animated:hover:not(:disabled) {
+                      background-color: ${colors.status.info}10;
+                      transform: translateY(-1px);
+                    }
+                    .btn-info-animated:active:not(:disabled) {
+                      transform: translateY(0);
+                    }
+                  `}} />
                   Duplicate Mapping
                 </button>
 
@@ -602,8 +670,20 @@ export default function FlowMappingContent() {
                     cursor: isSaving || isLoading ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
                     fontWeight: 600,
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
+                  className="btn-clear-animated"
                 >
+                  <style dangerouslySetInnerHTML={{__html: `
+                    .btn-clear-animated:hover:not(:disabled) {
+                      background-color: ${colors.hover};
+                      color: ${colors.text.primary};
+                      transform: translateY(-1px);
+                    }
+                    .btn-clear-animated:active:not(:disabled) {
+                      transform: translateY(0);
+                    }
+                  `}} />
                   Clear All
                 </button>
               </div>
@@ -620,15 +700,37 @@ export default function FlowMappingContent() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              backdropFilter: 'blur(6px)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               zIndex: 1000,
+              animation: 'fadeIn 0.2s ease-out',
             }}
             onClick={() => setShowDuplicateModal(false)}
           >
-            <div style={{ maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+              @keyframes scaleIn {
+                from { transform: scale(0.96); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+              }
+            `}} />
+            <div 
+              style={{ 
+                maxWidth: '500px', 
+                width: '100%',
+                maxHeight: '90vh', 
+                overflow: 'auto',
+                margin: '20px',
+                animation: 'scaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
               <AdminCard title='Duplicate Mapping'>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.lg }}>
                   <p style={{ color: colors.text.secondary, margin: 0 }}>

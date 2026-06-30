@@ -31,8 +31,11 @@ interface State extends Location {}
 interface District extends Location {
   stateId: number;
 }
-interface Zone extends Location {
+interface RangeOffice extends Location {
   districtId: number;
+}
+interface Zone extends Location {
+  rangeOfficeId: number;
 }
 interface Division extends Location {
   zoneId: number;
@@ -41,10 +44,10 @@ interface PoliceStation extends Location {
   divisionId: number;
 }
 
-type LocationLevel = 'state' | 'district' | 'zone' | 'division' | 'station';
-type LocationEntity = State | District | Zone | Division | PoliceStation;
+type LocationLevel = 'state' | 'district' | 'range' | 'zone' | 'division' | 'station';
+type LocationEntity = State | District | RangeOffice | Zone | Division | PoliceStation;
 
-const HIERARCHY_ORDER: LocationLevel[] = ['state', 'district', 'zone', 'division', 'station'];
+const HIERARCHY_ORDER: LocationLevel[] = ['state', 'district', 'range', 'zone', 'division', 'station'];
 
 const LOCATION_HIERARCHY: Record<
   LocationLevel,
@@ -52,6 +55,7 @@ const LOCATION_HIERARCHY: Record<
 > = {
   state: { label: 'States', singular: 'State', endpoint: 'locations/states' },
   district: { label: 'Districts', singular: 'District', endpoint: 'locations/districts' },
+  range: { label: 'Range Offices', singular: 'Range Office', endpoint: 'locations/range-offices' },
   zone: { label: 'Zones', singular: 'Zone', endpoint: 'locations/zones' },
   division: { label: 'Divisions', singular: 'Division', endpoint: 'locations/divisions' },
   station: {
@@ -133,6 +137,7 @@ export default function LocationsManagementContent() {
   const [selectedPath, setSelectedPath] = useState<Record<LocationLevel, Location | null>>({
     state: null,
     district: null,
+    range: null,
     zone: null,
     division: null,
     station: null,
@@ -143,6 +148,37 @@ export default function LocationsManagementContent() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [editingItem, setEditingItem] = useState<LocationEntity | null>(null);
   const [formData, setFormData] = useState({ name: '' });
+  const [eligibleUsers, setEligibleUsers] = useState<any[]>([]);
+  const [assignedUserId, setAssignedUserId] = useState<number | null>(null);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  useEffect(() => {
+    if (showModal && modalMode === 'edit' && editingItem) {
+      const fetchUsers = async () => {
+        setIsLoadingUsers(true);
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/locations/eligible-users?type=${currentLevel}&id=${editingItem.id}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setEligibleUsers(data.eligibleUsers || []);
+              setAssignedUserId(data.assignedUser?.id || null);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch eligible users', error);
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      };
+      fetchUsers();
+    } else {
+      setEligibleUsers([]);
+      setAssignedUserId(null);
+    }
+  }, [showModal, modalMode, editingItem, currentLevel]);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,13 +188,16 @@ export default function LocationsManagementContent() {
     setFormData({ name: '' });
     setEditingItem(null);
     setModalMode('create');
+    setEligibleUsers([]);
+    setAssignedUserId(null);
   };
 
   // Get parent ID based on current level
   const getParentId = (): number | undefined => {
     const parentMap = {
       district: selectedPath.state?.id,
-      zone: selectedPath.district?.id,
+      range: selectedPath.district?.id,
+      zone: selectedPath.range?.id,
       division: selectedPath.zone?.id,
       station: selectedPath.division?.id,
       state: undefined,
@@ -181,7 +220,8 @@ export default function LocationsManagementContent() {
     const paramMap: Record<LocationLevel, string> = {
       state: '',
       district: 'stateId',
-      zone: 'districtId',
+      range: 'districtId',
+      zone: 'rangeOfficeId',
       division: 'zoneId',
       station: 'divisionId',
     };
@@ -293,6 +333,7 @@ export default function LocationsManagementContent() {
     const payload = {
       name: formData.name.trim(),
       ...(parentId && { parentId }),
+      ...(modalMode === 'edit' && { assignedUserId }),
     };
 
     if (modalMode === 'edit' && editingItem) {
@@ -726,6 +767,42 @@ export default function LocationsManagementContent() {
                     disabled={isSaving}
                   />
                 </div>
+
+                {modalMode === 'edit' && (
+                  <div style={{ marginBottom: AdminSpacing.lg }}>
+                    <label
+                      style={{ display: 'block', marginBottom: AdminSpacing.sm, fontWeight: 600 }}
+                    >
+                      Assigned User
+                    </label>
+                    {isLoadingUsers ? (
+                      <div style={{ fontSize: '14px', color: colors.text.secondary }}>Loading eligible users...</div>
+                    ) : (
+                      <select
+                        value={assignedUserId || ''}
+                        onChange={e => setAssignedUserId(e.target.value ? Number(e.target.value) : null)}
+                        style={{
+                          width: '100%',
+                          padding: AdminSpacing.md,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: AdminBorderRadius.md,
+                          fontSize: '14px',
+                          backgroundColor: colors.background,
+                          color: colors.text.primary,
+                        }}
+                        disabled={isSaving}
+                      >
+                        <option value="">None (Unassigned)</option>
+                        {eligibleUsers.map((u: any) => (
+                          <option key={u.id} value={u.id}>
+                            {u.username} ({u.role?.name || u.role?.code}){u.email ? ` - ${u.email}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
 
                 <div style={{ display: 'flex', gap: AdminSpacing.md, justifyContent: 'flex-end' }}>
                   <button

@@ -11,13 +11,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #121010 ;
-  }
-}
-
 body {
   background: #fff !important;
 }
@@ -160,6 +153,9 @@ body::-webkit-scrollbar-thumb,
   animation: progressBar 3s ease-in-out infinite;
 }
 
+/* ==============================
+   Print styles
+============================== */
 /* Print styles - hide chrome and make printable area full width */
 @media print {
   /* hide app chrome */

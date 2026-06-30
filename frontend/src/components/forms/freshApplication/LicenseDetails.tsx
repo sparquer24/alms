@@ -6,10 +6,12 @@ import { Select } from '../elements/Select';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import FormFooter from '../elements/footer';
 import { WeaponsService, Weapon } from '../../../services/weapons';
-import { FileUploadService, FileUploadResponse } from '../../../services/fileUpload';
+import { FileUploadService, FileUploadResponse } from '../../../api/fileUploadService';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { FieldRule } from '../../../utils/validation/types';
+import { useFormValidation } from '../../../hooks/useFormValidation';
 
 const initialState = {
   licenseDetails: [
@@ -27,31 +29,108 @@ const initialState = {
     },
   ],
 };
-const validateLicenseDetails = (formData: any) => {
-  const errors: Record<string, string> = {};
-  const detail = formData.licenseDetails?.[0] || {};
-  
-  if (!detail.needForLicense) {
-    errors.needForLicense = 'Need for license is required';
-  }
-  if (!detail.armsCategory) {
-    errors.armsCategory = 'Arms category is required';
-  }
-  if (!detail.requestedWeaponIds || detail.requestedWeaponIds.length === 0) {
-    errors.weaponSelection = 'Please select at least one weapon';
-  }
-  if (!detail.areaOfValidity) {
-    errors.areaOfValidity = 'Area of validity is required';
-  }
-  if (!detail.ammunitionDescription?.trim()) {
-    errors.ammunitionDescription = 'Ammunition description is required';
-  }
-  
-  return errors;
-};
+
+const licenseDetailRules: FieldRule[] = [
+  {
+    name: 'needForLicense',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Need for license is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      return d?.needForLicense ? '' : 'Need for license is required';
+    },
+  },
+  {
+    name: 'armsCategory',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Arms category is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      return d?.armsCategory ? '' : 'Arms category is required';
+    },
+  },
+  {
+    name: 'weaponSelection',
+    type: 'custom',
+    required: true,
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      return (d?.requestedWeaponIds?.length > 0) ? '' : 'Please select at least one weapon';
+    },
+  },
+  {
+    name: 'areaOfValidity',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Area of validity is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      return d?.areaOfValidity ? '' : 'Area of validity is required';
+    },
+  },
+  {
+    name: 'ammunitionDescription',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Ammunition description is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      const val = d?.ammunitionDescription || '';
+      if (!val.trim()) return 'Ammunition description is required';
+      if (val.startsWith(' ')) return 'Input cannot start with a space.';
+      if (/^[^A-Za-z0-9]/.test(val)) return 'Input cannot start with a special character.';
+      return '';
+    },
+  },
+  {
+    name: 'specialConsiderationReason',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Special consideration reason is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      const val = d?.specialConsiderationReason?.trim() || '';
+      if (!val) return 'Special consideration reason is required';
+      if (val.startsWith(' ')) return 'Input cannot start with a space.';
+      if (/^[^A-Za-z]/.test(val)) return 'Input cannot start with a special character.';
+      return '';
+    },
+  },
+  {
+    name: 'licencePlaceArea',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Place or area for licence is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      const val = d?.licencePlaceArea?.trim() || '';
+      if (!val) return 'Place or area for licence is required';
+      if (val.startsWith(' ')) return 'Input cannot start with a space.';
+      if (/^[^A-Za-z0-9]/.test(val)) return 'Input cannot start with a special character.';
+      return '';
+    },
+  },
+  {
+    name: 'wildBeastsSpecification',
+    type: 'custom',
+    required: true,
+    errorMessages: { required: 'Wild beasts specification is required' },
+    customValidator: (_, form) => {
+      const d = form.licenseDetails?.[0];
+      const val = d?.wildBeastsSpecification?.trim() || '';
+      if (!val) return 'Wild beasts specification is required';
+      if (val.startsWith(' ')) return 'Input cannot start with a space.';
+      if (/^[^A-Za-z]/.test(val)) return 'Input cannot start with a special character.';
+      return '';
+    },
+  },
+];
 
 const LicenseDetails = () => {
   const router = useRouter();
+  const validation = useFormValidation(licenseDetailRules);
 
   const {
     form,
@@ -70,7 +149,7 @@ const LicenseDetails = () => {
   } = useApplicationForm({
     initialState,
     formSection: 'license-details',
-    validationRules: validateLicenseDetails,
+    validationRules: validation.validateAll,
   });
 
   const [weapons, setWeapons] = useState<Weapon[]>([]);
@@ -122,46 +201,44 @@ const LicenseDetails = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target;
-    if (type === 'checkbox' && 'checked' in e.target) {
-      const checked = (e.target as HTMLInputElement).checked;
-      setForm((prev: any) => {
-        // Ensure licenseDetails array exists and has at least one element
-        const currentLicenseDetails = prev.licenseDetails || [{}];
-        const currentDetail = currentLicenseDetails[0] || {};
+    const checked = (e.target as HTMLInputElement).checked;
+    const fieldValue = type === 'checkbox' ? checked : value;
 
-        const newForm = {
-          ...prev,
-          licenseDetails: [
-            {
-              ...currentDetail,
-              [name]: checked,
-            },
-          ],
-        };
-        return newForm;
-      });
-    } else {
-      setForm((prev: any) => {
-        // Ensure licenseDetails array exists and has at least one element
-        const currentLicenseDetails = prev.licenseDetails || [{}];
-        const currentDetail = currentLicenseDetails[0] || {};
+    setForm((prev: any) => ({
+      ...prev,
+      licenseDetails: [
+        { ...(prev.licenseDetails?.[0] || {}), [name]: fieldValue },
+        ...prev.licenseDetails.slice(1),
+      ],
+    }));
 
-        const newForm = {
-          ...prev,
-          licenseDetails: [
-            {
-              ...currentDetail,
-              [name]: value,
-            },
-          ],
-        };
-        return newForm;
-      });
+    // Real-time validation
+    const updatedForm = {
+      ...form,
+      licenseDetails: [{ ...(form.licenseDetails?.[0] || {}), [name]: fieldValue }],
+    };
+    const error = validation.processChange(name, String(fieldValue), updatedForm).error;
+    setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const trimmed = value.trim();
+    if (trimmed !== value) {
+      setForm((prev: any) => ({
+        ...prev,
+        licenseDetails: [
+          { ...(prev.licenseDetails?.[0] || {}), [name]: trimmed },
+          ...prev.licenseDetails.slice(1),
+        ],
+      }));
     }
-
-    if (fieldErrors[name]) {
-      setFieldErrors((prev: any) => ({ ...prev, [name]: '' }));
-    }
+    const updatedForm = {
+      ...form,
+      licenseDetails: [{ ...(form.licenseDetails?.[0] || {}), [name]: trimmed }],
+    };
+    const error = validation.processBlur(name, trimmed, updatedForm).error;
+    setFieldErrors((prev: any) => ({ ...prev, [name]: error }));
   };
 
   const handleWeaponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -190,9 +267,15 @@ const LicenseDetails = () => {
       return newForm;
     });
 
-    if (fieldErrors.weaponSelection) {
-      setFieldErrors((prev: any) => ({ ...prev, weaponSelection: '' }));
-    }
+    // Real-time validation for weapon selection
+    const detail = getLicenseDetail();
+    const currentWeapons = detail.requestedWeaponIds || [];
+    const newIds = currentWeapons.includes(weaponId)
+      ? currentWeapons.filter((id: number) => id !== weaponId)
+      : [...currentWeapons, weaponId];
+    const updatedForm = { ...form, licenseDetails: [{ ...detail, requestedWeaponIds: newIds }] };
+    const { error } = validation.processChange('weaponSelection', '', updatedForm);
+    setFieldErrors((prev: any) => ({ ...prev, weaponSelection: error }));
   };
 
   const handleAreaChange = (area: string, checked: boolean) => {
@@ -220,9 +303,18 @@ const LicenseDetails = () => {
       return newForm;
     });
 
-    if (fieldErrors.areaOfValidity) {
-      setFieldErrors((prev: any) => ({ ...prev, areaOfValidity: '' }));
-    }
+    // Real-time validation for area of validity
+    const detail = getLicenseDetail();
+    const currentAreas = detail.areaOfValidity
+      ? detail.areaOfValidity.split(', ').filter(Boolean)
+      : [];
+    const updatedAreas = checked
+      ? [...currentAreas.filter((a: string) => a !== area), area]
+      : currentAreas.filter((a: string) => a !== area);
+    const newAreaValue = updatedAreas.join(', ');
+    const updatedForm = { ...form, licenseDetails: [{ ...detail, areaOfValidity: newAreaValue }] };
+    const { error } = validation.processChange('areaOfValidity', newAreaValue, updatedForm);
+    setFieldErrors((prev: any) => ({ ...prev, areaOfValidity: error }));
   };
 
   // File upload handler for multiple files with API integration
@@ -242,8 +334,7 @@ const LicenseDetails = () => {
     const uploadedFiles = getLicenseDetail().uploadedFiles || [];
     const totalFiles = currentFiles.length + uploadedFiles.length;
 
-    if (totalFiles >= 5) {
-      alert('Maximum 5 files allowed. Please remove a file before uploading more.');
+    if (totalFiles >= 1) {
       return;
     }
     // If we have an applicationId, upload immediately
@@ -255,7 +346,7 @@ const LicenseDetails = () => {
         const uploadResponse = await FileUploadService.uploadFile(
           applicantId,
           file,
-          'MEDICAL_REPORT',
+          'OTHER',
           'Evidence document for special consideration claims'
         );
 
@@ -311,7 +402,31 @@ const LicenseDetails = () => {
   };
 
   // Remove specific file (local or uploaded)
-  const removeFile = (indexToRemove: number, isUploaded: boolean = false) => {
+  const removeFile = async (indexToRemove: number, isUploaded: boolean = false) => {
+    console.debug('[LicenseDetails] removeFile called:', { indexToRemove, isUploaded });
+    if (isUploaded) {
+      const currentDetail = getLicenseDetail();
+      const currentUploadedFiles = currentDetail.uploadedFiles || [];
+      const fileToRemove = currentUploadedFiles[indexToRemove];
+      console.debug('[LicenseDetails] file to remove:', fileToRemove);
+      
+      const rawId = fileToRemove?.id || fileToRemove?.uploadId;
+      const fileId = rawId ? parseInt(String(rawId), 10) : null;
+      
+      if (fileId && !isNaN(fileId)) {
+        try {
+          await FileUploadService.deleteFile(fileId);
+          console.debug('[LicenseDetails] file deleted from server successfully:', fileId);
+        } catch (error: any) {
+          console.error('[LicenseDetails] failed to delete file:', error);
+          alert(`Failed to delete file from server: ${error.message}`);
+          return;
+        }
+      } else {
+        console.warn('[LicenseDetails] No valid file ID found to delete from server:', fileToRemove);
+      }
+    }
+
     setForm((prev: any) => {
       const currentLicenseDetails = prev.licenseDetails || [{}];
       const currentDetail = currentLicenseDetails[0] || {};
@@ -363,9 +478,11 @@ const LicenseDetails = () => {
 
       const uploadResponses = await FileUploadService.uploadMultipleFiles(
         applicantId,
-        pendingFiles,
-        'MEDICAL_REPORT',
-        'Evidence document for special consideration claims'
+        pendingFiles.map((file: File) => ({
+          file,
+          fileType: 'OTHER',
+          description: 'Evidence document for special consideration claims'
+        }))
       );
 
       // Move files from pending to uploaded
@@ -432,6 +549,11 @@ const LicenseDetails = () => {
     return <FormSkeleton title="License Details" rows={4} />;
   }
 
+  const detail = getLicenseDetail();
+  const currentFiles = detail.specialClaimsEvidence || [];
+  const uploadedFiles = detail.uploadedFiles || [];
+  const totalFiles = currentFiles.length + uploadedFiles.length;
+
   // Debug: Log current form state on render
   return (
     <form className='p-6'>
@@ -441,9 +563,7 @@ const LicenseDetails = () => {
       {(applicantId || almsLicenseId) && (
         <div className='mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center'>
           <div className='flex flex-col'>
-            {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-            {almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-          </div>
+            {/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
           {typeof loadExistingData === 'function' && (
             <button
               type='button'
@@ -484,6 +604,7 @@ const LicenseDetails = () => {
                 { value: 'HEIRLOOM_POLICY', label: 'Heirloom Policy' },
               ]}
               placeholder='Select reason'
+              required
               error={fieldErrors.needForLicense}
             />
           </div>
@@ -515,6 +636,7 @@ const LicenseDetails = () => {
                 Permissible
               </label>
             </div>
+            {fieldErrors.armsCategory && <p className="text-red-500 text-xs mt-1">{fieldErrors.armsCategory}</p>}
             <div className='mb-2'>(b) Select weapon types (multiple allowed)</div>
             <Select
               name='weaponSelection'
@@ -523,6 +645,7 @@ const LicenseDetails = () => {
               disabled={loadingWeapons}
               placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}
               options={weapons.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
+              required
               error={fieldErrors.weaponSelection}
             />
             {/* Display selected weapons */}
@@ -593,14 +716,16 @@ const LicenseDetails = () => {
               name='ammunitionDescription'
               value={getLicenseDetail().ammunitionDescription || ''}
               onChange={handleChange}
-              placeholder='e.g., 50 rounds of .32 ammunition'
+              onBlur={handleBlur}
+              placeholder='e.g., 50 rounds of .32 bore ammunition'
+              required
               error={fieldErrors.ammunitionDescription}
             />
           </div>
           {/* 18. Claims for special consideration */}
           <div className='mb-4'>
             <label className='block font-medium mb-1'>
-              18. Claims for special consideration for obtaining the licence, if any
+              18. Claims for special consideration for obtaining the licence, if any <span className='text-red-500'>*</span>
             </label>
             <span className='block italic text-xs text-gray-500 mb-2'>
               (attach documentary evidence)
@@ -609,16 +734,20 @@ const LicenseDetails = () => {
               name='specialConsiderationReason'
               value={getLicenseDetail().specialConsiderationReason || ''}
               onChange={handleChange}
-              className='w-full border border-gray-300 rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400'
+              onBlur={handleBlur}
+              className={`w-full border rounded px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${fieldErrors.specialConsiderationReason ? 'border-red-500' : 'border-gray-300'}`}
               rows={2}
-              placeholder='Enter your claim (if any)'
+              placeholder='e.g., Threat perception due to business disputes'
             />
+            {fieldErrors.specialConsiderationReason && (
+              <p className="text-red-500 text-xs mt-1">{fieldErrors.specialConsiderationReason}</p>
+            )}
 
             {/* Document Upload Section */}
-            <div className='border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors'>
+            <div className={`border-2 border-dashed rounded-lg p-4 transition-colors ${totalFiles >= 1 ? 'border-gray-200 bg-gray-50' : 'border-gray-300 hover:border-blue-400'}`}>
               <div className='text-center'>
                 <svg
-                  className='mx-auto h-12 w-12 text-gray-400'
+                  className={`mx-auto h-12 w-12 ${totalFiles >= 1 ? 'text-gray-300' : 'text-gray-400'}`}
                   stroke='currentColor'
                   fill='none'
                   viewBox='0 0 48 48'
@@ -631,12 +760,12 @@ const LicenseDetails = () => {
                   />
                 </svg>
                 <div className='mt-4'>
-                  <label htmlFor='specialClaimsEvidence' className='cursor-pointer'>
-                    <span className='mt-2 block text-sm font-medium text-gray-900'>
-                      {uploadingFiles ? 'Uploading...' : 'Upload documentary evidence'}
+                  <label htmlFor='specialClaimsEvidence' className={totalFiles >= 1 ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                    <span className={`mt-2 block text-sm font-medium ${totalFiles >= 1 ? 'text-gray-400' : 'text-gray-900'}`}>
+                      {uploadingFiles ? 'Uploading...' : totalFiles >= 1 ? 'Document Uploaded' : 'Upload documentary evidence'}
                     </span>
                     <span className='mt-1 block text-xs text-gray-500'>
-                      PDF, DOC, DOCX, JPG, PNG up to 10MB each • Multiple files allowed
+                      {totalFiles >= 1 ? 'Remove the current document to upload a new one' : 'PDF, DOC, DOCX, JPG, PNG up to 10MB • Only 1 file allowed'}
                     </span>
                   </label>
                   <input
@@ -646,7 +775,7 @@ const LicenseDetails = () => {
                     className='sr-only'
                     accept='.pdf,.doc,.docx,.jpg,.jpeg,.png'
                     onChange={handleFileChange}
-                    disabled={uploadingFiles}
+                    disabled={uploadingFiles || totalFiles >= 1}
                   />
                 </div>
               </div>
@@ -780,19 +909,7 @@ const LicenseDetails = () => {
                   </div>
                 )}
 
-              {/* Upload limit info */}
-              {(() => {
-                const totalFiles =
-                  (getLicenseDetail().specialClaimsEvidence?.length || 0) +
-                  (getLicenseDetail().uploadedFiles?.length || 0);
-                return (
-                  totalFiles >= 5 && (
-                    <div className='mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700'>
-                      ⚠️ Maximum 5 files allowed. Remove a file to upload more.
-                    </div>
-                  )
-                );
-              })()}
+
             </div>
           </div>
           {/* 19. Details for an application for license in Form IV */}
@@ -804,16 +921,20 @@ const LicenseDetails = () => {
             {/* (a) Place or area for which the licence is sought */}
             <div className='mb-4'>
               <label className='block text-sm font-medium text-gray-700 mb-1'>
-                (a) Place or area for which the licence is sought
+                (a) Place or area for which the licence is sought <span className='text-red-500'>*</span>
               </label>
               <input
                 type='text'
                 name='licencePlaceArea'
                 value={getLicenseDetail().licencePlaceArea || ''}
                 onChange={handleChange}
-                className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400'
-                placeholder='Enter place or area'
+                onBlur={handleBlur}
+                className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${fieldErrors.licencePlaceArea ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder='e.g., Hyderabad District'
               />
+              {fieldErrors.licencePlaceArea && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.licencePlaceArea}</p>
+              )}
             </div>
 
             {/* (b) Specification of wild beasts */}
@@ -821,16 +942,20 @@ const LicenseDetails = () => {
               <label className='block text-sm font-medium text-gray-700 mb-1'>
                 (b) Specification of the wild beasts which are permitted to be destroyed as per the
                 permit granted under the Wild life (Protection) Act, 1972 (53 of 1972) to the
-                applicant
+                applicant <span className='text-red-500'>*</span>
               </label>
               <textarea
                 name='wildBeastsSpecification'
                 value={getLicenseDetail().wildBeastsSpecification || ''}
                 onChange={handleChange}
-                className='w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400'
+                onBlur={handleBlur}
+                className={`w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${fieldErrors.wildBeastsSpecification ? 'border-red-500' : 'border-gray-300'}`}
                 rows={3}
-                placeholder='Enter specification of wild beasts permitted to be destroyed'
+                placeholder='e.g., Wild boar and Nilgai as per permit'
               />
+              {fieldErrors.wildBeastsSpecification && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.wildBeastsSpecification}</p>
+              )}
             </div>
           </div>
         </div>
@@ -840,6 +965,8 @@ const LicenseDetails = () => {
         onNext={handleNext}
         onPrevious={handlePrevious}
         isLoading={isSubmitting}
+        disableActions={!validation.isValid(form)}
+        errors={fieldErrors}
       />
     </form>
   );

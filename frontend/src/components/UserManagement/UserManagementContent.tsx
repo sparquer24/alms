@@ -53,6 +53,7 @@ interface UiUser {
   password?: string;
   state: string | number | readonly string[] | undefined;
   district: string | number | readonly string[] | undefined;
+  rangeOffice?: string | number | readonly string[] | undefined;
   zone: string | number | readonly string[] | undefined;
   division: string | number | readonly string[] | undefined;
   policeStation: string | number | readonly string[] | undefined;
@@ -95,6 +96,7 @@ export default function UserManagementContent() {
     // location fields (IDs as strings)
     state: '',
     district: '',
+    rangeOffice: '',
     zone: '',
     division: '',
     policeStation: '',
@@ -202,6 +204,7 @@ export default function UserManagementContent() {
         roleFull: u.role,
         state: (u as any).state?.id || (u as any).stateId || '',
         district: (u as any).district?.id || (u as any).districtId || '',
+        rangeOffice: (u as any).rangeOffice?.id || (u as any).rangeOfficeId || '',
         zone: (u as any).zone?.id || (u as any).zoneId || '',
         division: (u as any).division?.id || (u as any).divisionId || '',
         policeStation: (u as any).policeStation?.id || (u as any).policeStationId || '',
@@ -345,6 +348,7 @@ export default function UserManagementContent() {
         phoneNo: addUser.phoneNo || undefined,
         stateId: addUser.state ? Number(addUser.state) : undefined,
         districtId: addUser.district ? Number(addUser.district) : undefined,
+        rangeOfficeId: addUser.rangeOffice ? Number(addUser.rangeOffice) : undefined,
         zoneId: addUser.zone ? Number(addUser.zone) : undefined,
         divisionId: addUser.division ? Number(addUser.division) : undefined,
         policeStationId: addUser.policeStation ? Number(addUser.policeStation) : undefined,
@@ -358,6 +362,7 @@ export default function UserManagementContent() {
         phoneNo: '',
         state: '',
         district: '',
+        rangeOffice: '',
         zone: '',
         division: '',
         policeStation: '',
@@ -483,6 +488,7 @@ export default function UserManagementContent() {
       // Extract location IDs from nested objects (consistent with getUsers response)
       const stateId = data.state?.id || data.stateId || '';
       const districtId = data.district?.id || data.districtId || '';
+      const rangeOfficeId = data.rangeOffice?.id || data.rangeOfficeId || '';
       const zoneId = data.zone?.id || data.zoneId || '';
       const divisionId = data.division?.id || data.divisionId || '';
       const policeStationId = data.policeStation?.id || data.policeStationId || '';
@@ -501,6 +507,7 @@ export default function UserManagementContent() {
         password: '', // Don't populate password - it's hashed in DB
         state: stateId,
         district: districtId,
+        rangeOffice: rangeOfficeId,
         zone: zoneId,
         division: divisionId,
         policeStation: policeStationId,
@@ -512,6 +519,9 @@ export default function UserManagementContent() {
       }
       if (districtId) {
         locationActions.setSelectedDistrict(String(districtId));
+      }
+      if (rangeOfficeId) {
+        locationActions.setSelectedRangeOffice(String(rangeOfficeId));
       }
       if (zoneId) {
         locationActions.setSelectedZone(String(zoneId));
@@ -549,6 +559,7 @@ export default function UserManagementContent() {
         roleId: role?.id,
         stateId: editUser.state ? Number(editUser.state) : undefined,
         districtId: editUser.district ? Number(editUser.district) : undefined,
+        rangeOfficeId: editUser.rangeOffice ? Number(editUser.rangeOffice) : undefined,
         zoneId: editUser.zone ? Number(editUser.zone) : undefined,
         divisionId: editUser.division ? Number(editUser.division) : undefined,
         policeStationId: editUser.policeStation ? Number(editUser.policeStation) : undefined,
@@ -1177,6 +1188,28 @@ export default function UserManagementContent() {
                 )}
               </div>
               )}
+              {LOCATION_HIERARCHY_ROLES.RANGE_OFFICE_REQUIRED.includes(addUser.roleCode) && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Range Office</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
+                  value={addUser.rangeOffice}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedRangeOffice(v);
+                    setAddUser({ ...addUser, rangeOffice: v, zone: '', division: '', policeStation: '' });
+                  }}
+                  disabled={!addUser.district || locationState.loadingRangeOffices}
+                >
+                  <option value=''>Select a range office</option>
+                  {locationOptions.rangeOfficeOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              )}
               {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(addUser.roleCode) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
@@ -1188,7 +1221,7 @@ export default function UserManagementContent() {
                     locationActions.setSelectedZone(v);
                     setAddUser({ ...addUser, zone: v, division: '', policeStation: '' });
                   }}
-                  disabled={!addUser.district || locationState.loadingZones}
+                  disabled={!addUser.rangeOffice || locationState.loadingZones}
                 >
                   <option value=''>Select a zone</option>
                   {locationOptions.zoneOptions.map(o => (
@@ -1812,18 +1845,40 @@ export default function UserManagementContent() {
                 </select>
               </div>
               )} 
+              {LOCATION_HIERARCHY_ROLES.RANGE_OFFICE_REQUIRED.includes(editUser.role) && (
+              <div>
+                <label className='block text-sm font-medium text-slate-700 mb-1'>Range Office</label>
+                <select
+                  className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  value={editUser.rangeOffice}
+                  onChange={e => {
+                    const v = e.target.value;
+                    locationActions.setSelectedRangeOffice(v);
+                    setEditUser({ ...editUser, rangeOffice: v, zone: '', division: '', policeStation: '' });
+                  }}
+                  disabled={!editUser.district || locationState.loadingRangeOffices}
+                >
+                  <option value=''>Select a range office</option>
+                  {locationOptions.rangeOfficeOptions.map(o => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              )}
              {LOCATION_HIERARCHY_ROLES.ZONE_REQUIRED.includes(editUser.role) && (
               <div>
                 <label className='block text-sm font-medium text-slate-700 mb-1'>Zone</label>
                 <select
-                  className='w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
+                  className='w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300'
                   value={editUser.zone}
                   onChange={e => {
                     const v = e.target.value;
                     locationActions.setSelectedZone(v);
                     setEditUser({ ...editUser, zone: v, division: '', policeStation: '' });
                   }}
-                  disabled={!editUser.district || locationState.loadingZones}
+                  disabled={!editUser.rangeOffice || locationState.loadingZones}
                 >
                   <option value=''>Select a zone</option>
                   {locationOptions.zoneOptions.map(o => (

@@ -818,17 +818,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
 
       try {
         // Freeze active highlight briefly on menu navigation
-        freezeActive(2000);
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] handleMenuClick - item.name:',
-            item.name,
-            'userRole:',
-            userRole,
-            'cookieRole:',
-            cookieRole
-          );
-        }
+        freezeActive(1000);
 
         if (item.name.toLowerCase() !== 'inbox') {
           dispatch(closeInbox());
@@ -845,15 +835,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // Get effective role (use userRole, fall back to cookieRole)
         const effectiveRole = userRole || cookieRole;
 
-        if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-          console.log(
-            '[Sidebar] effectiveRole:',
-            effectiveRole,
-            'isAdminRole result:',
-            isAdminRole(effectiveRole)
-          );
-        }
-
         // Check if this is an admin user navigating to an admin menu item
         if (isAdminRole(effectiveRole)) {
           // Check if SUPER_ADMIN or ADMIN and get appropriate path
@@ -862,22 +843,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             ? getSuperAdminPathForMenuItem(item.name)
             : getAdminPathForMenuItem(item.name);
 
-          if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-            console.log(
-              '[Sidebar] Admin user detected. Role:',
-              effectiveRole,
-              'Path for',
-              item.name,
-              ':',
-              adminPath
-            );
-          }
-
           if (adminPath) {
-            // This is a valid admin menu item
-            if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-              console.log('[Sidebar] Navigating to admin path:', adminPath);
-            }
 
             // Only navigate if not already on this path
             if (typeof window !== 'undefined') {
@@ -911,7 +877,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           'sent',
           'closed',
           'drafts',
-          'finaldisposal',
+          "applications"
         ]);
 
         if (key && topLevelInboxLike.has(key)) {
@@ -1013,7 +979,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (isSamePath) {
             // If already on this page, force reload data
-            void loadType(type, true, item.statusIds).catch(() => {});
+            await loadType(type, true, item.statusIds).catch(() => {});
             if (onTableReload) onTableReload(key);
           } else {
             router.push(target);
@@ -1030,7 +996,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           } catch (e) {}
           if (isSamePath) {
             // If already on this page, force reload data
-            void loadType(type, true, item.statusIds).catch(() => {});
+            await loadType(type, true, item.statusIds).catch(() => {});
           } else {
             router.push(target);
             scheduleInboxForwardedRefresh(target);
@@ -1038,9 +1004,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } finally {
         // Always release the lock for this actionId
-        setTimeout(() => {
-          endAction(actionId);
-        }, 500);
+        endAction(actionId);
       }
     },
     [
@@ -1089,7 +1053,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   }, [dispatch, isInboxOpen, normalizeNavKey, persistActiveNavToLocal, setActiveItem, router]);
 
   const handleInboxSubItemClick = useCallback(
-    (subItem: string) => {
+    async (subItem: string) => {
       const actionId = `inbox-${subItem.toLowerCase().replace(/\s+/g, '')}`;
 
       // Prevent repeated clicks on the same sub-item while its action is in progress
@@ -1132,19 +1096,22 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
 
         // Resolve statusIds fallback logic
-        let customStatusIds: number[] | undefined = activeStatusIds;
+        let customStatusIds: number[] | undefined = undefined;
         try {
-          if (!customStatusIds) {
-            const inboxMenu = menuItems.find(
-              mi =>
-                String(mi.name || '')
-                  .replace(/\s+/g, '')
-                  .toLowerCase() === 'inbox'
-            );
-            if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
-              customStatusIds = inboxMenu.statusIds;
-          }
-          if (!customStatusIds) {
+          const isAllTab = String(subItem).toLowerCase() === 'all';
+          if (isAllTab) {
+            customStatusIds = activeStatusIds;
+            if (!customStatusIds) {
+              const inboxMenu = menuItems.find(
+                mi =>
+                  String(mi.name || '')
+                    .replace(/\s+/g, '')
+                    .toLowerCase() === 'inbox'
+              );
+              if (inboxMenu?.statusIds && inboxMenu.statusIds.length)
+                customStatusIds = inboxMenu.statusIds;
+            }
+          } else {
             const direct = menuItems.find(
               mi =>
                 String(mi.name || '')
@@ -1171,7 +1138,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         // If user clicked the same inbox type that's already selected, force a reload
         const forceReload =
           !!selectedType && String(selectedType).toLowerCase() === String(subItem).toLowerCase();
-        void loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
+        await loadType(String(subItem), forceReload, customStatusIds).catch(() => {});
 
         const targetBase = '/inbox';
         const targetUrl = `${targetBase}?type=${encodeURIComponent(subItem)}`;
@@ -1193,9 +1160,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         }
       } finally {
         // Always release the lock for this actionId
-        setTimeout(() => {
-          endAction(actionId);
-        }, 500);
+        endAction(actionId);
       }
     },
     [
@@ -1331,7 +1296,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         <HamburgerButton open={mobileSidebarOpen} onClick={() => setMobileSidebarOpen(v => !v)} />
       </div>
       <aside
-        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0
+        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0 flex flex-col
         ${showSidebar || mobileSidebarOpen ? 'opacity-100 transform translate-x-0' : 'opacity-0 pointer-events-none -translate-x-full'}
         md:opacity-100 md:transform md:translate-x-0 md:pointer-events-auto`}
       >
@@ -1497,7 +1462,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           </ul>
         </nav>
 
-        <div className='absolute bottom-0 w-full p-4 border-t border-gray-200'>
+        <div className='p-4 border-t border-gray-200 mt-auto'>
           <button
             type='button'
             onClick={handleLogout}

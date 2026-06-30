@@ -216,6 +216,7 @@ export async function middleware(request: NextRequest) {
 
   // ── Rule 2: Protect all routes except public ones ──────────────────────
   const isPublicRoute =
+    pathname === '/' ||
     pathname === '/login' ||
     pathname.startsWith('/reset-password') ||
     pathname.match(/\.(png|jpe?g|svg|ico)$/i);

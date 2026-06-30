@@ -55,12 +55,6 @@ export function getRoleBasedRedirectPath(userRole?: any): string {
   // Enhanced debugging - always log for SUPER_ADMIN issues
   const shouldLog = typeof window !== 'undefined' && 
     (process.env.NODE_ENV !== 'production' || normalizedRole === 'SUPER_ADMIN');
-  
-  if (shouldLog) {
-    console.log('[roleRedirections] getRoleBasedRedirectPath - Input:', userRole);
-    console.log('[roleRedirections] Normalized role:', normalizedRole);
-    console.log('[roleRedirections] Available keys:', Object.keys(ROLE_REDIRECT_CONFIG));
-  }
 
   if (!normalizedRole) {
     return '/inbox?type=all'; // Fallback default
@@ -68,11 +62,6 @@ export function getRoleBasedRedirectPath(userRole?: any): string {
 
   // Look up role in configuration
   const redirectPath = ROLE_REDIRECT_CONFIG[normalizedRole];
-  
-  if (shouldLog) {
-    console.log('[roleRedirections] Redirect path for', normalizedRole, ':', redirectPath);
-    console.log('[roleRedirections] Config entry:', ROLE_REDIRECT_CONFIG[normalizedRole]);
-  }
 
   // Return configured path or fallback default
   return redirectPath || '/inbox?type=all';

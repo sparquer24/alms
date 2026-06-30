@@ -22,6 +22,11 @@ export class PatchRenewalAddressDetailsDto {
   @IsNumber()
   policeStationId!: number;
 
+  @ApiPropertyOptional({ example: 1, description: 'Range Office ID' })
+  @IsOptional()
+  @IsNumber()
+  rangeOfficeId?: number;
+
   @ApiProperty({ example: 1, description: 'Zone ID' })
   @IsNotEmpty()
   @IsNumber()

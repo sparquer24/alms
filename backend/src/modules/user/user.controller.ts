@@ -156,6 +156,7 @@ export class UserController {
         roleId: { type: 'number', example: 1 },
         stateId: { type: 'number', example: 1 },
         districtId: { type: 'number', example: 1 },
+        rangeOfficeId: { type: 'number', example: 1 },
         zoneId: { type: 'number', example: 1 },
         divisionId: { type: 'number', example: 1 },
         policeStationId: { type: 'number', example: 1 }

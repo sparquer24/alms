@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsBoolean, IsOptional,  ValidateNested, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsOptional, ValidateNested } from 'class-validator';
 import { PatchRenewalPersonalDetailsDto } from './patch-personal-details.dto';
 import { PatchRenewalAddressDetailsDto } from './patch-address-details.dto';
 import { PatchRenewalOccupationBusinessDto } from './patch-occupation-business.dto';
 import { PatchRenewalLicenseDetailsDto } from './patch-license-details.dto';
+import { PatchRenewalCriminalHistoryDto } from './patch-renewal-criminal-history.dto';
+import { PatchRenewalLicenseHistoryDto } from './patch-renewal-license-history.dto';
+import { PatchRenewalBiometricDataDto } from './patch-renewal-biometric-data.dto';
 
 class RenewalAcceptanceFlagsDto {
   @ApiPropertyOptional()
@@ -47,6 +50,35 @@ export class PatchRenewalApplicationDetailsDto {
   @ValidateNested()
   @Type(() => PatchRenewalLicenseDetailsDto)
   licenseDetails?: PatchRenewalLicenseDetailsDto;
+
+  @ApiPropertyOptional({
+    type: [PatchRenewalCriminalHistoryDto],
+    description: 'Criminal history records (replaces all existing records)'
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PatchRenewalCriminalHistoryDto)
+  criminalHistories?: PatchRenewalCriminalHistoryDto[];
+
+  @ApiPropertyOptional({
+    type: [PatchRenewalLicenseHistoryDto],
+    description: 'License history records (replaces all existing records)'
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PatchRenewalLicenseHistoryDto)
+  licenseHistories?: PatchRenewalLicenseHistoryDto[];
+
+  @ApiPropertyOptional({ 
+    type: PatchRenewalBiometricDataDto,
+    description: 'Biometric data (signature, photo, iris scan, fingerprints)' 
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PatchRenewalBiometricDataDto)
+  biometricData?: PatchRenewalBiometricDataDto;
 
   @ApiPropertyOptional({ description: 'Acceptance flags' })
   @IsOptional()

@@ -1,4 +1,3 @@
-
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import prisma from '../../db/prismaClient';
@@ -13,6 +12,7 @@ export interface CreateUserInput {
   policeStationId?: number;
   stateId?: number;
   districtId?: number;
+  rangeOfficeId?: number;
   zoneId?: number;
   divisionId?: number;
 }
@@ -68,6 +68,12 @@ export class UserService {
           }
         },
         district:{
+          select: {
+            id:true,
+            name:true,
+          }
+        },
+        RangeOffices:{
           select: {
             id:true,
             name:true,
@@ -133,6 +139,7 @@ export class UserService {
         phoneNo: true,
         stateId: true,
         districtId: true,
+        rangeOfficeId: true,
         zoneId: true,
         divisionId: true,
         policeStationId: true,
@@ -143,6 +150,12 @@ export class UserService {
           }
         },
         district: {
+          select: {
+            id: true,
+            name: true,
+          }
+        },
+        RangeOffices: {
           select: {
             id: true,
             name: true,
@@ -195,9 +208,9 @@ export class UserService {
         policeStationId: data.policeStationId,
         stateId: data.stateId,
         districtId: data.districtId,
+        rangeOfficeId: data.rangeOfficeId,
         zoneId: data.zoneId,
         divisionId: data.divisionId,
-        
       },
     });
   }
@@ -245,6 +258,7 @@ export class UserService {
     // Update location fields
     if (data.stateId !== undefined) updateData.stateId = data.stateId ? Number(data.stateId) : null;
     if (data.districtId !== undefined) updateData.districtId = data.districtId ? Number(data.districtId) : null;
+    if (data.rangeOfficeId !== undefined) updateData.rangeOfficeId = data.rangeOfficeId ? Number(data.rangeOfficeId) : null;
     if (data.zoneId !== undefined) updateData.zoneId = data.zoneId ? Number(data.zoneId) : null;
     if (data.divisionId !== undefined) updateData.divisionId = data.divisionId ? Number(data.divisionId) : null;
     if (data.policeStationId !== undefined) updateData.policeStationId = data.policeStationId ? Number(data.policeStationId) : null;

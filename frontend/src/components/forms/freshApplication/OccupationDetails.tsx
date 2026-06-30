@@ -93,9 +93,7 @@ const OccupationDetails: React.FC = () => {
 		{(applicantId || almsLicenseId) && (
 			<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
 				<div className="flex flex-col">
-					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}
-					{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-				</div>
+					{/* <strong>Application ID: {applicantId ?? '—'}</strong> */}</div>
 			</div>
 		)}			{/* Display success/error messages */}
 			{submitSuccess && (

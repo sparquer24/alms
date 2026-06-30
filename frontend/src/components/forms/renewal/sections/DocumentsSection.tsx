@@ -29,10 +29,12 @@ const DocumentsSection = forwardRef(function DocumentsSection(
     onError?: (message: string) => void;
     onStatus?: (message: string | null) => void;
     errors?: ErrorsMap;
+    isReadOnly?: boolean;
+    onReload?: () => Promise<void>;
   },
   ref: any,
 ) {
-  const { formData, renewalId, onPatch, onError, onStatus, errors = {} } = props;
+  const { formData, renewalId, onPatch, onError, onStatus, errors = {}, isReadOnly = false, onReload } = props;
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
 
@@ -85,6 +87,9 @@ const DocumentsSection = forwardRef(function DocumentsSection(
       return;
     }
 
+    const confirmed = window.confirm('Are you sure you want to delete this document? This action cannot be undone.');
+    if (!confirmed) return;
+
     setDeletingFileId(fileId);
     onStatus?.('Removing document...');
 
@@ -92,8 +97,14 @@ const DocumentsSection = forwardRef(function DocumentsSection(
       await deleteRenewalDocument(fileId);
       onPatch({ [fieldKey]: null });
       onStatus?.('Document removed.');
+      toast.success('Document deleted successfully.');
+      if (onReload) {
+        await onReload();
+      }
     } catch (err: any) {
-      onError?.(err?.message || 'Failed to delete document.');
+      const errMsg = err?.response?.data?.error || err?.message || 'Failed to delete document.';
+      onError?.(errMsg);
+      toast.error(errMsg);
     } finally {
       setDeletingFileId(null);
     }
@@ -132,7 +143,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                 name={key}
                 required={required}
                 variant='browseCard'
-                onFileSelect={handleSelect(key)}
+                onFileSelect={isReadOnly ? () => {} : handleSelect(key)}
                 uploaded={showUploaded}
                 fileName={
                   isFieldSyncing
@@ -141,7 +152,7 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                     ? 'Uploading...'
                     : meta.fileName
                 }
-                disabled={!renewalId}
+                disabled={!renewalId || isReadOnly}
               />
               {errors[key] && (
                 <p className='text-red-500 text-xs mt-1'>{errors[key]}</p>
@@ -161,14 +172,14 @@ const DocumentsSection = forwardRef(function DocumentsSection(
                         View document
                       </button>
                     )}
-                    {(canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
+                    {!isReadOnly && (canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
                       <button
                         type='button'
                         className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
                         onClick={handleDelete(key, meta.id)}
                         disabled={isUploading || isDeleting || !renewalId}
                       >
-                        {isDeleting ? 'Removing...' : 'Remove'}
+                        {isDeleting ? 'Deleting...' : 'Delete'}
                       </button>
                     )}
                   </div>

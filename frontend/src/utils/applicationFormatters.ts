@@ -69,7 +69,48 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
     permanentAddress: application?.permanentAddress || undefined,
     occupationAndBusiness: application?.occupationAndBusiness || undefined,
     licenseDetails: Array.isArray(application?.licenseDetails) ? application.licenseDetails : (application?.licenseDetails ? [application.licenseDetails] : []),
+    licenseHistories: Array.isArray(application?.licenseHistories) ? application.licenseHistories : (application?.licenseHistories ? [application.licenseHistories] : []),
+    criminalHistories: Array.isArray(application?.criminalHistories) ? application.criminalHistories : (application?.criminalHistories ? [application.criminalHistories] : []),
+    licenseValidity: application?.licenseValidity || application?.validTillDate || undefined,
+    validTillDate: application?.licenseValidity || application?.validTillDate || undefined,
     biometricData: application?.biometricData || undefined,
+    photoUrl: (() => {
+      try {
+        // Check biometric data first
+        const bioRoot = application?.biometricData || null;
+        let bio = bioRoot;
+        if (bio && bio.biometricData) bio = bio.biometricData;
+        if (bio && bio.photo && typeof bio.photo.url === 'string' && bio.photo.url.trim()) {
+          return bio.photo.url.trim();
+        }
+        
+        // Check direct photoUrl
+        if (typeof application?.photoUrl === 'string' && application.photoUrl.trim()) {
+          return application.photoUrl.trim();
+        }
+        
+        // Check fileUploads for PHOTOGRAPH type
+        const uploads = application?.fileUploads || [];
+        if (Array.isArray(uploads)) {
+          const byType = uploads.find((f: any) => 
+            ((f.fileType || f.type || '') + '').toString().toUpperCase().includes('PHOTOGRAPH') && 
+            (f.fileUrl || f.url)
+          );
+          if (byType) return (byType.fileUrl || byType.url || '').toString();
+          
+          // Fallback: check for photo/photograph in filename
+          const byName = uploads.find((f: any) => {
+            const name = (f.fileName || f.name || '').toString().toLowerCase();
+            return /(photo|photograph|passport)/.test(name) && (f.fileUrl || f.url);
+          });
+          if (byName) return (byName.fileUrl || byName.url || '').toString();
+        }
+        
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    })(),
     actions: application?.actions || {
       canForward: false,
       canReport: true,

@@ -17,7 +17,7 @@ const PERMISSION_CATEGORIES = {
     "canViewRedFlagged",
     "canViewDisposed",
     "canViewSent",
-    "canViewFinalDisposal",
+    "canViewApplication",
     "canViewReports",
     "canAccessSettings"
   ],
@@ -86,7 +86,7 @@ const mockPermissions = [
     roles: ["APPLICANT", "SHO", "ACP", "DCP"]
   },
   {
-    id: "canViewFinalDisposal",
+    id: "canViewApplication",
     name: "View Final Disposal",
     category: "View Permissions",
     description: "Ability to view final disposal applications",

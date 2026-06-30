@@ -1,0 +1,234 @@
+{
+  "platform": {
+    "name": "Arms License Management System",
+    "tagline": "Digital Arms Governance &amp; Licensing Platform",
+    "description": "A comprehensive digital platform for managing the complete arms licensing ecosystem through configurable workflows, role-based approvals, compliance monitoring, audit tracking, and lifecycle management.",
+    "governingBody": "Arms License Management System"
+  },
+  "navigation": [
+    { "label": "Home", "href": "#hero" },
+    { "label": "License Services", "href": "#services" },
+    { "label": "Workflow Process", "href": "#workflow" },
+    { "label": "Reports", "href": "#ecosystem" },
+    { "label": "Help", "href": "#footer" }
+  ],
+  "hero": {
+    "title": "Secure, Transparent &amp; Workflow-Driven Arms License Governance",
+    "subtitle": "A comprehensive digital platform for managing the complete arms licensing ecosystem through configurable workflows, role-based approvals, compliance monitoring, audit tracking, and lifecycle management.",
+    "primaryCta": { "label": "officer ", "href": "/login" },
+    "secondaryCta": { "label": "Track Application", "href": "/login" },
+    "tertiaryCta": { "label": "Login", "href": "/login" },
+    "workflowHierarchy": [
+      "Applicant",
+      "SHO",
+      "ACP",
+      "DCP",
+      "JTCP",
+      "CP",
+      "Arms Superintendent",
+      "License Issued"
+    ]
+  },
+  "serviceModules": [
+    {
+      "id": "fresh",
+      "title": "Fresh Application",
+      "description": "Apply for a new arms license through a structured digital form with personal details, address, occupation, criminal history, biometric data, and document uploads — all validated in real time.",
+      "icon": "new-license"
+    },
+    {
+      "id": "renewal",
+      "title": "License Renewal",
+      "description": "Renew existing licenses with a streamlined process that pre-fills approved application data, supports license merging, and maintains complete audit history across renewals.",
+      "icon": "renewal"
+    },
+    {
+      "id": "transfer",
+      "title": "License Transfer",
+      "description": "Facilitate ownership and authority transfers through a configurable workflow that ensures proper verification, approval, and documentation at every transfer stage.",
+      "icon": "transfer"
+    },
+    {
+      "id": "cancellation",
+      "title": "License Cancellation",
+      "description": "Process license cancellations with proper authorization chain, reason documentation, and automatic archival of all related records for future reference.",
+      "icon": "cancel"
+    }
+  ],
+  "workflowGovernance": {
+    "title": "Workflow Governance",
+    "description": "A configurable multi-level approval system that ensures transparency, accountability, and compliance at every step of the licensing process.",
+    "chain": [
+      "Application Submission",
+      "Verification",
+      "SHO Review",
+      "ACP Review",
+      "DCP Review",
+      "Authority Approval",
+      "License Issuance"
+    ],
+    "highlights": [
+      "Role Mapping — Assign specific roles to each workflow step",
+      "Action Mapping — Define permissible actions per role (Forward, Approve, Reject, Return)",
+      "Status Tracking — Real-time status codes track every transition",
+      "Multi-Level Approval Chain — Up to 7 authority tiers",
+      "Audit History — Immutable action logs with timestamps",
+      "Workflow Transparency — Complete visibility into process stage"
+    ]
+  },
+  "ecosystem": [
+    {
+      "role": "officer",
+      "title": "Field Officer",
+      "title": "Field Officer",
+      "capabilities": ["Review Applications", "Verify Documents", "Forward to Authority", "Generate Ground Reports", "Criminal History Check"]
+    },
+    {
+      "role": "authority",
+      "title": "Licensing Authority",
+      "capabilities": ["Approve Licenses", "Dispose Applications", "Monitor Workflow", "Generate Reports", "Audit Trail Access"]
+    },
+    {
+      "role": "admin",
+      "title": "Administrator",
+      "capabilities": ["Configure Workflows", "Manage Users & Roles", "Audit All Activities", "Flow Mapping", "Master Data Management"]
+    }
+  ],
+  "adminControlCenter": {
+    "title": "Administrative Control Center",
+    "description": "The backbone of the ALMS platform — comprehensive administrative tools for managing the entire governance ecosystem.",
+    "features": [
+      {
+        "title": "User Management",
+        "description": "Create, update, and manage users with role assignments, location hierarchy mapping, and activity status control.",
+        "highlights": ["26 Permissions", "Role-Based Access", "Soft-Delete Support"]
+      },
+      {
+        "title": "Role Management",
+        "description": "Define and configure roles with granular permissions across 3 categories — complete CRUD with soft-delete capability.",
+        "highlights": ["Custom Roles", "Permission Matrix", "Hierarchy Config"]
+      },
+      {
+        "title": "Workflow Configuration",
+        "description": "Configure status transitions between roles using PostgreSQL array-based next role configuration with validation.",
+        "highlights": ["Status Mapping", "Role Transitions", "Action Configuration"]
+      },
+      {
+        "title": "Flow Mapping",
+        "description": "Visual workflow designer with DFS-based circular dependency detection and comprehensive role connection mapping.",
+        "highlights": ["Visual Canvas", "Circular Detection", "Role Connections"]
+      },
+      {
+        "title": "Analytics Dashboard",
+        "description": "Real-time statistics and trends with charts for applications by week, role load distribution, and status breakdowns.",
+        "highlights": ["Real-Time Stats", "Trend Charts", "Role Load Analysis"]
+      },
+      {
+        "title": "Reports System",
+        "description": "Exportable reports for oversight with filtering by date range, status, role, and location hierarchy.",
+        "highlights": ["Exportable Data", "Filtering", "Scheduled Reports"]
+      },
+      {
+        "title": "Audit Trails",
+        "description": "Complete action history with timestamps, user tracking, and merge audit logs for all system activities.",
+        "highlights": ["Immutable Logs", "User Tracking", "Activity History"]
+      },
+      {
+        "title": "Master Data Management",
+        "description": "Manage locations (State/District/Zone/Division/Police Station), weapon types, document types, and other reference data.",
+        "highlights": ["Location Hierarchy", "Weapon Catalog", "Document Types"]
+      }
+    ],
+    "badges": ["26 Permissions", "Role-Based Access Control", "Workflow Configuration", "Approval Hierarchies"]
+  },
+  "compliance": {
+    "title": "Compliance &amp; Verification Framework",
+    "description": "Multi-layered verification and compliance checks ensuring only eligible applicants receive licenses through thorough background validation.",
+    "items": [
+      { "id": "criminal", "title": "Criminal History Verification", "category": "Background" },
+      { "id": "fir", "title": "FIR Verification", "category": "Background" },
+      { "id": "conviction", "title": "Conviction Tracking", "category": "Background" },
+      { "id": "aadhaar", "title": "Aadhaar Verification", "category": "Identity" },
+      { "id": "pan", "title": "PAN Verification", "category": "Identity" },
+      { "id": "training", "title": "Training Certificate Verification", "category": "Document" },
+      { "id": "medical", "title": "Medical &amp; Fitness Verification", "category": "Document" },
+      { "id": "ground", "title": "Ground Reports", "category": "Inspection" },
+      { "id": "biometric", "title": "Biometric Verification", "category": "Identity" },
+      { "id": "legal", "title": "Legal Declarations", "category": "Compliance" },
+      { "id": "audit", "title": "Audit Logs &amp; Tracking", "category": "Compliance" }
+    ]
+  },
+  "lifecycle": {
+    "title": "Complete License Lifecycle",
+    "description": "End-to-end lifecycle management from initial application through final disposition — every stage tracked, audited, and transparent.",
+    "stages": [
+      {
+        "stage": "Application",
+        "description": "Submit personal details, address, occupation information, criminal history declaration, and required documents."
+      },
+      {
+        "stage": "Verification",
+        "description": "Document verification, criminal history checks, identity validation, and initial eligibility assessment."
+      },
+      {
+        "stage": "Inspection",
+        "description": "Biometric capture (signature, iris, photograph), ground report generation, and field-level verification by local authorities."
+      },
+      {
+        "stage": "Approval",
+        "description": "Multi-level workflow approvals through SHO, ACP, DCP, JTCP, CP, and Arms Superintendent with configurable authority chains."
+      },
+      {
+        "stage": "License Issuance",
+        "description": "FLAF generation, license number assignment, QR code generation, and official issuance documentation."
+      },
+      {
+        "stage": "Monitoring",
+        "description": "Continuous license monitoring, renewal notifications, compliance tracking, and activity logging throughout license validity."
+      },
+      {
+        "stage": "Renewal",
+        "description": "Pre-filled renewal process with approved application data, license merge system, and streamlined re-verification workflow."
+      },
+      {
+        "stage": "Transfer",
+        "description": "Authority transfer workflow with verification, documentation, and approval chain for ownership or jurisdictional changes."
+      },
+      {
+        "stage": "Cancellation",
+        "description": "License cancellation with proper authorization, reason documentation, evidence archival, and final disposition recording."
+      }
+    ]
+  },
+  "security": {
+    "title": "Security &amp; Governance",
+    "description": "Enterprise-grade security infrastructure protecting sensitive data with multiple layers of access control, encryption, and audit capabilities.",
+    "features": [
+      { "title": "RBAC", "description": "Fine-grained Role-Based Access Control with 26 permissions across all system modules.", "category": "Access" },
+      { "title": "JWT Authentication", "description": "Secure token-based authentication with automatic refresh and session management.", "category": "Access" },
+      { "title": "Audit Logging", "description": "Immutable timestamps and complete action history for every system operation.", "category": "Audit" },
+      { "title": "Encrypted Storage", "description": "AES-256 encryption for sensitive documents and personally identifiable information at rest.", "category": "Data" },
+      { "title": "Document Security", "description": "Encrypted file storage with access control, version tracking, and secure download URLs.", "category": "Data" },
+      { "title": "Biometric Protection", "description": "Encrypted storage and secure transmission for biometric data including signatures, iris scans, and photographs.", "category": "Data" },
+      { "title": "Soft Delete Strategy", "description": "Data preservation with soft-delete patterns ensuring no permanent data loss and complete recovery capability.", "category": "Data" },
+      { "title": "Activity Tracking", "description": "Real-time monitoring of all user activities with detailed logs for security analysis and compliance.", "category": "Audit" }
+    ]
+  },
+  "footer": {
+    "governingBody": "ALMS",
+    "systemName": "Arms License Management System (ALMS)",
+    "links": [
+      { "label": "Privacy Policy", "href": "/privacy" },
+      { "label": "Terms &amp; Conditions", "href": "/terms" },
+      { "label": "Help Desk", "href": "/help" },
+      { "label": "Contact", "href": "/contact" }
+    ],
+    "securityNotice": "All activities are monitored and audited for security and compliance purposes.",
+    "contact": "Help Desk: support@alms.internal | Internal: XXXX"
+  },
+  "loginContext": [
+    { "role": "Officer", "context": "Review and process applications" },
+    { "role": "Licensing Authority", "context": "Approve/dispose licenses, monitor workflows" },
+    { "role": "Administrator", "context": "Manage system configuration, users, and audits" }
+  ]
+}

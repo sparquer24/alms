@@ -179,54 +179,53 @@ export class LocationsController {
     }
   }
 
-  // Zones API - GET /locations/zones?id=1&districtId=1 (both optional)
-  @Get('zones')
+  // Range Offices API - GET /locations/range-offices?id=1&districtId=1 (both optional)
+  @Get('range-offices')
   @ApiOperation({
-    summary: 'Get Zones',
-    description: 'Retrieve all zones or filter by district ID, or get specific zone by ID'
+    summary: 'Get Range Offices',
+    description: 'Retrieve all range offices or filter by district ID, or get specific range office by ID'
   })
   @ApiQuery({
     name: 'id',
     required: false,
-    description: 'Zone ID to retrieve specific zone',
+    description: 'Range Office ID to retrieve specific range office',
     example: '1'
   })
   @ApiQuery({
     name: 'districtId',
     required: false,
-    description: 'District ID to filter zones by district',
+    description: 'District ID to filter range offices by district',
     example: '1'
   })
   @ApiResponse({
     status: 200,
-    description: 'Zones retrieved successfully',
+    description: 'Range offices retrieved successfully',
     example: {
       success: true,
-      message: 'Zones retrieved successfully',
+      message: 'Range offices retrieved successfully',
       data: [
-        { id: 1, name: 'North Zone', districtId: 1 },
-        { id: 2, name: 'South Zone', districtId: 1 }
+        { id: 1, name: 'Hyderabad Range', districtId: 1 }
       ],
-      count: 2,
+      count: 1,
       filters: { districtId: 1 }
     }
   })
-  @ApiResponse({ status: 400, description: 'Invalid zone ID or district ID' })
-  @ApiResponse({ status: 404, description: 'Zone not found' })
+  @ApiResponse({ status: 400, description: 'Invalid range office ID or district ID' })
+  @ApiResponse({ status: 404, description: 'Range office not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async getZones(
+  async getRangeOffices(
     @Query('id') id?: string,
     @Query('districtId') districtId?: string
   ) {
     try {
-      const zoneId = id ? parseInt(id, 10) : undefined;
+      const rangeOfficeId = id ? parseInt(id, 10) : undefined;
       const filterDistrictId = districtId ? parseInt(districtId, 10) : undefined;
 
-      if (id && isNaN(zoneId!)) {
+      if (id && isNaN(rangeOfficeId!)) {
         throw new HttpException(
           {
             success: false,
-            message: 'Invalid zone ID',
+            message: 'Invalid range office ID',
           },
           HttpStatus.BAD_REQUEST
         );
@@ -242,7 +241,104 @@ export class LocationsController {
         );
       }
 
-      const data = await this.locationsService.getZones(zoneId, filterDistrictId);
+      const data = await this.locationsService.getRangeOffices(rangeOfficeId, filterDistrictId);
+
+      if (id && !data) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Range office not found',
+          },
+          HttpStatus.NOT_FOUND
+        );
+      }
+
+      return {
+        success: true,
+        message: id ? 'Range office retrieved successfully' : 'Range offices retrieved successfully',
+        data,
+        ...(Array.isArray(data) && { count: data.length }),
+        ...(districtId && { filters: { districtId: filterDistrictId } })
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to fetch range offices',
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  // Zones API - GET /locations/zones?id=1&rangeOfficeId=1 (both optional)
+  @Get('zones')
+  @ApiOperation({
+    summary: 'Get Zones',
+    description: 'Retrieve all zones or filter by range office ID, or get specific zone by ID'
+  })
+  @ApiQuery({
+    name: 'id',
+    required: false,
+    description: 'Zone ID to retrieve specific zone',
+    example: '1'
+  })
+  @ApiQuery({
+    name: 'rangeOfficeId',
+    required: false,
+    description: 'Range Office ID to filter zones by range office',
+    example: '1'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Zones retrieved successfully',
+    example: {
+      success: true,
+      message: 'Zones retrieved successfully',
+      data: [
+        { id: 1, name: 'North Zone', rangeOfficeId: 1 },
+        { id: 2, name: 'South Zone', rangeOfficeId: 1 }
+      ],
+      count: 2,
+      filters: { rangeOfficeId: 1 }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid zone ID or range office ID' })
+  @ApiResponse({ status: 404, description: 'Zone not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async getZones(
+    @Query('id') id?: string,
+    @Query('rangeOfficeId') rangeOfficeId?: string
+  ) {
+    try {
+      const zoneId = id ? parseInt(id, 10) : undefined;
+      const filterRangeOfficeId = rangeOfficeId ? parseInt(rangeOfficeId, 10) : undefined;
+
+      if (id && isNaN(zoneId!)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Invalid zone ID',
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      if (rangeOfficeId && isNaN(filterRangeOfficeId!)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Invalid range office ID filter',
+          },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      const data = await this.locationsService.getZones(zoneId, filterRangeOfficeId);
 
       if (id && !data) {
         throw new HttpException(
@@ -259,7 +355,7 @@ export class LocationsController {
         message: id ? 'Zone retrieved successfully' : 'Zones retrieved successfully',
         data,
         ...(Array.isArray(data) && { count: data.length }),
-        ...(districtId && { filters: { districtId: filterDistrictId } })
+        ...(rangeOfficeId && { filters: { rangeOfficeId: filterRangeOfficeId } })
       };
     } catch (error: any) {
       if (error instanceof HttpException) {
@@ -489,6 +585,12 @@ export class LocationsController {
     example: '1'
   })
   @ApiQuery({
+    name: 'rangeOfficeId',
+    required: false,
+    description: 'Range Office ID to get hierarchy from range office level',
+    example: '1'
+  })
+  @ApiQuery({
     name: 'zoneId',
     required: false,
     description: 'Zone ID to get hierarchy from zone level',
@@ -515,6 +617,7 @@ export class LocationsController {
       data: {
         state: { id: 1, name: 'West Bengal' },
         district: { id: 1, name: 'Kolkata' },
+        rangeOffice: { id: 1, name: 'Kolkata Range' },
         zone: { id: 1, name: 'North Zone' },
         division: { id: 1, name: 'Central Division' },
         policeStation: { id: 1, name: 'Lalbazar Police Station' }
@@ -526,13 +629,14 @@ export class LocationsController {
   async getLocationHierarchy(
     @Query('stateId') stateId?: string,
     @Query('districtId') districtId?: string,
+    @Query('rangeOfficeId') rangeOfficeId?: string,
     @Query('zoneId') zoneId?: string,
     @Query('divisionId') divisionId?: string,
     @Query('policeStationId') policeStationId?: string
   ) {
     try {
       // Only one ID should be provided at a time
-      const ids = [stateId, districtId, zoneId, divisionId, policeStationId].filter(Boolean);
+      const ids = [stateId, districtId, rangeOfficeId, zoneId, divisionId, policeStationId].filter(Boolean);
       if (ids.length > 1) {
         throw new HttpException(
           {
@@ -545,6 +649,7 @@ export class LocationsController {
       const data = await this.locationsService.getLocationHierarchy({
         stateId: stateId ? parseInt(stateId, 10) : undefined,
         districtId: districtId ? parseInt(districtId, 10) : undefined,
+        rangeOfficeId: rangeOfficeId ? parseInt(rangeOfficeId, 10) : undefined,
         zoneId: zoneId ? parseInt(zoneId, 10) : undefined,
         divisionId: divisionId ? parseInt(divisionId, 10) : undefined,
         policeStationId: policeStationId ? parseInt(policeStationId, 10) : undefined,
@@ -561,6 +666,37 @@ export class LocationsController {
           message: error.message || 'Failed to fetch location hierarchy',
           error: error.message,
         },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Get('eligible-users')
+  @ApiOperation({
+    summary: 'Get Eligible and Assigned Users',
+    description: 'Get all users eligible for a location type, and return the currently assigned user.'
+  })
+  @ApiQuery({ name: 'type', required: true, description: 'Location type (state, district, range, zone, division, station)' })
+  @ApiQuery({ name: 'id', required: true, description: 'Location ID' })
+  async getEligibleAndAssignedUsers(
+    @Query('type') type: string,
+    @Query('id') id: string
+  ) {
+    try {
+      if (!type || !id) {
+        throw new HttpException(
+          { success: false, message: 'Type and ID are required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.getEligibleAndAssignedUsers(type, parseInt(id, 10));
+      return {
+        success: true,
+        ...data
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch eligible users' },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -617,10 +753,10 @@ export class LocationsController {
     }
   }
 
-  @Post('zones')
-  @ApiOperation({ summary: 'Create Zone' })
-  @ApiResponse({ status: 201, description: 'Zone created successfully' })
-  async createZone(@Body() body: { name: string; parentId?: number; districtId?: number }) {
+  @Post('range-offices')
+  @ApiOperation({ summary: 'Create Range Office' })
+  @ApiResponse({ status: 201, description: 'Range Office created successfully' })
+  async createRangeOffice(@Body() body: { name: string; parentId?: number; districtId?: number }) {
     try {
       const districtId = body.parentId || body.districtId;
       if (!districtId) {
@@ -629,7 +765,33 @@ export class LocationsController {
           HttpStatus.BAD_REQUEST
         );
       }
-      const data = await this.locationsService.createZone(districtId, body.name);
+      const data = await this.locationsService.createRangeOffice(districtId, body.name);
+      return {
+        success: true,
+        message: 'Range Office created successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create range office' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Post('zones')
+  @ApiOperation({ summary: 'Create Zone' })
+  @ApiResponse({ status: 201, description: 'Zone created successfully' })
+  async createZone(@Body() body: { name: string; parentId?: number; rangeOfficeId?: number }) {
+    try {
+      const rangeOfficeId = body.parentId || body.rangeOfficeId;
+      if (!rangeOfficeId) {
+        throw new HttpException(
+          { success: false, message: 'rangeOfficeId (or parentId) is required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.createZone(rangeOfficeId, body.name);
       return {
         success: true,
         message: 'Zone created successfully',
@@ -700,9 +862,12 @@ export class LocationsController {
   @Put('states/:id')
   @ApiOperation({ summary: 'Update State' })
   @ApiResponse({ status: 200, description: 'State updated successfully' })
-  async updateState(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateState(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateState(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('state', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'State updated successfully',
@@ -719,9 +884,12 @@ export class LocationsController {
   @Put('districts/:id')
   @ApiOperation({ summary: 'Update District' })
   @ApiResponse({ status: 200, description: 'District updated successfully' })
-  async updateDistrict(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateDistrict(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateDistrict(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('district', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'District updated successfully',
@@ -738,9 +906,12 @@ export class LocationsController {
   @Put('zones/:id')
   @ApiOperation({ summary: 'Update Zone' })
   @ApiResponse({ status: 200, description: 'Zone updated successfully' })
-  async updateZone(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateZone(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateZone(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('zone', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Zone updated successfully',
@@ -754,12 +925,37 @@ export class LocationsController {
     }
   }
 
+  @Put('range-offices/:id')
+  @ApiOperation({ summary: 'Update Range Office' })
+  @ApiResponse({ status: 200, description: 'Range Office updated successfully' })
+  async updateRangeOffice(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
+    try {
+      const data = await this.locationsService.updateRangeOffice(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('range', id, body.assignedUserId);
+      }
+      return {
+        success: true,
+        message: 'Range Office updated successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update range office' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   @Put('divisions/:id')
   @ApiOperation({ summary: 'Update Division' })
   @ApiResponse({ status: 200, description: 'Division updated successfully' })
-  async updateDivision(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateDivision(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateDivision(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('division', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Division updated successfully',
@@ -776,9 +972,12 @@ export class LocationsController {
   @Put('police-stations/:id')
   @ApiOperation({ summary: 'Update Police Station' })
   @ApiResponse({ status: 200, description: 'Police Station updated successfully' })
-  async updatePoliceStation(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updatePoliceStation(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updatePoliceStation(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('station', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Police Station updated successfully',
@@ -832,7 +1031,7 @@ export class LocationsController {
 
   @Delete('zones/:id')
   @ApiOperation({ summary: 'Delete Zone' })
-  @ApiResponse({ status: 200, description: 'Zone deleted successfully' })
+  @ApiResponse({ status: 200, description: 'Delete Zone' })
   async deleteZone(@Param('id', ParseIntPipe) id: number) {
     try {
       await this.locationsService.deleteZone(id);
@@ -843,6 +1042,24 @@ export class LocationsController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to delete zone' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  @Delete('range-offices/:id')
+  @ApiOperation({ summary: 'Delete Range Office' })
+  @ApiResponse({ status: 200, description: 'Range Office deleted successfully' })
+  async deleteRangeOffice(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.locationsService.deleteRangeOffice(id);
+      return {
+        success: true,
+        message: 'Range Office deleted successfully',
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to delete range office' },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -884,4 +1101,3 @@ export class LocationsController {
     }
   }
 }
-

@@ -1,11 +1,12 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from '../elements/Input';
 import FormFooter from '../elements/footer';
 import { FormSkeleton } from '../elements/FormSkeleton';
 import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
+import { validateText, validateGeneralText, validateDate, filterText, filterAlphaNumeric } from '../../../utils/validation';
 
 const initialProvision = {
 	firNumber: '',
@@ -23,41 +24,61 @@ const initialState = {
 	criminalHistories: [] as any[],
 };
 
-// Validation rules for criminal history
+// Validation rules for criminal history using centralized validators
 const validateCriminalHistory = (formData: any) => {
 	const errors: Record<string, string> = {};
 	const history = formData.criminalHistories?.[0];
-	
-	if (history) {
-		if (history.isConvicted) {
-			if (!history.firDetails || history.firDetails.length === 0) {
-				errors.conviction_general = 'At least one conviction provision must be added.';
-			} else {
-				history.firDetails.forEach((prov: any, idx: number) => {
-					if (!prov.firNumber?.trim()) errors[`firNumber_${idx}`] = 'FIR Number is required';
-					if (!prov.underSection?.trim()) errors[`underSection_${idx}`] = 'Section is required';
-					if (!prov.policeStation?.trim()) errors[`policeStation_${idx}`] = 'Police Station is required';
-					if (!prov.unit?.trim()) errors[`unit_${idx}`] = 'Unit is required';
-					if (!prov.District?.trim()) errors[`district_${idx}`] = 'District is required';
-					if (!prov.state?.trim()) errors[`state_${idx}`] = 'State is required';
-					if (!prov.offence?.trim()) errors[`offence_${idx}`] = 'Offence is required';
-					if (!prov.sentence?.trim()) errors[`sentence_${idx}`] = 'Sentence is required';
-					if (!prov.DateOfSentence?.trim()) errors[`dateOfSentence_${idx}`] = 'Date of Sentence is required';
+	if (!history) return errors;
+
+	if (history.isConvicted) {
+		if (!history.firDetails || history.firDetails.length === 0) {
+			errors.conviction_general = 'At least one conviction provision must be added.';
+		} else {
+			history.firDetails.forEach((prov: any, idx: number) => {
+				// Alphanumeric fields (allow letters, numbers, spaces)
+				const generalFields = [
+					{ key: 'firNumber', val: prov.firNumber, msg: 'FIR Number is required' },
+					{ key: 'underSection', val: prov.underSection, msg: 'Under Section is required' },
+					{ key: 'policeStation', val: prov.policeStation, msg: 'Police Station is required' },
+					{ key: 'unit', val: prov.unit, msg: 'Unit is required' },
+					{ key: 'offence', val: prov.offence, msg: 'Offence is required' },
+					{ key: 'sentence', val: prov.sentence, msg: 'Sentence is required' },
+				];
+				generalFields.forEach(({ key, val, msg }) => {
+					const err = validateGeneralText(val ?? '', true, { required: msg });
+					if (err) errors[`${key}_${idx}`] = err;
 				});
-			}
-		}
-		
-		if (history.isBondExecuted) {
-			if (!history.bondDate) errors.bondDate = 'Date of Sentence is required';
-			if (!history.bondPeriod?.trim()) errors.bondPeriod = 'Period is required';
-		}
-		
-		if (history.isProhibited) {
-			if (!history.prohibitionDate) errors.prohibitionDate = 'Date of Sentence is required';
-			if (!history.prohibitionPeriod?.trim()) errors.prohibitionPeriod = 'Period is required';
+				// Alpha-only fields (only letters + spaces — no numbers)
+				const alphaFields = [
+					{ key: 'district', val: prov.District || prov.district, msg: 'District is required' },
+					{ key: 'state', val: prov.state, msg: 'State is required' },
+				];
+				alphaFields.forEach(({ key, val, msg }) => {
+					const err = validateText(val ?? '', true, { required: msg });
+					if (err) errors[`${key}_${idx}`] = err;
+				});
+				// Date field
+				const dateVal = prov.DateOfSentence || prov.dateOfSentence || '';
+				const dateErr = validateDate(dateVal, true, undefined, { required: 'Date of Sentence is required' });
+				if (dateErr) errors[`dateOfSentence_${idx}`] = dateErr;
+			});
 		}
 	}
-	
+
+	if (history.isBondExecuted) {
+		const bondDateErr = validateDate(history.bondDate ?? '', true, undefined, { required: 'Bond date is required' });
+		if (bondDateErr) errors.bondDate = bondDateErr;
+		const bondPeriodErr = validateGeneralText(history.bondPeriod ?? '', true, { required: 'Bond period is required' });
+		if (bondPeriodErr) errors.bondPeriod = bondPeriodErr;
+	}
+
+	if (history.isProhibited) {
+		const prohibDateErr = validateDate(history.prohibitionDate ?? '', true, undefined, { required: 'Prohibition date is required' });
+		if (prohibDateErr) errors.prohibitionDate = prohibDateErr;
+		const prohibPeriodErr = validateGeneralText(history.prohibitionPeriod ?? '', true, { required: 'Prohibition period is required' });
+		if (prohibPeriodErr) errors.prohibitionPeriod = prohibPeriodErr;
+	}
+
 	return errors;
 };
 
@@ -92,12 +113,12 @@ const CriminalHistory = () => {
 	const [prohibitedDetails, setProhibitedDetails] = useState({ dateOfSentence: '', period: '' });
 	
 	// Add flag to prevent backend data from overwriting fresh form data
-	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
+	const isUpdatingForm = useRef(false);
 
 	// Load existing data into local state when form data changes
 	useEffect(() => {
 		// Skip loading if we're currently updating the form to prevent overwriting
-		if (isUpdatingForm) {
+		if (isUpdatingForm.current) {
 			return;
 		}
 		
@@ -145,13 +166,55 @@ const CriminalHistory = () => {
 		}
 	}, [form.criminalHistories]);
 
-	const handleProvisionChange = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleProvisionChange = (idx: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+		isUpdatingForm.current = true;
 		const { name, value } = e.target;
-		setProvisions((prev) => prev.map((prov, i) => i === idx ? { ...prov, [name]: value } : prov));
-		
-		const errorKey = `${name === 'district' ? 'district' : name}_${idx}`;
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+
+		// Input filtering by field type
+		const alphaOnlyFields = ['state', 'district'];
+		let processedValue = value;
+		if (name === 'dateOfSentence') {
+			processedValue = value; // no filtering for dates
+		} else if (alphaOnlyFields.includes(name)) {
+			processedValue = filterText(value); // alphabets + spaces only
+		} else {
+			processedValue = filterAlphaNumeric(value); // alphanumeric + spaces
+		}
+
+		setProvisions(prev => prev.map((p, i) => i === idx ? { ...p, [name]: processedValue } : p));
+
+		// Real-time validation
+		const errorKey = `${name}_${idx}`;
+		const fieldLabel = name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1');
+		if (name === 'dateOfSentence') {
+			const err = validateDate(processedValue, true, undefined, { required: 'Date of Sentence is required' });
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		} else if (alphaOnlyFields.includes(name)) {
+			const err = validateText(processedValue, true, { required: `${fieldLabel} is required` });
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		} else {
+			const err = validateGeneralText(processedValue, true, { required: `${fieldLabel} is required` });
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		}
+	};
+
+	const handleProvisionBlur = (idx: number, e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		const { name, value } = e.target;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setProvisions(prev => prev.map((p, i) => i === idx ? { ...p, [name]: trimmed } : p));
+		}
+		const errorKey = `${name}_${idx}`;
+		const alphaOnlyFields = ['state', 'district'];
+		if (name === 'dateOfSentence') {
+			const err = validateDate(trimmed, true, undefined, { required: 'Date of Sentence is required' });
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		} else if (alphaOnlyFields.includes(name)) {
+			const err = validateText(trimmed, true, { required: 'This field is required' });
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		} else {
+			const err = validateGeneralText(trimmed, true, { required: 'This field is required' });
+			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 		}
 	};
 
@@ -177,19 +240,31 @@ const CriminalHistory = () => {
 	};
 
 	const handleBondChange = (field: 'dateOfSentence' | 'period', value: string) => {
-		setBondDetails(d => ({ ...d, [field]: value }));
-		const errorKey = field === 'dateOfSentence' ? 'bondDate' : 'bondPeriod';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		isUpdatingForm.current = true;
+		let processedValue = value;
+		if (field === 'period') {
+			processedValue = filterAlphaNumeric(value);
 		}
+		setBondDetails(d => ({ ...d, [field]: processedValue }));
+		const errorKey = field === 'dateOfSentence' ? 'bondDate' : 'bondPeriod';
+		const err = field === 'dateOfSentence'
+			? validateDate(processedValue, true, undefined, { required: 'Bond date is required' })
+			: validateGeneralText(processedValue, true, { required: 'Bond period is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const handleProhibitedChange = (field: 'dateOfSentence' | 'period', value: string) => {
-		setProhibitedDetails(d => ({ ...d, [field]: value }));
-		const errorKey = field === 'dateOfSentence' ? 'prohibitionDate' : 'prohibitionPeriod';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		isUpdatingForm.current = true;
+		let processedValue = value;
+		if (field === 'period') {
+			processedValue = filterAlphaNumeric(value);
 		}
+		setProhibitedDetails(d => ({ ...d, [field]: processedValue }));
+		const errorKey = field === 'dateOfSentence' ? 'prohibitionDate' : 'prohibitionPeriod';
+		const err = field === 'dateOfSentence'
+			? validateDate(processedValue, true, undefined, { required: 'Prohibition date is required' })
+			: validateGeneralText(processedValue, true, { required: 'Prohibition period is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const getTransformedHistory = () => {
@@ -215,24 +290,31 @@ const CriminalHistory = () => {
 		}];
 	};
 
+	// Compute form validity from transformed data using centralized validation
+	const isFormValid = useMemo(() => {
+		const transformed = { criminalHistories: getTransformedHistory() };
+		const errs = validateCriminalHistory(transformed);
+		return Object.keys(errs).length === 0;
+	}, [convicted, provisions, bond, bondDetails, prohibited, prohibitedDetails]);
+
 	const handleSaveToDraft = async () => {
 		const criminalHistories = getTransformedHistory();
 
 		// Set flag to prevent useEffect from overwriting our data
-		setIsUpdatingForm(true);
+		isUpdatingForm.current = true;
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		await saveFormData();
 		
 		// Reset flag after a delay to allow for data loading
-		setTimeout(() => setIsUpdatingForm(false), 1000);
+		setTimeout(() => isUpdatingForm.current = false, 1000);
 	};
 
 	const handleNext = async () => {
 		const criminalHistories = getTransformedHistory();
 		
 		// Set flag to prevent useEffect from overwriting our data
-		setIsUpdatingForm(true);
+		isUpdatingForm.current = true;
 		setForm((prev: any) => ({ ...prev, criminalHistories }));
 		
 		const formDataToSave = {
@@ -247,7 +329,7 @@ const CriminalHistory = () => {
 		}
 		
 		// Reset flag after navigation
-		setTimeout(() => setIsUpdatingForm(false), 1000);
+		setTimeout(() => isUpdatingForm.current = false, 1000);
 	};
 
 	const handlePrevious = async () => {
@@ -271,9 +353,7 @@ const CriminalHistory = () => {
 			{/* Display Applicant ID and License ID if available */}
 			{(applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-					<div className="flex flex-col">
-						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-					</div>
+					<div className="flex flex-col"></div>
 					{typeof loadExistingData === 'function' && (
 						<button
 							type='button'
@@ -357,7 +437,8 @@ const CriminalHistory = () => {
 								name="firNumber" 
 								value={prov.firNumber} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter FIR number" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., FIR 2023001" 
 								error={fieldErrors[`firNumber_${idx}`]}
 								required
 							/>
@@ -366,7 +447,8 @@ const CriminalHistory = () => {
 								name="underSection" 
 								value={prov.underSection} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter section" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., Section 302 IPC" 
 								error={fieldErrors[`underSection_${idx}`]}
 								required
 							/>
@@ -375,7 +457,8 @@ const CriminalHistory = () => {
 								name="policeStation" 
 								value={prov.policeStation} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter police station" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., Saifabad PS" 
 								error={fieldErrors[`policeStation_${idx}`]}
 								required
 							/>
@@ -386,7 +469,8 @@ const CriminalHistory = () => {
 								name="unit" 
 								value={prov.unit} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter unit" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., Central Zone" 
 								error={fieldErrors[`unit_${idx}`]}
 								required
 							/>
@@ -395,7 +479,8 @@ const CriminalHistory = () => {
 								name="district" 
 								value={prov.district} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter district" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., Hyderabad" 
 								error={fieldErrors[`district_${idx}`]}
 								required
 							/>
@@ -404,7 +489,8 @@ const CriminalHistory = () => {
 								name="state" 
 								value={prov.state} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter state" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., Telangana" 
 								error={fieldErrors[`state_${idx}`]}
 								required
 							/>
@@ -416,7 +502,8 @@ const CriminalHistory = () => {
 								name="offence" 
 								value={prov.offence} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter offence" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., Arms Act Violation" 
 								error={fieldErrors[`offence_${idx}`]}
 								required
 							/>
@@ -425,7 +512,8 @@ const CriminalHistory = () => {
 								name="sentence" 
 								value={prov.sentence} 
 								onChange={e => handleProvisionChange(idx, e)} 
-								placeholder="Enter sentence" 
+								onBlur={e => handleProvisionBlur(idx, e)}
+								placeholder="e.g., 6 Months Imprisonment" 
 								error={fieldErrors[`sentence_${idx}`]}
 								required
 							/>
@@ -435,6 +523,7 @@ const CriminalHistory = () => {
 								type="date" 
 								value={prov.dateOfSentence} 
 								onChange={e => handleProvisionChange(idx, e)} 
+								onBlur={e => handleProvisionBlur(idx, e)}
 								placeholder="DD/MM/YYYY" 
 								error={fieldErrors[`dateOfSentence_${idx}`]}
 								required
@@ -504,7 +593,7 @@ const CriminalHistory = () => {
 							name="period" 
 							value={bondDetails.period} 
 							onChange={e => handleBondChange('period', e.target.value)} 
-							placeholder="Enter period" 
+							placeholder="e.g., 12 Months" 
 							error={fieldErrors.bondPeriod}
 							required
 						/>
@@ -562,7 +651,7 @@ const CriminalHistory = () => {
 							name="period" 
 							value={prohibitedDetails.period} 
 							onChange={e => handleProhibitedChange('period', e.target.value)} 
-							placeholder="Enter period" 
+							placeholder="e.g., 24 Months" 
 							error={fieldErrors.prohibitionPeriod}
 							required
 						/>
@@ -575,6 +664,8 @@ const CriminalHistory = () => {
 				onNext={handleNext}
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
+				disableActions={!isFormValid}
+				errors={fieldErrors}
 			/>
 		</form>
 	);

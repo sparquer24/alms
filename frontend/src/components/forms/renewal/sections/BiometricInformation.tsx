@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
@@ -8,8 +8,10 @@ const Webcam = dynamic(() => import('react-webcam').then(mod => mod.default), {
   ssr: false,
 }) as any;
 import RenewalService from '../../../../api/renewalService';
+import { ApplicationService } from '../../../../api/applicationService';
 import MantraSDKService from '../../../../services/mantraSDKService';
 import BiometricAPIService from '../../../../services/biometricAPIService';
+import { openAttachment } from '../../../../utils/attachmentViewer';
 
 type BiometricForm = {
   fingerprint: File | null;
@@ -36,11 +38,12 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     onPrevious?: () => void;
     onNext?: () => void;
     onSaveToDraft?: () => void;
+    isReadOnly?: boolean;
     errors?: ErrorsMap;
   },
   ref,
 ) {
-  const { renewalId, onPrevious, onNext, onSaveToDraft, errors = {} } = props;
+  const { formData, renewalId, onPrevious, onNext, onSaveToDraft, isReadOnly = false, errors = {} } = props;
   const [form, setForm] = useState<BiometricForm>(initialState);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [streamActive, setStreamActive] = useState(false);
@@ -74,6 +77,33 @@ const BiometricInformation = forwardRef(function BiometricInformation(
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const webcamRef = useRef<any>(null);
 
+  const [uploadedPhotoId, setUploadedPhotoId] = useState<number | null>(null);
+  const [showPhotoDeleteConfirm, setShowPhotoDeleteConfirm] = useState(false);
+  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
+
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+
+  const handleDevices = React.useCallback(
+    (mediaDevices: MediaDeviceInfo[]) => {
+      const videoDevices = mediaDevices.filter(({ kind }) => kind === "videoinput");
+      setDevices(videoDevices);
+      if (videoDevices.length > 0 && !selectedDeviceId) {
+        setSelectedDeviceId(videoDevices[0].deviceId);
+      }
+    },
+    [selectedDeviceId]
+  );
+
+  useEffect(() => {
+    if (!showWebcamModal) return;
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(handleDevices).catch(err => {
+        console.warn('[Webcam] Enumerate devices failed:', err);
+      });
+    }
+  }, [showWebcamModal, handleDevices]);
+
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
       const firstKey = Object.keys(errors).find(k => !!errors[k]);
@@ -86,6 +116,42 @@ const BiometricInformation = forwardRef(function BiometricInformation(
       }
     },
   }));
+
+  // Sync photo state from formData.photographUploaded
+  useEffect(() => {
+    const photoDoc = formData?.photographUploaded;
+    if (photoDoc) {
+      setUploadedPhotoId(photoDoc.id || null);
+      setPhotoPreview(photoDoc.fileUrl || photoDoc.url || null);
+      setPhotoSubmitted(true);
+    } else {
+      setUploadedPhotoId(null);
+      setPhotoPreview(null);
+      setPhotoSubmitted(false);
+    }
+  }, [formData?.photographUploaded]);
+
+  useEffect(() => {
+    const fetchFingerprints = async () => {
+      if (!renewalId) return;
+      try {
+        const fingerprints = await BiometricAPIService.getEnrolledFingerprints(renewalId);
+        if (Array.isArray(fingerprints) && fingerprints.length > 0) {
+          const mapped = fingerprints.map((fp: any) => ({
+            id: fp.id || fp.fingerprintId || null,
+            position: fp.fingerPosition || fp.position || 'RIGHT_THUMB',
+            enrolledAt: fp.enrolledAt || fp.createdAt || null,
+            quality: fp.quality || 100,
+            bitmapData: fp.bitmapData || fp.image || fp.bitmap_data || null
+          }));
+          setEnrolledFingerprints(mapped);
+        }
+      } catch (err) {
+        console.warn('[BiometricInformation] Failed to fetch enrolled fingerprints:', err);
+      }
+    };
+    fetchFingerprints();
+  }, [renewalId]);
 
   useEffect(() => {
     const initializeMantra = async () => {
@@ -104,22 +170,141 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     };
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** 📷 Handle camera permission state using Permissions API */
+  useEffect(() => {
+    if (!showWebcamModal) return;
+
+    let permissionStatus: PermissionStatus | null = null;
+
+    const handleStateChange = () => {
+      if (!permissionStatus) return;
+      console.log('📷 [Permissions API] Camera state is:', permissionStatus.state);
+      if (permissionStatus.state === 'denied') {
+        // Do NOT setStreamActive(false) or setCameraPermissionDenied(true) automatically here.
+        // False negatives are common in Electron or HTTP setups. We let react-webcam mount and attempt getUserMedia.
+        console.warn('📷 [Permissions API] Camera permission is denied by query, but attempting to mount Webcam for real-time validation.');
+      } else if (permissionStatus.state === 'granted') {
+        setCameraPermissionDenied(false);
+        setStreamActive(true);
+      } else if (permissionStatus.state === 'prompt') {
+        setCameraPermissionDenied(false);
+        setStreamActive(true);
+      }
+    };
+
+    const setupPermissionsQuery = async () => {
+      if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+        try {
+          const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
+          permissionStatus = status;
+          handleStateChange();
+          status.onchange = handleStateChange;
+        } catch (e) {
+          console.warn('[BiometricInformation] Camera Permissions API query not fully supported:', e);
+        }
+      }
+    };
+
+    setupPermissionsQuery();
+
+    return () => {
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, [showWebcamModal]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
     if (files && files[0]) {
       const file = files[0];
-      setForm(prev => ({ ...prev, [name]: file }));
       if (name === 'photograph') {
+        // Check if photograph already exists
+        if (uploadedPhotoId || photoSubmitted) {
+          toast.error('Please delete the existing photograph first.');
+          e.target.value = '';
+          return;
+        }
+
+        // 1. Supported File Types: .jpg, .jpeg, .png
+        const allowedExtensions = ['jpg', 'jpeg', 'png'];
+        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+        const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (!allowedExtensions.includes(fileExtension) || !allowedMimeTypes.includes(file.type)) {
+          toast.error('Unsupported file format. Please upload a JPG, JPEG, or PNG image.');
+          e.target.value = '';
+          return;
+        }
+
+        // 2. File Size Validation: 20 KB - 5 MB
+        const minSize = 20 * 1024;
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size < minSize) {
+          toast.error('File size too small. Minimum allowed size is 20 KB.');
+          e.target.value = '';
+          return;
+        }
+        if (file.size > maxSize) {
+          toast.error('File size too large. Maximum allowed size is 5 MB.');
+          e.target.value = '';
+          return;
+        }
+
+        // 3. Image Validation (Corrupt / Unreadable check)
+        const isValidImg = await new Promise<boolean>((resolve) => {
+          const img = new Image();
+          const objectUrl = URL.createObjectURL(file);
+          img.src = objectUrl;
+          img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(true);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(false);
+          };
+        });
+
+        if (!isValidImg) {
+          toast.error('The uploaded image file appears to be corrupted or unreadable. Please choose a valid image.');
+          e.target.value = '';
+          return;
+        }
+
         const url = URL.createObjectURL(file);
         setPhotoPreview(url);
+        
+        // Notify parent
+        props.onFileChange('photographUploaded', file);
       }
     }
   };
 
-  const removePhoto = () => {
-    setPhotoPreview(null);
-    setForm(prev => ({ ...prev, photograph: null }));
-    setPhotoSubmitted(false);
+  const confirmRemovePhoto = async () => {
+    if (uploadedPhotoId) {
+      try {
+        setUploadingFiles(true);
+        setUploadProgress('Deleting photograph...');
+        await RenewalService.deleteRenewalFile(uploadedPhotoId);
+        setUploadedPhotoId(null);
+        setPhotoPreview(null);
+        setPhotoSubmitted(false);
+        setShowPhotoDeleteConfirm(false);
+        props.onFileChange('photographUploaded', null);
+        toast.success('Photograph deleted successfully!');
+      } catch (err: any) {
+        const errMsg = err?.response?.data?.error || err?.message || 'Failed to delete photograph.';
+        toast.error(errMsg);
+      } finally {
+        setUploadingFiles(false);
+        setUploadProgress('');
+      }
+    } else {
+      setPhotoPreview(null);
+      setPhotoSubmitted(false);
+      setShowPhotoDeleteConfirm(false);
+      props.onFileChange('photographUploaded', null);
+    }
   };
 
   const submitPhoto = async () => {
@@ -209,6 +394,28 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     }
     try {
       setFingerprintCapturing(true);
+      
+      // STEP 1: Verify against the fresh application's original fingerprint
+      if (formData?.applicationId) {
+        setUploadProgress('Verifying against original fresh application fingerprint...');
+        const freshResponse = await ApplicationService.getApplication(formData.applicationId);
+        const freshData = freshResponse?.data || freshResponse;
+        if (freshData) {
+          const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
+          const fingerprints = bioData?.fingerprints || [];
+          const originalFp = fingerprints.find((f: any) => f.position === pendingFingerPosition);
+          if (originalFp && originalFp.template) {
+            const matchResult = await MantraSDKService.verifyTemplate(originalFp.template, pendingCaptureResult.template, 65);
+            if (!matchResult.isMatch && matchResult.score < 65) {
+              toast.error(`Verification failed: Captured fingerprint does not match the registered ${pendingFingerPosition === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'} from the fresh application.`);
+              setFingerprintCapturing(false);
+              setUploadProgress('');
+              return;
+            }
+          }
+        }
+      }
+
       setUploadProgress('Fetching stored templates for matching...');
       const biometricTemplate = {
         template: pendingCaptureResult.template,
@@ -216,43 +423,9 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         captureTime: pendingCaptureResult.captureTime!,
         bitmapData: pendingCaptureResult.bitmapData,
       };
-      const templatesResponse = await BiometricAPIService.getTemplatesForMatching(renewalId);
-      if (!templatesResponse.success) {
-        toast.error('Failed to fetch templates for matching');
-        setFingerprintCapturing(false);
-        setUploadProgress('');
-        return;
-      }
-      const liveTemplate = biometricTemplate.template;
-      const matchThreshold = 65;
-      let matchFound = false, matchedTemplate: any = null;
-      setUploadProgress(`Matching against ${templatesResponse.templates.length} stored fingerprints...`);
-      for (const storedTemplate of templatesResponse.templates) {
-        try {
-          const matchResult = await MantraSDKService.verifyTemplate(storedTemplate.template, liveTemplate, matchThreshold);
-          if (matchResult.isMatch || matchResult.score >= matchThreshold) {
-            matchFound = true;
-            matchedTemplate = storedTemplate;
-            break;
-          }
-        } catch (e) {}
-      }
-      if (matchFound && matchedTemplate) {
-        setDuplicateMatchInfo({
-          applicationId: matchedTemplate.applicationId || 'Unknown',
-          almsLicenseId: matchedTemplate.almsLicenseId || null,
-          applicantName: matchedTemplate.applicantName || 'Unknown',
-          fingerPosition: matchedTemplate.fingerPosition || 'Unknown',
-        });
-        setShowDuplicateModal(true);
-        setShowFingerprintPreviewModal(false);
-        setFingerprintPreviewImage(null);
-        setPendingCaptureResult(null);
-        setFingerprintCapturing(false);
-        setUploadProgress('');
-        return;
-      }
-      setUploadProgress('No duplicate found. Storing fingerprint...');
+      // For renewal applications, we do not perform duplicate fingerprint check
+      // as the applicant's fingerprint will match their own original record in the system.
+      setUploadProgress('Storing fingerprint...');
       const storeResponse = await BiometricAPIService.storeFingerprint(renewalId, pendingFingerPosition, biometricTemplate, `Captured via Mantra SDK - ${pendingFingerPosition}`);
       if (!storeResponse.success) {
         toast.error(`Failed to store fingerprint: ${storeResponse.message}`);
@@ -290,7 +463,14 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     setPendingFingerPosition(selectedFinger);
   };
 
-  const openWebcamModal = () => { setShowWebcamModal(true); setWebcamCapturedPhoto(null); setStreamActive(true); setWebcamReady(false); };
+  const openWebcamModal = () => {
+    setShowWebcamModal(true);
+    setWebcamCapturedPhoto(null);
+    setStreamActive(true);
+    setWebcamReady(false);
+    setCameraPermissionDenied(false);
+  };
+
   const capturePhotoInModal = () => {
     if (!webcamRef.current) { toast.error('Webcam not ready. Please wait.'); return; }
     if (!webcamReady) { toast.error('Camera stream not ready. Please wait a moment.'); return; }
@@ -299,38 +479,90 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     setWebcamCapturedPhoto(dataUrl);
     setStreamActive(false);
   };
-  const retakePhotoInModal = () => { setWebcamCapturedPhoto(null); setStreamActive(true); setWebcamReady(false); };
+
+  const retakePhotoInModal = () => {
+    setWebcamCapturedPhoto(null);
+    setStreamActive(true);
+    setWebcamReady(false);
+    setCameraPermissionDenied(false);
+  };
+
   const submitPhotoFromModal = async () => {
-    if (!webcamCapturedPhoto) { toast.warning('Please capture a photo first.'); return; }
+    if (!webcamCapturedPhoto) {
+      toast.warning('Please capture a photo first.');
+      return;
+    }
+    if (uploadedPhotoId || photoSubmitted) {
+      toast.error('Please delete the existing photograph first.');
+      return;
+    }
     try {
       setUploadingFiles(true);
       setUploadProgress('Submitting photograph...');
-      const blob = await (await fetch(webcamCapturedPhoto)).blob();
+
+      const dataURLtoBlob = (dataurl: string) => {
+        const arr = dataurl.split(',');
+        const mime = arr[0].match(/:(.*?);/)![1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+      };
+
+      const blob = dataURLtoBlob(webcamCapturedPhoto);
+
+      const minSize = 2 * 1024;
+      const maxSize = 5 * 1024 * 1024;
+      if (blob.size < minSize) {
+        toast.error('Captured photograph size is too small. Please ensure your camera is working correctly.');
+        return;
+      }
+      if (blob.size > maxSize) {
+        toast.error('Captured photograph size is too large (over 5 MB).');
+        return;
+      }
+
       const file = new File([blob], 'photograph.jpg', { type: 'image/jpeg' });
       setPhotoPreview(webcamCapturedPhoto);
-      setForm(prev => ({ ...prev, photograph: file }));
+
       if (renewalId) {
-        await RenewalService.uploadDocument(renewalId, 'PHOTOGRAPH', file);
-        setPhotoSubmitted(true);
+        props.onFileChange('photographUploaded', file);
         setShowWebcamModal(false);
         setWebcamCapturedPhoto(null);
         setStreamActive(false);
+        setWebcamReady(false);
         setShowPhotoSuccessModal(true);
         setTimeout(() => setShowPhotoSuccessModal(false), 5000);
       } else {
         toast.warning('Please create renewal application first.');
         setShowWebcamModal(false);
+        setWebcamCapturedPhoto(null);
+        setStreamActive(false);
+        setWebcamReady(false);
       }
     } catch (err: any) {
       setPhotoErrorMessage(err?.message || 'Failed to submit photograph.');
       setShowPhotoErrorModal(true);
       setShowWebcamModal(false);
+      setWebcamCapturedPhoto(null);
+      setStreamActive(false);
+      setWebcamReady(false);
     } finally {
       setUploadingFiles(false);
       setUploadProgress('');
     }
   };
-  const cancelWebcamModal = () => { setShowWebcamModal(false); setWebcamCapturedPhoto(null); setStreamActive(false); setWebcamReady(false); };
+
+  const cancelWebcamModal = () => {
+    setShowWebcamModal(false);
+    setWebcamCapturedPhoto(null);
+    setStreamActive(false);
+    setWebcamReady(false);
+    setCameraPermissionDenied(false);
+  };
 
   const runDiagnostic = async (testName: string, testFn: () => Promise<any>) => {
     try {
@@ -384,6 +616,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         <div>
           <div className='flex justify-between items-center mb-4'>
             <h3 className='text-lg font-semibold text-gray-800'>Signature / Thumb Impression</h3>
+            {!isReadOnly && (
             <div className='flex items-center gap-2'>
               <div className='relative'>
                 <button 
@@ -420,8 +653,11 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                 Settings
               </button>
             </div>
+            )}
           </div>
 
+          {!isReadOnly && (
+          <>
           <FormField 
             label='Select Hand & Finger' 
             required 
@@ -471,6 +707,8 @@ const BiometricInformation = forwardRef(function BiometricInformation(
               </p>
             )}
           </div>
+          </>
+          )}
 
           {enrolledFingerprints.length > 0 && (() => {
             const latestFp = enrolledFingerprints[enrolledFingerprints.length - 1];
@@ -495,9 +733,25 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                       <span className='text-xs text-gray-500 p-1'>{uploadProgress || ''}</span>
                     )}
                   </div>
-                  <div className='space-y-1'>
-                    <p><span className='text-gray-500 text-sm'>Position:</span> <b className='text-gray-800'>{latestFp.position}</b></p>
-                    <p><span className='text-gray-500 text-sm'>Quality:</span> <b className={latestFp.quality >= 60 ? 'text-green-600' : 'text-red-600'}>{latestFp.quality}%</b></p>
+                  <div className='space-y-1 text-sm'>
+                    <p><span className='text-gray-500'>Position:</span> <b className='text-gray-800'>{latestFp.position}</b></p>
+                    <p><span className='text-gray-500'>Quality:</span> <b className={latestFp.quality >= 60 ? 'text-green-600' : 'text-red-600'}>{latestFp.quality}%</b></p>
+                    {latestFp.id && (
+                      <p>
+                        <span className='text-gray-500'>Fingerprint ID (API):</span>{' '}
+                        <code className='text-xs bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 text-gray-700 font-mono'>
+                          {latestFp.id}
+                        </code>
+                      </p>
+                    )}
+                    {latestFp.enrolledAt && (
+                      <p>
+                        <span className='text-gray-500'>Enrolled At:</span>{' '}
+                        <span className='text-xs text-gray-600 font-semibold'>
+                          {new Date(latestFp.enrolledAt).toLocaleString()}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -505,7 +759,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
           })()}
         </div>
 
-        {/* Iris Scan Section */}
+        {!isReadOnly && (
         <div>
           <h3 className='text-lg font-semibold text-gray-800 mb-4'>Iris Scan</h3>
           <button 
@@ -524,249 +778,357 @@ const BiometricInformation = forwardRef(function BiometricInformation(
             ℹ️ Iris scanning will be available soon. Please check back later for updates.
           </p>
         </div>
+        )}
       </div>
 
       {/* Photograph Section */}
-      <div className='border-t border-gray-200 pt-6'>
-        <h3 className='text-lg font-semibold text-gray-800 mb-2'>Photograph</h3>
-        <p className='text-sm text-gray-600 mb-5'>Capture the applicant's live photo using webcam or upload an existing photograph.</p>
+      <div className='bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden p-6 mt-6'>
+        <div className='flex items-center space-x-2 mb-4 border-b border-gray-100 pb-3'>
+          <span className='text-xl'>📸</span>
+          <h3 className='text-lg font-bold text-gray-800'>Photograph Capture & Upload</h3>
+        </div>
+        
+        <p className='text-sm text-gray-500 mb-4 leading-relaxed'>
+          Upload a recent passport-size photograph (JPG, JPEG, PNG, max 5 MB) or capture using your webcam.
+        </p>
 
-        <div className='grid md:grid-cols-2 gap-6 items-start'>
-          <div className='space-y-4'>
-            <button 
-              type='button' 
-              onClick={openWebcamModal} 
-              className='w-full md:w-auto px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors flex items-center justify-center gap-2'
-            >
-              <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z' />
-                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 13a3 3 0 11-6 0 3 3 0 016 0z' />
-              </svg>
-              Use Webcam
-            </button>
-            
-            <div className='relative'>
-              <div className='absolute inset-0 flex items-center'>
-                <div className='w-full border-t border-gray-300'></div>
+        <div className='grid md:grid-cols-2 gap-6 items-stretch'>
+          {/* Webcam & Upload Section */}
+          {!isReadOnly && (
+          <div className='flex flex-col justify-between space-y-4 border border-gray-100 rounded-xl p-4 bg-slate-50/50'>
+            <div className='space-y-3'>
+              <button
+                type='button'
+                onClick={openWebcamModal}
+                disabled={Boolean(photoPreview || photoSubmitted)}
+                className={`w-full px-4 py-3 text-white rounded-lg font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm ${
+                  Boolean(photoPreview || photoSubmitted)
+                    ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+                }`}
+              >
+                <span>📷</span>
+                <span>Capture with Webcam</span>
+              </button>
+              
+              <div className='relative flex items-center justify-center my-2'>
+                <div className='absolute inset-0 flex items-center'><span className='w-full border-t border-gray-200' /></div>
+                <span className='relative bg-slate-50 px-3 text-xs text-gray-400 font-medium uppercase'>or</span>
               </div>
-              <div className='relative flex justify-center text-sm'>
-                <span className='px-3 bg-white text-gray-500'>or</span>
-              </div>
-            </div>
 
-            <label className='block border-2 border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-600 cursor-pointer hover:border-[#6366F1] hover:bg-gray-50 transition-colors'>
-              <svg className='w-8 h-8 mx-auto mb-2 text-gray-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' />
-              </svg>
-              <span className='font-medium'>Upload Photograph</span>
-              <span className='block text-xs text-gray-500 mt-1'>Click to browse files</span>
-              <input 
-                type='file' 
-                name='photograph' 
-                accept='image/*' 
-                className='hidden' 
-                onChange={handleFileChange} 
-              />
-            </label>
-          </div>
-
-          {photoPreview && (
-            <div className='flex flex-col items-center'>
-              <div className='relative'>
-                <img 
-                  src={photoPreview} 
-                  alt='Preview' 
-                  className='w-48 h-48 object-cover rounded-lg border-2 border-gray-200 shadow-md' 
+              <label
+                className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 text-center transition-all group ${
+                  Boolean(photoPreview || photoSubmitted)
+                    ? 'border-gray-200 bg-gray-100/50 text-gray-400 cursor-not-allowed'
+                    : 'border-gray-300 text-gray-600 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'
+                }`}
+              >
+                <span className='text-2xl mb-1 transition-transform group-hover:scale-110'>📤</span>
+                <span className={`text-sm font-semibold transition-colors ${
+                  Boolean(photoPreview || photoSubmitted) ? 'text-gray-400' : 'text-gray-700 group-hover:text-blue-600'
+                }`}>
+                  Upload Photograph
+                </span>
+                <span className='text-xs text-gray-400 mt-1'>Supports JPG, JPEG, PNG (20 KB - 5 MB)</span>
+                <input
+                  type='file'
+                  name='photograph'
+                  accept='.jpg,.jpeg,.png'
+                  disabled={Boolean(photoPreview || photoSubmitted)}
+                  className='hidden'
+                  onChange={handleFileChange}
                 />
-                {photoSubmitted && (
-                  <div className='absolute top-2 right-2 bg-green-500 rounded-full p-1'>
-                    <svg className='w-4 h-4 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={3} d='M5 13l4 4L19 7' />
-                    </svg>
+              </label>
+            </div>
+          </div>
+          )}
+
+          {/* Preview Section */}
+          <div className='flex flex-col items-center justify-center border border-gray-100 rounded-xl p-4 bg-slate-50/50 min-h-[200px]'>
+            {photoPreview ? (
+              <div className='flex flex-col items-center w-full'>
+                <div className='relative p-2 bg-white rounded-lg shadow-md border border-gray-200'>
+                  <img
+                    src={photoPreview}
+                    alt='Captured Preview'
+                    className='w-40 h-40 object-cover rounded-md'
+                  />
+                  <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded shadow ${
+                    photoSubmitted ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-amber-100 text-amber-700 border border-amber-200'
+                  }`}>
+                    {photoSubmitted ? '✓ Submitted' : '⚠ Pending'}
+                  </span>
+                </div>
+                
+                {isReadOnly ? (
+                  <div className='flex-1 text-center py-2 text-sm font-semibold text-green-600 bg-green-50 rounded-lg border border-green-200 mt-4'>
+                    ✓ Photo Saved
+                  </div>
+                ) : showPhotoDeleteConfirm ? (
+                  <div className='mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-center w-full max-w-[260px] animate-fade-in'>
+                    <p className='text-xs font-semibold text-red-700 leading-normal mb-3'>
+                      Are you sure you want to delete the photograph? This action cannot be undone.
+                    </p>
+                    <div className='flex gap-2 justify-center'>
+                      <button
+                        type='button'
+                        onClick={confirmRemovePhoto}
+                        disabled={uploadingFiles}
+                        className='px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded transition-colors shadow-sm'
+                      >
+                        {uploadingFiles ? 'Deleting...' : 'Yes, Delete'}
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => setShowPhotoDeleteConfirm(false)}
+                        disabled={uploadingFiles}
+                        className='px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs rounded transition-colors'
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className='flex gap-2 mt-4 w-full max-w-[240px]'>
+                    {!photoSubmitted ? (
+                      <button
+                        type='button'
+                        onClick={submitPhoto}
+                        disabled={uploadingFiles}
+                        className='flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
+                      >
+                        {uploadingFiles ? 'Uploading...' : 'Submit Photo'}
+                      </button>
+                    ) : (
+                      <div className='flex-1 text-center py-2 text-sm font-semibold text-green-600 bg-green-50 rounded-lg border border-green-200'>
+                        ✓ Photo Saved
+                      </div>
+                    )}
+                    <button
+                      type='button'
+                      onClick={() => setShowPhotoDeleteConfirm(true)}
+                      disabled={uploadingFiles}
+                      className='px-3 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold text-sm transition-all shadow-sm'
+                      title='Delete photograph'
+                    >
+                      🗑️ Delete
+                    </button>
                   </div>
                 )}
               </div>
-              <div className='flex gap-3 mt-4'>
-                {!photoSubmitted && (
-                  <button 
-                    type='button' 
-                    onClick={submitPhoto} 
-                    disabled={uploadingFiles} 
-                    className='px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 flex items-center gap-2'
-                  >
-                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4-4m0 0l4 4m-4-4v12' />
-                    </svg>
-                    {uploadingFiles ? 'Submitting...' : 'Submit'}
-                  </button>
-                )}
-                {!photoSubmitted && (
-                  <button 
-                    type='button' 
-                    onClick={removePhoto} 
-                    disabled={uploadingFiles} 
-                    className='px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-md font-medium transition-colors disabled:opacity-50 flex items-center gap-2'
-                  >
-                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
-                    </svg>
-                    Remove
-                  </button>
-                )}
-                {photoSubmitted && (
-                  <span className='text-green-600 font-semibold flex items-center gap-2'>
-                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' />
-                    </svg>
-                    Submitted
-                  </span>
-                )}
+            ) : (
+              <div className='flex flex-col items-center text-center text-gray-400 p-6'>
+                <div className='w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl mb-2'>👤</div>
+                <p className='text-sm font-medium'>No Photograph Selected</p>
+                <p className='text-xs text-gray-400 mt-1 max-w-[200px]'>Capture from your webcam or upload a file to preview</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Capturing Modal */}
-      {showCapturingModal && (
-        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4'>
-          <div className='bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden'>
-            <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
-              <h2 className='text-xl font-bold text-white'>Capturing Fingerprint</h2>
-              <p className='text-blue-100 text-sm mt-1'>Keep your finger steady on the scanner</p>
-            </div>
-            <div className='px-6 py-6'>
-              <div className='flex justify-center mb-4'>
-                <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600'></div>
-              </div>
-              <p className='text-center text-gray-700 mb-6'>{capturingStep}</p>
-              <button 
-                type='button' 
-                onClick={() => setShowCapturingModal(false)} 
-                className='w-full px-4 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-md font-medium transition-colors'
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fingerprint Preview Modal */}
-      {showFingerprintPreviewModal && (
-        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4'>
-          <div className='bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden'>
-            <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
-              <h2 className='text-xl font-bold text-white'>Fingerprint Preview</h2>
-              <p className='text-blue-100 text-sm mt-1'>Review and confirm before enrolling</p>
-            </div>
-            <div className='px-6 py-6'>
-              <div className='grid grid-cols-2 gap-4 mb-4'>
-                <div className='bg-gray-50 rounded-lg p-3 border border-gray-200'>
-                  <p className='text-xs text-gray-500 uppercase'>Quality</p>
-                  <p className='text-lg font-semibold text-gray-800'>{pendingCaptureResult?.quality || 0}%</p>
-                </div>
-                <div className='bg-gray-50 rounded-lg p-3 border border-gray-200'>
-                  <p className='text-xs text-gray-500 uppercase'>Position</p>
-                  <p className='text-lg font-semibold text-gray-800'>{pendingFingerPosition}</p>
-                </div>
-              </div>
-            </div>
-            <div className='flex gap-3 p-6 border-t border-gray-200 bg-gray-50'>
-              <button 
-                onClick={handleAcceptFingerprintPreview} 
-                disabled={fingerprintCapturing} 
-                className='flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50'
-              >
-                Accept & Enroll
-              </button>
-              <button 
-                onClick={handleRejectFingerprintPreview} 
-                disabled={fingerprintCapturing} 
-                className='flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md font-medium transition-colors disabled:opacity-50'
-              >
-                Retake
-              </button>
-              <button 
-                onClick={handleCancelFingerprintPreview} 
-                disabled={fingerprintCapturing} 
-                className='px-4 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-md font-medium transition-colors disabled:opacity-50'
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Webcam Modal */}
       {showWebcamModal && (
-        <div className='fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4'>
-          <div className='bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden'>
-            <div className='border-b px-6 py-4 flex justify-between items-center bg-gray-50'>
-              <h2 className='text-xl font-bold text-gray-800 flex items-center gap-2'>
-                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z' />
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 13a3 3 0 11-6 0 3 3 0 016 0z' />
-                </svg>
-                Capture Photograph
-              </h2>
-              <button 
-                onClick={cancelWebcamModal} 
-                className='text-gray-400 hover:text-gray-600 transition-colors'
+        <div
+          className='fixed inset-0 bg-black/75 flex items-center justify-center z-[9999] p-4'
+          style={{ display: 'flex', visibility: 'visible' }}
+        >
+          <div className='bg-white rounded-lg shadow-2xl max-w-lg w-full max-h-[90vh] overflow-auto'>
+            <div className='border-b px-6 py-4 sticky top-0 bg-white flex justify-between items-center'>
+              <div>
+                <h2 className='text-2xl font-bold text-gray-800'>📷 Capture Photograph</h2>
+                <p className='text-sm text-gray-500 mt-1'>
+                  {webcamCapturedPhoto
+                    ? 'Review your photo before submitting'
+                    : 'Position yourself and capture'}
+                </p>
+              </div>
+              <button
+                onClick={cancelWebcamModal}
+                disabled={uploadingFiles}
+                className='text-gray-600 hover:text-gray-900 text-2xl font-bold'
               >
-                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-                </svg>
+                ✕
               </button>
             </div>
+
             <div className='px-6 py-6'>
-              {streamActive && !webcamCapturedPhoto && (
-                <Webcam 
-                  ref={webcamRef} 
-                  audio={false} 
-                  screenshotFormat='image/jpeg' 
-                  className='w-full max-w-sm mx-auto rounded-lg border-2 border-gray-300 bg-black' 
-                  videoConstraints={{ width: 480, height: 480, facingMode: 'user' }}
-                  onUserMedia={() => setWebcamReady(true)}
-                  onError={() => { toast.error('Webcam error: Unable to access camera'); setStreamActive(false); }}
-                />
+              {/* Camera Device Selection Dropdown */}
+              {devices.length > 1 && !webcamCapturedPhoto && (
+                <div className='mb-4'>
+                  <label className='block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-1'>Select Camera Device</label>
+                  <select
+                    value={selectedDeviceId}
+                    onChange={(e) => setSelectedDeviceId(e.target.value)}
+                    className='w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white text-sm'
+                  >
+                    {devices.map((device, idx) => (
+                      <option key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Camera ${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
-              {webcamCapturedPhoto && (
-                <img 
-                  src={webcamCapturedPhoto} 
-                  alt='Captured Preview' 
-                  className='w-full max-w-sm mx-auto rounded-lg border-2 border-green-400 shadow-lg' 
-                />
-              )}
-              <div className='flex gap-3 mt-6'>
-                <button 
-                  type='button' 
-                  onClick={submitPhotoFromModal} 
-                  disabled={uploadingFiles || !webcamCapturedPhoto} 
-                  className='flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2'
+
+              {/* Camera / Preview Display */}
+              <div className='flex justify-center mb-6'>
+                <div className='relative'>
+                  {/* Camera Permission States: request | denied | loading | live | captured */}
+                  {!streamActive && !cameraPermissionDenied && !webcamCapturedPhoto ? (
+                    <div className='w-72 h-72 rounded-lg border-2 border-blue-300 bg-blue-50 flex flex-col items-center justify-center p-6'>
+                      <div className='w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mb-4'>
+                        <svg className='w-7 h-7 text-blue-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' />
+                        </svg>
+                      </div>
+                      <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Needed</h3>
+                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-4'>
+                        This application needs access to your camera to capture a live photograph for the license application.
+                      </p>
+                      <button
+                        type='button'
+                        onClick={() => { setStreamActive(true); setWebcamReady(false); }}
+                        className='px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm transition-colors shadow-md'
+                      >
+                        Grant Camera Access
+                      </button>
+                    </div>
+                  ) : cameraPermissionDenied ? (
+                    <div className='w-72 h-72 rounded-lg border-2 border-red-300 bg-gray-50 flex flex-col items-center justify-center p-6'>
+                      <div className='w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mb-4'>
+                        <svg className='w-7 h-7 text-red-500' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' />
+                        </svg>
+                      </div>
+                      <h3 className='text-lg font-bold text-gray-800 mb-2'>Camera Access Denied</h3>
+                      <p className='text-sm text-gray-600 text-center leading-relaxed mb-6'>
+                        Camera access is required to capture a photograph.
+                      </p>
+                      <button
+                        type='button'
+                        onClick={() => { setCameraPermissionDenied(false); setStreamActive(true); setWebcamReady(false); }}
+                        className='px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors shadow-md'
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  ) : streamActive && !webcamCapturedPhoto ? (
+                    <div className='relative w-72 h-72'>
+                      {!webcamReady && (
+                        <div className='absolute inset-0 w-full h-full rounded-lg border-2 border-gray-300 bg-gray-50 flex flex-col items-center justify-center z-10'>
+                          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4'></div>
+                          <p className='text-sm text-gray-500'>Requesting camera access...</p>
+                          <p className='text-xs text-gray-400 mt-1'>Please allow camera when prompted by your browser</p>
+                        </div>
+                      )}
+                      <Webcam
+                        ref={webcamRef}
+                        audio={false}
+                        screenshotFormat='image/jpeg'
+                        className='w-full h-full object-cover rounded-lg border-2 border-gray-300 bg-gray-900'
+                        videoConstraints={{
+                          width: 480,
+                          height: 480,
+                          facingMode: selectedDeviceId ? undefined : 'user',
+                          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined
+                        }}
+                        onUserMedia={() => { setWebcamReady(true); setCameraPermissionDenied(false); }}
+                        onUserMediaError={(err: any) => {
+                          console.error('❌ [Webcam] Camera access failure detailed:', err);
+                          const errName = err?.name || '';
+                          const errMsg = err?.message || '';
+                          console.error(`❌ [Webcam] Error Name: ${errName}, Message: ${errMsg}`);
+                          
+                          if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError' || errMsg.includes('Permission') || errMsg.includes('denied')) {
+                            setStreamActive(false);
+                            setCameraPermissionDenied(true);
+                            toast.error('Camera permission was denied. Please allow camera access in browser settings.');
+                          } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+                            setStreamActive(false);
+                            toast.error('No camera device found on your system. Please connect a webcam.');
+                          } else if (errName === 'NotReadableError' || errName === 'TrackStartError') {
+                            setStreamActive(false);
+                            toast.error('Camera is currently in use by another application (Zoom, Teams, etc.). Please close it and try again.');
+                          } else if (errName === 'OverconstrainedError' || errName === 'ConstraintNotSatisfiedError') {
+                            setStreamActive(false);
+                            toast.error('Camera does not support the requested video constraints.');
+                          } else {
+                            setStreamActive(false);
+                            setCameraPermissionDenied(true);
+                            toast.error(`Unable to access camera (${errName || 'Error'}: ${errMsg || 'Unknown error'}).`);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : null}
+
+                  {/* Captured photo preview */}
+                  {webcamCapturedPhoto && (
+                    <img
+                      src={webcamCapturedPhoto}
+                      alt='Captured Preview'
+                      className='w-72 h-72 object-cover rounded-lg border-2 border-green-400 shadow-lg'
+                    />
+                  )}
+
+                  {/* Status indicator */}
+                  <div className='absolute bottom-2 left-1/2 transform -translate-x-1/2'>
+                    <span
+                      className={`text-white text-xs px-2 py-1 rounded ${webcamCapturedPhoto ? 'bg-green-600' : 'bg-black/50'}`}
+                    >
+                      {webcamCapturedPhoto ? '✓ Photo Captured' : 'Live Preview'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className='mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200'>
+                <p className='text-sm text-blue-700'>
+                  {!webcamCapturedPhoto
+                    ? '💡 Tip: Ensure good lighting and center your face in the frame. Click Capture when ready.'
+                    : '💡 Tip: Review the photo above. Click Submit if satisfied, or Recapture to try again.'}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className='flex gap-3'>
+                <button
+                  type='button'
+                  onClick={submitPhotoFromModal}
+                  disabled={uploadingFiles || !webcamCapturedPhoto}
+                  className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
+                    uploadingFiles || !webcamCapturedPhoto
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
+                  }`}
                 >
-                  <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-                  </svg>
-                  {uploadingFiles ? 'Submitting...' : 'Submit'}
+                  {uploadingFiles ? 'Submitting...' : '✓ Submit'}
                 </button>
-                <button 
-                  type='button' 
-                  onClick={webcamCapturedPhoto ? retakePhotoInModal : capturePhotoInModal} 
-                  className='flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-md font-medium transition-colors flex items-center justify-center gap-2'
+                <button
+                  type='button'
+                  onClick={webcamCapturedPhoto ? retakePhotoInModal : capturePhotoInModal}
+                  disabled={uploadingFiles || (!webcamCapturedPhoto && !webcamReady)}
+                  className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
+                    uploadingFiles || (!webcamCapturedPhoto && !webcamReady)
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                  }`}
                 >
-                  <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.001 0 01-15.357-2m15.356 2H15' />
-                  </svg>
-                  {webcamCapturedPhoto ? 'Recapture' : 'Capture'}
+                  {webcamCapturedPhoto ? '↻ Recapture' : '📸 Capture'}
                 </button>
-                <button 
-                  type='button' 
-                  onClick={cancelWebcamModal} 
-                  className='px-4 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-md font-medium transition-colors'
+                <button
+                  type='button'
+                  onClick={cancelWebcamModal}
+                  disabled={uploadingFiles}
+                  className={`flex-1 px-4 py-3 rounded-lg font-semibold text-white transition-colors ${
+                    uploadingFiles
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-gray-500 hover:bg-gray-600 active:bg-gray-700'
+                  }`}
                 >
-                  Close
+                  ✕ Close
                 </button>
               </div>
             </div>
@@ -880,6 +1242,167 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                 Close Settings
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fingerprint Preview Modal */}
+      {showFingerprintPreviewModal && pendingCaptureResult && (
+        <div
+          className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+          style={{ display: 'flex', visibility: 'visible' }}
+        >
+          <div className='bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto border border-gray-200'>
+            <div className='bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5'>
+              <div className='flex items-center gap-4'>
+                <div className='bg-white/20 rounded-full p-3'>
+                  <svg className='w-8 h-8 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11' />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className='text-xl font-bold text-white'>Fingerprint Preview</h2>
+                  <p className='text-blue-100 text-sm mt-1'>Review and confirm before enrolling</p>
+                </div>
+              </div>
+            </div>
+
+            <div className='px-6 py-6'>
+              <div className='mb-6'>
+                <div
+                  className={`p-4 rounded-xl border-2 ${
+                    (pendingCaptureResult?.quality || 0) >= 80
+                      ? 'bg-green-50 border-green-300'
+                      : (pendingCaptureResult?.quality || 0) >= 60
+                        ? 'bg-yellow-50 border-yellow-300'
+                        : 'bg-red-50 border-red-300'
+                  }`}
+                >
+                  <div className='flex items-center justify-between mb-3'>
+                    <div className='flex items-center gap-2'>
+                      <span
+                        className={`font-semibold ${
+                          (pendingCaptureResult?.quality || 0) >= 80
+                            ? 'text-green-700'
+                            : (pendingCaptureResult?.quality || 0) >= 60
+                              ? 'text-yellow-700'
+                              : 'text-red-700'
+                        }`}
+                      >
+                        {(pendingCaptureResult?.quality || 0) >= 80
+                          ? 'Excellent Quality'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'Good Quality'
+                            : 'Low Quality - Consider Retaking'}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-3xl font-bold ${
+                        (pendingCaptureResult?.quality || 0) >= 80
+                          ? 'text-green-600'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                      }`}
+                    >
+                      {pendingCaptureResult?.quality || 0}%
+                    </span>
+                  </div>
+                  <div className='w-full bg-gray-200 rounded-full h-3 overflow-hidden'>
+                    <div
+                      className={`h-3 rounded-full transition-all duration-500 ${
+                        (pendingCaptureResult?.quality || 0) >= 80
+                          ? 'bg-green-500'
+                          : (pendingCaptureResult?.quality || 0) >= 60
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
+                      }`}
+                      style={{ width: `${pendingCaptureResult?.quality || 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className='mb-6'>
+                <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                  Captured Fingerprint
+                </h3>
+                <div className='flex justify-center bg-gradient-to-b from-gray-50 to-gray-100 rounded-xl p-6 min-h-[280px] items-center border border-gray-200'>
+                  {fingerprintPreviewImage ? (
+                    <div className='flex flex-col items-center gap-3'>
+                      <div className='relative'>
+                        <img
+                          src={fingerprintPreviewImage}
+                          alt='Fingerprint Preview'
+                          className='max-w-full max-h-80 border-4 border-white rounded-lg shadow-lg'
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className='text-center py-8'>
+                      <p className='text-gray-500 font-medium'>No preview image available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className='mb-6'>
+                <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>
+                  Finger Position
+                </h3>
+                <div className='flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200'>
+                  <div className='bg-blue-600 rounded-full p-2 text-white'>
+                    👆
+                  </div>
+                  <div>
+                    <p className='font-bold text-blue-900'>
+                      {pendingFingerPosition}
+                    </p>
+                    <p className='text-xs text-blue-700'>Selected biometric type</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className='flex justify-end gap-3 pt-4 border-t border-gray-100'>
+                <button
+                  type='button'
+                  onClick={handleCancelFingerprintPreview}
+                  className='px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition-colors'
+                >
+                  Cancel
+                </button>
+                <button
+                  type='button'
+                  onClick={handleRejectFingerprintPreview}
+                  className='px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-colors'
+                >
+                  Retake
+                </button>
+                <button
+                  type='button'
+                  onClick={handleAcceptFingerprintPreview}
+                  className='px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors shadow-sm'
+                >
+                  Accept & Enroll
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Capturing Status Modal */}
+      {showCapturingModal && (
+        <div
+          className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 text-left font-normal'
+          style={{ display: 'flex', visibility: 'visible' }}
+        >
+          <div className='bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center space-y-4'>
+            <div className='mx-auto w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin flex items-center justify-center'>
+              <span className='text-2xl'>👆</span>
+            </div>
+            <h3 className='text-lg font-bold text-gray-900'>Biometric Scan in Progress</h3>
+            <p className='text-sm text-gray-500'>{capturingStep}</p>
           </div>
         </div>
       )}

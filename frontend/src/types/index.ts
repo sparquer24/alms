@@ -108,8 +108,8 @@ export interface ApplicationData {
   applicationType: string;
   applicationDate: string;
   applicationTime?: string;
-  status: ApplicationStatus;
-  status_id: string | number; // Numeric status ID for backend compatibility
+  status?: ApplicationStatus;
+  status_id?: string | number; // Numeric status ID for backend compatibility
   workflowStatus?: {
     id: number;
     code: string;
@@ -332,6 +332,10 @@ export interface ApplicationData {
     canReturn: boolean;
     canDispose: boolean;
   };
+  isApproved?: boolean;
+  isRejected?: boolean;
+  isRecommended?: boolean;
+  isNotRecommended?: boolean;
   usersInHierarchy?: Array<{
     id: number;
     userName?: string;

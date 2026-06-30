@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Input, TextArea } from '../elements/Input';
 import { Checkbox } from '../elements/Checkbox';
 import { Select } from '../elements/Select';
@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useApplicationForm } from '../../../hooks/useApplicationForm';
 import { FORM_ROUTES } from '../../../config/formRoutes';
 import FileUploadService from '../../../services/fileUploadService';
+import { validateText, validateGeneralText, validateDate, validateSelect, filterText, filterAlphaNumeric } from '../../../utils/validation';
 
 const initialFamily = { name: '', licenseNumber: '', weapons: [0] };
 
@@ -17,40 +18,47 @@ const initialState = {
 	licenseHistories: [] as any[],
 };
 
-// Validation rules for license history
+// Validation rules for license history using centralized validators
 const validateLicenseHistory = (formData: any) => {
 	const errors: Record<string, string> = {};
 	const history = formData.licenseHistories?.[0];
 	
 	if (history) {
 		if (history.hasAppliedBefore) {
-			if (!history.dateAppliedFor) errors.appliedDate = 'Date of Application is required';
-			if (!history.previousAuthorityName?.trim()) errors.appliedAuthority = 'Authority is required';
-			if (!history.previousResult) errors.appliedResult = 'Result is required';
-			if (history.previousResult === 'REJECTED' && (!history.rejectedLicenseFiles || history.rejectedLicenseFiles.length === 0)) {
-				errors.rejectedFiles = 'Please upload previously rejected license documents';
-			}
+			const dateErr = validateDate(history.dateAppliedFor ?? '', true, undefined, { required: 'Date of Application is required' });
+			if (dateErr) errors.appliedDate = dateErr;
+			const authErr = validateText(history.previousAuthorityName ?? '', true, { required: 'Authority is required' });
+			if (authErr) errors.appliedAuthority = authErr;
+			const resultErr = validateSelect(history.previousResult ?? '', true, { required: 'Result is required' });
+			if (resultErr) errors.appliedResult = resultErr;
+
 		}
 		
 		if (history.hasLicenceSuspended) {
-			if (!history.suspensionAuthorityName?.trim()) errors.suspendedAuthority = 'Authority is required';
-			if (!history.suspensionReason?.trim()) errors.suspendedReason = 'Reason is required';
+			const suspAuthErr = validateText(history.suspensionAuthorityName ?? '', true, { required: 'Authority is required' });
+			if (suspAuthErr) errors.suspendedAuthority = suspAuthErr;
+			const reasonErr = validateGeneralText(history.suspensionReason ?? '', true, { required: 'Reason is required' });
+			if (reasonErr) errors.suspendedReason = reasonErr;
 		}
 		
 		if (history.hasFamilyLicence) {
-			if (!history.familyMemberName?.trim()) errors.familyName = 'Family member name is required';
-			if (!history.familyLicenceNumber?.trim()) errors.familyLicenseNumber = 'License number is required';
+			const nameErr = validateText(history.familyMemberName ?? '', true, { required: 'Family member name is required' });
+			if (nameErr) errors.familyName = nameErr;
+			const licErr = validateGeneralText(history.familyLicenceNumber ?? '', true, { required: 'License number is required' });
+			if (licErr) errors.familyLicenseNumber = licErr;
 			if (!history.familyWeaponsEndorsed || history.familyWeaponsEndorsed.length === 0) {
-				errors.familyWeapons = 'At least one weapon must be selected';
+				errors.familyWeapons = 'Please select a weapon.';
 			}
 		}
 		
 		if (history.hasSafePlace) {
-			if (!history.safePlaceDetails?.trim()) errors.safePlaceDetails = 'Safe place details are required';
+			const safeErr = validateGeneralText(history.safePlaceDetails ?? '', true, { required: 'Safe place details are required' });
+			if (safeErr) errors.safePlaceDetails = safeErr;
 		}
 		
 		if (history.hasTraining) {
-			if (!history.trainingDetails?.trim()) errors.trainingDetails = 'Training details are required';
+			const trainErr = validateGeneralText(history.trainingDetails ?? '', true, { required: 'Training details are required' });
+			if (trainErr) errors.trainingDetails = trainErr;
 		}
 	}
 	
@@ -75,9 +83,10 @@ const LicenseHistory = () => {
 	const [trainingDetails, setTrainingDetails] = useState('');
 	const [weapons, setWeapons] = useState<Weapon[]>([]);
 	const [loadingWeapons, setLoadingWeapons] = useState(false);
+	const [validationSummary, setValidationSummary] = useState<Record<string, string>>({});
 	
-	// Add flag to prevent backend data from overwriting fresh form data
-	const [isUpdatingForm, setIsUpdatingForm] = useState(false);
+	// Ref to prevent backend data from overwriting fresh form data (useRef to avoid re-renders)
+	const isUpdatingFormRef = useRef(false);
 
 	const router = useRouter();
 	
@@ -102,16 +111,20 @@ const LicenseHistory = () => {
 		formSection: 'license-history',
 		validationRules: validateLicenseHistory,
 	});
+	// Track whether we've already hydrated from backend data
+	const hasHydrated = React.useRef(false);
 
-	// Load existing data into local state when form data changes
+	// Load existing data into local state ONCE when form data arrives from backend
 	useEffect(() => {
 		// Skip loading if we're currently updating the form to prevent overwriting
-		if (isUpdatingForm) {
+		if (isUpdatingFormRef.current) {
 			return;
 		}
 		
 		if (form.licenseHistories && form.licenseHistories.length > 0) {
-			const history = form.licenseHistories[0]; // Get the first license history record
+			const history = form.licenseHistories[0];
+			hasHydrated.current = true; // Mark as hydrated
+			
 			// Map backend data to local state
 			if (history.hasAppliedBefore !== undefined) {
 				setAppliedBefore(history.hasAppliedBefore ? 'yes' : 'no');
@@ -140,11 +153,17 @@ const LicenseHistory = () => {
 				setFamily(history.hasFamilyLicence ? 'yes' : 'no');
 				
 				if (history.hasFamilyLicence && (history.familyMemberName || history.familyLicenceNumber || history.familyWeaponsEndorsed)) {
-					// Map weapon names back to IDs
-					const weaponIds = (history.familyWeaponsEndorsed || []).map((weaponName: string) => {
-						const weapon = weapons.find(w => w.name === weaponName);
+					// Map weapon data back to IDs — handles both numeric IDs and weapon name strings from backend
+					const weaponIds = (history.familyWeaponsEndorsed || []).map((item: any) => {
+						if (typeof item === 'number') return item;
+						const weapon = weapons.find(w => w.name === item);
 						return weapon ? weapon.id : 0;
 					}).filter((id: number) => id !== 0);
+					
+					// If weapons aren't loaded yet and we got string names, defer hydration
+					if (history.familyWeaponsEndorsed?.length > 0 && weaponIds.length === 0 && weapons.length === 0) {
+						hasHydrated.current = false; // Retry when weapons load
+					}
 					
 					setFamilyDetails([{
 						name: history.familyMemberName || '',
@@ -168,7 +187,7 @@ const LicenseHistory = () => {
 				}
 			}
 		}
-	}, [form.licenseHistories, weapons, isUpdatingForm]);
+	}, [form.licenseHistories, weapons]);
 
 	// Fetch weapons on component mount
 	useEffect(() => {
@@ -193,12 +212,42 @@ const LicenseHistory = () => {
 		loadWeapons();
 	}, []);
 
-	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleAppliedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+		isUpdatingFormRef.current = true;
 		const { name, value } = e.target;
-		setAppliedDetails(prev => ({ ...prev, [name]: value }));
-		const errorKey = name === 'date' ? 'appliedDate' : 'appliedAuthority';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		
+		// Input filtering
+		let processedValue = value;
+		if (name === 'authority') {
+			processedValue = filterText(value); // alphabets + spaces only for authority names
+		}
+		
+		setAppliedDetails(prev => ({ ...prev, [name]: processedValue }));
+		// Real-time validation
+		const errorKeyMap: Record<string, string> = { date: 'appliedDate', authority: 'appliedAuthority', result: 'appliedResult' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'date'
+			? validateDate(processedValue, true, undefined, { required: 'Date of Application is required' })
+			: name === 'result'
+			? validateSelect(processedValue, true, { required: 'Result is required' })
+			: validateText(processedValue, true, { required: 'Authority is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
+	};
+
+	const handleAppliedBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		if (name === 'authority') {
+			const trimmed = value.trim();
+			if (trimmed !== value) {
+				setAppliedDetails(prev => ({ ...prev, [name]: trimmed }));
+			}
+			const err = validateText(trimmed, true, { required: 'Authority is required' });
+			setFieldErrors((prev: any) => ({ ...prev, appliedAuthority: err }));
+		}
+		if (name === 'date') {
+			const err = validateDate(value, true, undefined, { required: 'Date of Application is required' });
+			setFieldErrors((prev: any) => ({ ...prev, appliedDate: err }));
 		}
 	};
 
@@ -307,9 +356,21 @@ const LicenseHistory = () => {
 		}
 	};
 
-	const removeFile = (index: number) => {
+	const removeFile = async (index: number) => {
 		const fileToRemove = rejectedFiles[index];
 		if (fileToRemove) {
+			// Check if this file has been uploaded to the server
+			const uploadedFile = uploadedFiles.find(uploaded => uploaded.fileName === fileToRemove.name);
+			
+			if (uploadedFile?.id) {
+				try {
+					await FileUploadService.deleteFile(uploadedFile.id);
+				} catch (error) {
+					setFileError('Failed to delete file from server. Please try again.');
+					return;
+				}
+			}
+
 			setRejectedFiles(prev => prev.filter((_, i) => i !== index));
 			setUploadedFiles(prev => prev.filter(uploaded => uploaded.fileName !== fileToRemove.name));
 			
@@ -325,31 +386,90 @@ const LicenseHistory = () => {
 	};
 
 	const handleSuspendedDetails = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		isUpdatingFormRef.current = true;
 		const { name, value } = e.target;
-		setSuspendedDetails(prev => ({ ...prev, [name]: value }));
-		const errorKey = name === 'authority' ? 'suspendedAuthority' : 'suspendedReason';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		
+		// Input filtering - authority is alpha-only, reason allows alphanumeric
+		let processedValue = value;
+		if (name === 'authority') {
+			processedValue = filterText(value);
+		} else if (name === 'reason') {
+			processedValue = filterAlphaNumeric(value);
 		}
+		
+		setSuspendedDetails(prev => ({ ...prev, [name]: processedValue }));
+		const errorKeyMap: Record<string, string> = { authority: 'suspendedAuthority', reason: 'suspendedReason' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'authority'
+			? validateText(processedValue, true, { required: 'Authority is required' })
+			: validateGeneralText(processedValue, true, { required: 'Reason is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
+	};
+
+	const handleSuspendedBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+		const { name, value } = e.target;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setSuspendedDetails(prev => ({ ...prev, [name]: trimmed }));
+		}
+		const errorKeyMap: Record<string, string> = { authority: 'suspendedAuthority', reason: 'suspendedReason' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'authority'
+			? validateText(trimmed, true, { required: 'Authority is required' })
+			: validateGeneralText(trimmed, true, { required: 'Reason is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const handleFamilyDetails = (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+		isUpdatingFormRef.current = true;
 		const { name, value } = e.target;
-		setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: value } : fam));
-		const errorKey = name === 'name' ? 'familyName' : 'familyLicenseNumber';
-		if (fieldErrors[errorKey]) {
-			setFieldErrors((prev: any) => ({ ...prev, [errorKey]: '' }));
+		
+		// Input filtering
+		let processedValue = value;
+		if (name === 'name') {
+			processedValue = filterText(value); // Names: alpha + spaces only
+		} else if (name === 'licenseNumber') {
+			processedValue = filterAlphaNumeric(value); // License numbers: alphanumeric
 		}
+		
+		setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: processedValue } : fam));
+		const errorKeyMap: Record<string, string> = { name: 'familyName', licenseNumber: 'familyLicenseNumber' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'name'
+			? validateText(processedValue, true, { required: 'Family member name is required' })
+			: validateGeneralText(processedValue, true, { required: 'License number is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
+	};
+
+	const handleFamilyBlur = (idx: number, e: React.FocusEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		const trimmed = value.trim();
+		if (trimmed !== value) {
+			setFamilyDetails(prev => prev.map((fam, i) => i === idx ? { ...fam, [name]: trimmed } : fam));
+		}
+		const errorKeyMap: Record<string, string> = { name: 'familyName', licenseNumber: 'familyLicenseNumber' };
+		const errorKey = errorKeyMap[name] || name;
+		const err = name === 'name'
+			? validateText(trimmed, true, { required: 'Family member name is required' })
+			: validateGeneralText(trimmed, true, { required: 'License number is required' });
+		setFieldErrors((prev: any) => ({ ...prev, [errorKey]: err }));
 	};
 
 	const handleWeaponChange = (famIdx: number, weapIdx: number, e: React.ChangeEvent<HTMLSelectElement>) => {
 		const weaponId = parseInt(e.target.value);
+		const currentWeapons = familyDetails[famIdx]?.weapons || [];
+		// Prevent selecting a weapon that's already chosen in another slot
+		if (currentWeapons.some((w, wi) => w === weaponId && wi !== weapIdx)) {
+			setFieldErrors((prev: any) => ({ ...prev, [`familyWeapon_${weapIdx}`]: 'This weapon is already selected' }));
+			return;
+		}
 		setFamilyDetails(prev => prev.map((fam, i) => 
 			i === famIdx ? { ...fam, weapons: fam.weapons.map((w, wi) => wi === weapIdx ? weaponId : w) } : fam
 		));
-		if (fieldErrors.familyWeapons) {
-			setFieldErrors((prev: any) => ({ ...prev, familyWeapons: '' }));
-		}
+		// Clear errors for this slot and general weapon error
+		setFieldErrors((prev: any) => ({ ...prev, familyWeapons: '', [`familyWeapon_${weapIdx}`]: '' }));
 	};
 
 	const addWeapon = (famIdx: number) => {
@@ -359,24 +479,70 @@ const LicenseHistory = () => {
 	};
 
 	const removeWeapon = (famIdx: number, weapIdx: number) => {
-		setFamilyDetails(prev => prev.map((fam, i) => 
-			i === famIdx ? { ...fam, weapons: fam.weapons.filter((_, wi) => wi !== weapIdx) } : fam
-		));
+		setFamilyDetails(prev => prev.map((fam, i) => {
+			if (i !== famIdx) return fam;
+			const remaining = fam.weapons.filter((_, wi) => wi !== weapIdx);
+			// If last weapon is removed, reset to empty selection
+			return { ...fam, weapons: remaining.length > 0 ? remaining : [0] };
+		}));
 	};
 
 	const removeFamily = (idx: number) => setFamilyDetails(prev => prev.filter((_, i) => i !== idx));
 
+	const handleSafePlaceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		isUpdatingFormRef.current = true;
+		const { value } = e.target;
+		setSafePlaceDetails(value);
+		const err = validateGeneralText(value, true, { required: 'Safe place details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
+	};
+
+	const handleSafePlaceBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+		const trimmed = e.target.value.trim();
+		if (trimmed !== e.target.value) {
+			setSafePlaceDetails(trimmed);
+		}
+		const err = validateGeneralText(trimmed, true, { required: 'Safe place details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: err }));
+	};
+
+	const handleTrainingChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		isUpdatingFormRef.current = true;
+		const { value } = e.target;
+		setTrainingDetails(value);
+		const err = validateGeneralText(value, true, { required: 'Training details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 100);
+	};
+
+	const handleTrainingBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+		const trimmed = e.target.value.trim();
+		if (trimmed !== e.target.value) {
+			setTrainingDetails(trimmed);
+		}
+		const err = validateGeneralText(trimmed, true, { required: 'Training details are required' });
+		setFieldErrors((prev: any) => ({ ...prev, trainingDetails: err }));
+	};
+
 	const transformFormData = () => {
 		return [{
 			hasAppliedBefore: appliedBefore === 'yes',
-			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? new Date(appliedDetails.date).toISOString() : null,
+			dateAppliedFor: appliedBefore === 'yes' && appliedDetails.date ? appliedDetails.date : null,
 			previousAuthorityName: appliedBefore === 'yes' ? appliedDetails.authority || null : null,
 			previousResult: appliedBefore === 'yes' ? appliedDetails.result?.toUpperCase() || null : null,
-			rejectedLicenseFiles: (appliedBefore === 'yes' && appliedDetails.result === 'rejected') ? rejectedFiles.map(file => ({
-				name: file.name,
-				size: file.size,
-				type: file.type
-			})) : [],
+			rejectedLicenseFiles: (appliedBefore === 'yes' && appliedDetails.result === 'rejected') ? [
+				...rejectedFiles.map(file => ({
+					name: file.name,
+					size: file.size,
+					type: file.type
+				})),
+				...uploadedFiles.map(uf => ({
+					name: uf.fileName,
+					size: uf.fileSize || 0,
+					type: uf.fileType || 'application/octet-stream'
+				}))
+			] : [],
 			hasLicenceSuspended: suspended === 'yes',
 			suspensionAuthorityName: suspended === 'yes' ? suspendedDetails.authority || null : null,
 			suspensionReason: suspended === 'yes' ? suspendedDetails.reason || null : null,
@@ -388,9 +554,8 @@ const LicenseHistory = () => {
 					.filter(weaponId => weaponId !== 0)
 					.map(weaponId => {
 						const weapon = weapons.find(w => w.id === weaponId);
-						return weapon ? weapon.name : null;
+						return weapon ? weapon.name : String(weaponId);
 					})
-					.filter(Boolean)
 				: [],
 			hasSafePlace: safePlace === 'yes',
 			safePlaceDetails: safePlace === 'yes' ? safePlaceDetails || null : null,
@@ -399,9 +564,18 @@ const LicenseHistory = () => {
 		}];
 	};
 
+	// Compute form validity using centralized validation
+	const isFormValid = useMemo(() => {
+		const transformed = { licenseHistories: transformFormData() };
+		const errs = validateLicenseHistory(transformed);
+		setValidationSummary(errs);
+		return Object.keys(errs).length === 0;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [appliedBefore, appliedDetails, rejectedFiles, uploadedFiles, suspended, suspendedDetails, family, familyDetails, safePlace, safePlaceDetails, training, trainingDetails, weapons]);
+
 	const handleSaveToDraft = async () => {
 		const licenseHistories = transformFormData();
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		
 		const formDataToSave = {
 			...form,
@@ -421,12 +595,12 @@ const LicenseHistory = () => {
 			}
 		}
 		
-		setTimeout(() => setIsUpdatingForm(false), 1000);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 1000);
 	};
 
 	const handleNext = async () => {
 		const licenseHistories = transformFormData();
-		setIsUpdatingForm(true);
+		isUpdatingFormRef.current = true;
 		
 		const formDataToSave = {
 			...form,
@@ -450,7 +624,7 @@ const LicenseHistory = () => {
 			navigateToNext(FORM_ROUTES.LICENSE_DETAILS, savedApplicantId);
 		}
 		
-		setTimeout(() => setIsUpdatingForm(false), 1000);
+		setTimeout(() => { isUpdatingFormRef.current = false; }, 1000);
 	};
 
 	const handlePrevious = async () => {
@@ -474,9 +648,7 @@ const LicenseHistory = () => {
 			{/* Display Applicant ID and License ID if available */}
 			{(applicantId || almsLicenseId) && (
 				<div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded flex justify-between items-center">
-					<div className="flex flex-col">
-						{almsLicenseId && <strong className='text-sm'>License ID: {almsLicenseId}</strong>}
-					</div>
+					<div className="flex flex-col"></div>
 					{typeof loadExistingData === 'function' && (
 						<button
 							type='button'
@@ -546,6 +718,7 @@ const LicenseHistory = () => {
 							type="date" 
 							value={appliedDetails.date} 
 							onChange={handleAppliedDetails} 
+							onBlur={handleAppliedBlur}
 							placeholder="DD/MM/YYYY" 
 							error={fieldErrors.appliedDate}
 							required
@@ -555,7 +728,8 @@ const LicenseHistory = () => {
 							name="authority" 
 							value={appliedDetails.authority} 
 							onChange={handleAppliedDetails} 
-							placeholder="Enter authority" 
+							onBlur={handleAppliedBlur}
+							placeholder="e.g., District Magistrate Hyderabad" 
 							error={fieldErrors.appliedAuthority}
 							required
 						/>
@@ -566,9 +740,8 @@ const LicenseHistory = () => {
 								value={appliedDetails.result} 
 								onChange={(e: any) => {
 									setAppliedDetails(prev => ({ ...prev, result: e.target.value }));
-									if (fieldErrors.appliedResult) {
-										setFieldErrors((prev: any) => ({ ...prev, appliedResult: '' }));
-									}
+									const err = validateSelect(e.target.value, true, { required: 'Result is required' });
+									setFieldErrors((prev: any) => ({ ...prev, appliedResult: err }));
 								}} 
 								options={[
 									{ value: 'approved', label: 'Approved' },
@@ -724,7 +897,8 @@ const LicenseHistory = () => {
 							name="authority" 
 							value={suspendedDetails.authority} 
 							onChange={handleSuspendedDetails} 
-							placeholder="Enter authority" 
+							onBlur={handleSuspendedBlur}
+							placeholder="e.g., Commissioner of Police" 
 							error={fieldErrors.suspendedAuthority}
 							required
 						/>
@@ -733,7 +907,8 @@ const LicenseHistory = () => {
 							name="reason" 
 							value={suspendedDetails.reason} 
 							onChange={handleSuspendedDetails} 
-							placeholder="Enter reason" 
+							onBlur={handleSuspendedBlur}
+							placeholder="e.g., Violation of license terms" 
 							error={fieldErrors.suspendedReason}
 							required
 						/>
@@ -784,7 +959,8 @@ const LicenseHistory = () => {
 								name="name" 
 								value={fam.name} 
 								onChange={e => handleFamilyDetails(idx, e)} 
-								placeholder="Enter name" 
+								onBlur={e => handleFamilyBlur(idx, e)}
+								placeholder="e.g., Suresh Kumar" 
 								error={fieldErrors.familyName}
 								required
 							/>
@@ -793,7 +969,8 @@ const LicenseHistory = () => {
 								name="licenseNumber" 
 								value={fam.licenseNumber} 
 								onChange={e => handleFamilyDetails(idx, e)} 
-								placeholder="Enter license number" 
+								onBlur={e => handleFamilyBlur(idx, e)}
+								placeholder="e.g., ARM2023HYD001" 
 								error={fieldErrors.familyLicenseNumber}
 								required
 							/>
@@ -815,12 +992,16 @@ const LicenseHistory = () => {
 										value={String(weaponId)}
 										onChange={e => handleWeaponChange(idx, widx, e as any)}
 										disabled={loadingWeapons}
-										options={weapons.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
+										required
+										error={weaponId === 0 ? (fieldErrors[`familyWeapon_${widx}`] || (fieldErrors.familyWeapons ? 'Please select a weapon.' : '')) : fieldErrors[`familyWeapon_${widx}`]}
+										options={weapons
+											.filter(weapon => !fam.weapons.some((w, wi) => w === weapon.id && wi !== widx))
+											.map(weapon => ({ value: String(weapon.id), label: weapon.name }))}
 										placeholder={loadingWeapons ? 'Loading weapons...' : 'Select Weapon'}
 									/>
 								</div>
 								<button type="button" className="bg-blue-900 text-white px-2 py-1 rounded" onClick={() => addWeapon(idx)}>+</button>
-								{fam.weapons.length > 1 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
+								{weaponId !== 0 && <button type="button" className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => removeWeapon(idx, widx)}>-</button>}
 							</div>
 						))}
 						{familyDetails.length > 1 && <button type="button" className="bg-red-600 text-white px-3 py-1 rounded flex items-center gap-1 mt-2" onClick={() => removeFamily(idx)}>- Remove</button>}
@@ -864,13 +1045,9 @@ const LicenseHistory = () => {
 						label="If Yes details thereof" 
 						name="safePlaceDetails" 
 						value={safePlaceDetails} 
-						onChange={e => {
-							setSafePlaceDetails(e.target.value);
-							if (fieldErrors.safePlaceDetails) {
-								setFieldErrors((prev: any) => ({ ...prev, safePlaceDetails: '' }));
-							}
-						}} 
-						placeholder="Enter details" 
+						onChange={handleSafePlaceChange}
+						onBlur={handleSafePlaceBlur}
+						placeholder="e.g., Steel almirah with double lock in bedroom" 
 						error={fieldErrors.safePlaceDetails}
 						required
 					/>
@@ -913,24 +1090,34 @@ const LicenseHistory = () => {
 						label="If Yes details thereof" 
 						name="trainingDetails" 
 						value={trainingDetails} 
-						onChange={e => {
-							setTrainingDetails(e.target.value);
-							if (fieldErrors.trainingDetails) {
-								setFieldErrors((prev: any) => ({ ...prev, trainingDetails: '' }));
-							}
-						}} 
-						placeholder="Enter details" 
+						onChange={handleTrainingChange}
+						onBlur={handleTrainingBlur}
+						placeholder="e.g., Completed 30 day training at Rifle Club" 
 						error={fieldErrors.trainingDetails}
 						required
 					/>
 				)}
 			</div>
 			
+			{/* Show validation errors when Next is disabled */}
+			{!isFormValid && Object.keys(validationSummary).length > 0 && (
+				<div className="mb-4 p-3 bg-red-50 border border-red-300 rounded">
+					<div className="text-sm font-semibold text-red-700 mb-1">Please fix the following to proceed:</div>
+					<ul className="list-disc list-inside text-sm text-red-600">
+						{Object.entries(validationSummary).map(([key, msg]) => (
+							<li key={key}>{msg}</li>
+						))}
+					</ul>
+				</div>
+			)}
+
 			<FormFooter
 				onSaveToDraft={handleSaveToDraft}
 				onNext={handleNext}
 				onPrevious={handlePrevious}
 				isLoading={isSubmitting}
+				disableActions={!isFormValid}
+				errors={fieldErrors}
 			/>
 		</form>
 	);

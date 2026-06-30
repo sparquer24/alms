@@ -9,13 +9,14 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 config({ path: path.resolve(__dirname, '../.env') });
 
 const nextConfig = {
+  output: 'export',
   reactStrictMode: true,
   // Tell Next.js the tracing root is this frontend directory, not the monorepo root.
   // This prevents it from misreading the root package-lock.json and confusing App Router with Pages Router.
   outputFileTracingRoot: path.resolve(__dirname),
   // Image optimization enabled
   images: {
-    unoptimized: false,
+    unoptimized: true,
     formats: ['image/webp', 'image/avif'],
   },
   // Skip trailing slash redirect
@@ -90,7 +91,7 @@ const nextConfig = {
         { key: 'X-Frame-Options', value: 'DENY' },
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
       ],
     }];
   }

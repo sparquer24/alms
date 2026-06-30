@@ -80,7 +80,6 @@ export class FileUploadService {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        console.log('📸 [FileUploadService] Converted file to base64, length:', base64?.length);
         resolve(base64);
       };
       reader.onerror = () => {

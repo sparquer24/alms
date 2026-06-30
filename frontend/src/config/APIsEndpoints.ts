@@ -62,11 +62,7 @@ export const ROLE_APIS = {
   GET_HIERARCHY: `/roles/hierarchy`,
 };
 
-// QR Code APIs
-export const QRCODE_APIS = {
-  GENERATE: (applicationId: string) => `/qrcode/generate/${applicationId}`,
-  CHECK_PERMISSION: (applicationId: string) => `/qrcode/check/${applicationId}`,
-};
+
 
 // Public APIs (no authentication required)
 export const PUBLIC_APIS = {

@@ -1,17 +1,14 @@
-"use client";
-
 import React from 'react';
 import ApplicationDetailPage from '../../application/[id]/page';
 
 interface Props {
-	params: Promise<{ id: string }> | { id: string };
+	params: Promise<{ id: string }>;
 }
 
-export default function RenewalApplicationPage({ params }: Props) {
-	// Unwrap params promise using React.use() (Next.js migration helper).
-	const resolvedParams = (React as any).use ? (React as any).use(params) : params;
-	const id = (resolvedParams && (resolvedParams as any).id) || '';
+export async function generateStaticParams() {
+	return [{ id: '1' }];
+}
 
-	const promiseParams = Promise.resolve({ id });
-	return <ApplicationDetailPage params={promiseParams} />;
+export default async function RenewalApplicationPage({ params }: Props) {
+	return <ApplicationDetailPage params={params} />;
 }
