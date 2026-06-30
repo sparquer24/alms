@@ -29,18 +29,10 @@ export class CancelFormController {
       'Cancel Fresh License Application': {
         summary: 'Cancel a fresh license application',
         value: {
-          applicationId: 1,
+          freshLicenseId: 1,
           applicationType: 'CancelApplication',
           cancellationReason: 'Applicant no longer requires the arms license',
           remarks: 'Applicant has submitted a voluntary surrender letter',
-        },
-      },
-      'Cancel Renewal Application': {
-        summary: 'Cancel a renewal application',
-        value: {
-          applicationId: 2,
-          applicationType: 'CancelApplication',
-          cancellationReason: 'Duplicate application submitted in error',
         },
       },
     },
@@ -81,13 +73,13 @@ export class CancelFormController {
   @Get()
   @ApiOperation({
     summary: 'Get all cancel requests',
-    description: 'Retrieve cancel requests with pagination, filtering by status, requester, or application ID',
+    description: 'Retrieve cancel requests with pagination, filtering by status or requester',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
   @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status (PENDING, APPROVED, REJECTED)' })
   @ApiQuery({ name: 'requestedBy', required: false, type: Number, description: 'Filter by requester user ID' })
-  @ApiQuery({ name: 'applicationId', required: false, type: Number, description: 'Filter by application ID' })
+  @ApiQuery({ name: 'freshLicenseId', required: false, type: Number, description: 'Filter by fresh license application ID' })
   @ApiResponse({
     status: 200,
     description: 'Cancel requests retrieved successfully',
@@ -102,7 +94,7 @@ export class CancelFormController {
             type: 'object',
             properties: {
               id: { type: 'number' },
-              applicationId: { type: 'number' },
+              freshLicenseId: { type: 'number' },
               applicationType: { type: 'string' },
               cancellationReason: { type: 'string' },
               status: { type: 'string' },
@@ -128,7 +120,7 @@ export class CancelFormController {
     @Query('limit') limit?: number,
     @Query('status') status?: string,
     @Query('requestedBy') requestedBy?: number,
-    @Query('applicationId') applicationId?: number,
+    @Query('freshLicenseId') freshLicenseId?: number,
   ) {
     try {
       const result = await this.cancelFormService.getCancelRequests({
@@ -136,7 +128,7 @@ export class CancelFormController {
         limit: limit ? Number(limit) : undefined,
         status,
         requestedBy: requestedBy ? Number(requestedBy) : undefined,
-        applicationId: applicationId ? Number(applicationId) : undefined,
+        freshLicenseId: freshLicenseId ? Number(freshLicenseId) : undefined,
       });
 
       return {
@@ -176,7 +168,7 @@ export class CancelFormController {
           type: 'object',
           properties: {
             id: { type: 'number' },
-            applicationId: { type: 'number' },
+            freshLicenseId: { type: 'number' },
             applicationType: { type: 'string' },
             cancellationReason: { type: 'string' },
             remarks: { type: 'string' },

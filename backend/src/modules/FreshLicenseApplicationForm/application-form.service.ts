@@ -1409,7 +1409,7 @@ export class ApplicationFormService {
       const appType = filter.applicationType ? filter.applicationType.trim().toLowerCase() : undefined;
       const fetchFresh = !appType || appType === 'freshlicense' || appType === 'fresh';
       const fetchRenewal = !appType || appType === 'renewalform' || appType === 'renewal';
-      const fetchCancel = !appType || appType === 'cancelform' || appType === 'cancel';
+      const fetchCancel = !appType || appType === 'cancelform' || appType === 'cancel' || appType === 'cancelformrequest' || appType === 'cancelrequest';
 
       let freshLicenseTotal = 0;
       let freshLicenseTransformed: any[] = [];
@@ -1600,7 +1600,7 @@ export class ApplicationFormService {
   /*
     * Get users in the hierarchy based on application present address and current user's role
   */
-  private normalizeApplicationType(applicationType?: string): 'fresh' | 'renewal' {
+  private normalizeApplicationType(applicationType?: string): 'fresh' | 'renewal' | 'cancel' {
     const normalized = String(applicationType || '').trim().toLowerCase();
 
     if (!normalized) return 'fresh';
@@ -1613,12 +1613,212 @@ export class ApplicationFormService {
       return 'renewal';
     }
 
+    if (
+      normalized.includes('cancel') ||
+      normalized.includes('cancelform') ||
+      normalized.includes('cancelapplication') ||
+      normalized.includes('cancelrequest')
+    ) {
+      return 'cancel';
+    }
+
     return 'fresh';
+  }
+
+  /**
+   * Resolve a CancelForm request to its original application's address and current user role.
+   * Returns { originalAppId, currentUserId, roleId, presentAddress } or null if not found.
+   */
+  private async resolveCancelFormHierarchy(applicationId: number): Promise<{
+    originalAppId: number;
+    currentUserId: number;
+    roleId: number;
+    presentAddress: {
+      stateId: number;
+      districtId: number;
+      zoneId: number;
+      divisionId: number;
+      policeStationId: number;
+    };
+  } | null> {
+    // Fetch the cancel request to get the original application ID and current assignee
+    const cancelRequest = await prisma.cancelFormRequests.findUnique({
+      where: { id: applicationId },
+      select: {
+        id: true,
+        freshLicenseId: true,
+        currentUserId: true,
+        currentUser: {
+          select: { roleId: true }
+        }
+      }
+    });
+
+    if (!cancelRequest) return null;
+
+    // Determine which user's role to use: currentUserId (assignee) or fall back
+    const effectiveUserId = cancelRequest.currentUserId;
+    if (!effectiveUserId) return null;
+
+    // Fetch the effective user's role
+    const effectiveUser = cancelRequest.currentUser
+      ? cancelRequest.currentUser
+      : await prisma.users.findUnique({
+          where: { id: effectiveUserId },
+          select: { roleId: true }
+        });
+
+    if (!effectiveUser?.roleId) return null;
+
+    if (!cancelRequest.freshLicenseId) return null;
+
+    // Now fetch the original application's address - try fresh then renewal
+    let originalApp: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: cancelRequest.freshLicenseId },
+      select: {
+        id: true,
+        presentAddress: {
+          select: {
+            stateId: true,
+            districtId: true,
+            zoneId: true,
+            divisionId: true,
+            policeStationId: true
+          }
+        }
+      }
+    });
+
+    if (!originalApp) {
+      originalApp = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: cancelRequest.freshLicenseId },
+        select: {
+          id: true,
+          presentAddress: {
+            select: {
+              stateId: true,
+              districtId: true,
+              zoneId: true,
+              divisionId: true,
+              policeStationId: true
+            }
+          }
+        }
+      });
+    }
+
+    if (!originalApp?.presentAddress) return null;
+
+    return {
+      originalAppId: originalApp.id,
+      currentUserId: effectiveUserId,
+      roleId: effectiveUser.roleId,
+      presentAddress: originalApp.presentAddress
+    };
+  }
+
+  /**
+   * Find users by role IDs and location hierarchy.
+   * Shared helper used by both Fresh/Renewal and CancelForm hierarchy resolution.
+   */
+  private async findUsersByLocationAndRoles(
+    roleIds: number[],
+    location: { policeStationId: number; divisionId: number; zoneId: number; districtId: number; stateId: number }
+  ): Promise<[any, any]> {
+    const { policeStationId, divisionId, zoneId, districtId, stateId } = location;
+
+    const locationConditions: any[] = [];
+
+    // Add conditions for each level (most specific to least specific)
+    if (policeStationId) {
+      locationConditions.push({ policeStationId });
+    }
+    if (divisionId) {
+      locationConditions.push({ divisionId, policeStationId: null });
+    }
+    if (zoneId) {
+      locationConditions.push({ zoneId, divisionId: null });
+    }
+    if (districtId) {
+      locationConditions.push({ districtId, zoneId: null });
+    }
+    if (stateId) {
+      locationConditions.push({ stateId, districtId: null });
+    }
+
+    // If no location conditions, return empty
+    if (locationConditions.length === 0) {
+      return [null, []];
+    }
+
+    // Reusable select object to return only essential fields
+    const userSelect = {
+      id: true,
+      username: true,
+      roleId: true,
+      role: {
+        select: {
+          code: true
+        }
+      }
+    };
+
+    // Single optimized query with role filtering at database level
+    const users = await prisma.users.findMany({
+      where: {
+        roleId: { in: roleIds },
+        OR: locationConditions
+      },
+      select: userSelect,
+      orderBy: [
+        { role: { name: 'asc' } },
+        { username: 'asc' }
+      ]
+    });
+
+    // Transform to flatten roleCode
+    const transformedUsers = users.map((user: { id: number; username: string; roleId: number; role: { code: string } | null }) => ({
+      id: user.id,
+      username: user.username,
+      roleId: user.roleId,
+      roleCode: user.role?.code || null
+    }));
+
+    return [null, transformedUsers];
   }
 
   async getUsersInHierarchy(applicationId: number, applicationType?: string): Promise<[any, any]> {
     try {
       const resolvedType = this.normalizeApplicationType(applicationType);
+
+      // Handle CancelForm: resolve through the cancel request to the original application
+      if (resolvedType === 'cancel') {
+        const cancelHierarchy = await this.resolveCancelFormHierarchy(applicationId);
+        if (!cancelHierarchy) {
+          return [new BadRequestException('Cancel request not found or missing required data for hierarchy resolution'), null];
+        }
+
+        if (!cancelHierarchy.presentAddress) {
+          return [new BadRequestException('Original application does not have a present address defined'), null];
+        }
+
+        // Fetch role flow mapping using the current assignee's role
+        const roleMapping = await prisma.roleFlowMapping.findUnique({
+          where: { currentRoleId: cancelHierarchy.roleId },
+          select: { nextRoleIds: true }
+        });
+
+        if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+          return [null, []];
+        }
+
+        // Build location hierarchy conditions
+        const { policeStationId, divisionId, zoneId, districtId, stateId } = cancelHierarchy.presentAddress;
+        return this.findUsersByLocationAndRoles(roleMapping.nextRoleIds, {
+          policeStationId, divisionId, zoneId, districtId, stateId
+        });
+      }
+
       const isRenewal = resolvedType === 'renewal';
 
       // Fetch application, current user, and role flow mapping in parallel
@@ -1964,11 +2164,13 @@ export class ApplicationFormService {
     // --- Fetch from CancelFormRequests (pending/active requests) ---
     const cancelFormWhere: any = {};
 
-    // User/citizen filter: map currentUserId to requestedBy for cancel form requests
+    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's assigned to).
+    // After forwarding, the cancel request is re-assigned to a new user, so we filter by currentUserId
+    // (like Fresh/Renewal do) rather than requestedBy (original requester).
     if (filter.currentUserId) {
       const parsedUserId = Number(filter.currentUserId);
       if (!isNaN(parsedUserId)) {
-        cancelFormWhere.requestedBy = parsedUserId;
+        cancelFormWhere.currentUserId = parsedUserId;
       }
     }
 
@@ -2078,25 +2280,27 @@ export class ApplicationFormService {
       let acknowledgementNo: string | null = null;
 
       try {
-        // Try fresh license table first
-        const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-          where: { id: row.applicationId },
-          select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
-        });
-        if (freshApp) {
-          const nameParts = [freshApp.firstName, freshApp.middleName, freshApp.lastName].filter(Boolean);
-          applicantName = nameParts.join(' ');
-          acknowledgementNo = freshApp.acknowledgementNo;
-        } else {
-          // Try renewal table if not found in fresh
-          const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
-            where: { id: row.applicationId },
+        // Try fresh license table first using freshLicenseId
+        if (row.freshLicenseId) {
+          const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: row.freshLicenseId },
             select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
           });
-          if (renewalApp) {
-            const nameParts = [renewalApp.firstName, renewalApp.middleName, renewalApp.lastName].filter(Boolean);
+          if (freshApp) {
+            const nameParts = [freshApp.firstName, freshApp.middleName, freshApp.lastName].filter(Boolean);
             applicantName = nameParts.join(' ');
-            acknowledgementNo = renewalApp.acknowledgementNo;
+            acknowledgementNo = freshApp.acknowledgementNo;
+          } else {
+            // Try renewal table if not found in fresh
+            const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
+              where: { id: row.freshLicenseId },
+              select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
+            });
+            if (renewalApp) {
+              const nameParts = [renewalApp.firstName, renewalApp.middleName, renewalApp.lastName].filter(Boolean);
+              applicantName = nameParts.join(' ');
+              acknowledgementNo = renewalApp.acknowledgementNo;
+            }
           }
         }
       } catch {
@@ -2105,7 +2309,7 @@ export class ApplicationFormService {
 
       return {
         id: row.id,
-        applicationId: row.applicationId,
+        freshLicenseId: row.freshLicenseId,
         cancellationReason: row.cancellationReason,
         status: row.status,
         acknowledgementNo,

@@ -14,7 +14,7 @@ export class ApplicationHierarchyController {
   @ApiOperation({
     summary: 'Get users in hierarchy for an application',
     description:
-      'Resolve the forward hierarchy for Fresh or Renewal applications using the same endpoint. Pass applicationType to switch between application tables.',
+      'Resolve the forward hierarchy for Fresh, Renewal, or CancelForm applications using the same endpoint. Pass applicationType to switch between application tables.',
   })
   @ApiParam({
     name: 'applicationId',
@@ -26,10 +26,11 @@ export class ApplicationHierarchyController {
     required: false,
     type: String,
     description:
-      'Application type used to resolve the correct application table. Examples: FreshApplication, FreshLicenseApplicationForm, RenewalApplicationForm.',
+      'Application type used to resolve the correct application table. Examples: FreshApplication, FreshLicenseApplicationForm, RenewalApplicationForm, CancelApplication.',
     examples: {
       fresh: { value: 'FreshApplication' },
       renewal: { value: 'RenewalApplicationForm' },
+      cancel: { value: 'CancelApplication' },
     },
   })
   @ApiResponse({

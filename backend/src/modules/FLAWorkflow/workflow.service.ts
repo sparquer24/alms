@@ -64,6 +64,8 @@ export class WorkflowService {
         select: {
           id: true,
           workFlowStatusId: true,
+          currentUserId: true,
+          previousUserId: true,
           requestedBy: true,
           actionedBy: true,
           status: true,
@@ -74,8 +76,8 @@ export class WorkflowService {
       return cancelRequests.map(r => ({
         id: r.id,
         workflowStatusId: r.workFlowStatusId,
-        currentUserId: r.actionedBy || r.requestedBy,
-        previousUserId: r.requestedBy,
+        currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
+        previousUserId: r.previousUserId || r.requestedBy,
         isApproved: r.status === 'APPROVED',
         isRejected: r.status === 'REJECTED',
         isRecommended: false,
@@ -157,17 +159,30 @@ export class WorkflowService {
     };
 
     // Set approval/rejection/recommendation flags based on action code
+    // Always reset conflicting flags to keep boolean fields in sync with workflow status
     if (isApprovalAction(actionCode)) {
       updateData.isApproved = true;
+      updateData.isRejected = false;
+      updateData.isRecommended = false;
+      updateData.isNotRecommended = false;
       updateData.isPending = false;
     } else if (isRejectionAction(actionCode)) {
       updateData.isRejected = true;
+      updateData.isApproved = false;
+      updateData.isRecommended = false;
+      updateData.isNotRecommended = false;
       updateData.isPending = false;
     } else if (isRecommendAction(actionCode)) {
       updateData.isRecommended = true;
+      updateData.isApproved = false;
+      updateData.isRejected = false;
+      updateData.isNotRecommended = false;
       updateData.isPending = false;
     } else if (isNotRecommendAction(actionCode)) {
       updateData.isNotRecommended = true;
+      updateData.isApproved = false;
+      updateData.isRejected = false;
+      updateData.isRecommended = false;
       updateData.isPending = false;
     }
 
@@ -282,17 +297,30 @@ export class WorkflowService {
     };
 
     // Set approval/rejection/recommendation flags based on action code
+    // Always reset conflicting flags to keep boolean fields in sync with workflow status
     if (isApprovalAction(actionCode)) {
       updateData.isApproved = true;
+      updateData.isRejected = false;
+      updateData.isRecommended = false;
+      updateData.isNotRecommended = false;
       updateData.isPending = false;
     } else if (isRejectionAction(actionCode)) {
       updateData.isRejected = true;
+      updateData.isApproved = false;
+      updateData.isRecommended = false;
+      updateData.isNotRecommended = false;
       updateData.isPending = false;
     } else if (isRecommendAction(actionCode)) {
       updateData.isRecommended = true;
+      updateData.isApproved = false;
+      updateData.isRejected = false;
+      updateData.isNotRecommended = false;
       updateData.isPending = false;
     } else if (isNotRecommendAction(actionCode)) {
       updateData.isNotRecommended = true;
+      updateData.isApproved = false;
+      updateData.isRejected = false;
+      updateData.isRecommended = false;
       updateData.isPending = false;
     }
 
@@ -461,15 +489,18 @@ export class WorkflowService {
 
     const isRenewal = cancelRequest.applicationType.toLowerCase().includes('renewal');
 
-    // 2. Fetch the original application
+    // 2. Fetch the original application using freshLicenseId
     let application: any;
+    if (!cancelRequest.freshLicenseId) {
+      throw new BadRequestException('Cancel request has no associated fresh license application.');
+    }
     if (isRenewal) {
       application = await this.prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: cancelRequest.applicationId },
+        where: { id: cancelRequest.freshLicenseId },
       });
     } else {
       application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: cancelRequest.applicationId },
+        where: { id: cancelRequest.freshLicenseId },
       });
     }
 
@@ -479,10 +510,12 @@ export class WorkflowService {
 
     const newStatusId = status ? status.id : cancelRequest.workFlowStatusId;
 
-    // 3. Build cancel request update data
+    // 3. Build cancel request update data - mirrors Fresh/Renewal currentUserId/previousUserId tracking
     const cancelUpdateData: any = {
       actionedBy: payload.currentUserId,
       actionedDate: new Date(),
+      previousUserId: cancelRequest.actionedBy || cancelRequest.requestedBy,
+      currentUserId: nextUserId,
     };
 
     // 4. Determine action outcome
@@ -528,7 +561,7 @@ export class WorkflowService {
         // Update the original application to CANCELLED
         if (isRenewal) {
           await tx.renewalFormPersonalDetails.update({
-            where: { id: cancelRequest.applicationId },
+            where: { id: cancelRequest.freshLicenseId },
             data: {
               workflowStatusId: cancelStatus?.id || newStatusId,
               isPending: false,
@@ -536,7 +569,7 @@ export class WorkflowService {
           });
         } else {
           await tx.freshLicenseApplicationPersonalDetails.update({
-            where: { id: cancelRequest.applicationId },
+            where: { id: cancelRequest.freshLicenseId },
             data: {
               workflowStatusId: cancelStatus?.id || newStatusId,
               isPending: false,
@@ -560,7 +593,7 @@ export class WorkflowService {
       if (isRenewal) {
         await tx.renewalApplicationsFormWorkflowHistories.create({
           data: {
-            applicationId: cancelRequest.applicationId,
+            applicationId: cancelRequest.freshLicenseId,
             previousUserId: previousUserIdForHistory,
             nextUserId: nextUserId || payload.currentUserId,
             actionTaken: actionTaken,
@@ -573,7 +606,7 @@ export class WorkflowService {
       } else {
         await tx.freshLicenseApplicationsFormWorkflowHistories.create({
           data: {
-            applicationId: cancelRequest.applicationId,
+            applicationId: cancelRequest.freshLicenseId,
             previousUserId: previousUserIdForHistory,
             nextUserId: nextUserId || payload.currentUserId,
             actionTaken: actionTaken,
@@ -584,6 +617,21 @@ export class WorkflowService {
           },
         });
       }
+
+      // Create CancelWorkflowHistories entry for the cancel request itself
+      // This mirrors the workflow history pattern from Fresh/Renewal applications
+      await tx.cancelWorkflowHistories.create({
+        data: {
+          applicationId: payload.applicationId,
+          previousUserId: cancelRequest.actionedBy || payload.currentUserId,
+          nextUserId: nextUserId || payload.currentUserId,
+          actionTaken: actionTaken,
+          remarks: remarks,
+          previousRoleId: currentRoleId,
+          nextRoleId: nextUserRoleId?.roleId || null,
+          actionesId: payload.actionId,
+        },
+      });
     });
 
     return cancelRequest;
