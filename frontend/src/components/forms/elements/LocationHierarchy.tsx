@@ -21,6 +21,7 @@ interface LocationHierarchyProps {
   disabledFields?: {
     state?: boolean;
     district?: boolean;
+    rangeOffice?: boolean;
     zone?: boolean;
   };
   // Error mapping
@@ -49,6 +50,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     const isInSync = 
       values.state === locationState.selectedState &&
       values.district === locationState.selectedDistrict &&
+      values.rangeOffice === locationState.selectedRangeOffice &&
       values.zone === locationState.selectedZone &&
       values.division === locationState.selectedDivision &&
       values.policeStation === locationState.selectedPoliceStation;
@@ -58,8 +60,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     locationActions.hydrateFromValues(values);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    values.state, values.district, values.zone, values.division, values.policeStation,
-    values.stateName, values.districtName, values.zoneName, values.divisionName, values.policeStationName
+    values.state, values.district, values.rangeOffice, values.zone, values.division, values.policeStation,
+    values.stateName, values.districtName, values.rangeOfficeName, values.zoneName, values.divisionName, values.policeStationName
   ]);
 
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -73,6 +75,8 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     // Clear dependent fields
     onChange(`${namePrefix}District`, '');
     onChange(`${namePrefix}DistrictName`, '');
+    onChange(`${namePrefix}RangeOffice`, '');
+    onChange(`${namePrefix}RangeOfficeName`, '');
     onChange(`${namePrefix}Zone`, '');
     onChange(`${namePrefix}ZoneName`, '');
     onChange(`${namePrefix}Division`, '');
@@ -88,6 +92,25 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     locationActions.setSelectedDistrict(value);
     onChange(`${namePrefix}District`, value);
     onChange(`${namePrefix}DistrictName`, label);
+    
+    // Clear dependent fields
+    onChange(`${namePrefix}RangeOffice`, '');
+    onChange(`${namePrefix}RangeOfficeName`, '');
+    onChange(`${namePrefix}Zone`, '');
+    onChange(`${namePrefix}ZoneName`, '');
+    onChange(`${namePrefix}Division`, '');
+    onChange(`${namePrefix}DivisionName`, '');
+    onChange(`${namePrefix}PoliceStation`, '');
+    onChange(`${namePrefix}PoliceStationName`, '');
+  };
+
+  const handleRangeOfficeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    const opts = locationActions.getSelectOptions();
+    const label = opts.rangeOfficeOptions.find((opt) => opt.value === value)?.label || '';
+    locationActions.setSelectedRangeOffice(value);
+    onChange(`${namePrefix}RangeOffice`, value);
+    onChange(`${namePrefix}RangeOfficeName`, label);
     
     // Clear dependent fields
     onChange(`${namePrefix}Zone`, '');
@@ -147,9 +170,15 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
     }
   };
 
+  const handleRangeOfficeFocus = () => {
+    if (values.district && locationState.rangeOffices.length <= 1) {
+      locationActions.loadRangeOffices(values.district);
+    }
+  };
+
   const handleZoneFocus = () => {
-    if (values.district && locationState.zones.length <= 1) {
-      locationActions.loadZones(values.district);
+    if (values.rangeOffice && locationState.zones.length <= 1) {
+      locationActions.loadZones(values.rangeOffice);
     }
   };
 
@@ -201,6 +230,26 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         disabledMessage={!values.state ? "Please select a State first" : undefined}
         error={errors[`${namePrefix}District`]}
       />
+
+      <Select
+        label="Range Office"
+        name={`${namePrefix}RangeOffice`}
+        value={values.rangeOffice}
+        onChange={handleRangeOfficeChange}
+        onFocus={handleRangeOfficeFocus}
+        options={options.rangeOfficeOptions}
+        placeholder={
+          locationState.loadingRangeOffices 
+            ? "Loading range offices..." 
+            : !values.district 
+            ? "Select district first" 
+            : "Select range office"
+        }
+        required={required}
+        disabled={disabled || disabledFields.rangeOffice || !values.district || locationState.loadingRangeOffices}
+        disabledMessage={!values.district ? "Please select a District first" : undefined}
+        error={errors[`${namePrefix}RangeOffice`]}
+      />
       
       <Select
         label="Zone"
@@ -212,13 +261,13 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         placeholder={
           locationState.loadingZones 
             ? "Loading zones..." 
-            : !values.district 
-            ? "Select district first" 
+            : !values.rangeOffice 
+            ? "Select range office first" 
             : "Select zone"
         }
         required={required}
-        disabled={disabled || disabledFields.zone || !values.district || locationState.loadingZones}
-        disabledMessage={!values.district ? "Please select a District first" : undefined}
+        disabled={disabled || disabledFields.zone || !values.rangeOffice || locationState.loadingZones}
+        disabledMessage={!values.rangeOffice ? "Please select a Range Office first" : undefined}
         error={errors[`${namePrefix}Zone`]}
       />
       

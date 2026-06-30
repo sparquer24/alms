@@ -4,6 +4,7 @@ import {
   LocationOption,
   State,
   District,
+  RangeOffice,
   Zone,
   Division,
   PoliceStation,
@@ -18,6 +19,7 @@ export type {
   LocationOption,
   State,
   District,
+  RangeOffice,
   Zone,
   Division,
   PoliceStation,
@@ -69,6 +71,26 @@ export const locationAPI = {
     return response.data;
   },
 
+  // Range Offices
+  getAllRangeOffices: async (): Promise<RangeOffice[]> => {
+    const response: LocationAPIResponse<RangeOffice[]> = await fetchWithCache(locationEndpoints.rangeOffices);
+    return response.data;
+  },
+
+  getRangeOfficesByDistrict: async (districtId: number): Promise<RangeOffice[]> => {
+    const response: LocationAPIResponse<RangeOffice[]> = await fetchWithCache(
+      `${locationEndpoints.rangeOffices}?districtId=${districtId}`
+    );
+    return response.data;
+  },
+
+  getRangeOfficeById: async (id: number): Promise<RangeOffice> => {
+    const response: LocationAPIResponse<RangeOffice> = await fetchWithCache(
+      `${locationEndpoints.rangeOffices}?id=${id}`
+    );
+    return response.data;
+  },
+
   // Zones
   getAllZones: async (): Promise<Zone[]> => {
     const response: LocationAPIResponse<Zone[]> = await fetchWithCache(locationEndpoints.zones);
@@ -78,6 +100,13 @@ export const locationAPI = {
   getZonesByDistrict: async (districtId: number): Promise<Zone[]> => {
     const response: LocationAPIResponse<Zone[]> = await fetchWithCache(
       `${locationEndpoints.zones}?districtId=${districtId}`
+    );
+    return response.data;
+  },
+
+  getZonesByRangeOffice: async (rangeOfficeId: number): Promise<Zone[]> => {
+    const response: LocationAPIResponse<Zone[]> = await fetchWithCache(
+      `${locationEndpoints.zones}?rangeOfficeId=${rangeOfficeId}`
     );
     return response.data;
   },

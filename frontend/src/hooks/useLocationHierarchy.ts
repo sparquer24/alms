@@ -3,6 +3,7 @@ import { locationAPI, toSelectOptions } from '../api/locationApi';
 import {
   State,
   District,
+  RangeOffice,
   Zone,
   Division,
   PoliceStation,
@@ -12,11 +13,13 @@ import {
 export interface AddressLocationValues {
   state: string;
   district: string;
+  rangeOffice: string;
   zone: string;
   division: string;
   policeStation: string;
   stateName?: string;
   districtName?: string;
+  rangeOfficeName?: string;
   zoneName?: string;
   divisionName?: string;
   policeStationName?: string;
@@ -25,6 +28,7 @@ export interface AddressLocationValues {
 interface LocationHierarchyActions {
   setSelectedState: (stateId: string) => void;
   setSelectedDistrict: (districtId: string) => void;
+  setSelectedRangeOffice: (rangeOfficeId: string) => void;
   setSelectedZone: (zoneId: string) => void;
   setSelectedDivision: (divisionId: string) => void;
   setSelectedPoliceStation: (policeStationId: string) => void;
@@ -33,13 +37,15 @@ interface LocationHierarchyActions {
   getSelectOptions: () => {
     stateOptions: { value: string; label: string }[];
     districtOptions: { value: string; label: string }[];
+    rangeOfficeOptions: { value: string; label: string }[];
     zoneOptions: { value: string; label: string }[];
     divisionOptions: { value: string; label: string }[];
     policeStationOptions: { value: string; label: string }[];
   };
   loadStates: () => Promise<void>;
   loadDistricts: (stateId: string) => Promise<void>;
-  loadZones: (districtId: string) => Promise<void>;
+  loadRangeOffices: (districtId: string) => Promise<void>;
+  loadZones: (rangeOfficeId: string) => Promise<void>;
   loadDivisions: (zoneId: string) => Promise<void>;
   loadPoliceStations: (divisionId: string) => Promise<void>;
 }
@@ -47,16 +53,19 @@ interface LocationHierarchyActions {
 const initialState: LocationHierarchyState = {
   states: [],
   districts: [],
+  rangeOffices: [],
   zones: [],
   divisions: [],
   policeStations: [],
   selectedState: '',
   selectedDistrict: '',
+  selectedRangeOffice: '',
   selectedZone: '',
   selectedDivision: '',
   selectedPoliceStation: '',
   loadingStates: false,
   loadingDistricts: false,
+  loadingRangeOffices: false,
   loadingZones: false,
   loadingDivisions: false,
   loadingPoliceStations: false,
@@ -103,12 +112,28 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
     }
   };
 
-  const loadZones = async (districtId: string) => {
+  const loadRangeOffices = async (districtId: string) => {
     if (!districtId) return;
+    
+    setState(prev => ({ ...prev, loadingRangeOffices: true, error: null }));
+    try {
+      const rangeOffices = await locationAPI.getRangeOfficesByDistrict(parseInt(districtId));
+      setState(prev => ({ ...prev, rangeOffices, loadingRangeOffices: false }));
+    } catch (error) {
+      setState(prev => ({ 
+        ...prev, 
+        loadingRangeOffices: false, 
+        error: error instanceof Error ? error.message : 'Failed to load range offices' 
+      }));
+    }
+  };
+
+  const loadZones = async (rangeOfficeId: string) => {
+    if (!rangeOfficeId) return;
     
     setState(prev => ({ ...prev, loadingZones: true, error: null }));
     try {
-      const zones = await locationAPI.getZonesByDistrict(parseInt(districtId));
+      const zones = await locationAPI.getZonesByRangeOffice(parseInt(rangeOfficeId));
       setState(prev => ({ ...prev, zones, loadingZones: false }));
     } catch (error) {
       setState(prev => ({ 
@@ -156,10 +181,12 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
       ...prev, 
       selectedState: stateId,
       selectedDistrict: '',
+      selectedRangeOffice: '',
       selectedZone: '',
       selectedDivision: '',
       selectedPoliceStation: '',
       districts: [],
+      rangeOffices: [],
       zones: [],
       divisions: [],
       policeStations: []
@@ -174,6 +201,25 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
     setState(prev => ({ 
       ...prev, 
       selectedDistrict: districtId,
+      selectedRangeOffice: '',
+      selectedZone: '',
+      selectedDivision: '',
+      selectedPoliceStation: '',
+      rangeOffices: [],
+      zones: [],
+      divisions: [],
+      policeStations: []
+    }));
+    
+    if (districtId) {
+      loadRangeOffices(districtId);
+    }
+  };
+
+  const setSelectedRangeOffice = (rangeOfficeId: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      selectedRangeOffice: rangeOfficeId,
       selectedZone: '',
       selectedDivision: '',
       selectedPoliceStation: '',
@@ -182,8 +228,8 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
       policeStations: []
     }));
     
-    if (districtId) {
-      loadZones(districtId);
+    if (rangeOfficeId) {
+      loadZones(rangeOfficeId);
     }
   };
 
@@ -227,6 +273,7 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
         ...prev,
         selectedState: values.state,
         selectedDistrict: values.district || '',
+        selectedRangeOffice: values.rangeOffice || '',
         selectedZone: values.zone || '',
         selectedDivision: values.division || '',
         selectedPoliceStation: values.policeStation || '',
@@ -239,8 +286,11 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
       if (values.district && values.districtName) {
         updatedState.districts = [{ id: Number(values.district), name: values.districtName, stateId: Number(values.state) }];
       }
+      if (values.rangeOffice && values.rangeOfficeName) {
+        updatedState.rangeOffices = [{ id: Number(values.rangeOffice), name: values.rangeOfficeName, districtId: Number(values.district) }];
+      }
       if (values.zone && values.zoneName) {
-        updatedState.zones = [{ id: Number(values.zone), name: values.zoneName, districtId: Number(values.district) }];
+        updatedState.zones = [{ id: Number(values.zone), name: values.zoneName, rangeOfficeId: Number(values.rangeOffice) }];
       }
       if (values.division && values.divisionName) {
         updatedState.divisions = [{ id: Number(values.division), name: values.divisionName, zoneId: Number(values.zone) }];
@@ -258,7 +308,10 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
       promises.push(loadDistricts(values.state));
     }
     if (values.district) {
-      promises.push(loadZones(values.district));
+      promises.push(loadRangeOffices(values.district));
+    }
+    if (values.rangeOffice) {
+      promises.push(loadZones(values.rangeOffice));
     }
     if (values.zone) {
       promises.push(loadDivisions(values.zone));
@@ -277,10 +330,12 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
       ...prev,
       selectedState: '',
       selectedDistrict: '',
+      selectedRangeOffice: '',
       selectedZone: '',
       selectedDivision: '',
       selectedPoliceStation: '',
       districts: [],
+      rangeOffices: [],
       zones: [],
       divisions: [],
       policeStations: []
@@ -290,6 +345,7 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
   const getSelectOptions = () => ({
     stateOptions: toSelectOptions(state.states),
     districtOptions: toSelectOptions(state.districts),
+    rangeOfficeOptions: toSelectOptions(state.rangeOffices),
     zoneOptions: toSelectOptions(state.zones),
     divisionOptions: toSelectOptions(state.divisions),
     policeStationOptions: toSelectOptions(state.policeStations),
@@ -298,6 +354,7 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
   const actions: LocationHierarchyActions = {
     setSelectedState,
     setSelectedDistrict,
+    setSelectedRangeOffice,
     setSelectedZone,
     setSelectedDivision,
     setSelectedPoliceStation,
@@ -306,6 +363,7 @@ export const useLocationHierarchy = (options?: { isRenewal?: boolean }): [Locati
     getSelectOptions,
     loadStates,
     loadDistricts,
+    loadRangeOffices,
     loadZones,
     loadDivisions,
     loadPoliceStations,

@@ -58,6 +58,7 @@ const initialState: AddressFormData = {
 	presentAddress: '',
 	presentState: '',
 	presentDistrict: '',
+	presentRangeOffice: '',
 	presentZone: '',
 	presentDivision: '',
 	presentPoliceStation: '',
@@ -66,6 +67,7 @@ const initialState: AddressFormData = {
 	permanentAddress: '',
 	permanentState: '',
 	permanentDistrict: '',
+	permanentRangeOffice: '',
 	permanentZone: '',
 	permanentDivision: '',
 	permanentPoliceStation: '',
@@ -141,6 +143,7 @@ const AddressDetails: React.FC = () => {
 				permanentAddress: prev.presentAddress,
 				permanentState: prev.presentState,
 				permanentDistrict: prev.presentDistrict,
+				permanentRangeOffice: prev.presentRangeOffice,
 				permanentZone: prev.presentZone,
 				permanentDivision: prev.presentDivision,
 				permanentPoliceStation: prev.presentPoliceStation,
@@ -151,6 +154,7 @@ const AddressDetails: React.FC = () => {
 				delete cleaned.permanentAddress;
 				delete cleaned.permanentState;
 				delete cleaned.permanentDistrict;
+				delete cleaned.permanentRangeOffice;
 				delete cleaned.permanentZone;
 				delete cleaned.permanentDivision;
 				delete cleaned.permanentPoliceStation;
@@ -162,6 +166,7 @@ const AddressDetails: React.FC = () => {
 		form.presentAddress,
 		form.presentState,
 		form.presentDistrict,
+		form.presentRangeOffice,
 		form.presentZone,
 		form.presentDivision,
 		form.presentPoliceStation,
@@ -235,6 +240,7 @@ const AddressDetails: React.FC = () => {
 				permanentAddress: prev.presentAddress,
 				permanentState: prev.presentState,
 				permanentDistrict: prev.presentDistrict,
+				permanentRangeOffice: prev.presentRangeOffice,
 				permanentZone: prev.presentZone,
 				permanentDivision: prev.presentDivision,
 				permanentPoliceStation: prev.presentPoliceStation,
@@ -245,6 +251,7 @@ const AddressDetails: React.FC = () => {
 				delete cleaned.permanentAddress;
 				delete cleaned.permanentState;
 				delete cleaned.permanentDistrict;
+				delete cleaned.permanentRangeOffice;
 				delete cleaned.permanentZone;
 				delete cleaned.permanentDivision;
 				delete cleaned.permanentPoliceStation;
@@ -315,11 +322,13 @@ const AddressDetails: React.FC = () => {
 					values={{
 						state: form.presentState,
 						district: form.presentDistrict,
+						rangeOffice: form.presentRangeOffice || '',
 						zone: form.presentZone,
 						division: form.presentDivision,
 						policeStation: form.presentPoliceStation,
 						stateName: form.presentStateName,
 						districtName: form.presentDistrictName,
+						rangeOfficeName: form.presentRangeOfficeName,
 						zoneName: form.presentZoneName,
 						divisionName: form.presentDivisionName,
 						policeStationName: form.presentPoliceStationName,
@@ -331,6 +340,7 @@ const AddressDetails: React.FC = () => {
 					disabledFields={{
 						state: isZSRole,
 						district: isZSRole,
+						rangeOffice: isZSRole,
 						zone: isZSRole,
 					}}
 				/>
@@ -381,11 +391,13 @@ const AddressDetails: React.FC = () => {
 					values={{
 						state: form.permanentState,
 						district: form.permanentDistrict,
+						rangeOffice: form.permanentRangeOffice || '',
 						zone: form.permanentZone,
 						division: form.permanentDivision,
 						policeStation: form.permanentPoliceStation,
 						stateName: form.permanentStateName,
 						districtName: form.permanentDistrictName,
+						rangeOfficeName: form.permanentRangeOfficeName,
 						zoneName: form.permanentZoneName,
 						divisionName: form.permanentDivisionName,
 						policeStationName: form.permanentPoliceStationName,

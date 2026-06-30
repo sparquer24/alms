@@ -21,11 +21,13 @@ const OccupationSection = forwardRef(function OccupationSection(
     const values = {
       state: formData.officeBusinessState,
       district: formData.officeBusinessDistrict || '',
+      rangeOffice: '',
       zone: '',
       division: '',
       policeStation: '',
       stateName: formData.officeBusinessStateName,
       districtName: formData.officeBusinessDistrictName,
+      rangeOfficeName: '',
     };
 
     // Only sync if the selected state/district is different from location state

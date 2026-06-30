@@ -224,12 +224,16 @@ export default function SettingsPage() {
                     <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.district?.name || '—'}</p>
                   </div>
                   <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Division</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.division?.name || '—'}</p>
+                    <label className='block text-sm font-medium text-gray-600 mb-1'>Range Office</label>
+                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.rangeOffice?.name || '—'}</p>
                   </div>
                   <div>
                     <label className='block text-sm font-medium text-gray-600 mb-1'>Zone</label>
                     <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.zone?.name || '—'}</p>
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-600 mb-1'>Division</label>
+                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.division?.name || '—'}</p>
                   </div>
                   <div>
                     <label className='block text-sm font-medium text-gray-600 mb-1'>Police Station</label>

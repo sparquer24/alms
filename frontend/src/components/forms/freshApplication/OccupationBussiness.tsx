@@ -78,11 +78,13 @@ const OccupationBussiness: React.FC = () => {
 		const values = {
 			state: form.officeState,
 			district: form.officeDistrict || '',
+			rangeOffice: '',
 			zone: '',
 			division: '',
 			policeStation: '',
 			stateName: form.officeStateName,
 			districtName: form.officeDistrictName,
+			rangeOfficeName: '',
 		};
 
 		// Only sync if the selected state/district is different from location state

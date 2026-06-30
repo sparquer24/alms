@@ -671,6 +671,37 @@ export class LocationsController {
     }
   }
 
+  @Get('eligible-users')
+  @ApiOperation({
+    summary: 'Get Eligible and Assigned Users',
+    description: 'Get all users eligible for a location type, and return the currently assigned user.'
+  })
+  @ApiQuery({ name: 'type', required: true, description: 'Location type (state, district, range, zone, division, station)' })
+  @ApiQuery({ name: 'id', required: true, description: 'Location ID' })
+  async getEligibleAndAssignedUsers(
+    @Query('type') type: string,
+    @Query('id') id: string
+  ) {
+    try {
+      if (!type || !id) {
+        throw new HttpException(
+          { success: false, message: 'Type and ID are required' },
+          HttpStatus.BAD_REQUEST
+        );
+      }
+      const data = await this.locationsService.getEligibleAndAssignedUsers(type, parseInt(id, 10));
+      return {
+        success: true,
+        ...data
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch eligible users' },
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
   /* ===== CREATE ENDPOINTS ===== */
 
   @Post('states')
@@ -831,9 +862,12 @@ export class LocationsController {
   @Put('states/:id')
   @ApiOperation({ summary: 'Update State' })
   @ApiResponse({ status: 200, description: 'State updated successfully' })
-  async updateState(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateState(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateState(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('state', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'State updated successfully',
@@ -850,9 +884,12 @@ export class LocationsController {
   @Put('districts/:id')
   @ApiOperation({ summary: 'Update District' })
   @ApiResponse({ status: 200, description: 'District updated successfully' })
-  async updateDistrict(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateDistrict(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateDistrict(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('district', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'District updated successfully',
@@ -869,9 +906,12 @@ export class LocationsController {
   @Put('zones/:id')
   @ApiOperation({ summary: 'Update Zone' })
   @ApiResponse({ status: 200, description: 'Zone updated successfully' })
-  async updateZone(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateZone(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateZone(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('zone', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Zone updated successfully',
@@ -888,9 +928,12 @@ export class LocationsController {
   @Put('range-offices/:id')
   @ApiOperation({ summary: 'Update Range Office' })
   @ApiResponse({ status: 200, description: 'Range Office updated successfully' })
-  async updateRangeOffice(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateRangeOffice(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateRangeOffice(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('range', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Range Office updated successfully',
@@ -907,9 +950,12 @@ export class LocationsController {
   @Put('divisions/:id')
   @ApiOperation({ summary: 'Update Division' })
   @ApiResponse({ status: 200, description: 'Division updated successfully' })
-  async updateDivision(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updateDivision(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updateDivision(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('division', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Division updated successfully',
@@ -926,9 +972,12 @@ export class LocationsController {
   @Put('police-stations/:id')
   @ApiOperation({ summary: 'Update Police Station' })
   @ApiResponse({ status: 200, description: 'Police Station updated successfully' })
-  async updatePoliceStation(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string }) {
+  async updatePoliceStation(@Param('id', ParseIntPipe) id: number, @Body() body: { name: string; assignedUserId?: number | null }) {
     try {
       const data = await this.locationsService.updatePoliceStation(id, body.name);
+      if (body.assignedUserId !== undefined) {
+        await this.locationsService.updateLocationAssignment('station', id, body.assignedUserId);
+      }
       return {
         success: true,
         message: 'Police Station updated successfully',

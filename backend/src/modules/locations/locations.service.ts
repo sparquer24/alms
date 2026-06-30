@@ -685,4 +685,239 @@ export class LocationsService {
       throw new Error(error.message || 'Failed to delete police station');
     }
   }
+
+  async getEligibleAndAssignedUsers(type: string, id: number) {
+    try {
+      const roleCodesMap: Record<string, string[]> = {
+        state: ['ADMIN'],
+        district: ['CP', 'JTCP', 'CADO', 'ADO', 'AS', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO'],
+        range: ['RANGE'],
+        zone: ['DCP'],
+        division: ['ACP'],
+        station: ['SHO'],
+      };
+      const roles = roleCodesMap[type] || [];
+
+      const eligibleUsers = await prisma.users.findMany({
+        where: {
+          role: {
+            code: { in: roles },
+          },
+        },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          phoneNo: true,
+          role: {
+            select: {
+              code: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          username: 'asc',
+        },
+      });
+
+      const fieldMap: Record<string, string> = {
+        state: 'stateId',
+        district: 'districtId',
+        range: 'rangeOfficeId',
+        zone: 'zoneId',
+        division: 'divisionId',
+        station: 'policeStationId',
+      };
+      const fieldName = fieldMap[type];
+      let assignedUser = null;
+
+      if (fieldName) {
+        assignedUser = await prisma.users.findFirst({
+          where: {
+            [fieldName]: id,
+            role: {
+              code: { in: roles },
+            },
+          },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            phoneNo: true,
+            role: {
+              select: {
+                code: true,
+                name: true,
+              },
+            },
+          },
+        });
+      }
+
+      return {
+        eligibleUsers,
+        assignedUser,
+      };
+    } catch (error) {
+      console.error('Error in getEligibleAndAssignedUsers:', error);
+      throw error;
+    }
+  }
+
+  async updateLocationAssignment(type: string, locationId: number, assignedUserId: number | null) {
+    try {
+      const roleCodesMap: Record<string, string[]> = {
+        state: ['ADMIN'],
+        district: ['CP', 'JTCP', 'CADO', 'ADO', 'AS', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO'],
+        zone: ['DCP'],
+        division: ['ACP'],
+        range: ['RANGE'],
+        station: ['SHO'],
+      };
+      const roles = roleCodesMap[type] || [];
+
+      const fieldMap: Record<string, string> = {
+        state: 'stateId',
+        district: 'districtId',
+        range: 'rangeOfficeId',
+        zone: 'zoneId',
+        division: 'divisionId',
+        station: 'policeStationId',
+      };
+      const fieldName = fieldMap[type];
+
+      if (!fieldName) {
+        throw new Error(`Invalid location type: ${type}`);
+      }
+
+      // 1. Clear previous assignments for this location
+      const currentAssignedUsers = await prisma.users.findMany({
+        where: {
+          [fieldName]: locationId,
+          role: {
+            code: { in: roles },
+          },
+        },
+      });
+
+      for (const u of currentAssignedUsers) {
+        await prisma.users.update({
+          where: { id: u.id },
+          data: {
+            stateId: null,
+            districtId: null,
+            zoneId: null,
+            divisionId: null,
+            rangeOfficeId: null,
+            policeStationId: null,
+          },
+        });
+      }
+
+      // 2. If a new user is assigned, set their location hierarchy
+      if (assignedUserId) {
+        const hierarchy = await this.resolveLocationHierarchy(type, locationId);
+        await prisma.users.update({
+          where: { id: assignedUserId },
+          data: hierarchy,
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error in updateLocationAssignment:', error);
+      throw error;
+    }
+  }
+
+  private async resolveLocationHierarchy(type: string, id: number) {
+    let stateId: number | null = null;
+    let districtId: number | null = null;
+    let rangeOfficeId: number | null = null;
+    let zoneId: number | null = null;
+    let divisionId: number | null = null;
+    let policeStationId: number | null = null;
+
+    if (type === 'state') {
+      stateId = id;
+    } else if (type === 'district') {
+      const district = await prisma.districts.findUnique({
+        where: { id },
+      });
+      stateId = district?.stateId || null;
+      districtId = id;
+    } else if (type === 'range') {
+      const ro = await prisma.rangeOffices.findUnique({
+        where: { id },
+        include: { Districts: true }
+      });
+      stateId = ro?.Districts?.stateId || null;
+      districtId = ro?.districtId || null;
+      rangeOfficeId = id;
+    } else if (type === 'zone') {
+      const zone = await prisma.zones.findUnique({
+        where: { id },
+        include: {
+          RangeOffices: {
+            include: { Districts: true }
+          }
+        }
+      });
+      stateId = zone?.RangeOffices?.Districts?.stateId || null;
+      districtId = zone?.RangeOffices?.districtId || null;
+      rangeOfficeId = zone?.rangeOfficeId || null;
+      zoneId = id;
+    } else if (type === 'division') {
+      const division = await prisma.divisions.findUnique({
+        where: { id },
+        include: {
+          zone: {
+            include: {
+              RangeOffices: {
+                include: { Districts: true }
+              }
+            }
+          }
+        }
+      });
+      stateId = division?.zone?.RangeOffices?.Districts?.stateId || null;
+      districtId = division?.zone?.RangeOffices?.districtId || null;
+      rangeOfficeId = division?.zone?.rangeOfficeId || null;
+      zoneId = division?.zoneId || null;
+      divisionId = id;
+    } else if (type === 'station') {
+      const ps = await prisma.policeStations.findUnique({
+        where: { id },
+        include: {
+          division: {
+            include: {
+              zone: {
+                include: {
+                  RangeOffices: {
+                    include: { Districts: true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+      stateId = ps?.division?.zone?.RangeOffices?.Districts?.stateId || null;
+      districtId = ps?.division?.zone?.RangeOffices?.districtId || null;
+      rangeOfficeId = ps?.division?.zone?.rangeOfficeId || null;
+      zoneId = ps?.division?.zoneId || null;
+      divisionId = ps?.divisionId || null;
+      policeStationId = id;
+    }
+
+    return {
+      stateId,
+      districtId,
+      rangeOfficeId,
+      zoneId,
+      divisionId,
+      policeStationId
+    };
+  }
 }

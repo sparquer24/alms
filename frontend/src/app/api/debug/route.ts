@@ -1,3 +1,5 @@
+export const dynamic = 'force-static';
+
 import { NextResponse } from 'next/server';
 
 function parseCookies(cookieHeader: string) {
@@ -19,7 +21,7 @@ function parseCookies(cookieHeader: string) {
 }
 
 export async function GET(req: Request) {
-    const cookieHeader = req.headers.get('cookie') || '';
+    const cookieHeader = req.headers ? (req.headers.get('cookie') || '') : '';
     const cookies = parseCookies(cookieHeader);
 
     let user: any = null;

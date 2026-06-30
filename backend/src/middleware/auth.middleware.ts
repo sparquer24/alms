@@ -55,6 +55,7 @@ export class AuthGuard implements CanActivate {
         zoneId: user.zoneId,
         divisionId: user.divisionId,
         policeStationId: user.policeStationId,
+        rangeOfficeId: user.rangeOfficeId,
         // Add more user info if needed
       };
 
