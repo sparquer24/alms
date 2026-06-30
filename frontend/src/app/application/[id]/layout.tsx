@@ -1,9 +1,4 @@
-import React, { Suspense } from 'react';
-import ApplicationDetailClient from './ApplicationDetailClient';
-
-interface Props {
-  params: Promise<{ id: string }>;
-}
+import React from 'react';
 
 export async function generateStaticParams() {
   const params = Array.from({ length: 1000 }, (_, i) => ({ id: String(i + 1) }));
@@ -28,10 +23,6 @@ export async function generateStaticParams() {
   return params;
 }
 
-export default async function Page({ params }: Props) {
-  return (
-    <Suspense fallback={<div>Loading application details...</div>}>
-      <ApplicationDetailClient params={params} />
-    </Suspense>
-  );
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }

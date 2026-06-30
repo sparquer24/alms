@@ -139,7 +139,7 @@ function FreshApplicationLayoutContent({
       }
     };
     checkEditable();
-  }, [applicantId, router]);
+  }, [applicantId, router, pathname]);
 
   useEffect(() => {
     if (allowedToEdit) {
