@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Param,Query,Delete,Patch,UseGuards,Request, HttpCode,HttpStatus, ForbiddenException,} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam, ApiCreatedResponse, ApiOkResponse,} from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, Delete, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam, ApiCreatedResponse, ApiOkResponse, } from '@nestjs/swagger';
 import { RenewalFormService } from './renewal-form.service';
 import { CreateRenewalPersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-details.dto';
@@ -17,7 +17,7 @@ import { ParseIntPipe } from '@nestjs/common';
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class RenewalFormController {
-  constructor(private readonly renewalFormService: RenewalFormService) {}
+  constructor(private readonly renewalFormService: RenewalFormService) { }
 
   /**
    * Create a new renewal form with personal details
@@ -279,7 +279,7 @@ export class RenewalFormController {
     @Query('isSubmit') isSubmit?: string,
     
   ): Promise<RenewalFormResponse> {
-    const userId = req?.user?.id || 1;
+    const userId = Number(req?.user?.sub || req?.user?.user_id);
     const submitApp = isSubmit !== undefined ? isSubmit === 'true' : patchData.isSubmit === true
 
     const result = await this.renewalFormService.patchApplicationDetails(

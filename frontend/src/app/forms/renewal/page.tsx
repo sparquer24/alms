@@ -31,6 +31,7 @@ import BiometricAPIService from '../../../services/biometricAPIService';
 type RenewalFormState = {
   renewalApplicationId: string;
   applicationId: string;
+  freshLicenseId?: number;
   licenseNumber: string;
   acknowledgementNo: string;
   applicantName: string;
@@ -170,6 +171,7 @@ type RenewalFormState = {
 const initialFormState: RenewalFormState = {
   renewalApplicationId: '',
   applicationId: '',
+  freshLicenseId: undefined,
   licenseNumber: '',
   acknowledgementNo: '',
   applicantName: '',
@@ -1499,6 +1501,7 @@ const buildFieldStateFromFreshApplication = (
   return {
     ...initialFormState,
     applicationId,
+    freshLicenseId: typeof data?.id === 'number' ? data.id : (data?.id ? Number(data.id) : undefined),
     licenseNumber: getLicenseNumber(data),
     acknowledgementNo: getTextValue(
       data?.acknowledgementNo,
@@ -1617,6 +1620,7 @@ const buildFieldStateFromFreshApplication = (
 };
 
 const buildRenewalPayload = (formData: RenewalFormState) => ({
+  ...(formData.freshLicenseId !== undefined && { freshLicenseId: formData.freshLicenseId }),
   licenseNumber: formData.licenseNumber,
   acknowledgementNo: formData.acknowledgementNo,
   firstName: formData.applicantName,
@@ -1953,6 +1957,7 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
       data?.freshApplicationId,
       data?.sourceApplicationId
     ),
+    freshLicenseId: data?.freshLicenseId ? Number(data.freshLicenseId) : undefined,
     licenseNumber: getTextValue(data?.licenseNumber),
     acknowledgementNo: getTextValue(data?.acknowledgementNo, personalDetails?.acknowledgementNo),
     ...nameFields,
