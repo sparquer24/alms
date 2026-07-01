@@ -1,6 +1,6 @@
-import { Injectable, ConflictException, BadRequestException,InternalServerErrorException,NotFoundException,} from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, InternalServerErrorException, NotFoundException, } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import {CreateRenewalFormRequest,RenewalFormResponse,RenewalFiltersDto,} from '../../request/renewal-form';
+import { CreateRenewalFormRequest, RenewalFormResponse, RenewalFiltersDto, } from '../../request/renewal-form';
 import { CreateRenewalPersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-details.dto';
 import { UploadRenewalFileDto, UploadRenewalFileResponseDto } from './dto/upload-file.dto';
@@ -46,6 +46,7 @@ export class RenewalFormService {
         const application = await tx.renewalFormPersonalDetails.create({
           data: {
             acknowledgementNo,
+            freshLicenseId: createRequest.freshLicenseId,
             licenseNumber: createRequest.licenseNumber,
             firstName: createRequest.firstName,
             middleName: createRequest.middleName,
@@ -126,13 +127,14 @@ export class RenewalFormService {
             isAwareOfLegalConsequences: true,
             isTermsAccepted: true,
             licenseDetails: { select: { id: true } },
+            freshLicenseId: true,
           },
         }),
         // Fetch statuses needed for submit/rollback behavior
         shouldHandleSubmit
           ? prisma.statuses.findMany({
-              where: { code: { in: ['FORWARD', 'DRAFT', 'INITIATE', 'INITIATED'] } },
-            })
+            where: { code: { in: ['FORWARD', 'DRAFT', 'INITIATE', 'INITIATED'] } },
+          })
           : Promise.resolve([]),
         // Pre-validate user if currentUserId provided
         shouldCreateWorkflowHistory
@@ -390,19 +392,20 @@ export class RenewalFormService {
         });
       }
 
-      if (patchData.isSubmit && currentUserId && userExists && initiateStatusId) {
+      if (patchData.isSubmit && currentUserId) {
         try {
           await prisma.renewalApplicationsFormWorkflowHistories.create({
             data: {
               applicationId,
               previousUserId: currentUserId,
               nextUserId: currentUserId,
-              actionTaken: statusMap['INITIATED'] ? 'INITIATED' : statusMap['INITIATE'] ? 'INITIATE' : 'SUBMITTED',
+              actionTaken: 'INITIATED',
               remarks: 'Application submitted for processing',
             },
           });
-        } catch (historyError) {
-          // Silently fail - don't interrupt submission
+        } catch (historyError: any) {
+          // Log error but don't interrupt submission
+          console.error('[RenewalForm] Failed to create workflow history:', historyError?.message, historyError?.code);
         }
       }
 
@@ -412,7 +415,7 @@ export class RenewalFormService {
         include: {
           workflowStatus: true,
           currentUser: {
-            select: { 
+            select: {
               id: true,
               username: true,
               email: true,
@@ -420,7 +423,7 @@ export class RenewalFormService {
             },
           },
           previousUser: {
-            select: { 
+            select: {
               id: true,
               username: true,
               email: true,
@@ -798,7 +801,7 @@ export class RenewalFormService {
         include: {
           workflowStatus: true,
           currentUser: {
-            include: {role: true},
+            include: { role: true },
           },
         previousUser: {
           include: {role: true},
@@ -931,7 +934,7 @@ export class RenewalFormService {
       const mergeId = `MERGE-${Date.now()}-${uuidv4().substring(0, 8)}`;
       const mergedFields: string[] = [];
 
-       await prisma.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: any) => {
         // Merge personal details
         const personalUpdateData: any = {};
 
@@ -1522,6 +1525,7 @@ export class RenewalFormService {
     return {
       id: application.id,
       acknowledgementNo: application.acknowledgementNo,
+      freshLicenseId: application.freshLicenseId,
       licenseNumber: application.licenseNumber,
       applicantName: applicantName,
       parentOrSpouseName: application.parentOrSpouseName,
