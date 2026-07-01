@@ -16,6 +16,7 @@ const initialFamily = { name: '', licenseNumber: '', weapons: [0] };
 
 const initialState = {
 	licenseHistories: [] as any[],
+	rejectedLicenseFiles: [] as any[],
 };
 
 // Validation rules for license history using centralized validators
@@ -187,7 +188,25 @@ const LicenseHistory = () => {
 				}
 			}
 		}
-	}, [form.licenseHistories, weapons]);
+		// Restore previously uploaded rejected license files from backend
+		if (form.rejectedLicenseFiles && form.rejectedLicenseFiles.length > 0) {
+			// Populate uploadedFiles with server metadata so deletion works
+			setUploadedFiles(form.rejectedLicenseFiles.map((f: any) => ({
+				id: f.id,
+				fileName: f.fileName,
+				fileSize: f.fileSize || 0,
+				fileType: f.fileType,
+				fileUrl: f.fileUrl,
+				uploadedAt: f.uploadedAt,
+			})));
+			// Populate rejectedFiles with synthetic File-like objects for display
+			setRejectedFiles(form.rejectedLicenseFiles.map((f: any) => ({
+				name: f.fileName,
+				size: f.fileSize || 0,
+				type: f.fileType || 'application/octet-stream',
+			} as File)));
+		}
+	}, [form.licenseHistories, form.rejectedLicenseFiles, weapons]);
 
 	// Fetch weapons on component mount
 	useEffect(() => {

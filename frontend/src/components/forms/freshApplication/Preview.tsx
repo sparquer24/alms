@@ -409,6 +409,7 @@ const Preview = () => {
               {renderField('Address Line', presentAddr?.addressLine)}
               {renderField('State', presentAddr?.state?.name || presentAddr?.state)}
               {renderField('District', presentAddr?.district?.name || presentAddr?.district)}
+              {renderField('Range Office', presentAddr?.rangeOffice?.name || presentAddr?.RangeOffices?.name || presentAddr?.rangeOffice)}
               {renderField('Zone', presentAddr?.zone?.name || presentAddr?.zone)}
               {renderField('Division', presentAddr?.division?.name || presentAddr?.division)}
               {renderField(
@@ -428,6 +429,7 @@ const Preview = () => {
               {renderField('Address Line', permanentAddr?.addressLine)}
               {renderField('State', permanentAddr?.state?.name || permanentAddr?.state)}
               {renderField('District', permanentAddr?.district?.name || permanentAddr?.district)}
+              {renderField('Range Office', permanentAddr?.rangeOffice?.name || permanentAddr?.RangeOffices?.name || permanentAddr?.rangeOffice)}
               {renderField('Zone', permanentAddr?.zone?.name || permanentAddr?.zone)}
               {renderField('Division', permanentAddr?.division?.name || permanentAddr?.division)}
               {renderField(

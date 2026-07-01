@@ -37,18 +37,22 @@ const getUserLocationDefaults = () => {
 			presentState: userData.location.state?.id ? String(userData.location.state.id) : '',
 			presentDistrict: userData.location.district?.id ? String(userData.location.district.id) : '',
 			presentZone: userData.location.zone?.id ? String(userData.location.zone.id) : '',
+			presentRangeOffice: userData.location.rangeOffice?.id ? String(userData.location.rangeOffice.id) : '',
 			presentStateName: userData.location.state?.name || '',
 			presentDistrictName: userData.location.district?.name || '',
 			presentZoneName: userData.location.zone?.name || '',
+			presentRangeOfficeName: userData.location.rangeOffice?.name || '',
 		};
 	}
 	return {
 		presentState: '',
 		presentDistrict: '',
 		presentZone: '',
+		presentRangeOffice: '',
 		presentStateName: '',
 		presentDistrictName: '',
 		presentZoneName: '',
+		presentRangeOfficeName: '',
 	};
 };
 
@@ -115,25 +119,31 @@ const AddressDetails: React.FC = () => {
 		const isZS = userData?.role?.name === 'ZS' || userData?.role === 'ZS';
 		setIsZSRole(isZS);
 		
-		// Only pre-fill if all three fields are empty (no existing data)
-		if (!form.presentState && !form.presentDistrict && !form.presentZone) {
+		// Only pre-fill if all location fields are empty (no existing data)
+		if (!form.presentState && !form.presentDistrict && !form.presentZone && !form.presentRangeOffice) {
 			const locationDefaults = getUserLocationDefaults();
 			
 			if (locationDefaults.presentState) {
 				// Prevent infinite loop by only updating if different
 				if (form.presentState !== locationDefaults.presentState || 
 					form.presentDistrict !== locationDefaults.presentDistrict || 
-					form.presentZone !== locationDefaults.presentZone) {
+					form.presentZone !== locationDefaults.presentZone ||
+					form.presentRangeOffice !== locationDefaults.presentRangeOffice) {
 					setForm((prev: any) => ({
 						...prev,
 						presentState: locationDefaults.presentState,
 						presentDistrict: locationDefaults.presentDistrict,
 						presentZone: locationDefaults.presentZone,
+						presentRangeOffice: locationDefaults.presentRangeOffice,
+						presentStateName: locationDefaults.presentStateName,
+						presentDistrictName: locationDefaults.presentDistrictName,
+						presentZoneName: locationDefaults.presentZoneName,
+						presentRangeOfficeName: locationDefaults.presentRangeOfficeName,
 					}));
 				}
 			}
 		}
-	}, [isLoading, form.presentState, form.presentDistrict, form.presentZone]);
+	}, [isLoading, form.presentState, form.presentDistrict, form.presentZone, form.presentRangeOffice]);
 
 	// ── Sync permanent address when sameAsPresent is checked ──
 	useEffect(() => {

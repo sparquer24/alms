@@ -243,7 +243,7 @@ const LicenseDetails = () => {
 
   const handleWeaponChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const weaponId = Number(e.target.value);
-    if (weaponId === 0) return; // Skip if no weapon selected
+    if (!e.target.value || weaponId === 0 || isNaN(weaponId)) return; // Skip placeholder / invalid
 
     setForm((prev: any) => {
       // Ensure licenseDetails array exists and has at least one element
@@ -640,7 +640,7 @@ const LicenseDetails = () => {
             <div className='mb-2'>(b) Select weapon types (multiple allowed)</div>
             <Select
               name='weaponSelection'
-              value="0"
+              value=""
               onChange={handleWeaponChange as any}
               disabled={loadingWeapons}
               placeholder={loadingWeapons ? 'Loading weapons...' : 'Select weapon type to add'}

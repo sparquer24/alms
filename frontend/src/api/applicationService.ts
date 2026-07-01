@@ -19,6 +19,7 @@ export interface ApplicationFormData {
   presentAddress?: string;
   presentState?: string;
   presentDistrict?: string;
+  presentRangeOffice?: string;
   presentZone?: string;
   presentDivision?: string;
   presentPoliceStation?: string;
@@ -26,6 +27,7 @@ export interface ApplicationFormData {
   permanentAddress?: string;
   permanentState?: string;
   permanentDistrict?: string;
+  permanentRangeOffice?: string;
   permanentZone?: string;
   permanentDivision?: string;
   permanentPoliceStation?: string;
@@ -225,11 +227,13 @@ export class ApplicationService {
           presentAddress: presentAddr.addressLine || '',
           presentState: presentAddr.stateId ? String(presentAddr.stateId) : '',
           presentDistrict: presentAddr.districtId ? String(presentAddr.districtId) : '',
+          presentRangeOffice: presentAddr.rangeOfficeId ? String(presentAddr.rangeOfficeId) : '',
           presentZone: presentAddr.zoneId ? String(presentAddr.zoneId) : '',
           presentDivision: presentAddr.divisionId ? String(presentAddr.divisionId) : '',
           presentPoliceStation: presentAddr.policeStationId ? String(presentAddr.policeStationId) : '',
           presentStateName: presentAddr.state?.name || '',
           presentDistrictName: presentAddr.district?.name || '',
+          presentRangeOfficeName: presentAddr.rangeOffice?.name || presentAddr.RangeOffices?.name || '',
           presentZoneName: presentAddr.zone?.name || '',
           presentDivisionName: presentAddr.division?.name || '',
           presentPoliceStationName: presentAddr.policeStation?.name || '',
@@ -238,11 +242,13 @@ export class ApplicationService {
           permanentAddress: permanentAddr.addressLine || '',
           permanentState: permanentAddr.stateId ? String(permanentAddr.stateId) : '',
           permanentDistrict: permanentAddr.districtId ? String(permanentAddr.districtId) : '',
+          permanentRangeOffice: permanentAddr.rangeOfficeId ? String(permanentAddr.rangeOfficeId) : '',
           permanentZone: permanentAddr.zoneId ? String(permanentAddr.zoneId) : '',
           permanentDivision: permanentAddr.divisionId ? String(permanentAddr.divisionId) : '',
           permanentPoliceStation: permanentAddr.policeStationId ? String(permanentAddr.policeStationId) : '',
           permanentStateName: permanentAddr.state?.name || '',
           permanentDistrictName: permanentAddr.district?.name || '',
+          permanentRangeOfficeName: permanentAddr.rangeOffice?.name || permanentAddr.RangeOffices?.name || '',
           permanentZoneName: permanentAddr.zone?.name || '',
           permanentDivisionName: permanentAddr.division?.name || '',
           permanentPoliceStationName: permanentAddr.policeStation?.name || '',
@@ -272,8 +278,12 @@ export class ApplicationService {
           criminalHistories: applicationData.criminalHistories || [],
         };
       case 'license-history':
+        const rejectedLicenseFiles = applicationData.fileUploads
+          ? applicationData.fileUploads.filter((file: any) => file.fileType === 'REJECTED_LICENSE')
+          : [];
         return {
           licenseHistories: applicationData.licenseHistories || [],
+          rejectedLicenseFiles,
         };
       case 'license-details':
         const licenseDetailsData = applicationData.licenseDetails || [];
@@ -386,6 +396,7 @@ export class ApplicationService {
             addressLine: formData.presentAddress,
             stateId: parseInt(formData.presentState || '0'),
             districtId: parseInt(formData.presentDistrict || '0'),
+            rangeOfficeId: parseInt(formData.presentRangeOffice || '0'),
             zoneId: parseInt(formData.presentZone || '0'),
             divisionId: parseInt(formData.presentDivision || '0'),
             policeStationId: parseInt(formData.presentPoliceStation || '0'),
@@ -399,12 +410,14 @@ export class ApplicationService {
             addressLine: formData.permanentAddress,
             stateId: parseInt(formData.permanentState || '0'),
             districtId: parseInt(formData.permanentDistrict || '0'),
+            rangeOfficeId: parseInt(formData.permanentRangeOffice || '0'),
             zoneId: parseInt(formData.permanentZone || '0'),
             divisionId: parseInt(formData.permanentDivision || '0'),
             policeStationId: parseInt(formData.permanentPoliceStation || '0'),
             sinceResiding: formData.presentSince ? new Date(formData.presentSince).toISOString() : undefined,
             // Phone numbers are now only included in presentAddress
           },
+          rangeOffice: parseInt(formData.presentRangeOffice || '0'),
         };
       case 'occupation':
         const occupationPayload = {
