@@ -19,6 +19,11 @@ export class PatchApplicationDetailsDto {
   @IsNumber()
   workflowStatusId?: number;
 
+  @ApiPropertyOptional({ description: 'Range Office ID', example: 1 })
+  @IsOptional()
+  @IsNumber()
+  rangeOffice?: number;
+
   @ApiPropertyOptional({ description: 'Whether the declaration is accepted', example: true })
   @IsOptional()
   isDeclarationAccepted?: boolean;

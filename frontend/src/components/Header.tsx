@@ -85,7 +85,7 @@ const Header = (props: HeaderProps) => {
         setCancelLookupError(null);
         setShowCancelModal(true);
       } else {
-        router.push(`/freshform?type=${encodeURIComponent(type.key)}`);
+        router.push(`/inbox?type=all?type=${encodeURIComponent(type.key)}`);
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
@@ -519,7 +519,8 @@ const Header = (props: HeaderProps) => {
           <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
             <h2 className='text-lg font-semibold text-gray-900'>Renewal Application</h2>
             <p className='mt-2 text-sm text-gray-600'>
-              Enter the approved Fresh Application ID or Acknowledgement Number to load the existing application data.
+              Enter the approved Fresh Application ID or Acknowledgement Number to load the existing
+              application data.
             </p>
 
             <div className='mt-4'>
