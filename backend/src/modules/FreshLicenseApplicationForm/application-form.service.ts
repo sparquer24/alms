@@ -43,6 +43,7 @@ export interface CreateAddressInput {
   policeStationId: number;
   zoneId: number;
   divisionId: number;
+  rangeOfficeId?: number;
   sinceResiding: Date;
 }
 

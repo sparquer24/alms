@@ -7,7 +7,7 @@ interface Props {
 
 export async function generateStaticParams() {
   const params = Array.from({ length: 1000 }, (_, i) => ({ id: String(i + 1) }));
-  
+
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     const res = await fetch(`${apiUrl}/application-form`, { next: { revalidate: 0 } });

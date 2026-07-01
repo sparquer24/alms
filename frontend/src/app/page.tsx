@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import LandingPage from "./landing/page";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import LandingPage from './landing/page';
 
 export default function Home() {
   const { isAuthenticated, isLoading, userRole, initialized } = useAuth();
@@ -16,24 +16,24 @@ export default function Home() {
     // If authenticated, redirect based on role
     if (isAuthenticated && userRole) {
       const redirectMap: Record<string, string> = {
-        "ADMIN": "/admin/userManagement",
-        "SUPER_ADMIN": "/superAdmin/userManagement",
-        "ARMS_SUPDT": "/inbox",
-        "SHO": "/inbox",
-        "ZS": "/inbox",
-        "DCP": "/inbox",
-        "ACP": "/inbox",
-        "CP": "/inbox",
-        "JTCP": "/inbox",
-        "ADO": "/inbox",
-        "CADO": "/inbox",
-        "AS": "/inbox",
-        "ARMS_SEAT": "/inbox",
-        "ACO": "/inbox",
-        "APPLICANT": "/freshform",
+        ADMIN: '/admin/userManagement',
+        SUPER_ADMIN: '/superAdmin/userManagement',
+        ARMS_SUPDT: '/inbox',
+        SHO: '/inbox',
+        ZS: '/inbox',
+        DCP: '/inbox',
+        ACP: '/inbox',
+        CP: '/inbox',
+        JTCP: '/inbox',
+        ADO: '/inbox',
+        CADO: '/inbox',
+        AS: '/inbox',
+        ARMS_SEAT: '/inbox',
+        ACO: '/inbox',
+        APPLICANT: '/inbox?type=all',
       };
 
-      const redirectPath = redirectMap[userRole] || "/inbox";
+      const redirectPath = redirectMap[userRole] || '/inbox';
       router.replace(redirectPath);
       return;
     }
@@ -44,10 +44,10 @@ export default function Home() {
   // Show loading screen while checking authentication
   if (!initialized || isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
+        <div className='text-center'>
+          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
+          <p className='text-gray-600'>Loading...</p>
         </div>
       </div>
     );
