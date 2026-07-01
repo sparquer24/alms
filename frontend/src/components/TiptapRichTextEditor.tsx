@@ -317,10 +317,7 @@ const CONTENT_TEMPLATES = {
 
     <div style="margin-top: 3rem;">
       <p style="margin: 0; color: #6b7280;">Yours faithfully,</p>
-      <p style="margin: 2rem 0 0 0; border-top: 1px solid #1f2937; padding-top: 0.5rem;">___________________________</p>
-      <p style="margin: 0.25rem 0;"><strong>[Signature & Seal]</strong></p>
-      <p style="margin: 0.25rem 0;"><strong>[Name & Designation]</strong></p>
-      <p style="margin: 0.25rem 0;">[Police Station/Unit]</p>
+      <p style="margin: 2rem 0 0 0; border-top: 1px solid #1f2937; padding-top: 0.5rem;">[Police Station/Unit]</p>
       <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #6b7280;">Date: ${new Date().toLocaleDateString()}</p>
     </div>
   </div>

@@ -19,7 +19,7 @@ export default function CancelRequestDetail({ request }: CancelRequestDetailProp
               Cancellation Request #{request.id}
             </h2>
             <p className='text-gray-500 mt-2 font-medium'>
-              For Application ID: {request.applicationId} 
+              For Application ID: {request.freshLicenseId} 
               <span className='ml-2 inline-flex px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200'>
                 {request.applicationType}
               </span>

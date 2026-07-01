@@ -751,8 +751,24 @@ export class ApplicationFormService {
           updatedSections.push('biometricData');
         }
 
-        // Handle workflow status updates - only when isSubmit is true
-        if (isSubmit === true) {
+      // Handle workflow status updates - only when isSubmit is true
+      if (isSubmit === true) {
+        // Audit: Log application submission
+        try {
+          await prisma.auditLogs.create({
+            data: {
+              userId: currentUserId || 0,
+              applicationId: applicationId,
+              entity: 'FreshLicenseApplicationPersonalDetails',
+              entityId: String(applicationId),
+              action: 'SUBMIT',
+              newValue: { isSubmit: true },
+            },
+          });
+        } catch (auditError) {
+          // Audit failures should not block submission
+          console.error('Audit log failed for application submission:', auditError);
+        }
           // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
             where: { isStarted: true, isActive: true } as any
@@ -902,7 +918,7 @@ export class ApplicationFormService {
       return [error, null];
     }
   }
-  async deleteApplicationId(fileId: number): Promise<[any, boolean]> {
+  async deleteFileRecordById(fileId: number): Promise<[any, boolean]> {
     try {
       // First, check if the file record exists with its application's workflow status
       const existingFile = await prisma.fLAFFileUploads.findUnique({
@@ -925,6 +941,21 @@ export class ApplicationFormService {
         return [new BadRequestException(
           `Cannot delete file from an application with "${statusName}" status. Files can only be deleted from DRAFT applications.`,
         ), false];
+      }
+
+      // Delete the physical file from disk if it's a local file
+      if (existingFile.fileUrl && !existingFile.fileUrl.startsWith('http')) {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.resolve(process.cwd(), existingFile.fileUrl);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (fsError) {
+          // Log but don't fail if file deletion from disk fails
+          console.error(`Failed to delete physical file: ${existingFile.fileUrl}`, fsError);
+        }
       }
 
       // Delete the file record

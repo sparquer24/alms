@@ -1,6 +1,8 @@
 import { Controller, Post, Body, HttpException, HttpStatus, Get, Query, Param, Patch, Put, Delete, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
-import { UserService } from './user.service';import { AuthGuard } from '../../middleware/auth.middleware';import { stat } from 'fs';
+import { UserService } from './user.service';
+import { AuthGuard } from '../../middleware/auth.middleware';
+import { Roles } from '../../decorators/roles.decorator';
 import { CreateUsersDto } from './dto/create-users.dto';
 
 @ApiTags('Users')
@@ -9,9 +11,12 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
+  @UseGuards(AuthGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Create User', 
-    description: 'Create a new user in the system' 
+    description: 'Create a new user in the system. Requires ADMIN or SUPER_ADMIN role.' 
   })
   @ApiBody({
     type: CreateUsersDto,
@@ -33,9 +38,10 @@ export class UserController {
     }
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid user data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
   @ApiResponse({ status: 409, description: 'Conflict - User already exists' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
-  async createUser(@Body() createUserDto: any) {
+  async createUser(@Body() createUserDto: any, @Request() req: any) {
     try {
       const user = await this.userService.createUser(createUserDto);
       return user;
@@ -45,9 +51,10 @@ export class UserController {
   }
 
   @Get()
+  @Roles('ADMIN', 'SUPER_ADMIN', 'ZS', 'DCP', 'ACP', 'CP', 'JTCP')
   @ApiOperation({ 
     summary: 'Get Users', 
-    description: 'Retrieve all users or filter by role' 
+    description: 'Retrieve all users or filter by role. Restricted to admin and officer roles.' 
   })
   @ApiQuery({ 
     name: 'role', 
@@ -126,6 +133,9 @@ export class UserController {
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiBearerAuth('JWT-auth')
   async getUserById(@Param('id') id: string) {
     try {
       const user = await this.userService.getUserById(id);
@@ -140,9 +150,12 @@ export class UserController {
   }
 
   @Put(':id')
+  @UseGuards(AuthGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Update User', 
-    description: 'Update an existing user by ID' 
+    description: 'Update an existing user by ID. Requires ADMIN or SUPER_ADMIN role.' 
   })
   @ApiBody({
     description: 'User fields to update',
@@ -185,6 +198,16 @@ export class UserController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Delete User',
+    description: 'Delete a user by ID. Requires ADMIN or SUPER_ADMIN role.'
+  })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Authentication required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async deleteUser(@Param('id') id: string) {
     try {
       return await this.userService.deleteUser(id);

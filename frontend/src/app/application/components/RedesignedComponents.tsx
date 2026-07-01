@@ -44,15 +44,15 @@ export function DetailItem({
 }) {
   if (value === undefined || value === null || value === '') return null;
   return (
-    <div className={`flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 hover:bg-slate-100/50 transition-all duration-200 ${className}`}>
+    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-200 hover:bg-slate-100/50 transition-all duration-200 ${className}`}>
       {Icon && (
-        <div className="p-2 rounded-lg bg-blue-50 text-blue-600 mt-0.5 flex-shrink-0">
+        <div className="p-1.5 rounded-md bg-blue-50 text-blue-600 flex-shrink-0 shadow-sm">
           <Icon className="w-4 h-4" />
         </div>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">{label}</p>
-        <p className={`font-semibold text-slate-800 text-sm leading-snug break-words ${mono ? 'font-mono tracking-tight' : ''}`}>
+      <div className="min-w-0 flex-1 flex flex-col justify-center">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-0.5 leading-none">{label}</p>
+        <p className={`font-semibold text-slate-800 text-sm leading-tight break-words ${mono ? 'font-mono tracking-tight' : ''}`}>
           {value}
         </p>
       </div>

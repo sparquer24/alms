@@ -3,7 +3,7 @@ import { patchData } from './axiosConfig';
 
 export interface CancelFormData {
   id?: number;
-  applicationId: number;
+  freshLicenseId: number;
   applicationType: string;
   cancellationReason: string;
   remarks?: string;
@@ -21,7 +21,7 @@ export class CancelService {
    * @param payload { applicationId, applicationType, cancellationReason, remarks }
    */
   static async createCancelRequest(payload: {
-    applicationId: number;
+    freshLicenseId: number;
     applicationType: string;
     cancellationReason: string;
     remarks?: string;
@@ -37,14 +37,14 @@ export class CancelService {
     limit?: number;
     status?: string;
     requestedBy?: number;
-    applicationId?: number;
+    freshLicenseId?: number;
   }): Promise<any> {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', String(filters.page));
     if (filters?.limit) params.append('limit', String(filters.limit));
     if (filters?.status) params.append('status', filters.status);
     if (filters?.requestedBy) params.append('requestedBy', String(filters.requestedBy));
-    if (filters?.applicationId) params.append('applicationId', String(filters.applicationId));
+    if (filters?.freshLicenseId) params.append('freshLicenseId', String(filters.freshLicenseId));
     
     return apiClient.get(`/cancel-forms?${params.toString()}`);
   }

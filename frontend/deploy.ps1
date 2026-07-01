@@ -101,7 +101,7 @@ try {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
 
-    Pop-Location
+    Pop-Locationx
     Write-Log "Production application target built successfully." -Type "Success"
     
     if (Test-Path $BackupPath) {

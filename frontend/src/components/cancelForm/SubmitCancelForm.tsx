@@ -247,7 +247,7 @@ export default function SubmitCancelForm() {
     setLoading(true);
     try {
       const payload = {
-        applicationId: Number(formData.applicationId),
+        freshLicenseId: Number(formData.applicationId),
         applicationType: 'Cancel Application', // Always matching request payload format "Cancel Application"
         cancellationReason: formData.cancellationReason,
         remarks: formData.remarks

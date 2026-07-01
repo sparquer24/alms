@@ -1,6 +1,6 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request, Res, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request, Res, UnauthorizedException, Headers } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginRequest } from '../../request/auth';
 import { LoginResponse, UserProfileResponse } from '../../response/auth';
@@ -118,6 +118,61 @@ export class AuthController {
         policeStation: user.policeStation ? { id: String(user.policeStation.id), name: user.policeStation.name } : undefined,
         rangeOffice: (user as any).RangeOffices ? { id: String((user as any).RangeOffices.id), name: (user as any).RangeOffices.name } : undefined,
       },
+    };
+  }
+
+  /**
+   * Refresh token endpoint
+   * Accepts a valid (not expired) JWT and returns a new JWT with extended expiry.
+   */
+  @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh JWT Token',
+    description: 'Accepts a valid JWT token and returns a new token with extended expiry. ' +
+      'The provided token must still be valid (not expired).'
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer <token>',
+    required: true,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: { type: 'string', description: 'Current JWT token (optional, can also be provided via Authorization header)' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token refreshed successfully',
+    schema: {
+      example: {
+        success: true,
+        token: 'eyJhbGciOiJIUzI1NiIs...',
+        message: 'Token refreshed successfully',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async refreshToken(
+    @Body('token') bodyToken: string,
+    @Headers('authorization') authHeader: string,
+  ): Promise<any> {
+    // Extract token from body or Authorization header
+    const token = bodyToken || (authHeader ? authHeader.replace('Bearer ', '') : null);
+
+    if (!token) {
+      throw new UnauthorizedException('Token is required in the request body or Authorization header.');
+    }
+
+    const newToken = await this.authService.refreshToken(token);
+    return {
+      success: true,
+      token: newToken,
+      message: 'Token refreshed successfully',
     };
   }
 

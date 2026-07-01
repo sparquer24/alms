@@ -257,7 +257,7 @@ const Header = (props: HeaderProps) => {
 
       // Check if a cancellation request already exists for this application
       try {
-        const existingCancelResponse = await CancelService.getCancelRequests({ applicationId: Number(freshApplication.id) });
+        const existingCancelResponse = await CancelService.getCancelRequests({ freshLicenseId: Number(freshApplication.id) });
         const existingCancel = existingCancelResponse?.data || existingCancelResponse;
         if (Array.isArray(existingCancel) && existingCancel.length > 0) {
           throw new Error('A cancellation request already exists for this application.');

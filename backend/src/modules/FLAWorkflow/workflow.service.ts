@@ -1,27 +1,26 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../db/prismaClient';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 
 @Injectable()
 export class WorkflowService {
-  private prisma = new PrismaClient();
 
   async getStatusesAndActions(id?: number) {
     if (id) {
-      const status = await this.prisma.statuses.findUnique({ where: { id } });
-      const action = await this.prisma.actiones.findUnique({ where: { id } });
+      const status = await prisma.statuses.findUnique({ where: { id } });
+      const action = await prisma.actiones.findUnique({ where: { id } });
       return { status, action };
     } else {
-      const statuses = await this.prisma.statuses.findMany();
-      const actions = await this.prisma.actiones.findMany();
+      const statuses = await prisma.statuses.findMany();
+      const actions = await prisma.actiones.findMany();
     return { statuses, actions };
     }
   }
 
   async getApplicationsByType(applicationType: string) {
     if (applicationType === 'flawUpdate' || applicationType === 'FreshLicenseApplicationForm') {
-      return await this.prisma.freshLicenseApplicationPersonalDetails.findMany({
+      return await prisma.freshLicenseApplicationPersonalDetails.findMany({
         select: {
           id: true,
           workflowStatusId: true,
@@ -38,7 +37,7 @@ export class WorkflowService {
         }
       });
     } else if (applicationType === 'renewUpdate' || applicationType === 'RenewalApplicationForm') {
-      return await this.prisma.renewalFormPersonalDetails.findMany({
+      return await prisma.renewalFormPersonalDetails.findMany({
         select: {
           id: true,
           workflowStatusId: true,
@@ -60,7 +59,7 @@ export class WorkflowService {
       applicationType === 'CancelForm' ||
       applicationType === 'cancel'
     ) {
-      const cancelRequests = await this.prisma.cancelFormRequests.findMany({
+      const cancelRequests = await prisma.cancelFormRequests.findMany({
         select: {
           id: true,
           workFlowStatusId: true,
@@ -92,11 +91,45 @@ export class WorkflowService {
     }
   }
 
+  async getWorkflowHistory(applicationId: number, applicationType: string = 'fresh') {
+    if (applicationType.toLowerCase().includes('renew')) {
+      return await prisma.renewalApplicationsFormWorkflowHistories.findMany({
+        where: { applicationId },
+        include: {
+          actiones: true,
+          previousUser: { select: { id: true, username: true } },
+          nextUser: { select: { id: true, username: true } },
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+    } else if (applicationType.toLowerCase().includes('cancel')) {
+      return await prisma.cancelWorkflowHistories.findMany({
+        where: { applicationId },
+        include: {
+          actiones: true,
+          previousUser: { select: { id: true, username: true } },
+          nextUser: { select: { id: true, username: true } },
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+    } else {
+      return await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+        where: { applicationId },
+        include: {
+          actiones: true,
+          previousUser: { select: { id: true, username: true } },
+          nextUser: { select: { id: true, username: true } },
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+    }
+  }
+
   /**
    * Check if a role is allowed to perform a specific action
    */
   async checkRoleActionPermission(roleId: number, actionId: number): Promise<boolean> {
-    const mapping = await this.prisma.rolesActionsMapping.findUnique({
+    const mapping = await prisma.rolesActionsMapping.findUnique({
       where: {
         roleId_actionId: {
           roleId: roleId,
@@ -124,7 +157,7 @@ export class WorkflowService {
     currentUserId: number;
   }, status: any, nextUserId: number, actionCode:string, nextUserRoleId: any, currentRoleId: number){
    // 1. Fetch Application Data
-    const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+    const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
       where: { id: payload.applicationId },
     });
     if (!application) {
@@ -137,16 +170,16 @@ export class WorkflowService {
     // This checks the existing application state BEFORE this action runs.
     if (actionCode !== 'CLOSE') {
       if (application.isApproved) {
-        const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
+        const approvedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
         if (approvedStatus) newStatusId = approvedStatus.id;
       } else if (application.isRejected) {
-        const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
+        const rejectedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
         if (rejectedStatus) newStatusId = rejectedStatus.id;
       } else if (application.isRecommended) {
-        const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
+        const recommendedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
         if (recommendedStatus) newStatusId = recommendedStatus.id;
       } else if (application.isNotRecommended) {
-        const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
+        const notRecommendedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
         if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
       }
     }
@@ -203,7 +236,7 @@ export class WorkflowService {
     if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
 
-    const updatedApplication = await this.prisma.freshLicenseApplicationPersonalDetails.update({
+    const updatedApplication = await prisma.freshLicenseApplicationPersonalDetails.update({
       where: { id: payload.applicationId },
       data: updateData,
     });
@@ -231,13 +264,13 @@ export class WorkflowService {
       nextUserId: nextUserId, // Who has it after (or who completed it)
       actionTaken: actionTaken,
       remarks: payload.remarks || '',
-      previousRoleId: previousUserIdForHistory ? (await this.prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
+      previousRoleId: previousUserIdForHistory ? (await prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
       nextRoleId: nextUserRoleId?.roleId ,
       actionesId: payload.actionId,
       attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
     };
 
-    await this.prisma.freshLicenseApplicationsFormWorkflowHistories.create({
+    await prisma.freshLicenseApplicationsFormWorkflowHistories.create({
       data: workflowHistoryData,
     });
 
@@ -262,7 +295,7 @@ export class WorkflowService {
     currentUserId: number;
   }, status: any, nextUserId: number, actionCode:string, nextUserRoleId: any, currentRoleId: number){
    // 1. Fetch Application Data
-    const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+    const application = await prisma.renewalFormPersonalDetails.findUnique({
       where: { id: payload.applicationId },
     });
     if (!application) {
@@ -275,16 +308,16 @@ export class WorkflowService {
     // after a terminal action. e.g., CP approves → forwards back to previous role should show APPROVED.
     if (actionCode !== 'CLOSE') {
       if (application.isApproved) {
-        const approvedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
+        const approvedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.APPROVED } });
         if (approvedStatus) newStatusId = approvedStatus.id;
       } else if (application.isRejected) {
-        const rejectedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
+        const rejectedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.REJECT } });
         if (rejectedStatus) newStatusId = rejectedStatus.id;
       } else if (application.isRecommended) {
-        const recommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
+        const recommendedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.RECOMMEND } });
         if (recommendedStatus) newStatusId = recommendedStatus.id;
       } else if (application.isNotRecommended) {
-        const notRecommendedStatus = await this.prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
+        const notRecommendedStatus = await prisma.statuses.findFirst({ where: { code: ACTION_CODES.NOT_RECOMMEND } });
         if (notRecommendedStatus) newStatusId = notRecommendedStatus.id;
       }
     }
@@ -341,7 +374,7 @@ export class WorkflowService {
     if (payload.isRecommended !== undefined) updateData.isRecommended = payload.isRecommended;
     if (payload.isNotRecommended !== undefined) updateData.isNotRecommended = payload.isNotRecommended;
 
-    const updatedApplication = await this.prisma.renewalFormPersonalDetails.update({
+    const updatedApplication = await prisma.renewalFormPersonalDetails.update({
       where: { id: payload.applicationId },
       data: updateData,
     });
@@ -369,13 +402,13 @@ export class WorkflowService {
       nextUserId: nextUserId, // Who has it after (or who completed it)
       actionTaken: actionTaken,
       remarks: payload.remarks || '',
-      previousRoleId: previousUserIdForHistory ? (await this.prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
+      previousRoleId: previousUserIdForHistory ? (await prisma.users.findUnique({ where: { id: previousUserIdForHistory }, select: { roleId: true } }))?.roleId || currentRoleId : currentRoleId,
       nextRoleId: nextUserRoleId?.roleId ,
       actionesId: payload.actionId,
       attachments: payload.attachments && payload.attachments.length > 0 ? payload.attachments : undefined,
     };
 
-    await this.prisma.renewalApplicationsFormWorkflowHistories.create({
+    await prisma.renewalApplicationsFormWorkflowHistories.create({
       data: workflowHistoryData,
     });
 
@@ -404,7 +437,7 @@ export class WorkflowService {
 
    {
      // 1b. Fetch current user's roleId
-    const currentUser = await this.prisma.users.findUnique({
+    const currentUser = await prisma.users.findUnique({
       where: { id: payload.currentUserId },
       select: { roleId: true },
     });
@@ -420,7 +453,7 @@ export class WorkflowService {
     }
      // 3. Determine next user and validate based on action type
     let nextUserId: number | null 
-     const nextUserRoleId = await this.prisma.users.findUnique({
+     const nextUserRoleId = await prisma.users.findUnique({
       where: { id: payload.nextUserId },
       select: { roleId: true },
     });
@@ -433,7 +466,7 @@ export class WorkflowService {
       throw new BadRequestException('nextUserId is required for this action.');
     }
     // 4. Find corresponding status for this action
-    const status = await this.prisma.statuses.findFirst({
+    const status = await prisma.statuses.findFirst({
       where: {
         code: {
           equals: actionCode,
@@ -475,7 +508,7 @@ export class WorkflowService {
     currentUserId: number;
   }, status: any, nextUserId: number, actionCode:string, nextUserRoleId: any, currentRoleId: number){
     // 1. Fetch the cancel request
-    const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
+    const cancelRequest = await prisma.cancelFormRequests.findUnique({
       where: { id: payload.applicationId },
     });
     if (!cancelRequest) {
@@ -495,11 +528,11 @@ export class WorkflowService {
       throw new BadRequestException('Cancel request has no associated fresh license application.');
     }
     if (isRenewal) {
-      application = await this.prisma.renewalFormPersonalDetails.findUnique({
+      application = await prisma.renewalFormPersonalDetails.findUnique({
         where: { id: cancelRequest.freshLicenseId },
       });
     } else {
-      application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
         where: { id: cancelRequest.freshLicenseId },
       });
     }
@@ -543,7 +576,7 @@ export class WorkflowService {
     }
 
     // 5. Execute all updates in a transaction
-    await this.prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: any) => {
       // Update the cancel request
       await tx.cancelFormRequests.update({
         where: { id: payload.applicationId },

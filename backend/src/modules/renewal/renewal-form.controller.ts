@@ -1,11 +1,10 @@
-import { Controller, Get, Post, Body, Param,Query,Delete,Patch,UseGuards,Request, HttpCode,HttpStatus, ForbiddenException,} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Delete, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam, ApiCreatedResponse, ApiOkResponse,} from '@nestjs/swagger';
 import { RenewalFormService } from './renewal-form.service';
 import { CreateRenewalPersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-details.dto';
 import { UploadRenewalFileDto, UploadRenewalFileResponseDto } from './dto/upload-file.dto';
 import { GetRenewalApplicationsDto } from './dto/get-applications.dto';
-import { UpdateRenewalWorkflowStatusDto } from './dto/update-workflow-status.dto';
 import { MergeLicenseDto, MergeResponseDto } from './dto/merge-license.dto';
 import { RenewalFormResponse } from '../../request/renewal-form';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
@@ -320,6 +319,12 @@ export class RenewalFormController {
     @Param('applicationId', ParseIntPipe) applicationId: number,
     @Body() uploadData: UploadRenewalFileDto,
   ): Promise<UploadRenewalFileResponseDto> {
+    // Validate MIME type based on file extension
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'doc', 'docx', 'xls', 'xlsx'];
+    const fileExt = uploadData.fileName?.split('.').pop()?.toLowerCase();
+    if (!fileExt || !allowedExtensions.includes(fileExt)) {
+      throw new BadRequestException(`File type '.${fileExt || 'unknown'}' is not allowed. Allowed types: ${allowedExtensions.join(', ')}`);
+    }
     return this.renewalFormService.uploadFile(applicationId, uploadData);
   }
 

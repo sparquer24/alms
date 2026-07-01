@@ -58,6 +58,7 @@ const FALLBACK_ACTIONS: ActionOption[] = [
   { value: -3, label: 'Dispose', code: 'DISPOSE' },
   { value: -4, label: 'Red Flag', code: 'RED_FLAG' },
   { value: -5, label: 'Request More Info', code: 'REQUEST_MORE_INFO' },
+  { value: -6, label: 'Schedule Hearing', code: 'SCHEDULE_HEARING' },
 ];
 
 // Loading Spinner Component
@@ -177,6 +178,12 @@ export default function ProceedingsForm({
   const [roleFromCookie, setRoleFromCookie] = useState<string | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+
+  // DCP Hearing State
+  const [hearingDate, setHearingDate] = useState('');
+  const [hearingType, setHearingType] = useState('ROUTINE');
+  const [noticeNumber, setNoticeNumber] = useState(`NOTICE-${Math.floor(Math.random() * 10000)}`);
+  const [hearingLocation, setHearingLocation] = useState('DCP Office, HQ');
   // Refs for scrolling to invalid fields
   const actionRef = useRef<HTMLDivElement | null>(null);
   const remarksRef = useRef<HTMLDivElement | null>(null);
@@ -403,6 +410,10 @@ export default function ProceedingsForm({
     if (roleFromCookie === 'SHO' && !draftLetter.trim())
       errors.draftLetter = 'Ground Report Letter is required for submission.';
 
+    if (selectedAction?.code === 'SCHEDULE_HEARING' && !hearingDate) {
+      errors.hearingDate = 'Hearing Date & Time is required.';
+    }
+
     if (Object.keys(errors || {}).length > 0) {
       setMissingFields(errors);
       // scroll to the first invalid field
@@ -429,12 +440,15 @@ export default function ProceedingsForm({
     }
 
 
-    // Include ground report as PDF (Base64) for SHO
+    // Include ground report as PDF for SHO to preserve formatting
     if (roleFromCookie === 'SHO' && draftLetter.trim()) {
       try {
-        // Strip HTML tags before generating PDF to avoid HTML tags in PDF
-        const cleanedContent = htmlToPlainText(draftLetter.trim());
-        const base64Pdf = generatePdfBase64(cleanedContent);
+        const content = draftLetter.trim();
+        const simpleHtmlContent = `
+<div style="font-family: 'Times New Roman', serif; font-size: 16px; line-height: 1.6; padding: 20px;">
+  ${content}
+</div>`;
+        const base64Pdf = await generatePdfBase64Async(simpleHtmlContent);
         const today = new Date().toISOString().split('T')[0];
         payload.attachments.push({
           name: `ground_report_${applicationId}_${today}.pdf`,
@@ -444,13 +458,13 @@ export default function ProceedingsForm({
         });
         payload.isGroundReportGenerated = true;
       } catch (err) {
-        // Fallback: send as text if PDF generation fails (still strip HTML)
-        const cleanedContent = htmlToPlainText(draftLetter.trim());
+        // Fallback: send as HTML if DOC generation fails
+        const base64Html = btoa(unescape(encodeURIComponent(draftLetter.trim())));
         payload.attachments.push({
-          name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
+          name: `ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.html`,
           type: 'GROUND_REPORT',
-          contentType: 'text/plain',
-          url: `data:text/plain;base64,${btoa(unescape(encodeURIComponent(cleanedContent)))}`,
+          contentType: 'text/html',
+          url: `data:text/html;base64,${base64Html}`,
         });
         payload.isGroundReportGenerated = true;
       }
@@ -489,6 +503,24 @@ export default function ProceedingsForm({
     setIsSubmitting(true);
 
     try {
+      if (selectedAction?.code === 'SCHEDULE_HEARING') {
+        const userIdCookie = getCookie('user');
+        let userId = 1;
+        if (userIdCookie && typeof userIdCookie === 'string') {
+           const parsed = JSON.parse(userIdCookie);
+           if (parsed?.id) userId = parsed.id;
+        }
+        await postData('/hearings/schedule', {
+          applicationId: Number(applicationId),
+          scheduledBy: userId,
+          hearingType,
+          noticeNumber,
+          hearingDate,
+          location: hearingLocation,
+          remarks: remarks.trim()
+        });
+      }
+
       const result = await postData(`/workflow/action`, payload);
       setSuccess(result.message || 'Action completed successfully.');
 
@@ -957,6 +989,46 @@ ${content}
     return dataUrl.split(',')[1] || '';
   };
 
+  // Helper: Generate an A4 PDF from the draft letter preserving HTML formatting and return Base64 (without prefix)
+  const generatePdfBase64Async = async (content: string): Promise<string> => {
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const container = document.createElement('div');
+      container.style.width = '800px';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.backgroundColor = 'white';
+      container.style.padding = '40px';
+      container.style.color = 'black';
+      container.style.fontFamily = 'Arial, sans-serif';
+      
+      container.innerHTML = content;
+      document.body.appendChild(container);
+
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+      document.body.removeChild(container);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const dataUrl = pdf.output('datauristring');
+      return dataUrl.split(',')[1] || '';
+    } catch (error) {
+      console.error('Error generating PDF with formatting:', error);
+      // Fallback to old plain text generation if html2canvas fails
+      return generatePdfBase64(content);
+    }
+  };
+
   const handleDownload = (format: string) => {
     const timestamp = new Date().toISOString().split('T')[0];
     const baseFilename = `ground-report-${applicationId}-${timestamp}`;
@@ -970,33 +1042,41 @@ ${content}
         break;
       case 'txt':
         // Strip all formatting and HTML tags for plain text
-        const plainText = htmlToPlainText(draftLetter)
-          .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
-          .replace(/\*(.*?)\*/g, '$1') // Remove italic
-          .replace(/__(.*?)__/g, '$1'); // Remove underline
-
-        const blob = new Blob([plainText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${baseFilename}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setSuccess('Text file downloaded successfully!');
-        break;
       default:
         setError('Unsupported download format');
     }
   };
 
   const generateDraftLetter = () => {
+    // Safely extract applicant name
+    const applicantName = applicationData 
+      ? [applicationData.firstName, applicationData.middleName, applicationData.lastName].filter(Boolean).join(' ') 
+      : '[Applicant Name]';
+      
+    // Safely extract address info
+    const policeStation = typeof applicationData?.presentAddress?.policeStation === 'object' 
+      ? applicationData?.presentAddress?.policeStation?.name 
+      : applicationData?.presentAddress?.policeStation || '[Police Station Name]';
+      
+    const addressLine = applicationData?.presentAddress?.addressLine || '[Full Address]';
+    
+    const districtName = typeof applicationData?.presentAddress?.district === 'object' 
+      ? applicationData?.presentAddress?.district?.name 
+      : applicationData?.presentAddress?.district || '[City]';
+      
+    const stateName = typeof applicationData?.presentAddress?.state === 'object' 
+      ? applicationData?.presentAddress?.state?.name 
+      : applicationData?.presentAddress?.state || '[State]';
+      
+    const occupation = applicationData?.occupationAndBusiness?.occupation || '[occupation/profession]';
+    
     // Render the Arms License Verification template from TiptapRichTextEditor
     return `<div style="font-family: Georgia, 'Times New Roman', serif; color: #1f2937; line-height: 1.8;">
   <div style="max-width: 8.5in; margin: 0 auto; padding: 2rem; background: white;">
     <div style="text-align: center; padding-bottom: 1.5rem; border-bottom: 2px solid #1f2937; margin-bottom: 2rem;">
       <p style="margin: 0; font-weight: bold; font-size: 0.9rem;">**[On Official Letterhead]**</p>
       <p style="margin: 0.75rem 0 0 0; font-weight: bold;">Police Station / Law Enforcement Agency</p>
-      <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">[Station Name & Address]</p>
+      <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">${policeStation}</p>
     </div>
 
     <div style="margin-bottom: 2rem;">
@@ -1006,9 +1086,9 @@ ${content}
     <div style="background: #f3f4f6; padding: 1.5rem; border-radius: 0.375rem; margin-bottom: 2rem; border-left: 4px solid #1f2937;">
       <p style="margin: 0; font-weight: 600; margin-bottom: 0.75rem;">To,</p>
       <p style="margin: 0.25rem 0; font-weight: 600;">The Station House Officer (SHO)</p>
-      <p style="margin: 0.25rem 0;">[Police Station Name]</p>
-      <p style="margin: 0.25rem 0;">[Full Address]</p>
-      <p style="margin: 0.25rem 0;">[City, State]</p>
+      <p style="margin: 0.25rem 0;">${policeStation}</p>
+      <p style="margin: 0.25rem 0;">${addressLine}</p>
+      <p style="margin: 0.25rem 0;">${districtName}, ${stateName}</p>
     </div>
 
     <div style="background: #fffbeb; padding: 1rem; border-left: 4px solid #d97706; border-radius: 0.375rem; margin-bottom: 2rem;">
@@ -1017,33 +1097,30 @@ ${content}
 
     <p style="margin-bottom: 1.5rem;">Respected Sir/Madam,</p>
 
-    <p style="margin-bottom: 1.5rem; text-align: justify;">In compliance with the instructions received from the ARMS Branch, this office has undertaken a detailed verification of the antecedents, character, and background of <strong>[Applicant Name]</strong>, who has applied for issuance/renewal of an arms license.</p>
+    <p style="margin-bottom: 1.5rem; text-align: justify;">In compliance with the instructions received from the ARMS Branch, this office has undertaken a detailed verification of the antecedents, character, and background of <strong>${applicantName}</strong>, who has applied for issuance/renewal of an arms license.</p>
 
     <div style="background: #ecfdf5; border-left: 4px solid #059669; padding: 1.5rem; border-radius: 0.375rem; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0 0 1rem 0; color: #065f46;">📋 Verification Summary</h3>
+      <h3 style="margin: 0 0 1rem 0; color: #065f46;">Verification Summary</h3>
       <ol style="margin: 0; padding-left: 1.5rem; color: #047857;">
-        <li style="margin-bottom: 0.75rem;"><strong>Personal & Residential Verification</strong><br/>The applicant is a permanent resident of the given address. Enquiries confirm continuous residence at the location for the past [X years], along with family members.</li>
-        <li style="margin-bottom: 0.75rem;"><strong>Criminal Record Verification</strong><br/>A comprehensive check of the police station records, crime registers, and state crime bureau records reveals [findings].</li>
-        <li style="margin-bottom: 0.75rem;"><strong>Neighborhood & Local Inquiry</strong><br/>A door-to-door inquiry was conducted with neighbors, shopkeepers, and other responsible members of the locality. [findings]</li>
-        <li style="margin-bottom: 0.75rem;"><strong>Financial & Social Background</strong><br/>The applicant is reported to be financially [status], engaged in [occupation/profession].</li>
-        <li style="margin-bottom: 0.75rem;"><strong>Risk Assessment</strong><br/>No intelligence input, local report, or community feedback suggests any risk concerns. [additional details]</li>
-        <li style="margin-bottom: 0;"><strong>General Character</strong><br/>The applicant enjoys a [reputation] reputation in the society. [character assessment]</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Personal & Residential Verification</strong><br/>The applicant is a permanent resident of the given address. Enquiries confirm continuous residence at the location along with family members.</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Criminal Record Verification</strong><br/>A comprehensive check of the police station records, crime registers, and state crime bureau records reveals no adverse findings.</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Neighborhood & Local Inquiry</strong><br/>A door-to-door inquiry was conducted with neighbors, shopkeepers, and other responsible members of the locality. No objections were raised.</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Financial & Social Background</strong><br/>The applicant is reported to be financially stable, engaged in ${occupation}.</li>
+        <li style="margin-bottom: 0.75rem;"><strong>Risk Assessment</strong><br/>No intelligence input, local report, or community feedback suggests any risk concerns.</li>
+        <li style="margin-bottom: 0;"><strong>General Character</strong><br/>The applicant enjoys a good reputation in the society.</li>
       </ol>
     </div>
 
     <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 1.5rem; border-radius: 0.375rem; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0 0 1rem 0; color: #0c4a6e;">✓ Conclusion & Recommendation</h3>
-      <p style="margin: 0; text-align: justify; color: #0c4a6e;">On the basis of the above inquiries and verification conducted by this police station, it is concluded that <strong>[recommendation]</strong>.</p>
+      <h3 style="margin: 0 0 1rem 0; color: #0c4a6e;">Conclusion & Recommendation</h3>
+      <p style="margin: 0; text-align: justify; color: #0c4a6e;">On the basis of the above inquiries and verification conducted by this police station, it is concluded that <strong>the application is Recommended for approval</strong>.</p>
     </div>
 
     <p style="margin-bottom: 2rem;">Thanking you,</p>
 
     <div style="margin-top: 3rem;">
       <p style="margin: 0; color: #6b7280;">Yours faithfully,</p>
-      <p style="margin: 2rem 0 0 0; border-top: 1px solid #1f2937; padding-top: 0.5rem;">___________________________</p>
-      <p style="margin: 0.25rem 0;"><strong>[Signature & Seal]</strong></p>
-      <p style="margin: 0.25rem 0;"><strong>[Name & Designation]</strong></p>
-      <p style="margin: 0.25rem 0;">[Police Station/Unit]</p>
+      <p style="margin: 2rem 0 0 0; border-top: 1px solid #1f2937; padding-top: 0.5rem;">${policeStation}</p>
       <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #6b7280;">Date: ${new Date().toLocaleDateString()}</p>
     </div>
   </div>
@@ -1323,23 +1400,6 @@ ${content}
                             </svg>
                             Word (.doc)
                           </button>
-                          <button
-                            type='button'
-                            onClick={() => {
-                              handleDownload('txt');
-                              setShowDownloadDropdown(false);
-                            }}
-                            className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
-                          >
-                            <svg
-                              className='w-4 h-4 mr-3 text-gray-600'
-                              fill='currentColor'
-                              viewBox='0 0 24 24'
-                            >
-                              <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
-                            </svg>
-                            Text (.txt)
-                          </button>
                         </div>
                       </div>
                     )}
@@ -1368,6 +1428,38 @@ ${content}
                     </svg>
                     Reset
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* DCP Hearing Section */}
+            {selectedAction?.code === 'SCHEDULE_HEARING' && (
+              <div className='mt-8 border-t pt-6'>
+                <div className='flex items-center justify-between mb-3'>
+                  <h4 className='text-md font-semibold text-gray-800'>Hearing Details</h4>
+                </div>
+                <div className='bg-amber-50 p-4 rounded-lg border border-amber-200 grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Hearing Type</label>
+                    <select value={hearingType} onChange={e => setHearingType(e.target.value)} className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500'>
+                      <option value="ROUTINE">Routine</option>
+                      <option value="SPECIAL">Special / Risk Assessment</option>
+                      <option value="APPEAL">Appeal</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Notice Number</label>
+                    <input type="text" value={noticeNumber} onChange={e => setNoticeNumber(e.target.value)} className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500' required />
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Date & Time <span className="text-red-500">*</span></label>
+                    <input type="datetime-local" value={hearingDate} onChange={e => setHearingDate(e.target.value)} className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 ${missingFields.hearingDate ? 'border-red-500' : 'border-gray-300'}`} required />
+                    {missingFields.hearingDate && <p className="text-xs text-red-500 mt-1">{missingFields.hearingDate}</p>}
+                  </div>
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-1'>Location</label>
+                    <input type="text" value={hearingLocation} onChange={e => setHearingLocation(e.target.value)} className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500' required />
+                  </div>
                 </div>
               </div>
             )}
@@ -1610,23 +1702,6 @@ ${content}
                           <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
                         </svg>
                         Word (.doc)
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => {
-                          handleDownload('txt');
-                          setShowDownloadDropdown(false);
-                        }}
-                        className='w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center'
-                      >
-                        <svg
-                          className='w-4 h-4 mr-3 text-gray-600'
-                          fill='currentColor'
-                          viewBox='0 0 24 24'
-                        >
-                          <path d='M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z' />
-                        </svg>
-                        Text (.txt)
                       </button>
                     </div>
                   </div>

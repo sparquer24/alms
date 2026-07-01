@@ -7,6 +7,7 @@ import Header from '../../../components/Header';
 import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
+import { apiClient } from '../../../config/authenticatedApiClient';
 
 
 
@@ -15,8 +16,9 @@ import ProcessApplicationModal from '../../../components/ProcessApplicationModal
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
 import EnhancedApplicationTimeline from '../../../components/EnhancedApplicationTimeline';
-import { PageLayoutSkeleton, ApplicationCardSkeleton } from '../../../components/Skeleton';
+import { PageLayoutSkeleton, ApplicationCardSkeleton, ApplicationDetailSkeleton } from '../../../components/Skeleton';
 import ProceedingsForm from '../../../components/ProceedingsForm';
+import { LazySection } from '../../../components/LazySection';
 import { RichTextDisplay } from '../../../components/RichTextDisplay';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 import { RenewalService } from '../../../api/renewalService';
@@ -117,6 +119,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     | 're-enquiry'
   >('approve');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [workflowHistory, setWorkflowHistory] = useState<any[]>([]);
   const [confirmationDetails, setConfirmationDetails] = useState({
     title: '',
     message: '',
@@ -145,7 +148,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   // Use sidebar counts hook here so we can trigger an immediate refresh
   // after actions that move an application between inbox buckets.
-  const { refreshCounts } = useSidebarCounts(true);
+  // We pass !loading to give priority to the /application/4 dependence API first.
+  const { refreshCounts } = useSidebarCounts(!loading);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const licenseDetails = useMemo(() => {
     const rawDetails = (application as any)?.licenseDetails || (application as any)?.licenseDetail;
@@ -212,6 +216,17 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             setApplication(null);
           }
         }
+
+        try {
+          const typeParam = isRenewalView ? 'renewal' : 'fresh';
+          const historyResponse = await apiClient.get<any>(`/workflow/history/${applicationId}?type=${typeParam}`);
+          if (historyResponse && historyResponse.success) {
+            setWorkflowHistory(historyResponse.data);
+          }
+        } catch (err) {
+          console.error('Failed to fetch workflow history', err);
+        }
+
       } catch (error) {
         setApplication(null);
       } finally {
@@ -468,9 +483,45 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }, 2000);
   };
 
+  const handleGenerateLicense = async () => {
+    if (!applicationId) return;
+    try {
+      setSuccessMessage('Generating License PDF...');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/licenses/generate/${applicationId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issuedBy: user?.id || 1 })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuccessMessage('License generated successfully!');
+        if (data.pdfUrl) {
+           if (data.pdfUrl.startsWith('data:')) {
+             // It's a base64 data URI, convert to Blob to preview in a new tab
+             fetch(data.pdfUrl)
+               .then(res => res.blob())
+               .then(blob => {
+                 const url = URL.createObjectURL(blob);
+                 window.open(url, '_blank');
+               });
+           } else {
+             // It's a relative path from the backend
+             const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3001';
+             window.open(`${baseUrl}${data.pdfUrl}`, '_blank');
+           }
+        }
+      } else {
+        setErrorMessage(data.message || 'Failed to generate license');
+      }
+    } catch (error) {
+      setErrorMessage('Failed to generate license');
+    }
+  };
+
   // Show skeleton loading while authenticating or loading data
   if (!initialized || authLoading || loading) {
-    return <PageLayoutSkeleton />;
+    return <ApplicationDetailSkeleton />;
   }
   if (!isAuthenticated) {
     // Optionally, you can return null or a redirect message
@@ -604,15 +655,28 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       </div>
                       <h3 className="font-bold text-slate-800 text-lg tracking-tight">Application Information</h3>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleBrowserPrint}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden"
-                      title="Print application details"
-                    >
-                      <Printer className="w-4.5 h-4.5 text-slate-500" />
-                      Print Details
-                    </button>
+                    <div className="flex gap-2">
+                      {userRole === 'ZS' && (
+                        <button
+                          type="button"
+                          onClick={handleGenerateLicense}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm text-sm font-semibold hover:bg-blue-700 transition-all duration-200 print:hidden"
+                          title="Generate PDF License"
+                        >
+                          <FileCheck className="w-4.5 h-4.5" />
+                          Generate License
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleBrowserPrint}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden"
+                        title="Print application details"
+                      >
+                        <Printer className="w-4.5 h-4.5 text-slate-500" />
+                        Print Details
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -663,6 +727,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     {/* Right column: Photo & Quick Summary */}
                     <div>
                       <SummaryCard application={application} applicationId={applicationId} applicantName={applicantName} />
+                      <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden relative group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                        <div className="relative z-10">
+                          <LazySection minHeight="400px">
+                            <EnhancedApplicationTimeline application={application!} workflowHistory={workflowHistory} />
+                          </LazySection>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -913,7 +985,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     <div className="w-1 h-5 bg-emerald-500 rounded-full"></div>
                     Uploaded Documents
                   </h3>
-                  <DocumentTable documents={application?.documents || []} />
+                  <LazySection minHeight="250px">
+                    <DocumentTable documents={application?.documents || []} />
+                  </LazySection>
                 </div>
               </div>
 
