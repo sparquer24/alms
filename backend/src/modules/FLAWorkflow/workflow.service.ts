@@ -62,30 +62,59 @@ export class WorkflowService {
       const cancelRequests = await prisma.cancelFormRequests.findMany({
         select: {
           id: true,
+          freshLicenseId: true,
+          applicationType: true,
+          cancellationReason: true,
+          remarks: true,
+          status: true,
           workFlowStatusId: true,
           currentUserId: true,
           previousUserId: true,
           requestedBy: true,
           actionedBy: true,
-          status: true,
+          requestedDate: true,
+          actionedDate: true,
           createdAt: true,
           updatedAt: true,
+          freshLicense: {
+            select: {
+              id: true,
+              firstName: true,
+              middleName: true,
+              lastName: true,
+            },
+          },
         }
       });
-      return cancelRequests.map(r => ({
-        id: r.id,
-        workflowStatusId: r.workFlowStatusId,
-        currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
-        previousUserId: r.previousUserId || r.requestedBy,
-        isApproved: r.status === 'APPROVED',
-        isRejected: r.status === 'REJECTED',
-        isRecommended: false,
-        isNotRecommended: false,
-        isPending: r.status === 'PENDING',
-        isReEnquiry: false,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      }));
+      return cancelRequests.map(r => {
+        const applicantName = r.freshLicense
+          ? [r.freshLicense.firstName, r.freshLicense.middleName, r.freshLicense.lastName]
+              .filter(Boolean)
+              .join(' ') || 'Applicant'
+          : 'Applicant';
+
+        return {
+          id: r.id,
+          freshLicenseId: r.freshLicenseId,
+          applicationType: r.applicationType,
+          cancellationReason: r.cancellationReason,
+          remarks: r.remarks,
+          applicantName,
+          requestedDate: r.requestedDate,
+          actionedDate: r.actionedDate,
+          workflowStatusId: r.workFlowStatusId,
+          currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
+          previousUserId: r.previousUserId || r.requestedBy,
+          isApproved: r.status === 'APPROVED',
+          isRejected: r.status === 'REJECTED',
+          isRecommended: false,
+          isNotRecommended: false,
+          isPending: r.status === 'PENDING',
+          isReEnquiry: false,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        };
+      });
     } else {
       throw new Error(`Invalid applicationType: ${applicationType}`);
     }

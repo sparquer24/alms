@@ -1448,19 +1448,13 @@ export class ApplicationFormService {
       let renewalByStatusId: Map<number, any[]> = new Map();
       let cancelFormResult: { total: number; data: any[] } = { total: 0, data: [] };
 
-      // Fetch Fresh License Applications (paginated)
+      // Fetch Fresh License Applications
       if (fetchFresh) {
-        const [count, rawData] = await Promise.all([
-          prisma.freshLicenseApplicationPersonalDetails.count({ where }),
-          prisma.freshLicenseApplicationPersonalDetails.findMany({
-            where,
-            skip,
-            take: limit,
-            orderBy: orderByObj,
-            select,
-          }),
-        ]);
-        freshLicenseTotal = count;
+        const rawData = await prisma.freshLicenseApplicationPersonalDetails.findMany({
+          where,
+          orderBy: orderByObj,
+          select,
+        });
 
         freshLicenseTransformed = (rawData || []).map((row: any) => {
           const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
@@ -1589,7 +1583,7 @@ export class ApplicationFormService {
       // Combine all data into one array
       const combinedData: any[] = [];
 
-      // Add fresh licenses first
+      // Add fresh licenses
       if (fetchFresh) {
         combinedData.push(...freshLicenseTransformed);
       }
@@ -1606,22 +1600,39 @@ export class ApplicationFormService {
         combinedData.push(...cancelFormResult.data);
       }
 
-      // Calculate total: use freshLicenseTotal as base, add cancel total when applicable
-      let total = freshLicenseTotal;
-      if (fetchCancel && !fetchFresh) {
-        // If only cancel is requested, use cancel total
-        total = cancelFormResult.total;
-      } else if (fetchCancel) {
-        // If cancel is combined with fresh/renewal, add cancel count
-        total = total + cancelFormResult.total;
-      }
+      // Calculate total count of combined records
+      const total = combinedData.length;
+
+      // Apply in-memory sorting
+      const sortField = filter.orderBy || 'createdAt';
+      const sortOrder = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      combinedData.sort((a, b) => {
+        let aVal = a[sortField];
+        let bVal = b[sortField];
+
+        if (aVal === undefined || aVal === null) return 1;
+        if (bVal === undefined || bVal === null) return -1;
+
+        if (sortField === 'createdAt' || sortField === 'actionTakenAt') {
+          aVal = new Date(aVal).getTime();
+          bVal = new Date(bVal).getTime();
+        }
+
+        if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Apply pagination on sorted combined data
+      const paginatedData = combinedData.slice(skip, skip + limit);
 
       // Return in the [error, result] tuple format
       return [null, {
         total,
         page,
         limit,
-        data: combinedData
+        data: paginatedData
       }];
     } catch (error) {
       return [error, null];
@@ -2196,9 +2207,8 @@ export class ApplicationFormService {
     // --- Fetch from CancelFormRequests (pending/active requests) ---
     const cancelFormWhere: any = {};
 
-    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's assigned to).
-    // After forwarding, the cancel request is re-assigned to a new user, so we filter by currentUserId
-    // (like Fresh/Renewal do) rather than requestedBy (original requester).
+    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's assigned to)
+    // matching the exact logic used in getFilteredApplications
     if (filter.currentUserId) {
       const parsedUserId = Number(filter.currentUserId);
       if (!isNaN(parsedUserId)) {
@@ -2206,19 +2216,33 @@ export class ApplicationFormService {
       }
     }
 
-    // Status filter - map workflowStatusId filter to cancel request's workFlowStatusId
+    // Status filter - map workflowStatusId filter matching resolved IDs in getFilteredApplications
     if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
-      const numericIds = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
-      if (numericIds.length > 0) {
-        cancelFormWhere.workFlowStatusId = { in: numericIds };
+      const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
+      const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
+      let resolvedIds: number[] = [...numericCandidates];
+
+      if (nonNumeric.length > 0) {
+        const fromResolver = await this.resolveStatusIdentifiers(nonNumeric);
+        if (fromResolver && fromResolver.length > 0) {
+          resolvedIds = Array.from(new Set([...resolvedIds, ...fromResolver]));
+        }
+      }
+
+      if (resolvedIds.length > 0) {
+        cancelFormWhere.workFlowStatusId = { in: resolvedIds };
       }
     }
 
-    // Search filter (only id supported for cancel form requests)
+    // Search filter - support id, firstName, lastName, acknowledgementNo via relation lookup
     if (filter.searchField && filter.search) {
       if (filter.searchField === 'id') {
         const idVal = Number(filter.search);
         if (!isNaN(idVal)) cancelFormWhere.id = idVal;
+      } else if (['firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
+        cancelFormWhere.freshLicense = {
+          [filter.searchField]: { contains: String(filter.search), mode: 'insensitive' }
+        };
       }
     }
 
@@ -2241,6 +2265,18 @@ export class ApplicationFormService {
               name: true,
             },
           },
+          currentUser: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  code: true,
+                },
+              },
+            },
+          },
           requester: {
             select: {
               id: true,
@@ -2257,10 +2293,19 @@ export class ApplicationFormService {
       }),
     ]);
 
+    // Fetch the CANCEL status details from DB to get the correct status ID
+    const cancelStatus = await prisma.statuses.findFirst({
+      where: { code: 'CANCEL' }
+    });
+    const cancelStatusId = cancelStatus?.id || 8;
+
+    const hasCancelStatus = filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.map(Number).includes(Number(cancelStatusId));
+
     // --- Fetch from CancelLicenseHistory (approved/completed cancellations) ---
     // Only fetch history records when NOT filtering by statusIds (since history records have no workflowStatusId)
+    // OR when the status filter includes the CANCEL status (since history records are implicitly CANCEL status)
     // OR when isSent flag is set (which targets cancelledBy)
-    const shouldFetchHistory = !filter.statusIds || filter.statusIds.length === 0;
+    const shouldFetchHistory = !filter.statusIds || filter.statusIds.length === 0 || hasCancelStatus;
     let cancelHistoryRawData: any[] = [];
 
     if (shouldFetchHistory) {
@@ -2350,11 +2395,11 @@ export class ApplicationFormService {
         createdAt: row.createdAt,
         workflowStatusId: row.workFlowStatusId,
         workflowStatus: row.workflowStatus,
-        currentUser: row.requester ? {
-          id: row.requester.id,
-          username: row.requester.username,
-          email: row.requester.email,
-          role: row.requester.role,
+        currentUser: row.currentUser ? {
+          id: row.currentUser.id,
+          username: row.currentUser.username,
+          email: row.currentUser.email,
+          role: row.currentUser.role,
         } : null,
         previousUser: null,
       };
@@ -2374,8 +2419,16 @@ export class ApplicationFormService {
         applicantName: nameParts.join(' '),
         applicationType: 'Cancel Request',
         createdAt: row.cancelledAt,
-        workflowStatusId: null,
-        workflowStatus: null,
+        workflowStatusId: cancelStatusId,
+        workflowStatus: cancelStatus ? {
+          id: cancelStatus.id,
+          code: cancelStatus.code,
+          name: cancelStatus.name,
+        } : {
+          id: 8,
+          code: 'CANCEL',
+          name: 'Cancel',
+        },
         currentUser: row.previousUser ? {
           id: row.previousUser.id,
           username: row.previousUser.username,
@@ -2390,10 +2443,7 @@ export class ApplicationFormService {
     const combinedData = [...transformedCancelRequests, ...transformedCancelHistory];
     const total = cancelFormTotal + cancelHistoryTotal;
 
-    // Apply pagination on combined data
-    const paginatedData = combinedData.slice(skip, skip + limit);
-
-    return { total, data: paginatedData };
+    return { total, data: combinedData };
   }
 
   /**

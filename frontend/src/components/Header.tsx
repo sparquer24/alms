@@ -272,7 +272,7 @@ const Header = (props: HeaderProps) => {
 
       setShowCancelModal(false);
       router.push(
-        `/cancelForm/new?applicationId=${encodeURIComponent(String(freshApplication.id))}`
+        `/cancelForm?openNew=true&applicationId=${encodeURIComponent(String(freshApplication.id))}`
       );
     } catch (error: any) {
       const message = error?.message || 'Unable to fetch fresh application data.';

@@ -665,6 +665,17 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     (apiApp?.applicationType && /renewal/i.test(String(apiApp.applicationType)))
   );
 
+  const isCancel = Boolean(
+    apiApp?.cancelRequestId ||
+    (apiApp?.applicationType && /cancel/i.test(String(apiApp.applicationType)))
+  );
+
+  const applicationTypeLabel = isCancel 
+    ? 'Cancel Request' 
+    : isRenewal 
+      ? 'Renewal Application' 
+      : 'Fresh License';
+
   return {
     id: String(apiApp.id || ''),
     acknowledgementNo: apiApp.acknowledgementNo || undefined,
@@ -675,7 +686,7 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     gender: apiApp.gender || undefined, // This might need to be fetched from detailed API
     dob: apiApp.dateOfBirth || undefined, // This might need to be fetched from detailed API
     address: apiApp.address || undefined, // This might need to be fetched from detailed API
-    applicationType: isRenewal ? 'Renewal Application' : 'Fresh License',
+    applicationType: applicationTypeLabel,
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
     status: apiApp.status,
