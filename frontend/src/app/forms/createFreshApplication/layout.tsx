@@ -281,7 +281,7 @@ function FreshApplicationLayoutContent({
       >
         <div
           className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full flex flex-col p-0 animate-step-transition'
-          key={pathname}
+          key={pathname || ''}
         >
           {children}
         </div>
