@@ -28,12 +28,14 @@ interface ProceedingsFormProps {
 const resolveHierarchyApplicationType = (value?: string): string => {
   const normalized = String(value || '').trim().toLowerCase();
   if (normalized.includes('renew')) return 'RenewalApplicationForm';
+  if (normalized.includes('cancel')) return 'CancelApplication';
   return 'FreshApplication';
 };
 
 const resolveWorkflowApplicationType = (value?: string): string => {
   const normalized = String(value || '').trim().toLowerCase();
   if (normalized.includes('renew')) return 'RenewalApplicationForm';
+  if (normalized.includes('cancel')) return 'CancelFormRequest';
   return 'FreshLicenseApplicationForm';
 };
 

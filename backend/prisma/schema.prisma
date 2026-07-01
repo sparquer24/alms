@@ -16,7 +16,7 @@ model Statuses {
   createdAt           DateTime                                 @default(now())
   updatedAt           DateTime                                 @updatedAt
   isStarted           Boolean                                  @default(false)
-  CancelFormRequests  CancelFormRequests[]
+  cancelFormRequests  CancelFormRequests[]                     @relation("CancelFormWorkflowStatus")
   applications        FreshLicenseApplicationPersonalDetails[] @relation("ApplicationWorkflowStatus")
   renewalApplications RenewalFormPersonalDetails[]             @relation("RenewalApplicationWorkflowStatus")
 }
@@ -29,7 +29,7 @@ model Actiones {
   isActive                   Boolean                                         @default(true)
   createdAt                  DateTime                                        @default(now())
   updatedAt                  DateTime                                        @updatedAt
-  CancelWorkflowHistories    CancelWorkflowHistories[]
+  cancelWorkflowHistories    CancelWorkflowHistories[]                       @relation("CancelActionesToWorkflowHistory")
   applicationsHistory        FreshLicenseApplicationsFormWorkflowHistories[] @relation("ActionesToWorkflowHistory")
   renewalApplicationsHistory RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalActionesToWorkflowHistory")
   rolesActionsMapping        RolesActionsMapping[]
@@ -117,8 +117,8 @@ model Roles {
   can_generate_ground_report                                            Boolean                                         @default(false)
   can_FLAF                                                              Boolean                                         @default(false)
   can_create_freshLicence                                               Boolean                                         @default(false)
-  CancelWorkflowHistories_CancelWorkflowHistories_nextRoleIdToRoles     CancelWorkflowHistories[]                       @relation("CancelWorkflowHistories_nextRoleIdToRoles")
-  CancelWorkflowHistories_CancelWorkflowHistories_previousRoleIdToRoles CancelWorkflowHistories[]                       @relation("CancelWorkflowHistories_previousRoleIdToRoles")
+  cancelWorkflowHistoryNext      CancelWorkflowHistories[]                       @relation("CancelWorkflowNextRole")
+  cancelWorkflowHistoryPrevious                                         CancelWorkflowHistories[]                       @relation("CancelWorkflowPreviousRole")
   workflowHistoryNext                                                   FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowNextRole")
   workflowHistoryPrevious                                               FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   renewalWorkflowHistoryNext                                            RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalWorkflowNextRole")
@@ -178,12 +178,12 @@ model Users {
   rangeOfficeId                                                         Int?
   actionsFrom                                                           ActionHistories[]                               @relation("ActionFromUser")
   actionsTo                                                             ActionHistories[]                               @relation("ActionToUser")
-  CancelFormRequests_CancelFormRequests_actionedByToUsers               CancelFormRequests[]                            @relation("CancelFormRequests_actionedByToUsers")
-  CancelFormRequests_CancelFormRequests_currentUserIdToUsers            CancelFormRequests[]                            @relation("CancelFormRequests_currentUserIdToUsers")
-  CancelFormRequests_CancelFormRequests_previousUserIdToUsers           CancelFormRequests[]                            @relation("CancelFormRequests_previousUserIdToUsers")
-  CancelFormRequests_CancelFormRequests_requestedByToUsers              CancelFormRequests[]                            @relation("CancelFormRequests_requestedByToUsers")
-  CancelWorkflowHistories_CancelWorkflowHistories_nextUserIdToUsers     CancelWorkflowHistories[]                       @relation("CancelWorkflowHistories_nextUserIdToUsers")
-  CancelWorkflowHistories_CancelWorkflowHistories_previousUserIdToUsers CancelWorkflowHistories[]                       @relation("CancelWorkflowHistories_previousUserIdToUsers")
+  cancelRequestActioners                                                CancelFormRequests[]                            @relation("CancelRequestActioner")
+  cancelRequestCurrentUsers                                             CancelFormRequests[]                            @relation("CancelFormCurrentUser")
+  cancelRequestPreviousUsers                                            CancelFormRequests[]                            @relation("CancelFormPreviousUser")
+  cancelRequestRequesters                                               CancelFormRequests[]                            @relation("CancelRequestRequester")
+  cancelWorkflowHistoryNext                                             CancelWorkflowHistories[]                       @relation("CancelWorkflowNextUser")
+  cancelWorkflowHistoryPrevious                                         CancelWorkflowHistories[]                       @relation("CancelWorkflowPreviousUser")
   flowMaps                                                              FlowMaps[]
   nextUserInFlows                                                       FlowNextUsers[]                                 @relation("NextUserInFlow")
   currentApplications                                                   FreshLicenseApplicationPersonalDetails[]        @relation("CurrentApplicationOwner")
@@ -272,7 +272,7 @@ model FreshLicenseApplicationPersonalDetails {
   isNotRecommended           Boolean?                                        @default(false)
   isRecommended              Boolean?                                        @default(false)
   aliasPotalNumber           String?
-  CancelFormRequests         CancelFormRequests[]
+  cancelFormRequests         CancelFormRequests[]                            @relation("FreshLicenseCancelLog")
   biometricData              FLAFBiometricDatas?                             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]                         @relation("CriminalHistories")
   fileUploads                FLAFFileUploads[]                               @relation("FileUploads")
@@ -286,7 +286,7 @@ model FreshLicenseApplicationPersonalDetails {
   workflowStatus             Statuses?                                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
   workflowHistories          FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowHistories")
   mergeAuditLogs             LicensesMergeAuditLog[]                         @relation("FreshLicenseMergeLog")
-  RenewalFormPersonalDetails RenewalFormPersonalDetails[]
+  renewalFormPersonalDetails                                            RenewalFormPersonalDetails[]                    @relation("FreshLicenseRenewalLink")
 
   @@index([aadharNumber])
 }
@@ -463,7 +463,7 @@ model RenewalFormPersonalDetails {
   criminalHistories                      RenewalCriminalHistories[]                 @relation("RenewalCriminalHistories")
   fileUploads                            RenewalFileUploads[]                       @relation("RenewalFileUploads")
   currentUser                            Users?                                     @relation("RenewalCurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
-  FreshLicenseApplicationPersonalDetails FreshLicenseApplicationPersonalDetails?    @relation(fields: [freshLicenseId], references: [id], onDelete: Cascade)
+  FreshLicenseApplicationPersonalDetails                                FreshLicenseApplicationPersonalDetails?         @relation("FreshLicenseRenewalLink", fields: [freshLicenseId], references: [id], onDelete: Cascade)
   occupationAndBusiness                  RenewalOccupationAndBusiness?              @relation("RenewalOccupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
   permanentAddress                       RenewalAddressesAndContactDetails?         @relation("RenewalPermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
   presentAddress                         RenewalAddressesAndContactDetails?         @relation("RenewalPresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
@@ -625,51 +625,49 @@ model LicensesMergeAuditLog {
   @@index([mergeId])
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model CancelFormRequests {
-  id                                             Int                                     @id @default(autoincrement())
-  applicationType                                String
-  cancellationReason                             String
-  remarks                                        String?
-  status                                         String                                  @default("PENDING")
-  requestedBy                                    Int
-  requestedDate                                  DateTime                                @default(now())
-  actionedBy                                     Int?
-  actionedDate                                   DateTime?
-  workFlowStatusId                               Int?
-  createdAt                                      DateTime                                @default(now())
-  updatedAt                                      DateTime
-  applicationId                                  Int
-  freshLicenseId                                 Int?
-  currentUserId                                  Int?
-  previousUserId                                 Int?
-  Users_CancelFormRequests_actionedByToUsers     Users?                                  @relation("CancelFormRequests_actionedByToUsers", fields: [actionedBy], references: [id])
-  Users_CancelFormRequests_currentUserIdToUsers  Users?                                  @relation("CancelFormRequests_currentUserIdToUsers", fields: [currentUserId], references: [id])
-  FreshLicenseApplicationPersonalDetails         FreshLicenseApplicationPersonalDetails? @relation(fields: [freshLicenseId], references: [id], onDelete: Cascade)
-  Users_CancelFormRequests_previousUserIdToUsers Users?                                  @relation("CancelFormRequests_previousUserIdToUsers", fields: [previousUserId], references: [id])
-  Users_CancelFormRequests_requestedByToUsers    Users                                   @relation("CancelFormRequests_requestedByToUsers", fields: [requestedBy], references: [id])
-  Statuses                                       Statuses?                               @relation(fields: [workFlowStatusId], references: [id])
-  CancelWorkflowHistories                        CancelWorkflowHistories[]
+  id                      Int                                     @id @default(autoincrement())
+  applicationType         String
+  cancellationReason      String
+  remarks                 String?
+  status                  String                                  @default("PENDING")
+  requestedBy             Int
+  requestedDate           DateTime                                @default(now())
+  actionedBy              Int?
+  actionedDate            DateTime?
+  currentUserId           Int?
+  previousUserId          Int?
+  workFlowStatusId        Int?
+  createdAt               DateTime                                @default(now())
+  updatedAt               DateTime                                @updatedAt
+  freshLicenseId          Int?
+  actioner                Users?                                  @relation("CancelRequestActioner", fields: [actionedBy], references: [id])
+  currentUser             Users?                                  @relation("CancelFormCurrentUser", fields: [currentUserId], references: [id])
+  freshLicense            FreshLicenseApplicationPersonalDetails? @relation("FreshLicenseCancelLog", fields: [freshLicenseId], references: [id], onDelete: Cascade)
+  previousUser            Users?                                  @relation("CancelFormPreviousUser", fields: [previousUserId], references: [id])
+  requester               Users                                   @relation("CancelRequestRequester", fields: [requestedBy], references: [id])
+  workflowStatus          Statuses?                               @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id])
+  cancelWorkflowHistories CancelWorkflowHistories[]               @relation("CancelWorkflowHistories")
 }
 
 model CancelWorkflowHistories {
-  id                                                  Int                @id @default(autoincrement())
-  applicationId                                       Int
-  previousUserId                                      Int
-  nextUserId                                          Int
-  actionTaken                                         String
-  remarks                                             String?
-  createdAt                                           DateTime           @default(now())
-  previousRoleId                                      Int?
-  nextRoleId                                          Int?
-  actionesId                                          Int?
-  attachments                                         Json?
-  Actiones                                            Actiones?          @relation(fields: [actionesId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_actiones")
-  CancelFormRequests                                  CancelFormRequests @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_application")
-  Roles_CancelWorkflowHistories_nextRoleIdToRoles     Roles?             @relation("CancelWorkflowHistories_nextRoleIdToRoles", fields: [nextRoleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_next_role")
-  Users_CancelWorkflowHistories_nextUserIdToUsers     Users              @relation("CancelWorkflowHistories_nextUserIdToUsers", fields: [nextUserId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_next_user")
-  Roles_CancelWorkflowHistories_previousRoleIdToRoles Roles?             @relation("CancelWorkflowHistories_previousRoleIdToRoles", fields: [previousRoleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_previous_role")
-  Users_CancelWorkflowHistories_previousUserIdToUsers Users              @relation("CancelWorkflowHistories_previousUserIdToUsers", fields: [previousUserId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_previous_user")
+  id             Int                @id @default(autoincrement())
+  applicationId  Int
+  previousUserId Int
+  nextUserId     Int
+  actionTaken    String
+  remarks        String?
+  createdAt      DateTime           @default(now())
+  previousRoleId Int?
+  nextRoleId     Int?
+  actionesId     Int?
+  attachments    Json?
+  actiones       Actiones?          @relation("CancelActionesToWorkflowHistory", fields: [actionesId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_actiones")
+  application    CancelFormRequests @relation("CancelWorkflowHistories", fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_application")
+  nextRole       Roles?             @relation("CancelWorkflowNextRole", fields: [nextRoleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_next_role")
+  nextUser       Users              @relation("CancelWorkflowNextUser", fields: [nextUserId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_next_user")
+  previousRole   Roles?             @relation("CancelWorkflowPreviousRole", fields: [previousRoleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_previous_role")
+  previousUser   Users              @relation("CancelWorkflowPreviousUser", fields: [previousUserId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cancel_workflow_previous_user")
 
   @@index([actionesId], map: "idx_cancel_workflow_actionesId")
   @@index([applicationId], map: "idx_cancel_workflow_applicationId")
