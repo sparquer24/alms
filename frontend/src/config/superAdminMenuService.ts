@@ -13,7 +13,8 @@ export type SuperAdminMenuItemKey =
     | 'roleMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement';
+    | 'locationsManagement'
+    | 'actionMapping';
 
 export interface SuperAdminMenuItem extends MenuItem {
     path: string;
@@ -61,6 +62,13 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         label: 'Locations Management',
         path: '/superAdmin/locationsManagement',
         order: 5,
+    },
+    actionMapping: {
+        name: 'actionMapping',
+        key: 'actionMapping',
+        label: 'Action Mapping',
+        path: '/admin/actionMapping', // Uses the same UI under admin
+        order: 6,
     }
 };
 
@@ -133,7 +141,11 @@ export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey
         'locationmanagement': 'locationsManagement',
         'location_management': 'locationsManagement',
         'location-management': 'locationsManagement',
-        'locations': 'locationsManagement'
+        'locations': 'locationsManagement',
+        'actionmapping': 'actionMapping',
+        'action_mapping': 'actionMapping',
+        'action-mapping': 'actionMapping',
+        'actionsmapping': 'actionMapping'
     };
 
     return candidates[normalized] || null;

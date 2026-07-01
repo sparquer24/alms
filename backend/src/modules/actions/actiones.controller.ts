@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Delete, Query } from "@nestjs/common";
+import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Put, Delete, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags, ApiQuery, ApiBody, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
 import { RolesActionsMapping } from "@prisma/client";
@@ -47,6 +47,62 @@ export class ActionesController {
     );
   }
 
+  @Get("all")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "Get all actions",
+    description: "Retrieve all available actions in the system for admin usage",
+  })
+  @ApiResponse({ status: 200, description: "All actions retrieved successfully" })
+  async getAllActions(): Promise<Actiones[]> {
+    return this.actionesService.getAllActions();
+  }
+
+  @Get("RolesActionsMapping")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "Get all action mappings",
+    description: "Retrieve all roles to actions mappings, optionally filtered by roleId",
+  })
+  @ApiQuery({
+    name: 'roleId',
+    required: false,
+    type: Number,
+    description: 'Filter mappings by role ID'
+  })
+  @ApiResponse({ status: 200, description: "Action mappings retrieved successfully" })
+  async getAllActionMappings(@Query('roleId') roleId?: string) {
+    return this.actionesService.getAllActionMappings(roleId ? Number(roleId) : undefined);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "Create a new Action",
+    description: "Create a new action in the Actiones table",
+  })
+  @ApiBody({
+    description: "Action creation data",
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', example: 'NEW_ACTION' },
+        name: { type: 'string', example: 'New Action' },
+        description: { type: 'string', example: 'A newly created action' },
+        isActive: { type: 'boolean', example: true },
+      },
+      required: ['code', 'name'],
+    }
+  })
+  @ApiResponse({ status: 201, description: "Action created successfully" })
+  async createNewAction(@Body() actionData: { code: string; name: string; description?: string; isActive?: boolean }) {
+    try {
+      return await this.actionesService.createNewAction(actionData);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   @Post("RolesActionsMapping")
   @ApiOperation({
     summary: "Create action",
@@ -79,7 +135,7 @@ export class ActionesController {
     } 
   }
 
-  @Patch("RolesActionsMapping/:id")
+  @Put("RolesActionsMapping/:id")
   @ApiOperation({
     summary: "Update action",
     description: "Update an existing action entry",

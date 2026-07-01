@@ -50,6 +50,7 @@ export type MenuMetaKey =
   | 'roleMapping'
   | 'flowMapping'
   | 'locationsManagement'
+  | 'actionMapping'
   | 'rejected';
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
@@ -111,5 +112,9 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   locationsManagement: {
     label: 'Locations Management',
     icon: () => <MapPinFixed className='w-6 h-6 mr-2' aria-label='Locations Management' />,
+  },
+  actionMapping: {
+    label: 'Action Mapping',
+    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Action Mapping' />,
   },
 };

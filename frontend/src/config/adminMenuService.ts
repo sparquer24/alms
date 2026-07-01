@@ -10,7 +10,8 @@ export type AdminMenuItemKey =
     | 'roleMapping'
     | 'analytics'
     | 'flowMapping'
-    | 'locationsManagement';
+    | 'locationsManagement'
+    | 'actionMapping';
 
 export interface AdminMenuItem extends MenuItem {
     path: string;
@@ -58,6 +59,13 @@ export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
         label: 'Locations Management',
         path: '/admin/locationsManagement',
         order: 5,
+    },
+    actionMapping: {
+        name: 'actionMapping',
+        key: 'actionMapping',
+        label: 'Action Mapping',
+        path: '/admin/actionMapping',
+        order: 6,
     },
 };
 
@@ -133,6 +141,10 @@ export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
         'location_management': 'locationsManagement',
         'location-management': 'locationsManagement',
         'locations': 'locationsManagement',
+        'actionmapping': 'actionMapping',
+        'action_mapping': 'actionMapping',
+        'action-mapping': 'actionMapping',
+        'actionsmapping': 'actionMapping',
     };
 
     // Try direct match first

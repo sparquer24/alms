@@ -81,6 +81,38 @@ export class ActionesService {
       throw error;
     }
   }
+
+  /**
+   * Get all available actions in the system.
+   */
+  async getAllActions(): Promise<Actiones[]> {
+    try {
+      return await prisma.actiones.findMany({
+        orderBy: { code: 'asc' }
+      });
+    } catch (error) {
+      console.error('Error fetching all actions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all Roles to Actions mappings.
+   */
+  async getAllActionMappings(roleId?: number): Promise<RolesActionsMapping[]> {
+    try {
+      return await prisma.rolesActionsMapping.findMany({
+        where: roleId ? { roleId } : undefined,
+        include: {
+          action: true,
+          role: true
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching action mappings:', error);
+      throw error;
+    }
+  }
    async createAction(data: RolesActionsMapping): Promise<RolesActionsMapping | { error: boolean; message: string }> {  
     try{
     const mappingData = await prisma.rolesActionsMapping.findMany({
@@ -107,6 +139,25 @@ export class ActionesService {
    } catch(error){
     throw error;
    }
+  }
+
+  /**
+   * Create a new Action in the Actiones table
+   */
+  async createNewAction(data: { code: string; name: string; description?: string; isActive?: boolean }): Promise<Actiones> {
+    try {
+      return await prisma.actiones.create({
+        data: {
+          code: data.code,
+          name: data.name,
+          description: data.description,
+          isActive: data.isActive !== undefined ? data.isActive : true,
+        }
+      });
+    } catch (error) {
+      console.error('Error creating new action:', error);
+      throw error;
+    }
   }
     async updateAction(id: number, data:  Partial<RolesActionsMapping>): Promise<RolesActionsMapping | { error: boolean; message: string }> {
 
