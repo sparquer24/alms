@@ -177,6 +177,7 @@ const Header = (props: HeaderProps) => {
       };
 
       const payload = {
+        freshLicenseId: freshApplication.id ? Number(freshApplication.id) : undefined,
         licenseNumber,
         firstName:
           freshApplication.firstName ||

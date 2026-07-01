@@ -16,7 +16,7 @@ import { ParseIntPipe } from '@nestjs/common';
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class RenewalFormController {
-  constructor(private readonly renewalFormService: RenewalFormService) {}
+  constructor(private readonly renewalFormService: RenewalFormService) { }
 
   /**
    * Create a new renewal form with personal details
@@ -278,7 +278,7 @@ export class RenewalFormController {
     @Query('isSubmit') isSubmit?: string,
     
   ): Promise<RenewalFormResponse> {
-    const userId = req?.user?.id || 1;
+    const userId = Number(req?.user?.sub || req?.user?.user_id);
     const submitApp = isSubmit !== undefined ? isSubmit === 'true' : patchData.isSubmit === true
 
     const result = await this.renewalFormService.patchApplicationDetails(
