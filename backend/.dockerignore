@@ -1,8 +1,10 @@
-node_modules
-dist
+**/node_modules
+**/dist
 .env
+.env.*
 npm-debug.log
 Dockerfile
 Dockerfile.*
 .git
-uploads
+uploads/
+scratch/
