@@ -118,27 +118,89 @@ const FormInput: React.FC<{
   autoComplete?: string;
   required?: boolean;
   className?: string;
-}> = ({ id, type, placeholder, value, onChange, disabled = false, autoComplete, required = false, className = '' }) => (
-  <div>
-    <label htmlFor={id} className='sr-only'>{placeholder}</label>
+  showToggle?: boolean;
+  showPassword?: boolean;
+  onTogglePassword?: () => void;
+}> = ({
+  id,
+  type,
+  placeholder,
+  value,
+  onChange,
+  disabled = false,
+  autoComplete,
+  required = false,
+  className = '',
+  showToggle = false,
+  showPassword = false,
+  onTogglePassword,
+}) => (
+  <div className="relative">
+    <label htmlFor={id} className="sr-only">
+      {placeholder}
+    </label>
+
     <input
       id={id}
       name={id}
       type={type}
       autoComplete={autoComplete}
       required={required}
-      className={`appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] focus:z-10 sm:text-sm bg-white/90 transition-colors duration-200 ${className}`}
+      className={`appearance-none relative block w-full px-4 py-3 ${
+        showToggle ? "pr-12" : ""
+      } border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] sm:text-sm bg-white/90 transition-colors duration-200 ${className}`}
       placeholder={placeholder}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
-      aria-describedby={disabled ? `${id}-disabled` : undefined}
-      suppressHydrationWarning={true}
     />
-    {disabled && (
-      <div id={`${id}-disabled`} className='sr-only'>
-        This field is disabled while processing your request
-      </div>
+
+    {showToggle && (
+      <button
+        type="button"
+        onClick={onTogglePassword}
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 focus:outline-none"
+        aria-label={showPassword ? "Hide password" : "Show password"}
+      >
+        {showPassword ? (
+          // Eye Slash
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 3l18 18M10.58 10.58A2 2 0 0012 14a2 2 0 001.42-.58M9.88 5.09A9.77 9.77 0 0112 5c5 0 9 7 9 7a17.28 17.28 0 01-3.29 3.83M6.1 6.1A17.34 17.34 0 003 12s4 7 9 7a8.9 8.9 0 003.9-.9"
+            />
+          </svg>
+        ) : (
+          // Eye
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M2.46 12C3.73 7.94 7.52 5 12 5s8.27 2.94 9.54 7c-1.27 4.06-5.06 7-9.54 7S3.73 16.06 2.46 12z"
+            />
+          </svg>
+        )}
+      </button>
     )}
   </div>
 );
@@ -157,6 +219,7 @@ function LoginContent() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const authInitialized = useSelector(selectAuthInitialized);
   const currentUser = useSelector(selectCurrentUser);
+  const [showPassword, setShowPassword] = useState(false);
 
   // If the user is already authenticated, redirect them away from login page
   // This effect only runs once on mount to avoid duplicate redirects
@@ -186,7 +249,7 @@ function LoginContent() {
 
       try {
         const result = await dispatch(login({
-          username: formData.username.trim(),
+          username: formData.username.trim().toUpperCase(),
           password: formData.password,
         })).unwrap();
 
@@ -243,32 +306,35 @@ function LoginContent() {
         type='text'
         placeholder='Username or Email'
         value={formData.username}
-        onChange={value => updateField('username', value.toLocaleUpperCase())}
+        onChange={value => updateField('username', value)}
         disabled={isLoading}
         autoComplete='username'
         required
-        className='rounded-t-md'
+        className='rounded-t-md uppercase'
       />
     ),
     [formData.username, isLoading, updateField]
   );
 
   const passwordInput = useMemo(
-    () => (
-      <FormInput
-        id='password'
-        type='password'
-        placeholder='Password'
-        value={formData.password}
-        onChange={value => updateField('password', value)}
-        disabled={isLoading}
-        autoComplete='current-password'
-        required
-        className='rounded-b-md'
-      />
-    ),
-    [formData.password, isLoading, updateField]
-  );
+  () => (
+    <FormInput
+      id="password"
+      type={showPassword ? "text" : "password"}
+      placeholder="Password"
+      value={formData.password}
+      onChange={(value) => updateField("password", value)}
+      disabled={isLoading}
+      autoComplete="current-password"
+      required
+      className="rounded-b-md"
+      showToggle
+      showPassword={showPassword}
+      onTogglePassword={() => setShowPassword((prev) => !prev)}
+    />
+  ),
+  [formData.password, isLoading, updateField, showPassword]
+);
 
   return (
     <div
