@@ -208,6 +208,86 @@ export class CancelFormService {
               },
             },
           },
+          currentUser: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          previousUser: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          freshLicense: {
+            include: {
+              workflowStatus: true,
+              presentAddress: {
+                include: {
+                  state: true,
+                  district: true,
+                  RangeOffices: true,
+                  zone: true,
+                  division: true,
+                  policeStation: true,
+                },
+              },
+              permanentAddress: {
+                include: {
+                  state: true,
+                  district: true,
+                  RangeOffices: true,
+                  zone: true,
+                  division: true,
+                  policeStation: true,
+                },
+              },
+              occupationAndBusiness: {
+                include: {
+                  state: true,
+                  district: true,
+                },
+              },
+              licenseDetails: {
+                include: { requestedWeapons: true },
+              },
+              criminalHistories: true,
+              licenseHistories: true,
+              fileUploads: true,
+              biometricData: true,
+            },
+          },
+          cancelWorkflowHistories: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              nextUser: {
+                include: { role: true },
+              },
+              previousUser: {
+                include: { role: true },
+              },
+              nextRole: true,
+              previousRole: true,
+              actiones: true,
+            },
+          },
         },
       });
 

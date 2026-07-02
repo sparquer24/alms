@@ -203,9 +203,11 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
           const app = (baseApplications || []).find(a => a.id === id);
-          const route = /renewal/i.test(String(app?.applicationType || ''))
-            ? `/renewalApplication/${id}`
-            : `/application/${id}`;
+          const route = /cancel/i.test(String(app?.applicationType || ''))
+            ? `/cancelForm/${id}`
+            : /renewal/i.test(String(app?.applicationType || ''))
+              ? `/renewalApplication/${id}`
+              : `/application/${id}`;
           setActiveNavigationPath(route);
           await router.push(route);
           setLoadingRowId(null);

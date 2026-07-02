@@ -23,26 +23,32 @@ interface RecentActivity {
 }
 
 const StatsCard: React.FC<DashboardStat> = React.memo(({ label, count, icon, color }) => (
-  <div className="bg-white rounded-lg shadow p-5" aria-label={`${label} stats card`}>
-    <div className="flex justify-between">
+  <div className={`relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl group bg-white border border-slate-100 shadow-sm`} aria-label={`${label} stats card`}>
+    <div className={`absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 rounded-full opacity-20 transition-transform duration-500 group-hover:scale-150 ${color.split(' ')[0]}`}></div>
+    <div className="relative flex justify-between items-start z-10">
       <div className="flex flex-col">
-        <span className="text-sm text-gray-500">{label}</span>
-        <span className="mt-1 text-3xl font-semibold">{count}</span>
+        <span className="text-sm font-medium text-slate-500 tracking-wide uppercase">{label}</span>
+        <span className="mt-2 text-4xl font-extrabold text-slate-800 tracking-tight">{count}</span>
       </div>
-      <div className={`p-3 rounded-full ${color}`}>{icon}</div>
+      <div className={`p-4 rounded-2xl shadow-sm ${color} backdrop-blur-sm bg-opacity-90 transition-transform duration-300 group-hover:rotate-12`}>
+        {icon}
+      </div>
     </div>
   </div>
 ));
 
 const RecentActivityItem: React.FC<RecentActivity & { getActionLabel: (action: string) => string; getActionColor: (action: string) => string; formatDate: (date: string) => string }> = React.memo(({ action, applicationId, timestamp, getActionLabel, getActionColor, formatDate }) => (
-  <div className="px-5 py-4" aria-label={`Recent activity for application ${applicationId}`}>
+  <div className="px-6 py-4 hover:bg-slate-50 transition-colors duration-200 cursor-pointer group" aria-label={`Recent activity for application ${applicationId}`}>
     <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <span className={`font-medium ${getActionColor(action)}`}>{getActionLabel(action)}</span>
-        <span className="mx-2 text-gray-500">-</span>
-        <span className="text-gray-900">{applicationId}</span>
+      <div className="flex items-center space-x-3">
+        <div className={`w-2 h-2 rounded-full ${getActionColor(action).replace('text-', 'bg-')} shadow-sm group-hover:animate-pulse`}></div>
+        <div className="flex flex-col sm:flex-row sm:items-center">
+           <span className={`font-semibold ${getActionColor(action)}`}>{getActionLabel(action)}</span>
+           <span className="hidden sm:inline mx-2 text-slate-300">|</span>
+           <span className="text-slate-700 font-medium">App #{applicationId}</span>
+        </div>
       </div>
-      <span className="text-sm text-gray-500">{formatDate(timestamp)}</span>
+      <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">{formatDate(timestamp)}</span>
     </div>
   </div>
 ));
@@ -93,26 +99,26 @@ export default function DashboardSummary() {
             {
               label: 'Pending',
               count: data.pendingApplications || 0,
-              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-              color: 'bg-yellow-100 text-yellow-800',
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+              color: 'bg-amber-100 text-amber-600',
             },
             {
               label: 'Approved',
               count: data.approvedApplications || 0,
-              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-              color: 'bg-green-100 text-green-800',
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+              color: 'bg-emerald-100 text-emerald-600',
             },
             {
               label: 'Rejected',
               count: data.rejectedApplications || 0,
-              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-              color: 'bg-red-100 text-red-800',
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+              color: 'bg-rose-100 text-rose-600',
             },
             {
               label: 'Notifications',
               count: data.unreadNotifications || 0,
-              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
-              color: 'bg-indigo-100 text-indigo-800',
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
+              color: 'bg-blue-100 text-blue-600',
             },
           ]
         );
@@ -218,74 +224,94 @@ export default function DashboardSummary() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-2 max-w-7xl mx-auto">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
           <StatsCard key={index} {...stat} />
         ))}
       </div>
 
       {/* Chart Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Application Status Chart */}
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow duration-300">
           <ApplicationStatusChart statusData={applicationStatusData} />
         </div>
 
         {/* Application Trend Chart */}
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow duration-300">
           <ApplicationTrendChart trendData={applicationTrendData} />
         </div>
       </div>
 
       {/* Processing Time Chart */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-shadow duration-300">
         <ProcessingTimeChart processingTimeData={processingTimeData} />
       </div>
 
-      {/* Recent Activities */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-5 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Recent Activities</h3>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {recentActivities.length === 0 ? (
-            <div className="px-5 py-4 text-gray-500 text-center">No recent activities</div>
-          ) : (
-            recentActivities.map((activity, index) => (
-              <RecentActivityItem
-                key={index}
-                {...activity}
-                getActionLabel={getActionLabel}
-                getActionColor={getActionColor}
-                formatDate={formatDate}
-              />
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* User Stats */}
-      {userStats && (
-        <div className="bg-white rounded-lg shadow p-5">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Your Performance</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-indigo-600">{userStats.totalProcessed}</div>
-              <div className="text-sm text-gray-500 mt-1">Applications Processed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">{userStats.approvalRate}%</div>
-              <div className="text-sm text-gray-500 mt-1">Approval Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">{userStats.averageProcessTime}</div>
-              <div className="text-sm text-gray-500 mt-1">Avg. Process Time</div>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Activities */}
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+          <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Recent Activities
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {recentActivities.length === 0 ? (
+              <div className="px-6 py-8 text-slate-400 text-center font-medium">No recent activities found.</div>
+            ) : (
+              recentActivities.map((activity, index) => (
+                <RecentActivityItem
+                  key={index}
+                  {...activity}
+                  getActionLabel={getActionLabel}
+                  getActionColor={getActionColor}
+                  formatDate={formatDate}
+                />
+              ))
+            )}
           </div>
         </div>
-      )}
+
+        {/* User Stats */}
+        {userStats && (
+          <div className="lg:col-span-1 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-32 h-32 bg-indigo-900 opacity-20 rounded-full blur-xl"></div>
+            
+            <h3 className="text-xl font-bold mb-6 relative z-10 flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Your Performance
+            </h3>
+            
+            <div className="space-y-6 relative z-10">
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors">
+                <div className="text-sm font-medium text-indigo-100 uppercase tracking-wider mb-1">Processed</div>
+                <div className="text-4xl font-black">{userStats.totalProcessed}</div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors">
+                  <div className="text-xs font-medium text-indigo-100 uppercase tracking-wider mb-1">Approval Rate</div>
+                  <div className="text-2xl font-bold">{userStats.approvalRate}%</div>
+                </div>
+                
+                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-colors">
+                  <div className="text-xs font-medium text-indigo-100 uppercase tracking-wider mb-1">Avg Time</div>
+                  <div className="text-2xl font-bold">{userStats.averageProcessTime}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
+      </div>
   );
 }

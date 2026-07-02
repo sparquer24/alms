@@ -15,8 +15,10 @@ config({ path: rootEnvPath });
 
 const logger = new Logger('Bootstrap');
 
+import { NestExpressApplication } from '@nestjs/platform-express';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: process.env.NODE_ENV === 'production'
       ? ['error', 'warn', 'log']
       : ['error', 'warn', 'log', 'debug', 'verbose'],
@@ -69,6 +71,11 @@ async function bootstrap() {
   const express = require('express');
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+  // Serve static files from the uploads directory
+  app.useStaticAssets(resolve(process.cwd(), 'uploads'), {
+    prefix: '/uploads',
+  });
 
   // Enable CORS for frontend. Read from CORS_ORIGIN env (comma-separated) else fallback to sensible defaults.
   const defaultOrigins = ['http://localhost:5000', 'http://localhost:5001', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:5001', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000', "https://alms.sparquer.com"];

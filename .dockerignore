@@ -1,15 +1,14 @@
-node_modules
-dist
+**/node_modules
+**/dist
 .env
+.env.*
 npm-debug.log
 Dockerfile
 Dockerfile.*
 .git
-uploads
-
-# Ignore local editor and OS files
-.vscode
-.idea
+uploads/
+.vscode/
+.idea/
 *.swp
 Thumbs.db
 .DS_Store

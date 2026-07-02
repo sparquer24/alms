@@ -166,6 +166,68 @@ export class AuthService {
     }
   }
 
+  async refreshToken(oldToken: string): Promise<string> {
+    try {
+      // Verify the old token is still valid
+      const decoded = jwt.verify(oldToken, this.jwtSecret!) as any;
+
+      // Fetch fresh user data from the database
+      const user = await (prisma as any).users.findUnique({
+        where: { id: Number(decoded.sub) },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              is_active: true,
+            },
+          },
+          stateId: true,
+          districtId: true,
+          zoneId: true,
+          rangeOfficeId: true,
+        },
+      } as any);
+
+      if (!user) {
+        throw new UnauthorizedException('User not found. The account may have been deleted.');
+      }
+
+      if (user.role && typeof user.role.is_active !== 'undefined' && !user.role.is_active) {
+        throw new UnauthorizedException('User role is inactive. Please contact an administrator.');
+      }
+
+      // Generate a new token with fresh data
+      const userData = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        stateId: user.stateId,
+        districtId: user.districtId,
+        zoneId: user.zoneId,
+        rangeOfficeId: user.rangeOfficeId,
+      };
+
+      return this.generateToken(userData);
+    } catch (error: any) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error?.name === 'TokenExpiredError') {
+        throw new UnauthorizedException('Token has expired. Please login again to get a new token.');
+      }
+      if (error?.name === 'JsonWebTokenError') {
+        throw new UnauthorizedException('Invalid token format. Token may be malformed or corrupted.');
+      }
+      throw new UnauthorizedException('Failed to refresh token. Please login again.');
+    }
+  }
+
   async getUserWithLocation(userId: number) {
     return await (prisma as any).users.findUnique({
       where: { id: Number(userId) },
