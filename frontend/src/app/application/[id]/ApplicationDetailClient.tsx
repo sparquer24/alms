@@ -11,7 +11,8 @@ import { apiClient } from '../../../config/authenticatedApiClient';
 
 
 
-import { ApplicationData } from '../../../types';
+import { ApplicationData, LicenseData } from '../../../types';
+import LicenseService from '../../../services/licenseService';
 import ProcessApplicationModal from '../../../components/ProcessApplicationModal';
 import ForwardApplicationModal from '../../../components/ForwardApplicationModal';
 import ConfirmationModal from '../../../components/ConfirmationModal';
@@ -137,6 +138,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     user3: false,
   });
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
+  const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [originalApplication, setOriginalApplication] = useState<ApplicationData | null>(null);
+  const [activeTab, setActiveTab] = useState<'renewal' | 'original'>('renewal');
   const printRef = useRef<HTMLDivElement>(null);
   const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage (2 of 3 columns)
   const [isDragging, setIsDragging] = useState(false);
@@ -151,23 +156,30 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   // We pass !loading to give priority to the /application/4 dependence API first.
   const { refreshCounts } = useSidebarCounts(!loading);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
+  const currentDisplayApp = useMemo(() => {
+    if (isRenewalView && activeTab === 'original' && originalApplication) {
+      return originalApplication;
+    }
+    return application;
+  }, [isRenewalView, activeTab, originalApplication, application]);
+
   const licenseDetails = useMemo(() => {
-    const rawDetails = (application as any)?.licenseDetails || (application as any)?.licenseDetail;
+    const rawDetails = (currentDisplayApp as any)?.licenseDetails || (currentDisplayApp as any)?.licenseDetail;
     if (!rawDetails) return [] as any[];
     return Array.isArray(rawDetails) ? rawDetails.filter(Boolean) : [rawDetails];
-  }, [application]);
+  }, [currentDisplayApp]);
 
   const applicantName = useMemo(() => {
     return [
-      application?.firstName,
-      application?.middleName,
-      application?.lastName,
+      currentDisplayApp?.firstName,
+      currentDisplayApp?.middleName,
+      currentDisplayApp?.lastName,
     ]
       .filter(Boolean)
       .join(' ') ||
-      application?.applicantName ||
+      currentDisplayApp?.applicantName ||
       'N/A';
-  }, [application]);
+  }, [currentDisplayApp]);
 
 
 
@@ -205,6 +217,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           const renewalData = (response as any)?.data ?? response;
           if (renewalData) {
             setApplication(normalizeRenewalApplication(renewalData));
+            
+            // Fetch original/linked application details
+            const linkedId = renewalData.freshApplicationId || renewalData.applicationId || renewalData.sourceApplicationId;
+            if (linkedId) {
+              try {
+                const origResult = await getApplicationByApplicationId(String(linkedId));
+                if (origResult) {
+                  setOriginalApplication(origResult as ApplicationData);
+                }
+              } catch (err) {
+                console.error('Failed to fetch original application', err);
+              }
+            }
           } else {
             setApplication(null);
           }
@@ -216,6 +241,45 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             setApplication(null);
           }
         }
+
+        // Fetch license data for this application
+        const fetchLicense = async () => {
+          setLicenseLoading(true);
+          try {
+            // For fresh apps, sourceApplicationId is the application ID
+            // For renewals, we look up the original app's license
+            const appIdForLicense = isRenewalView
+              ? (applicationId || '')
+              : applicationId;
+            
+            // Try fetching license by looking up through the application
+            // The license is linked via sourceApplicationId = fresh app ID
+            // For fresh applications, try the by-number approach or list with search
+            if (!isRenewalView && appIdForLicense) {
+              // First try: fetch all licenses and find by sourceApplicationId
+              // or use the /licenses/:id/source-application approach
+              const result = await LicenseService.getAllLicenses({
+                search: appIdForLicense,
+                limit: 10,
+              });
+              if (result?.data?.length) {
+                // Check if any license matches our sourceApplicationId
+                const match = result.data.find(
+                  l => l.sourceApplicationId === Number(appIdForLicense)
+                );
+                if (match) {
+                  setLicenseData(match);
+                  return;
+                }
+              }
+            }
+          } catch (err) {
+            console.debug('[License fetch] No license found for this application');
+          } finally {
+            setLicenseLoading(false);
+          }
+        };
+        fetchLicense();
 
         try {
           const typeParam = isRenewalView ? 'renewal' : 'fresh';
@@ -645,7 +709,37 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           })() ? (
             <>
               {/* Redesigned Sections */}
-              <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
+              {(() => {
+                const displayApp = currentDisplayApp;
+                if (!displayApp) return null;
+                const application = displayApp;
+                return (
+                  <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
+                    {/* Tab Selection for Renewal */}
+                    {isRenewalView && originalApplication && (
+                      <div className="flex border-b border-slate-200 mt-2 mb-6 print:hidden">
+                        <button
+                          onClick={() => setActiveTab('renewal')}
+                          className={`py-3 px-6 font-semibold text-sm transition-all border-b-2 -mb-[2px] ${
+                            activeTab === 'renewal'
+                              ? 'border-blue-600 text-blue-600'
+                              : 'border-transparent text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          Renewal Info
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('original')}
+                          className={`py-3 px-6 font-semibold text-sm transition-all border-b-2 -mb-[2px] ${
+                            activeTab === 'original'
+                              ? 'border-blue-600 text-blue-600'
+                              : 'border-transparent text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          Original Application Details
+                        </button>
+                      </div>
+                    )}
                 {/* 1. Application Information Section */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
@@ -731,7 +825,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
                         <div className="relative z-10">
                           <LazySection minHeight="400px">
-                            <EnhancedApplicationTimeline application={application!} workflowHistory={workflowHistory} />
+                            <EnhancedApplicationTimeline application={application!} workflowHistory={activeTab === 'original' ? (application.workflowHistories || []) : workflowHistory} />
                           </LazySection>
                         </div>
                       </div>
@@ -939,6 +1033,130 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   })()}
                 </div>
 
+                {/* License Record Section — shown when license data exists */}
+                {licenseData && (
+                  <div className="bg-white rounded-xl border-2 border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 p-6">
+                    <div className="flex items-center justify-between border-b border-emerald-100 pb-4 mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600">
+                          <BadgeCheck className="w-5 h-5" />
+                        </div>
+                        <h3 className="font-bold text-slate-800 text-lg tracking-tight">License Record</h3>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        licenseData.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' :
+                        licenseData.status === 'EXPIRED' ? 'bg-red-100 text-red-700' :
+                        licenseData.status === 'CANCELLED' ? 'bg-slate-100 text-slate-700' :
+                        licenseData.status === 'SUSPENDED' ? 'bg-amber-100 text-amber-700' :
+                        'bg-rose-100 text-rose-700'
+                      }`}>
+                        {licenseData.status}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="space-y-4">
+                        <DetailItem label="License Number" value={licenseData.licenseNumber} icon={FileCheck} mono />
+                        <DetailItem label="Arms Category" value={licenseData.armsCategory} icon={Shield} />
+                        <DetailItem label="Area of Validity" value={licenseData.areaOfValidity} icon={MapPin} />
+                        <DetailItem label="Valid From" value={licenseData.validFrom ? new Date(licenseData.validFrom).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : null} icon={Calendar} />
+                        <DetailItem label="Valid Till" value={licenseData.validTill ? new Date(licenseData.validTill).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : null} icon={Calendar} />
+                      </div>
+                      <div className="space-y-4">
+                        <DetailItem label="Issue Date" value={licenseData.issueDate ? new Date(licenseData.issueDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : null} icon={CalendarDays} />
+                        <DetailItem label="Last Renewed" value={licenseData.lastRenewedDate ? new Date(licenseData.lastRenewedDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : null} icon={History} />
+                        <DetailItem label="Renewal Count" value={licenseData.renewalCount?.toString() || '0'} icon={ClipboardCheck} />
+                        <DetailItem label="Ammunition Description" value={licenseData.ammunitionDescription} icon={Package} />
+                        {licenseData.cancellationReason && (
+                          <DetailItem label="Cancellation Reason" value={licenseData.cancellationReason} icon={Ban} />
+                        )}
+                      </div>
+                      <div className="space-y-4">
+                        {licenseData.endorsedWeapons && licenseData.endorsedWeapons.length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Endorsed Weapons</p>
+                            <div className="flex flex-wrap gap-2">
+                              {licenseData.endorsedWeapons.map((w: any, wi: number) => (
+                                <span key={wi} className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700">
+                                  <Crosshair className="w-3 h-3 text-blue-500" />
+                                  {w.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {licenseData.issuedByUser && (
+                          <DetailItem label="Issued By" value={licenseData.issuedByUser.username} icon={UserCog} />
+                        )}
+                        {licenseData.qrCodeUrl && (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => window.open(licenseData.qrCodeUrl!, '_blank')}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View QR Code
+                            </button>
+                          </div>
+                        )}
+                        {licenseData.pdfUrl && (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={() => window.open(licenseData.pdfUrl!, '_blank')}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Download License PDF
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* License Workflow History */}
+                    {licenseData.workflowHistories && licenseData.workflowHistories.length > 0 && (
+                      <div className="mt-6 pt-4 border-t border-emerald-100">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                          <History className="w-3.5 h-3.5" />
+                          License Workflow Timeline
+                        </h4>
+                        <div className="space-y-2">
+                          {licenseData.workflowHistories.map((wh: any, whIdx: number) => (
+                            <div key={whIdx} className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-xs">
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                wh.action === 'ISSUED' ? 'bg-emerald-500' :
+                                wh.action === 'RENEWED' ? 'bg-blue-500' :
+                                wh.action === 'CANCELLED' ? 'bg-red-500' :
+                                'bg-slate-400'
+                              }`} />
+                              <span className="font-bold text-slate-700 uppercase">{wh.action}</span>
+                              {wh.changedByUser && (
+                                <span className="text-slate-500">by {wh.changedByUser.username}</span>
+                              )}
+                              {wh.createdAt && (
+                                <span className="text-slate-400 ml-auto">
+                                  {new Date(wh.createdAt).toLocaleString('en-IN', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Loading indicator for license data */}
+                {licenseLoading && !licenseData && (
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <div className="flex items-center gap-3 text-slate-400">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      <span className="text-sm">Checking license records...</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Additional Status-Specific Information */}
                 {(application?.returnReason || application?.flagReason || application?.disposalReason) && (
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
@@ -988,8 +1206,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                   <LazySection minHeight="250px">
                     <DocumentTable documents={application?.documents || []} />
                   </LazySection>
+                  </div>
                 </div>
-              </div>
+              );
+            })()}
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (

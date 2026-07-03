@@ -1220,28 +1220,74 @@ export class ApplicationFormService {
             where: {
               previousUserId: parsedUserId
             },
+            select: {
+              id: true,
+              applicationId: true,
+              createdAt: true,
+              remarks: true,
+              actionTaken: true,
+              application: {
+                select: {
+                  id: true,
+                  freshLicenseId: true,
+                  cancellationReason: true,
+                  createdAt: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
           });
+
+          // Resolve original application details for cancel requests
+          const freshLicenseIds = historyData
+            .map((h: any) => h.application?.freshLicenseId)
+            .filter((id: any): id is number => id != null);
+          const uniqueFreshLicenseIds = [...new Set(freshLicenseIds)];
+
+          // Batch-fetch original application details to avoid N+1 queries
+          const originalAppsMap = new Map<number, any>();
+          if (uniqueFreshLicenseIds.length > 0) {
+            const [freshApps, renewalApps] = await Promise.all([
+              prisma.freshLicenseApplicationPersonalDetails.findMany({
+                where: { id: { in: uniqueFreshLicenseIds } },
+                select: { id: true, acknowledgementNo: true, firstName: true, middleName: true, lastName: true, createdAt: true },
+              }),
+              prisma.renewalFormPersonalDetails.findMany({
+                where: { id: { in: uniqueFreshLicenseIds } },
+                select: { id: true, acknowledgementNo: true, firstName: true, middleName: true, lastName: true, createdAt: true },
+              })
+            ]);
+            [...freshApps, ...renewalApps].forEach((app: any) => {
+              originalAppsMap.set(app.id, app);
+            });
+          }
 
           // "applicationType": "Renewal License",   "applicationType": "Fresh License",
           const allworkflowHistories = [
             ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh License' })),
             ...renewalWorkflowHistories.map(h => ({ ...h, applicationType: 'Renewal License' })),
-            ...historyData.map((h: any) => ({
-              id: h.id,
-              applicationId: h.applicationId,
-              createdAt: h.cancelledAt,
-              actionTaken: 'CANCELLED',
-              remarks: h.cancellationReason,
-              application: {
-                id: h.applicationId,
-                acknowledgementNo: h.acknowledgementNo,
-                createdAt: h.cancelledAt,
-                firstName: h.firstName,
-                middleName: h.middleName,
-                lastName: h.lastName,
-              },
-              applicationType: 'Cancel Request',
-            })),
+            ...historyData.map((h: any) => {
+              const freshLicenseId = h.application?.freshLicenseId;
+              const originalApp = freshLicenseId ? originalAppsMap.get(freshLicenseId) : null;
+              return {
+                id: h.id,
+                applicationId: h.application?.id ?? h.applicationId,
+                createdAt: h.createdAt,
+                actionTaken: h.actionTaken || 'CANCELLED',
+                remarks: h.remarks || h.application?.cancellationReason || '',
+                application: {
+                  id: h.application?.id ?? h.applicationId,
+                  acknowledgementNo: originalApp?.acknowledgementNo ?? null,
+                  createdAt: originalApp?.createdAt || h.application?.createdAt || h.createdAt,
+                  firstName: originalApp?.firstName ?? null,
+                  middleName: originalApp?.middleName ?? null,
+                  lastName: originalApp?.lastName ?? null,
+                },
+                applicationType: 'Cancel Request',
+              };
+            }),
           ];
 
           if (allworkflowHistories.length === 0) {

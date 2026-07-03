@@ -159,6 +159,7 @@ model WeaponTypeMaster {
   imageUrl              String?
   renewalLicenseDetails RenewalLicenseDetails[] @relation("RenewalRequestedWeapons")
   licenseDetails        FLAFLicenseDetails[]    @relation("RequestedWeapons")
+  licenseEndorsements   Licenses[]              @relation("LicenseEndorsedWeapons")
 }
 
 model Users {
@@ -204,6 +205,7 @@ model Users {
   state                          States?                                         @relation("StateUsers", fields: [stateId], references: [id], onDelete: Cascade)
   zone                           Zones?                                          @relation("ZoneUsers", fields: [zoneId], references: [id], onDelete: Cascade)
   issuedLicenses                 Licenses[]                                      @relation("IssuedLicenses")
+  licenseWorkflowChanges        LicenseWorkflowHistory[]                        @relation("LicenseWorkflowChangedBy")
   auditLogs                      AuditLogs[]                                     @relation("UserAuditLogs")
   policeReports                  PoliceEnquiryReports[]                          @relation("OfficerPoliceReports")
   scheduledHearings              Hearings[]                                      @relation("ScheduledHearings")
@@ -291,7 +293,7 @@ model FreshLicenseApplicationPersonalDetails {
   workflowHistories          FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowHistories")
   mergeAuditLogs             LicensesMergeAuditLog[]                         @relation("FreshLicenseMergeLog")
   renewalFormPersonalDetails RenewalFormPersonalDetails[]                    @relation("FreshLicenseRenewalLink")
-  licenses                   Licenses[]                                      @relation("FreshLicenseCreated")
+  sourceLicense              Licenses?                                       @relation("LicenseSourceFresh")
   policeReports              PoliceEnquiryReports[]                          @relation("FreshPoliceReports")
   hearings                   Hearings[]                                      @relation("FreshHearings")
 
@@ -481,7 +483,6 @@ model RenewalFormPersonalDetails {
   workflowStatus                         Statuses?                                  @relation("RenewalApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
   licenseDetails                         RenewalLicenseDetails[]                    @relation("RenewalLicenseDetails")
   licenseHistories                       RenewalLicenseHistories[]                  @relation("RenewalLicenseHistories")
-  licenses                               Licenses[]                                 @relation("RenewalLicenseCreated")
   policeReports                          PoliceEnquiryReports[]                     @relation("RenewalPoliceReports")
   hearings                               Hearings[]                                 @relation("RenewalHearings")
 
@@ -711,6 +712,14 @@ model RangeOffices {
   Zones                             Zones[]
 }
 
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+  REVOKED
+}
+
 enum Sex {
   MALE
   FEMALE
@@ -763,24 +772,109 @@ enum LicenseResult {
 }
 
 model Licenses {
-  id               Int      @id @default(autoincrement())
-  licenseNumber    String   @unique
-  applicationId    Int?
-  renewalId        Int?
-  issueDate        DateTime
-  validFrom        DateTime
-  validTill        DateTime
-  status           String   @default("ACTIVE")
-  qrCodeUrl        String?
-  pdfUrl           String?
-  digitalSignature String?
-  issuedBy         Int?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  // === IDENTIFIERS (Immutable) ===
+  id                       Int              @id @default(autoincrement())
+  licenseNumber            String           @unique
+  almsLicenseId             String?
+  issueDate                DateTime
 
-  freshApplication   FreshLicenseApplicationPersonalDetails? @relation("FreshLicenseCreated", fields: [applicationId], references: [id])
-  renewalApplication RenewalFormPersonalDetails?             @relation("RenewalLicenseCreated", fields: [renewalId], references: [id])
-  issuedByUser       Users?                                  @relation("IssuedLicenses", fields: [issuedBy], references: [id])
+  // === LICENSEE PERSONAL DETAILS ===
+  firstName                String
+  middleName               String?
+  lastName                 String
+  parentOrSpouseName       String
+  sex                      Sex
+  dateOfBirth              DateTime?
+  placeOfBirth             String?
+  aadharNumber             String?
+  panNumber                String?
+
+  // === LICENSE TERMS ===
+  validFrom                DateTime
+  validTill                DateTime
+  armsCategory             ArmsCategory?
+  areaOfValidity           String?
+  ammunitionDescription    String?
+  licencePlaceArea         String?
+  specialConsiderationReason String?
+  needForLicense           LicensePurpose?
+
+  // === ADDRESS (denormalized) ===
+  presentAddressLine        String?
+  presentStateId           Int?
+  presentDistrictId        Int?
+  presentPoliceStationId   Int?
+  presentZoneId            Int?
+  presentDivisionId        Int?
+  presentRangeOfficeId     Int?
+
+  permanentAddressLine      String?
+  permanentStateId         Int?
+  permanentDistrictId      Int?
+  permanentPoliceStationId Int?
+  permanentZoneId          Int?
+  permanentDivisionId      Int?
+  permanentRangeOfficeId   Int?
+
+  // === OCCUPATION ===
+  occupation               String?
+  officeAddress            String?
+
+  // === STATUS & LIFECYCLE ===
+  status                   LicenseStatus      @default(ACTIVE)
+  cancellationReason       String?
+  cancellationDate         DateTime?
+  suspendedReason          String?
+  suspendedDate            DateTime?
+  lastRenewedDate          DateTime?
+
+  // === DOCUMENTS ===
+  qrCodeUrl                String?
+  pdfUrl                   String?
+  digitalSignature         String?
+  issuedBy                 Int?
+
+  // === APPLICATION TRACKING ===
+  sourceApplicationId      Int?               @unique
+  lastModifiedByAppId      Int?
+  lastModifiedAppType      String?
+  renewalCount             Int                @default(0)
+
+  // === TIMESTAMPS ===
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  // === RELATIONS ===
+  sourceApplication        FreshLicenseApplicationPersonalDetails? @relation("LicenseSourceFresh", fields: [sourceApplicationId], references: [id])
+  issuedByUser             Users?                                  @relation("IssuedLicenses", fields: [issuedBy], references: [id])
+  endorsedWeapons          WeaponTypeMaster[]                      @relation("LicenseEndorsedWeapons")
+  workflowHistories        LicenseWorkflowHistory[]
+
+  @@index([aadharNumber])
+  @@index([status])
+  @@index([validTill])
+  @@index([firstName, lastName])
+  @@index([presentStateId])
+  @@index([presentDistrictId])
+}
+
+model LicenseWorkflowHistory {
+  id             Int             @id @default(autoincrement())
+  licenseId      Int
+  action         String
+  applicationId  Int?
+  applicationType String?
+  previousStatus LicenseStatus?
+  newStatus      LicenseStatus?
+  changedBy      Int?
+  remarks        String?
+  createdAt      DateTime        @default(now())
+
+  license        Licenses        @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  changedByUser  Users?          @relation("LicenseWorkflowChangedBy", fields: [changedBy], references: [id])
+
+  @@index([licenseId])
+  @@index([createdAt])
 }
 
 model AuditLogs {
