@@ -62,7 +62,7 @@ export class LicensesController {
 
   @Get('by-number/:licenseNumber')
   @ApiOperation({ summary: 'Lookup a license by its license number' })
-  @ApiParam({ name: 'licenseNumber', description: 'License number (e.g., LUAN-2026-...)', example: 'LUAN-2026-07-02-14-30-45-123456' })
+  @ApiParam({ name: 'licenseNumber', description: 'License number (e.g., LUAN2026-...)', example: 'LUAN20260702143045123456' })
   async getLicenseByNumber(@Param('licenseNumber') licenseNumber: string) {
     const license = await this.licensesService.getLicenseByNumber(licenseNumber);
     if (!license) throw new NotFoundException('License not found');
