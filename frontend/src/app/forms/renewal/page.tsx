@@ -459,6 +459,8 @@ const mapLicensePurposeToUiValue = (value?: string) => {
       return 'self_defense';
     case 'SPORTS':
       return 'sports';
+    case 'CROP_PROTECTION':
+      return 'crop_protection';
     case 'HEIRLOOM_POLICY':
       return 'business_security';
     default:
@@ -473,13 +475,19 @@ const mapUiValueToLicensePurpose = (value?: string) => {
 
   switch (normalized) {
     case 'self_defense':
+    case 'self-defense':
+    case 'self protection':
       return 'SELF_PROTECTION';
     case 'sports':
       return 'SPORTS';
+    case 'crop_protection':
+    case 'crop protection':
+      return 'CROP_PROTECTION';
     case 'business_security':
+    case 'business-security':
       return 'HEIRLOOM_POLICY';
     default:
-      return value;
+      return String(value).toUpperCase().replace(/\s+/g, '_');
   }
 };
 
