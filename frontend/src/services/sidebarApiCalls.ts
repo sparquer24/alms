@@ -378,7 +378,7 @@ export interface DetailedApplicationData {
 /**
  * Converts status name strings to their corresponding numeric IDs
  */
-export const convertStatusNamesToIds = (statusIds: string | string[] | number | number[]): string => {
+export const convertStatusNamesToIds = (statusIds: string | string[] | number | number[] | (string | number)[]): string => {
   if (!statusIds) return '';
 
   const statusArray = Array.isArray(statusIds) ? statusIds : [statusIds];
@@ -402,7 +402,7 @@ export const convertStatusNamesToIds = (statusIds: string | string[] | number | 
  * Utility function to get status IDs from statusIdMap by key
  * Provides a consistent interface for all pages to fetch applications by status
  */
-export const getStatusIdsForKey = (statusKey: string): number[] => {
+export const getStatusIdsForKey = (statusKey: string): (string | number)[] => {
   if (!statusKey) return [];
   // Do a case-insensitive lookup because callers may use lowercase/uppercase variations
   const lookup = String(statusKey).toLowerCase();
@@ -569,7 +569,7 @@ export const fetchAllApplications = async (params: Record<string, any> = {}): Pr
 /**
  * Fetch applications by status from the API
  */
-export const fetchApplicationsByStatus = async (status: number[] | string[]): Promise<ApplicationData[]> => {
+export const fetchApplicationsByStatus = async (status: number[] | string[] | (string | number)[]): Promise<ApplicationData[]> => {
   try {
     const cacheKey = `fetchApplicationsByStatus_${JSON.stringify(status)}`;
 
