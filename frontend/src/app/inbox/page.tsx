@@ -154,6 +154,8 @@ function InboxContent() {
         return selectedFormType === 'renewal' ? 'Renewal Form Applications' : 'Fresh Form Applications';
       case 'reenquiry':
         return 'Re-Enquiry Applications';
+      case 'cancel':
+        return 'Cancellation Requests';
       default:
         return 'Applications';
     }
