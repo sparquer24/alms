@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
+import { LicenseStatus } from '@prisma/client';
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -11,26 +12,26 @@ export class LicensesService {
 
   constructor(private prisma: PrismaService) {}
 
-  async generateLicensePdf(applicationId: number, issuedBy: number) {
+  async generateLicensePdf(sourceApplicationId: number, issuedBy: number) {
     // Check if license already exists
     const existingLicense = await this.prisma.licenses.findFirst({
-      where: { applicationId }
+      where: { sourceApplicationId }
     });
 
     if (existingLicense) {
-      this.logger.log(`License already exists for application ${applicationId}, returning existing`);
+      this.logger.log(`License already exists for application ${sourceApplicationId}, returning existing`);
       return existingLicense;
     }
 
     const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-      where: { id: applicationId },
+      where: { id: sourceApplicationId },
       include: {
-        presentAddress: { include: { state: true, district: true, policeStation: true } },
-        permanentAddress: { include: { state: true, district: true, policeStation: true } },
-        occupationAndBusiness: true,
+        presentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true, RangeOffices: true } },
+        permanentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true, RangeOffices: true } },
+        occupationAndBusiness: { include: { state: true, district: true } },
         criminalHistories: true,
         licenseHistories: true,
-        licenseDetails: true
+        licenseDetails: { include: { requestedWeapons: true } }
       }
     });
 
@@ -38,7 +39,7 @@ export class LicensesService {
 
     // Fetch Applicant's Photograph
     const photoUpload = await this.prisma.fLAFFileUploads.findFirst({
-      where: { applicationId, fileType: 'PHOTOGRAPH' }
+      where: { applicationId: sourceApplicationId, fileType: 'PHOTOGRAPH' }
     });
     
     let photoBase64 = '';
@@ -71,7 +72,12 @@ export class LicensesService {
       }
     }
 
-    const licenseNumber = 'ALMS-' + new Date().getFullYear() + '-' + Math.floor(Math.random() * 100000);
+    // Generate license number in LUAN format: LUAN-YYYY-MM-DD-HH-mm-ss-mmmmmm
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const ms = now.getMilliseconds().toString().padStart(6, '0');
+    const licenseNumber = `LUAN-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}-${ms}`;
+    
     const validFrom = new Date();
     const validTill = new Date();
     validTill.setFullYear(validTill.getFullYear() + 2); // 2 years validity
@@ -79,7 +85,7 @@ export class LicensesService {
     // Generate QR Code
     const qrData = JSON.stringify({
       licenseNumber,
-      applicationId,
+      sourceApplicationId,
       validTill: validTill.toISOString().split('T')[0]
     });
     const qrCodeUrl = await QRCode.toDataURL(qrData, { width: 120, margin: 1 });
@@ -385,21 +391,318 @@ export class LicensesService {
     const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
     const dataUri = `data:application/pdf;base64,${base64Pdf}`;
 
-    const license = await this.prisma.licenses.create({
-      data: {
-        licenseNumber,
-        applicationId,
-        issueDate: new Date(),
-        validFrom,
-        validTill,
-        status: 'ACTIVE',
-        pdfUrl: dataUri,
-        qrCodeUrl,
-        issuedBy
+    // Populate denormalized fields from the application data
+    const licenseFirstLicenseDetail = application.licenseDetails?.[0];
+    const presentAddr = application.presentAddress;
+    const permAddr = application.permanentAddress;
+
+    // Wrap license creation and workflow history in a transaction for atomicity
+    const license = await this.prisma.$transaction(async (tx: any) => {
+      const created = await tx.licenses.create({
+        data: {
+          // === IDENTIFIERS ===
+          licenseNumber,
+          almsLicenseId: application.almsLicenseId,
+          sourceApplicationId,
+          issueDate: new Date(),
+
+          // === PERSONAL DETAILS ===
+          firstName: application.firstName,
+          middleName: application.middleName,
+          lastName: application.lastName,
+          parentOrSpouseName: application.parentOrSpouseName,
+          sex: application.sex,
+          dateOfBirth: application.dateOfBirth || undefined,
+          placeOfBirth: application.placeOfBirth,
+          aadharNumber: application.aadharNumber,
+          panNumber: application.panNumber,
+
+          // === LICENSE TERMS ===
+          validFrom,
+          validTill,
+          armsCategory: licenseFirstLicenseDetail?.armsCategory || undefined,
+          areaOfValidity: licenseFirstLicenseDetail?.areaOfValidity,
+          ammunitionDescription: licenseFirstLicenseDetail?.ammunitionDescription,
+          licencePlaceArea: licenseFirstLicenseDetail?.licencePlaceArea,
+          specialConsiderationReason: licenseFirstLicenseDetail?.specialConsiderationReason,
+          needForLicense: licenseFirstLicenseDetail?.needForLicense || undefined,
+
+          // === PRESENT ADDRESS ===
+          presentAddressLine: presentAddr?.addressLine,
+          presentStateId: presentAddr?.stateId,
+          presentDistrictId: presentAddr?.districtId,
+          presentPoliceStationId: presentAddr?.policeStationId,
+          presentZoneId: presentAddr?.zoneId,
+          presentDivisionId: presentAddr?.divisionId,
+          presentRangeOfficeId: presentAddr?.rangeOfficeId,
+
+          // === PERMANENT ADDRESS ===
+          permanentAddressLine: permAddr?.addressLine,
+          permanentStateId: permAddr?.stateId,
+          permanentDistrictId: permAddr?.districtId,
+          permanentPoliceStationId: permAddr?.policeStationId,
+          permanentZoneId: permAddr?.zoneId,
+          permanentDivisionId: permAddr?.divisionId,
+          permanentRangeOfficeId: permAddr?.rangeOfficeId,
+
+          // === OCCUPATION ===
+          occupation: application.occupationAndBusiness?.occupation,
+          officeAddress: application.occupationAndBusiness?.officeAddress,
+
+          // === STATUS ===
+          status: LicenseStatus.ACTIVE,
+
+          // === DOCUMENTS ===
+          pdfUrl: dataUri,
+          qrCodeUrl,
+          issuedBy,
+
+          // === ENDORSED WEAPONS ===
+          endorsedWeapons: licenseFirstLicenseDetail?.requestedWeapons?.length
+            ? { connect: licenseFirstLicenseDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
+            : undefined,
+
+          // === TRACKING ===
+          renewalCount: 0,
+          lastModifiedAppType: 'FRESH',
+        }
+      });
+
+      // Create LicenseWorkflowHistory entry within the same transaction
+      await tx.licenseWorkflowHistory.create({
+        data: {
+          licenseId: created.id,
+          action: 'ISSUED',
+          applicationId: sourceApplicationId,
+          applicationType: 'FRESH',
+          newStatus: LicenseStatus.ACTIVE,
+          changedBy: issuedBy,
+          remarks: 'License issued upon fresh application approval',
+        }
+      });
+
+      return created;
+    });
+
+    this.logger.log(`Generated license ${licenseNumber} for application ${sourceApplicationId}`);
+    return license;
+  }
+
+  /**
+   * Get a single license by ID with full details
+   */
+  async getLicenseById(id: number) {
+    return this.prisma.licenses.findUnique({
+      where: { id },
+      include: {
+        sourceApplication: {
+          select: {
+            id: true,
+            acknowledgementNo: true,
+            almsLicenseId: true,
+          }
+        },
+        issuedByUser: {
+          select: { id: true, username: true }
+        },
+        endorsedWeapons: {
+          select: { id: true, name: true, description: true }
+        },
+        workflowHistories: {
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          include: {
+            changedByUser: {
+              select: { id: true, username: true }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * List/search licenses with filtering and pagination
+   */
+  async getAllLicenses(filters: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    licenseNumber?: string;
+    aadharNumber?: string;
+    sourceApplicationId?: number;
+    orderBy?: string;
+    order?: 'asc' | 'desc';
+  }) {
+    const page = Math.max(Number(filters.page ?? 1), 1);
+    const limit = Math.max(Number(filters.limit ?? 10), 1);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (filters.sourceApplicationId) {
+      where.sourceApplicationId = filters.sourceApplicationId;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { firstName: { contains: filters.search, mode: 'insensitive' } },
+        { lastName: { contains: filters.search, mode: 'insensitive' } },
+        { licenseNumber: { contains: filters.search, mode: 'insensitive' } },
+        { aadharNumber: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.licenseNumber) {
+      where.licenseNumber = { contains: filters.licenseNumber, mode: 'insensitive' };
+    }
+
+    if (filters.aadharNumber) {
+      where.aadharNumber = { contains: filters.aadharNumber };
+    }
+
+    const allowedOrderFields = ['id', 'licenseNumber', 'firstName', 'lastName', 'createdAt', 'validTill', 'status'];
+    const orderByField = (filters.orderBy && allowedOrderFields.includes(filters.orderBy)) ? filters.orderBy : 'createdAt';
+    const orderDirection = filters.order && filters.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    const [data, total] = await Promise.all([
+      this.prisma.licenses.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [orderByField]: orderDirection },
+        include: {
+          endorsedWeapons: {
+            select: { id: true, name: true }
+          }
+        }
+      }),
+      this.prisma.licenses.count({ where }),
+    ]);
+
+    return { data, total, page, limit };
+  }
+
+  /**
+   * Get workflow history for a license
+   */
+  async getLicenseHistory(licenseId: number) {
+    return this.prisma.licenseWorkflowHistory.findMany({
+      where: { licenseId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        changedByUser: {
+          select: { id: true, username: true }
+        }
+      }
+    });
+  }
+
+  /**
+   * Lookup license by license number
+   */
+  async getLicenseByNumber(licenseNumber: string) {
+    return this.prisma.licenses.findUnique({
+      where: { licenseNumber },
+      include: {
+        sourceApplication: {
+          select: {
+            id: true,
+            acknowledgementNo: true,
+          }
+        },
+        issuedByUser: {
+          select: { id: true, username: true }
+        },
+        endorsedWeapons: {
+          select: { id: true, name: true, description: true }
+        }
+      }
+    });
+  }
+
+  /**
+   * Lookup licenses by aadhar number
+   */
+  async getLicenseByAadhar(aadharNumber: string) {
+    return this.prisma.licenses.findMany({
+      where: { aadharNumber },
+      include: {
+        endorsedWeapons: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * Get license statistics (counts by status)
+   */
+  async getLicenseStatistics() {
+    const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount] = await Promise.all([
+      this.prisma.licenses.count(),
+      this.prisma.licenses.count({ where: { status: 'ACTIVE' as any } }),
+      this.prisma.licenses.count({ where: { status: 'EXPIRED' as any } }),
+      this.prisma.licenses.count({ where: { status: 'CANCELLED' as any } }),
+      this.prisma.licenses.count({ where: { status: 'SUSPENDED' as any } }),
+      this.prisma.licenses.count({ where: { status: 'REVOKED' as any } }),
+      this.prisma.licenses.count({
+        where: {
+          status: 'ACTIVE' as any,
+          validTill: {
+            lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            gte: new Date()
+          }
+        }
+      }),
+    ]);
+
+    return {
+      total,
+      active: activeCount,
+      expired: expiredCount,
+      cancelled: cancelledCount,
+      suspended: suspendedCount,
+      revoked: revokedCount,
+      expiringWithin30Days: expiringSoonCount,
+    };
+  }
+
+  /**
+   * Get a license's source application (the fresh application that originated it)
+   */
+  async getLicenseSourceApplication(licenseId: number) {
+    const license = await this.prisma.licenses.findUnique({
+      where: { id: licenseId },
+      select: {
+        sourceApplicationId: true,
+        sourceApplication: {
+          include: {
+            presentAddress: {
+              include: { state: true, district: true, policeStation: true, zone: true, division: true }
+            },
+            permanentAddress: {
+              include: { state: true, district: true, policeStation: true, zone: true, division: true }
+            },
+            occupationAndBusiness: true,
+            licenseDetails: {
+              include: { requestedWeapons: true }
+            },
+            criminalHistories: true,
+            licenseHistories: true,
+            fileUploads: true,
+            biometricData: true,
+          }
+        }
       }
     });
 
-    this.logger.log(`Generated license ${licenseNumber} for application ${applicationId}`);
-    return license;
+    return license?.sourceApplication || null;
   }
 }

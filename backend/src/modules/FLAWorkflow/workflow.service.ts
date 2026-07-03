@@ -1,5 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
+import { LicenseStatus } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 
@@ -303,8 +304,111 @@ export class WorkflowService {
       data: workflowHistoryData,
     });
 
+    // === LICENSE HOOK: Create license on fresh application approval ===
+    if (isApprovalAction(actionCode)) {
+      await this.issueLicenseFromFreshApproval(payload.applicationId, payload.currentUserId);
+    }
+
     return updatedApplication;
- }
+  }
+
+  /**
+   * Create a new license record when a fresh application is approved
+   */
+  private async issueLicenseFromFreshApproval(applicationId: number, issuedBy: number) {
+    // Check if license already exists for this application
+    const existingLicense = await prisma.licenses.findFirst({
+      where: { sourceApplicationId: applicationId }
+    });
+    if (existingLicense) return;
+
+    // Fetch full application data with includes
+    const appData = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: applicationId },
+      include: {
+        presentAddress: true,
+        permanentAddress: true,
+        occupationAndBusiness: true,
+        licenseDetails: { include: { requestedWeapons: true } }
+      }
+    });
+
+    if (!appData) return;
+
+    const licDetail = appData.licenseDetails?.[0];
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const ms = now.getMilliseconds().toString().padStart(6, '0');
+    const licenseNumber = `LUAN-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}-${ms}`;
+    const validTill = new Date();
+    validTill.setFullYear(validTill.getFullYear() + 2);
+
+    const license = await prisma.$transaction(async (tx: any) => {
+      const created = await tx.licenses.create({
+        data: {
+          licenseNumber,
+          almsLicenseId: appData.almsLicenseId,
+          sourceApplicationId: appData.id,
+          issueDate: new Date(),
+          firstName: appData.firstName,
+          middleName: appData.middleName,
+          lastName: appData.lastName,
+          parentOrSpouseName: appData.parentOrSpouseName,
+          sex: appData.sex,
+          dateOfBirth: appData.dateOfBirth || undefined,
+          placeOfBirth: appData.placeOfBirth,
+          aadharNumber: appData.aadharNumber,
+          panNumber: appData.panNumber,
+          validFrom: new Date(),
+          validTill,
+          armsCategory: licDetail?.armsCategory || undefined,
+          areaOfValidity: licDetail?.areaOfValidity,
+          ammunitionDescription: licDetail?.ammunitionDescription,
+          licencePlaceArea: licDetail?.licencePlaceArea,
+          specialConsiderationReason: licDetail?.specialConsiderationReason,
+          needForLicense: licDetail?.needForLicense || undefined,
+          presentAddressLine: appData.presentAddress?.addressLine,
+          presentStateId: appData.presentAddress?.stateId,
+          presentDistrictId: appData.presentAddress?.districtId,
+          presentPoliceStationId: appData.presentAddress?.policeStationId,
+          presentZoneId: appData.presentAddress?.zoneId,
+          presentDivisionId: appData.presentAddress?.divisionId,
+          presentRangeOfficeId: appData.presentAddress?.rangeOfficeId,
+          permanentAddressLine: appData.permanentAddress?.addressLine,
+          permanentStateId: appData.permanentAddress?.stateId,
+          permanentDistrictId: appData.permanentAddress?.districtId,
+          permanentPoliceStationId: appData.permanentAddress?.policeStationId,
+          permanentZoneId: appData.permanentAddress?.zoneId,
+          permanentDivisionId: appData.permanentAddress?.divisionId,
+          permanentRangeOfficeId: appData.permanentAddress?.rangeOfficeId,
+          occupation: appData.occupationAndBusiness?.occupation,
+          officeAddress: appData.occupationAndBusiness?.officeAddress,
+          status: LicenseStatus.ACTIVE,
+          renewalCount: 0,
+          issuedBy,
+          lastModifiedAppType: 'FRESH',
+          endorsedWeapons: licDetail?.requestedWeapons?.length
+            ? { connect: licDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
+            : undefined,
+        }
+      });
+
+      // Create LicenseWorkflowHistory entry within same transaction
+      await tx.licenseWorkflowHistory.create({
+        data: {
+          licenseId: created.id,
+          action: 'ISSUED',
+          applicationId,
+          applicationType: 'FRESH',
+          newStatus: LicenseStatus.ACTIVE,
+          changedBy: issuedBy,
+          remarks: 'License issued upon fresh application approval',
+        }
+      });
+
+      return created;
+    });
+  }
 
  async renewalapplication(payload: {
     isApproved?: boolean;
@@ -441,8 +545,116 @@ export class WorkflowService {
       data: workflowHistoryData,
     });
 
+    // === LICENSE HOOK: Update license on renewal application approval ===
+    if (isApprovalAction(actionCode)) {
+      await this.updateLicenseFromRenewalApproval(payload.applicationId, payload.currentUserId);
+    }
+
     return updatedApplication;
- }
+  }
+
+  /**
+   * Update the existing license record when a renewal application is approved
+   */
+  private async updateLicenseFromRenewalApproval(renewalApplicationId: number, changedBy: number) {
+    // Fetch the renewal application with its data
+    const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
+      where: { id: renewalApplicationId },
+      include: {
+        presentAddress: true,
+        permanentAddress: true,
+        occupationAndBusiness: true,
+        licenseDetails: { include: { requestedWeapons: true } }
+      }
+    });
+
+    if (!renewalApp) return;
+
+    // Find the existing license by licenseNumber
+    const existingLicense = await prisma.licenses.findUnique({
+      where: { licenseNumber: renewalApp.licenseNumber }
+    });
+
+    if (!existingLicense) return;
+
+    const licDetail = renewalApp.licenseDetails?.[0];
+    const validTill = new Date();
+    validTill.setFullYear(validTill.getFullYear() + 2);
+
+    const updated = await prisma.$transaction(async (tx: any) => {
+      const updatedLicense = await tx.licenses.update({
+        where: { id: existingLicense.id },
+        data: {
+        // Update personal details if changed
+        firstName: renewalApp.firstName,
+        middleName: renewalApp.middleName,
+        lastName: renewalApp.lastName,
+        parentOrSpouseName: renewalApp.parentOrSpouseName,
+        dateOfBirth: renewalApp.dateOfBirth || undefined,
+        aadharNumber: renewalApp.aadharNumber,
+        panNumber: renewalApp.panNumber,
+
+        // Update license terms
+        validTill,
+        lastRenewedDate: new Date(),
+        armsCategory: licDetail?.armsCategory || existingLicense.armsCategory,
+        areaOfValidity: licDetail?.areaOfValidity || existingLicense.areaOfValidity,
+        ammunitionDescription: licDetail?.ammunitionDescription || existingLicense.ammunitionDescription,
+        licencePlaceArea: licDetail?.licencePlaceArea || existingLicense.licencePlaceArea,
+        specialConsiderationReason: licDetail?.specialConsiderationReason || existingLicense.specialConsiderationReason,
+        needForLicense: licDetail?.needForLicense || existingLicense.needForLicense,
+
+        // Update address if provided
+        presentAddressLine: renewalApp.presentAddress?.addressLine ?? existingLicense.presentAddressLine,
+        presentStateId: renewalApp.presentAddress?.stateId ?? existingLicense.presentStateId,
+        presentDistrictId: renewalApp.presentAddress?.districtId ?? existingLicense.presentDistrictId,
+        presentPoliceStationId: renewalApp.presentAddress?.policeStationId ?? existingLicense.presentPoliceStationId,
+        presentZoneId: renewalApp.presentAddress?.zoneId ?? existingLicense.presentZoneId,
+        presentDivisionId: renewalApp.presentAddress?.divisionId ?? existingLicense.presentDivisionId,
+        presentRangeOfficeId: renewalApp.presentAddress?.rangeOfficeId ?? existingLicense.presentRangeOfficeId,
+
+        permanentAddressLine: renewalApp.permanentAddress?.addressLine ?? existingLicense.permanentAddressLine,
+        permanentStateId: renewalApp.permanentAddress?.stateId ?? existingLicense.permanentStateId,
+        permanentDistrictId: renewalApp.permanentAddress?.districtId ?? existingLicense.permanentDistrictId,
+        permanentPoliceStationId: renewalApp.permanentAddress?.policeStationId ?? existingLicense.permanentPoliceStationId,
+        permanentZoneId: renewalApp.permanentAddress?.zoneId ?? existingLicense.permanentZoneId,
+        permanentDivisionId: renewalApp.permanentAddress?.divisionId ?? existingLicense.permanentDivisionId,
+        permanentRangeOfficeId: renewalApp.permanentAddress?.rangeOfficeId ?? existingLicense.permanentRangeOfficeId,
+
+        // Update occupation
+        occupation: renewalApp.occupationAndBusiness?.occupation ?? existingLicense.occupation,
+        officeAddress: renewalApp.occupationAndBusiness?.officeAddress ?? existingLicense.officeAddress,
+
+        // Update tracking
+        renewalCount: { increment: 1 },
+        lastModifiedByAppId: renewalApplicationId,
+        lastModifiedAppType: 'RENEWAL',
+        status: LicenseStatus.ACTIVE,
+
+        // Update endorsed weapons
+        endorsedWeapons: licDetail?.requestedWeapons?.length
+          ? { set: licDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
+          : undefined,
+      }
+    });
+
+    // Create LicenseWorkflowHistory entry within the same transaction
+    await tx.licenseWorkflowHistory.create({
+      data: {
+        licenseId: updatedLicense.id,
+        action: 'RENEWED',
+        applicationId: renewalApplicationId,
+        applicationType: 'RENEWAL',
+        previousStatus: existingLicense.status,
+        newStatus: LicenseStatus.ACTIVE,
+        changedBy,
+        remarks: 'License renewed upon renewal application approval',
+      }
+    });
+
+    return updatedLicense;
+    }); // end transaction
+  }
 
  async handleUserAction(payload: 
   {
@@ -637,6 +849,48 @@ export class WorkflowService {
               isPending: false,
             },
           });
+        }
+
+        // === LICENSE HOOK: Cancel license on cancel request approval ===
+        try {
+          // Find the license by the original application's freshLicenseId
+          // For fresh applications, freshLicenseId IS the application ID
+          // For renewals, freshLicenseId references the original fresh app ID
+          if (cancelRequest.freshLicenseId) {
+            const licenseToCancel = await tx.licenses.findFirst({
+              where: { sourceApplicationId: cancelRequest.freshLicenseId }
+            });
+
+            if (licenseToCancel) {
+              await tx.licenses.update({
+                where: { id: licenseToCancel.id },
+                data: {
+                  status: LicenseStatus.CANCELLED,
+                  cancellationReason: cancelRequest.cancellationReason,
+                  cancellationDate: new Date(),
+                  lastModifiedByAppId: payload.applicationId,
+                  lastModifiedAppType: 'CANCELLATION',
+                }
+              });
+
+              // Create LicenseWorkflowHistory entry
+              await tx.licenseWorkflowHistory.create({
+                data: {
+                  licenseId: licenseToCancel.id,
+                  action: 'CANCELLED',
+                  applicationId: payload.applicationId,
+                  applicationType: 'CANCELLATION',
+                  previousStatus: licenseToCancel.status,
+                  newStatus: LicenseStatus.CANCELLED,
+                  changedBy: payload.currentUserId,
+                  remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
+                }
+              });
+            }
+          }
+        } catch (err) {
+          // Log but don't fail the cancellation workflow
+          console.error('[LicenseHook] Failed to cancel license:', err);
         }
 
         actionTaken = ACTION_CODES.CANCEL;
