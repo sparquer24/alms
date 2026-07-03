@@ -139,17 +139,15 @@ export class WorkflowController {
     @Body() body: ForwardDto & { actionId?: number; attachments?: Array<{ name: string; type: string; contentType: string; url: string }> },
     @Req() req: Request
   ) {
-    console.log('[WorkflowController] handleAction: Received request');
-    console.log('[WorkflowController] Body:', JSON.stringify(body, null, 2));
-
+    // Log the incoming body at the very start for debugging
+    // Extract user info from JWT
     const user = (req as any).user;
     const roleId = user?.role_id;
     if (!user || user.user_id === undefined || user.user_id === null || roleId === undefined || roleId === null) {
-      console.error('[WorkflowController] Error: Invalid user credentials in token.');
       throw new ForbiddenException('Invalid user credentials.');
     }
-    console.log(`[WorkflowController] Authenticated user ID: ${user.user_id}, Role ID: ${roleId}`);
 
+    // Validate required fields (DTO will handle most, but double-check for nextUserId if forwarding)
     if (body.actionId === undefined || body.actionId === null || isNaN(Number(body.actionId))) {
       throw new BadRequestException('Missing or invalid required actionId field.');
     }
@@ -160,6 +158,9 @@ export class WorkflowController {
       throw new BadRequestException('Missing required remarks fields.');
     }
 
+    // All action logic is now based on actionId and Actiones table
+
+    // Validate attachments if present
     if (body.attachments) {
       if (!Array.isArray(body.attachments)) {
         throw new BadRequestException('Attachments must be an array.');
@@ -171,38 +172,39 @@ export class WorkflowController {
       }
     }
 
+    // Dynamically validate actionId against Actiones table
     const action = await prisma.actiones.findFirst({
       where: { id: Number(body.actionId), isActive: true }
     });
     if (!action) {
       throw new BadRequestException('Invalid actionId: not found in Actiones table.');
     }
-    console.log(`[WorkflowController] Action found: ID=${action.id}, Code=${action.code}`);
 
+    // For now, keep the forward check by code for compatibility
     if (action.code.toLowerCase() === 'forward' && (body.nextUserId === undefined || body.nextUserId === null || isNaN(Number(body.nextUserId)))) {
       throw new BadRequestException('nextUserId is required for forwarding and must be a valid number.');
     }
 
+    // ...existing code...
+
+    // Call service to process action
     try {
-      console.log(`[WorkflowController] Calling workflowService.handleUserAction for application type: ${body.applicationType}`);
       const result = await this.workflowService.handleUserAction({
         ...body,
         applicationId: Number(body.applicationId),
         actionId: Number(action.id),
-        action,
+        action, // pass the full action object if needed for downstream logic
         currentUserId: Number(user.user_id),
         nextUserId: body.nextUserId !== undefined && body.nextUserId !== null ? Number(body.nextUserId) : undefined,
         attachments: body.attachments || [],
       }, body.applicationType);
-      
-      console.log('[WorkflowController] workflowService.handleUserAction finished successfully.');
       return {
         success: true,
         message: `${action.code.toLowerCase()} performed successfully.`,
         updatedApplication: result,
       };
     } catch (error) {
-      console.error('[WorkflowController] Error during workflowService.handleUserAction:', error);
+      console.error('Workflow Action Error:', error);
       if (error instanceof ForbiddenException) throw error;
       if (error instanceof NotFoundException) throw error;
       if (error instanceof BadRequestException) throw error;
