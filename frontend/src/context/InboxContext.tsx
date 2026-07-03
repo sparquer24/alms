@@ -40,7 +40,10 @@ export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
       return normalized;
     });
 
-    if (!shouldFetch) return;
+    if (!shouldFetch) {
+      setIsLoading(false);
+      return;
+    }
 
     // bump request id for this load, so we can ignore stale responses
     const requestId = ++requestIdRef.current;

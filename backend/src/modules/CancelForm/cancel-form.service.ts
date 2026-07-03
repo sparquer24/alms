@@ -125,15 +125,22 @@ export class CancelFormService {
           });
           const currentUserRoleId = currentUser?.roleId || null;
 
-          await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+          // Also create the INITIATED entry in CancelWorkflowHistories
+          // so the cancel request's own workflow history starts from submission
+          const initiateAction = await tx.actiones.findFirst({
+            where: { code: 'INITIATED' },
+          });
+
+          await tx.cancelWorkflowHistories.create({
             data: {
-              applicationId: dto.freshLicenseId,
+              applicationId: created.id,
               previousUserId: effectiveUserId,
               nextUserId: effectiveUserId,
               previousRoleId: currentUserRoleId,
               nextRoleId: currentUserRoleId,
-              actionTaken: initiateStatus.code,
-              remarks: `Cancel request submitted. Reason: ${dto.cancellationReason}`,
+              actionTaken: 'INITIATED',
+              remarks: `Cancel request initiated. Reason: ${dto.cancellationReason}`,
+              actionesId: initiateAction?.id || null,
             },
           });
         }

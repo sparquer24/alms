@@ -8,6 +8,7 @@ interface ApplicationCounts {
     redFlaggedCount: number;
     pendingCount: number;
     draftCount: number;
+    allCount: number;
 }
 
 export const useSidebarCounts = (enabled: boolean = true) => {
@@ -18,6 +19,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
         reEnquiryCount: 0,
         pendingCount: 0,
         draftCount: 0,
+        allCount: 0,
     });
     const [loading, setLoading] = useState(false);
     const [lastFetch, setLastFetch] = useState<number>(0);
@@ -44,6 +46,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                 reEnquiryCount: counts.reEnquiryCount,
                 pendingCount: counts.pendingCount,
                 draftCount: counts.draftCount,
+                allCount: counts.allCount ?? 0,
             });
 
             setLastFetch(now);
@@ -54,12 +57,15 @@ export const useSidebarCounts = (enabled: boolean = true) => {
         }
     }, [enabled]); // Removed loading and lastFetch from dependencies to prevent infinite loops
 
-    // Initial fetch - separate effect with stable dependencies
+    // Initial fetch - runs whenever enabled flips to true (e.g. when sidebar becomes visible)
     useEffect(() => {
+        if (!enabled) return;
+
         let isMounted = true;
 
         const initialFetch = async () => {
-            if (!enabled || lastFetch !== 0) return;
+            // Skip if we already have fresh data (fetched within last 2 minutes)
+            if (lastFetch !== 0 && (Date.now() - lastFetch) < 120000) return;
 
             try {
                 setLoading(true);
@@ -74,6 +80,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
                         reEnquiryCount: counts.reEnquiryCount,
                         pendingCount: counts.pendingCount,
                         draftCount: counts.draftCount,
+                        allCount: counts.allCount ?? 0,
                     });
                     setLastFetch(Date.now());
                 }
@@ -93,7 +100,7 @@ export const useSidebarCounts = (enabled: boolean = true) => {
         return () => {
             isMounted = false;
         };
-    }, [enabled]); // Only depend on enabled to prevent re-fetching
+    }, [enabled]); // Re-runs when enabled changes (e.g. sidebar becomes visible)
 
     return {
         applicationCounts,
