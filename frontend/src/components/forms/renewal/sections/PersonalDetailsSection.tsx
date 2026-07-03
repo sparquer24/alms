@@ -78,7 +78,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
           error={errors['fatherName']}
         />
 
-        <FormField label='Sex' required error={errors['applicantGender']}>
+        <FormField label='Gender' required error={errors['applicantGender']}>
           <div className='flex flex-wrap items-center gap-4 pt-1'>
             <label className='inline-flex items-center gap-2 cursor-pointer'>
               <input
@@ -103,18 +103,6 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
                 className='text-indigo-600 focus:ring-indigo-500'
               />
               <span className='text-sm text-gray-700'>Female</span>
-            </label>
-            <label className='inline-flex items-center gap-2 cursor-pointer'>
-              <input
-                id='applicantGenderOther'
-                type='radio'
-                name='applicantGender'
-                value='OTHER'
-                checked={gender === 'OTHER'}
-                onChange={onChange}
-                className='text-indigo-600 focus:ring-indigo-500'
-              />
-              <span className='text-sm text-gray-700'>Other</span>
             </label>
           </div>
         </FormField>

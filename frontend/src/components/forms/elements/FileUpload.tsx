@@ -33,9 +33,19 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const MAX_FILE_SIZE_MB = 10;
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      onFileSelect(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`File size exceeds the maximum allowed limit of ${MAX_FILE_SIZE_MB} MB.`);
+        // Reset so the same file can be re-selected after correction
+        e.target.value = '';
+        return;
+      }
+      onFileSelect(file);
     }
   };
 

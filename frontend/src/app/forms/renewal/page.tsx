@@ -134,6 +134,8 @@ type RenewalFormState = {
   applicationDate: string;
   authorityAppliedTo: string;
   applicationResult: string;
+  rejectedApplicationEvidenceUploaded?: any;
+  rejectedApplicationEvidenceFiles?: any[];
   licenseRevokedOrSuspended: boolean;
   revokedByAuthority: string;
   revokedReason: string;
@@ -2151,6 +2153,20 @@ function RenewalFormPageContent() {
   // Biometric verification states
   const [enteredAppId, setEnteredAppId] = useState(urlApplicationId || '');
   const resolvedApplicationId = urlApplicationId || enteredAppId;
+
+  const [sectionCompleted, setSectionCompleted] = useState<Record<string, boolean>>({
+    personal: false,
+    address: false,
+    occupation: false,
+    criminal: false,
+    licenseDetails: false,
+    licenseHistory: false,
+    biometric: false,
+    documents: false,
+  });
+  const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
+
+
   const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<
@@ -2506,6 +2522,8 @@ function RenewalFormPageContent() {
 
   const handleFormPatch = (patch: Record<string, unknown>) => {
     setFormData(prev => ({ ...prev, ...patch }));
+    
+    // Clear document errors
     const documentKeys = Object.keys(patch).filter(key =>
       (DOCUMENT_FORM_KEYS as readonly string[]).includes(key)
     );
@@ -2521,6 +2539,19 @@ function RenewalFormPageContent() {
           }
         });
         return changed ? copy : prevErrs;
+      });
+    }
+
+    // Clear license details evidence error automatically after a successful upload
+    if ('specialEvidenceUploaded' in patch && patch.specialEvidenceUploaded) {
+      setLicenseDetailsErrors(prevErrs => {
+        if (!prevErrs) return prevErrs;
+        if ('specialEvidenceUploaded' in prevErrs) {
+          const copy = { ...prevErrs };
+          delete copy['specialEvidenceUploaded'];
+          return copy;
+        }
+        return prevErrs;
       });
     }
   };
@@ -2564,19 +2595,6 @@ function RenewalFormPageContent() {
     documents: true,
     declaration: true,
   });
-
-  const [sectionCompleted, setSectionCompleted] = useState<Record<string, boolean>>({
-    personal: false,
-    address: false,
-    occupation: false,
-    criminal: false,
-    licenseDetails: false,
-    licenseHistory: false,
-    biometric: false,
-    documents: false,
-  });
-
-  const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
 
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -3042,6 +3060,7 @@ function RenewalFormPageContent() {
     requireField('applicantLastName', 'Last name');
     requireField('filledBy', 'Application filled by');
     requireField('fatherName', 'Parent/Spouse name');
+    requireField('placeOfBirth', 'Place of birth');
     requireField('applicantDateOfBirth', 'Date of birth');
     requireField('dobInWords', 'Date of birth in words');
     requireField('panNumber', 'PAN');
@@ -3056,7 +3075,7 @@ function RenewalFormPageContent() {
     if (data.aadharNumber && !/^\d{12}$/.test(String(data.aadharNumber).trim()))
       errs['aadharNumber'] = 'Aadhar must be 12 digits';
 
-    if (!data.applicantGender) errs['applicantGender'] = 'Please select sex';
+    if (!data.applicantGender) errs['applicantGender'] = 'Please select gender';
     return errs;
   };
 
@@ -3069,10 +3088,19 @@ function RenewalFormPageContent() {
     requireField('presentAddress', 'Present address');
     requireField('presentState', 'Present state');
     requireField('presentDistrict', 'Present district');
+    requireField('presentRangeOffice', 'Present range office');
+    requireField('presentZone', 'Present zone');
+    requireField('presentDivision', 'Present division');
+    requireField('presentPoliceStation', 'Present police station');
+    requireField('officeMobile', 'Office mobile');
     if (!data.sameAsPresent) {
       requireField('permanentAddress', 'Permanent address');
       requireField('permanentState', 'Permanent state');
       requireField('permanentDistrict', 'Permanent district');
+      requireField('permanentRangeOffice', 'Permanent range office');
+      requireField('permanentZone', 'Permanent zone');
+      requireField('permanentDivision', 'Permanent division');
+      requireField('permanentPoliceStation', 'Permanent police station');
     }
     return errs;
   };
@@ -3100,7 +3128,13 @@ function RenewalFormPageContent() {
     };
     requireField('weaponReason', 'Need for license (15)');
     requireField('ammunitionDescription', 'Ammunition Description');
-    if (!data.specialEvidenceUploaded) {
+    requireField('specialConsiderationClaim', 'Claims for special consideration');
+    requireField('formIVPlaceArea', 'Place or area for which the licence is sought (Form IV a)');
+    requireField('formIVWildBeastsSpec', 'Specification of wild beasts (Form IV b)');
+    const hasEvidence =
+      Boolean(data.specialEvidenceUploaded) ||
+      (Array.isArray(data.specialEvidenceFiles) && data.specialEvidenceFiles.length > 0);
+    if (!hasEvidence) {
       errs['specialEvidenceUploaded'] = 'Documentary evidence is required.';
     }
     if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
@@ -3133,7 +3167,7 @@ function RenewalFormPageContent() {
         errs['firDetailsList'] = 'At least one FIR detail is required';
       } else {
         firList.forEach((item: any, idx: number) => {
-          const missing = [
+          const fields = [
             { key: 'firNumber', label: 'FIR Number' },
             { key: 'underSection', label: 'Under Section' },
             { key: 'policeStation', label: 'Police Station' },
@@ -3144,10 +3178,11 @@ function RenewalFormPageContent() {
             { key: 'sentence', label: 'Sentence' },
             { key: 'sentenceDate', label: 'Date of Sentence' },
           ];
-          missing.forEach(field => {
+          fields.forEach(field => {
             const value = item?.[field.key];
             if (!value || String(value).trim() === '') {
-              errs['firDetailsList'] = 'Complete all FIR details';
+              // Use per-item key so each FIR row's field can highlight individually
+              errs[`fir_${idx}_${field.key}`] = `${field.label} is required`;
             }
           });
         });
@@ -3178,6 +3213,17 @@ function RenewalFormPageContent() {
       requireField('applicationDate', 'Date of Application');
       requireField('authorityAppliedTo', 'Authority Applied To');
       requireField('applicationResult', 'Result');
+
+      if (data.applicationResult === 'rejected') {
+        const rejectedEvidenceFiles = Array.isArray(data.rejectedApplicationEvidenceFiles)
+          ? data.rejectedApplicationEvidenceFiles
+          : data.rejectedApplicationEvidenceUploaded
+            ? [data.rejectedApplicationEvidenceUploaded]
+            : [];
+        if (rejectedEvidenceFiles.length === 0) {
+          errs['rejectedApplicationEvidenceUploaded'] = 'Rejection Document is required';
+        }
+      }
     }
 
     if (data.licenseRevokedOrSuspended) {
@@ -3283,10 +3329,8 @@ function RenewalFormPageContent() {
     } else if (sectionKey === 'criminal') {
       sectionErrors = validateCriminalHistory(formData);
       if (Object.keys(sectionErrors).length > 0) {
-        // We don't have a specific state for criminalErrors in page.tsx right now,
-        // but returning them stops completion. We can add setCriminalErrors if needed,
-        // or just rely on toast.
-        // For now, this effectively stops it from saving and shows the generic "Failed to save" or "Fix validation errors" via toast.
+        setCriminalErrors(sectionErrors);
+        scheduleSectionFocus(criminalSectionRef, 'criminal');
       }
     } else if (sectionKey === 'licenseDetails') {
       sectionErrors = validateLicenseDetails(formData);
@@ -3297,7 +3341,8 @@ function RenewalFormPageContent() {
     } else if (sectionKey === 'licenseHistory') {
       sectionErrors = validateLicenseHistory(formData);
       if (Object.keys(sectionErrors).length > 0) {
-        // Also missing setLicenseHistoryErrors state, but returning errors prevents completion
+        setLicenseHistoryErrors(sectionErrors);
+        scheduleSectionFocus(licenseHistorySectionRef, 'licenseHistory');
       }
     } else if (sectionKey === 'documents') {
       sectionErrors = validateDocumentsUpload(formData);
@@ -3533,6 +3578,7 @@ function RenewalFormPageContent() {
         isSubmit: true,
       };
       await RenewalService.updateRenewalForm(activeRenewalId, submitPayload, { isSubmit: true });
+
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
       return true;
@@ -4489,6 +4535,11 @@ function RenewalFormPageContent() {
                     ref={licenseHistorySectionRef}
                     formData={formData}
                     onChange={handleChange}
+                    onPatch={handleFormPatch}
+                    renewalId={activeRenewalId}
+                    onError={setError}
+                    onStatus={setStatusMessage}
+                    isReadOnly={isReadOnly}
                     errors={licenseHistoryErrors}
                   />
                 </AccordionSection>
@@ -4727,7 +4778,9 @@ function AccordionSection(
                       : 'cursor-pointer'
                   }`}
                 >
-                  {isCompleted ? (
+                  {isSavingSection ? (
+                    <span className={`w-3 h-3 border-2 ${isCompleted ? 'border-white' : 'border-gray-400'} border-t-transparent rounded-full animate-spin`} />
+                  ) : isCompleted ? (
                     <svg
                       className='w-3.5 h-3.5'
                       viewBox='0 0 12 12'
@@ -4741,8 +4794,6 @@ function AccordionSection(
                         d='M2 6l3 3 5-5'
                       />
                     </svg>
-                  ) : isSavingSection ? (
-                    <span className='w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin' />
                   ) : null}
                 </span>
               </span>

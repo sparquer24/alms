@@ -98,9 +98,6 @@ const DocumentsSection = forwardRef(function DocumentsSection(
       onPatch({ [fieldKey]: null });
       onStatus?.('Document removed.');
       toast.success('Document deleted successfully.');
-      if (onReload) {
-        await onReload();
-      }
     } catch (err: any) {
       const errMsg = err?.response?.data?.error || err?.message || 'Failed to delete document.';
       onError?.(errMsg);
@@ -138,51 +135,69 @@ const DocumentsSection = forwardRef(function DocumentsSection(
 
           return (
             <div key={key} id={key} className={errors[key] ? 'rounded-md border border-red-200 bg-red-50 p-2' : ''}>
-              <FileUpload
-                label={label}
-                name={key}
-                required={required}
-                variant='browseCard'
-                onFileSelect={isReadOnly ? () => {} : handleSelect(key)}
-                uploaded={showUploaded}
-                fileName={
-                  isFieldSyncing
-                    ? 'Uploading prefilled file...'
-                    : isUploading
-                    ? 'Uploading...'
-                    : meta.fileName
-                }
-                disabled={!renewalId || isReadOnly}
-              />
-              {errors[key] && (
-                <p className='text-red-500 text-xs mt-1'>{errors[key]}</p>
-              )}
+                {isUploading ? (
+                  <div className='flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-md bg-gray-50 h-[92px]'>
+                    <svg className='animate-spin h-6 w-6 text-blue-600 mb-2' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                      <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+                      <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+                    </svg>
+                    <span className='text-sm text-gray-600 font-medium'>
+                      {isFieldSyncing ? 'Uploading prefilled file...' : 'Uploading...'}
+                    </span>
+                  </div>
+                ) : (
+                  <FileUpload
+                    label={label}
+                    name={key}
+                    required={required}
+                    variant='browseCard'
+                    onFileSelect={isReadOnly ? () => {} : handleSelect(key)}
+                    uploaded={showUploaded}
+                    fileName={meta.fileName}
+                    disabled={!renewalId || isReadOnly}
+                  />
+                )}
+                {errors[key] && !isUploading && (
+                  <p className='text-red-500 text-xs mt-1'>{errors[key]}</p>
+                )}
               {showUploaded && (
                 <div className='mt-2 space-y-2 text-xs'>
-                  {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
-                  {meta.fileType && <p className='text-gray-600'>File type: {meta.fileType}</p>}
-                  <div className='flex flex-wrap items-center gap-3'>
-                    {meta.fileUrl && (
-                      <button
-                        type='button'
-                        className='text-blue-600 underline hover:text-blue-800'
-                        onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
-                        disabled={isUploading || isDeleting}
-                      >
-                        View document
-                      </button>
-                    )}
-                    {!isReadOnly && (canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
-                      <button
-                        type='button'
-                        className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
-                        onClick={handleDelete(key, meta.id)}
-                        disabled={isUploading || isDeleting || !renewalId}
-                      >
-                        {isDeleting ? 'Deleting...' : 'Delete'}
-                      </button>
-                    )}
-                  </div>
+                  {isDeleting ? (
+                    <div className='flex items-center gap-2 py-2 text-red-600'>
+                      <svg className='animate-spin h-4 w-4' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                        <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+                        <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+                      </svg>
+                      <span className='font-medium'>Deleting document...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {meta.fileName && <p className='text-gray-600'>File name: {meta.fileName}</p>}
+                      {meta.fileType && <p className='text-gray-600'>File type: {meta.fileType}</p>}
+                      <div className='flex flex-wrap items-center gap-3'>
+                        {meta.fileUrl && (
+                          <button
+                            type='button'
+                            className='text-blue-600 underline hover:text-blue-800'
+                            onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
+                            disabled={isUploading}
+                          >
+                            View document
+                          </button>
+                        )}
+                        {!isReadOnly && (canDeleteViaApi || (meta.fileUrl && !meta.id)) && (
+                          <button
+                            type='button'
+                            className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                            onClick={handleDelete(key, meta.id)}
+                            disabled={isUploading || !renewalId}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

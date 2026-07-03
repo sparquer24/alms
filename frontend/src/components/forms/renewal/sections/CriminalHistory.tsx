@@ -168,7 +168,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'firNumber', e.target.value)}
                           placeholder='Enter FIR number'
                           required
-                          error={index === 0 ? errors['firNumber'] : undefined}
+                          error={errors[`fir_${index}_firNumber`]}
                         />
                         <Input
                           label='Under Section'
@@ -177,7 +177,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'underSection', e.target.value)}
                           placeholder='Enter section'
                           required
-                          error={index === 0 ? errors['underSection'] : undefined}
+                          error={errors[`fir_${index}_underSection`]}
                         />
                         <Input
                           label='Police Station'
@@ -186,7 +186,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'policeStation', e.target.value)}
                           placeholder='Enter police station'
                           required
-                          error={index === 0 ? errors['policeStationCriminal'] : undefined}
+                          error={errors[`fir_${index}_policeStation`]}
                         />
                         <Input
                           label='Unit'
@@ -195,7 +195,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'unit', e.target.value)}
                           placeholder='Enter unit'
                           required
-                          error={index === 0 ? errors['criminalUnit'] : undefined}
+                          error={errors[`fir_${index}_unit`]}
                         />
                         <Input
                           label='District'
@@ -204,7 +204,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'district', e.target.value)}
                           placeholder='Enter district'
                           required
-                          error={index === 0 ? errors['criminalDistrict'] : undefined}
+                          error={errors[`fir_${index}_district`]}
                         />
                         <Input
                           label='State'
@@ -213,7 +213,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'state', e.target.value)}
                           placeholder='Enter state'
                           required
-                          error={index === 0 ? errors['criminalState'] : undefined}
+                          error={errors[`fir_${index}_state`]}
                         />
                       </div>
 
@@ -225,7 +225,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'offence', e.target.value)}
                           placeholder='Enter offence'
                           required
-                          error={index === 0 ? errors['offence'] : undefined}
+                          error={errors[`fir_${index}_offence`]}
                         />
                         <Input
                           label='Sentence'
@@ -234,7 +234,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           onChange={e => updateFirDetail(item.id, 'sentence', e.target.value)}
                           placeholder='Enter sentence'
                           required
-                          error={index === 0 ? errors['sentence'] : undefined}
+                          error={errors[`fir_${index}_sentence`]}
                         />
                         <Input
                           label='Date of Sentence'
@@ -243,7 +243,7 @@ const CriminalHistory = forwardRef(function CriminalHistory(
                           value={item.sentenceDate || ''}
                           onChange={e => updateFirDetail(item.id, 'sentenceDate', e.target.value)}
                           required
-                          error={index === 0 ? errors['sentenceDate'] : undefined}
+                          error={errors[`fir_${index}_sentenceDate`]}
                         />
                       </div>
                     </div>

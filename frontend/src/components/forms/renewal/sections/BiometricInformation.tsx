@@ -53,7 +53,14 @@ const BiometricInformation = forwardRef(function BiometricInformation(
   const [mantraSDKReady, setMantraSDKReady] = useState(false);
   const [fingerprintDeviceConnected, setFingerprintDeviceConnected] = useState(false);
   const [fingerprintCapturing, setFingerprintCapturing] = useState(false);
-  const [enrolledFingerprints, setEnrolledFingerprints] = useState<any[]>([]);
+  const [enrolledFingerprints, setEnrolledFingerprints] = useState<any[]>(() => {
+    // Restore from localStorage on initial mount
+    try {
+      const stored = localStorage.getItem(`biometric_fingerprints_${renewalId}`);
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return [];
+  });
   const [fingerprintPreviewImage, setFingerprintPreviewImage] = useState<string | null>(null);
   const [showFingerprintPreviewModal, setShowFingerprintPreviewModal] = useState(false);
   const [pendingCaptureResult, setPendingCaptureResult] = useState<any | null>(null);
@@ -80,6 +87,20 @@ const BiometricInformation = forwardRef(function BiometricInformation(
   const [uploadedPhotoId, setUploadedPhotoId] = useState<number | null>(null);
   const [showPhotoDeleteConfirm, setShowPhotoDeleteConfirm] = useState(false);
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
+
+  const [deletingFingerprint, setDeletingFingerprint] = useState(false);
+  const [showFingerprintDeleteConfirm, setShowFingerprintDeleteConfirm] = useState(false);
+  const [fingerprintToDelete, setFingerprintToDelete] = useState<any | null>(null);
+  const [enrolledIris, setEnrolledIris] = useState<any | null>(() => {
+    // Restore from localStorage on initial mount
+    try {
+      const stored = localStorage.getItem(`biometric_iris_${renewalId}`);
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return null;
+  });
+  const [deletingIris, setDeletingIris] = useState(false);
+  const [showIrisDeleteConfirm, setShowIrisDeleteConfirm] = useState(false);
 
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -130,6 +151,8 @@ const BiometricInformation = forwardRef(function BiometricInformation(
       setPhotoSubmitted(false);
     }
   }, [formData?.photographUploaded]);
+
+
 
   useEffect(() => {
     const fetchFingerprints = async () => {
@@ -597,6 +620,52 @@ const BiometricInformation = forwardRef(function BiometricInformation(
     return result;
   };
 
+  const handleDeleteFingerprint = async () => {
+    if (!fingerprintToDelete) return;
+
+    // The API path is DELETE /api/biometric/{applicantId}/{fingerprintId}
+    // applicantId = the fresh application ID, NOT the renewalId.
+    const applicantId = formData?.applicationId || '';
+    if (!applicantId) {
+      toast.error('Application ID is missing. Cannot delete fingerprint.');
+      return;
+    }
+
+    try {
+      setDeletingFingerprint(true);
+      const result = await BiometricAPIService.deleteEnrolledFingerprint(
+        applicantId,
+        String(fingerprintToDelete.id)
+      );
+
+      if (result.success) {
+        // Clear enrolled fingerprint from UI so the Scan button becomes active again
+        setEnrolledFingerprints([]);
+        setFingerprintToDelete(null);
+        setShowFingerprintDeleteConfirm(false);
+        toast.success('Fingerprint deleted successfully.');
+      } else {
+        // result.message already contains the correct text per status code:
+        // 401 → "Unauthorized access."
+        // 404 → "Fingerprint not found."
+        // other → "Failed to delete fingerprint. Please try again."
+        toast.error(result.message);
+      }
+    } catch {
+      toast.error('Failed to delete fingerprint. Please try again.');
+    } finally {
+      setDeletingFingerprint(false);
+    }
+  };
+
+  const handleDeleteIris = async () => {
+    // Iris is not yet backed by a real API; clear local state and allow re-scan
+    setEnrolledIris(null);
+    setShowIrisDeleteConfirm(false);
+    setForm(prev => ({ ...prev, iris: null }));
+    toast.success('Iris scan deleted. You may now scan again.');
+  };
+
   const handleScanIris = async () => {
     try {
       const res = await fetch('/api/device/scan/iris', { method: 'POST' });
@@ -678,17 +747,22 @@ const BiometricInformation = forwardRef(function BiometricInformation(
 
           <div className='mt-4'>
             {mantraSDKReady && fingerprintDeviceConnected ? (
-              <button 
-                type='button' 
-                onClick={() => handleCaptureFingerprintMantra(selectedFinger)} 
-                disabled={fingerprintCapturing || uploadingFiles} 
-                className='px-5 py-2.5 bg-[#6366F1] hover:bg-[#5558E3] text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
-              >
-                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
-                </svg>
-                {fingerprintCapturing ? 'Capturing...' : 'Scan Fingerprint'}
-              </button>
+              <>
+                <button 
+                  type='button' 
+                  onClick={() => handleCaptureFingerprintMantra(selectedFinger)} 
+                  disabled={fingerprintCapturing || uploadingFiles || enrolledFingerprints.length > 0} 
+                  className='px-5 py-2.5 bg-[#6366F1] hover:bg-[#5558E3] text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+                >
+                  <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.858.571-4.177' />
+                  </svg>
+                  {fingerprintCapturing ? 'Capturing...' : enrolledFingerprints.length > 0 ? 'Fingerprint Enrolled' : 'Scan Fingerprint'}
+                </button>
+                {enrolledFingerprints.length > 0 && (
+                  <p className='text-xs text-amber-600 mt-1'>Delete the existing fingerprint to scan a new one.</p>
+                )}
+              </>
             ) : (
               <button 
                 type='button' 
@@ -714,11 +788,26 @@ const BiometricInformation = forwardRef(function BiometricInformation(
             const latestFp = enrolledFingerprints[enrolledFingerprints.length - 1];
             return (
               <div className='mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200'>
-                <div className='flex items-center gap-2 mb-3'>
-                  <svg className='w-5 h-5 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' />
-                  </svg>
-                  <span className='font-semibold text-green-700 text-sm'>Fingerprint Enrolled Successfully</span>
+                <div className='flex items-center justify-between gap-2 mb-3'>
+                  <div className='flex items-center gap-2'>
+                    <svg className='w-5 h-5 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' />
+                    </svg>
+                    <span className='font-semibold text-green-700 text-sm'>Fingerprint Enrolled Successfully</span>
+                  </div>
+                  {!isReadOnly && (
+                    <button
+                      type='button'
+                      onClick={() => { setFingerprintToDelete(latestFp); setShowFingerprintDeleteConfirm(true); }}
+                      className='px-3 py-1.5 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 rounded-md flex items-center gap-1.5 transition-colors'
+                      title='Delete enrolled fingerprint'
+                    >
+                      <svg className='w-3.5 h-3.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+                      </svg>
+                      Delete
+                    </button>
+                  )}
                 </div>
                 <div className='flex items-center gap-4'>
                   <div className='w-20 h-24 bg-white rounded-lg overflow-hidden border-2 border-green-300 shadow-sm'>
@@ -762,21 +851,51 @@ const BiometricInformation = forwardRef(function BiometricInformation(
         {!isReadOnly && (
         <div>
           <h3 className='text-lg font-semibold text-gray-800 mb-4'>Iris Scan</h3>
-          <button 
-            type='button' 
-            onClick={handleScanIris} 
-            disabled 
-            className='px-5 py-2.5 bg-gray-400 text-white rounded-md font-medium cursor-not-allowed flex items-center gap-2'
-          >
-            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
-            </svg>
-            Scan Iris
-          </button>
-          <p className='text-sm text-gray-500 mt-3 bg-gray-50 border border-gray-200 rounded-md px-3 py-2'>
-            ℹ️ Iris scanning will be available soon. Please check back later for updates.
-          </p>
+          {enrolledIris ? (
+            <div className='p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200'>
+              <div className='flex items-center justify-between gap-2 mb-3'>
+                <div className='flex items-center gap-2'>
+                  <svg className='w-5 h-5 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' />
+                  </svg>
+                  <span className='font-semibold text-green-700 text-sm'>Iris Scanned Successfully</span>
+                </div>
+                <button
+                  type='button'
+                  onClick={() => setShowIrisDeleteConfirm(true)}
+                  className='px-3 py-1.5 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 rounded-md flex items-center gap-1.5 transition-colors'
+                  title='Delete iris scan'
+                >
+                  <svg className='w-3.5 h-3.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+                  </svg>
+                  Delete
+                </button>
+              </div>
+              <p className='text-sm text-gray-600'>Iris enrolled at: <span className='font-semibold'>{new Date(enrolledIris.enrolledAt).toLocaleString()}</span></p>
+            </div>
+          ) : (
+            <>
+              <button 
+                type='button' 
+                onClick={async () => {
+                  await handleScanIris();
+                  setEnrolledIris({ enrolledAt: new Date().toISOString() });
+                }} 
+                disabled 
+                className='px-5 py-2.5 bg-gray-400 text-white rounded-md font-medium cursor-not-allowed flex items-center gap-2'
+              >
+                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
+                </svg>
+                Scan Iris
+              </button>
+              <p className='text-sm text-gray-500 mt-3 bg-gray-50 border border-gray-200 rounded-md px-3 py-2'>
+                ℹ️ Iris scanning will be available soon. Please check back later for updates.
+              </p>
+            </>
+          )}
         </div>
         )}
       </div>
@@ -1647,6 +1766,89 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.001 0 01-15.357-2m15.356 2H15' />
                 </svg>
                 Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Fingerprint Delete Confirmation Modal */}
+      {showFingerprintDeleteConfirm && (
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4'>
+          <div className='bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden'>
+            <div className='bg-gradient-to-r from-red-500 to-red-600 px-6 py-5'>
+              <div className='flex items-center gap-3'>
+                <div className='bg-white/20 rounded-full p-2'>
+                  <svg className='w-6 h-6 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+                  </svg>
+                </div>
+                <h2 className='text-lg font-bold text-white'>Delete Fingerprint?</h2>
+              </div>
+            </div>
+            <div className='px-6 py-5'>
+              <p className='text-gray-700 text-sm'>Are you sure you want to delete the enrolled fingerprint? You will need to scan again to re-enroll.</p>
+            </div>
+            <div className='border-t border-gray-200 px-6 py-4 bg-gray-50 flex justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => { setShowFingerprintDeleteConfirm(false); setFingerprintToDelete(null); }}
+                disabled={deletingFingerprint}
+                className='px-4 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700 font-medium transition-colors disabled:opacity-50'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleDeleteFingerprint}
+                disabled={deletingFingerprint}
+                className='px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 flex items-center gap-2'
+              >
+                {deletingFingerprint && (
+                  <svg className='w-4 h-4 animate-spin' fill='none' viewBox='0 0 24 24'>
+                    <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'/>
+                    <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z'/>
+                  </svg>
+                )}
+                {deletingFingerprint ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Iris Delete Confirmation Modal */}
+      {showIrisDeleteConfirm && (
+        <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4'>
+          <div className='bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden'>
+            <div className='bg-gradient-to-r from-red-500 to-red-600 px-6 py-5'>
+              <div className='flex items-center gap-3'>
+                <div className='bg-white/20 rounded-full p-2'>
+                  <svg className='w-6 h-6 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' />
+                  </svg>
+                </div>
+                <h2 className='text-lg font-bold text-white'>Delete Iris Scan?</h2>
+              </div>
+            </div>
+            <div className='px-6 py-5'>
+              <p className='text-gray-700 text-sm'>Are you sure you want to delete the enrolled iris scan? You will need to scan again to re-enroll.</p>
+            </div>
+            <div className='border-t border-gray-200 px-6 py-4 bg-gray-50 flex justify-end gap-3'>
+              <button
+                type='button'
+                onClick={() => setShowIrisDeleteConfirm(false)}
+                disabled={deletingIris}
+                className='px-4 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700 font-medium transition-colors disabled:opacity-50'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleDeleteIris}
+                disabled={deletingIris}
+                className='px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors disabled:opacity-50'
+              >
+                Delete
               </button>
             </div>
           </div>

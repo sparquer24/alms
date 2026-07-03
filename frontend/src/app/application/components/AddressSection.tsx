@@ -67,6 +67,13 @@ export default function AddressSection({ application }: AddressSectionProps) {
               </div>
             )}
 
+            {application.presentAddress.rangeOffice && (
+              <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                <p className='text-sm text-gray-500 font-medium mb-1'>Range Office</p>
+                <p className='font-semibold text-gray-900'>{application.presentAddress.rangeOffice.name}</p>
+              </div>
+            )}
+
             {application.presentAddress.sinceResiding && (
               <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
                 <p className='text-sm text-gray-500 font-medium mb-1'>Residing Since</p>
@@ -138,6 +145,13 @@ export default function AddressSection({ application }: AddressSectionProps) {
               <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow md:col-span-2'>
                 <p className='text-sm text-gray-500 font-medium mb-1'>Police Station</p>
                 <p className='font-semibold text-gray-900'>{application.permanentAddress.policeStation.name}</p>
+              </div>
+            )}
+
+            {application.permanentAddress.rangeOffice && (
+              <div className='bg-gray-50 rounded-xl p-4 hover:shadow-sm transition-shadow'>
+                <p className='text-sm text-gray-500 font-medium mb-1'>Range Office</p>
+                <p className='font-semibold text-gray-900'>{application.permanentAddress.rangeOffice.name}</p>
               </div>
             )}
 

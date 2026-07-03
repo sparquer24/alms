@@ -147,6 +147,15 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onStatus?.('Uploading documentary evidence...');
 
     try {
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png'
+      ];
+      const isUnsupported = !allowedTypes.includes(file.type);
+
       // Delete existing documents first
       if (specialEvidenceFiles && specialEvidenceFiles.length > 0) {
         for (const fileItem of specialEvidenceFiles) {
@@ -162,6 +171,14 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
       }
 
       const meta = await uploadRenewalDocument(renewalId, 'specialEvidenceUploaded', file);
+      
+      if (isUnsupported) {
+        meta.fileType = 'OTHER';
+        import('react-toastify').then(({ toast }) => {
+          toast.warning("Unsupported file type detected. File has been categorized as 'Other'.");
+        });
+      }
+
       const nextFiles = [meta];
       onPatch({
         specialEvidenceUploaded: meta,
@@ -352,66 +369,77 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             error={errors['specialConsiderationClaim']}
             placeholder='Enter your claim (if any)'
           />
-          <FileUpload
-            className='mt-2'
-            label='Upload documentary evidence'
-            name='specialEvidenceUploaded'
-            required
-            error={errors['specialEvidenceUploaded']}
-            variant='browseCard'
-            hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
-            onFileSelect={handleEvidenceUpload}
-            uploaded={specialEvidenceFiles.length > 0}
-            fileName={
-              uploadingEvidence
-                ? 'Uploading...'
-                : isSyncingPrefilled &&
-                    specialEvidenceFiles.some(f => {
-                      const m = getDocumentUploadMeta(f);
-                      return m.fileUrl && !m.id;
-                    })
-                  ? 'Uploading prefilled file...'
-                  : specialEvidenceFiles.length === 1
-                    ? getDocumentUploadMeta(specialEvidenceFiles[0]).fileName
-                    : specialEvidenceFiles.length > 1
-                      ? `${specialEvidenceFiles.length} files uploaded`
-                      : undefined
-            }
-          />
-          {specialEvidenceFiles.map((file, index) => {
-            const meta = getDocumentUploadMeta(file);
-            const isDeleting = deletingFileId === (meta.id ?? -index);
-            const displayName = meta.fileName || `Document ${index + 1}`;
+          
+          {uploadingEvidence ? (
+            <div className='mt-2 flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-md bg-gray-50'>
+              <svg className='animate-spin h-8 w-8 text-blue-600 mb-2' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+                <circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4'></circle>
+                <path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'></path>
+              </svg>
+              <span className='text-sm text-gray-600 font-medium'>Uploading document...</span>
+            </div>
+          ) : (
+            <>
+              <FileUpload
+                className='mt-2'
+                label='Upload documentary evidence'
+                name='specialEvidenceUploaded'
+                required
+                error={errors['specialEvidenceUploaded']}
+                variant='browseCard'
+                hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
+                onFileSelect={handleEvidenceUpload}
+                uploaded={specialEvidenceFiles.length > 0}
+                fileName={
+                  isSyncingPrefilled &&
+                  specialEvidenceFiles.some(f => {
+                    const m = getDocumentUploadMeta(f);
+                    return m.fileUrl && !m.id;
+                  })
+                    ? 'Uploading prefilled file...'
+                    : specialEvidenceFiles.length === 1
+                      ? getDocumentUploadMeta(specialEvidenceFiles[0]).fileName
+                      : specialEvidenceFiles.length > 1
+                        ? `${specialEvidenceFiles.length} files uploaded`
+                        : undefined
+                }
+              />
+              {specialEvidenceFiles.map((file, index) => {
+                const meta = getDocumentUploadMeta(file);
+                const isDeleting = deletingFileId === (meta.id ?? -index);
+                const displayName = meta.fileName || `Document ${index + 1}`;
 
-            return (
-              <div key={`${displayName}-${meta.id ?? index}`} className='mt-1 space-y-1 text-xs'>
-                <div className='flex flex-wrap items-center gap-3'>
-                  <span className='text-gray-600'>{displayName}</span>
-                  {meta.fileType && <span className='text-gray-500'>({meta.fileType})</span>}
-                </div>
-                <div className='flex flex-wrap items-center gap-3'>
-                  {meta.fileUrl && (
-                    <button
-                      type='button'
-                      className='text-blue-600 underline hover:text-blue-800'
-                      onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
-                      disabled={isDeleting || uploadingEvidence}
-                    >
-                      View
-                    </button>
-                  )}
-                  <button
-                    type='button'
-                    className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
-                    onClick={handleEvidenceDelete(meta.id, index)}
-                    disabled={isDeleting || uploadingEvidence || !renewalId}
-                  >
-                    {isDeleting ? 'Removing...' : 'Remove'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                return (
+                  <div key={`${displayName}-${meta.id ?? index}`} className='mt-1 space-y-1 text-xs'>
+                    <div className='flex flex-wrap items-center gap-3'>
+                      <span className='text-gray-600'>{displayName}</span>
+                      {meta.fileType && <span className='text-gray-500'>({meta.fileType})</span>}
+                    </div>
+                    <div className='flex flex-wrap items-center gap-3'>
+                      {meta.fileUrl && (
+                        <button
+                          type='button'
+                          className='text-blue-600 underline hover:text-blue-800'
+                          onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
+                          disabled={isDeleting}
+                        >
+                          View
+                        </button>
+                      )}
+                      <button
+                        type='button'
+                        className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                        onClick={handleEvidenceDelete(meta.id, index)}
+                        disabled={isDeleting || !renewalId}
+                      >
+                        {isDeleting ? 'Removing...' : 'Remove'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
 
         <div>

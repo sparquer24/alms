@@ -25,6 +25,31 @@ export class BiometricService {
     ) { }
 
     /**
+     * Resolve applicantId to a numeric database ID.
+     * Accepts either:
+     *   - A plain numeric string ("42")
+     *   - An ALMS licence string ("ALMS1782207244393")
+     * Returns null if no matching application is found.
+     */
+    private async resolveAppId(applicantId: string): Promise<number | null> {
+        const numeric = parseInt(applicantId, 10);
+
+        // Fast path – already a valid integer
+        if (!isNaN(numeric)) return numeric;
+
+        // Slow path – look up by almsLicenseId
+        try {
+            const app = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
+                where: { almsLicenseId: applicantId },
+                select: { id: true },
+            });
+            return app?.id ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * Validate fingerprint uniqueness across ALL applications
      * If fingerprint is unique, it will be stored automatically
      * @param validationData - Fingerprint template to validate
@@ -484,7 +509,12 @@ export class BiometricService {
      */
     async getEnrolledFingerprints(applicantId: string): Promise<any[]> {
         try {
-            const appId = parseInt(applicantId);
+            const appId = await this.resolveAppId(applicantId);
+
+            if (appId === null) {
+                this.logger.warn(`getEnrolledFingerprints: could not resolve applicantId "${applicantId}"`);
+                return [];
+            }
 
             const biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
                 where: { applicationId: appId },
@@ -525,7 +555,14 @@ export class BiometricService {
         userId: number,
     ): Promise<{ success: boolean; message: string }> {
         try {
-            const appId = parseInt(applicantId);
+            const appId = await this.resolveAppId(applicantId);
+
+            if (appId === null) {
+                throw new HttpException(
+                    { success: false, message: 'Fingerprint not found.' },
+                    HttpStatus.NOT_FOUND,
+                );
+            }
 
             const biometricRecord = await (this.prisma as any).fLAFBiometricDatas.findUnique({
                 where: { applicationId: appId },
@@ -533,7 +570,7 @@ export class BiometricService {
 
             if (!biometricRecord) {
                 throw new HttpException(
-                    { success: false, message: 'No biometric data found' },
+                    { success: false, message: 'Fingerprint not found.' },
                     HttpStatus.NOT_FOUND,
                 );
             }
@@ -546,7 +583,7 @@ export class BiometricService {
 
             if (updatedFingerprints.length === originalCount) {
                 throw new HttpException(
-                    { success: false, message: 'Fingerprint not found' },
+                    { success: false, message: 'Fingerprint not found.' },
                     HttpStatus.NOT_FOUND,
                 );
             }
@@ -570,11 +607,11 @@ export class BiometricService {
                 { reason: 'Fingerprint deleted by user' },
             );
 
-            this.logger.log(`Fingerprint ${fingerprintId} deleted for application ${applicantId}`);
+            this.logger.log(`Fingerprint ${fingerprintId} deleted for application ${applicantId} (resolved id: ${appId})`);
 
             return {
                 success: true,
-                message: 'Fingerprint deleted successfully',
+                message: 'Fingerprint deleted successfully.',
             };
         } catch (error: any) {
             this.logger.error(`Failed to delete fingerprint: ${error.message}`);
@@ -584,7 +621,7 @@ export class BiometricService {
             }
 
             throw new HttpException(
-                { success: false, message: 'Failed to delete fingerprint' },
+                { success: false, message: 'Failed to delete fingerprint. Please try again.' },
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }

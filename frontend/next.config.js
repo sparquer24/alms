@@ -9,11 +9,8 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 config({ path: path.resolve(__dirname, '../.env') });
 
 const nextConfig = {
-  output: 'export',
   reactStrictMode: true,
-  // Tell Next.js the tracing root is this frontend directory, not the monorepo root.
-  // This prevents it from misreading the root package-lock.json and confusing App Router with Pages Router.
-  outputFileTracingRoot: path.resolve(__dirname),
+  // Removed tracing root override to prevent Next.js bugs
   // Image optimization enabled
   images: {
     unoptimized: true,
@@ -21,10 +18,7 @@ const nextConfig = {
   },
   // Skip trailing slash redirect
   skipTrailingSlashRedirect: true,
-  // Performance optimizations
-  experimental: {
-    optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react', '@heroicons/react'],
-  },
+  // Performance optimizations removed
   // Compiler optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
@@ -44,36 +38,7 @@ const nextConfig = {
   webpack: (config, { isServer, dev }) => {
     return config;
   },
-  // Disable static generation for specific pages
-  async generateBuildId() {
-    return 'build-' + Date.now();
-  },
-  // Proxy /api/* requests to the backend server
-  // Set BACKEND_URL env var at runtime (e.g., http://host.docker.internal:3001)
-  async rewrites() {
-    return {
-      beforeFiles: [],
-      afterFiles: [],
-      fallback: [
-        {
-          source: '/api/:path*',
-          destination: `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/:path*`,
-        },
-      ],
-    };
-  },
-  // Add security headers
-  async headers() {
-    return [{
-      source: '/(.*)',
-      headers: [
-        { key: 'X-Frame-Options', value: 'DENY' },
-        { key: 'X-Content-Type-Options', value: 'nosniff' },
-        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
-      ],
-    }];
-  }
+  // Removed rewrites and headers as they are unsupported with output: export
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

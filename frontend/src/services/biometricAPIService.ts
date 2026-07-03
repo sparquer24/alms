@@ -180,7 +180,9 @@ export class BiometricAPIService {
 
     /**
      * Delete enrolled fingerprint
-     * @param applicantId - Application ID
+     * DELETE /api/biometric/{applicantId}/{fingerprintId}
+     *
+     * @param applicantId  - Application ID of the user (NOT the renewalId)
      * @param fingerprintId - Fingerprint ID to delete
      * @returns Promise<{success: boolean; message: string}>
      */
@@ -193,11 +195,28 @@ export class BiometricAPIService {
                 `/api${this.BASE_PATH}/${encodeURIComponent(applicantId)}/${encodeURIComponent(fingerprintId)}`,
                 { method: 'DELETE' }
             );
-            if (!response.ok) throw new Error('Failed to delete fingerprint');
-            const data = await response.json();
-            return data || { success: false, message: 'Delete failed' };
-        } catch (error: any) {
-            return { success: false, message: error.message };
+
+            if (response.status === 200) {
+                // Try to parse body, but treat any 200 as success
+                try {
+                    const data = await response.json();
+                    return { success: true, message: data?.message || 'Fingerprint deleted successfully.' };
+                } catch {
+                    return { success: true, message: 'Fingerprint deleted successfully.' };
+                }
+            }
+
+            if (response.status === 401) {
+                return { success: false, message: 'Unauthorized access.' };
+            }
+
+            if (response.status === 404) {
+                return { success: false, message: 'Fingerprint not found.' };
+            }
+
+            return { success: false, message: 'Failed to delete fingerprint. Please try again.' };
+        } catch {
+            return { success: false, message: 'Failed to delete fingerprint. Please try again.' };
         }
     }
 

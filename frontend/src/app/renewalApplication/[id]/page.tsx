@@ -8,7 +8,7 @@ interface Props {
 
 export async function generateStaticParams() {
 	// Return a static list of params to avoid 401 unauthorized errors during build
-	const params = Array.from({ length: 1000 }, (_, i) => ({ id: String(i + 1) }));
+	const params = Array.from({ length: 10 }, (_, i) => ({ id: String(i + 1) }));
 	return params;
 }
 

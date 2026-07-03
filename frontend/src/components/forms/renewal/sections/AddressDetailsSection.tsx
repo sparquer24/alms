@@ -239,8 +239,8 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
         </div>
 
         <div>
-          <label htmlFor='officeMobile' className='block text-sm font-medium text-gray-700'>Office Mobile</label>
-          <input id='officeMobile' name='officeMobile' value={formData.officeMobile || ''} onChange={onChange} className={`mt-1 block w-full p-2 border ${errors['officeMobile'] ? 'border-red-500' : 'border-gray-300'} rounded-md`} />
+          <label htmlFor='officeMobile' className='block text-sm font-medium text-gray-700'>Office Mobile <span className='text-red-500 ml-1'>*</span></label>
+          <input id='officeMobile' name='officeMobile' value={formData.officeMobile || ''} onChange={onChange} className={`mt-1 block w-full p-2 border ${errors['officeMobile'] ? 'border-red-500 bg-red-50' : 'border-gray-300'} ${!formData.officeMobile ? 'bg-amber-50' : 'bg-green-50'} rounded-md`} />
           {errors['officeMobile'] && <p className='text-red-500 text-xs mt-1'>{errors['officeMobile']}</p>}
         </div>
 

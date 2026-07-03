@@ -1,7 +1,14 @@
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { Input, TextArea } from '../../elements/Input';
 import { Select } from '../../elements/Select';
 import { Button } from '../../elements/Button';
+import { FileUpload } from '../../elements/FileUpload';
+import { openDocumentFile } from '../../../../services/fileHandler';
+import {
+  deleteRenewalDocument,
+  getDocumentUploadMeta,
+  uploadRenewalDocument,
+} from '../../../../utils/renewalFileUpload';
 
 type ErrorsMap = Record<string, string | undefined>;
 
@@ -11,10 +18,19 @@ type WeaponItem = {
 };
 
 const LicenseHistory = forwardRef(function LicenseHistory(
-  props: { formData: any; onChange: (e: any) => void; errors?: ErrorsMap },
+  props: { 
+    formData: any; 
+    onChange: (e: any) => void; 
+    onPatch: (patch: Record<string, unknown>) => void;
+    renewalId?: string;
+    onError?: (msg: string) => void;
+    onStatus?: (msg: string | null) => void;
+    isReadOnly?: boolean;
+    errors?: ErrorsMap 
+  },
   ref: any
 ) {
-  const { formData, onChange, errors = {} } = props;
+  const { formData, onChange, onPatch, renewalId, onError, onStatus, isReadOnly = false, errors = {} } = props;
 
   useImperativeHandle(ref, () => ({
     focusFirstInvalid: () => {
@@ -41,6 +57,7 @@ const LicenseHistory = forwardRef(function LicenseHistory(
           name={name}
           checked={value === true}
           onChange={() => onChange({ target: { name, value: true } })}
+          disabled={isReadOnly}
         />
         <span className='text-sm font-medium'>Yes</span>
       </label>
@@ -50,11 +67,96 @@ const LicenseHistory = forwardRef(function LicenseHistory(
           name={name}
           checked={value === false}
           onChange={() => onChange({ target: { name, value: false } })}
+          disabled={isReadOnly}
         />
         <span className='text-sm font-medium'>No</span>
       </label>
     </div>
   );
+
+  const [uploadingRejectedDoc, setUploadingRejectedDoc] = useState(false);
+  const [deletingRejectedDocId, setDeletingRejectedDocId] = useState<number | null>(null);
+
+  const rejectedEvidenceFiles = Array.isArray(formData.rejectedApplicationEvidenceFiles)
+    ? formData.rejectedApplicationEvidenceFiles
+    : formData.rejectedApplicationEvidenceUploaded
+      ? [formData.rejectedApplicationEvidenceUploaded]
+      : [];
+
+  const handleRejectedDocUpload = async (file: File) => {
+    if (!renewalId) {
+      onError?.('Save the renewal draft first so a renewal ID is available for uploads.');
+      return;
+    }
+
+    setUploadingRejectedDoc(true);
+    onStatus?.('Uploading document...');
+
+    try {
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png'
+      ];
+      const isUnsupported = !allowedTypes.includes(file.type);
+
+      // Delete existing documents first
+      if (rejectedEvidenceFiles && rejectedEvidenceFiles.length > 0) {
+        for (const fileItem of rejectedEvidenceFiles) {
+          const meta = getDocumentUploadMeta(fileItem);
+          if (meta.id) {
+            try {
+              await deleteRenewalDocument(meta.id);
+            } catch (err) {
+              console.error('Failed to delete old document:', err);
+            }
+          }
+        }
+      }
+
+      const meta = await uploadRenewalDocument(renewalId, 'rejectedApplicationEvidenceUploaded', file);
+      
+      if (isUnsupported) {
+        meta.fileType = 'OTHER';
+        import('react-toastify').then(({ toast }) => {
+          toast.warning("Unsupported file type detected. File has been categorized as 'Other'.");
+        });
+      }
+
+      const nextFiles = [meta];
+      onPatch({
+        rejectedApplicationEvidenceUploaded: meta,
+        rejectedApplicationEvidenceFiles: nextFiles,
+      });
+      onStatus?.('Document uploaded successfully.');
+    } catch (err: any) {
+      onError?.(err?.message || 'Failed to upload document.');
+    } finally {
+      setUploadingRejectedDoc(false);
+    }
+  };
+
+  const handleRejectedDocDelete = (fileId: number | undefined, index: number) => async () => {
+    setDeletingRejectedDocId(fileId ?? -index);
+    onStatus?.('Removing document...');
+
+    try {
+      if (fileId) {
+        await deleteRenewalDocument(fileId);
+      }
+      onPatch({
+        rejectedApplicationEvidenceUploaded: null,
+        rejectedApplicationEvidenceFiles: [],
+      });
+      onStatus?.('Document removed.');
+    } catch (err: any) {
+      onError?.(err?.message || 'Failed to remove document.');
+    } finally {
+      setDeletingRejectedDocId(null);
+    }
+  };
 
   const weaponsRaw: any[] = Array.isArray(formData.weaponEndorsedList)
     ? formData.weaponEndorsedList
@@ -128,6 +230,64 @@ const LicenseHistory = forwardRef(function LicenseHistory(
                 required
                 error={errors['applicationResult']}
               />
+              {formData.applicationResult === 'rejected' && (
+                <div className='col-span-1 md:col-span-2'>
+                  <FileUpload
+                    className='mt-2'
+                    label='Upload Rejection Document'
+                    name='rejectedApplicationEvidenceUploaded'
+                    required
+                    error={errors['rejectedApplicationEvidenceUploaded']}
+                    variant='browseCard'
+                    hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB'
+                    onFileSelect={handleRejectedDocUpload}
+                    uploaded={rejectedEvidenceFiles.length > 0}
+                    fileName={
+                      rejectedEvidenceFiles.length === 1
+                        ? getDocumentUploadMeta(rejectedEvidenceFiles[0]).fileName
+                        : rejectedEvidenceFiles.length > 1
+                          ? `${rejectedEvidenceFiles.length} files uploaded`
+                          : undefined
+                    }
+                  />
+                  {rejectedEvidenceFiles.map((file: any, index: number) => {
+                    const meta = getDocumentUploadMeta(file);
+                    const isDeleting = deletingRejectedDocId === (meta.id ?? -index);
+                    const displayName = meta.fileName || `Document ${index + 1}`;
+
+                    return (
+                      <div key={`${displayName}-${meta.id ?? index}`} className='mt-1 space-y-1 text-xs'>
+                        <div className='flex flex-wrap items-center gap-3'>
+                          <span className='text-gray-600'>{displayName}</span>
+                          {meta.fileType && <span className='text-gray-500'>({meta.fileType})</span>}
+                        </div>
+                        <div className='flex flex-wrap items-center gap-3'>
+                          {meta.fileUrl && (
+                            <button
+                              type='button'
+                              className='text-blue-600 underline hover:text-blue-800'
+                              onClick={() => openDocumentFile(meta.fileUrl!, meta.fileName)}
+                              disabled={isDeleting}
+                            >
+                              View
+                            </button>
+                          )}
+                          {!isReadOnly && (
+                            <button
+                              type='button'
+                              className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                              onClick={handleRejectedDocDelete(meta.id, index)}
+                              disabled={uploadingRejectedDoc || isDeleting || !renewalId}
+                            >
+                              {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

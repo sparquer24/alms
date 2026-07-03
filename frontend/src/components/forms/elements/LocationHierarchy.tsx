@@ -228,6 +228,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         value={values.state}
         onChange={handleStateChange}
         onFocus={handleStateFocus}
+        onClick={handleStateFocus}
         options={options.stateOptions}
         placeholder={locationState.loadingStates ? "Loading states..." : "Select state"}
         required={required}
@@ -241,6 +242,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         value={values.district}
         onChange={handleDistrictChange}
         onFocus={handleDistrictFocus}
+        onClick={handleDistrictFocus}
         options={options.districtOptions}
         placeholder={
           locationState.loadingDistricts 
@@ -261,6 +263,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         value={values.rangeOffice}
         onChange={handleRangeOfficeChange}
         onFocus={handleRangeOfficeFocus}
+        onClick={handleRangeOfficeFocus}
         options={options.rangeOfficeOptions}
         placeholder={
           locationState.loadingRangeOffices 
@@ -281,6 +284,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         value={values.zone}
         onChange={handleZoneChange}
         onFocus={handleZoneFocus}
+        onClick={handleZoneFocus}
         options={options.zoneOptions}
         placeholder={
           locationState.loadingZones 
@@ -301,6 +305,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
         value={values.division}
         onChange={handleDivisionChange}
         onFocus={handleDivisionFocus}
+        onClick={handleDivisionFocus}
         options={options.divisionOptions}
         placeholder={
           locationState.loadingDivisions 
@@ -322,6 +327,7 @@ export const LocationHierarchy: React.FC<LocationHierarchyProps> = ({
           value={values.policeStation}
           onChange={handlePoliceStationChange}
           onFocus={handlePoliceStationFocus}
+          onClick={handlePoliceStationFocus}
           options={options.policeStationOptions}
           placeholder={
             locationState.loadingPoliceStations 
