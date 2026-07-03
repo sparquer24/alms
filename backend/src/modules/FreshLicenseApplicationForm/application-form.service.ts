@@ -1728,6 +1728,7 @@ export class ApplicationFormService {
       zoneId: number;
       divisionId: number;
       policeStationId: number;
+      rangeOfficeId: number;
     };
   } | null> {
     // Fetch the cancel request to get the original application ID and current assignee
@@ -1772,7 +1773,8 @@ export class ApplicationFormService {
             districtId: true,
             zoneId: true,
             divisionId: true,
-            policeStationId: true
+            policeStationId: true,
+            rangeOfficeId:true
           }
         }
       }
@@ -1789,6 +1791,7 @@ export class ApplicationFormService {
               districtId: true,
               zoneId: true,
               divisionId: true,
+              rangeOfficeId:true,
               policeStationId: true
             }
           }
@@ -1812,9 +1815,9 @@ export class ApplicationFormService {
    */
   private async findUsersByLocationAndRoles(
     roleIds: number[],
-    location: { policeStationId: number; divisionId: number; zoneId: number; districtId: number; stateId: number }
+    location: { policeStationId: number; rangeOfficeId: number; divisionId: number; zoneId: number; districtId: number; stateId: number }
   ): Promise<[any, any]> {
-    const { policeStationId, divisionId, zoneId, districtId, stateId } = location;
+    const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = location;
 
     const locationConditions: any[] = [];
 
@@ -1828,8 +1831,11 @@ export class ApplicationFormService {
     if (zoneId) {
       locationConditions.push({ zoneId, divisionId: null });
     }
+    if (rangeOfficeId) {
+      locationConditions.push({ rangeOfficeId, zoneId: null });
+    }
     if (districtId) {
-      locationConditions.push({ districtId, zoneId: null });
+      locationConditions.push({ districtId, rangeOfficeId: null });
     }
     if (stateId) {
       locationConditions.push({ stateId, districtId: null });
@@ -1902,9 +1908,9 @@ export class ApplicationFormService {
         }
 
         // Build location hierarchy conditions
-        const { policeStationId, divisionId, zoneId, districtId, stateId } = cancelHierarchy.presentAddress;
+        const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = cancelHierarchy.presentAddress;
         return this.findUsersByLocationAndRoles(roleMapping.nextRoleIds, {
-          policeStationId, divisionId, zoneId, districtId, stateId
+          policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId
         });
       }
 
@@ -1929,7 +1935,8 @@ export class ApplicationFormService {
                 districtId: true,
                 zoneId: true,
                 divisionId: true,
-                policeStationId: true
+                policeStationId: true,
+                rangeOfficeId:true
               }
             }
           }
@@ -1951,12 +1958,12 @@ export class ApplicationFormService {
                 districtId: true,
                 zoneId: true,
                 divisionId: true,
-                policeStationId: true
+                policeStationId: true,
+                rangeOfficeId: true
               }
             }
           }
         });
-
       if (!application) {
         return [new BadRequestException('Application not found'), null];
       }
@@ -1964,7 +1971,7 @@ export class ApplicationFormService {
       if (!application.presentAddress) {
         return [new BadRequestException('Application does not have a present address defined'), null];
       }
-
+      console.log(application.presentAddress)
       if (!application.currentUserId || !application.currentUser) {
         return [new BadRequestException('Application does not have a current user assigned'), null];
       }
@@ -1982,13 +1989,11 @@ export class ApplicationFormService {
       });
 
       if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
-        // No next roles configured for this role
-        return [null, []];
+         return [null, []];
       }
 
       // Build location hierarchy conditions - using OR for all levels in a single query
-      const { policeStationId, divisionId, zoneId, districtId, stateId } = application.presentAddress;
-
+      const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = application.presentAddress;
       const locationConditions: any[] = [];
 
       // Add conditions for each level (most specific to least specific)
@@ -2001,8 +2006,11 @@ export class ApplicationFormService {
       if (zoneId) {
         locationConditions.push({ zoneId, divisionId: null });
       }
+      if (rangeOfficeId) {
+        locationConditions.push({ rangeOfficeId, zoneId: null });
+      }
       if (districtId) {
-        locationConditions.push({ districtId, zoneId: null });
+        locationConditions.push({ districtId, rangeOfficeId: null });
       }
       if (stateId) {
         locationConditions.push({ stateId, districtId: null });
@@ -2024,7 +2032,6 @@ export class ApplicationFormService {
           }
         }
       };
-
       // Single optimized query with role filtering at database level
       const users = await prisma.users.findMany({
         where: {
