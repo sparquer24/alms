@@ -656,67 +656,71 @@ export class WorkflowService {
     }); // end transaction
   }
 
- async handleUserAction(payload: 
-  {
-    applicationId: number;
-    actionId: number;
-    action: any; // full action object from Actiones table
-    nextUserId?: number;
-    remarks: string;
-    currentUserId: number;
-    attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
-    isApproved?: boolean;
-    isFLAFGenerated?: boolean;
-    isGroundReportGenerated?: boolean;
-    isPending?: boolean;
-    isReEnquiry?: boolean;
-    isReEnquiryDone?: boolean;
-    isRejected?: boolean;
-    isRecommended?: boolean;
-    isNotRecommended?: boolean;
-  }, applicationType : string,)
+  async handleUserAction(payload: 
+    {
+      applicationId: number;
+      actionId: number;
+      action: any; // full action object from Actiones table
+      nextUserId?: number;
+      remarks: string;
+      currentUserId: number;
+      attachments?: Array<{ name: string; type: string; contentType: string; url: string }>;
+      isApproved?: boolean;
+      isFLAFGenerated?: boolean;
+      isGroundReportGenerated?: boolean;
+      isPending?: boolean;
+      isReEnquiry?: boolean;
+      isReEnquiryDone?: boolean;
+      isRejected?: boolean;
+      isRecommended?: boolean;
+      isNotRecommended?: boolean;
+    }, applicationType : string,)
+  
+     {
+      console.log(`[WorkflowService] handleUserAction called for application type: ${applicationType}`);
+      console.log(`[WorkflowService] Payload:`, JSON.stringify(payload, null, 2));
 
-   {
-     // 1b. Fetch current user's roleId
-    const currentUser = await prisma.users.findUnique({
-      where: { id: payload.currentUserId },
-      select: { roleId: true },
-    });
-    if (!currentUser || !currentUser.roleId) {
-      throw new InternalServerErrorException(`Role for current user '${payload.currentUserId}' not found.`);
-    }
-    const currentRoleId = currentUser.roleId;
-
-    // 2. Validate User Permission using RolesActionsMapping
-    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
-    if (!hasPermission) {
-      throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
-    }
-     // 3. Determine next user and validate based on action type
-    let nextUserId: number | null 
-     const nextUserRoleId = await prisma.users.findUnique({
-      where: { id: payload.nextUserId },
-      select: { roleId: true },
-    });
-
-    const actionCode = payload.action.code.toUpperCase();
-
-    if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
-      nextUserId = payload.nextUserId;
-    }else{
-      throw new BadRequestException('nextUserId is required for this action.');
-    }
-    // 4. Find corresponding status for this action
-    const status = await prisma.statuses.findFirst({
-      where: {
-        code: {
-          equals: actionCode,
-          mode: 'insensitive'
-        }
+       // 1b. Fetch current user's roleId
+      const currentUser = await prisma.users.findUnique({
+        where: { id: payload.currentUserId },
+        select: { roleId: true },
+      });
+      if (!currentUser || !currentUser.roleId) {
+        throw new InternalServerErrorException(`Role for current user '${payload.currentUserId}' not found.`);
       }
-    });
-
+      const currentRoleId = currentUser.roleId;
+  
+      // 2. Validate User Permission using RolesActionsMapping
+      const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
+      if (!hasPermission) {
+        throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
+      }
+       // 3. Determine next user and validate based on action type
+      let nextUserId: number | null 
+       const nextUserRoleId = await prisma.users.findUnique({
+        where: { id: payload.nextUserId },
+        select: { roleId: true },
+      });
+  
+      const actionCode = payload.action.code.toUpperCase();
+  
+      if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
+        nextUserId = payload.nextUserId;
+      }else{
+        throw new BadRequestException('nextUserId is required for this action.');
+      }
+      // 4. Find corresponding status for this action
+      const status = await prisma.statuses.findFirst({
+        where: {
+          code: {
+            equals: actionCode,
+            mode: 'insensitive'
+          }
+        }
+      });
+  
       if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
+        console.log(`[WorkflowService] Routing to renewalapplication for application ID: ${payload.applicationId}`);
         await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       } else if (
         applicationType.toLowerCase() == 'cancelform' ||
@@ -725,16 +729,18 @@ export class WorkflowService {
         applicationType.toLowerCase() == 'cancelapplication' ||
         applicationType.toLowerCase() == 'cancelrequest'
       ) {
+        console.log(`[WorkflowService] Routing to cancelFormApplication for application ID: ${payload.applicationId}`);
         await this.cancelFormApplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       } else{
+        console.log(`[WorkflowService] Routing to freshapplication for application ID: ${payload.applicationId}`);
         await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
       }
-   
-    return {
-      success: true,
-      message: `${payload.action.code.toLowerCase()} performed successfully.`,  
-     }
-    }
+     
+      return {
+        success: true,
+        message: `${payload.action.code.toLowerCase()} performed successfully.`,  
+       }
+      }
 
 
  async cancelFormApplication(payload: {
@@ -853,12 +859,14 @@ export class WorkflowService {
 
         // === LICENSE HOOK: Cancel license on cancel request approval ===
         try {
-          // Find the license by the original application's freshLicenseId
-          // For fresh applications, freshLicenseId IS the application ID
-          // For renewals, freshLicenseId references the original fresh app ID
           if (cancelRequest.freshLicenseId) {
             const licenseToCancel = await tx.licenses.findFirst({
-              where: { sourceApplicationId: cancelRequest.freshLicenseId }
+              where: {
+                OR: [
+                  { sourceApplicationId: cancelRequest.freshLicenseId },
+                  { licenseNumber: application.licenseNumber },
+                ],
+              },
             });
 
             if (licenseToCancel) {
@@ -870,10 +878,9 @@ export class WorkflowService {
                   cancellationDate: new Date(),
                   lastModifiedByAppId: payload.applicationId,
                   lastModifiedAppType: 'CANCELLATION',
-                }
+                },
               });
 
-              // Create LicenseWorkflowHistory entry
               await tx.licenseWorkflowHistory.create({
                 data: {
                   licenseId: licenseToCancel.id,
@@ -884,12 +891,11 @@ export class WorkflowService {
                   newStatus: LicenseStatus.CANCELLED,
                   changedBy: payload.currentUserId,
                   remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
-                }
+                },
               });
             }
           }
         } catch (err) {
-          // Log but don't fail the cancellation workflow
           console.error('[LicenseHook] Failed to cancel license:', err);
         }
 
