@@ -57,8 +57,8 @@ export default function AdminLayout({ children }: { children: any }) {
     return (
       <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
         <div className='text-center'>
-          <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
-          <p className='text-gray-600'>Authenticating...</p>
+          <div className='animate-spin rounded-full h-10 w-10 border-b-2 border-[#001F54] mx-auto mb-4'></div>
+          <p className='text-sm text-gray-600'>Authenticating...</p>
         </div>
       </div>
     );
@@ -72,7 +72,7 @@ export default function AdminLayout({ children }: { children: any }) {
   return (
     <LayoutProvider>
 
-      <div className='flex h-screen bg-gray-50'>
+      <div className='flex h-screen bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
 
         <Sidebar />
 

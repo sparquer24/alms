@@ -39,30 +39,9 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Custom webpack config for bundle optimization
+  // NOTE: Do NOT override splitChunks here — Next.js manages chunk splitting internally.
+  // Overriding it breaks webpack-runtime chunk references (e.g., "Cannot find module './XXXX.js'").
   webpack: (config, { isServer, dev }) => {
-    if (!dev && !isServer) {
-      // Split chunks for better caching
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-          mantine: {
-            test: /[\\/]node_modules[\\/]@mantine[\\/]/,
-            name: 'mantine',
-            chunks: 'all',
-          },
-          charts: {
-            test: /[\\/]node_modules[\\/](chart\.js|recharts|react-chartjs-2)[\\/]/,
-            name: 'charts',
-            chunks: 'all',
-          },
-        },
-      };
-    }
     return config;
   },
   // Disable static generation for specific pages

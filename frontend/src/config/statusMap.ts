@@ -17,23 +17,23 @@ export type StatusKey =
   | 'myreports'
   | 'drafts';
 
-export type StatusIdMap = Partial<Record<StatusKey, number[]>>;
+export type StatusIdMap = Partial<Record<StatusKey, (number | string)[]>>;
 
-// Status mapping for numeric status_id (based on actual API status codes)
+// Status mapping for numeric status_id or string status codes
 // Synchronized with STATUS_MAP from sidebarApiCalls.ts
 export const statusIdMap: StatusIdMap = {
-  forwarded: [1],     // FORWARDED status only
+  forwarded: ['FORWARD'],     // FORWARDED status only
   sent: [],      // RECOMMEND
-  returned: [2, 13],         // REJECT (treated as returned)
-  redflagged: [8],       // RED_FLAG
-  disposed: [7],         // DISPOSE
-  approved: [11, 3],     // RECOMMEND + APPROVED
-  applications: [10, 11, 3],  // Approved applications
-  freshform: [9],        // INITIATE (fresh form applications)
-  closed: [10],          // CLOSE
-  cancelled: [4],        // CANCEL
-  reEnquiry: [5],        // RE_ENQUIRY
-  groundReport: [6],     // GROUND_REPORT          // DRAFT
-  drafts: [12],          // DRAFTS (alias for draft)
+  returned: ['REJECT', 'RETURN'],         // REJECT (treated as returned)
+  redflagged: ['RED_FLAG'],       // RED_FLAG
+  disposed: ['DISPOSE'],         // DISPOSE
+  approved: ['APPROVED'],     // APPROVED
+  applications: ['CLOSE', 'APPROVED'],  // Approved or closed applications
+  freshform: ['INITIATED'],        // INITIATE / INITIATED (fresh form applications)
+  closed: ['CLOSE'],          // CLOSE
+  cancelled: ['CANCEL'],        // CANCEL
+  reEnquiry: ['RE_ENQUIRY'],        // RE_ENQUIRY
+  groundReport: ['GROUND_REPORT'],     // GROUND_REPORT
+  drafts: ['DRAFT'],          // DRAFTS (alias for draft)
 
 };

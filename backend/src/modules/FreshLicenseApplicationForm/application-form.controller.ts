@@ -734,9 +734,7 @@ export class ApplicationFormController {
         order: parsedOrder as 'asc' | 'desc',
         currentUserId: req.user?.sub, // If you need user context
         // Resolve textual identifiers to numeric IDs if provided
-        statusIds: parsedStatusIdentifiers && parsedStatusIdentifiers.length > 0
-          ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
-          : undefined,
+        statusIds: parsedStatusIdentifiers,
         // applicationId: parsedApplicationId,
         isOwned: isOwned === true,
         isSent: isSent === true,

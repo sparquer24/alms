@@ -189,6 +189,12 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     const [loadingRowId, setLoadingRowId] = useState<string | null>(null);
     const { userRole } = useAuth();
 
+    // Clear loadingRowId when component unmounts (e.g. during page navigation)
+    // so the spinner state is reset when the user returns to the table.
+    React.useEffect(() => {
+      return () => { setLoadingRowId(null); };
+    }, []);
+
     const isApplicationUnread = useCallback(
       (app: ApplicationData): boolean => {
         return getForwardedTo(app) === userRole && getIsViewed(app) === false;
@@ -200,6 +206,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       (id: string) => {
         setLoadingRowId(id);
         const actionId = `navigate-application-${id}`;
+        // Clear any stale navigation path first so canNavigateTo never blocks
+        // a second visit to the same record after returning from it.
+        setActiveNavigationPath(null);
         // executeAction will prevent duplicate navigations for same actionId
         void executeAction(actionId, async () => {
           const app = (baseApplications || []).find(a => a.id === id);

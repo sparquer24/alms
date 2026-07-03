@@ -172,21 +172,33 @@ export const ApplicationDetailSkeleton: React.FC = () => (
 // Sidebar Skeleton
 export const SidebarSkeleton: React.FC = () => (
   <div className="fixed left-0 top-0 h-full w-[80vw] max-w-xs md:w-[18%] bg-white shadow-lg border-r border-gray-200 z-40">
-    <div className="p-4">
-      {/* Logo Area */}
-      <div className="flex items-center space-x-3 mb-8">
-        <Skeleton className="h-8 w-8 rounded-full" />
-        <Skeleton className="h-6 w-24" />
-      </div>
-      
-      {/* Menu Items */}
-      <div className="space-y-2">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="flex items-center space-x-3 p-2">
-            <Skeleton className="h-5 w-5" />
-            <Skeleton className="h-4 w-20" />
-          </div>
-        ))}
+    {/* Logo & Brand Area */}
+    <div className="p-4 flex items-center border-b border-gray-100">
+      <Skeleton className="h-[52px] w-[52px] rounded mr-2" />
+      <Skeleton className="h-5 w-24" />
+    </div>
+    
+    {/* Role Badge */}
+    <div className="bg-gray-100 p-4">
+      <Skeleton className="h-5 w-5 inline-block mr-3" />
+      <Skeleton className="h-4 w-28" />
+    </div>
+    
+    {/* Menu Items */}
+    <div className="p-3 space-y-1">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="flex items-center px-3 py-2">
+          <Skeleton className="h-5 w-5 mr-3 flex-shrink-0" />
+          <Skeleton className="h-4 flex-1 max-w-[100px]" />
+        </div>
+      ))}
+    </div>
+    
+    {/* Logout */}
+    <div className="p-3 border-t border-gray-200 mt-auto">
+      <div className="flex items-center px-3 py-2">
+        <Skeleton className="h-5 w-5 mr-3 flex-shrink-0" />
+        <Skeleton className="h-4 w-14" />
       </div>
     </div>
   </div>

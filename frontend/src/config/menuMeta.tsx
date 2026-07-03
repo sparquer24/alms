@@ -60,68 +60,68 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   // use the `*Fixed` any-casted aliases above to avoid React type mismatch errors
   freshform: {
     label: 'New Forms',
-    icon: () => <FilePlusFixed className='w-6 h-6 mr-2' aria-label='New Forms' />,
+    icon: () => <FilePlusFixed className='w-5 h-5' aria-label='New Forms' />,
   },
-  inbox: { label: 'Inbox', icon: () => <InboxFixed className='w-6 h-6 mr-2' aria-label='Inbox' /> },
-  sent: { label: 'Sent', icon: () => <SendFixed className='w-6 h-6 mr-2' aria-label='Sent' /> },
+  inbox: { label: 'Inbox', icon: () => <InboxFixed className='w-5 h-5' aria-label='Inbox' /> },
+  sent: { label: 'Sent', icon: () => <SendFixed className='w-5 h-5' aria-label='Sent' /> },
   closed: {
     label: 'Closed',
-    icon: () => <FolderCheckFixed className='w-6 h-6 mr-2' aria-label='Closed' />,
+    icon: () => <FolderCheckFixed className='w-5 h-5' aria-label='Closed' />,
   },
   final: {
     label: 'Final Disposal',
-    icon: () => <ArchiveFixed className='w-6 h-6 mr-2' aria-label='Final Disposal' />,
+    icon: () => <ArchiveFixed className='w-5 h-5' aria-label='Final Disposal' />,
   },
   applications: {
     label: 'Applications',
-    icon: () => <ListFixed className='w-6 h-6 mr-2' aria-label='Applications' />,
+    icon: () => <ListFixed className='w-5 h-5' aria-label='Applications' />,
   },
   rejected: {
     label: 'Rejected',
-    icon: () => <ArchiveFixed className='w-6 h-6 mr-2' aria-label='Rejected' />,
+    icon: () => <ArchiveFixed className='w-5 h-5' aria-label='Rejected' />,
   },
   drafts: {
     label: 'Drafts',
-    icon: () => <FileEditFixed className='w-6 h-6 mr-2' aria-label='Drafts' />,
+    icon: () => <FileEditFixed className='w-5 h-5' aria-label='Drafts' />,
   },
   reports: {
     label: 'My Reports',
-    icon: () => <BarChart2Fixed className='w-6 h-6 mr-2' aria-label='My Reports' />,
+    icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='My Reports' />,
   },
   analytics: {
     label: 'Analytics',
-    icon: () => <BarChart2Fixed className='w-6 h-6 mr-2' aria-label='Analytics' />,
+    icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='Analytics' />,
   },
   cancelform: {
     label: 'Cancel Form',
-    icon: () => <XCircleFixed className='w-6 h-6 mr-2' aria-label='Cancel Form' />,
+    icon: () => <XCircleFixed className='w-5 h-5' aria-label='Cancel Form' />,
   },
   logout: {
     label: 'Log Out',
-    icon: () => <LogOutFixed className='w-6 h-6 mr-2' aria-label='Log Out' />,
+    icon: () => <LogOutFixed className='w-5 h-5' aria-label='Log Out' />,
   },
   userManagement: {
     label: 'User Management',
-    icon: () => <UsersFixed className='w-6 h-6 mr-2' aria-label='User Management' />,
+    icon: () => <UsersFixed className='w-5 h-5' aria-label='User Management' />,
   },
   roleManagement: {
     label: 'Role Management',
-    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
+    icon: () => <ShieldFixed className='w-5 h-5' aria-label='Role Management' />,
   },
   roleMapping: {
     label: 'Role Management',
-    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Role Management' />,
+    icon: () => <ShieldFixed className='w-5 h-5' aria-label='Role Management' />,
   },
   flowMapping: {
     label: 'Flow Mapping',
-    icon: () => <GitBranchFixed className='w-6 h-6 mr-2' aria-label='Flow Mapping' />,
+    icon: () => <GitBranchFixed className='w-5 h-5' aria-label='Flow Mapping' />,
   },
   locationsManagement: {
     label: 'Locations Management',
-    icon: () => <MapPinFixed className='w-6 h-6 mr-2' aria-label='Locations Management' />,
+    icon: () => <MapPinFixed className='w-5 h-5' aria-label='Locations Management' />,
   },
   actionMapping: {
     label: 'Action Mapping',
-    icon: () => <ShieldFixed className='w-6 h-6 mr-2' aria-label='Action Mapping' />,
+    icon: () => <ShieldFixed className='w-5 h-5' aria-label='Action Mapping' />,
   },
 };
