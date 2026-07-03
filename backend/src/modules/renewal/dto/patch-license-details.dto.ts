@@ -1,17 +1,41 @@
-import { IsOptional, IsString, IsEnum, IsArray, IsNumber } from 'class-validator';
-import { LicensePurpose, ArmsCategory } from '@prisma/client';
+import { Transform } from 'class-transformer';
+import { IsOptional, IsString, IsArray, IsNumber, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { LicensePurpose, ArmsCategory } from '@prisma/client';
+
+const normalizeLicensePurpose = (value: any) => {
+  if (typeof value !== 'string') return value;
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, '_');
+
+  switch (normalized) {
+    case 'SELF_PROTECTION':
+    case 'SELF_DEFENSE':
+    case 'SELF-DEFENSE':
+      return 'SELF_PROTECTION';
+    case 'SPORTS':
+      return 'SPORTS';
+    case 'CROP_PROTECTION':
+      return 'CROP_PROTECTION';
+    case 'HEIRLOOM_POLICY':
+    case 'BUSINESS_SECURITY':
+    case 'BUSINESS-SECURITY':
+      return 'HEIRLOOM_POLICY';
+    default:
+      return normalized;
+  }
+};
 
 export class PatchRenewalLicenseDetailsDto {
-  @ApiPropertyOptional({ enum: ['SELF_PROTECTION', 'SPORTS', 'HEIRLOOM_POLICY'], description: 'Need for license' })
+  @ApiPropertyOptional({ enum: LicensePurpose, description: 'Need for license' })
   @IsOptional()
-  @IsEnum(['SELF_PROTECTION', 'SPORTS', 'HEIRLOOM_POLICY'])
-  needForLicense?: string;
+  @Transform(({ value }) => normalizeLicensePurpose(value))
+  @IsEnum(LicensePurpose)
+  needForLicense?: LicensePurpose;
 
-  @ApiPropertyOptional({ enum: ['RESTRICTED', 'PERMISSIBLE'], description: 'Arms category' })
+  @ApiPropertyOptional({ enum: ArmsCategory, description: 'Arms category' })
   @IsOptional()
-  @IsEnum(['RESTRICTED', 'PERMISSIBLE'])
-  armsCategory?: string;
+  @IsEnum(ArmsCategory)
+  armsCategory?: ArmsCategory;
 
   @ApiPropertyOptional({ example: 'DISTRICT', description: 'Area of validity' })
   @IsOptional()
