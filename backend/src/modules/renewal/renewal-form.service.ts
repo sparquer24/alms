@@ -440,6 +440,9 @@ export class RenewalFormService {
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
               RangeOffices: { select: { id: true, name: true } },
+              zone: { select: { id: true, name: true } },
+              division: { select: { id: true, name: true } },
+              policeStation: { select: { id: true, name: true } },
             }
           },
           permanentAddress: {
@@ -452,6 +455,9 @@ export class RenewalFormService {
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
               RangeOffices: { select: { id: true, name: true } },
+              zone: { select: { id: true, name: true } },
+              division: { select: { id: true, name: true } },
+              policeStation: { select: { id: true, name: true } },
             }
           },
           occupationAndBusiness: {
@@ -655,7 +661,20 @@ export class RenewalFormService {
             },
           },
           presentAddress: {
-            include: {
+            select: {
+              id: true,
+              addressLine: true,
+              stateId: true,
+              districtId: true,
+              policeStationId: true,
+              sinceResiding: true,
+              divisionId: true,
+              zoneId: true,
+              telephoneOffice: true,
+              telephoneResidence: true,
+              officeMobileNumber: true,
+              alternativeMobile: true,
+              rangeOfficeId: true,
               state: true,
               district: true,
               RangeOffices: true,
@@ -665,7 +684,20 @@ export class RenewalFormService {
             },
           },
           permanentAddress: {
-            include: {
+            select: {
+              id: true,
+              addressLine: true,
+              stateId: true,
+              districtId: true,
+              policeStationId: true,
+              sinceResiding: true,
+              divisionId: true,
+              zoneId: true,
+              telephoneOffice: true,
+              telephoneResidence: true,
+              officeMobileNumber: true,
+              alternativeMobile: true,
+              rangeOfficeId: true,
               state: true,
               district: true,
               RangeOffices: true,
@@ -675,10 +707,17 @@ export class RenewalFormService {
             },
           },
           occupationAndBusiness: {
-            include: {
+            select: {
+              id: true,
+              occupation: true,
+              officeAddress: true,
+              stateId: true,
+              districtId: true,
+              cropLocation: true,
+              areaUnderCultivation: true,
               state: true,
               district: true,
-            }, 
+            },
           },
           licenseDetails: {
             include: { requestedWeapons: true },
@@ -722,7 +761,6 @@ export class RenewalFormService {
 
       return {
         ...application,
-        applicationId: freshApplicationId,
         freshApplicationId: freshApplicationId,
       };
     } catch (error) {
