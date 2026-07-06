@@ -8,6 +8,8 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 // Load root .env first
 config({ path: path.resolve(__dirname, '../.env') });
 
+const { execSync } = require('child_process');
+
 const nextConfig = {
   output: 'export',
   reactStrictMode: true,
@@ -44,9 +46,17 @@ const nextConfig = {
   webpack: (config, { isServer, dev }) => {
     return config;
   },
-  // Disable static generation for specific pages
-  async generateBuildId() {
-    return 'build-' + Date.now();
+  // Stable build ID derived from git commit to avoid cache mismatches on redeploy.
+  // Falls back to BUILD_ID env var or a static string when git is unavailable.
+  generateBuildId() {
+    try {
+      return execSync('git rev-parse --short HEAD', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      return process.env.BUILD_ID || 'build';
+    }
   },
   // Proxy /api/* requests to the backend server
   // Set BACKEND_URL env var at runtime (e.g., http://host.docker.internal:3001)
