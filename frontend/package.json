@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "set PORT=5000 && next dev",
     "build": "set NODE_OPTIONS=--max_old_space_size=8192 && next build",
-    "build:analyze": "set ANALYZE=true && next build",
-    "start": "npx serve@latest out",
+    "build:win": "set NODE_OPTIONS=--max_old_space_size=8192 && next build",
+    "build:analyze": "ANALYZE=true next build",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "format": "prettier --write .",

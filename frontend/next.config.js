@@ -11,14 +11,14 @@ config({ path: path.resolve(__dirname, '../.env') });
 const { execSync } = require('child_process');
 
 const nextConfig = {
-  output: 'export',
+  output: 'standalone',
   reactStrictMode: true,
   // Tell Next.js the tracing root is this frontend directory, not the monorepo root.
   // This prevents it from misreading the root package-lock.json and confusing App Router with Pages Router.
   outputFileTracingRoot: path.resolve(__dirname),
   // Image optimization enabled
   images: {
-    unoptimized: true,
+    unoptimized: true, // required for static/CDN deploys; remove if using Next.js image optimization
     formats: ['image/webp', 'image/avif'],
   },
   // Skip trailing slash redirect
