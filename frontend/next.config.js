@@ -16,9 +16,8 @@ const nextConfig = {
   // Tell Next.js the tracing root is this frontend directory, not the monorepo root.
   // This prevents it from misreading the root package-lock.json and confusing App Router with Pages Router.
   outputFileTracingRoot: path.resolve(__dirname),
-  // Image optimization enabled
+  // Image optimization (standalone/server mode supports Next.js image optimization)
   images: {
-    unoptimized: true, // required for static/CDN deploys; remove if using Next.js image optimization
     formats: ['image/webp', 'image/avif'],
   },
   // Skip trailing slash redirect
