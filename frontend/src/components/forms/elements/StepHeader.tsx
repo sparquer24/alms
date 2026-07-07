@@ -1,11 +1,13 @@
 'use client';
 import React from 'react';
+import { IoMdHome } from 'react-icons/io';
 
 interface StepHeaderProps {
   steps: string[];
   currentStep: number;
   onStepClick?: (step: number) => void;
   lockedSteps?: Set<number>;
+  onGoHome?: () => void;
 }
 
 export const StepHeader: React.FC<StepHeaderProps> = ({
@@ -13,6 +15,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
   currentStep,
   onStepClick = () => {},
   lockedSteps = new Set(),
+  onGoHome,
 }) => {
   const handleClick = (idx: number) => {
     if (lockedSteps.has(idx)) return;
@@ -31,6 +34,16 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
         <div
           className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
           <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
+            {onGoHome && (
+              <button
+                type='button'
+                onClick={onGoHome}
+                title='Go to Home'
+                className='flex items-center justify-center w-8 h-8 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105 shrink-0'
+              >
+                <IoMdHome className='text-2xl text-[#0d2977]' />
+              </button>
+            )}
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const locked = lockedSteps.has(idx);
