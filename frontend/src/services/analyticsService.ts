@@ -13,16 +13,26 @@ export interface ApplicationsData {
     week: string;
     count: number;
     date?: string;
+    fresh?: number;
+    renewal?: number;
+    cancel?: number;
 }
 
 export interface RoleLoadData {
     name: string;
     value: number;
+    code?: string;
+    fresh?: number;
+    renewal?: number;
+    cancel?: number;
 }
 
 export interface StateData {
     state: string;
     count: number;
+    fresh?: number;
+    renewal?: number;
+    cancel?: number;
 }
 
 export interface AdminActivity {
@@ -33,6 +43,7 @@ export interface AdminActivity {
     timestamp?: number;
     almsLicenseId?: string;
     applicantName?: string;
+    applicationType?: string;
 }
 
 export interface ApplicationRecord {
@@ -44,6 +55,7 @@ export interface ApplicationRecord {
     status: string;
     actionTakenAt?: string | null;
     daysTillToday?: number | null;
+    applicationType?: 'FRESH' | 'RENEWAL' | 'CANCEL';
 }
 
 export interface ApplicationsDetailsMeta {

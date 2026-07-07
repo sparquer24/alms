@@ -96,6 +96,9 @@ export class CancelFormService {
           throw new BadRequestException('A pending cancel request already exists for this application.');
         }
 
+        // generate a unique acknowledgement number for the cancel request
+        const acknowledgementNo = `CAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
         // Create the cancel request
         const created = await tx.cancelFormRequests.create({
           data: {
@@ -108,6 +111,7 @@ export class CancelFormService {
             currentUserId: currentUserId,
             requestedDate: new Date(),
             workFlowStatusId: initiateStatus?.id || null,
+            acknowledgementNo,
           },
           include: {
             requester: {

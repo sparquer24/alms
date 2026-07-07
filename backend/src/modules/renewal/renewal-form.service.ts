@@ -30,7 +30,7 @@ export class RenewalFormService {
       }
 
       // Generate acknowledgement number
-      const acknowledgementNo = `RENEWAL-${Date.now()}-${uuidv4().substring(0, 8)}`;
+      const acknowledgementNo = `RAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
       const newApplication = await prisma.$transaction(async (tx: any) => {
         // Get DRAFT status ID

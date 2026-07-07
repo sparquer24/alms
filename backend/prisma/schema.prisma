@@ -644,6 +644,7 @@ model LicensesMergeAuditLog {
 
 model CancelFormRequests {
   id                      Int                                     @id @default(autoincrement())
+  acknowledgementNo       String
   applicationType         String
   cancellationReason      String
   remarks                 String?

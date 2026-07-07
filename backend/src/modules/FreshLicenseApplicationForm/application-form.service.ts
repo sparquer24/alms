@@ -367,7 +367,7 @@ export class ApplicationFormService {
       // Transaction: create only the personal-details row (no application)
       const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Generate acknowledgementNo once
-        const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
+        const finalAcknowledgementNo = acknowledgementNo ?? `FALS${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
         // Find DRAFT status ID by code (more reliable than assuming ID)
         const draftStatus = await prisma.statuses.findFirst({
@@ -2292,7 +2292,7 @@ export class ApplicationFormService {
       if (filter.searchField === 'id') {
         const idVal = Number(filter.search);
         if (!isNaN(idVal)) cancelFormWhere.id = idVal;
-      } else if (['firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
+      } else if (['firstName', 'lastName', 'acknowledgementNo' ].includes(filter.searchField)) {
         cancelFormWhere.freshLicense = {
           [filter.searchField]: { contains: String(filter.search), mode: 'insensitive' }
         };
@@ -2300,7 +2300,7 @@ export class ApplicationFormService {
     }
 
     // Ordering
-    const allowedOrderFields = ['id', 'createdAt'];
+    const allowedOrderFields = ['id', 'createdAt', 'acknowledgementNo'];
     const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'createdAt';
     const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
     const orderByObj: any = { [orderByField]: orderDirection };
@@ -2332,72 +2332,6 @@ export class ApplicationFormService {
       cancelFormRawData = data;
     }
 
-    // Fetch the CANCEL status details from DB to get the correct status ID
-    const cancelStatus = await prisma.statuses.findFirst({
-      where: { code: 'CANCEL' }
-    });
-    const cancelStatusId = cancelStatus?.id || 8;
-
-    const hasCancelStatus = filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.map(Number).includes(Number(cancelStatusId));
-
-    // --- Fetch from CancelWorkflowHistories (sent box / approved cancellations) ---
-    // Fetch history if isSent is true, OR if specifically filtering by CANCEL status (completed)
-    const shouldFetchHistory = filter.isSent === true || hasCancelStatus;
-    let cancelHistoryRawData: any[] = [];
-
-    if (shouldFetchHistory) {
-      const cancelHistoryWhere: any = {};
-
-      // For cancel history, map currentUserId to previousUserId
-      if (filter.currentUserId) {
-        const parsedUserId = Number(filter.currentUserId);
-        if (!isNaN(parsedUserId)) {
-          cancelHistoryWhere.previousUserId = parsedUserId;
-        }
-      }
-
-      // Search filter (only id and firstName/lastName supported for cancel history)
-      if (filter.searchField && filter.search) {
-        if (filter.searchField === 'id') {
-          const idVal = Number(filter.search);
-          if (!isNaN(idVal)) cancelHistoryWhere.id = idVal;
-        } else if (['firstName', 'lastName'].includes(filter.searchField)) {
-          cancelHistoryWhere[filter.searchField] = { contains: String(filter.search), mode: 'insensitive' };
-        }
-      }
-
-      const rawHistories = await prisma.cancelWorkflowHistories.findMany({
-        where: cancelHistoryWhere,
-        select: {
-          id: true,
-          applicationId: true,  // This IS the cancelFormRequests.id for cancel workflow history
-          previousUserId: true,
-          nextUserId: true,
-          actionTaken: true,
-          createdAt: true,
-          previousUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: { select: { code: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' }, // Get most recent actions first
-      });
-
-      // Deduplicate histories by applicationId so the same request doesn't appear twice
-      const latestActionsMap = new Map<number, any>();
-      for (const history of rawHistories) {
-        if (!latestActionsMap.has(history.applicationId)) {
-          latestActionsMap.set(history.applicationId, history);
-        }
-      }
-      cancelHistoryRawData = Array.from(latestActionsMap.values());
-    }
-
-    const cancelHistoryTotal = cancelHistoryRawData.length;
 
     // Transform CancelFormRequests: look up original application for applicant name & acknowledgementNo
     const transformedCancelRequests = await Promise.all((cancelFormRawData || []).map(async (row: any) => {
@@ -2405,40 +2339,12 @@ export class ApplicationFormService {
       let applicantName = row.requester?.username || `Cancel Request #${row.id}`;
       let acknowledgementNo: string | null = null;
 
-      try {
-        // Try fresh license table first using freshLicenseId
-        if (row.freshLicenseId) {
-          const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-            where: { id: row.freshLicenseId },
-            select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
-          });
-          if (freshApp) {
-            const nameParts = [freshApp.firstName, freshApp.middleName, freshApp.lastName].filter(Boolean);
-            applicantName = nameParts.join(' ');
-            acknowledgementNo = freshApp.acknowledgementNo;
-          } else {
-            // Try renewal table if not found in fresh
-            const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
-              where: { id: row.freshLicenseId },
-              select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
-            });
-            if (renewalApp) {
-              const nameParts = [renewalApp.firstName, renewalApp.middleName, renewalApp.lastName].filter(Boolean);
-              applicantName = nameParts.join(' ');
-              acknowledgementNo = renewalApp.acknowledgementNo;
-            }
-          }
-        }
-      } catch {
-        // Fallback to requester name if lookup fails
-      }
-
       return {
         id: row.id,
         freshLicenseId: row.freshLicenseId,
         cancellationReason: row.cancellationReason,
         status: row.status,
-        acknowledgementNo,
+        acknowledgementNo: row.acknowledgementNo || acknowledgementNo,
         applicantName,
         applicationType: 'Cancel Request',
         createdAt: row.createdAt,
@@ -2454,46 +2360,7 @@ export class ApplicationFormService {
       };
     }));
 
-    const transformedCancelHistory = (cancelHistoryRawData || []).map((row: any) => {
-      // For cancel workflow history records, applicationId IS the cancelFormRequests.id
-      // Use it as the navigation id so clicking the row goes to the correct cancelForm detail page.
-      const cancelFormId = row.applicationId || row.id;
-      return {
-        // Use the cancelFormRequests.id (applicationId) for correct navigation to /cancelForm/:id
-        id: String(cancelFormId),
-        historyRowId: row.id,
-        applicantName: row.previousUser?.username || `Cancel Request #${cancelFormId}`,
-        cancellationReason: null,
-        status: 'APPROVED',
-        isSent: null,
-        acknowledgementNo: null,
-        applicationType: 'Cancel Request',
-        createdAt: row.createdAt,
-        workflowStatusId: cancelStatusId,
-        workflowStatus: cancelStatus ? {
-          id: cancelStatus.id,
-          code: cancelStatus.code,
-          name: cancelStatus.name,
-        } : {
-          id: 8,
-          code: 'CANCEL',
-          name: 'Cancel',
-        },
-        currentUser: row.previousUser ? {
-          id: row.previousUser.id,
-          username: row.previousUser.username,
-          email: row.previousUser.email,
-          role: row.previousUser.role,
-        } : null,
-        previousUser: null,
-      };
-    });
-
-    // Combine both result sets
-    const combinedData = [...transformedCancelRequests, ...transformedCancelHistory];
-    const total = cancelFormTotal + cancelHistoryTotal;
-
-    return { total, data: combinedData };
+    return { total: cancelFormTotal, data: transformedCancelRequests };
   }
 
   /**

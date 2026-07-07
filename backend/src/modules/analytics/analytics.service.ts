@@ -13,7 +13,7 @@ import { ROLE_CODES } from '../../constants/auth';
 @Injectable()
 export class AnalyticsService {
     /**
-     * Get applications aggregated by ISO week
+     * Get applications aggregated by ISO week (Fresh, Renewal, and Cancel)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationsByWeek(
@@ -49,32 +49,77 @@ export class AnalyticsService {
                 }
             }
 
-            // Fetch all applications within date range
-            const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-                where,
-                select: {
-                    id: true,
-                    createdAt: true,
-                },
-            });
+            // Build separate where clauses for the three address types
+            const renewalWhere: any = {};
+            const cancelWhere: any = {};
+            
+            // Copy date filtering to renewal
+            if (where.createdAt) {
+                renewalWhere.createdAt = { ...where.createdAt };
+            }
 
-            // Group by ISO week
-            const weekMap = new Map<string, number>();
-            applications.forEach((app: { id: number; createdAt: Date }) => {
-                const date = new Date(app.createdAt);
-                const year = getISOWeekYear(date);
-                const week = getISOWeek(date);
-                const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+            // Apply state/zone filters to renewal
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    renewalWhere.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    renewalWhere.permanentAddress = { stateId };
+                }
+            }
 
-                weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + 1);
-            });
+            // For cancel, filter by createdAt only
+            if (where.createdAt) {
+                cancelWhere.createdAt = { ...where.createdAt };
+            }
+
+            // Fetch all three types of applications within date range
+            const [freshApps, renewalApps, cancelApps] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.findMany({
+                    where,
+                    select: { id: true, createdAt: true },
+                }),
+                prisma.renewalFormPersonalDetails.findMany({
+                    where: renewalWhere,
+                    select: { id: true, createdAt: true },
+                }),
+                prisma.cancelFormRequests.findMany({
+                    where: cancelWhere,
+                    select: { id: true, createdAt: true },
+                }),
+            ]);
+
+            // Group by ISO week for all three types
+            const weekMap = new Map<string, { count: number; fresh: number; renewal: number; cancel: number }>();
+            
+            const processApps = (apps: any[], type: 'fresh' | 'renewal' | 'cancel') => {
+                apps.forEach((app) => {
+                    const date = new Date(app.createdAt);
+                    const year = getISOWeekYear(date);
+                    const week = getISOWeek(date);
+                    const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+
+                    if (!weekMap.has(weekKey)) {
+                        weekMap.set(weekKey, { count: 0, fresh: 0, renewal: 0, cancel: 0 });
+                    }
+                    const entry = weekMap.get(weekKey)!;
+                    entry.count += 1;
+                    entry[type] += 1;
+                });
+            };
+
+            processApps(freshApps, 'fresh');
+            processApps(renewalApps, 'renewal');
+            processApps(cancelApps, 'cancel');
 
             // Convert to array and sort
             const result = Array.from(weekMap.entries())
-                .map(([week, count]) => ({
+                .map(([week, data]) => ({
                     week,
-                    count,
+                    count: data.count,
                     date: week,
+                    fresh: data.fresh,
+                    renewal: data.renewal,
+                    cancel: data.cancel,
                 }))
                 .sort((a, b) => a.week.localeCompare(b.week));
 
@@ -87,7 +132,7 @@ export class AnalyticsService {
     }
 
     /**
-     * Get application load by role
+     * Get application load by role (Fresh, Renewal, and Cancel)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getRoleLoad(
@@ -123,43 +168,72 @@ export class AnalyticsService {
                 }
             }
 
-            // Get applications with their assigned roles
-            const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-                where,
-                select: {
-                    id: true,
-                    currentUser: {
-                        select: {
-                            role: {
-                                select: {
-                                    code: true,
-                                    name: true,
-                                },
+            // Build separate where clauses for renewal
+            const renewalWhere: any = { currentUser: { isNot: null } };
+            if (where.createdAt) {
+                renewalWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    renewalWhere.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    renewalWhere.permanentAddress = { stateId };
+                }
+            }
+
+            // Get applications with their assigned roles (Fresh & Renewal)
+            const [freshApps, renewalApps] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        currentUser: {
+                            select: {
+                                role: { select: { code: true, name: true } },
                             },
                         },
                     },
-                },
-            });
+                }),
+                prisma.renewalFormPersonalDetails.findMany({
+                    where: renewalWhere,
+                    select: {
+                        id: true,
+                        currentUser: {
+                            select: {
+                                role: { select: { code: true, name: true } },
+                            },
+                        },
+                    },
+                }),
+            ]);
 
-            // Group by role we need to return the name, code and count
-            const roleMap = new Map<string, { name: string; code: string; count: number }>();
-            applications.forEach((app: { id: number; currentUser: { role: { code: string; name: string } | null } | null }) => {
-                const role = app.currentUser?.role;
-                if (role) {
-                    const existing = roleMap.get(role.code);
-                    if (existing) {
-                        existing.count += 1;
-                    } else {
-                        roleMap.set(role.code, { name: role.name, code: role.code, count: 1 });
+            // Group by role and type
+            const roleMap = new Map<string, { name: string; code: string; count: number; fresh: number; renewal: number }>();
+
+            const processApps = (apps: any[], type: 'fresh' | 'renewal') => {
+                apps.forEach((app) => {
+                    const role = app.currentUser?.role;
+                    if (role) {
+                        if (!roleMap.has(role.code)) {
+                            roleMap.set(role.code, { name: role.name, code: role.code, count: 0, fresh: 0, renewal: 0 });
+                        }
+                        const entry = roleMap.get(role.code)!;
+                        entry.count += 1;
+                        entry[type] += 1;
                     }
-                }
-            });
+                });
+            };
 
-            // Convert to array
+            processApps(freshApps, 'fresh');
+            processApps(renewalApps, 'renewal');
+
+            // Convert to array - NOTE: cancel doesn't have currentUser assignment
             const result: RoleLoadDataDto[] = Array.from(roleMap.values()).map((role) => ({
                 name: role.name,
                 value: role.count,
                 code: role.code,
+                fresh: role.fresh,
+                renewal: role.renewal,
             }));
 
             return result;
@@ -171,7 +245,7 @@ export class AnalyticsService {
     }
 
     /**
-     * Get application state distribution
+     * Get application state distribution (Fresh, Renewal, and Cancel)
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationStates(
@@ -203,38 +277,92 @@ export class AnalyticsService {
                 }
             }
 
-            // Get all applications with their status
-            const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-                where,
-                select: {
-                    id: true,
-                    isApproved: true,
-                    isRejected: true,
-                    isPending: true,
-                },
-            });
+            // Build separate where clauses for renewal
+            const renewalWhere: any = {};
+            if (where.createdAt) {
+                renewalWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    renewalWhere.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    renewalWhere.permanentAddress = { stateId };
+                }
+            }
 
-            // Calculate state counts
+            // For cancel, only filter by date
+            const cancelWhere: any = {};
+            if (where.createdAt) {
+                cancelWhere.createdAt = { ...where.createdAt };
+            }
+
+            // Get all applications with their status
+            const [freshApps, renewalApps, cancelApps] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        isApproved: true,
+                        isRejected: true,
+                        isPending: true,
+                    },
+                }),
+                prisma.renewalFormPersonalDetails.findMany({
+                    where: renewalWhere,
+                    select: {
+                        id: true,
+                        isApproved: true,
+                        isRejected: true,
+                        isPending: true,
+                    },
+                }),
+                prisma.cancelFormRequests.findMany({
+                    where: cancelWhere,
+                    select: {
+                        id: true,
+                        status: true,
+                    },
+                }),
+            ]);
+
+            // Calculate state counts for fresh and renewal
             const stateMap = {
                 approved: 0,
                 rejected: 0,
                 pending: 0,
             };
 
-            applications.forEach((app: { id: number; isApproved: boolean | null; isRejected: boolean | null; isPending: boolean | null }) => {
-                if (app.isApproved) {
-                    stateMap.approved++;
-                } else if (app.isRejected) {
-                    stateMap.rejected++;
-                } else {
-                    stateMap.pending++;
-                }
+            const processFreshRenewal = (apps: any[]) => {
+                apps.forEach((app) => {
+                    if (app.isApproved) {
+                        stateMap.approved++;
+                    } else if (app.isRejected) {
+                        stateMap.rejected++;
+                    } else {
+                        stateMap.pending++;
+                    }
+                });
+            };
+
+            processFreshRenewal(freshApps);
+            processFreshRenewal(renewalApps);
+
+            // Count cancel statuses as pending (not yet approved/rejected)
+            cancelApps.forEach((app) => {
+                stateMap.pending++;
             });
 
             // Convert to array
             const result = Object.entries(stateMap).map(([state, count]) => ({
                 state,
                 count,
+                fresh: state === 'approved' ? freshApps.filter((a) => a.isApproved).length : 
+                       state === 'rejected' ? freshApps.filter((a) => a.isRejected).length : 
+                       freshApps.filter((a) => !a.isApproved && !a.isRejected).length,
+                renewal: state === 'approved' ? renewalApps.filter((a) => a.isApproved).length : 
+                        state === 'rejected' ? renewalApps.filter((a) => a.isRejected).length : 
+                        renewalApps.filter((a) => !a.isApproved && !a.isRejected).length,
+                cancel: state === 'pending' ? cancelApps.length : 0,
             }));
 
             return result;
@@ -248,6 +376,7 @@ export class AnalyticsService {
     /**
      * Get admin activities - Returns the 2 most recent entries for each user
      * Filters based on logged-in admin's state (only shows activities where they are involved)
+     * Includes Fresh, Renewal, and Cancel application activities
      * SUPER_ADMIN sees all activities, ADMIN sees only activities from their assigned state
      */
     async getAdminActivities(
@@ -281,56 +410,126 @@ export class AnalyticsService {
                 }
             }
 
-            // Fetch workflow history (admin actions) with application details
-            // Also filter by applications assigned to the logged-in user if no direct workflow match
-            const workflows = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
-                where,
-                select: {
-                    id: true,
-                    createdAt: true,
-                    applicationId: true,
-                    actionTaken: true,
-                    nextRole: {
-                        select: {
-                            code: true,
-                            name: true,
+            // Build similar where clause for renewal
+            const renewalWhere: any = {};
+            if (where.createdAt) {
+                renewalWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    renewalWhere.application = { permanentAddress: { zoneId } };
+                } else if (stateId) {
+                    renewalWhere.application = { permanentAddress: { stateId } };
+                }
+            }
+
+            // For cancel, build similar where clause
+            const cancelWhere: any = {};
+            if (where.createdAt) {
+                cancelWhere.createdAt = { ...where.createdAt };
+            }
+
+            // Fetch workflow history for all three types
+            const [freshWorkflows, renewalWorkflows, cancelWorkflows] = await Promise.all([
+                prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        createdAt: true,
+                        applicationId: true,
+                        actionTaken: true,
+                        nextRole: { select: { code: true, name: true } },
+                        nextUser: { select: { username: true } },
+                        application: {
+                            select: {
+                                almsLicenseId: true,
+                                firstName: true,
+                                middleName: true,
+                                lastName: true,
+                            },
                         },
                     },
-                    nextUser: {
-                        select: {
-                            username: true,
+                    orderBy: { createdAt: 'desc' },
+                    take: 100,
+                }),
+                prisma.renewalApplicationsFormWorkflowHistories.findMany({
+                    where: renewalWhere,
+                    select: {
+                        id: true,
+                        createdAt: true,
+                        applicationId: true,
+                        actionTaken: true,
+                        nextRole: { select: { code: true, name: true } },
+                        nextUser: { select: { username: true } },
+                        application: {
+                            select: {
+                                renewalLicenseId: true,
+                                firstName: true,
+                                middleName: true,
+                                lastName: true,
+                            },
                         },
                     },
-                    application: {
-                        select: {
-                            almsLicenseId: true,
-                            firstName: true,
-                            middleName: true,
-                            lastName: true,
+                    orderBy: { createdAt: 'desc' },
+                    take: 100,
+                }),
+                prisma.cancelWorkflowHistories.findMany({
+                    where: cancelWhere,
+                    select: {
+                        id: true,
+                        createdAt: true,
+                        applicationId: true,
+                        actionTaken: true,
+                        nextRole: { select: { code: true, name: true } },
+                        nextUser: { select: { username: true } },
+                        application: {
+                            select: {
+                                id: true,
+                                freshLicenseId: true,
+                            },
                         },
                     },
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                take: 100,
-            });
+                    orderBy: { createdAt: 'desc' },
+                    take: 100,
+                }),
+            ]);
 
             // Group by user and take only the 2 most recent entries for each user
             const userActivitiesMap = new Map<string, any[]>();
 
-            workflows.forEach((workflow: typeof workflows[0]) => {
+            // Process fresh workflows
+            freshWorkflows.forEach((workflow: any) => {
                 const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
-
                 if (!userActivitiesMap.has(user)) {
                     userActivitiesMap.set(user, []);
                 }
+                const userActivities = userActivitiesMap.get(user)!;
+                if (userActivities.length < 2) {
+                    userActivities.push({ ...workflow, applicationType: 'FRESH' });
+                }
+            });
 
-                const userActivities = userActivitiesMap.get(user);
+            // Process renewal workflows
+            renewalWorkflows.forEach((workflow: any) => {
+                const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
+                if (!userActivitiesMap.has(user)) {
+                    userActivitiesMap.set(user, []);
+                }
+                const userActivities = userActivitiesMap.get(user)!;
+                if (userActivities.length < 2) {
+                    userActivities.push({ ...workflow, applicationType: 'RENEWAL' });
+                }
+            });
 
-                // Only add if we have less than 2 entries for this user
-                if (userActivities && userActivities.length < 2) {
-                    userActivities.push(workflow);
+            // Process cancel workflows
+            cancelWorkflows.forEach((workflow: any) => {
+                const user = workflow.nextUser?.username || workflow.nextRole?.code || 'Unknown';
+                if (!userActivitiesMap.has(user)) {
+                    userActivitiesMap.set(user, []);
+                }
+                const userActivities = userActivitiesMap.get(user)!;
+                if (userActivities.length < 2) {
+                    userActivities.push({ ...workflow, applicationType: 'CANCEL' });
                 }
             });
 
@@ -339,14 +538,23 @@ export class AnalyticsService {
 
             userActivitiesMap.forEach((activities) => {
                 activities.forEach((workflow) => {
-                    // Construct applicant name
-                    const applicantName = [
-                        workflow.application?.firstName,
-                        workflow.application?.middleName,
-                        workflow.application?.lastName,
-                    ]
-                        .filter(Boolean)
-                        .join(' ') || 'N/A';
+                    // Construct applicant name based on type
+                    let applicantName = 'N/A';
+                    if (workflow.application?.firstName) {
+                        applicantName = [
+                            workflow.application.firstName,
+                            workflow.application.middleName,
+                            workflow.application.lastName,
+                        ]
+                            .filter(Boolean)
+                            .join(' ')
+                            .trim() || 'N/A';
+                    }
+
+                    // Get license ID based on type
+                    const licenseId = workflow.application?.almsLicenseId || 
+                                     workflow.application?.renewalLicenseId || 
+                                     undefined;
 
                     result.push({
                         id: workflow.id,
@@ -360,8 +568,9 @@ export class AnalyticsService {
                             minute: '2-digit',
                         }),
                         timestamp: new Date(workflow.createdAt).getTime(),
-                        almsLicenseId: workflow.application?.almsLicenseId || undefined,
+                        almsLicenseId: licenseId,
                         applicantName,
+                        applicationType: workflow.applicationType,
                     });
                 });
             });
@@ -380,6 +589,7 @@ export class AnalyticsService {
     /**
      * Get applications summary and list for admin analytics
      * Supports optional status filter (APPROVED | REJECTED | PENDING)
+     * Includes Fresh, Renewal, and Cancel applications
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
     async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
@@ -426,8 +636,47 @@ export class AnalyticsService {
                 }
             }
 
-            // Total matching records
-            const total = await prisma.freshLicenseApplicationPersonalDetails.count({ where });
+            // Build similar where clauses for renewal
+            const renewalWhere: any = {};
+            if (where.OR) renewalWhere.OR = where.OR;
+            
+            if (status) {
+                const s = String(status).toUpperCase();
+                if (s === 'APPROVED') {
+                    renewalWhere.isApproved = true;
+                } else if (s === 'REJECTED') {
+                    renewalWhere.isRejected = true;
+                } else if (s === 'PENDING') {
+                    renewalWhere.isPending = true;
+                }
+            }
+
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN) {
+                if (roleCode === ROLE_CODES.ZS && zoneId) {
+                    renewalWhere.permanentAddress = { zoneId };
+                } else if (stateId) {
+                    renewalWhere.permanentAddress = { stateId };
+                }
+            }
+
+            if (where.createdAt) {
+                renewalWhere.createdAt = { ...where.createdAt };
+            }
+
+            // For cancel, build where clause
+            const cancelWhere: any = {};
+            if (where.createdAt) {
+                cancelWhere.createdAt = { ...where.createdAt };
+            }
+
+            // Count total matching records from all three sources
+            const [freshCount, renewalCount, cancelCount] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.count({ where }),
+                prisma.renewalFormPersonalDetails.count({ where: renewalWhere }),
+                prisma.cancelFormRequests.count({ where: cancelWhere }),
+            ]);
+
+            const total = freshCount + renewalCount + cancelCount;
 
             // pagination defaults: default to 5 items per page when no limit provided
             const DEFAULT_LIMIT = 5;
@@ -460,53 +709,109 @@ export class AnalyticsService {
                 orderBy = { [key]: desc ? 'desc' : 'asc' };
             }
 
-            // Fetch matching applications with related personal fields (name parts) and workflow
-            const applications = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-                where,
-                select: {
-                    id: true,
-                    almsLicenseId: true,
-                    updatedAt: true,
-                    createdAt: true,
-                    firstName: true,
-                    middleName: true,
-                    lastName: true,
-                    filledBy: true,
-                    currentUser: {
-                        select: {
-                            id: true,
-                            username: true,
+            // Fetch matching applications with related personal fields and workflow
+            const [freshApplications, renewalApplications, cancelApplications] = await Promise.all([
+                prisma.freshLicenseApplicationPersonalDetails.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        almsLicenseId: true,
+                        updatedAt: true,
+                        createdAt: true,
+                        firstName: true,
+                        middleName: true,
+                        lastName: true,
+                        filledBy: true,
+                        currentUser: {
+                            select: {
+                                id: true,
+                                username: true,
+                            },
+                        },
+                        isApproved: true,
+                        isRejected: true,
+                        isPending: true,
+                        workflowHistories: {
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                            select: {
+                                createdAt: true,
+                            },
                         },
                     },
-                    isApproved: true,
-                    isRejected: true,
-                    isPending: true,
-                    workflowHistories: {
-                        orderBy: { createdAt: 'desc' },
-                        take: 1,
-                        select: {
-                            createdAt: true,
+                    orderBy,
+                    skip,
+                    take: take ?? 200,
+                }),
+                prisma.renewalFormPersonalDetails.findMany({
+                    where: renewalWhere,
+                    select: {
+                        id: true,
+                        renewalLicenseId: true,
+                        updatedAt: true,
+                        createdAt: true,
+                        firstName: true,
+                        middleName: true,
+                        lastName: true,
+                        filledBy: true,
+                        currentUser: {
+                            select: {
+                                id: true,
+                                username: true,
+                            },
+                        },
+                        isApproved: true,
+                        isRejected: true,
+                        isPending: true,
+                        workflowHistories: {
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                            select: {
+                                createdAt: true,
+                            },
                         },
                     },
-                },
-                orderBy,
-                skip,
-                take: take ?? 200,
-            });
+                    orderBy,
+                    skip,
+                    take: take ?? 200,
+                }),
+                prisma.cancelFormRequests.findMany({
+                    where: cancelWhere,
+                    select: {
+                        id: true,
+                        status: true,
+                        updatedAt: true,
+                        createdAt: true,
+                        freshLicenseId: true,
+                        requestedDate: true,
+                        requester: {
+                            select: {
+                                id: true,
+                                username: true,
+                            },
+                        },
+                    },
+                    orderBy,
+                    skip,
+                    take: take ?? 200,
+                }),
+            ]);
 
             const now = Date.now();
 
-            const data: any[] = applications.map((app: typeof applications[0]) => {
+            const data: ApplicationRecordDto[] = [];
+
+            // Map fresh applications
+            freshApplications.forEach((app: typeof freshApplications[0]) => {
                 const latest = app.workflowHistories && app.workflowHistories[0];
                 const actionDate = latest?.createdAt ? new Date(latest.createdAt) : app.updatedAt ? new Date(app.updatedAt) : new Date(app.createdAt);
                 const actionTakenAt = actionDate ? actionDate.toISOString() : null;
                 const daysTillToday = actionDate ? Math.floor((now - actionDate.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
                 const statusStr = app.isApproved ? 'APPROVED' : app.isRejected ? 'REJECTED' : 'PENDING';
-
                 const applicantName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
 
-                return {
+                data.push({
                     applicationId: app.id,
                     licenseId: app.almsLicenseId || null,
                     applicantName: applicantName || null,
@@ -515,9 +820,60 @@ export class AnalyticsService {
                     status: statusStr,
                     actionTakenAt,
                     daysTillToday,
-                    createdAt: app.createdAt,
-                    updatedAt: app.updatedAt,
-                };
+                    applicationType: 'FRESH',
+                });
+            });
+
+            // Map renewal applications
+            renewalApplications.forEach((app: typeof renewalApplications[0]) => {
+                const latest = app.workflowHistories && app.workflowHistories[0];
+                const actionDate = latest?.createdAt ? new Date(latest.createdAt) : app.updatedAt ? new Date(app.updatedAt) : new Date(app.createdAt);
+                const actionTakenAt = actionDate ? actionDate.toISOString() : null;
+                const daysTillToday = actionDate ? Math.floor((now - actionDate.getTime()) / (24 * 60 * 60 * 1000)) : null;
+
+                const statusStr = app.isApproved ? 'APPROVED' : app.isRejected ? 'REJECTED' : 'PENDING';
+                const applicantName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
+
+                data.push({
+                    applicationId: app.id,
+                    licenseId: app.renewalLicenseId || null,
+                    applicantName: applicantName || null,
+                    applicantType: app.filledBy || null,
+                    currentUser: app.currentUser ? { id: app.currentUser.id, name: app.currentUser.username } : null,
+                    status: statusStr,
+                    actionTakenAt,
+                    daysTillToday,
+                    applicationType: 'RENEWAL',
+                });
+            });
+
+            // Map cancel applications
+            cancelApplications.forEach((app: typeof cancelApplications[0]) => {
+                const actionDate = app.updatedAt ? new Date(app.updatedAt) : new Date(app.createdAt);
+                const actionTakenAt = actionDate ? actionDate.toISOString() : null;
+                const daysTillToday = actionDate ? Math.floor((now - actionDate.getTime()) / (24 * 60 * 60 * 1000)) : null;
+
+                const statusStr = app.status || 'PENDING';
+                const applicantName = app.requester?.username || 'N/A';
+
+                data.push({
+                    applicationId: app.id,
+                    licenseId: app.freshLicenseId ? `CAN_${app.freshLicenseId}` : null,
+                    applicantName,
+                    applicantType: null,
+                    currentUser: app.requester ? { id: app.requester.id, name: app.requester.username } : null,
+                    status: statusStr,
+                    actionTakenAt,
+                    daysTillToday,
+                    applicationType: 'CANCEL',
+                });
+            });
+
+            // Sort combined data by action date (newest first)
+            data.sort((a, b) => {
+                const timeA = a.actionTakenAt ? new Date(a.actionTakenAt).getTime() : 0;
+                const timeB = b.actionTakenAt ? new Date(b.actionTakenAt).getTime() : 0;
+                return timeB - timeA;
             });
 
             return { data, total, page: pageNum, limit: take };
