@@ -244,8 +244,11 @@ export default function SubmitCancelForm() {
       return;
     }
 
-    setLoading(true);
+    // Guard: prevent double-submission if user clicks Submit twice rapidly
+    if (loading) return;
+
     try {
+      setLoading(true);
       const payload = {
         freshLicenseId: Number(formData.applicationId),
         applicationType: 'Cancel Application', // Always matching request payload format "Cancel Application"
@@ -255,7 +258,7 @@ export default function SubmitCancelForm() {
 
       await CancelService.createCancelRequest(payload);
       toast.success('Cancellation request submitted successfully');
-      router.push('/cancelForm');
+      router.push('/inbox');
     } catch (error: any) {
       console.error('Submit failed', error);
       toast.error(error?.message || 'Failed to submit cancellation request');

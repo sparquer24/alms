@@ -328,8 +328,11 @@ export default function CancelRequestModal({
       return;
     }
 
-    setLoading(true);
+    // Guard: prevent double-submission if user clicks Submit twice rapidly
+    if (loading) return;
+
     try {
+      setLoading(true);
       const payload = {
         freshLicenseId: Number(formData.applicationId),
         applicationType: 'Cancel Application',

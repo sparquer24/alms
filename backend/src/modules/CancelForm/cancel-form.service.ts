@@ -54,17 +54,10 @@ export class CancelFormService {
         throw new BadRequestException('Application is already cancelled.');
       }
 
-      // Check if there's already a pending cancel request for this application
-      const existingPending = await prisma.cancelFormRequests.findFirst({
-        where: {
-          freshLicenseId: dto.freshLicenseId,
-          status: 'PENDING',
-        },
-      });
-
-      if (existingPending) {
-        throw new BadRequestException('A pending cancel request already exists for this application.');
-      }
+      // NOTE: The duplicate check is intentionally performed INSIDE the $transaction below.
+      // Performing it here (outside the transaction) would create a TOCTOU race condition:
+      // two concurrent requests could both read "no existing record" and both proceed to create one.
+      // Moving the check inside the transaction ensures atomicity.
 
       // Validate that the current user exists in the database (avoids P2003 on requestedBy FK)
       const userExists = await prisma.users.findUnique({
@@ -89,8 +82,20 @@ export class CancelFormService {
         orderBy: { id: 'asc' },
       });
 
-      // Wrap creation and workflow history in a transaction for atomicity
+      // Wrap creation and workflow history in a transaction for atomicity.
+      // The duplicate check runs INSIDE the transaction so it is atomic with the INSERT.
       const cancelRequest = await prisma.$transaction(async (tx: any) => {
+        // Atomic duplicate check — must be inside the transaction to prevent race conditions
+        const existingPending = await tx.cancelFormRequests.findFirst({
+          where: {
+            freshLicenseId: dto.freshLicenseId,
+            status: 'PENDING',
+          },
+        });
+        if (existingPending) {
+          throw new BadRequestException('A pending cancel request already exists for this application.');
+        }
+
         // Create the cancel request
         const created = await tx.cancelFormRequests.create({
           data: {

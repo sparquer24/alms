@@ -2305,46 +2305,32 @@ export class ApplicationFormService {
     const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
     const orderByObj: any = { [orderByField]: orderDirection };
 
-    const [cancelFormTotal, cancelFormRawData] = await Promise.all([
-      prisma.cancelFormRequests.count({ where: cancelFormWhere }),
-      prisma.cancelFormRequests.findMany({
-        where: cancelFormWhere,
-        orderBy: orderByObj,
-        include: {
-          workflowStatus: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
+    let cancelFormRawData: any[] = [];
+    let cancelFormTotal = 0;
+
+    // --- Fetch from CancelFormRequests (pending/active requests) ONLY if isSent is false ---
+    if (!filter.isSent) {
+      const [total, data] = await Promise.all([
+        prisma.cancelFormRequests.count({ where: cancelFormWhere }),
+        prisma.cancelFormRequests.findMany({
+          where: cancelFormWhere,
+          orderBy: orderByObj,
+          include: {
+            workflowStatus: {
+              select: { id: true, code: true, name: true },
+            },
+            currentUser: {
+              select: { id: true, username: true, email: true, role: { select: { code: true } } },
+            },
+            requester: {
+              select: { id: true, username: true, email: true, role: { select: { code: true } } },
             },
           },
-          currentUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  code: true,
-                },
-              },
-            },
-          },
-          requester: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  code: true,
-                },
-              },
-            },
-          },
-        },
-      }),
-    ]);
+        }),
+      ]);
+      cancelFormTotal = total;
+      cancelFormRawData = data;
+    }
 
     // Fetch the CANCEL status details from DB to get the correct status ID
     const cancelStatus = await prisma.statuses.findFirst({
@@ -2354,11 +2340,9 @@ export class ApplicationFormService {
 
     const hasCancelStatus = filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.map(Number).includes(Number(cancelStatusId));
 
-    // --- Fetch from CancelLicenseHistory (approved/completed cancellations) ---
-    // Only fetch history records when NOT filtering by statusIds (since history records have no workflowStatusId)
-    // OR when the status filter includes the CANCEL status (since history records are implicitly CANCEL status)
-    // OR when isSent flag is set (which targets cancelledBy)
-    const shouldFetchHistory = !filter.statusIds || filter.statusIds.length === 0 || hasCancelStatus;
+    // --- Fetch from CancelWorkflowHistories (sent box / approved cancellations) ---
+    // Fetch history if isSent is true, OR if specifically filtering by CANCEL status (completed)
+    const shouldFetchHistory = filter.isSent === true || hasCancelStatus;
     let cancelHistoryRawData: any[] = [];
 
     if (shouldFetchHistory) {
@@ -2382,23 +2366,35 @@ export class ApplicationFormService {
         }
       }
 
-      cancelHistoryRawData = await prisma.cancelWorkflowHistories.findMany({
+      const rawHistories = await prisma.cancelWorkflowHistories.findMany({
         where: cancelHistoryWhere,
-        include: {
+        select: {
+          id: true,
+          applicationId: true,  // This IS the cancelFormRequests.id for cancel workflow history
+          previousUserId: true,
+          nextUserId: true,
+          actionTaken: true,
+          createdAt: true,
           previousUser: {
             select: {
               id: true,
               username: true,
               email: true,
-              role: {
-                select: {
-                  code: true,
-                },
-              },
+              role: { select: { code: true } },
             },
           },
         },
+        orderBy: { createdAt: 'desc' }, // Get most recent actions first
       });
+
+      // Deduplicate histories by applicationId so the same request doesn't appear twice
+      const latestActionsMap = new Map<number, any>();
+      for (const history of rawHistories) {
+        if (!latestActionsMap.has(history.applicationId)) {
+          latestActionsMap.set(history.applicationId, history);
+        }
+      }
+      cancelHistoryRawData = Array.from(latestActionsMap.values());
     }
 
     const cancelHistoryTotal = cancelHistoryRawData.length;
@@ -2458,20 +2454,21 @@ export class ApplicationFormService {
       };
     }));
 
-    // Transform CancelLicenseHistory records
     const transformedCancelHistory = (cancelHistoryRawData || []).map((row: any) => {
-      const nameParts = [row.firstName, row.middleName, row.lastName].filter(Boolean);
+      // For cancel workflow history records, applicationId IS the cancelFormRequests.id
+      // Use it as the navigation id so clicking the row goes to the correct cancelForm detail page.
+      const cancelFormId = row.applicationId || row.id;
       return {
-        id: row.id,
-        cancelRequestId: row.cancelRequestId,
-        applicationId: row.applicationId,
-        cancellationReason: row.cancellationReason,
+        // Use the cancelFormRequests.id (applicationId) for correct navigation to /cancelForm/:id
+        id: String(cancelFormId),
+        historyRowId: row.id,
+        applicantName: row.previousUser?.username || `Cancel Request #${cancelFormId}`,
+        cancellationReason: null,
         status: 'APPROVED',
-        isSent: row.isSent,
-        acknowledgementNo: row.acknowledgementNo,
-        applicantName: nameParts.join(' '),
+        isSent: null,
+        acknowledgementNo: null,
         applicationType: 'Cancel Request',
-        createdAt: row.cancelledAt,
+        createdAt: row.createdAt,
         workflowStatusId: cancelStatusId,
         workflowStatus: cancelStatus ? {
           id: cancelStatus.id,
