@@ -1229,7 +1229,7 @@ export class ApplicationFormService {
               application: {
                 select: {
                   id: true,
-                  freshLicenseId: true,
+                  licenseId: true,
                   cancellationReason: true,
                   createdAt: true,
                 }
@@ -1241,8 +1241,7 @@ export class ApplicationFormService {
           });
 
           // Resolve original application details for cancel requests
-          const freshLicenseIds = historyData
-            .map((h: any) => h.application?.freshLicenseId)
+          const freshLicenseIds = historyData              .map((h: any) => h.application?.licenseId)
             .filter((id: any): id is number => id != null);
           const uniqueFreshLicenseIds = [...new Set(freshLicenseIds)];
 
@@ -1269,7 +1268,7 @@ export class ApplicationFormService {
             ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh License' })),
             ...renewalWorkflowHistories.map(h => ({ ...h, applicationType: 'Renewal License' })),
             ...historyData.map((h: any) => {
-              const freshLicenseId = h.application?.freshLicenseId;
+              const freshLicenseId = h.application?.licenseId;
               const originalApp = freshLicenseId ? originalAppsMap.get(freshLicenseId) : null;
               return {
                 id: h.id,
@@ -1736,7 +1735,7 @@ export class ApplicationFormService {
       where: { id: applicationId },
       select: {
         id: true,
-        freshLicenseId: true,
+        licenseId: true,
         currentUserId: true,
         currentUser: {
           select: { roleId: true }
@@ -1760,11 +1759,11 @@ export class ApplicationFormService {
 
     if (!effectiveUser?.roleId) return null;
 
-    if (!cancelRequest.freshLicenseId) return null;
+      if (!cancelRequest.licenseId) return null;
 
     // Now fetch the original application's address - try fresh then renewal
     let originalApp: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-      where: { id: cancelRequest.freshLicenseId },
+      where: { id: cancelRequest.licenseId },
       select: {
         id: true,
         presentAddress: {
@@ -1782,7 +1781,7 @@ export class ApplicationFormService {
 
     if (!originalApp) {
       originalApp = await prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: cancelRequest.freshLicenseId },
+        where: { id: cancelRequest.licenseId },
         select: {
           id: true,
           presentAddress: {
@@ -2293,7 +2292,7 @@ export class ApplicationFormService {
         const idVal = Number(filter.search);
         if (!isNaN(idVal)) cancelFormWhere.id = idVal;
       } else if (['firstName', 'lastName', 'acknowledgementNo' ].includes(filter.searchField)) {
-        cancelFormWhere.freshLicense = {
+        cancelFormWhere.Licenses = {
           [filter.searchField]: { contains: String(filter.search), mode: 'insensitive' }
         };
       }
@@ -2315,7 +2314,13 @@ export class ApplicationFormService {
         prisma.cancelFormRequests.findMany({
           where: cancelFormWhere,
           orderBy: orderByObj,
-          include: {
+          select: {
+            id: true,
+            licenseId: true,
+            acknowledgementNo: true,
+            cancellationReason: true,
+            createdAt: true,
+            workFlowStatusId: true,
             workflowStatus: {
               select: { id: true, code: true, name: true },
             },
@@ -2324,6 +2329,14 @@ export class ApplicationFormService {
             },
             requester: {
               select: { id: true, username: true, email: true, role: { select: { code: true } } },
+            },
+            Licenses: {
+              select: {
+                licenseNumber: true,
+                firstName: true,
+                middleName: true,
+                lastName: true,
+              },
             },
           },
         }),
@@ -2335,16 +2348,20 @@ export class ApplicationFormService {
 
     // Transform CancelFormRequests: look up original application for applicant name & acknowledgementNo
     const transformedCancelRequests = await Promise.all((cancelFormRawData || []).map(async (row: any) => {
-      // Try to look up the original application to get applicant name and acknowledgementNo
-      let applicantName = row.requester?.username || `Cancel Request #${row.id}`;
-      let acknowledgementNo: string | null = null;
+      const freshApplicantName = row.Licenses
+        ? [row.Licenses.firstName, row.Licenses.middleName, row.Licenses.lastName]
+            .filter((part: any) => part && String(part).trim())
+            .join(' ')
+        : '';
+      const applicantName = freshApplicantName || row.requester?.username || `Cancel Request #${row.id}`;
+      const acknowledgementNo: string | null = row.acknowledgementNo || row.Licenses?.licenseNumber || null;
 
       return {
         id: row.id,
-        freshLicenseId: row.freshLicenseId,
+        freshLicenseId: row.licenseId,
         cancellationReason: row.cancellationReason,
-        status: row.status,
-        acknowledgementNo: row.acknowledgementNo || acknowledgementNo,
+        status: row.workflowStatus?.code || 'PENDING',
+        acknowledgementNo,
         applicantName,
         applicationType: 'Cancel Request',
         createdAt: row.createdAt,

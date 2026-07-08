@@ -9,6 +9,7 @@ import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
+import LicenseService from '../../../services/licenseService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
 import {
   applyPrefilledDocumentUploads,
@@ -31,6 +32,7 @@ import BiometricAPIService from '../../../services/biometricAPIService';
 type RenewalFormState = {
   renewalApplicationId: string;
   applicationId: string;
+  licenseId?: number;
   freshLicenseId?: number;
   licenseNumber: string;
   acknowledgementNo: string;
@@ -171,6 +173,7 @@ type RenewalFormState = {
 const initialFormState: RenewalFormState = {
   renewalApplicationId: '',
   applicationId: '',
+  licenseId: undefined,
   freshLicenseId: undefined,
   licenseNumber: '',
   acknowledgementNo: '',

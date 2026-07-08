@@ -3,14 +3,14 @@ import { IsNumber, IsNotEmpty, Min } from 'class-validator';
 
 export class MergeLicenseDto {
   @ApiProperty({
-    description: 'Fresh License Application ID to merge into',
+    description: 'License ID to merge into (was freshLicenseId)',
     type: Number,
     example: 1,
   })
   @IsNotEmpty()
   @IsNumber()
   @Min(1)
-  freshLicenseId!: number;
+  licenseId!: number;
 
   @ApiProperty({
     description: 'Renewal License Application ID to merge from',
@@ -32,11 +32,11 @@ export class MergeResponseDataDto {
   mergeId!: string;
 
   @ApiProperty({
-    description: 'Fresh License ID that was merged into',
+    description: 'License ID that was merged into',
     type: Number,
     example: 1,
   })
-  freshLicenseId!: number;
+  licenseId!: number;
 
   @ApiProperty({
     description: 'Renewal License ID that was merged from',
@@ -70,6 +70,12 @@ export class MergeResponseDataDto {
     type: Object,
   })
   freshLicenseUpdated!: any;
+  @ApiProperty({
+    description: 'Created license ID in Licenses table (if created)',
+    type: Number,
+    example: 123,
+  })
+  createdLicenseId?: number;
 }
 
 export class MergeResponseDto {

@@ -3,15 +3,17 @@ import { Sex } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateRenewalPersonalDetailsDto {
-  @ApiPropertyOptional({ example: 42, description: 'ID of the fresh license record this renewal is linked to' })
-  @IsOptional()
-  @IsNumber()
-  freshLicenseId?: number;
-
   @ApiProperty({ example: 'ALMS-LIC-2023-001', description: 'Existing license number' })
   @IsNotEmpty()
   @IsString()
   licenseNumber!: string;
+
+
+  @ApiPropertyOptional({ example: 123, description: 'ID of the license record this renewal is linked to' })
+  @IsOptional()
+  @IsNumber()
+  licenseId?: number;
+
 
   @ApiPropertyOptional({ example: 'RENEWAL-2024-001', description: 'Acknowledgement number (optional, unique)' })
   @IsOptional()

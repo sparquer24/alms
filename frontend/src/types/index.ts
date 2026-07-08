@@ -711,6 +711,9 @@ export interface LicenseStatistics {
   revoked: number;
   total: number;
   expiringWithin30Days: number;
+  expiringWithin60Days?: number;
+  expiringWithin90Days?: number;
+  renewed?: number;
 }
 
 // Export commonly used types

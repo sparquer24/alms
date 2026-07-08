@@ -320,7 +320,6 @@ export class AnalyticsService {
                     where: cancelWhere,
                     select: {
                         id: true,
-                        status: true,
                     },
                 }),
             ]);
@@ -485,7 +484,7 @@ export class AnalyticsService {
                         application: {
                             select: {
                                 id: true,
-                                freshLicenseId: true,
+                                licenseId: true,
                             },
                         },
                     },
@@ -779,10 +778,14 @@ export class AnalyticsService {
                     where: cancelWhere,
                     select: {
                         id: true,
-                        status: true,
+                        workflowStatus: {
+                            select: {
+                                code: true,
+                            },
+                        },
                         updatedAt: true,
                         createdAt: true,
-                        freshLicenseId: true,
+                        licenseId: true,
                         requestedDate: true,
                         requester: {
                             select: {
@@ -853,12 +856,12 @@ export class AnalyticsService {
                 const actionTakenAt = actionDate ? actionDate.toISOString() : null;
                 const daysTillToday = actionDate ? Math.floor((now - actionDate.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-                const statusStr = app.status || 'PENDING';
+                const statusStr = app.workflowStatus?.code || 'PENDING';
                 const applicantName = app.requester?.username || 'N/A';
 
                 data.push({
                     applicationId: app.id,
-                    licenseId: app.freshLicenseId ? `CAN_${app.freshLicenseId}` : null,
+                    licenseId: app.licenseId ? `CAN_${app.licenseId}` : null,
                     applicantName,
                     applicantType: null,
                     currentUser: app.requester ? { id: app.requester.id, name: app.requester.username } : null,

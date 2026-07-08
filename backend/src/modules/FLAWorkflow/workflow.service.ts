@@ -63,12 +63,16 @@ export class WorkflowService {
       const cancelRequests = await prisma.cancelFormRequests.findMany({
         select: {
           id: true,
-          freshLicenseId: true,
+          licenseId: true,
           applicationType: true,
           cancellationReason: true,
           remarks: true,
-          status: true,
           workFlowStatusId: true,
+          workflowStatus: {
+            select: {
+              code: true,
+            },
+          },
           currentUserId: true,
           previousUserId: true,
           requestedBy: true,
@@ -77,7 +81,7 @@ export class WorkflowService {
           actionedDate: true,
           createdAt: true,
           updatedAt: true,
-          freshLicense: {
+          Licenses: {
             select: {
               id: true,
               firstName: true,
@@ -88,15 +92,15 @@ export class WorkflowService {
         }
       });
       return cancelRequests.map(r => {
-        const applicantName = r.freshLicense
-          ? [r.freshLicense.firstName, r.freshLicense.middleName, r.freshLicense.lastName]
+        const applicantName = r.Licenses
+          ? [r.Licenses.firstName, r.Licenses.middleName, r.Licenses.lastName]
               .filter(Boolean)
               .join(' ') || 'Applicant'
           : 'Applicant';
 
         return {
           id: r.id,
-          freshLicenseId: r.freshLicenseId,
+          freshLicenseId: r.licenseId,
           applicationType: r.applicationType,
           cancellationReason: r.cancellationReason,
           remarks: r.remarks,
@@ -106,11 +110,11 @@ export class WorkflowService {
           workflowStatusId: r.workFlowStatusId,
           currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
           previousUserId: r.previousUserId || r.requestedBy,
-          isApproved: r.status === 'APPROVED',
-          isRejected: r.status === 'REJECTED',
+          isApproved: isApprovalAction(r.workflowStatus?.code || ''),
+          isRejected: isRejectionAction(r.workflowStatus?.code || ''),
           isRecommended: false,
           isNotRecommended: false,
-          isPending: r.status === 'PENDING',
+          isPending: !isTerminalAction(r.workflowStatus?.code || ''),
           isReEnquiry: false,
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
@@ -751,30 +755,36 @@ export class WorkflowService {
     // 1. Fetch the cancel request
     const cancelRequest = await prisma.cancelFormRequests.findUnique({
       where: { id: payload.applicationId },
+      include: {
+        workflowStatus: {
+          select: {
+            code: true,
+          },
+        },
+      },
     });
     if (!cancelRequest) {
       throw new NotFoundException('Cancel request not found');
     }
 
-    // Only PENDING cancel requests can be processed via workflow
-    if (cancelRequest.status !== 'PENDING') {
+    if (isTerminalAction(cancelRequest.workflowStatus?.code || '')) {
       throw new BadRequestException('Cancel request has already been processed.');
     }
 
     const isRenewal = cancelRequest.applicationType.toLowerCase().includes('renewal');
 
-    // 2. Fetch the original application using freshLicenseId
+    // 2. Fetch the original application using licenseId
     let application: any;
-    if (!cancelRequest.freshLicenseId) {
-      throw new BadRequestException('Cancel request has no associated fresh license application.');
+    if (!cancelRequest.licenseId) {
+      throw new BadRequestException('Cancel request has no associated license.');
     }
     if (isRenewal) {
       application = await prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: cancelRequest.freshLicenseId },
+        where: { id: cancelRequest.licenseId },
       });
     } else {
       application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: cancelRequest.freshLicenseId },
+        where: { id: cancelRequest.licenseId },
       });
     }
 
@@ -793,15 +803,15 @@ export class WorkflowService {
     };
 
     // 4. Determine action outcome
-    // CancelFormRequests uses 'status' field (PENDING/APPROVED/REJECTED) — no boolean flags
+    const isApprovedAction = isTerminalAction(actionCode) && isApprovalAction(actionCode);
+    const isRejectedAction = isTerminalAction(actionCode) && isRejectionAction(actionCode);
+
     if (isTerminalAction(actionCode)) {
       if (isApprovalAction(actionCode)) {
         // APPROVED: mark cancel request as APPROVED, cancel the original application
-        cancelUpdateData.status = 'APPROVED';
         cancelUpdateData.workFlowStatusId = newStatusId;
       } else if (isRejectionAction(actionCode)) {
         // REJECTED: mark cancel request as REJECTED, do NOT modify original app
-        cancelUpdateData.status = 'REJECTED';
         cancelUpdateData.workFlowStatusId = newStatusId;
       }
     } else {
@@ -828,14 +838,14 @@ export class WorkflowService {
       let actionTaken = actionCode;
       const previousUserIdForHistory = application.currentUserId || payload.currentUserId;
 
-      if (cancelUpdateData.status === 'APPROVED') {
+      if (isApprovedAction) {
         // Find the CANCEL status for final approval
         const cancelStatus = await tx.statuses.findFirst({ where: { code: ACTION_CODES.CANCEL } });
 
         // Update the original application to CANCELLED
         if (isRenewal) {
           await tx.renewalFormPersonalDetails.update({
-            where: { id: cancelRequest.freshLicenseId },
+            where: { id: cancelRequest.licenseId },
             data: {
               workflowStatusId: cancelStatus?.id || newStatusId,
               isPending: false,
@@ -843,7 +853,7 @@ export class WorkflowService {
           });
         } else {
           await tx.freshLicenseApplicationPersonalDetails.update({
-            where: { id: cancelRequest.freshLicenseId },
+            where: { id: cancelRequest.licenseId },
             data: {
               workflowStatusId: cancelStatus?.id || newStatusId,
               isPending: false,
@@ -853,11 +863,11 @@ export class WorkflowService {
 
         // === LICENSE HOOK: Cancel license on cancel request approval ===
         try {
-          if (cancelRequest.freshLicenseId) {
+          if (cancelRequest.licenseId) {
             const licenseToCancel = await tx.licenses.findFirst({
               where: {
                 OR: [
-                  { sourceApplicationId: cancelRequest.freshLicenseId },
+                  { sourceApplicationId: cancelRequest.licenseId },
                   { licenseNumber: application.licenseNumber },
                 ],
               },
@@ -894,22 +904,22 @@ export class WorkflowService {
         }
 
         actionTaken = ACTION_CODES.CANCEL;
-      } else if (cancelUpdateData.status === 'REJECTED') {
+      } else if (isRejectedAction) {
         // REJECTED: application unchanged, history entry records the rejection
         actionTaken = ACTION_CODES.REJECT;
       }
 
       // Create workflow history on the original application
-      const remarks = cancelUpdateData.status === 'APPROVED'
+      const remarks = isApprovedAction
         ? `Cancel request approved. Application cancelled. Reason: ${cancelRequest.cancellationReason}`
-        : cancelUpdateData.status === 'REJECTED'
+        : isRejectedAction
           ? `Cancel request rejected. ${payload.remarks || ''}`
           : `Cancel request forwarded. ${payload.remarks || ''}`;
 
       if (isRenewal) {
         await tx.renewalApplicationsFormWorkflowHistories.create({
           data: {
-            applicationId: cancelRequest.freshLicenseId,
+            applicationId: cancelRequest.licenseId,
             previousUserId: previousUserIdForHistory,
             nextUserId: nextUserId || payload.currentUserId,
             actionTaken: actionTaken,
@@ -922,7 +932,7 @@ export class WorkflowService {
       } else {
         await tx.freshLicenseApplicationsFormWorkflowHistories.create({
           data: {
-            applicationId: cancelRequest.freshLicenseId,
+            applicationId: cancelRequest.licenseId,
             previousUserId: previousUserIdForHistory,
             nextUserId: nextUserId || payload.currentUserId,
             actionTaken: actionTaken,

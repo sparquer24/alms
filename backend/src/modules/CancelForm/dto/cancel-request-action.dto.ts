@@ -34,7 +34,7 @@ export class CancelRequestActionResponseDto {
   @ApiProperty({
     example: {
       id: 1,
-      freshLicenseId: 123,
+      licenseId: 123,
       applicationType: 'FreshLicenseApplicationForm',
       status: 'APPROVED',
       actionedBy: 2,

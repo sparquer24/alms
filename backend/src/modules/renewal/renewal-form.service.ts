@@ -46,7 +46,7 @@ export class RenewalFormService {
         const application = await tx.renewalFormPersonalDetails.create({
           data: {
             acknowledgementNo,
-            freshLicenseId: createRequest.freshLicenseId,
+            licenseId: createRequest.licenseId,
             licenseNumber: createRequest.licenseNumber,
             firstName: createRequest.firstName,
             middleName: createRequest.middleName,
@@ -115,9 +115,10 @@ export class RenewalFormService {
       const shouldCreateWorkflowHistory = patchData.isSubmit === true && !!currentUserId;
 
       // Pre-fetch required data in parallel to reduce latency
-      const [application, statuses, userExists] = await Promise.all([
+      const result = await Promise.all([
         prisma.renewalFormPersonalDetails.findUnique({
           where: { id: applicationId },
+          // cast select to any to avoid transient type mismatches from generated client
           select: {
             id: true,
             presentAddressId: true,
@@ -127,8 +128,8 @@ export class RenewalFormService {
             isAwareOfLegalConsequences: true,
             isTermsAccepted: true,
             licenseDetails: { select: { id: true } },
-            freshLicenseId: true,
-          },
+            licenseId: true,
+          } as any,
         }),
         // Fetch statuses needed for submit/rollback behavior
         shouldHandleSubmit
@@ -141,6 +142,10 @@ export class RenewalFormService {
           ? prisma.users.findUnique({ where: { id: currentUserId } })
           : Promise.resolve(null),
       ]);
+
+      const application: any = result[0];
+      const statuses: any = result[1];
+      const userExists: any = result[2];
 
       if (!application) {
         throw new NotFoundException('Renewal application not found.');
@@ -910,7 +915,7 @@ export class RenewalFormService {
    * Merge renewal license data into fresh license record
    */
   async mergeLicenses(
-    freshLicenseId: number,
+    licenseId: number,
     renewalLicenseId: number,
     currentUserId: number,
   ): Promise<any> {
@@ -922,7 +927,7 @@ export class RenewalFormService {
 
       // Fetch fresh license
       const freshLicense = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: freshLicenseId },
+        where: { id: licenseId },
         include: {
           presentAddress: true,
           permanentAddress: true,
@@ -937,8 +942,12 @@ export class RenewalFormService {
 
       if (!freshLicense) {
         throw new NotFoundException(
-          `Fresh license with ID ${freshLicenseId} not found`
+          `License with ID ${licenseId} not found`
         );
+      }
+      // Ensure the fresh license has been approved before creating a master Licenses record
+      if (!freshLicense.isApproved) {
+        throw new BadRequestException('Merge can only be performed after fresh license approval');
       }
 
       // Fetch renewal license
@@ -1167,7 +1176,7 @@ export class RenewalFormService {
             // Create new license details
             await tx.FLAFLicenseDetails.create({
               data: {
-                applicationId: freshLicenseId,
+                applicationId: licenseId,
                 needForLicense: renewalLicDetail.needForLicense as any,
                 armsCategory: renewalLicDetail.armsCategory as any,
                 areaOfValidity: renewalLicDetail.areaOfValidity,
@@ -1190,7 +1199,7 @@ export class RenewalFormService {
         // Update fresh license personal details
         personalUpdateData.updatedAt = new Date();
         const updatedFreshLicense = await tx.freshLicenseApplicationPersonalDetails.update({
-          where: { id: freshLicenseId },
+            where: { id: licenseId },
           data: personalUpdateData,
           include: {
             workflowStatus: true,
@@ -1199,17 +1208,69 @@ export class RenewalFormService {
         });
 
         // Create merge audit log
+        // Create Licenses master record from approved fresh license
+        let createdLicense: any = null;
+        try {
+          const licenseDetail = freshLicense.licenseDetails?.[0];
+          const licenseData: any = {
+            licenseNumber: `LIC-${Date.now()}-${licenseId}`,
+            issueDate: new Date(),
+            firstName: freshLicense.firstName,
+            middleName: freshLicense.middleName,
+            lastName: freshLicense.lastName,
+            parentOrSpouseName: freshLicense.parentOrSpouseName,
+            sex: freshLicense.sex,
+            dateOfBirth: freshLicense.dateOfBirth,
+            placeOfBirth: freshLicense.placeOfBirth,
+            aadharNumber: freshLicense.aadharNumber,
+            panNumber: freshLicense.panNumber,
+            validFrom: new Date(),
+            validTill: new Date(new Date().setFullYear(new Date().getFullYear() + 5)),
+            armsCategory: licenseDetail?.armsCategory,
+            areaOfValidity: licenseDetail?.areaOfValidity,
+            ammunitionDescription: licenseDetail?.ammunitionDescription,
+            licencePlaceArea: licenseDetail?.licencePlaceArea,
+            specialConsiderationReason: licenseDetail?.specialConsiderationReason,
+            needForLicense: licenseDetail?.needForLicense,
+            presentAddressLine: freshLicense.presentAddress?.addressLine,
+            presentStateId: freshLicense.presentAddress?.stateId,
+            presentDistrictId: freshLicense.presentAddress?.districtId,
+            presentPoliceStationId: freshLicense.presentAddress?.policeStationId,
+            presentZoneId: freshLicense.presentAddress?.zoneId,
+            presentDivisionId: freshLicense.presentAddress?.divisionId,
+            presentRangeOfficeId: freshLicense.presentAddress?.rangeOfficeId,
+            permanentAddressLine: freshLicense.permanentAddress?.addressLine,
+            permanentStateId: freshLicense.permanentAddress?.stateId,
+            permanentDistrictId: freshLicense.permanentAddress?.districtId,
+            permanentPoliceStationId: freshLicense.permanentAddress?.policeStationId,
+            permanentZoneId: freshLicense.permanentAddress?.zoneId,
+            permanentDivisionId: freshLicense.permanentAddress?.divisionId,
+            permanentRangeOfficeId: freshLicense.permanentAddress?.rangeOfficeId,
+            occupation: freshLicense.occupationAndBusiness?.occupation,
+            officeAddress: freshLicense.occupationAndBusiness?.officeAddress,
+            sourceApplicationId: licenseId,
+            issuedBy: currentUserId,
+          };
+
+          createdLicense = await tx.licenses.create({ data: licenseData });
+          mergedFields.push('licenseCreated');
+        } catch (createLicenseError: any) {
+          // If license creation fails, continue to create audit log but transaction will rollback on error propagation
+          createdLicense = null;
+        }
+
+        // Create merge audit log
         try {
           const mergeLog = await tx.LicensesMergeAuditLog.create({
             data: {
               mergeId,
-              freshLicenseId,
+              freshLicenseId: licenseId,
               renewalLicenseId,
               mergedFields: mergedFields.join(','),
               mergedBy: currentUserId,
               mergedAt: new Date(),
               status: 'COMPLETED',
-              remarks: `Merged renewal license ${renewalLicenseId} into fresh license ${freshLicenseId}`,
+              remarks: `Merged renewal license ${renewalLicenseId} into fresh license ${licenseId}`,
             },
           });
         } catch (auditLogError: any) {
@@ -1221,12 +1282,13 @@ export class RenewalFormService {
           message: 'Renewal license successfully merged into fresh license',
           data: {
             mergeId,
-            freshLicenseId,
+            licenseId,
             renewalLicenseId,
             mergedFields,
             mergedAt: new Date(),
             mergedBy: currentUserId,
             freshLicenseUpdated: this.mapApplicationToResponse(updatedFreshLicense),
+            createdLicenseId: createdLicense ? createdLicense.id : undefined,
           },
         };
       });
@@ -1252,7 +1314,7 @@ export class RenewalFormService {
 
       const where: any = {};
       if (filters.mergeId) where.mergeId = { contains: filters.mergeId };
-      if (filters.freshLicenseId) where.freshLicenseId = parseInt(filters.freshLicenseId);
+      if (filters.licenseId) where.licenseId = parseInt(filters.licenseId);
       if (filters.renewalLicenseId) where.renewalLicenseId = parseInt(filters.renewalLicenseId);
       if (filters.status) where.status = filters.status;
       if (filters.mergedBy) where.mergedBy = parseInt(filters.mergedBy);
@@ -1563,7 +1625,7 @@ export class RenewalFormService {
     return {
       id: application.id,
       acknowledgementNo: application.acknowledgementNo,
-      freshLicenseId: application.freshLicenseId,
+      licenseId: application.licenseId,
       licenseNumber: application.licenseNumber,
       applicantName: applicantName,
       parentOrSpouseName: application.parentOrSpouseName,

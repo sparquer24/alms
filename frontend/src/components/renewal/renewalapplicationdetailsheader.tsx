@@ -13,6 +13,7 @@ interface Props {
   onTabChange?: (tab: string) => void;
   currentSection?: string;
   accentColorClass?: string;
+  imageSrc?: string;
 }
 
 export default function RenewalApplicationDetailsHeader({
@@ -26,6 +27,7 @@ export default function RenewalApplicationDetailsHeader({
   onTabChange,
   currentSection,
   accentColorClass = "bg-gradient-to-b from-indigo-500 to-indigo-400",
+  imageSrc,
 }: Props) {
   const subtitleParts: string[] = [];
   if (renewalId !== undefined && renewalId !== null) subtitleParts.push(`For Renewal ID: #${renewalId}`);
@@ -43,15 +45,19 @@ export default function RenewalApplicationDetailsHeader({
               <div className="min-w-0 flex items-start gap-4">
                 <div className="flex-shrink-0 mt-1">
                   <div className="h-10 w-10 rounded-lg bg-white border border-slate-100 flex items-center justify-center">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-slate-500"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6M9 16h6M12 8h.01M4 6h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z" />
-                    </svg>
+                    {imageSrc ? (
+                      <img src={imageSrc} alt="" className="h-5 w-5" />
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-slate-500"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6M9 16h6M12 8h.01M4 6h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z" />
+                      </svg>
+                    )}
                   </div>
                 </div>
 

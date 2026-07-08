@@ -529,10 +529,10 @@ export class RenewalFormController {
     description: 'Filter by merge ID',
   })
   @ApiQuery({
-    name: 'freshLicenseId',
+    name: 'licenseId',
     required: false,
     type: Number,
-    description: 'Filter by fresh license ID',
+    description: 'Filter by license ID (replaces freshLicenseId)',
   })
   @ApiQuery({
     name: 'renewalLicenseId',
@@ -602,7 +602,7 @@ export class RenewalFormController {
       'Merge Renewal to Fresh License': {
         summary: 'Merge renewal form 5 into fresh license 1',
         value: {
-          freshLicenseId: 1,
+          licenseId: 1,
           renewalLicenseId: 5,
         },
       },
@@ -615,9 +615,9 @@ export class RenewalFormController {
     example: {
       success: true,
       message: 'Renewal license successfully merged into fresh license',
-      data: {
+        data: {
         mergeId: 'MERGE-1715754373000-12345678',
-        freshLicenseId: 1,
+        licenseId: 1,
         renewalLicenseId: 5,
         mergedFields: ['firstName', 'lastName', 'dateOfBirth', 'aadharNumber', 'panNumber', 'presentAddress', 'occupationAndBusiness', 'licenseDetails'],
         mergedAt: '2024-05-15T11:15:30.000Z',
@@ -736,8 +736,8 @@ export class RenewalFormController {
       if (!userId) {
         throw new ForbiddenException('User ID not found in token');
       }
-      return await this.renewalFormService.mergeLicenses(
-        mergeData.freshLicenseId,
+        return await this.renewalFormService.mergeLicenses(
+        mergeData.licenseId,
         mergeData.renewalLicenseId,
         userId,
       );

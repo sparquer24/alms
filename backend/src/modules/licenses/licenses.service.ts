@@ -532,6 +532,8 @@ export class LicensesService {
     licenseNumber?: string;
     aadharNumber?: string;
     sourceApplicationId?: number;
+    expiringWithinDays?: number;
+    createdFrom?: string;
     orderBy?: string;
     order?: 'asc' | 'desc';
   }) {
@@ -543,6 +545,24 @@ export class LicensesService {
 
     if (filters.sourceApplicationId) {
       where.sourceApplicationId = filters.sourceApplicationId;
+    }
+
+    if (filters.expiringWithinDays) {
+      const now = new Date();
+      const until = new Date(Date.now() + filters.expiringWithinDays * 24 * 60 * 60 * 1000);
+      where.validTill = {
+        gte: now,
+        lte: until,
+      };
+    }
+
+    if (filters.createdFrom) {
+      const normalized = String(filters.createdFrom).toUpperCase();
+      if (normalized.includes('FRESH')) {
+        where.sourceApplicationId = { not: null };
+      } else if (normalized.includes('IMPORT')) {
+        where.sourceApplicationId = null;
+      }
     }
 
     if (filters.search) {
@@ -577,6 +597,13 @@ export class LicensesService {
         take: limit,
         orderBy: { [orderByField]: orderDirection },
         include: {
+          sourceApplication: {
+            select: {
+              id: true,
+              acknowledgementNo: true,
+              almsLicenseId: true,
+            }
+          },
           endorsedWeapons: {
             select: { id: true, name: true }
           }
@@ -645,7 +672,10 @@ export class LicensesService {
    * Get license statistics (counts by status)
    */
   async getLicenseStatistics() {
-    const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount] = await Promise.all([
+    const now = new Date();
+    const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
       this.prisma.licenses.count(),
       this.prisma.licenses.count({ where: { status: 'ACTIVE' as any } }),
       this.prisma.licenses.count({ where: { status: 'EXPIRED' as any } }),
@@ -656,8 +686,33 @@ export class LicensesService {
         where: {
           status: 'ACTIVE' as any,
           validTill: {
-            lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            gte: new Date()
+            lte: daysFromNow(30),
+            gte: now
+          }
+        }
+      }),
+      this.prisma.licenses.count({
+        where: {
+          status: 'ACTIVE' as any,
+          validTill: {
+            lte: daysFromNow(60),
+            gte: now
+          }
+        }
+      }),
+      this.prisma.licenses.count({
+        where: {
+          status: 'ACTIVE' as any,
+          validTill: {
+            lte: daysFromNow(90),
+            gte: now
+          }
+        }
+      }),
+      this.prisma.licenses.count({
+        where: {
+          renewalCount: {
+            gt: 0
           }
         }
       }),
@@ -671,7 +726,26 @@ export class LicensesService {
       suspended: suspendedCount,
       revoked: revokedCount,
       expiringWithin30Days: expiringSoonCount,
+      expiringWithin60Days,
+      expiringWithin90Days,
+      renewed: renewedCount,
     };
+  }
+
+  async getLicenseAudit(licenseId: number) {
+    const history = await this.getLicenseHistory(licenseId);
+    return history.map((entry: any) => ({
+      id: entry.id,
+      licenseId: entry.licenseId,
+      event: entry.action,
+      previousStatus: entry.previousStatus,
+      newStatus: entry.newStatus,
+      officer: entry.changedByUser?.username || entry.changedBy,
+      remarks: entry.remarks,
+      applicationId: entry.applicationId,
+      applicationType: entry.applicationType,
+      createdAt: entry.createdAt,
+    }));
   }
 
   /**

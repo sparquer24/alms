@@ -116,6 +116,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
     // Field Operational Roles
     'ZS': [
       { name: 'freshform', statusIds: [9] },
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11, 1, 9] },
       { name: 'closed', statusIds: [10] },
@@ -133,6 +134,7 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'sent', statusIds: [11, 1] },
     ],
     'DCP': [
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
     ],
@@ -151,24 +153,29 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
       { name: 'sent', statusIds: [11, 3] },
     ],
     'JTCP': [
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
       { name: 'analytics' },
     ],
     'CP': [
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9, 11] },
       { name: 'sent', statusIds: [11, 3] },
       { name: 'analytics' },
     ],
     'ARMS_SUPDT': [
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11, 1] },
     ],
     'ARMS_SEAT': [
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11] },
     ],
     'ACO': [
+      { name: 'licenses' },
       { name: 'inbox', statusIds: [1, 9] },
       { name: 'sent', statusIds: [11] },
     ],
@@ -177,6 +184,20 @@ export const getRoleConfig = (userRoleOrObject: any): RoleConfig | undefined => 
   // If menu items are empty or missing, use role-specific defaults
   if (roleCode && menuItems.length === 0 && roleSpecificMenuDefaults[roleCode]) {
     menuItems = roleSpecificMenuDefaults[roleCode];
+  }
+
+  const licenseManagementRoles = new Set(['ZS', 'DCP', 'CP', 'JTCP', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO']);
+  if (roleCode && licenseManagementRoles.has(roleCode)) {
+    const hasLicenses = menuItems.some(
+      item => String(item.name || '').replace(/\s+/g, '').toLowerCase() === 'licenses'
+    );
+    if (!hasLicenses) {
+      menuItems = [{ name: 'licenses' }, ...menuItems];
+    }
+  } else {
+    menuItems = menuItems.filter(
+      item => String(item.name || '').replace(/\s+/g, '').toLowerCase() !== 'licenses'
+    );
   }
 
   // Menu items should be provided by the cookie/backend
