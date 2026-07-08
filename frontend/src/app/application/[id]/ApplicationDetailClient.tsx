@@ -1885,7 +1885,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               })()}
 
               {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
-              {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && !(isRenewalView && activeTab === 'original') && (
+              {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
                 <div className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'>
                   <div
                     ref={containerRef}
@@ -1894,7 +1894,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       display: 'flex',
                     }}
                   >
-                    {/* Action Buttons - Full Width Editor (2 columns) */}
+                    {/* Action Buttons - Full Width Editor (2 columns) - Hidden on License Tab */}
+                    {!(isRenewalView && activeTab === 'license') && (
                     <div
                       className='flex flex-col h-full overflow-hidden pr-4'
                       style={{
@@ -2063,8 +2064,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                         })()}
                       </div>
                     </div>
+                    )}
 
-                    {/* Resizable Divider */}
+                    {/* Resizable Divider - Hidden on License Tab */}
+                    {!(isRenewalView && activeTab === 'license') && (
                     <div
                       ref={dividerRef}
                       onMouseDown={handleDividerMouseDown}
@@ -2077,12 +2080,13 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       {/* Hover indicator */}
                       <div className='absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400/10 transition-colors duration-200'></div>
                     </div>
+                    )}
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className='flex flex-col h-full overflow-hidden pl-4'
+                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'license' ? '' : 'pl-4'}`}
                       style={{
-                        width: `${100 - dividerPosition}%`,
+                        width: isRenewalView && activeTab === 'license' ? '100%' : `${100 - dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',
                       }}
                     >
