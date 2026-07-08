@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RenewalService } from '../../api/renewalService';
 import { getStatusStyle } from '../../utils/statusColors';
+import RenewalApplicationDetailsHeader from './renewalapplicationdetailsheader';
 
 interface RenewalApplicationDetails {
   id: number | string;
@@ -106,6 +107,13 @@ export default function RenewalApplicationDetailsPage() {
 
   const statusLabel = getStatusLabel(application);
   const statusStyle = getStatusStyle(statusLabel);
+  const renewalId = application?.id;
+  const acknowledgementNo = application?.acknowledgementNo;
+  const applicationId =
+    application?.applicationId ||
+    application?.freshApplicationId ||
+    application?.sourceApplicationId ||
+    application?.renewalLicenseId;
 
   if (loading) {
     return (
@@ -156,25 +164,16 @@ export default function RenewalApplicationDetailsPage() {
 
   return (
     <div className='min-h-screen bg-slate-50 px-4 py-8'>
-      <div className='mx-auto max-w-5xl 2xl:max-w-[1200px]'>
-        <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
-          <div className='bg-gradient-to-r from-[#001F54] to-[#0d2f6b] px-6 py-5 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-            <div>
-              <p className='text-sm text-blue-100'>Renewal Application</p>
-              <h1 className='text-2xl font-semibold'>Application #{application.id}</h1>
-            </div>
-            <span
-              className='inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold border'
-              style={{
-                backgroundColor: statusStyle.bg,
-                color: statusStyle.text,
-                borderColor: statusStyle.border,
-              }}
-            >
-              {statusLabel}
-            </span>
-          </div>
+      <div className='mx-auto max-w-5xl 2xl:max-w-[1200px] space-y-6'>
+        <RenewalApplicationDetailsHeader
+          applicationId={application.id}
+          renewalId={renewalId}
+          acknowledgementNo={acknowledgementNo}
+          activeTab='Renewal Application Details'
+          imageSrc='/file.svg'
+        />
 
+        <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
           <div className='grid gap-6 p-6 md:grid-cols-2'>
             <InfoCard label='Applicant Name' value={applicantName} />
             <InfoCard label='Licence Number' value={application.licenseNumber || 'N/A'} />

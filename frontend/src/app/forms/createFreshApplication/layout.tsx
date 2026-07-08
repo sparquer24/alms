@@ -255,21 +255,12 @@ function FreshApplicationLayoutContent({
         }
       `}</style>
 
-      <div className='absolute top-4 left-6 z-50'>
-        <button
-          onClick={handleGoHome}
-          className='flex items-center justify-center w-12 h-12 bg-white hover:bg-gray-50 rounded-full shadow-lg border-2 border-blue-500 transition-all duration-200 hover:scale-105'
-          title='Go to Home'
-        >
-          <IoMdHomeFixed className='text-2xl text-[#0d2977]' />
-        </button>
-      </div>
-
       <StepHeader
         steps={steps}
         currentStep={currentStep}
         onStepClick={handleStepClick}
         lockedSteps={lockedSteps}
+        onGoHome={handleGoHome}
       />
 
       <div
