@@ -411,7 +411,9 @@ const Header = (props: HeaderProps) => {
                   className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border whitespace-nowrap ${
                     applicationTypeLabel.toLowerCase().includes('renewal')
                       ? 'bg-[#D97706] text-white border-[#B45309]'
-                      : 'bg-[#059669] text-white border-[#047857]'
+                      : applicationTypeLabel.toLowerCase().includes('cancel')
+                        ? 'bg-red-600 text-white border-red-700'
+                        : 'bg-[#059669] text-white border-[#047857]'
                   }`}
                 >
                   {applicationTypeLabel}

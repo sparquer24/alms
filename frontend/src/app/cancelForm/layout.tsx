@@ -1,10 +1,10 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { useAuth } from '../../hooks/useAuth';
+import { useLayout } from '../../config/layoutContext';
 
 /**
  * Layout for all /cancelForm/* routes.
@@ -13,7 +13,17 @@ import { useAuth } from '../../hooks/useAuth';
  */
 export default function CancelFormLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, initialized } = useAuth();
+  const { headerOptions, setShowSidebar, setShowHeader } = useLayout();
   const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    setShowHeader(true);
+    setShowSidebar(false);
+
+    return () => {
+      setShowSidebar(true);
+    };
+  }, [setShowHeader, setShowSidebar]);
 
   useEffect(() => {
     if (!initialized || isLoading) return;
@@ -41,15 +51,11 @@ export default function CancelFormLayout({ children }: { children: React.ReactNo
 
   return (
     <div className='flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
-      <Suspense fallback={null}>
-        <Sidebar />
-      </Suspense>
+      <Header hideCreateForm {...headerOptions} />
 
-      <Header hideCreateForm />
-
-      {/* Main content area — mirrors inbox layout margins */}
-      <div className='flex-1 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px] flex flex-col'>
-        <div className='flex-grow p-6 md:p-8'>
+      {/* Main content area — full width when sidebar is removed */}
+      <div className='flex-1 overflow-y-auto ml-0 mt-[64px] md:mt-[70px] flex flex-col'>
+        <div className='flex-grow p-6 md:p-8 max-w-[1200px] mx-auto w-full'>
           <div className='w-full'>{children}</div>
         </div>
         <Footer />
