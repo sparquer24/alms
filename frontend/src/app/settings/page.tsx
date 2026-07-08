@@ -52,8 +52,12 @@ export default function SettingsPage() {
     console.debug('[SettingsPage] authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
   }
 
-  const role = useMemo(() => cookieUser?.role ?? {}, [cookieUser]);
-  const location = useMemo(() => cookieUser?.location ?? {}, [cookieUser]);
+  const { user } = useAuth();
+  const currentUser = useMemo(() => user ?? cookieUser, [user, cookieUser]);
+  const roleData = useMemo(() => currentUser?.role ?? {}, [currentUser]);
+  const location = useMemo(() => currentUser?.location ?? currentUser?.state ?? {}, [currentUser]);
+
+  console.log({ currentUser, roleData, location });
 
   // Pretty helpers
   const toTitleCase = (txt: string) =>
@@ -82,20 +86,31 @@ export default function SettingsPage() {
     return [];
   };
 
-  // Normalize menu items into simple strings (handle arrays of objects or strings)
-  const menuItems = useMemo(() => {
-    const raw = parseArrayLike(role?.menu_items);
-    return raw
-      .map((it: any) => {
-        if (it === null || it === undefined) return '';
-        if (typeof it === 'string') return it;
-        if (typeof it === 'number') return String(it);
-        if (typeof it === 'object') return it.name || it.label || it.key || JSON.stringify(it);
-        return String(it);
-      })
-      .filter(Boolean);
-  }, [role]);
-  const permissions = useMemo(() => parseArrayLike(role?.permissions), [role]);
+  // Normalize permissions array from currentUser (handles various shapes)
+  const userPermissions = useMemo(() => parseArrayLike(currentUser?.permissions), [currentUser?.permissions]);
+
+  // ================= Profile =================
+  const showFullName = Boolean(currentUser?.name);
+  const showUsername = Boolean(currentUser?.username);
+  const showEmail = Boolean(currentUser?.email);
+  const showUserId = Boolean(currentUser?.id);
+  const showCreated = Boolean(currentUser?.createdAt);
+  const showLastLogin = Boolean(currentUser?.lastLogin);
+  const showStateId = Boolean(currentUser?.stateId);
+  const showState = Boolean(currentUser?.state) || Boolean(currentUser?.location?.state?.name);
+
+  // ================= Role =================
+  // roleData is the role code string (e.g. "ADMIN") from the auth store
+  const showRoleCode = Boolean(roleData) && typeof roleData === 'string';
+  const showRoleDesignation = Boolean(currentUser?.designation);
+  const showUserPermissions = userPermissions.length > 0;
+  const showAvailableActions = Array.isArray(currentUser?.availableActions) && currentUser.availableActions.length > 0;
+
+  const hasRoleData =
+    showRoleCode ||
+    showRoleDesignation ||
+    showUserPermissions ||
+    showAvailableActions;
 
   // Show skeleton while auth is loading
   if (authLoading) return <PageLayoutSkeleton />;
@@ -110,106 +125,140 @@ export default function SettingsPage() {
         <div className='bg-white rounded-lg shadow p-4 sm:p-6 max-w-6xl mx-auto'>
           <h1 className='text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800'>User Information</h1>
 
-          {!cookieUser && (
+          {!currentUser && (
             <div className='mb-4 sm:mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-md'>
-              <p className='text-yellow-700 text-sm'>No user found in cookies.</p>
+              <p className='text-yellow-700 text-sm'>No user found in cookies or auth state.</p>
             </div>
           )}
 
-          {cookieUser && (
+          {currentUser && (
             <div className='flex flex-col lg:grid lg:grid-cols-3 gap-4 sm:gap-6'>
               {/* Profile Section - First on mobile */}
               <section className='bg-gray-50 p-4 sm:p-6 rounded-lg border border-gray-200'>
                 <h2 className='text-lg font-semibold mb-3 sm:mb-4 text-gray-700'>Profile</h2>
                 <div className='flex items-center justify-center mb-4 sm:mb-6'>
                   <div className='w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#6366F1] flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-md'>
-                    {(cookieUser?.username || 'U').charAt(0).toUpperCase()}
+                    {(currentUser?.username || 'U').charAt(0).toUpperCase()}
                   </div>
                 </div>
                 <div className='space-y-3 sm:space-y-4'>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Username</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{cookieUser?.username}</p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Email</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{cookieUser?.email || '—'}</p>
-                  </div>
-                  <div className='grid grid-cols-2 gap-2 sm:gap-3'>
+                  {showFullName && (
                     <div>
-                      <label className='block text-sm font-medium text-gray-600 mb-1'>User ID</label>
-                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>{cookieUser?.id}</p>
+                      <label className='block text-sm font-medium text-gray-600 mb-1'>Full Name</label>
+                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{currentUser?.name}</p>
                     </div>
+                  )}
+                  {showUsername && (
                     <div>
-                      <label className='block text-sm font-medium text-gray-600 mb-1'>Created</label>
-                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>
-                        {cookieUser?.createdAt
-                          ? new Date(cookieUser.createdAt).toLocaleDateString()
-                          : '—'}
-                      </p>
+                      <label className='block text-sm font-medium text-gray-600 mb-1'>Username</label>
+                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{currentUser?.username}</p>
                     </div>
-                  </div>
+                  )}
+                  {showEmail && (
+                    <div>
+                      <label className='block text-sm font-medium text-gray-600 mb-1'>Email</label>
+                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{currentUser?.email}</p>
+                    </div>
+                  )}
+                  {(showUserId || showCreated || showLastLogin || showStateId || showState) && (
+                    <div className='grid grid-cols-2 gap-2 sm:gap-3'>
+                      {showUserId && (
+                        <div>
+                          <label className='block text-sm font-medium text-gray-600 mb-1'>User ID</label>
+                          <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>{currentUser?.id}</p>
+                        </div>
+                      )}
+                      {showCreated && (
+                        <div>
+                          <label className='block text-sm font-medium text-gray-600 mb-1'>Created</label>
+                          <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>
+                            {new Date(currentUser.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                      {showLastLogin && (
+                        <div>
+                          <label className='block text-sm font-medium text-gray-600 mb-1'>Last Login</label>
+                          <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>
+                            {new Date(currentUser.lastLogin).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                      {showStateId && (
+                        <div>
+                          <label className='block text-sm font-medium text-gray-600 mb-1'>State ID</label>
+                          <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>{currentUser?.stateId}</p>
+                        </div>
+                      )}
+                      {showState && (
+                        <div>
+                          <label className='block text-sm font-medium text-gray-600 mb-1'>State</label>
+                          <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 text-xs sm:text-sm'>
+                            {currentUser?.state?.name || currentUser?.state || currentUser?.location?.state?.name || '—'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </section>
 
               {/* Role Section - Second on mobile */}
-              <section className='bg-gray-50 p-4 sm:p-6 rounded-lg border border-gray-200'>
-                <h2 className='text-lg font-semibold mb-3 sm:mb-4 text-gray-700'>Role</h2>
-                <div className='space-y-3 sm:space-y-4'>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Name</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>
-                      {role?.name || '—'} {role?.code && `(${role.code})`}
-                    </p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Dashboard Title</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{role?.dashboard_title || '—'}</p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Can Access Settings</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>
-                      {role?.can_access_settings ? 'Yes' : 'No'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-2'>Menu Items</label>
-                    {menuItems.length === 0 ? (
-                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-500'>—</p>
-                    ) : (
-                      <div className='flex flex-wrap gap-1.5 sm:gap-2'>
-                        {menuItems.map(item => (
-                          <span
-                            key={item}
-                            className='inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200'
-                            title={item}
-                          >
-                            {toTitleCase(item)}
-                          </span>
-                        ))}
+              {hasRoleData && (
+                <section className='bg-gray-50 p-4 sm:p-6 rounded-lg border border-gray-200'>
+                  <h2 className='text-lg font-semibold mb-3 sm:mb-4 text-gray-700'>Role</h2>
+                  <div className='space-y-3 sm:space-y-4'>
+                    {showRoleCode && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>Role</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800 font-medium'>
+                          {roleData}
+                        </p>
+                      </div>
+                    )}
+                    {showRoleDesignation && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>Designation</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>
+                          {currentUser?.designation}
+                        </p>
+                      </div>
+                    )}
+                    {showUserPermissions && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-2'>Permissions</label>
+                        <div className='flex flex-wrap gap-1.5 sm:gap-2'>
+                          {userPermissions.map(perm => (
+                            <span
+                              key={perm}
+                              className='inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              title={perm}
+                            >
+                              {toTitleCase(perm)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {showAvailableActions && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-2'>Available Actions</label>
+                        <div className='flex flex-wrap gap-1.5 sm:gap-2'>
+                          {currentUser.availableActions.map((action: any) => (
+                            <span
+                              key={`${action.action}:${action.resource}`}
+                              className='inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200'
+                              title={`${action.action}:${action.resource}`}
+                            >
+                              {`${action.action}:${action.resource}`}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-2'>Permissions</label>
-                    {permissions.length === 0 ? (
-                      <p className='p-2 bg-white rounded border border-gray-200 text-gray-500'>—</p>
-                    ) : (
-                      <div className='flex flex-wrap gap-1.5 sm:gap-2'>
-                        {permissions.map(perm => (
-                          <span
-                            key={perm}
-                            className='inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            title={perm}
-                          >
-                            {toTitleCase(perm)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
+                </section>
+              )}
 
               {/* Location Section - Third on mobile */}
               <section className='bg-gray-50 p-4 sm:p-6 rounded-lg border border-gray-200'>
@@ -219,28 +268,49 @@ export default function SettingsPage() {
                     <label className='block text-sm font-medium text-gray-600 mb-1'>State</label>
                     <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.state?.name || '—'}</p>
                   </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>District</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.district?.name || '—'}</p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Range Office</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.rangeOffice?.name || '—'}</p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Zone</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.zone?.name || '—'}</p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Division</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.division?.name || '—'}</p>
-                  </div>
-                  <div>
-                    <label className='block text-sm font-medium text-gray-600 mb-1'>Police Station</label>
-                    <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>
-                      {location?.policeStation?.name || '—'}
-                    </p>
-                  </div>
+                  {
+                    location?.district?.name && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>District</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location.district.name}</p>
+                      </div>
+                    )
+                  }
+
+                  {
+                    location?.rangeOffice?.name && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>Range Office</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.rangeOffice?.name}</p>
+                      </div>
+                    )
+                  }
+
+                  {
+                    location?.zone?.name && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>Zone</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.zone?.name}</p>
+                      </div>
+                    )
+                  }
+
+                  {
+                    location?.division?.name && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>Division</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location?.division?.name}</p>
+                      </div>
+                    )
+                  }
+                  {
+                    location?.policeStation?.name && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-600 mb-1'>Police Station</label>
+                        <p className='p-2 bg-white rounded border border-gray-200 text-gray-800'>{location.policeStation.name}</p>
+                      </div>
+                    )
+                  }
                 </div>
               </section>
             </div>
@@ -258,5 +328,5 @@ export default function SettingsPage() {
         </div>
       </main>
     </div>
-    );
+  );
 }
