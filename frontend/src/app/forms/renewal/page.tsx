@@ -2150,6 +2150,12 @@ function RenewalFormPageContent() {
   const licenseDetailsSectionRef = React.useRef<any>(null);
   const documentsSectionRef = React.useRef<any>(null);
   const declarationSectionRef = React.useRef<any>(null);
+  // Tracks whether the user has actively edited the form, so auto-navigation
+  // between sections only triggers after real interaction (not on initial load).
+  const hasUserInteractedRef = React.useRef(false);
+  // Tracks the previous per-section validity so we can detect when a section
+  // newly becomes complete and auto-scroll to the next incomplete section.
+  const sectionValidityRef = React.useRef<Record<string, boolean> | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -2381,6 +2387,16 @@ function RenewalFormPageContent() {
       setVerificationError(null);
       const renewalResponse = await RenewalService.getRenewalForm(rId);
       const renewalData = extractData(renewalResponse);
+
+      // If the renewal application has already been submitted, skip the
+      // verification page entirely and take the user straight to the Renewal
+      // Application Details page (Information tab).
+      if (renewalData?.isSubmit) {
+        const targetRenewalId = getTextValue(renewalData?.id, rId);
+        router.replace(`/renewalApplication/${encodeURIComponent(targetRenewalId)}?tab=info`);
+        return;
+      }
+
       const appId = resolveFreshApplicationId(renewalData, '');
       if (!appId) {
         throw new Error('Could not resolve original Application ID from renewal.');
@@ -2516,6 +2532,7 @@ function RenewalFormPageContent() {
   }, [urlApplicationId, renewalId]);
 
   const handleFormPatch = (patch: Record<string, unknown>) => {
+    hasUserInteractedRef.current = true;
     setFormData(prev => ({ ...prev, ...patch }));
     const documentKeys = Object.keys(patch).filter(key =>
       (DOCUMENT_FORM_KEYS as readonly string[]).includes(key)
@@ -2551,6 +2568,16 @@ function RenewalFormPageContent() {
         // ignore if section not mounted yet
       }
     }, 0);
+  };
+
+  // Smoothly scroll the top of a given accordion section into view.
+  const scrollToSectionTop = (sectionKey: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(`renewal-section-${sectionKey}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 120);
   };
 
   const { isSyncingPrefilled: isSyncingEvidence } = usePrefilledDocumentSync(
@@ -2632,7 +2659,14 @@ function RenewalFormPageContent() {
         renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || ''
       ).toUpperCase();
       const isSubmitted = Boolean(renewalData?.isSubmit);
-      if (workflowCode === 'APPROVED' || isSubmitted) {
+      if (isSubmitted) {
+        // Already submitted — do not show the editable renewal form. Redirect to
+        // the Renewal Application Details page (Information tab).
+        const targetRenewalId = getTextValue(renewalData?.id, rId);
+        router.replace(`/renewalApplication/${encodeURIComponent(targetRenewalId)}?tab=info`);
+        return renewalData;
+      }
+      if (workflowCode === 'APPROVED') {
         setIsReadOnly(true);
         setShowReadOnlyModal(true);
       }
@@ -2753,6 +2787,9 @@ function RenewalFormPageContent() {
       setShowReadOnlyModal(true);
       return;
     }
+    // Mark that the user has actively edited the form so section auto-navigation
+    // is only triggered by genuine user input.
+    hasUserInteractedRef.current = true;
     const { name, type, value, checked } = event.target as {
       name: string;
       value?: unknown;
@@ -2986,6 +3023,7 @@ function RenewalFormPageContent() {
   }
 
   function handleFileChange(name: string, file: File | null) {
+    hasUserInteractedRef.current = true;
     if (!file) {
       setFormData(prev => ({ ...prev, [name]: null }));
       return;
@@ -3234,6 +3272,42 @@ function RenewalFormPageContent() {
     return errs;
   };
 
+  const validateDeclaration = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    if (!data.declaration?.agreeToTruth)
+      errs['agreeToTruth'] = 'Please accept this declaration.';
+    if (!data.declaration?.understandLegalConsequences)
+      errs['understandLegalConsequences'] = 'Please accept this declaration.';
+    if (!data.declaration?.agreeToTerms)
+      errs['agreeToTerms'] = 'Please accept the terms and conditions.';
+    return errs;
+  };
+
+  // Ordered list of sections used for real-time progress, auto-navigation, and
+  // submit-time validation. `biometric` has no required fields, so it is always
+  // considered complete for progress/navigation purposes.
+  const SECTION_FLOW_ORDER = [
+    'personal',
+    'address',
+    'occupation',
+    'criminal',
+    'licenseDetails',
+    'licenseHistory',
+    'biometric',
+    'documents',
+  ] as const;
+
+  const computeSectionValidity = (data: RenewalFormState): Record<string, boolean> => ({
+    personal: Object.keys(validatePersonalDetails(data)).length === 0,
+    address: Object.keys(validateAddressDetails(data)).length === 0,
+    occupation: Object.keys(validateOccupationDetails(data)).length === 0,
+    criminal: Object.keys(validateCriminalHistory(data)).length === 0,
+    licenseDetails: Object.keys(validateLicenseDetails(data)).length === 0,
+    licenseHistory: Object.keys(validateLicenseHistory(data)).length === 0,
+    biometric: true,
+    documents: Object.keys(validateDocumentsUpload(data)).length === 0,
+  });
+
   const buildSectionSpecificPayload = (
     sectionKey: string,
     formData: RenewalFormState
@@ -3349,43 +3423,36 @@ function RenewalFormPageContent() {
   };
 
   useEffect(() => {
-    // Dynamically uncheck sections if required fields become missing/invalid
+    // Keep the section progress indicator in sync with field validity in real time,
+    // and auto-navigate to the next incomplete section as each one is completed.
+    if (isLoading) return;
+
+    const validity = computeSectionValidity(formData);
+
     setSectionCompleted(prev => {
-      const next = { ...prev };
-      let changed = false;
-
-      if (prev.personal && Object.keys(validatePersonalDetails(formData)).length > 0) {
-        next.personal = false;
-        changed = true;
-      }
-      if (prev.address && Object.keys(validateAddressDetails(formData)).length > 0) {
-        next.address = false;
-        changed = true;
-      }
-      if (prev.occupation && Object.keys(validateOccupationDetails(formData)).length > 0) {
-        next.occupation = false;
-        changed = true;
-      }
-      if (prev.criminal && Object.keys(validateCriminalHistory(formData)).length > 0) {
-        next.criminal = false;
-        changed = true;
-      }
-      if (prev.licenseDetails && Object.keys(validateLicenseDetails(formData)).length > 0) {
-        next.licenseDetails = false;
-        changed = true;
-      }
-      if (prev.licenseHistory && Object.keys(validateLicenseHistory(formData)).length > 0) {
-        next.licenseHistory = false;
-        changed = true;
-      }
-      if (prev.documents && Object.keys(validateDocumentsUpload(formData)).length > 0) {
-        next.documents = false;
-        changed = true;
-      }
-
-      return changed ? next : prev;
+      const changed = SECTION_FLOW_ORDER.some(key => prev[key] !== validity[key]);
+      return changed ? { ...prev, ...validity } : prev;
     });
-  }, [formData]);
+
+    const prevValidity = sectionValidityRef.current;
+    sectionValidityRef.current = validity;
+
+    // Skip the very first computation and any change not driven by the user so the
+    // form does not jump around on initial load / prefill.
+    if (!prevValidity || !hasUserInteractedRef.current) return;
+
+    const newlyCompleted = SECTION_FLOW_ORDER.find(
+      key => validity[key] && !prevValidity[key]
+    );
+    if (!newlyCompleted) return;
+
+    const startIdx = SECTION_FLOW_ORDER.indexOf(newlyCompleted);
+    const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(key => !validity[key]);
+    const target = nextIncomplete ?? 'declaration';
+
+    setExpandedSections(prev => ({ ...prev, [target]: true }));
+    scrollToSectionTop(target);
+  }, [formData, isLoading]);
 
   const persistRenewalForm = async (isSubmit: boolean) => {
     const activeRenewalId = renewalId || createdRenewalIdRef.current;
@@ -3508,50 +3575,110 @@ function RenewalFormPageContent() {
     persistRenewalForm(false);
   };
 
-  const saveAndContinue = async () => {
+  /**
+   * Validate every section of the renewal form for submission.
+   * Publishes all validation errors so invalid fields are highlighted with their
+   * messages, then scrolls to and focuses the first section containing errors.
+   * Returns true when the whole form is valid.
+   */
+  const runSubmitValidation = (): boolean => {
+    const checks: Array<{
+      key: string;
+      errors: Record<string, string>;
+      set: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+      ref: React.RefObject<any>;
+    }> = [
+      {
+        key: 'personal',
+        errors: validatePersonalDetails(formData),
+        set: setPersonalErrors,
+        ref: personalSectionRef,
+      },
+      {
+        key: 'address',
+        errors: validateAddressDetails(formData),
+        set: setAddressErrors,
+        ref: addressSectionRef,
+      },
+      {
+        key: 'occupation',
+        errors: validateOccupationDetails(formData),
+        set: setOccupationErrors,
+        ref: occupationSectionRef,
+      },
+      {
+        key: 'criminal',
+        errors: validateCriminalHistory(formData),
+        set: setCriminalErrors,
+        ref: criminalSectionRef,
+      },
+      {
+        key: 'licenseDetails',
+        errors: validateLicenseDetails(formData),
+        set: setLicenseDetailsErrors,
+        ref: licenseDetailsSectionRef,
+      },
+      {
+        key: 'licenseHistory',
+        errors: validateLicenseHistory(formData),
+        set: setLicenseHistoryErrors,
+        ref: licenseHistorySectionRef,
+      },
+      {
+        key: 'documents',
+        errors: validateDocumentsUpload(formData),
+        set: setDocumentsErrors,
+        ref: documentsSectionRef,
+      },
+      {
+        key: 'declaration',
+        errors: validateDeclaration(formData),
+        set: setDeclarationErrors,
+        ref: declarationSectionRef,
+      },
+    ];
+
+    // Publish every section's validation result at once so all invalid fields are
+    // highlighted with their messages, not just the first failing section.
+    checks.forEach(check => check.set(check.errors));
+
+    const firstInvalid = checks.find(check => Object.keys(check.errors).length > 0);
+    if (!firstInvalid) {
+      setError(null);
+      return true;
+    }
+
+    // Reveal, scroll to, and focus the first section that has validation errors.
+    setExpandedSections(prev => ({ ...prev, [firstInvalid.key]: true }));
+    scrollToSectionTop(firstInvalid.key);
+    setTimeout(() => {
+      try {
+        firstInvalid.ref.current?.focusFirstInvalid();
+      } catch {
+        /* ignore if the section is not mounted yet */
+      }
+    }, 300);
+
+    setError('Please complete all required fields highlighted below before submitting.');
+    toast.error('Please complete all required fields before submitting.');
+    return false;
+  };
+
+  const handleRenewalSubmit = async () => {
     if (isReadOnly) {
       setShowReadOnlyModal(true);
-      return false;
-    }
-    const declarationErrors: Record<string, string> = {};
-    if (!formData.declaration?.agreeToTruth)
-      declarationErrors['agreeToTruth'] = 'Please accept this declaration.';
-    if (!formData.declaration?.understandLegalConsequences)
-      declarationErrors['understandLegalConsequences'] = 'Please accept this declaration.';
-    if (!formData.declaration?.agreeToTerms)
-      declarationErrors['agreeToTerms'] = 'Please accept the terms and conditions.';
-
-    if (Object.keys(declarationErrors).length > 0) {
-      setDeclarationErrors(declarationErrors);
-      scheduleSectionFocus(declarationSectionRef, 'declaration');
-      setError('Please accept all declarations before submitting the application.');
-      return false;
+      return;
     }
 
-    const activeRenewalId = renewalId || createdRenewalIdRef.current;
-    if (!activeRenewalId) {
-      setError('Renewal ID not available yet.');
-      return false;
-    }
+    // The Submit button always stays enabled; validation is enforced here.
+    if (!runSubmitValidation()) return;
 
-    try {
-      setIsSaving(true);
-      setError(null);
-      const submitPayload = {
-        isDeclarationAccepted: true,
-        isAwareOfLegalConsequences: true,
-        isTermsAccepted: true,
-        isSubmit: true,
-      };
-      await RenewalService.updateRenewalForm(activeRenewalId, submitPayload, { isSubmit: true });
+    // Persist the full form (declaration flags and isSubmit are part of the payload),
+    // then show the success confirmation.
+    const persisted = await persistRenewalForm(true);
+    if (persisted) {
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
-      return true;
-    } catch (err: any) {
-      setError(err?.message || 'Failed to submit renewal application.');
-      return false;
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -4348,7 +4475,7 @@ function RenewalFormPageContent() {
                 setShowReadOnlyModal(true);
                 return;
               }
-              saveAndContinue();
+              handleRenewalSubmit();
             }}
             className='space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-gray-100'
           >
@@ -4375,6 +4502,7 @@ function RenewalFormPageContent() {
               <>
                 <AccordionSection
                   title='Personal Information'
+                  id='renewal-section-personal'
                   isOpen={expandedSections.personal}
                   onToggle={() => toggleSection('personal')}
                   showCompletionCheckbox
@@ -4396,6 +4524,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Address Details'
+                  id='renewal-section-address'
                   isOpen={expandedSections.address}
                   onToggle={() => toggleSection('address')}
                   showCompletionCheckbox
@@ -4417,6 +4546,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Occupation/Business'
+                  id='renewal-section-occupation'
                   isOpen={expandedSections.occupation}
                   onToggle={() => toggleSection('occupation')}
                   showCompletionCheckbox
@@ -4438,6 +4568,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Criminal History'
+                  id='renewal-section-criminal'
                   isOpen={expandedSections.criminal}
                   onToggle={() => toggleSection('criminal')}
                   showCompletionCheckbox
@@ -4459,6 +4590,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='License Details'
+                  id='renewal-section-licenseDetails'
                   isOpen={expandedSections.licenseDetails}
                   onToggle={() => toggleSection('licenseDetails')}
                   showCompletionCheckbox
@@ -4485,6 +4617,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='License History'
+                  id='renewal-section-licenseHistory'
                   isOpen={expandedSections.licenseHistory}
                   onToggle={() => toggleSection('licenseHistory')}
                   showCompletionCheckbox
@@ -4506,6 +4639,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Biometric Information'
+                  id='renewal-section-biometric'
                   isOpen={expandedSections.biometric}
                   onToggle={() => toggleSection('biometric')}
                   showCompletionCheckbox
@@ -4543,6 +4677,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Upload Documents'
+                  id='renewal-section-documents'
                   isOpen={expandedSections.documents}
                   onToggle={() => toggleSection('documents')}
                   showCompletionCheckbox
@@ -4569,6 +4704,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Declaration'
+                  id='renewal-section-declaration'
                   isOpen={expandedSections.declaration}
                   onToggle={() => toggleSection('declaration')}
                 >
@@ -4600,6 +4736,11 @@ function RenewalFormPageContent() {
                       />
                     ))}
                   </div>
+                  {allSectionsCompleted && (
+                    <span className='ml-1 text-xs font-semibold text-green-600'>
+                      ✓ All sections completed
+                    </span>
+                  )}
                 </div>
 
                 <div className='flex flex-wrap items-center gap-3'>
@@ -4617,13 +4758,10 @@ function RenewalFormPageContent() {
                   </button>
                   <button
                     type='button'
-                    onClick={saveAndContinue}
-                    disabled={isSaving || !allSectionsCompleted || isReadOnly}
-                    title={
-                      !allSectionsCompleted ? 'Please complete all sections before submitting' : ''
-                    }
+                    onClick={handleRenewalSubmit}
+                    disabled={isSaving}
                     className={`rounded-md px-5 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isReadOnly || !allSectionsCompleted
+                      isReadOnly
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-[#001F54] hover:bg-[#012a73] shadow-sm hover:shadow-md'
                     }`}
@@ -4654,6 +4792,7 @@ function AccordionSection(
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
+    id?: string;
     showCompletionCheckbox?: boolean;
     isCompleted?: boolean;
     onCompletionChange?: (checked: boolean) => void;
@@ -4666,6 +4805,7 @@ function AccordionSection(
     isOpen,
     onToggle,
     children,
+    id,
     showCompletionCheckbox,
     isCompleted,
     onCompletionChange,
@@ -4675,7 +4815,8 @@ function AccordionSection(
 
   return (
     <section
-      className={`rounded-2xl border bg-white shadow-sm transition-colors duration-200 ${
+      id={id}
+      className={`scroll-mt-24 rounded-2xl border bg-white shadow-sm transition-colors duration-200 ${
         showCompletionCheckbox && isCompleted
           ? 'border-green-300 ring-1 ring-green-200'
           : 'border-gray-100'
