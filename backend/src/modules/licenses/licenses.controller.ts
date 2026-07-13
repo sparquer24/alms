@@ -133,7 +133,11 @@ export class LicensesController {
   async getLicenseById(@Param('id') id: string) {
     const license = await this.licensesService.getLicenseById(Number(id));
     if (!license) throw new NotFoundException('License not found');
-    return license;
+    return {
+      success: true,
+      message: 'Applications retrieved successfully',
+      data: license,
+    };
   }
 
   @Get(':id/history')

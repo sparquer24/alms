@@ -253,8 +253,8 @@ export class CancelFormService {
       if (!cancelRequest) {
         throw new NotFoundException('Cancel request not found.');
       }
-     console.log('--- getCancelRequestById ---');
-     console.log(cancelRequest);
+   //  console.log('--- getCancelRequestById ---');
+    // console.log(cancelRequest);
       const computedApplicantName = cancelRequest.Licenses
       return {
         ...cancelRequest,
