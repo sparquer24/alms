@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { BadgeCheck, ChevronLeft } from 'lucide-react';
 import { useLayout } from '../config/layoutContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '../config/notificationContext';
@@ -11,6 +12,7 @@ import { APPLICATION_TYPES } from '../config/helpers';
 import { ApplicationService } from '../api/applicationService';
 import { RenewalService } from '../api/renewalService';
 import { CancelService } from '../api/cancelService';
+import { isLicenseManagementRole } from '@/utils/roleUtils';
 
 interface BreadcrumbItem {
   label: string;
@@ -35,6 +37,10 @@ interface HeaderProps {
   hidePrint?: boolean;
   /** Hide the Create Form button even if sidebar is visible */
   hideCreateForm?: boolean;
+  /** Force the Create Form button to show even when the sidebar is hidden */
+  showCreateForm?: boolean;
+  /** Show a back button that navigates to /inbox?type=all */
+  showBackButton?: boolean;
   /** Optional application type label to display in the header */
   applicationTypeLabel?: string;
 }
@@ -47,6 +53,8 @@ const Header = (props: HeaderProps) => {
     statusBadge,
     hidePrint,
     hideCreateForm,
+    showCreateForm,
+    showBackButton,
     applicationTypeLabel,
   } = props;
   const { showHeader, showSidebar } = useLayout();
@@ -64,6 +72,10 @@ const Header = (props: HeaderProps) => {
   const [isRenewalLookupLoading, setIsRenewalLookupLoading] = useState(false);
   const [isCancelLookupLoading, setIsCancelLookupLoading] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  const showLicenseManagement = isLicenseManagementRole(hookUserRole);
+  const isLicensesActive = pathname === '/licenses';
 
   useEffect(() => {
     const name = userName || user?.name || user?.username;
@@ -301,8 +313,21 @@ const Header = (props: HeaderProps) => {
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left section: breadcrumbs / create form */}
         <div className='flex items-center gap-4 min-w-0'>
-          {/* Show Create Form only when sidebar is visible and not hidden */}
-          {showSidebar && !hideCreateForm && (
+          {/* Back button */}
+          {showBackButton && (
+            <button
+              type='button'
+              onClick={() => router.push('/inbox?type=all')}
+              className='p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-md flex-shrink-0'
+              aria-label='Back to inbox'
+              title='Back to Inbox'
+            >
+              <ChevronLeft className='h-5 w-5' />
+            </button>
+          )}
+          {/* Show Create Form only when sidebar is visible and not hidden,
+              or when explicitly forced via the showCreateForm prop */}
+          {(showSidebar || showCreateForm) && !hideCreateForm && (
             <div className='relative flex-shrink-0'>
               {isZSUser && (
                 <>
@@ -336,6 +361,21 @@ const Header = (props: HeaderProps) => {
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* License Management nav item (moved out of the sidebar), aligned next to Create Form */}
+          {(showSidebar || showCreateForm) && !hideCreateForm && showLicenseManagement && (
+            <div className='relative flex-shrink-0'>
+              <button
+                type='button'
+                onClick={() => router.push('/licenses')}
+                aria-current={isLicensesActive ? 'page' : undefined}
+                className='px-4 py-2 bg-white text-[#001F54] rounded-md hover:bg-gray-100 flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap shadow-sm'
+              >
+                <BadgeCheck className='w-4 h-4 mr-2' aria-hidden='true' />
+                <span>License Management</span>
+              </button>
             </div>
           )}
 

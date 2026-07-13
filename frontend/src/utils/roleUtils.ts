@@ -65,6 +65,25 @@ export const isAdminRole = (role: RoleValue): boolean => {
 };
 
 /**
+ * Roles that have access to the License Management page.
+ */
+export const LICENSE_MANAGEMENT_ROLES = [
+  'ZS',
+  'DCP',
+  'CP',
+  'JTCP',
+  'ARMS_SUPDT',
+  'ARMS_SEAT',
+  'ACO',
+];
+
+/**
+ * Check if a role can access the License Management page.
+ */
+export const isLicenseManagementRole = (role: RoleValue): boolean =>
+  isRoleIn(role, LICENSE_MANAGEMENT_ROLES);
+
+/**
  * Check if a role matches any of the provided roles
  */
 export const isRoleIn = (role: RoleValue, allowedRoles: string[]): boolean => {

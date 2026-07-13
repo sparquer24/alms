@@ -15,7 +15,6 @@ import {
   FileText,
   List,
   XCircle,
-  BadgeCheck,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -35,7 +34,6 @@ const MapPinFixed = MapPin as any;
 const FileTextFixed = FileText as any;
 const ListFixed = List as any;
 const XCircleFixed = XCircle as any;
-const BadgeCheckFixed = BadgeCheck as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
@@ -48,7 +46,6 @@ export type MenuMetaKey =
   | 'drafts'
   | 'reports'
   | 'analytics' // New analytics tab
-  | 'licenses'
   | 'cancelform' // Cancel Form workflow
   | 'logout'
   | 'userManagement'
@@ -94,10 +91,6 @@ export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.Re
   analytics: {
     label: 'Analytics',
     icon: () => <BarChart2Fixed className='w-5 h-5' aria-label='Analytics' />,
-  },
-  licenses: {
-    label: 'License Management',
-    icon: () => <BadgeCheckFixed className='w-5 h-5' aria-label='License Management' />,
   },
   cancelform: {
     label: 'Cancel Form',
