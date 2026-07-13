@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
 import { LicenseStatus } from '@prisma/client';
 import * as puppeteer from 'puppeteer';
@@ -11,6 +11,314 @@ export class LicensesService {
   private readonly logger = new Logger(LicensesService.name);
 
   constructor(private prisma: PrismaService) {}
+
+  private normalizeApplicationType(lastModifiedAppType?: string | null): 'FRESH' | 'RENEWAL' | null {
+    if (!lastModifiedAppType) {
+      return null;
+    }
+
+    const normalized = String(lastModifiedAppType).trim().toUpperCase();
+    switch (normalized) {
+      case 'FRESH':
+      case 'FRESHAPPLICATION':
+      case 'FRESH_LICENSE':
+      case 'FRESHLICENSEAPPLICATION':
+        return 'FRESH';
+      case 'RENEWAL':
+      case 'RENEWALAPPLICATION':
+      case 'RENEWAL_APPLICATION':
+        return 'RENEWAL';
+      default:
+        return null;
+    }
+  }
+
+  private buildFreshApplicationInclude() {
+    return {
+      workflowStatus: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+        },
+      },
+      currentUser: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      },
+      previousUser: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      },
+      presentAddress: {
+        include: {
+          state: true,
+          district: true,
+          RangeOffices: true,
+          zone: true,
+          division: true,
+          policeStation: true,
+        },
+      },
+      permanentAddress: {
+        include: {
+          state: true,
+          district: true,
+          RangeOffices: true,
+          zone: true,
+          division: true,
+          policeStation: true,
+        },
+      },
+      occupationAndBusiness: {
+        include: {
+          state: true,
+          district: true,
+        },
+      },
+      biometricData: true,
+      criminalHistories: true,
+      licenseHistories: true,
+      licenseDetails: {
+        include: {
+          requestedWeapons: true,
+        },
+      },
+      fileUploads: true,
+    };
+  }
+
+  private buildRenewalApplicationInclude() {
+    return {
+      workflowStatus: true,
+      currentUser: {
+        include: {
+          role: true,
+        },
+      },
+      previousUser: {
+        include: {
+          role: true,
+        },
+      },
+      presentAddress: {
+        select: {
+          id: true,
+          addressLine: true,
+          stateId: true,
+          districtId: true,
+          policeStationId: true,
+          sinceResiding: true,
+          divisionId: true,
+          zoneId: true,
+          telephoneOffice: true,
+          telephoneResidence: true,
+          officeMobileNumber: true,
+          alternativeMobile: true,
+          rangeOfficeId: true,
+          state: true,
+          district: true,
+          RangeOffices: true,
+          zone: true,
+          division: true,
+          policeStation: true,
+        },
+      },
+      permanentAddress: {
+        select: {
+          id: true,
+          addressLine: true,
+          stateId: true,
+          districtId: true,
+          policeStationId: true,
+          sinceResiding: true,
+          divisionId: true,
+          zoneId: true,
+          telephoneOffice: true,
+          telephoneResidence: true,
+          officeMobileNumber: true,
+          alternativeMobile: true,
+          rangeOfficeId: true,
+          state: true,
+          district: true,
+          RangeOffices: true,
+          zone: true,
+          division: true,
+          policeStation: true,
+        },
+      },
+      occupationAndBusiness: {
+        select: {
+          id: true,
+          occupation: true,
+          officeAddress: true,
+          stateId: true,
+          districtId: true,
+          cropLocation: true,
+          areaUnderCultivation: true,
+          state: true,
+          district: true,
+        },
+      },
+      licenseDetails: {
+        include: { requestedWeapons: true },
+      },
+      criminalHistories: true,
+      licenseHistories: true,
+      fileUploads: true,
+      biometricData: true,
+      workflowHistories: {
+        orderBy: { createdAt: 'desc' as const },
+        include: {
+          nextUser: {
+            include: { role: true },
+          },
+          previousUser: {
+            include: { role: true },
+          },
+          nextRole: true,
+          previousRole: true,
+        },
+      },
+    };
+  }
+
+  private async attachFreshWorkflowHistories(application: any) {
+    const workflowHistories = await this.prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+      where: { applicationId: application.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        previousRole: true,
+        previousUser: true,
+        nextRole: true,
+        nextUser: true,
+        actiones: true,
+      },
+    });
+
+    if (workflowHistories.length > 0) {
+      application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }: { previousUser: any; previousRole: any; nextUser: any; nextRole: any; [key: string]: any }) => ({
+        ...rest,
+        previousUserName: previousUser?.username ?? null,
+        previousRoleName: previousRole?.name ?? null,
+        nextUserName: nextUser?.username ?? null,
+        nextRoleName: nextRole?.name ?? null,
+      }));
+    }
+
+    return application;
+  }
+
+  private async loadApplicationForLicense(licenseRecord: any) {
+    const applicationType = this.normalizeApplicationType(licenseRecord?.lastModifiedAppType);
+    const sourceApplicationId = licenseRecord?.sourceApplicationId;
+
+    if (!sourceApplicationId) {
+      return null;
+    }
+
+    if (!applicationType) {
+      throw new BadRequestException(`Unsupported lastModifiedAppType: ${licenseRecord?.lastModifiedAppType}`);
+    }
+
+    if (applicationType === 'FRESH') {
+      const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: sourceApplicationId },
+        include: this.buildFreshApplicationInclude(),
+      });
+
+      if (!application) {
+        throw new Error(' Fresh License Application not found');
+      }
+       return application;
+    }
+
+    const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+      where: { id: sourceApplicationId },
+      include: this.buildRenewalApplicationInclude(),
+    });
+
+    if (!application) {
+      throw new Error(' Renewal License Application not found');
+    }
+
+    let freshApplicationId: number | null = null;
+    if (application.licenseNumber) {
+      const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
+        where: { acknowledgementNo: application.licenseNumber },
+        select: { id: true },
+      });
+
+      if (freshApp) {
+        freshApplicationId = freshApp.id;
+      }
+    }
+
+    return {
+      ...application,
+      freshApplicationId,
+    };
+  }
+
+  buildLicenseDetailResponse(license: any, sourceApplication: any) {
+    if (!license || !sourceApplication) {
+      return null;
+    }
+
+    const excludedKeys = [
+      'presentAddressId',
+      'permanentAddressId',
+      'contactInfoId',
+      'occupationInfoId',
+      'biometricDataId',
+      'statusId',
+      'workflowStatusId',
+      'currentRoleId',
+      'previousRoleId',
+      'currentUserId',
+      'previousUserId',
+      'stateId',
+      'districtId',
+    ];
+
+    const transformed: Record<string, any> = {
+      ...sourceApplication,
+      ...{
+        licenseId: license.id,
+        licenseNumber: license.licenseNumber,
+        almsLicenseId: license.almsLicenseId,
+        sourceApplicationId: license.sourceApplicationId,
+        lastModifiedAppType: license.lastModifiedAppType,
+      },
+      applicantName: [sourceApplication.firstName, sourceApplication.middleName, sourceApplication.lastName].filter(Boolean).join(' '),
+    };
+
+    excludedKeys.forEach((key) => {
+      delete transformed[key];
+    });
+
+    return transformed;
+  }
 
   async generateLicensePdf(sourceApplicationId: number, issuedBy: number) {
     // Check if license already exists
@@ -492,33 +800,29 @@ export class LicensesService {
    * Get a single license by ID with full details
    */
   async getLicenseById(id: number) {
-    return this.prisma.licenses.findUnique({
+    const licenseRecord = await this.prisma.licenses.findUnique({
       where: { id },
-      include: {
-        sourceApplication: {
-          select: {
-            id: true,
-            acknowledgementNo: true,
-            almsLicenseId: true,
-          }
-        },
-        issuedByUser: {
-          select: { id: true, username: true }
-        },
-        endorsedWeapons: {
-          select: { id: true, name: true, description: true }
-        },
-        workflowHistories: {
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-          include: {
-            changedByUser: {
-              select: { id: true, username: true }
-            }
-          }
-        }
-      }
+      select: {
+        id: true,
+        licenseNumber: true,
+        almsLicenseId: true,
+        sourceApplicationId: true,
+        lastModifiedAppType: true,
+      },
     });
+
+    if (!licenseRecord) { 
+      throw new Error('License not found');
+    }
+
+    const sourceApplication = await this.loadApplicationForLicense(licenseRecord as any);
+    const mapped = this.buildLicenseDetailResponse(licenseRecord, sourceApplication);
+
+    if (!mapped) {
+      return null;
+    }
+
+    return mapped;
   }
 
   /**

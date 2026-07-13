@@ -768,8 +768,7 @@ model Licenses {
   updatedAt                  DateTime                                @updatedAt
   cancelFormRequests         CancelFormRequests[]                    @relation("LicensesCancelLog")
   workflowHistories          LicenseWorkflowHistory[]
-  issuedByUser               Users?                                  @relation("IssuedLicenses", fields: [issuedBy], references: [id])
-  sourceApplication          FreshLicenseApplicationPersonalDetails? @relation("LicenseSourceFresh", fields: [sourceApplicationId], references: [id])
+  issuedByUser               Users?                                  @relation("IssuedLicenses", fields: [issuedBy], references: [id])          
   renewalFormPersonalDetails RenewalFormPersonalDetails[]            @relation("LicensesRenewalLink")
   endorsedWeapons            WeaponTypeMaster[]                      @relation("LicenseEndorsedWeapons")
 
