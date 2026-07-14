@@ -985,7 +985,8 @@ const resolveFreshApplicationId = (renewalData: any, urlApplicationId: string) =
 const fetchFreshApplicationWithFiles = async (applicationId: string) => {
   if (!applicationId) return null;
 
-  const freshResponse = await ApplicationService.getApplication(applicationId);
+  const freshResponse = await ApplicationService.getLicense(applicationId);
+  console.log(freshResponse)
   let freshData = extractData(freshResponse);
   if (!freshData) return null;
 
@@ -1632,6 +1633,7 @@ const buildFieldStateFromFreshApplication = (
 
 const buildRenewalPayload = (formData: RenewalFormState) => ({
   ...(formData.freshLicenseId !== undefined && { freshLicenseId: formData.freshLicenseId }),
+  ...(formData.licenseId !== undefined && { licenseId: formData.licenseId }),
   licenseNumber: formData.licenseNumber,
   acknowledgementNo: formData.acknowledgementNo,
   firstName: formData.applicantName,
@@ -1817,7 +1819,7 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     hasAppliedBefore: Boolean(formData.hasAppliedBefore),
     dateAppliedFor: formData.applicationDate || undefined,
     previousAuthorityName: formData.authorityAppliedTo || '',
-    previousResult: formData.applicationResult ? formData.applicationResult.toUpperCase() : '',
+    previousResult: formData.applicationResult ? formData.applicationResult.toUpperCase() : undefined,
     hasLicenceSuspended: Boolean(formData.licenseRevokedOrSuspended),
     suspensionAuthorityName: formData.revokedByAuthority || '',
     suspensionReason: formData.revokedReason || '',
@@ -1953,6 +1955,14 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     isTermsAccepted: Boolean(formData.declaration?.agreeToTerms),
   };
 
+  // Include licenseId/licenseNumber on the parent record if available
+  if (formData.licenseId !== undefined) {
+    payload.licenseId = formData.licenseId;
+  }
+  if (formData.licenseNumber) {
+    payload.licenseNumber = formData.licenseNumber;
+  }
+
   return payload;
 };
 
@@ -1968,6 +1978,7 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
       data?.freshApplicationId,
       data?.sourceApplicationId
     ),
+    licenseId: data?.licenseId !== undefined ? Number(data.licenseId) : undefined,
     freshLicenseId: data?.freshLicenseId ? Number(data.freshLicenseId) : undefined,
     licenseNumber: getTextValue(data?.licenseNumber),
     acknowledgementNo: getTextValue(data?.acknowledgementNo, personalDetails?.acknowledgementNo),
@@ -2055,7 +2066,7 @@ const loadExistingRenewalByLicenseNumber = async (
       : `Loaded existing renewal application ${getTextValue(renewalData?.acknowledgementNo, existingRenewalId)} for license ${licenseNumber}.`
   );
   router.replace(
-    `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+    `/forms/renewal?licenseId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
   );
   return true;
 };
@@ -2110,7 +2121,7 @@ const createDraftRenewalFromFreshApplication = async (
         : `Created renewal application ${getTextValue(created?.acknowledgementNo, newRenewalId)}.`
     );
     router.replace(
-      `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(newRenewalId)}`
+      `/forms/renewal?licenseId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(newRenewalId)}`
     );
   } catch (createError: any) {
     const message = String(createError?.message || '');
@@ -2138,8 +2149,11 @@ const createDraftRenewalFromFreshApplication = async (
 function RenewalFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlApplicationId =
-    searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
+  const licenseId = searchParams?.get('licenseId') || '';
+  const urlLicenseId =
+    licenseId ||
+    searchParams?.get('applicationId') ||
+    searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
   const createdRenewalIdRef = useRef<string | null>(null);
   const personalSectionRef = React.useRef<any>(null);
@@ -2166,8 +2180,8 @@ function RenewalFormPageContent() {
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
 
   // Biometric verification states
-  const [enteredAppId, setEnteredAppId] = useState(urlApplicationId || '');
-  const resolvedApplicationId = urlApplicationId || enteredAppId;
+  const [enteredLicenseId, setEnteredLicenseId] = useState(urlLicenseId || '');
+  const resolvedLicenseId = urlLicenseId || enteredLicenseId;
   const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<
@@ -2178,7 +2192,7 @@ function RenewalFormPageContent() {
   const [applicantDetails, setApplicantDetails] = useState<{
     name: string;
     licenseNumber: string;
-    applicationId: string;
+    licenseId: string;
   } | null>(null);
   const [deviceConnected, setDeviceConnected] = useState(false);
   const [deviceChecking, setDeviceChecking] = useState(false);
@@ -2324,20 +2338,22 @@ function RenewalFormPageContent() {
     }
   };
 
-  const checkBiometricRequirement = async (appId: string) => {
+  const checkBiometricRequirement = async (licenseIdentifier: string) => {
     try {
       setVerificationChecking(true);
       setVerificationError(null);
 
-      // Fetch fresh application to confirm existence and get details
-      const freshResponse = await ApplicationService.getApplication(appId);
+      // Fetch the license record by License ID or License Number to confirm
+      // existence and load its enrolled biometrics for verification.
+      const freshResponse = await ApplicationService.getLicense(licenseIdentifier);
       const freshData = extractData(freshResponse);
       if (!freshData) {
-        throw new Error('No application data found for the provided Application ID.');
+        throw new Error('No license data found for the provided License ID or License Number.');
       }
 
-      // Check if fresh application has enrolled fingerprints directly in biometricData
-      const numericAppId = String(freshData.id || freshData.applicationId || appId);
+      const numericLicenseId = String(
+        freshData.licenseId ||freshData.id || licenseIdentifier
+      );
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
 
@@ -2346,7 +2362,7 @@ function RenewalFormPageContent() {
         .map((f: any) => ({
           template: f.template,
           fingerPosition: f.position,
-          applicationId: numericAppId,
+          applicationId: numericLicenseId,
         }));
 
       const name =
@@ -2357,7 +2373,7 @@ function RenewalFormPageContent() {
       const details = {
         name,
         licenseNumber: getLicenseNumber(freshData) || 'Pending',
-        applicationId: numericAppId,
+        licenseId: numericLicenseId,
       };
       setApplicantDetails(details);
 
@@ -2374,14 +2390,14 @@ function RenewalFormPageContent() {
         setVerificationStatus('VERIFIED');
       }
     } catch (err: any) {
-      setVerificationError(err?.message || 'Failed to fetch application details.');
+      setVerificationError(err?.message || 'Failed to fetch license details.');
       setVerificationStatus('ENTER_APP_ID');
     } finally {
       setVerificationChecking(false);
     }
   };
 
-  const resolveAppIdAndCheck = async (rId: string) => {
+  const resolveRenewalLicenseAndCheck = async (rId: string) => {
     try {
       setVerificationChecking(true);
       setVerificationError(null);
@@ -2397,15 +2413,57 @@ function RenewalFormPageContent() {
         return;
       }
 
-      const appId = resolveFreshApplicationId(renewalData, '');
-      if (!appId) {
-        throw new Error('Could not resolve original Application ID from renewal.');
+      const resolvedLicense = getTextValue(
+        renewalData?.licenseId,
+        renewalData?.freshLicenseId,
+        renewalData?.licenseNumber,
+        renewalData?.applicationId,
+        renewalData?.freshApplicationId,
+        renewalData?.sourceApplicationId
+      );
+      if (!resolvedLicense) {
+        throw new Error('Could not resolve License ID or License Number from the renewal.');
       }
-      setEnteredAppId(appId);
-      await checkBiometricRequirement(appId);
+      setEnteredLicenseId(resolvedLicense);
+      await checkBiometricRequirement(resolvedLicense);
     } catch (err: any) {
-      setVerificationError(err?.message || 'Failed to resolve application details.');
+      setVerificationError(err?.message || 'Failed to resolve license details.');
       setVerificationStatus('ENTER_APP_ID');
+      setVerificationChecking(false);
+    }
+  };
+
+  const resolveLicenseId = async (lid: string) => {
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+      await checkBiometricRequirement(lid);
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to resolve license details.');
+      setVerificationStatus('ENTER_APP_ID');
+    } finally {
+      setVerificationChecking(false);
+    }
+  };
+
+  const handleLicenseLookup = async () => {
+    const value = enteredLicenseId.trim();
+    if (!value) {
+      setVerificationError('Enter a License ID or License Number.');
+      return;
+    }
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+      const licenseResponse = await ApplicationService.getLicense(value);
+      const licenseData = extractData(licenseResponse);
+      if (!licenseData) {
+        throw new Error('No license data found for the provided License ID or License Number.');
+      }
+      router.push(`/forms/renewal?licenseId=${encodeURIComponent(value)}`);
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to verify License ID or License Number.');
+    } finally {
       setVerificationChecking(false);
     }
   };
@@ -2521,15 +2579,15 @@ function RenewalFormPageContent() {
 
   useEffect(() => {
     if (renewalId) {
-      resolveAppIdAndCheck(renewalId);
-    } else if (urlApplicationId) {
-      setEnteredAppId(urlApplicationId);
-      checkBiometricRequirement(urlApplicationId);
+      resolveRenewalLicenseAndCheck(renewalId);
+    } else if (urlLicenseId) {
+      setEnteredLicenseId(urlLicenseId);
+      resolveLicenseId(urlLicenseId);
     } else {
       setVerificationStatus('ENTER_APP_ID');
       setIsLoading(false);
     }
-  }, [urlApplicationId, renewalId]);
+  }, [urlLicenseId, renewalId]);
 
   const handleFormPatch = (patch: Record<string, unknown>) => {
     hasUserInteractedRef.current = true;
@@ -2641,8 +2699,8 @@ function RenewalFormPageContent() {
 
   useEffect(() => {
     if (!isVerified) return;
-    const resolvedApplicationId = urlApplicationId || enteredAppId;
-    if (!resolvedApplicationId && !renewalId) {
+    const resolvedLicenseId = urlLicenseId || enteredLicenseId;
+    if (!resolvedLicenseId && !renewalId) {
       setError('No application context was provided.');
       setIsLoading(false);
       return;
@@ -2674,20 +2732,20 @@ function RenewalFormPageContent() {
       setRenewalRecord(renewalData);
 
       // Fetch fresh application data to display and pre-fill renewal form
-      const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
+      const freshData = await fetchFreshApplicationWithFiles(resolvedLicenseId);
       let mergedFormData: RenewalFormState;
       if (freshData) {
         const freshFormState = buildFieldStateFromFreshApplication(
-          resolvedApplicationId,
+          resolvedLicenseId,
           freshData
         );
         const renewalFormData = await buildFormDataFromRenewalRecord(
           renewalData,
-          resolvedApplicationId
+          resolvedLicenseId
         );
         mergedFormData = mergeRenewalStateOverFresh(freshFormState, renewalFormData, renewalData);
       } else {
-        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
+        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedLicenseId);
       }
 
       const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
@@ -2715,9 +2773,9 @@ function RenewalFormPageContent() {
           return;
         }
 
-        // Path B: Only applicationId — fetch fresh app, check for existing renewal.
+        // Path B: Only licenseId — fetch license, check for existing renewal.
         // Step 1: Fetch fresh application data to extract licenseNumber.
-        const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
+        const freshData = await fetchFreshApplicationWithFiles(resolvedLicenseId);
 
         if (!freshData) {
           throw new Error('No fresh application data found for the provided ID.');
@@ -2740,18 +2798,18 @@ function RenewalFormPageContent() {
               await loadRenewalById(existingRenewalId);
               // Update URL to include renewalId.
               router.replace(
-                `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+                `/forms/renewal?licenseId=${encodeURIComponent(resolvedLicenseId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
               );
               return;
             }
           }
         }
 
-        const prefilledForm = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
+        const prefilledForm = buildFieldStateFromFreshApplication(resolvedLicenseId, freshData);
 
         // Validate that the fresh application has been submitted.
         const applicationCheckResponse =
-          await ApplicationService.getApplication(resolvedApplicationId);
+          await ApplicationService.getLicense(resolvedLicenseId);
         const isSubmitted =
           applicationCheckResponse?.isSubmit === true ||
           applicationCheckResponse?.data?.isSubmit === true;
@@ -2760,7 +2818,7 @@ function RenewalFormPageContent() {
         }
 
         await createDraftRenewalFromFreshApplication(
-          resolvedApplicationId,
+          resolvedLicenseId,
           prefilledForm,
           setRenewalRecord,
           setFormData,
@@ -2776,7 +2834,7 @@ function RenewalFormPageContent() {
     };
 
     load();
-  }, [isVerified, urlApplicationId, enteredAppId, renewalId, router]);
+  }, [isVerified, urlLicenseId, enteredLicenseId, renewalId, router]);
 
   function handleChange(
     event:
@@ -3538,7 +3596,7 @@ function RenewalFormPageContent() {
       if (saved) {
         const mergedFormData = await buildFormDataFromRenewalRecord(
           saved,
-          resolveFreshApplicationId(saved, resolvedApplicationId)
+          resolveFreshApplicationId(saved, resolvedLicenseId)
         );
         const { formData: syncedForm } = await applyPrefilledDocumentUploads(
           activeRenewalId,
@@ -3701,7 +3759,7 @@ function RenewalFormPageContent() {
       setRenewalRecord(renewalData);
       const merged = await buildFormDataFromRenewalRecord(
         renewalData,
-        resolveFreshApplicationId(renewalData, resolvedApplicationId)
+        resolveFreshApplicationId(renewalData, resolvedLicenseId)
       );
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
       setFormData(syncedForm as RenewalFormState);
@@ -3752,8 +3810,8 @@ function RenewalFormPageContent() {
                       License Renewal Verification
                     </h2>
                     <p className='mt-2 text-sm text-gray-600'>
-                      Please enter your Fresh Application ID to verify your identity and start the
-                      renewal process.
+                      Please enter your License ID or License Number to verify your identity and start
+                      the renewal process.
                     </p>
                   </div>
 
@@ -3766,27 +3824,27 @@ function RenewalFormPageContent() {
                   <div className='space-y-4'>
                     <div>
                       <label
-                        htmlFor='app-id'
+                        htmlFor='license-id'
                         className='block text-sm font-semibold text-gray-700 mb-1'
                       >
-                        Fresh Application ID
+                        License ID or License Number
                       </label>
                       <input
-                        id='app-id'
+                        id='license-id'
                         type='text'
-                        value={enteredAppId}
-                        onChange={e => setEnteredAppId(e.target.value)}
-                        placeholder='e.g. 12345'
+                        value={enteredLicenseId}
+                        onChange={e => setEnteredLicenseId(e.target.value)}
+                        placeholder='e.g. 12 or LUAN20260703132128000625'
                         className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold'
                       />
                     </div>
 
                     <button
-                      onClick={() => checkBiometricRequirement(enteredAppId)}
-                      disabled={verificationChecking || !enteredAppId.trim()}
+                      onClick={handleLicenseLookup}
+                      disabled={verificationChecking || !enteredLicenseId.trim()}
                       className='w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]'
                     >
-                      {verificationChecking ? 'Checking...' : 'Verify Application'}
+                      {verificationChecking ? 'Checking...' : 'Verify / Continue'}
                     </button>
                   </div>
                 </div>
@@ -3819,9 +3877,9 @@ function RenewalFormPageContent() {
                     <span className='text-gray-800 font-semibold'>{applicantDetails.name}</span>
                   </div>
                   <div className='flex justify-between text-sm'>
-                    <span className='text-gray-500 font-medium'>Application ID</span>
+                    <span className='text-gray-500 font-medium'>License ID</span>
                     <span className='text-gray-800 font-semibold'>
-                      {applicantDetails.applicationId}
+                      {applicantDetails.licenseId}
                     </span>
                   </div>
                   <div className='flex justify-between text-sm'>
@@ -3992,7 +4050,7 @@ function RenewalFormPageContent() {
                     }}
                     className='w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm'
                   >
-                    Change Application ID
+                     Change License ID / Number
                   </button>
                 </div>
               </div>
@@ -4463,7 +4521,7 @@ function RenewalFormPageContent() {
       <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader
-            applicationId={urlApplicationId || enteredAppId}
+            licenseId={urlLicenseId || enteredLicenseId}
             renewalId={renewalId || createdRenewalIdRef.current || ''}
             summaryData={formData || renewalRecord}
           />
@@ -4481,8 +4539,8 @@ function RenewalFormPageContent() {
           >
             <div className='rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900'>
               <div className='flex flex-wrap items-center gap-3'>
-                <span className='font-semibold'>Fresh Application ID:</span>
-                <span>{urlApplicationId || enteredAppId || 'Not provided'}</span>
+                <span className='font-semibold'>License ID:</span>
+                <span>{urlLicenseId || enteredLicenseId || 'Not provided'}</span>
                 <span className='font-semibold'>Renewal ID:</span>
                 <span>{renewalId || createdRenewalIdRef.current || 'Pending'}</span>
                 {statusMessage && (
@@ -4661,14 +4719,14 @@ function RenewalFormPageContent() {
                     onPrevious={() => {
                       if (renewalId)
                         router.push(
-                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
+                          `/forms/renewal?licenseId=${encodeURIComponent(resolvedLicenseId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
                         );
                       else router.back();
                     }}
                     onNext={() => {
                       if (activeRenewalId)
                         router.push(
-                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
+                          `/forms/renewal?licenseId=${encodeURIComponent(resolvedLicenseId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
                         );
                     }}
                     onSaveToDraft={saveRenewalDraft}

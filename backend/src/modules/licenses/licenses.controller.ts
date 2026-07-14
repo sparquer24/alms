@@ -128,10 +128,10 @@ export class LicensesController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a license by ID with full details' })
-  @ApiParam({ name: 'id', description: 'License ID' })
+  @ApiOperation({ summary: 'Get a license by ID or license number with full details' })
+  @ApiParam({ name: 'id', description: 'License ID (numeric) or License Number (LUAN-prefixed)' })
   async getLicenseById(@Param('id') id: string) {
-    const license = await this.licensesService.getLicenseById(Number(id));
+    const license = await this.licensesService.getLicenseById(id);
     if (!license) throw new NotFoundException('License not found');
     return {
       success: true,
@@ -144,7 +144,7 @@ export class LicensesController {
   @ApiOperation({ summary: 'Get workflow history for a license' })
   @ApiParam({ name: 'id', description: 'License ID' })
   async getLicenseHistory(@Param('id') id: string) {
-    const license = await this.licensesService.getLicenseById(Number(id));
+    const license = await this.licensesService.getLicenseById(id);
     if (!license) throw new NotFoundException('License not found');
     return this.licensesService.getLicenseHistory(Number(id));
   }
@@ -153,7 +153,7 @@ export class LicensesController {
   @ApiOperation({ summary: 'Get audit events for a license' })
   @ApiParam({ name: 'id', description: 'License ID' })
   async getLicenseAudit(@Param('id') id: string) {
-    const license = await this.licensesService.getLicenseById(Number(id));
+    const license = await this.licensesService.getLicenseById(id);
     if (!license) throw new NotFoundException('License not found');
     return this.licensesService.getLicenseAudit(Number(id));
   }

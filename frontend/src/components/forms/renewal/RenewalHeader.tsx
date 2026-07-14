@@ -1,7 +1,7 @@
 import React from 'react';
 import RenewalSummary from './RenewalSummary';
 
-const RenewalHeader: React.FC<{ applicationId?: string; renewalId?: string; summaryData?: any }> = ({ applicationId, renewalId, summaryData }) => {
+const RenewalHeader: React.FC<{ licenseId?: string; renewalId?: string; summaryData?: any }> = ({ licenseId, renewalId, summaryData }) => {
   return (
     <header className='mb-6'>
       <div className='flex items-center justify-between rounded-2xl bg-[#001F54] px-6 py-4 text-white shadow-lg'>
@@ -21,7 +21,7 @@ const RenewalHeader: React.FC<{ applicationId?: string; renewalId?: string; summ
       </div>
 
       <div className='mt-4'>
-        <RenewalSummary applicationId={applicationId} renewalId={renewalId} data={summaryData} />
+        <RenewalSummary licenseId={licenseId} renewalId={renewalId} data={summaryData} />
       </div>
     </header>
   );

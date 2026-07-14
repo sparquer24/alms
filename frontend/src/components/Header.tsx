@@ -10,7 +10,6 @@ import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
 import { ApplicationService } from '../api/applicationService';
-import { RenewalService } from '../api/renewalService';
 import { CancelService } from '../api/cancelService';
 import { isLicenseManagementRole } from '@/utils/roleUtils';
 
@@ -63,14 +62,11 @@ const Header = (props: HeaderProps) => {
   const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [renewalApplicationId, setRenewalApplicationId] = useState('');
   const [cancelApplicationId, setCancelApplicationId] = useState('');
-  const [renewalLookupError, setRenewalLookupError] = useState<string | null>(null);
   const [cancelLookupError, setCancelLookupError] = useState<string | null>(null);
-  const [isRenewalLookupLoading, setIsRenewalLookupLoading] = useState(false);
   const [isCancelLookupLoading, setIsCancelLookupLoading] = useState(false);
+
   const router = useRouter();
   const pathname = usePathname();
 
@@ -89,9 +85,7 @@ const Header = (props: HeaderProps) => {
       if (type.key === 'fresh') {
         router.push('/forms/createFreshApplication/personal-information');
       } else if (type.key === 'renewal') {
-        setRenewalApplicationId('');
-        setRenewalLookupError(null);
-        setShowRenewalModal(true);
+        router.push('/forms/renewal');
       } else if (type.key === 'cancel') {
         setCancelApplicationId('');
         setCancelLookupError(null);
@@ -101,140 +95,6 @@ const Header = (props: HeaderProps) => {
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
-    }
-  };
-
-  const getLicenseNumber = (data: any): string => {
-    if (!data) return '';
-    return (
-      data.licenseNumber ||
-      data.almsLicenseId ||
-      data.licenseId ||
-      data.previousLicenseNumber ||
-      data.licenseHistories?.[0]?.previousLicenseNumber ||
-      data.licenseHistory?.[0]?.previousLicenseNumber ||
-      data.previousApplicationDetails?.previousLicenseNumber ||
-      ''
-    );
-  };
-
-  const handleRenewalSubmit = async () => {
-    const id = renewalApplicationId.trim();
-
-    if (!id) {
-      setRenewalLookupError('Enter a Fresh Application ID or Acknowledgement Number.');
-      return;
-    }
-
-    try {
-      setIsRenewalLookupLoading(true);
-      setRenewalLookupError(null);
-
-      const response = await ApplicationService.getApplication(id);
-      const freshApplication = response?.data ?? response;
-
-      if (!freshApplication) {
-        throw new Error('No fresh application data returned for that ID.');
-      }
-
-      const workflowStatusCode = freshApplication?.workflowStatus?.code?.toString().toUpperCase();
-      const hasApprovedHistory =
-        Array.isArray(freshApplication?.workflowHistories) &&
-        freshApplication.workflowHistories.some(
-          (history: any) => history?.actionTaken?.toString().toUpperCase() === 'APPROVED'
-        );
-
-      if (workflowStatusCode !== 'APPROVED' && !hasApprovedHistory) {
-        throw new Error('Only approved fresh applications can create a renewal form.');
-      }
-
-      const licenseNumber = getLicenseNumber(freshApplication);
-      if (licenseNumber) {
-        const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
-        if (existingRenewal) {
-          const existingRenewalId = existingRenewal.id || existingRenewal.renewalApplicationId;
-          if (existingRenewalId) {
-            // Display the existing Renewal ID
-            setRenewalLookupError(
-              `Renewal already exists (Renewal ID: ${existingRenewalId}). Redirecting...`
-            );
-            setTimeout(() => {
-              setShowRenewalModal(false);
-              router.push(
-                `/forms/renewal?applicationId=${encodeURIComponent(id)}&renewalId=${encodeURIComponent(String(existingRenewalId))}`
-              );
-            }, 1500);
-            return;
-          }
-        }
-      }
-
-      // Create new Renewal Application using Renewal creation API
-      const getSexValue = (val: any): 'MALE' | 'FEMALE' | 'OTHER' => {
-        const s = String(val || '').toUpperCase();
-        if (s === 'FEMALE') return 'FEMALE';
-        if (s === 'OTHER') return 'OTHER';
-        return 'MALE';
-      };
-
-      const formatDate = (val: any): string => {
-        if (!val) return '';
-        try {
-          const d = new Date(val);
-          if (!isNaN(d.getTime())) {
-            return d.toISOString().split('T')[0];
-          }
-        } catch {}
-        return '';
-      };
-
-      const payload = {
-        freshLicenseId: freshApplication.id ? Number(freshApplication.id) : undefined,
-        licenseNumber,
-        firstName:
-          freshApplication.firstName ||
-          freshApplication.personalDetails?.firstName ||
-          freshApplication.applicantName ||
-          'N/A',
-        middleName:
-          freshApplication.middleName || freshApplication.personalDetails?.middleName || '',
-        lastName: freshApplication.lastName || freshApplication.personalDetails?.lastName || '',
-        parentOrSpouseName:
-          freshApplication.parentOrSpouseName ||
-          freshApplication.personalDetails?.parentOrSpouseName ||
-          freshApplication.fatherName ||
-          'N/A',
-        sex: getSexValue(
-          freshApplication.sex || freshApplication.personalDetails?.sex || freshApplication.gender
-        ),
-        dateOfBirth: formatDate(
-          freshApplication.dateOfBirth || freshApplication.personalDetails?.dateOfBirth
-        ),
-        dobInWords:
-          freshApplication.dobInWords || freshApplication.personalDetails?.dobInWords || '',
-        panNumber: freshApplication.panNumber || '',
-        aadharNumber: freshApplication.aadharNumber || freshApplication.aadhaarNumber || '',
-        filledBy: freshApplication.filledBy || '',
-      };
-
-      const createResponse = await RenewalService.createRenewalForm(payload);
-      const created = createResponse?.data ?? createResponse;
-      const newRenewalId = created?.id || created?.renewalApplicationId;
-
-      if (!newRenewalId) {
-        throw new Error('Renewal application was created but no renewal ID was returned.');
-      }
-
-      setShowRenewalModal(false);
-      router.push(
-        `/forms/renewal?applicationId=${encodeURIComponent(id)}&renewalId=${encodeURIComponent(String(newRenewalId))}`
-      );
-    } catch (error: any) {
-      const message = error?.message || 'Unable to fetch fresh application data.';
-      setRenewalLookupError(message);
-      onShowMessage?.(message, 'error');
-    } finally {
-      setIsRenewalLookupLoading(false);
     }
   };
 
@@ -557,58 +417,7 @@ const Header = (props: HeaderProps) => {
         </div>
       </div>
 
-      {showRenewalModal && (
-        <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
-          <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
-            <h2 className='text-lg font-semibold text-gray-900'>Renewal Application</h2>
-            <p className='mt-2 text-sm text-gray-600'>
-              Enter the approved Fresh Application ID or Acknowledgement Number to load the existing
-              application data.
-            </p>
 
-            <div className='mt-4'>
-              <label
-                htmlFor='renewal-application-id'
-                className='block text-sm font-medium text-gray-700'
-              >
-                Fresh Application ID / Acknowledgement Number
-              </label>
-              <input
-                id='renewal-application-id'
-                value={renewalApplicationId}
-                onChange={e => {
-                  setRenewalApplicationId(e.target.value);
-                  if (renewalLookupError) setRenewalLookupError(null);
-                }}
-                placeholder='Enter ID or Acknowledgement Number (e.g., ALMS...)'
-                className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
-                autoFocus
-              />
-              {renewalLookupError && (
-                <p className='mt-2 text-sm text-red-600'>{renewalLookupError}</p>
-              )}
-            </div>
-
-            <div className='mt-6 flex justify-end gap-3'>
-              <button
-                type='button'
-                onClick={() => setShowRenewalModal(false)}
-                className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
-              >
-                Cancel
-              </button>
-              <button
-                type='button'
-                onClick={handleRenewalSubmit}
-                disabled={isRenewalLookupLoading}
-                className='rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73] disabled:cursor-not-allowed disabled:opacity-70'
-              >
-                {isRenewalLookupLoading ? 'Loading…' : 'Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showCancelModal && (
         <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
