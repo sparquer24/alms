@@ -12,7 +12,7 @@ export class LicensesService {
 
   constructor(private prisma: PrismaService) {}
 
-  private normalizeApplicationType(lastModifiedAppType?: string | null): 'FRESH' | 'RENEWAL' | null {
+  private normalizeApplicationType(lastModifiedAppType?: string | null): 'FRESH' | 'RENEWAL' | 'CANCELLATION' | null {
     if (!lastModifiedAppType) {
       return null;
     }
@@ -28,6 +28,12 @@ export class LicensesService {
       case 'RENEWALAPPLICATION':
       case 'RENEWAL_APPLICATION':
         return 'RENEWAL';
+      case 'CANCELLATION':
+      case 'CANCEL':
+      case 'CANCELLED':
+      case 'CANCELREQUEST':
+      case 'CANCEL_FORM_REQUEST':
+        return 'CANCELLATION';
       default:
         return null;
     }
@@ -96,7 +102,7 @@ export class LicensesService {
           district: true,
         },
       },
-      biometricData: true,
+   //   biometricData: true,
       criminalHistories: true,
       licenseHistories: true,
       licenseDetails: {
@@ -104,7 +110,7 @@ export class LicensesService {
           requestedWeapons: true,
         },
       },
-      fileUploads: true,
+   //   fileUploads: true,
     };
   }
 
@@ -185,21 +191,8 @@ export class LicensesService {
       },
       criminalHistories: true,
       licenseHistories: true,
-      fileUploads: true,
-      biometricData: true,
-      workflowHistories: {
-        orderBy: { createdAt: 'desc' as const },
-        include: {
-          nextUser: {
-            include: { role: true },
-          },
-          previousUser: {
-            include: { role: true },
-          },
-          nextRole: true,
-          previousRole: true,
-        },
-      },
+     fileUploads: true,
+     biometricData: true
     };
   }
 
@@ -922,20 +915,13 @@ export class LicensesService {
     const orderByField = (filters.orderBy && allowedOrderFields.includes(filters.orderBy)) ? filters.orderBy : 'createdAt';
     const orderDirection = filters.order && filters.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-    const [data, total] = await Promise.all([
+    const [licenses, total] = await Promise.all([
       this.prisma.licenses.findMany({
         where,
         skip,
         take: limit,
         orderBy: { [orderByField]: orderDirection },
         include: {
-          sourceApplication: {
-            select: {
-              id: true,
-              acknowledgementNo: true,
-              almsLicenseId: true,
-            }
-          },
           endorsedWeapons: {
             select: { id: true, name: true }
           }
@@ -943,6 +929,54 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({ where }),
     ]);
+
+    // Batch-enrich licenses with source application metadata using type-based lookups
+    const freshLicenseIds: number[] = [];
+    const renewalLicenseIds: number[] = [];
+    for (const lic of licenses) {
+      const appType = this.normalizeApplicationType(lic.lastModifiedAppType);
+      if (lic.sourceApplicationId && appType === 'FRESH') {
+        freshLicenseIds.push(lic.sourceApplicationId);
+      } else if (lic.sourceApplicationId && appType === 'RENEWAL') {
+        renewalLicenseIds.push(lic.sourceApplicationId);
+      }
+    }
+
+    // Fetch all fresh source apps in one query
+    const freshApps = freshLicenseIds.length > 0
+      ? await this.prisma.freshLicenseApplicationPersonalDetails.findMany({
+          where: { id: { in: freshLicenseIds } },
+          select: { id: true, acknowledgementNo: true, almsLicenseId: true },
+        })
+      : [];
+    const freshAppMap = new Map(freshApps.map(a => [a.id, a]));
+
+    // Fetch all renewal source apps in one query
+    const renewalApps = renewalLicenseIds.length > 0
+      ? await this.prisma.renewalFormPersonalDetails.findMany({
+          where: { id: { in: renewalLicenseIds } },
+          select: { id: true, acknowledgementNo: true },
+        })
+      : [];
+    const renewalAppMap = new Map(renewalApps.map(a => [a.id, a]));
+
+    // Enrich each license
+    const data = licenses.map((license) => {
+      let sourceAppMeta: { id: number; acknowledgementNo: string | null; almsLicenseId: string | null } | null = null;
+      const appType = this.normalizeApplicationType(license.lastModifiedAppType);
+      if (license.sourceApplicationId && appType === 'FRESH') {
+        const app = freshAppMap.get(license.sourceApplicationId);
+        if (app) {
+          sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: app.almsLicenseId };
+        }
+      } else if (license.sourceApplicationId && appType === 'RENEWAL') {
+        const app = renewalAppMap.get(license.sourceApplicationId);
+        if (app) {
+          sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: null };
+        }
+      }
+      return { ...license, sourceApplication: sourceAppMeta };
+    });
 
     return { data, total, page, limit };
   }
@@ -968,29 +1002,9 @@ export class LicensesService {
    * Otherwise falls through to the standard license lookup.
    */
   async getLicenseByNumber(licenseNumber: string) {
-    // First check: is there an existing draft renewal for this license?
-    const draftRenewal = await this.prisma.renewalFormPersonalDetails.findFirst({
-      where: {
-        licenseNumber,
-        isSubmit: false,
-      },
-      include: this.buildRenewalApplicationInclude(),
-    });
-
-    if (draftRenewal) {
-      return draftRenewal;
-    }
-
-    // Fall through to standard license lookup
-    return this.prisma.licenses.findUnique({
+    const license = await this.prisma.licenses.findUnique({
       where: { licenseNumber },
       include: {
-        sourceApplication: {
-          select: {
-            id: true,
-            acknowledgementNo: true,
-          }
-        },
         issuedByUser: {
           select: { id: true, username: true }
         },
@@ -999,6 +1013,31 @@ export class LicensesService {
         }
       }
     });
+
+    if (license && license.sourceApplicationId) {
+      const appType = this.normalizeApplicationType(license.lastModifiedAppType);
+      let sourceAppMeta: { id: number; acknowledgementNo: string | null; almsLicenseId: string | null } | null = null;
+      if (appType === 'FRESH') {
+        const app = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: license.sourceApplicationId },
+          select: { id: true, acknowledgementNo: true, almsLicenseId: true },
+        });
+        if (app) {
+          sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: app.almsLicenseId };
+        }
+      } else if (appType === 'RENEWAL') {
+        const app = await this.prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: license.sourceApplicationId },
+          select: { id: true, acknowledgementNo: true },
+        });
+        if (app) {
+          sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: null };
+        }
+      }
+      return { ...license, sourceApplication: sourceAppMeta };
+    }
+
+    return { ...license, sourceApplication: null };
   }
 
   /**
@@ -1103,28 +1142,91 @@ export class LicensesService {
     const license = await this.prisma.licenses.findUnique({
       where: { id: licenseId },
       select: {
+        id: true,
         sourceApplicationId: true,
-        sourceApplication: {
-          include: {
-            presentAddress: {
-              include: { state: true, district: true, policeStation: true, zone: true, division: true }
-            },
-            permanentAddress: {
-              include: { state: true, district: true, policeStation: true, zone: true, division: true }
-            },
-            occupationAndBusiness: true,
-            licenseDetails: {
-              include: { requestedWeapons: true }
-            },
-            criminalHistories: true,
-            licenseHistories: true,
-            fileUploads: true,
-            biometricData: true,
-          }
-        }
+        lastModifiedAppType: true,
+        licenseNumber: true,
       }
     });
 
-    return license?.sourceApplication || null;
+    if (!license?.sourceApplicationId) {
+      throw new Error('License not found');
+    }
+
+    const appType = this.normalizeApplicationType(license.lastModifiedAppType);
+    if (!appType) {
+      throw new BadRequestException(`Unsupported lastModifiedAppType: ${license.lastModifiedAppType}`);
+    }
+
+    if (appType === 'FRESH') {
+      const sourceApplication = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: license.sourceApplicationId },
+        include: {
+          presentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
+          permanentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
+          occupationAndBusiness: true,
+          licenseDetails: { include: { requestedWeapons: true } },
+          criminalHistories: true,
+          licenseHistories: true,
+          fileUploads: true,
+          biometricData: true,
+        }
+      });
+      if (!sourceApplication) {
+        throw new Error('Fresh License Application not found');
+      }
+      return sourceApplication;
+    }
+
+    if (appType === 'RENEWAL') {
+      const sourceApplication = await this.prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: license.sourceApplicationId },
+        include: {
+          presentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
+          permanentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
+          occupationAndBusiness: true,
+          licenseDetails: { include: { requestedWeapons: true } },
+          criminalHistories: true,
+          licenseHistories: true,
+          fileUploads: true,
+          biometricData: true,
+        }
+      });
+      if (!sourceApplication) {
+        throw new Error('Renewal License Application not found');
+      }
+
+      // Resolve freshApplicationId linked to this renewal
+      let freshApplicationId: number | null = null;
+      if (sourceApplication.licenseNumber) {
+        const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
+          where: { acknowledgementNo: sourceApplication.licenseNumber },
+          select: { id: true },
+        });
+        if (freshApp) {
+          freshApplicationId = freshApp.id;
+        }
+      }
+
+      return { ...sourceApplication, freshApplicationId };
+    }
+
+    if (appType === 'CANCELLATION') {
+      const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
+        where: { id: license.sourceApplicationId },
+        include: {
+          workflowStatus: true,
+          requester: { select: { id: true, username: true } },
+          actioner: { select: { id: true, username: true } },
+          Licenses: { select: { id: true, licenseNumber: true } },
+        }
+      });
+      if (!cancelRequest) {
+        throw new Error('Cancel Request not found');
+      }
+      return cancelRequest;
+    }
+
+    return null;
   }
 }

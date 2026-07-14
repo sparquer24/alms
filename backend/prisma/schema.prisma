@@ -278,6 +278,8 @@ model FreshLicenseApplicationPersonalDetails {
   isNotRecommended           Boolean?                                        @default(false)
   isRecommended              Boolean?                                        @default(false)
   aliasPotalNumber           String?
+  licenseId                  Int?
+  license                    Licenses?                                       @relation(fields: [licenseId], references: [id])
   biometricData              FLAFBiometricDatas?                             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]                         @relation("CriminalHistories")
   fileUploads                FLAFFileUploads[]                               @relation("FileUploads")
@@ -291,7 +293,6 @@ model FreshLicenseApplicationPersonalDetails {
   workflowStatus             Statuses?                                       @relation("ApplicationWorkflowStatus", fields: [workflowStatusId], references: [id], onDelete: Cascade)
   workflowHistories          FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowHistories")
   hearings                   Hearings[]                                      @relation("FreshHearings")
-  sourceLicense              Licenses?                                       @relation("LicenseSourceFresh")
   mergeAuditLogs             LicensesMergeAuditLog[]                         @relation("FreshLicenseMergeLog")
   policeReports              PoliceEnquiryReports[]                          @relation("FreshPoliceReports")
 
@@ -299,6 +300,7 @@ model FreshLicenseApplicationPersonalDetails {
   @@index([workflowStatusId])
   @@index([currentUserId])
   @@index([createdAt])
+  @@index([licenseId])
 }
 
 model FLAFAddressesAndContactDetails {
@@ -771,6 +773,7 @@ model Licenses {
   issuedByUser               Users?                                  @relation("IssuedLicenses", fields: [issuedBy], references: [id])          
   renewalFormPersonalDetails RenewalFormPersonalDetails[]            @relation("LicensesRenewalLink")
   endorsedWeapons            WeaponTypeMaster[]                      @relation("LicenseEndorsedWeapons")
+  freshApplications          FreshLicenseApplicationPersonalDetails[]
 
   @@index([aadharNumber])
   @@index([status])

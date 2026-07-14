@@ -410,6 +410,15 @@ export class WorkflowService {
         }
       });
 
+      // Updating the FreshApplication with the applicationId to update values licenseId and licenseNumber
+      await tx.freshLicenseApplicationPersonalDetails.update({
+        where: { id: applicationId },
+        data: {
+          licenseId: created.id,
+          licenseNumber: created.licenseNumber,
+        }
+      });
+
       return created;
     });
   }
@@ -653,6 +662,14 @@ export class WorkflowService {
         newStatus: LicenseStatus.ACTIVE,
         changedBy,
         remarks: 'License renewed upon renewal application approval',
+      }
+    });
+    // Update the renewal application with the licenseId and licenseNumber
+    await tx.renewalFormPersonalDetails.update({
+      where: { id: renewalApplicationId },
+      data: {
+        licenseId: updatedLicense.id,
+        licenseNumber: updatedLicense.licenseNumber,
       }
     });
 
