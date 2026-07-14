@@ -798,19 +798,47 @@ export class LicensesService {
 
   /**
    * Get a single license by ID with full details
+   * Accepts either:
+   * - A numeric license ID (e.g. "4")   -> queries by licenseId field
+   * - A LUAN-prefixed license number     -> queries by licenseNumber field
+   * First checks for an existing draft renewal application; if found, returns it.
+   * Otherwise falls through to the standard license -> source application flow.
    */
-  async getLicenseById(id: number) {
-    const licenseRecord = await this.prisma.licenses.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        licenseNumber: true,
-        almsLicenseId: true,
-        sourceApplicationId: true,
-        lastModifiedAppType: true,
-      },
-    });
+  async getLicenseById(id: string) {
+    const isLicenseNumber = id.toUpperCase().startsWith('LUAN');
 
+    // First check: is there an existing draft renewal for this license?
+    const draftRenewal = await this.prisma.renewalFormPersonalDetails.findFirst({
+      where: isLicenseNumber
+        ? { licenseNumber: id, isSubmit: false }
+        : {
+          OR: [
+            { licenseId: Number(id) },
+            { id: Number(id) },
+          ],
+          isSubmit: false,
+        },
+      include: this.buildRenewalApplicationInclude(),
+    });
+    console.log('Draft Renewal Check:', draftRenewal);
+    if (draftRenewal) {
+      return draftRenewal;
+    }
+    console.log('No draft renewal found, proceeding to standard license lookup for id:', id);``
+    // Fall through to standard license lookup
+    const licenseRecord = await this.prisma.licenses.findUnique({
+        where: isLicenseNumber
+          ? { licenseNumber: id}
+          : { id: Number(id) },
+          select: {
+            id: true,
+            licenseNumber: true,
+            almsLicenseId: true,
+            sourceApplicationId: true,
+            lastModifiedAppType: true,
+          },
+    })
+    console.log('License Record:', licenseRecord);
     if (!licenseRecord) { 
       throw new Error('License not found');
     }
@@ -936,8 +964,24 @@ export class LicensesService {
 
   /**
    * Lookup license by license number
+   * First checks for an existing draft renewal application; if found, returns it.
+   * Otherwise falls through to the standard license lookup.
    */
   async getLicenseByNumber(licenseNumber: string) {
+    // First check: is there an existing draft renewal for this license?
+    const draftRenewal = await this.prisma.renewalFormPersonalDetails.findFirst({
+      where: {
+        licenseNumber,
+        isSubmit: false,
+      },
+      include: this.buildRenewalApplicationInclude(),
+    });
+
+    if (draftRenewal) {
+      return draftRenewal;
+    }
+
+    // Fall through to standard license lookup
     return this.prisma.licenses.findUnique({
       where: { licenseNumber },
       include: {

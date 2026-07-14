@@ -25,6 +25,8 @@ import LicenseService from '@/services/licenseService';
 import { LicenseData, LicenseStatistics } from '@/types';
 import { normalizeRole } from '@/utils/roleUtils';
 import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
+import { useLayout } from '@/config/layoutContext';
+import Header from '@/components/Header';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
@@ -141,6 +143,7 @@ const coerceLicenseList = (value: any): { data: LicenseData[]; total: number } =
 function LicenseManagementContent() {
   const router = useRouter();
   const { userRole, isAuthenticated, isLoading, initialized } = useAuth();
+  const { setShowSidebar } = useLayout();
   const [checked, setChecked] = useState(false);
   const [tab, setTab] = useState<LicenseTab>('all');
   const [licenses, setLicenses] = useState<LicenseData[]>([]);
@@ -160,6 +163,11 @@ function LicenseManagementContent() {
 
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
   const canAccess = role ? LICENSE_ROLES.has(role) : false;
+
+  useEffect(() => {
+    setShowSidebar(false);
+    return () => setShowSidebar(true);
+  }, [setShowSidebar]);
 
   useEffect(() => {
     if (!initialized || isLoading || checked) return;
@@ -294,327 +302,446 @@ function LicenseManagementContent() {
 
   return (
     <div className='min-h-screen w-full bg-[#F5F7FB] font-[family-name:var(--font-geist-sans)]'>
-      <header className='sticky top-0 z-30 bg-[#001F54] text-white shadow-md print:hidden'>
-        <div className='flex min-h-[72px] items-center justify-between gap-4 px-4 sm:px-6'>
-          <div className='flex min-w-0 items-center gap-3'>
-            <button
-              type='button'
-              onClick={() => router.push(getRoleBasedRedirectPath(role || userRole || ''))}
-              className='inline-flex items-center gap-2 rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20'
-            >
-              <ChevronLeft className='h-4 w-4' />
-              Back to Home
-            </button>
-            <div>
-              <h1 className='text-xl font-semibold'>License Management</h1>
-              <p className='text-sm text-blue-100'>
-                View licenses, expiry alerts, and lifecycle actions.
-              </p>
-            </div>
-          </div>
-          <button
-            type='button'
-            onClick={loadLicenses}
-            className='inline-flex items-center gap-2 rounded-md border border-white/20 bg-white px-3 py-2 text-sm font-medium text-[#001F54] hover:bg-blue-50'
-          >
-            <RefreshCw className='h-4 w-4' />
-            Refresh
-          </button>
-        </div>
-      </header>
+      <Header showCreateForm showBackButton />
 
-      <main className='p-4 sm:p-6 print:p-0'>
-          <section className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden'>
+      <main className='mt-[64px] md:mt-[70px] p-4 sm:p-6 print:mt-0 print:p-0'>
+        <section className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden'>
+          {[
+            {
+              label: 'Total Licenses',
+              value: stats?.total ?? 0,
+              icon: ShieldCheck,
+              tab: 'all' as LicenseTab,
+            },
+            {
+              label: 'Active Licenses',
+              value: stats?.active ?? 0,
+              icon: CheckCircle2,
+              status: 'ACTIVE',
+            },
+            {
+              label: 'Expiring in 90 Days',
+              value: stats?.expiringWithin90Days ?? 0,
+              icon: Clock,
+              tab: 'expiring' as LicenseTab,
+            },
+            {
+              label: 'Expiring in 60 Days',
+              value: stats?.expiringWithin60Days ?? 0,
+              icon: Clock,
+              tab: 'expiring' as LicenseTab,
+            },
+            {
+              label: 'Expiring in 30 Days',
+              value: stats?.expiringWithin30Days ?? 0,
+              icon: AlertTriangle,
+              tab: 'expiring' as LicenseTab,
+            },
+            {
+              label: 'Expired Licenses',
+              value: stats?.expired ?? 0,
+              icon: XCircle,
+              tab: 'expired' as LicenseTab,
+            },
+            {
+              label: 'Renewed Licenses',
+              value: stats?.renewed ?? 0,
+              icon: History,
+              tab: 'audit' as LicenseTab,
+            },
+            {
+              label: 'Cancelled Licenses',
+              value: stats?.cancelled ?? 0,
+              icon: XCircle,
+              status: 'CANCELLED',
+            },
+          ].map(card => {
+            const Icon = card.icon;
+            return (
+              <button
+                key={card.label}
+                type='button'
+                onClick={() => {
+                  if (card.tab) setTab(card.tab);
+                  setStatusFilter(card.status || '');
+                  setPage(1);
+                }}
+                className='rounded-md border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-[#001F54]/40'
+              >
+                <div className='flex items-center justify-between'>
+                  <span className='text-sm font-semibold text-gray-600'>{card.label}</span>
+                  <Icon className='h-5 w-5 text-[#001F54]' />
+                </div>
+                <div className='mt-2 text-2xl font-bold text-[#001F54]'>{card.value}</div>
+              </button>
+            );
+          })}
+        </section>
+
+        <section className='mt-5 rounded-md border border-gray-200 bg-white shadow-sm'>
+          <div className='flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 print:hidden'>
             {[
-              { label: 'Total Licenses', value: stats?.total ?? 0, icon: ShieldCheck, tab: 'all' as LicenseTab },
-              { label: 'Active Licenses', value: stats?.active ?? 0, icon: CheckCircle2, status: 'ACTIVE' },
-              { label: 'Expiring in 90 Days', value: stats?.expiringWithin90Days ?? 0, icon: Clock, tab: 'expiring' as LicenseTab },
-              { label: 'Expiring in 60 Days', value: stats?.expiringWithin60Days ?? 0, icon: Clock, tab: 'expiring' as LicenseTab },
-              { label: 'Expiring in 30 Days', value: stats?.expiringWithin30Days ?? 0, icon: AlertTriangle, tab: 'expiring' as LicenseTab },
-              { label: 'Expired Licenses', value: stats?.expired ?? 0, icon: XCircle, tab: 'expired' as LicenseTab },
-              { label: 'Renewed Licenses', value: stats?.renewed ?? 0, icon: History, tab: 'audit' as LicenseTab },
-              { label: 'Cancelled Licenses', value: stats?.cancelled ?? 0, icon: XCircle, status: 'CANCELLED' },
-            ].map(card => {
-              const Icon = card.icon;
-              return (
-                <button
-                  key={card.label}
-                  type='button'
-                  onClick={() => {
-                    if (card.tab) setTab(card.tab);
-                    setStatusFilter(card.status || '');
-                    setPage(1);
-                  }}
-                  className='rounded-md border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-[#001F54]/40'
-                >
-                  <div className='flex items-center justify-between'>
-                    <span className='text-sm font-semibold text-gray-600'>{card.label}</span>
-                    <Icon className='h-5 w-5 text-[#001F54]' />
-                  </div>
-                  <div className='mt-2 text-2xl font-bold text-[#001F54]'>{card.value}</div>
-                </button>
-              );
-            })}
-          </section>
+              ['all', 'All Licenses'],
+              ['expiring', 'Expiring Licenses'],
+              ['expired', 'Expired Licenses'],
+              ['import', 'Import Licenses'],
+              ['audit', 'Audit & Activity Logs'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type='button'
+                onClick={() => {
+                  setTab(key as LicenseTab);
+                  setPage(1);
+                }}
+                className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  tab === key ? 'bg-[#001F54] text-white' : 'text-gray-700 hover:bg-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <section className='mt-5 rounded-md border border-gray-200 bg-white shadow-sm'>
-            <div className='flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 print:hidden'>
-              {[
-                ['all', 'All Licenses'],
-                ['expiring', 'Expiring Licenses'],
-                ['expired', 'Expired Licenses'],
-                ['import', 'Import Licenses'],
-                ['audit', 'Audit & Activity Logs'],
-              ].map(([key, label]) => (
+          {tab === 'import' ? (
+            <div className='p-6'>
+              <div className='rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center'>
+                <Upload className='mx-auto h-10 w-10 text-gray-400' />
+                <h2 className='mt-3 text-lg font-semibold text-gray-900'>Bulk License Import</h2>
+                <p className='mx-auto mt-2 max-w-2xl text-sm text-gray-500'>
+                  CSV/XLSX import requires backend validation, duplicate detection, preview, partial
+                  success reporting, and rollback support. The template is available now; upload
+                  processing should be enabled when `POST /licenses/import` is implemented.
+                </p>
                 <button
-                  key={key}
                   type='button'
-                  onClick={() => {
-                    setTab(key as LicenseTab);
-                    setPage(1);
-                  }}
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
-                    tab === key ? 'bg-[#001F54] text-white' : 'text-gray-700 hover:bg-white'
-                  }`}
+                  onClick={downloadTemplate}
+                  className='mt-5 inline-flex items-center gap-2 rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73]'
                 >
-                  {label}
+                  <Download className='h-4 w-4' />
+                  Download Template
                 </button>
-              ))}
+              </div>
             </div>
-
-            {tab === 'import' ? (
-              <div className='p-6'>
-                <div className='rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center'>
-                  <Upload className='mx-auto h-10 w-10 text-gray-400' />
-                  <h2 className='mt-3 text-lg font-semibold text-gray-900'>Bulk License Import</h2>
-                  <p className='mx-auto mt-2 max-w-2xl text-sm text-gray-500'>
-                    CSV/XLSX import requires backend validation, duplicate detection, preview, partial success reporting, and rollback support.
-                    The template is available now; upload processing should be enabled when `POST /licenses/import` is implemented.
-                  </p>
+          ) : (
+            <>
+              <div className='grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
+                <div className='relative'>
+                  <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400' />
+                  <input
+                    value={search}
+                    onChange={event => {
+                      setSearch(event.target.value);
+                      setPage(1);
+                    }}
+                    placeholder='Global search by name, license number, aadhar...'
+                    className='w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={event => {
+                    setStatusFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className='rounded-md border border-gray-300 px-3 py-2 text-sm'
+                >
+                  <option value=''>All Status</option>
+                  <option value='ACTIVE'>Active</option>
+                  <option value='EXPIRED'>Expired</option>
+                  <option value='CANCELLED'>Cancelled</option>
+                  <option value='SUSPENDED'>Suspended</option>
+                  <option value='REVOKED'>Revoked</option>
+                </select>
+                <input
+                  value={purposeFilter}
+                  onChange={event => {
+                    setPurposeFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder='Purpose filter'
+                  className='rounded-md border border-gray-300 px-3 py-2 text-sm'
+                />
+                <div className='flex items-center gap-2'>
                   <button
                     type='button'
-                    onClick={downloadTemplate}
-                    className='mt-5 inline-flex items-center gap-2 rounded-md bg-[#001F54] px-4 py-2 text-sm font-medium text-white hover:bg-[#012a73]'
+                    onClick={exportCsv}
+                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                  >
+                    <FileDown className='h-4 w-4' />
+                  </button>
+                  <button
+                    type='button'
+                    onClick={exportExcel}
+                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                   >
                     <Download className='h-4 w-4' />
-                    Download Template
+                  </button>
+                  <button
+                    type='button'
+                    onClick={printTable}
+                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                  >
+                    <Printer className='h-4 w-4' />
                   </button>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className='grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
-                  <div className='relative'>
-                    <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400' />
-                    <input
-                      value={search}
-                      onChange={event => {
-                        setSearch(event.target.value);
-                        setPage(1);
-                      }}
-                      placeholder='Global search by name, license number, aadhar...'
-                      className='w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
-                    />
-                  </div>
-                  <select
-                    value={statusFilter}
-                    onChange={event => {
-                      setStatusFilter(event.target.value);
-                      setPage(1);
-                    }}
-                    className='rounded-md border border-gray-300 px-3 py-2 text-sm'
-                  >
-                    <option value=''>All Status</option>
-                    <option value='ACTIVE'>Active</option>
-                    <option value='EXPIRED'>Expired</option>
-                    <option value='CANCELLED'>Cancelled</option>
-                    <option value='SUSPENDED'>Suspended</option>
-                    <option value='REVOKED'>Revoked</option>
-                  </select>
-                  <input
-                    value={purposeFilter}
-                    onChange={event => {
-                      setPurposeFilter(event.target.value);
-                      setPage(1);
-                    }}
-                    placeholder='Purpose filter'
-                    className='rounded-md border border-gray-300 px-3 py-2 text-sm'
-                  />
-                  <div className='flex items-center gap-2'>
-                    <button type='button' onClick={exportCsv} className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'>
-                      <FileDown className='h-4 w-4' />
-                    </button>
-                    <button type='button' onClick={exportExcel} className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'>
-                      <Download className='h-4 w-4' />
-                    </button>
-                    <button type='button' onClick={printTable} className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'>
-                      <Printer className='h-4 w-4' />
-                    </button>
-                  </div>
+
+              {error && (
+                <div className='m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
+                  {error}
                 </div>
+              )}
 
-                {error && <div className='m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>{error}</div>}
-
-                <div className='max-h-[620px] overflow-auto'>
-                  <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
-                    <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
-                      <tr>
-                        {columns.map(col => (
-                          <th
-                            key={col}
-                            className={`border-b border-[#001F54] px-3 py-3 font-semibold ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+              <div className='max-h-[620px] overflow-auto'>
+                <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
+                  <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
+                    <tr>
+                      {columns.map(col => (
+                        <th
+                          key={col}
+                          className={`border-b border-[#001F54] px-3 py-3 font-semibold ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                        >
+                          <button
+                            type='button'
+                            onClick={() => {
+                              const fieldMap: Record<string, string> = {
+                                'License ID': 'id',
+                                'License Number': 'licenseNumber',
+                                'License Holder Name': 'firstName',
+                                'Expiry Date': 'validTill',
+                                'License Status': 'status',
+                                'Created Date': 'createdAt',
+                                'Updated Date': 'updatedAt',
+                              };
+                              if (!fieldMap[col]) return;
+                              setSortBy(fieldMap[col]);
+                              setSortOrder(prev =>
+                                sortBy === fieldMap[col] && prev === 'asc' ? 'desc' : 'asc'
+                              );
+                            }}
+                            className='whitespace-nowrap'
                           >
-                            <button
-                              type='button'
-                              onClick={() => {
-                                const fieldMap: Record<string, string> = {
-                                  'License ID': 'id',
-                                  'License Number': 'licenseNumber',
-                                  'License Holder Name': 'firstName',
-                                  'Expiry Date': 'validTill',
-                                  'License Status': 'status',
-                                  'Created Date': 'createdAt',
-                                  'Updated Date': 'updatedAt',
-                                };
-                                if (!fieldMap[col]) return;
-                                setSortBy(fieldMap[col]);
-                                setSortOrder(prev => (sortBy === fieldMap[col] && prev === 'asc' ? 'desc' : 'asc'));
-                              }}
-                              className='whitespace-nowrap'
+                            {col}
+                          </button>
+                        </th>
+                      ))}
+                      <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-3 font-semibold'>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      Array.from({ length: 6 }).map((_, idx) => (
+                        <tr key={idx} className='animate-pulse'>
+                          {columns.slice(0, 8).map(col => (
+                            <td
+                              key={col}
+                              className={`border-b px-3 py-3 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                             >
-                              {col}
-                            </button>
-                          </th>
-                        ))}
-                        <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-3 font-semibold'>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        Array.from({ length: 6 }).map((_, idx) => (
-                          <tr key={idx} className='animate-pulse'>
-                            {columns.slice(0, 8).map(col => (
-                              <td
-                                key={col}
-                                className={`border-b px-3 py-3 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
-                              >
-                                <div className='h-4 rounded bg-gray-200' />
-                              </td>
-                            ))}
-                            <td className='sticky right-0 border-b bg-white px-3 py-3'><div className='h-4 rounded bg-gray-200' /></td>
-                          </tr>
-                        ))
-                      ) : licenses.length === 0 ? (
-                        <tr>
-                          <td colSpan={columns.length + 1} className='px-3 py-12 text-center text-gray-500'>
-                            No licenses found for the selected filters.
+                              <div className='h-4 rounded bg-gray-200' />
+                            </td>
+                          ))}
+                          <td className='sticky right-0 border-b bg-white px-3 py-3'>
+                            <div className='h-4 rounded bg-gray-200' />
                           </td>
                         </tr>
-                      ) : (
-                        licenses.map(license => {
-                          const row = mapLicenseToRow(license);
-                          const expiry = getExpiryState(license);
-                          return (
-                            <tr key={license.id} className='odd:bg-white even:bg-gray-50 hover:bg-blue-50/70'>
-                              {columns.map(col => (
-                                <td
-                                  key={col}
-                                  className={`border-b border-gray-100 px-3 py-3 align-top text-gray-700 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
-                                >
-                                  {col === 'License Status' ? (
-                                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${expiry.color}`}>
-                                      <span className={`h-2 w-2 rounded-full ${expiry.dot}`} />
-                                      {row[col as keyof typeof row]}
+                      ))
+                    ) : licenses.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={columns.length + 1}
+                          className='px-3 py-12 text-center text-gray-500'
+                        >
+                          No licenses found for the selected filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      licenses.map(license => {
+                        const row = mapLicenseToRow(license);
+                        const expiry = getExpiryState(license);
+                        return (
+                          <tr
+                            key={license.id}
+                            className='odd:bg-white even:bg-gray-50 hover:bg-blue-50/70'
+                          >
+                            {columns.map(col => (
+                              <td
+                                key={col}
+                                className={`border-b border-gray-100 px-3 py-3 align-top text-gray-700 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                              >
+                                {col === 'License Status' ? (
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${expiry.color}`}
+                                  >
+                                    <span className={`h-2 w-2 rounded-full ${expiry.dot}`} />
+                                    {row[col as keyof typeof row]}
+                                  </span>
+                                ) : col === 'Expiry Date' ? (
+                                  <div>
+                                    <div>{row[col as keyof typeof row]}</div>
+                                    <span
+                                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs ${expiry.color}`}
+                                    >
+                                      {expiry.label}
                                     </span>
-                                  ) : col === 'Expiry Date' ? (
-                                    <div>
-                                      <div>{row[col as keyof typeof row]}</div>
-                                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs ${expiry.color}`}>{expiry.label}</span>
-                                    </div>
-                                  ) : (
-                                    String(row[col as keyof typeof row] ?? '-')
-                                  )}
-                                </td>
-                              ))}
-                              <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-3'>
-                                <div className='flex items-center gap-2'>
-                                  <button type='button' onClick={() => openDetails(license)} className='rounded-md border p-2 text-gray-700 hover:bg-white' title='View details'>
-                                    <Eye className='h-4 w-4' />
-                                  </button>
-                                  <button type='button' onClick={() => router.push(`/forms/renewal?licenseId=${license.id}`)} className='rounded-md bg-[#001F54] px-3 py-2 text-xs font-medium text-white hover:bg-[#012a73]'>
-                                    Renewal
-                                  </button>
-                                  <button type='button' onClick={() => router.push(`/cancelForm/new?licenseId=${license.id}`)} className='rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700'>
-                                    Cancel
-                                  </button>
-                                </div>
+                                  </div>
+                                ) : (
+                                  String(row[col as keyof typeof row] ?? '-')
+                                )}
                               </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                            ))}
+                            <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-3'>
+                              <div className='flex items-center gap-2'>
+                                <button
+                                  type='button'
+                                  onClick={() => openDetails(license)}
+                                  className='rounded-md border p-2 text-gray-700 hover:bg-white'
+                                  title='View details'
+                                >
+                                  <Eye className='h-4 w-4' />
+                                </button>
+                                <button
+                                  type='button'
+                                  onClick={() =>
+                                    router.push(`/forms/renewal?licenseId=${license.id}`)
+                                  }
+                                  className='rounded-md bg-[#001F54] px-3 py-2 text-xs font-medium text-white hover:bg-[#012a73]'
+                                >
+                                  Renewal
+                                </button>
+                                <button
+                                  type='button'
+                                  onClick={() =>
+                                    router.push(`/cancelForm/new?licenseId=${license.id}`)
+                                  }
+                                  className='rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700'
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-                <div className='flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
-                  <span>Showing page {page} of {Math.max(Math.ceil(total / limit), 1)} ({total} records)</span>
-                  <div className='flex items-center gap-2'>
-                    <button type='button' disabled={page <= 1} onClick={() => setPage(prev => Math.max(prev - 1, 1))} className='rounded-md border px-3 py-2 disabled:opacity-50'>
-                      <ChevronLeft className='h-4 w-4' />
-                    </button>
-                    <button type='button' disabled={page >= Math.ceil(total / limit)} onClick={() => setPage(prev => prev + 1)} className='rounded-md border px-3 py-2 disabled:opacity-50'>
-                      <ChevronRight className='h-4 w-4' />
-                    </button>
-                  </div>
+              <div className='flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
+                <span>
+                  Showing page {page} of {Math.max(Math.ceil(total / limit), 1)} ({total} records)
+                </span>
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    disabled={page <= 1}
+                    onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                  >
+                    <ChevronLeft className='h-4 w-4' />
+                  </button>
+                  <button
+                    type='button'
+                    disabled={page >= Math.ceil(total / limit)}
+                    onClick={() => setPage(prev => prev + 1)}
+                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                  >
+                    <ChevronRight className='h-4 w-4' />
+                  </button>
                 </div>
-              </>
-            )}
-          </section>
+              </div>
+            </>
+          )}
+        </section>
       </main>
 
       {selectedLicense && (
-        <div className='fixed inset-0 z-[100] flex items-start justify-end bg-black/40 print:hidden' onClick={() => setSelectedLicense(null)}>
-          <aside className='h-full w-full max-w-3xl overflow-y-auto bg-white shadow-2xl' onClick={event => event.stopPropagation()}>
+        <div
+          className='fixed inset-0 z-[100] flex items-start justify-end bg-black/40 print:hidden'
+          onClick={() => setSelectedLicense(null)}
+        >
+          <aside
+            className='h-full w-full max-w-3xl overflow-y-auto bg-white shadow-2xl'
+            onClick={event => event.stopPropagation()}
+          >
             <div className='sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4'>
               <div>
-                <h2 className='text-xl font-semibold text-gray-900'>{getFullName(selectedLicense)}</h2>
+                <h2 className='text-xl font-semibold text-gray-900'>
+                  {getFullName(selectedLicense)}
+                </h2>
                 <p className='text-sm text-gray-500'>{selectedLicense.licenseNumber}</p>
               </div>
-              <button type='button' onClick={() => setSelectedLicense(null)} className='rounded-md border px-3 py-2 text-sm'>Close</button>
+              <button
+                type='button'
+                onClick={() => setSelectedLicense(null)}
+                className='rounded-md border px-3 py-2 text-sm'
+              >
+                Close
+              </button>
             </div>
             <div className='space-y-5 p-6'>
               {[
-                ['Personal Details', [
-                  ['License ID', selectedLicense.id],
-                  ['Name', getFullName(selectedLicense)],
-                  ['Father/Guardian', selectedLicense.parentOrSpouseName],
-                  ['Gender', selectedLicense.sex],
-                  ['Date of Birth', formatDate(selectedLicense.dateOfBirth)],
-                  ['Aadhar', selectedLicense.aadharNumber],
-                  ['PAN', selectedLicense.panNumber],
-                ]],
-                ['Address Details', [
-                  ['Current Address', selectedLicense.presentAddressLine],
-                  ['Permanent Address', selectedLicense.permanentAddressLine],
-                  ['District', (selectedLicense as any).presentDistrict?.name || (selectedLicense as any).presentDistrictName || (selectedLicense as any).presentDistrict],
-                ]],
-                ['Weapon Details', [
-                  ['Weapon Type', selectedLicense.armsCategory],
-                  ['Weapon Details', selectedLicense.endorsedWeapons?.map(w => w.name).join(', ')],
-                  ['Ammunition', selectedLicense.ammunitionDescription],
-                ]],
-                ['License Information', [
-                  ['License Number', selectedLicense.licenseNumber],
-                  ['Issue Date', formatDate(selectedLicense.issueDate || selectedLicense.validFrom)],
-                  ['Expiry Date', formatDate(selectedLicense.validTill)],
-                  ['Purpose', selectedLicense.needForLicense],
-                  ['Status', selectedLicense.status],
-                  ['Created From', selectedLicense.sourceApplicationId ? 'Fresh Application' : 'Imported'],
-                ]],
+                [
+                  'Personal Details',
+                  [
+                    ['License ID', selectedLicense.id],
+                    ['Name', getFullName(selectedLicense)],
+                    ['Father/Guardian', selectedLicense.parentOrSpouseName],
+                    ['Gender', selectedLicense.sex],
+                    ['Date of Birth', formatDate(selectedLicense.dateOfBirth)],
+                    ['Aadhar', selectedLicense.aadharNumber],
+                    ['PAN', selectedLicense.panNumber],
+                  ],
+                ],
+                [
+                  'Address Details',
+                  [
+                    ['Current Address', selectedLicense.presentAddressLine],
+                    ['Permanent Address', selectedLicense.permanentAddressLine],
+                    [
+                      'District',
+                      (selectedLicense as any).presentDistrict?.name ||
+                        (selectedLicense as any).presentDistrictName ||
+                        (selectedLicense as any).presentDistrict,
+                    ],
+                  ],
+                ],
+                [
+                  'Weapon Details',
+                  [
+                    ['Weapon Type', selectedLicense.armsCategory],
+                    [
+                      'Weapon Details',
+                      selectedLicense.endorsedWeapons?.map(w => w.name).join(', '),
+                    ],
+                    ['Ammunition', selectedLicense.ammunitionDescription],
+                  ],
+                ],
+                [
+                  'License Information',
+                  [
+                    ['License Number', selectedLicense.licenseNumber],
+                    [
+                      'Issue Date',
+                      formatDate(selectedLicense.issueDate || selectedLicense.validFrom),
+                    ],
+                    ['Expiry Date', formatDate(selectedLicense.validTill)],
+                    ['Purpose', selectedLicense.needForLicense],
+                    ['Status', selectedLicense.status],
+                    [
+                      'Created From',
+                      selectedLicense.sourceApplicationId ? 'Fresh Application' : 'Imported',
+                    ],
+                  ],
+                ],
               ].map(([title, fields]) => (
                 <section key={String(title)} className='rounded-lg border border-gray-200'>
-                  <h3 className='border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900'>{String(title)}</h3>
+                  <h3 className='border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900'>
+                    {String(title)}
+                  </h3>
                   <dl className='grid grid-cols-1 gap-px bg-gray-100 sm:grid-cols-2'>
                     {(fields as any[]).map(([label, value]) => (
                       <div key={label} className='bg-white px-4 py-3'>
@@ -627,20 +754,33 @@ function LicenseManagementContent() {
               ))}
 
               <section className='rounded-lg border border-gray-200'>
-                <h3 className='border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900'>Workflow History & Audit Timeline</h3>
+                <h3 className='border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-900'>
+                  Workflow History & Audit Timeline
+                </h3>
                 <div className='divide-y'>
-                  {(auditRows.length ? auditRows : selectedLicense.workflowHistories || []).map((entry: any) => (
-                    <div key={entry.id} className='px-4 py-3'>
-                      <div className='flex items-center justify-between gap-3'>
-                        <span className='font-medium text-gray-900'>{entry.event || entry.action || entry.newStatus || 'Activity'}</span>
-                        <span className='text-xs text-gray-500'>{formatDate(entry.createdAt)}</span>
+                  {(auditRows.length ? auditRows : selectedLicense.workflowHistories || []).map(
+                    (entry: any) => (
+                      <div key={entry.id} className='px-4 py-3'>
+                        <div className='flex items-center justify-between gap-3'>
+                          <span className='font-medium text-gray-900'>
+                            {entry.event || entry.action || entry.newStatus || 'Activity'}
+                          </span>
+                          <span className='text-xs text-gray-500'>
+                            {formatDate(entry.createdAt)}
+                          </span>
+                        </div>
+                        <p className='mt-1 text-sm text-gray-600'>{entry.remarks || '-'}</p>
+                        <p className='mt-1 text-xs text-gray-500'>
+                          Officer:{' '}
+                          {entry.officer || entry.changedByUser?.username || entry.changedBy || '-'}
+                        </p>
                       </div>
-                      <p className='mt-1 text-sm text-gray-600'>{entry.remarks || '-'}</p>
-                      <p className='mt-1 text-xs text-gray-500'>Officer: {entry.officer || entry.changedByUser?.username || entry.changedBy || '-'}</p>
-                    </div>
-                  ))}
+                    )
+                  )}
                   {!auditRows.length && !selectedLicense.workflowHistories?.length && (
-                    <div className='px-4 py-6 text-sm text-gray-500'>No audit activity found for this license.</div>
+                    <div className='px-4 py-6 text-sm text-gray-500'>
+                      No audit activity found for this license.
+                    </div>
                   )}
                 </div>
               </section>

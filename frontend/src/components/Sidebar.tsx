@@ -299,14 +299,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         localStorage.setItem('activeNavItem', cancelKey);
       } catch (e) { /* ignore */ }
     }
-    if (pathname.startsWith('/licenses')) {
-      const licensesKey = 'licenses';
-      if (activeFreezeRef.current && activeItem === licensesKey) return;
-      setActiveItem(licensesKey);
-      try {
-        localStorage.setItem('activeNavItem', licensesKey);
-      } catch (e) { /* ignore */ }
-    }
   }, [pathname, activeItem]);
 
 
@@ -536,8 +528,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
             cancel: 'cancelform',
             cancelform: 'cancelform',
             freshform: 'freshform',
-            applications: 'applications',
-            licenses: 'licenses'
+            applications: 'applications'
           };
 
           if (skip || topLevelMap[rawType]) {
@@ -635,8 +626,7 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           cancel: 'cancelform',
           cancelform: 'cancelform',
           freshform: 'freshform',
-          applications: 'applications',
-          licenses: 'licenses'
+          applications: 'applications'
         };
 
         if (skip || topLevelMap[rawType]) {
@@ -980,20 +970,6 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
           dispatch(closeInbox());
           setActiveNavigationPath(analyticsPath);
           router.push(analyticsPath);
-          endAction(actionId);
-          return;
-        }
-
-        if (item.name.toLowerCase().replace(/\s+/g, '') === 'licenses') {
-          const licensesPath = '/licenses';
-          if (!canNavigateTo(licensesPath, actionId)) {
-            return;
-          }
-          setActiveItem(key);
-          persistActiveNavToLocal(key);
-          dispatch(closeInbox());
-          setActiveNavigationPath(licensesPath);
-          router.push(licensesPath);
           endAction(actionId);
           return;
         }

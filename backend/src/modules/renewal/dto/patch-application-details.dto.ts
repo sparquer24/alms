@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional,  ValidateNested, IsArray } from 'class-validator';
+import { IsBoolean, IsOptional,  ValidateNested, IsArray, IsNumber, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PatchRenewalPersonalDetailsDto } from './patch-personal-details.dto';
 import { PatchRenewalAddressDetailsDto } from './patch-address-details.dto';
@@ -27,6 +27,16 @@ class RenewalAcceptanceFlagsDto {
 }
 
 export class PatchRenewalApplicationDetailsDto {
+  @ApiPropertyOptional({ example: 123, description: 'ID of the license record this renewal is linked to' })
+  @IsOptional()
+  @IsNumber()
+  licenseId?: number;
+
+  @ApiPropertyOptional({ example: 'ALMS-LIC-2023-001', description: 'License number for the renewal' })
+  @IsOptional()
+  @IsString()
+  licenseNumber?: string;
+
   @ApiPropertyOptional({ description: 'Personal details to update' })
   @IsOptional()
   @ValidateNested()

@@ -97,7 +97,7 @@ export class RenewalService {
   }
 
   static async getRenewalForm(applicationId: string | number): Promise<any> {
-    return apiClient.get(`/renewal-forms/${applicationId}`);
+    return apiClient.get(`/licenses/${applicationId}`);
   }
 
   static async updateRenewalForm(

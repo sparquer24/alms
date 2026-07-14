@@ -116,9 +116,11 @@ describe('LicensesService', () => {
     }).compile();
 
     const service = module.get<LicensesService>(LicensesService);
-    const result = await service.getLicenseById(42);
+    const result = await service.getLicenseById('42');
 
-    expect(prismaMock.renewalFormPersonalDetails.findUnique).toHaveBeenCalled();
+    // The service first checks for a draft renewal (findFirst with isSubmit: false)
+    // When none found, it falls through to the standard license lookup
+    expect(prismaMock.licenses.findUnique).toHaveBeenCalled();
     expect(result).toEqual(expect.objectContaining({
       id: 99,
       acknowledgementNo: 'REN-001',

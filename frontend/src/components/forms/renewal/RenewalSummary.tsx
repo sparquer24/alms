@@ -21,13 +21,13 @@ const getDateDisplay = (data?: any) => {
   return '—';
 };
 
-const RenewalSummary: React.FC<{ applicationId?: string; renewalId?: string; data?: any }> = ({ applicationId, renewalId, data }) => {
+const RenewalSummary: React.FC<{ licenseId?: string; renewalId?: string; data?: any }> = ({ licenseId, renewalId, data }) => {
   const applicantName = data?.applicantName || '—';
   const displayId = data?.acknowledgementNo || renewalId || '—';
 
   return (
     <div className='flex gap-4 overflow-x-auto py-2'>
-      <Card label='Application ID' value={applicationId || data?.applicationId || '—'} />
+      <Card label='License ID' value={licenseId || data?.licenseId || data?.freshLicenseId || '—'} />
       <Card label='Renewal ID' value={displayId} />
       <Card label='Applicant' value={applicantName} />
       <Card label='License No' value={data?.licenseNumber || '—'} />

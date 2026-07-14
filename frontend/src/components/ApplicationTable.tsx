@@ -249,34 +249,40 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   draftApp?.id ||
                   id
               );
-              let applicationId = String(
-                (draftApp as any)?.applicationId ||
+              let licenseId = String(
+                (draftApp as any)?.licenseNumber ||
+                  (draftApp as any)?.licenseId ||
+                  (draftApp as any)?.freshLicenseId ||
+                  (draftApp as any)?.applicationId ||
                   (draftApp as any)?.freshApplicationId ||
                   (draftApp as any)?.sourceApplicationId ||
                   (draftApp as any)?.renewalLicenseId ||
                   ''
               );
 
-              // If applicationId is empty, fetch the renewal form to get the linked applicationId
-              if (!applicationId && renewalId) {
+              // If licenseId is empty, fetch the renewal form to get the linked license details
+              if (!licenseId && renewalId) {
                 try {
                   const renewalResponse = await RenewalService.getRenewalForm(renewalId);
                   const renewalData = renewalResponse?.data || renewalResponse;
-                  applicationId = String(
-                    renewalData?.applicationId ||
+                  licenseId = String(
+                    renewalData?.licenseNumber ||
+                      renewalData?.licenseId ||
+                      renewalData?.freshLicenseId ||
+                      renewalData?.applicationId ||
                       renewalData?.freshApplicationId ||
                       renewalData?.sourceApplicationId ||
                       renewalData?.renewalLicenseId ||
                       ''
                   );
                 } catch (err) {
-                  // If fetch fails, continue with empty applicationId - the renewal form will handle it
-                  console.error('Failed to fetch renewal form for applicationId:', err);
+                  // If fetch fails, continue with empty licenseId - the renewal form will handle it
+                  console.error('Failed to fetch renewal form for licenseId:', err);
                 }
               }
 
               await router.push(
-                `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(renewalId)}`
+                `/forms/renewal?licenseId=${encodeURIComponent(licenseId)}&renewalId=${encodeURIComponent(renewalId)}`
               );
               return;
             }

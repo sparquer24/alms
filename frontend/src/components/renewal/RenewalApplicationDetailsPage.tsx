@@ -24,6 +24,8 @@ interface RenewalApplicationDetails {
   freshApplicationId?: string | number;
   sourceApplicationId?: string | number;
   renewalLicenseId?: string | number;
+  licenseId?: string | number;
+  freshLicenseId?: string | number;
   createdAt?: string;
   updatedAt?: string;
   isSubmit?: boolean;
@@ -166,7 +168,7 @@ export default function RenewalApplicationDetailsPage() {
     <div className='min-h-screen bg-slate-50 px-4 py-8'>
       <div className='mx-auto max-w-5xl 2xl:max-w-[1200px] space-y-6'>
         <RenewalApplicationDetailsHeader
-          applicationId={application.id}
+          licenseId={application.licenseNumber || application.licenseId || application.freshLicenseId}
           renewalId={renewalId}
           acknowledgementNo={acknowledgementNo}
           activeTab='Renewal Application Details'
@@ -195,15 +197,17 @@ export default function RenewalApplicationDetailsPage() {
             <button
               type='button'
               onClick={() => {
-                const linkedApplicationId = String(
-                  application?.applicationId ||
+                const linkedLicenseId = String(
+                  application?.licenseId ||
+                    application?.freshLicenseId ||
+                    application?.licenseNumber ||
+                    application?.applicationId ||
                     application?.freshApplicationId ||
                     application?.sourceApplicationId ||
-                    application?.renewalLicenseId ||
                     ''
                 );
-                const url = linkedApplicationId
-                  ? `/forms/renewal?applicationId=${encodeURIComponent(linkedApplicationId)}&renewalId=${encodeURIComponent(String(id))}`
+                const url = linkedLicenseId
+                  ? `/forms/renewal?licenseId=${encodeURIComponent(linkedLicenseId)}&renewalId=${encodeURIComponent(String(id))}`
                   : `/forms/renewal?renewalId=${encodeURIComponent(String(id))}`;
                 router.push(url);
               }}

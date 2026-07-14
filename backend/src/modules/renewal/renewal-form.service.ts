@@ -179,6 +179,14 @@ export class RenewalFormService {
       if (updateData.dateOfBirth) {
         updateData.dateOfBirth = new Date(updateData.dateOfBirth);
       }
+
+      // Update licenseId/licenseNumber on parent record if provided
+      if (patchData.licenseId !== undefined) {
+        updateData.licenseId = patchData.licenseId;
+      }
+      if (patchData.licenseNumber !== undefined) {
+        updateData.licenseNumber = patchData.licenseNumber;
+      }
       const relationUpdates: Promise<void>[] = [];
 
       // Handle addresses in parallel if provided

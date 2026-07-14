@@ -8,6 +8,7 @@ interface Props {
   acknowledgementNo?: string;
   renewalId?: string | number;
   applicationId?: string | number;
+  licenseId?: string | number;
   tabs?: string[];
   activeTab?: string;
   onTabChange?: (tab: string) => void;
@@ -22,6 +23,7 @@ export default function RenewalApplicationDetailsHeader({
   acknowledgementNo,
   renewalId,
   applicationId,
+  licenseId,
   tabs = ["Renewal Application Info", "Original License Details"],
   activeTab,
   onTabChange,
@@ -32,7 +34,8 @@ export default function RenewalApplicationDetailsHeader({
   const subtitleParts: string[] = [];
   if (renewalId !== undefined && renewalId !== null) subtitleParts.push(`For Renewal ID: #${renewalId}`);
   if (acknowledgementNo) subtitleParts.push(`Ack No: ${acknowledgementNo}`);
-  if (applicationId) subtitleParts.push(`App ID: ${applicationId}`);
+  if (licenseId) subtitleParts.push(`License ID: ${licenseId}`);
+  else if (applicationId) subtitleParts.push(`App ID: ${applicationId}`);
 
   return (
     <div className="relative">
