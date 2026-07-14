@@ -279,6 +279,7 @@ model FreshLicenseApplicationPersonalDetails {
   isRecommended              Boolean?                                        @default(false)
   aliasPotalNumber           String?
   licenseId                  Int?
+  licenseNumber              String?                                         
   license                    Licenses?                                       @relation(fields: [licenseId], references: [id])
   biometricData              FLAFBiometricDatas?                             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]                         @relation("CriminalHistories")
@@ -436,7 +437,7 @@ model FreshLicenseApplicationsFormWorkflowHistories {
 model RenewalFormPersonalDetails {
   id                         Int                                        @id @default(autoincrement())
   acknowledgementNo          String?
-  licenseNumber              String                                     @unique
+  licenseNumber              String                                     
   firstName                  String
   middleName                 String?
   lastName                   String
