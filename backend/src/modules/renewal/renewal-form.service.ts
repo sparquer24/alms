@@ -19,7 +19,7 @@ export class RenewalFormService {
   ): Promise<RenewalFormResponse> {
     try {
       // Verify the license exists and get the license holder info
-      const existingLicense = await prisma.renewalFormPersonalDetails.findUnique({
+      const existingLicense = await prisma.renewalFormPersonalDetails.findFirst({
         where: { licenseNumber: createRequest.licenseNumber },
       });
 
