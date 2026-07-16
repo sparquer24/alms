@@ -27,8 +27,8 @@ const RenewalSummary: React.FC<{ licenseId?: string; renewalId?: string; data?: 
 
   return (
     <div className='flex gap-4 overflow-x-auto py-2'>
-      <Card label='License ID' value={licenseId || data?.licenseId || data?.freshLicenseId || '—'} />
-      <Card label='Renewal ID' value={displayId} />
+      <Card label='License ID' value={licenseId || data?.licenseId || '—'} />
+      <Card label='Fresh Acknowledgement No' value={displayId} />
       <Card label='Applicant' value={applicantName} />
       <Card label='License No' value={data?.licenseNumber || '—'} />
       <Card label='Status' value={getStatusLabel(data)} />

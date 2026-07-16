@@ -3,7 +3,7 @@ import { patchData } from './axiosConfig';
 
 export interface CancelFormData {
   id?: number;
-  freshLicenseId: number;
+  licenseId: number;
   applicationType: string;
   cancellationReason: string;
   remarks?: string;
@@ -18,12 +18,13 @@ export interface CancelFormData {
 export class CancelService {
   /**
    * Submit a new cancel request
-   * @param payload { applicationId, applicationType, cancellationReason, remarks }
+   * @param payload { licenseId, applicationType, applicantName, cancellationReason, remarks }
    */
   static async createCancelRequest(payload: {
-    freshLicenseId: number;
+    licenseId: number;
     applicationType: string;
     cancellationReason: string;
+    applicantName: string;
     remarks?: string;
   }): Promise<any> {
     return apiClient.post('/cancel-forms', payload);
@@ -37,15 +38,15 @@ export class CancelService {
     limit?: number;
     status?: string;
     requestedBy?: number;
-    freshLicenseId?: number;
+    licenseId?: number;
   }): Promise<any> {
     const params = new URLSearchParams();
     if (filters?.page) params.append('page', String(filters.page));
     if (filters?.limit) params.append('limit', String(filters.limit));
     if (filters?.status) params.append('status', filters.status);
     if (filters?.requestedBy) params.append('requestedBy', String(filters.requestedBy));
-    if (filters?.freshLicenseId) params.append('freshLicenseId', String(filters.freshLicenseId));
-    
+    if (filters?.licenseId) params.append('licenseId', String(filters.licenseId));
+
     return apiClient.get(`/cancel-forms?${params.toString()}`);
   }
 

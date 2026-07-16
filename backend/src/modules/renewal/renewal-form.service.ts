@@ -29,6 +29,24 @@ export class RenewalFormService {
         );
       }
 
+      // Fetch the almsLicenseId from the Licenses table to populate renewalLicenseId
+      let renewalLicenseId: string | null = null;
+      if (createRequest.licenseId) {
+        const lic = await prisma.licenses.findUnique({
+          where: { id: createRequest.licenseId },
+        });
+        if (lic) {
+          renewalLicenseId = lic.almsLicenseId;
+        }
+      } else if (createRequest.licenseNumber) {
+        const lic = await prisma.licenses.findUnique({
+          where: { licenseNumber: createRequest.licenseNumber },
+        });
+        if (lic) {
+          renewalLicenseId = lic.almsLicenseId;
+        }
+      }
+
       // Generate acknowledgement number
       const acknowledgementNo = `RAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
@@ -48,6 +66,7 @@ export class RenewalFormService {
             acknowledgementNo,
             licenseId: createRequest.licenseId,
             licenseNumber: createRequest.licenseNumber,
+            renewalLicenseId,
             firstName: createRequest.firstName,
             middleName: createRequest.middleName,
             lastName: createRequest.lastName,
@@ -1579,6 +1598,8 @@ export class RenewalFormService {
           data: {
             acknowledgementNo,
             licenseNumber,
+            licenseId: freshLicense.licenseId || null,
+            renewalLicenseId: freshLicense.almsLicenseId || null,
             firstName: freshLicense.firstName,
             middleName: freshLicense.middleName || null,
             lastName: freshLicense.lastName,

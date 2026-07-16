@@ -279,14 +279,14 @@ model FreshLicenseApplicationPersonalDetails {
   isRecommended              Boolean?                                        @default(false)
   aliasPotalNumber           String?
   licenseId                  Int?
-  licenseNumber              String?                                         
-  license                    Licenses?                                       @relation(fields: [licenseId], references: [id])
+  licenseNumber              String?
   biometricData              FLAFBiometricDatas?                             @relation("BiometricData")
   criminalHistories          FLAFCriminalHistories[]                         @relation("CriminalHistories")
   fileUploads                FLAFFileUploads[]                               @relation("FileUploads")
   licenseDetails             FLAFLicenseDetails[]                            @relation("LicenseDetails")
   licenseHistories           FLAFLicenseHistories[]                          @relation("LicenseHistories")
   currentUser                Users?                                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
+  license                    Licenses?                                       @relation(fields: [licenseId], references: [id])
   occupationAndBusiness      FLAFOccupationAndBusiness?                      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
   permanentAddress           FLAFAddressesAndContactDetails?                 @relation("PermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
   presentAddress             FLAFAddressesAndContactDetails?                 @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
@@ -301,7 +301,6 @@ model FreshLicenseApplicationPersonalDetails {
   @@index([workflowStatusId])
   @@index([currentUserId])
   @@index([createdAt])
-  @@index([licenseId])
 }
 
 model FLAFAddressesAndContactDetails {
@@ -437,7 +436,7 @@ model FreshLicenseApplicationsFormWorkflowHistories {
 model RenewalFormPersonalDetails {
   id                         Int                                        @id @default(autoincrement())
   acknowledgementNo          String?
-  licenseNumber              String                                     
+  licenseNumber              String                                     @unique
   firstName                  String
   middleName                 String?
   lastName                   String
@@ -445,6 +444,7 @@ model RenewalFormPersonalDetails {
   sex                        Sex
   dateOfBirth                DateTime?
   dobInWords                 String?
+  placeOfBirth               String?
   panNumber                  String?
   aadharNumber               String?
   createdAt                  DateTime                                   @default(now())
@@ -716,8 +716,8 @@ model RangeOffices {
 }
 
 model Licenses {
-  id                         Int                                     @id @default(autoincrement())
-  licenseNumber              String                                  @unique
+  id                         Int                                      @id @default(autoincrement())
+  licenseNumber              String                                   @unique
   almsLicenseId              String?
   issueDate                  DateTime
   firstName                  String
@@ -753,7 +753,7 @@ model Licenses {
   permanentRangeOfficeId     Int?
   occupation                 String?
   officeAddress              String?
-  status                     LicenseStatus                           @default(ACTIVE)
+  status                     LicenseStatus                            @default(ACTIVE)
   cancellationReason         String?
   cancellationDate           DateTime?
   suspendedReason            String?
@@ -763,18 +763,18 @@ model Licenses {
   pdfUrl                     String?
   digitalSignature           String?
   issuedBy                   Int?
-  sourceApplicationId        Int?                                    @unique
+  sourceApplicationId        Int?
   lastModifiedByAppId        Int?
   lastModifiedAppType        String?
-  renewalCount               Int                                     @default(0)
-  createdAt                  DateTime                                @default(now())
-  updatedAt                  DateTime                                @updatedAt
-  cancelFormRequests         CancelFormRequests[]                    @relation("LicensesCancelLog")
-  workflowHistories          LicenseWorkflowHistory[]
-  issuedByUser               Users?                                  @relation("IssuedLicenses", fields: [issuedBy], references: [id])          
-  renewalFormPersonalDetails RenewalFormPersonalDetails[]            @relation("LicensesRenewalLink")
-  endorsedWeapons            WeaponTypeMaster[]                      @relation("LicenseEndorsedWeapons")
+  renewalCount               Int                                      @default(0)
+  createdAt                  DateTime                                 @default(now())
+  updatedAt                  DateTime                                 @updatedAt
+  cancelFormRequests         CancelFormRequests[]                     @relation("LicensesCancelLog")
   freshApplications          FreshLicenseApplicationPersonalDetails[]
+  workflowHistories          LicenseWorkflowHistory[]
+  issuedByUser               Users?                                   @relation("IssuedLicenses", fields: [issuedBy], references: [id])
+  renewalFormPersonalDetails RenewalFormPersonalDetails[]             @relation("LicensesRenewalLink")
+  endorsedWeapons            WeaponTypeMaster[]                       @relation("LicenseEndorsedWeapons")
 
   @@index([aadharNumber])
   @@index([status])
