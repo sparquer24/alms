@@ -11,7 +11,7 @@ export interface RenewalFileUploadRequest {
 
 export interface RenewalFileUploadResponse {
   id: number;
-  applicationId: number;
+  renewalApplicationId: number;
   fileType: string;
   fileName: string;
   fileUrl: string;
@@ -96,17 +96,17 @@ export class RenewalService {
     return apiClient.post('/renewal-forms', payload);
   }
 
-  static async getRenewalForm(applicationId: string | number): Promise<any> {
-    return apiClient.get(`/licenses/${applicationId}`);
+  static async getRenewalForm(renewalId: string | number): Promise<any> {
+    return apiClient.get(`/renewal-forms/${renewalId}`);
   }
 
   static async updateRenewalForm(
-    applicationId: string | number,
+    renewalApplicationId: string | number,
     payload: Record<string, any>,
     options?: { isSubmit?: boolean },
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append('applicationId', String(applicationId));
+    params.append('applicationId', String(renewalApplicationId));
     if (typeof options?.isSubmit === 'boolean') {
       params.append('isSubmit', String(options.isSubmit));
     }
@@ -114,12 +114,12 @@ export class RenewalService {
   }
 
   static async uploadDocument(
-    applicationId: string | number,
+    renewalApplicationId: string | number,
     fileType: string,
     file: File,
   ): Promise<RenewalFileUploadResponse> {
     const fileUrl = await this.fileToBase64(file);
-    return this.uploadDocumentPayload(applicationId, fileType, {
+    return this.uploadDocumentPayload(renewalApplicationId, fileType, {
       fileUrl,
       fileName: file.name,
       fileSize: file.size,
@@ -127,13 +127,13 @@ export class RenewalService {
   }
 
   static async uploadDocumentPayload(
-    applicationId: string | number,
+    renewalApplicationId: string | number,
     fileType: string,
     payload: Omit<RenewalFileUploadRequest, 'fileType'> | RenewalFileUploadRequest,
   ): Promise<RenewalFileUploadResponse> {
     const payloadFileType = 'fileType' in payload && payload.fileType ? payload.fileType : fileType;
 
-    return apiClient.post(`/renewal-forms/${applicationId}/upload-file`, {
+    return apiClient.post(`/renewal-forms/${renewalApplicationId}/upload-file`, {
       ...payload,
       fileType: this.normalizeFileType(payloadFileType),
     });
@@ -170,7 +170,7 @@ export class RenewalService {
 
   /**
    * Handle workflow action (forward, approve, reject, etc.) on renewal application
-   * @param applicationId - Application ID to perform action on
+   * @param applicationId - Renewal Application ID to perform action on
    * @param actionId - Action ID from Actiones table
    * @param nextUserId - User ID to forward/assign to (required for forward action)
    * @param remarks - Remarks/comments for the action

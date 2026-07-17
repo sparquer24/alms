@@ -10,18 +10,18 @@ import toast from 'react-hot-toast';
 export default function SubmitCancelForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlApplicationId = searchParams?.get('applicationId') || '';
+  const urlLicenseId = searchParams?.get('licenseId') || '';
 
   const [loading, setLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'>('ENTER_APP_ID');
   const [verificationError, setVerificationError] = useState<string | null>(null);
-  
+
   const [applicantDetails, setApplicantDetails] = useState<{
     name: string;
     licenseNumber: string;
-    applicationId: string;
+    licenseId: string;
   } | null>(null);
   const [biometricTargetThumb, setBiometricTargetThumb] = useState<string | null>(null);
   const [enrolledTemplates, setEnrolledTemplates] = useState<any[]>([]);
@@ -37,20 +37,20 @@ export default function SubmitCancelForm() {
   const [capturingStep, setCapturingStep] = useState<string>('');
 
   const [formData, setFormData] = useState({
-    applicationId: urlApplicationId,
+    licenseId: urlLicenseId,
     applicationType: 'FreshApplication',
     cancellationReason: '',
     remarks: ''
   });
 
   useEffect(() => {
-    if (urlApplicationId) {
-      setFormData(prev => ({ ...prev, applicationId: urlApplicationId }));
-      checkBiometricRequirement(urlApplicationId);
+    if (urlLicenseId) {
+      setFormData(prev => ({ ...prev, licenseId: urlLicenseId }));
+      checkBiometricRequirement(urlLicenseId);
     } else {
       setVerificationStatus('ENTER_APP_ID');
     }
-  }, [urlApplicationId]);
+  }, [urlLicenseId]);
 
   const checkDeviceConnection = async () => {
     try {
@@ -84,18 +84,18 @@ export default function SubmitCancelForm() {
     );
   };
 
-  const checkBiometricRequirement = async (appId: string) => {
+  const checkBiometricRequirement = async (licenseIdentifier: string) => {
     try {
       setVerificationChecking(true);
       setVerificationError(null);
 
-      const response = await ApplicationService.getApplication(appId);
+      const response = await ApplicationService.getLicense(licenseIdentifier);
       const freshData = response?.data ?? response;
       if (!freshData) {
-        throw new Error('No application data found for the provided Application ID.');
+        throw new Error('No license data found for the provided License ID or License Number.');
       }
 
-      const numericAppId = String(freshData.id || freshData.applicationId || appId);
+      const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
 
@@ -104,7 +104,7 @@ export default function SubmitCancelForm() {
         .map((f: any) => ({
           template: f.template,
           fingerPosition: f.position,
-          applicationId: numericAppId
+          licenseId: numericLicenseId
         }));
 
       const name = [
@@ -116,9 +116,10 @@ export default function SubmitCancelForm() {
       const details = {
         name,
         licenseNumber: getLicenseNumber(freshData),
-        applicationId: numericAppId
+        licenseId: numericLicenseId
       };
       setApplicantDetails(details);
+      setFormData(prev => ({ ...prev, licenseId: numericLicenseId }));
 
       if (userThumbprints.length > 0) {
         setEnrolledTemplates(userThumbprints);
@@ -131,7 +132,7 @@ export default function SubmitCancelForm() {
         setVerificationStatus('VERIFIED');
       }
     } catch (err: any) {
-      setVerificationError(err?.message || 'Failed to fetch application details.');
+      setVerificationError(err?.message || 'Failed to fetch license details.');
       setVerificationStatus('ENTER_APP_ID');
     } finally {
       setVerificationChecking(false);
@@ -239,8 +240,8 @@ export default function SubmitCancelForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.applicationId || !formData.cancellationReason) {
-      toast.error('Please provide the application target ID and reason');
+    if (!formData.licenseId || !formData.cancellationReason) {
+      toast.error('Please provide the license target ID and reason');
       return;
     }
 
@@ -250,8 +251,9 @@ export default function SubmitCancelForm() {
     try {
       setLoading(true);
       const payload = {
-        freshLicenseId: Number(formData.applicationId),
+        licenseId: Number(formData.licenseId),
         applicationType: 'Cancel Application', // Always matching request payload format "Cancel Application"
+        applicantName: applicantDetails?.name || '',
         cancellationReason: formData.cancellationReason,
         remarks: formData.remarks
       };
@@ -280,20 +282,20 @@ export default function SubmitCancelForm() {
     return (
       <div className='max-w-2xl mx-auto w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
         <h2 className='text-2xl font-bold text-gray-900 mb-4'>Verification Required</h2>
-        <p className='text-sm text-gray-500 mb-6'>Please load the target Application ID through the header menu or enter it here to perform verification.</p>
+        <p className='text-sm text-gray-500 mb-6'>Please load the target License ID through the header menu or enter it here to perform verification.</p>
         <div className='space-y-4'>
           <input
-            type='number'
-            placeholder='Enter Fresh Application ID'
+            type='text'
+            placeholder='Enter License ID or License Number'
             className='w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500'
-            value={formData.applicationId}
-            onChange={(e) => setFormData(prev => ({ ...prev, applicationId: e.target.value }))}
+            value={formData.licenseId}
+            onChange={(e) => setFormData(prev => ({ ...prev, licenseId: e.target.value }))}
           />
           <button
-            onClick={() => checkBiometricRequirement(formData.applicationId)}
+            onClick={() => checkBiometricRequirement(formData.licenseId)}
             className='px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium'
           >
-            Check Application
+            Check License
           </button>
           {verificationError && <p className='text-sm text-red-600 mt-2'>{verificationError}</p>}
         </div>
@@ -316,8 +318,8 @@ export default function SubmitCancelForm() {
               <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500 font-medium">Application ID</span>
-              <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
+              <span className="text-gray-500 font-medium">License ID</span>
+              <span className="text-gray-800 font-semibold">{applicantDetails.licenseId}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 font-medium">License Number</span>
@@ -425,18 +427,18 @@ export default function SubmitCancelForm() {
         <form onSubmit={handleSubmit} className='space-y-6'>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
             <div className='space-y-2'>
-               <label htmlFor='applicationId' className='block text-sm font-semibold text-gray-700'>
-                 Target Application ID
+               <label htmlFor='licenseId' className='block text-sm font-semibold text-gray-700'>
+                 Target License ID
                </label>
                <input
-                 type='number'
-                 id='applicationId'
-                 name='applicationId'
-                 value={formData.applicationId}
+                 type='text'
+                 id='licenseId'
+                 name='licenseId'
+                 value={formData.licenseId}
                  disabled
                  className='w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-not-allowed text-gray-700 font-medium'
                />
-               <p className='text-xs text-gray-500'>Verified target ID of the application.</p>
+               <p className='text-xs text-gray-500'>Verified target ID of the license.</p>
             </div>
 
             <div className='space-y-2'>

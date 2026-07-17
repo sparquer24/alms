@@ -155,15 +155,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
-  const [originalApplication, setOriginalApplication] = useState<ApplicationData | null>(null);
-  const [activeTab, setActiveTab] = useState<'original' | 'license'>('original');
+  const [activeTab, setActiveTab] = useState<'info' | 'original'>('info');
   const [rawRenewalData, setRawRenewalData] = useState<any | null>(null);
-  const [freshApplicationForLicense, setFreshApplicationForLicense] =
-    useState<ApplicationData | null>(null);
-  const [freshLoading, setFreshLoading] = useState(false);
-  const [freshApplicationHistory, setFreshApplicationHistory] = useState<any[]>([]);
-  const [freshHistoryLoading, setFreshHistoryLoading] = useState(false);
-  const [expandedFreshHistory, setExpandedFreshHistory] = useState<Record<number, boolean>>({});
+  // Original License Details tab: loaded via the License GET API only (no fresh-app API).
+  const [originalLicenseData, setOriginalLicenseData] = useState<LicenseData | null>(null);
+  const [originalLicenseLoading, setOriginalLicenseLoading] = useState(false);
+  const originalLicenseLoadedIdRef = useRef<string | number | null>(null);
+  // Application History for the Original License tab, sourced from the Workflow History API.
+  const [originalLicenseHistory, setOriginalLicenseHistory] = useState<any[]>([]);
+  const originalLicenseHistoryLoadedIdRef = useRef<string | number | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage (2 of 3 columns)
   const [isDragging, setIsDragging] = useState(false);
@@ -175,15 +175,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
-    setActiveTab(tab === 'original' ? 'license' : 'original');
+    setActiveTab(tab === 'original' ? 'original' : 'info');
   }, [searchParams]);
 
   const handleTabChange = (tab: string) => {
     const isOriginalTab = tab === 'Original License Details' || tab === 'original';
-    const nextTab = isOriginalTab ? 'license' : 'original';
+    const nextTab: 'info' | 'original' = isOriginalTab ? 'original' : 'info';
     setActiveTab(nextTab);
     const params = new URLSearchParams(searchParams?.toString() || '');
-    params.set('tab', isOriginalTab ? 'original' : 'info');
+    params.set('tab', nextTab);
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -193,14 +193,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const { refreshCounts } = useSidebarCounts(!loading);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const currentDisplayApp = useMemo(() => {
-    if (isRenewalView && activeTab === 'original' && originalApplication) {
-      return originalApplication;
-    }
-    if (isRenewalView && activeTab === 'license' && freshApplicationForLicense) {
-      return freshApplicationForLicense;
+    if (isRenewalView && activeTab === 'original' && originalLicenseData) {
+      return originalLicenseData as unknown as ApplicationData;
     }
     return application;
-  }, [isRenewalView, activeTab, originalApplication, application, freshApplicationForLicense]);
+  }, [isRenewalView, activeTab, originalLicenseData, application]);
 
   const licenseDetails = useMemo(() => {
     const rawDetails =
@@ -220,9 +217,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [currentDisplayApp]);
 
   const showFullApplicationDetails =
-    !isRenewalView ||
-    activeTab === 'original' ||
-    (isRenewalView && activeTab === 'license' && freshApplicationForLicense !== null);
+    !isRenewalView || activeTab === 'info' || activeTab === 'original';
 
   // Handle params Promise for React 18 compatibility
   useEffect(() => {
@@ -259,36 +254,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           if (renewalData) {
             setRawRenewalData(renewalData);
             setApplication(normalizeRenewalApplication(renewalData));
-
-            // Fetch original/linked application details (freshApplicationId fallback)
-            const linkedId =
-              renewalData.freshApplicationId ||
-              renewalData.applicationId ||
-              renewalData.sourceApplicationId;
-            if (linkedId) {
-              try {
-                const origResult = await getApplicationByApplicationId(String(linkedId));
-                if (origResult) {
-                  setOriginalApplication(origResult as ApplicationData);
-                }
-              } catch (err) {
-                console.error('Failed to fetch original application', err);
-              }
-            }
-
-            // Preload fresh license's application if freshLicenseId present
-            const freshLicenseId = renewalData.freshLicenseId || null;
-            if (freshLicenseId) {
-              try {
-                setFreshLoading(true);
-                const freshApp = await getApplicationByApplicationId(String(freshLicenseId));
-                if (freshApp) setFreshApplicationForLicense(freshApp as ApplicationData);
-              } catch (err) {
-                console.error('Failed to fetch fresh license application', err);
-              } finally {
-                setFreshLoading(false);
-              }
-            }
           } else {
             setApplication(null);
           }
@@ -361,78 +326,72 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   }, [applicationId, isRenewalView]);
 
-  // When user switches to the license tab, fetch fresh license application if not preloaded
+  // When user opens the "Original License Details" tab:
+  // 1. Call the License GET API (using the licenseId from the Renewal Application) once.
+  // 2. From the License response, read `sourceApplicationId` and `lastModifiedAppType`
+  //    and call the Workflow History API with those values — this populates the
+  //    Application History section. No Fresh Application API is used.
+  // Both APIs run only once per license when the tab is opened (duplicate calls avoided).
   useEffect(() => {
-    const fetchFreshForLicense = async () => {
-      if (!isRenewalView || activeTab !== 'license') return;
-      // Prefer explicit freshLicenseId from renewal payload, fallback to freshApplicationId or linked ids
-      const freshLicenseId =
-        (rawRenewalData && (rawRenewalData.freshLicenseId || rawRenewalData.freshApplicationId)) ||
-        (rawRenewalData && rawRenewalData.applicationId) ||
-        (rawRenewalData && rawRenewalData.sourceApplicationId) ||
-        null;
-      if (!freshLicenseId) return;
+    const fetchOriginalLicense = async () => {
+      if (!isRenewalView || activeTab !== 'original') return;
 
-      // If already loaded, skip
-      if (
-        freshApplicationForLicense &&
-        String(freshApplicationForLicense.id) === String(freshLicenseId)
-      ) {
-        // But still try to fetch history if not already loaded
-        if (freshApplicationHistory.length === 0) {
-          try {
-            setFreshHistoryLoading(true);
-            const historyResponse = await apiClient.get<any>(
-              `/workflow/history/${freshLicenseId}?type=fresh`
-            );
-            if (historyResponse && historyResponse.success) {
-              setFreshApplicationHistory(historyResponse.data);
-            }
-          } catch (err) {
-            console.error('Failed to fetch fresh application workflow history', err);
-          } finally {
-            setFreshHistoryLoading(false);
-          }
-        }
-        return;
-      }
+      // Derive the license id from the renewal record.
+      const licenseId =
+        rawRenewalData?.licenseId ??
+        rawRenewalData?.renewalLicenseId ??
+        rawRenewalData?.almsLicenseId ??
+        null;
+      if (!licenseId) return;
+
+      // Avoid duplicate License GET API requests for the same license.
+      if (String(licenseId) === String(originalLicenseLoadedIdRef.current)) return;
+      originalLicenseLoadedIdRef.current = licenseId;
 
       try {
-        setFreshLoading(true);
-        const freshApp = await getApplicationByApplicationId(String(freshLicenseId));
-        if (freshApp) {
-          setFreshApplicationForLicense(freshApp as ApplicationData);
+        setOriginalLicenseLoading(true);
+        const license = await LicenseService.getLicenseById(Number(licenseId));
+        if (!license) {
+          setOriginalLicenseData(null);
+          setOriginalLicenseHistory([]);
+          return;
+        }
+        setOriginalLicenseData(license);
 
-          // Fetch workflow history for fresh application
-          try {
-            setFreshHistoryLoading(true);
-            const historyResponse = await apiClient.get<any>(
-              `/workflow/history/${freshLicenseId}?type=fresh`
-            );
-            if (historyResponse && historyResponse.success) {
-              setFreshApplicationHistory(historyResponse.data);
+        // Now call the Workflow History API using the License's sourceApplicationId
+        // and lastModifiedAppType. Avoid duplicate calls for the same license.
+        if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
+          originalLicenseHistoryLoadedIdRef.current = licenseId;
+          setOriginalLicenseHistory([]);
+          const sourceApplicationId =
+            license.sourceApplicationId ?? (license as any).sourceAppId ?? null;
+          const lastModifiedAppType =
+            license.lastModifiedAppType ?? (license as any).lastModifiedAppTypeId ?? 'FRESH';
+          if (sourceApplicationId) {
+            try {
+              const historyResponse = await apiClient.get<any>(
+                `/workflow/history/${sourceApplicationId}?type=${lastModifiedAppType}`
+              );
+              if (historyResponse && historyResponse.success) {
+                setOriginalLicenseHistory(historyResponse.data);
+              } else if (Array.isArray(historyResponse)) {
+                setOriginalLicenseHistory(historyResponse);
+              }
+            } catch (historyErr) {
+              console.error('Failed to fetch original license workflow history', historyErr);
+              setOriginalLicenseHistory([]);
             }
-          } catch (err) {
-            console.error('Failed to fetch fresh application workflow history', err);
-          } finally {
-            setFreshHistoryLoading(false);
           }
         }
       } catch (err) {
-        console.error('Failed to fetch fresh license application on tab change', err);
+        console.error('Failed to fetch original license on tab change', err);
       } finally {
-        setFreshLoading(false);
+        setOriginalLicenseLoading(false);
       }
     };
 
-    fetchFreshForLicense();
-  }, [
-    activeTab,
-    isRenewalView,
-    rawRenewalData,
-    freshApplicationForLicense,
-    freshApplicationHistory,
-  ]);
+    fetchOriginalLicense();
+  }, [activeTab, isRenewalView, rawRenewalData]);
 
   // Clear success message after 5 seconds
   useEffect(() => {
@@ -844,8 +803,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               acknowledgementNo={application.acknowledgementNo}
               activeTab={
                 activeTab === 'original'
-                  ? 'Renewal Application Info'
-                  : 'Original License Details'
+                  ? 'Original License Details'
+                  : 'Renewal Application Info'
               }
               onTabChange={handleTabChange}
             />
@@ -868,31 +827,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 const application = displayApp;
                 return (
                   <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
-                    {/* Tab Selection for Renewal */}
-                    {isRenewalView && originalApplication && (
-                      <div className='flex border-b border-slate-200 mt-2 mb-6 print:hidden'>
-                        <button
-                          onClick={() => handleTabChange('info')}
-                          className={`py-3 px-6 font-semibold text-sm transition-all border-b-2 -mb-[2px] ${
-                            activeTab === 'original'
-                              ? 'border-blue-600 text-blue-600'
-                              : 'border-transparent text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Renewal Application Details
-                        </button>
-                        <button
-                          onClick={() => handleTabChange('original')}
-                          className={`py-3 px-6 font-semibold text-sm transition-all border-b-2 -mb-[2px] ${
-                            activeTab === 'license'
-                              ? 'border-blue-600 text-blue-600'
-                              : 'border-transparent text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Original License Details
-                        </button>
-                      </div>
-                    )}
                     {showFullApplicationDetails && (
                       <>
                         {/* 1. Application Information Section */}
@@ -1895,7 +1829,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     }}
                   >
                     {/* Action Buttons - Full Width Editor (2 columns) - Hidden on License Tab */}
-                    {!(isRenewalView && activeTab === 'license') && (
+                    {!(isRenewalView && activeTab === 'original') && (
                     <div
                       className='flex flex-col h-full overflow-hidden pr-4'
                       style={{
@@ -1914,18 +1848,18 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                       <div className='flex flex-col gap-4 flex-1 overflow-hidden'>
                         {(() => {
                           // Determine which application to use based on active tab
-                          const displayApp =
-                            isRenewalView && activeTab === 'license'
-                              ? freshApplicationForLicense
+                          const displayApp: ApplicationData | null =
+                            isRenewalView && activeTab === 'original'
+                              ? (originalLicenseData as unknown as ApplicationData)
                               : application;
                           const displayAppId =
-                            isRenewalView && activeTab === 'license'
-                              ? freshApplicationForLicense?.id
+                            isRenewalView && activeTab === 'original'
+                              ? originalLicenseData?.id
                               : applicationId;
                           const isLoading =
-                            isRenewalView && activeTab === 'license' && freshLoading;
+                            isRenewalView && activeTab === 'original' && originalLicenseLoading;
                           const isNotAvailable =
-                            isRenewalView && activeTab === 'license' && !freshApplicationForLicense;
+                            isRenewalView && activeTab === 'original' && !originalLicenseLoading && !originalLicenseData;
 
                           // If on license tab and still loading, show loading state
                           if (isLoading) {
@@ -1933,15 +1867,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col items-center justify-center'>
                                 <div className='flex flex-col items-center gap-3'>
                                   <div className='w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin'></div>
-                                  <p className='text-sm text-gray-600'>
-                                    Loading Fresh Application...
-                                  </p>
+                                   <p className='text-sm text-gray-600'>
+                                     Loading License...
+                                   </p>
                                 </div>
                               </div>
                             );
                           }
 
-                          // If on license tab and fresh app not available, show message
+                          // If on license tab and license not available, show message
                           if (isNotAvailable) {
                             return (
                               <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
@@ -1961,7 +1895,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   </svg>
                                   <div>
                                     <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
-                                      Fresh Application Not Available
+                                      License Details Not Available
                                     </h4>
                                     <p className='text-sm text-yellow-700'>
                                       The fresh application details could not be loaded. Please
@@ -2067,7 +2001,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     )}
 
                     {/* Resizable Divider - Hidden on License Tab */}
-                    {!(isRenewalView && activeTab === 'license') && (
+                    {!(isRenewalView && activeTab === 'original') && (
                     <div
                       ref={dividerRef}
                       onMouseDown={handleDividerMouseDown}
@@ -2084,9 +2018,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'license' ? '' : 'pl-4'}`}
+                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'original' ? '' : 'pl-4'}`}
                       style={{
-                        width: isRenewalView && activeTab === 'license' ? '100%' : `${100 - dividerPosition}%`,
+                        width: isRenewalView && activeTab === 'original' ? '100%' : `${100 - dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',
                       }}
                     >
@@ -2099,25 +2033,27 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
                         <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
-                          {isRenewalView && activeTab === 'license' && freshHistoryLoading ? (
+                          {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
                             <div className='flex flex-col items-center justify-center h-full'>
                               <div className='w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin mb-3'></div>
-                              <p className='text-sm text-gray-600'>Loading history...</p>
+                              <p className='text-sm text-gray-600'>Loading license history...</p>
                             </div>
                           ) : null}
                           {(() => {
-                            // Use fresh app history when on license tab, otherwise use renewal app history
+                            // Use the Workflow History API response (from the Original License's
+                            // sourceApplicationId + lastModifiedAppType) when on the original tab,
+                            // otherwise use the renewal application's workflow history.
                             const historyToShow =
-                              isRenewalView && activeTab === 'license'
-                                ? freshApplicationHistory
+                              isRenewalView && activeTab === 'original'
+                                ? originalLicenseHistory
                                 : application?.workflowHistories;
                             const expandedHistoryMap =
-                              isRenewalView && activeTab === 'license'
-                                ? expandedFreshHistory
+                              isRenewalView && activeTab === 'original'
+                                ? expandedHistory
                                 : expandedHistory;
                             const setExpandedHistoryMap =
-                              isRenewalView && activeTab === 'license'
-                                ? setExpandedFreshHistory
+                              isRenewalView && activeTab === 'original'
+                                ? setExpandedHistory
                                 : setExpandedHistory;
 
                             return historyToShow && historyToShow.length > 0 ? (

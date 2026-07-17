@@ -63,7 +63,7 @@ const Header = (props: HeaderProps) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelApplicationId, setCancelApplicationId] = useState('');
+  const [cancelLicenseId, setCancelLicenseId] = useState('');
   const [cancelLookupError, setCancelLookupError] = useState<string | null>(null);
   const [isCancelLookupLoading, setIsCancelLookupLoading] = useState(false);
 
@@ -87,7 +87,7 @@ const Header = (props: HeaderProps) => {
       } else if (type.key === 'renewal') {
         router.push('/forms/renewal');
       } else if (type.key === 'cancel') {
-        setCancelApplicationId('');
+        setCancelLicenseId('');
         setCancelLookupError(null);
         setShowCancelModal(true);
       } else {
@@ -99,10 +99,10 @@ const Header = (props: HeaderProps) => {
   };
 
   const handleCancelSubmit = async () => {
-    const id = cancelApplicationId.trim();
+    const id = cancelLicenseId.trim();
 
     if (!id) {
-      setCancelLookupError('Enter a Fresh Application ID or Acknowledgement Number.');
+      setCancelLookupError('Enter a License ID or License Number.');
       return;
     }
 
@@ -110,11 +110,11 @@ const Header = (props: HeaderProps) => {
       setIsCancelLookupLoading(true);
       setCancelLookupError(null);
 
-      const response = await ApplicationService.getApplication(id);
+      const response = await ApplicationService.getLicense(id);
       const freshApplication = response?.data ?? response;
 
       if (!freshApplication) {
-        throw new Error('No fresh application data returned for that ID.');
+        throw new Error('No license data returned for that ID or number.');
       }
 
       const workflowStatusCode = freshApplication?.workflowStatus?.code?.toString().toUpperCase();
@@ -125,15 +125,16 @@ const Header = (props: HeaderProps) => {
         );
 
       if (workflowStatusCode !== 'APPROVED' && !hasApprovedHistory) {
-        throw new Error('Only approved fresh applications can create a cancellation form.');
+        throw new Error('Only approved licenses can create a cancellation form.');
       }
 
-      // Check if a cancellation request already exists for this application
+      // Check if a cancellation request already exists for this license
       try {
-        const existingCancelResponse = await CancelService.getCancelRequests({ freshLicenseId: Number(freshApplication.id) });
+        const resolvedLicenseId = Number(freshApplication.licenseId || freshApplication.id);
+        const existingCancelResponse = await CancelService.getCancelRequests({ licenseId: resolvedLicenseId });
         const existingCancel = existingCancelResponse?.data || existingCancelResponse;
         if (Array.isArray(existingCancel) && existingCancel.length > 0) {
-          throw new Error('A cancellation request already exists for this application.');
+          throw new Error('A cancellation request already exists for this license.');
         }
       } catch (err: any) {
         if (!err.message.includes('already exists')) {
@@ -145,7 +146,7 @@ const Header = (props: HeaderProps) => {
 
       setShowCancelModal(false);
       router.push(
-        `/cancelForm/new?applicationId=${encodeURIComponent(String(freshApplication.id))}`
+        `/cancelForm/new?licenseId=${encodeURIComponent(String(freshApplication.licenseId || freshApplication.id))}`
       );
     } catch (error: any) {
       const message = error?.message || 'Unable to fetch fresh application data.';
@@ -424,24 +425,24 @@ const Header = (props: HeaderProps) => {
           <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
             <h2 className='text-lg font-semibold text-gray-900'>Cancel Application</h2>
             <p className='mt-2 text-sm text-gray-600'>
-              Enter the approved Fresh Application ID or Acknowledgement Number to initiate the cancellation request.
+              Enter the approved License ID or License Number to initiate the cancellation request.
             </p>
 
             <div className='mt-4'>
               <label
-                htmlFor='cancel-application-id'
+                htmlFor='cancel-license-id'
                 className='block text-sm font-medium text-gray-700'
               >
-                Fresh Application ID / Acknowledgement Number
+                License ID / License Number
               </label>
               <input
-                id='cancel-application-id'
-                value={cancelApplicationId}
+                id='cancel-license-id'
+                value={cancelLicenseId}
                 onChange={e => {
-                  setCancelApplicationId(e.target.value);
+                  setCancelLicenseId(e.target.value);
                   if (cancelLookupError) setCancelLookupError(null);
                 }}
-                placeholder='Enter ID or Acknowledgement Number (e.g., ALMS...)'
+                placeholder='Enter License ID or License Number (e.g., LUAN...)'
                 className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
                 autoFocus
               />

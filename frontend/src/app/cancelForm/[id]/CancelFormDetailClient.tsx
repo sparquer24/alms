@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import CancelRequestDetail from '@/components/cancelForm/CancelRequestDetail';
-import { getApplicationByApplicationId } from '@/services/sidebarApiCalls';
 import ProceedingsForm from '@/components/ProceedingsForm';
 import CancelService from '@/api/cancelService';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,9 +12,8 @@ import { formatStatusLabel } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
 import { openAttachment } from '@/utils/attachmentViewer';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
-import { Loader2, History, Clock, ChevronDown, FileText } from 'lucide-react';
+import { History, Clock, ChevronDown, FileText, Shield } from 'lucide-react';
 
-const LoaderFixed = Loader2 as any;
 const ClockIcon = Clock as any;
 const ChevronDownIcon = ChevronDown as any;
 
@@ -41,9 +39,13 @@ export default function CancelFormDetailClient() {
   const [error, setError] = useState('');
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
 
-  const [freshApplication, setFreshApplication] = useState<any>(null);
-  const [freshLoading, setFreshLoading] = useState(false);
+  const [cancelInfoLoading, setCancelInfoLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState<'info' | 'original'>('info');
+
+  // Tracks which tabs have already triggered their one-time fetch to prevent
+  // duplicate API calls caused by re-renders or repeated state updates.
+  const loadedTabs = React.useRef<{ info?: boolean; original?: boolean }>({});
 
   const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage
   const [isDragging, setIsDragging] = useState(false);
@@ -84,53 +86,55 @@ export default function CancelFormDetailClient() {
     };
   }, [isDragging]);
 
-  const fetchRequest = async () => {
+  // Fetch the Cancellation Info data from GET /api/cancel-forms/:id.
+  // This ONLY calls the Cancellation API. The linked license (Original tab)
+  // is fetched separately and lazily when that tab is opened, using the
+  // licenseId returned by this response.
+  const fetchCancelInfo = async (options?: { replaceRequestOnly?: boolean }) => {
     try {
-      setLoading(true);
+      setCancelInfoLoading(true);
       const res = await CancelService.getCancelRequestById(Number(id));
       // Backend wraps response as { success, message, data }
       const reqData = res?.data || res;
       // Guard: only set request state if we actually got a record with a valid id
       if (!reqData || !reqData.id) {
-        setError(`Cancel request #${id} not found.`);
+        if (!options?.replaceRequestOnly) setError(`Cancel request #${id} not found.`);
         return;
       }
       setRequest({
         ...reqData,
         applicationType: 'CancelFormRequest',
       });
-
-      // Try to set any embedded fresh application payload
-      const freshPayload =
-        reqData.freshLicense || reqData.freshApplication || reqData.fresh_application;
-      if (freshPayload) {
-        setFreshApplication(freshPayload);
-      } else {
-        const linkedId =
-          reqData.freshLicenseId || reqData.freshApplicationId || reqData.fresh_license_id;
-        if (linkedId) {
-          try {
-            setFreshLoading(true);
-            const fetched = await getApplicationByApplicationId(String(linkedId));
-            if (fetched) setFreshApplication(fetched);
-          } catch (err) {
-            console.error('Failed to fetch linked fresh application', err);
-          } finally {
-            setFreshLoading(false);
-          }
-        }
-      }
     } catch (err) {
       console.error('Fetch error:', err);
-      setError(`Cancel request #${id} was not found or could not be loaded.`);
+      if (!options?.replaceRequestOnly) {
+        setError(`Cancel request #${id} was not found or could not be loaded.`);
+      }
     } finally {
-      setLoading(false);
+      setCancelInfoLoading(false);
     }
   };
 
+  // Initial load: fetch the Cancellation Info (GET /api/cancel-forms/:id) once.
+  // The response is needed for both tabs (the Original tab reads licenseId from it).
   useEffect(() => {
-    if (id) fetchRequest();
+    if (id) {
+      setLoading(true);
+      loadedTabs.current.info = true;
+      fetchCancelInfo().finally(() => setLoading(false));
+    }
   }, [id]);
+
+  // Lazy load the Original License Details tab (GET /api/licenses/:licenseId).
+  // Called only once, and only when the Original tab is opened, using the
+  // licenseId returned by the Cancellation API. No Fresh Application API is used.
+  const [originalLoaded, setOriginalLoaded] = useState(false);
+  useEffect(() => {
+    if (activeTab === 'original' && request?.licenseId && !loadedTabs.current.original) {
+      loadedTabs.current.original = true;
+      setOriginalLoaded(true);
+    }
+  }, [activeTab, request?.licenseId]);
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -138,7 +142,7 @@ export default function CancelFormDetailClient() {
   }, [searchParams]);
 
   const handleTabChange = (tab: string) => {
-    const nextTab = tab === 'Original Application Details' ? 'original' : 'info';
+    const nextTab = tab === 'License Details' ? 'original' : 'info';
     setActiveTab(nextTab);
     const params = new URLSearchParams(searchParams?.toString() || '');
     params.set('tab', nextTab);
@@ -173,23 +177,44 @@ export default function CancelFormDetailClient() {
   }, [id, request, router, setHeaderOptions]);
 
   const handleProceedingsSuccess = (message?: string) => {
-    fetchRequest(); // Reload details
+    fetchCancelInfo({ replaceRequestOnly: true }); // Reload details
   };
 
   if (loading) {
     return (
-      <div className='flex justify-center items-center h-screen bg-slate-50'>
-        <LoaderFixed className='w-8 h-8 animate-spin text-red-600 mr-3' />
-        <span className='text-xl font-medium text-gray-700'>Loading request...</span>
+      <div className='min-h-screen bg-slate-50 flex items-center justify-center px-4'>
+        <div className='rounded-2xl bg-white px-8 py-10 shadow-lg border border-slate-200 text-center'>
+          <div className='mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-700' />
+          <p className='text-slate-600'>Loading cancellation request…</p>
+        </div>
       </div>
     );
   }
 
   if (error || !request) {
     return (
-      <div className='p-8 bg-slate-50 min-h-screen'>
-        <div className='bg-red-50 text-red-700 p-6 rounded-lg text-center font-medium max-w-2xl mx-auto shadow-sm border border-red-100'>
-          {error || 'Request not found'}
+      <div className='min-h-screen bg-slate-50 flex items-center justify-center px-4'>
+        <div className='max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200 text-center'>
+          <h1 className='text-2xl font-bold text-slate-900'>Cancellation Request Not Found</h1>
+          <p className='mt-3 text-slate-600'>
+            {error || 'The selected cancellation request could not be loaded.'}
+          </p>
+          <div className='mt-6 flex flex-wrap justify-center gap-3'>
+            <button
+              type='button'
+              onClick={() => router.back()}
+              className='rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50'
+            >
+              Go Back
+            </button>
+            <button
+              type='button'
+              onClick={() => router.push('/inbox?type=all')}
+              className='rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800'
+            >
+              Back to Applications
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -207,18 +232,21 @@ export default function CancelFormDetailClient() {
   const showApplicationProcessingSection = activeTab === 'info';
 
   return (
-    <div className='flex flex-col min-h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
-      <main className='flex-1 overflow-y-auto w-full'>
-        <div className=''>
-          <div className='py-6 lg:py-8 space-y-6'>
+    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)]'>
+      <main className='w-full'>
+        <div className='w-full'>
+          <div className='space-y-6'>
             <CancelRequestDetail
               request={request}
-              freshApplication={freshApplication}
+              licenseId={request.licenseId}
+              licenseNumber={request.licenseNumber}
               activeTab={activeTab}
               onTabChange={handleTabChange}
+              loading={cancelInfoLoading}
+              loadOriginal={originalLoaded}
             />
 
-            <div className='rounded-xl border border-gray-200 shadow-sm bg-white overflow-hidden print:hidden'>
+            <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden print:hidden'>
               <div className='p-4 lg:p-4 border-t border-gray-100'>
                 <div
                   ref={containerRef}
@@ -315,7 +343,7 @@ export default function CancelFormDetailClient() {
                     <div className='flex items-center justify-between mb-4'>
                       <h3 className='text-lg font-semibold text-gray-900 flex items-center'>
                         <div className='w-1 h-5 bg-red-600 rounded-full mr-3'></div>
-                        Cancellation History
+                        Application History
                       </h3>
                     </div>
 
