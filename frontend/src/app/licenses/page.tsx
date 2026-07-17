@@ -118,7 +118,7 @@ const mapLicenseToRow = (license: LicenseData) => ({
   'Expiry Date': formatDate(license.validTill),
   'License Status': license.status,
   'Current Workflow Status': license.workflowHistories?.[0]?.newStatus || license.status,
-  'Created From': license.sourceApplicationId ? 'Fresh Application' : 'Imported',
+  'Created From': license.freshApplicationId ? 'Fresh Application' : 'Imported',
   'Created Date': formatDate(license.createdAt),
   'Updated Date': formatDate(license.updatedAt),
 });
@@ -733,7 +733,7 @@ function LicenseManagementContent() {
                     ['Status', selectedLicense.status],
                     [
                       'Created From',
-                      selectedLicense.sourceApplicationId ? 'Fresh Application' : 'Imported',
+                      selectedLicense.freshApplicationId ? 'Fresh Application' : 'Imported',
                     ],
                   ],
                 ],

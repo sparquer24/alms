@@ -752,24 +752,24 @@ export class ApplicationFormService {
           updatedSections.push('biometricData');
         }
 
-      // Handle workflow status updates - only when isSubmit is true
-      if (isSubmit === true) {
-        // Audit: Log application submission
-        try {
-          await prisma.auditLogs.create({
-            data: {
-              userId: currentUserId || 0,
-              applicationId: applicationId,
-              entity: 'FreshLicenseApplicationPersonalDetails',
-              entityId: String(applicationId),
-              action: 'SUBMIT',
-              newValue: { isSubmit: true },
-            },
-          });
-        } catch (auditError) {
-          // Audit failures should not block submission
-          console.error('Audit log failed for application submission:', auditError);
-        }
+        // Handle workflow status updates - only when isSubmit is true
+        if (isSubmit === true) {
+          // Audit: Log application submission
+          try {
+            await prisma.auditLogs.create({
+              data: {
+                userId: currentUserId || 0,
+                applicationId: applicationId,
+                entity: 'FreshLicenseApplicationPersonalDetails',
+                entityId: String(applicationId),
+                action: 'SUBMIT',
+                newValue: { isSubmit: true },
+              },
+            });
+          } catch (auditError) {
+            // Audit failures should not block submission
+            console.error('Audit log failed for application submission:', auditError);
+          }
           // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
             where: { isStarted: true, isActive: true } as any
@@ -1241,7 +1241,7 @@ export class ApplicationFormService {
           });
 
           // Resolve original application details for cancel requests
-          const freshLicenseIds = historyData              .map((h: any) => h.application?.licenseId)
+          const freshLicenseIds = historyData.map((h: any) => h.application?.licenseId)
             .filter((id: any): id is number => id != null);
           const uniqueFreshLicenseIds = [...new Set(freshLicenseIds)];
 
@@ -1263,9 +1263,9 @@ export class ApplicationFormService {
             });
           }
 
-          // "applicationType": "Renewal License",   "applicationType": "Fresh License",
+          // "applicationType": "Renewal License",   "applicationType": "Fresh",
           const allworkflowHistories = [
-            ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh License' })),
+            ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh' })),
             ...renewalWorkflowHistories.map(h => ({ ...h, applicationType: 'Renewal License' })),
             ...historyData.map((h: any) => {
               const freshLicenseId = h.application?.licenseId;
@@ -1493,7 +1493,7 @@ export class ApplicationFormService {
       let renewalByStatusId: Map<number, any[]> = new Map();
       let cancelFormResult: { total: number; data: any[] } = { total: 0, data: [] };
 
-      // Fetch Fresh License Applications
+      // Fetch Fresh Applications
       if (fetchFresh) {
         const rawData = await prisma.freshLicenseApplicationPersonalDetails.findMany({
           where,
@@ -1510,7 +1510,7 @@ export class ApplicationFormService {
             almsLicenseId: rest.almsLicenseId,
             acknowledgementNo: rest.acknowledgementNo,
             applicantName: parts.join(' '),
-            applicationType: 'Fresh License',
+            applicationType: 'Fresh',
             createdAt: rest.createdAt,
             workflowStatusId: rest.workflowStatusId,
             workflowStatus: rest.workflowStatus,
@@ -1753,13 +1753,13 @@ export class ApplicationFormService {
     const effectiveUser = cancelRequest.currentUser
       ? cancelRequest.currentUser
       : await prisma.users.findUnique({
-          where: { id: effectiveUserId },
-          select: { roleId: true }
-        });
+        where: { id: effectiveUserId },
+        select: { roleId: true }
+      });
 
     if (!effectiveUser?.roleId) return null;
 
-      if (!cancelRequest.licenseId) return null;
+    if (!cancelRequest.licenseId) return null;
 
     // Now fetch the original application's address - try fresh then renewal
     let originalApp: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
@@ -1773,7 +1773,7 @@ export class ApplicationFormService {
             zoneId: true,
             divisionId: true,
             policeStationId: true,
-            rangeOfficeId:true
+            rangeOfficeId: true
           }
         }
       }
@@ -1790,7 +1790,7 @@ export class ApplicationFormService {
               districtId: true,
               zoneId: true,
               divisionId: true,
-              rangeOfficeId:true,
+              rangeOfficeId: true,
               policeStationId: true
             }
           }
@@ -1935,7 +1935,7 @@ export class ApplicationFormService {
                 zoneId: true,
                 divisionId: true,
                 policeStationId: true,
-                rangeOfficeId:true
+                rangeOfficeId: true
               }
             }
           }
@@ -1988,7 +1988,7 @@ export class ApplicationFormService {
       });
 
       if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
-         return [null, []];
+        return [null, []];
       }
 
       // Build location hierarchy conditions - using OR for all levels in a single query
@@ -2291,7 +2291,7 @@ export class ApplicationFormService {
       if (filter.searchField === 'id') {
         const idVal = Number(filter.search);
         if (!isNaN(idVal)) cancelFormWhere.id = idVal;
-      } else if (['firstName', 'lastName', 'acknowledgementNo' ].includes(filter.searchField)) {
+      } else if (['firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
         cancelFormWhere.Licenses = {
           [filter.searchField]: { contains: String(filter.search), mode: 'insensitive' }
         };
@@ -2350,8 +2350,8 @@ export class ApplicationFormService {
     const transformedCancelRequests = await Promise.all((cancelFormRawData || []).map(async (row: any) => {
       const freshApplicantName = row.Licenses
         ? [row.Licenses.firstName, row.Licenses.middleName, row.Licenses.lastName]
-            .filter((part: any) => part && String(part).trim())
-            .join(' ')
+          .filter((part: any) => part && String(part).trim())
+          .join(' ')
         : '';
       const applicantName = freshApplicantName || row.requester?.username || `Cancel Request #${row.id}`;
       const acknowledgementNo: string | null = row.acknowledgementNo || row.Licenses?.licenseNumber || null;

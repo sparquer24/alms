@@ -20,7 +20,7 @@ export class WorkflowService {
   }
 
   async getApplicationsByType(applicationType: string) {
-    if (applicationType === 'flawUpdate' || applicationType === 'FreshLicenseApplicationForm') {
+    if (applicationType === 'flawUpdate' || applicationType === 'FreshLicenseApplicationForm' || applicationType.toLowerCase() === 'fresh') {
       return await prisma.freshLicenseApplicationPersonalDetails.findMany({
         select: {
           id: true,
@@ -37,7 +37,7 @@ export class WorkflowService {
           updatedAt: true,
         }
       });
-    } else if (applicationType === 'renewUpdate' || applicationType === 'RenewalApplicationForm') {
+    } else if (applicationType === 'renewUpdate' || applicationType === 'RenewalApplicationForm' || applicationType.toLowerCase() === 'renewal') {
       return await prisma.renewalFormPersonalDetails.findMany({
         select: {
           id: true,
@@ -324,7 +324,7 @@ export class WorkflowService {
   private async issueLicenseFromFreshApproval(applicationId: number, issuedBy: number) {
     // Check if license already exists for this application
     const existingLicense = await prisma.licenses.findFirst({
-      where: { sourceApplicationId: applicationId }
+      where: { freshApplicationId: applicationId }
     });
     if (existingLicense) return;
 
@@ -354,7 +354,7 @@ export class WorkflowService {
         data: {
           licenseNumber,
           almsLicenseId: appData.almsLicenseId,
-          sourceApplicationId: appData.id,
+          freshApplicationId: appData.id,
           issueDate: new Date(),
           firstName: appData.firstName,
           middleName: appData.middleName,
@@ -641,7 +641,7 @@ export class WorkflowService {
 
         // Update tracking
         renewalCount: { increment: 1 },
-        lastModifiedByAppId: renewalApplicationId,
+        renewalApplicationId: renewalApplicationId,
         lastModifiedAppType: 'RENEWAL',
         status: LicenseStatus.ACTIVE,
 
@@ -885,7 +885,7 @@ export class WorkflowService {
 //             const licenseToCancel = await tx.licenses.findFirst({
 //               where: {
 //                 OR: [
-//                   { sourceApplicationId: cancelRequest.licenseId },
+//                   { freshApplicationId: cancelRequest.licenseId },
 //                   { licenseNumber: application.licenseNumber },
 //                 ],
 //               },
@@ -898,7 +898,7 @@ export class WorkflowService {
 //                   status: LicenseStatus.CANCELLED,
 //                   cancellationReason: cancelRequest.cancellationReason,
 //                   cancellationDate: new Date(),
-//                   lastModifiedByAppId: payload.applicationId,
+//                   cancelApplicationId: payload.applicationId,
 //                   lastModifiedAppType: 'CANCELLATION',
 //                 },
 //               });

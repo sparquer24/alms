@@ -27,25 +27,25 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
     panNumber: application?.panNumber,
     aadharNumber: application?.aadharNumber,
     placeOfBirth: application?.placeOfBirth || undefined,
-    applicationType: 'Renewal Application',
+    applicationType: 'Renewal',
     applicationDate: application?.createdAt || new Date().toISOString(),
     applicationTime: application?.createdAt ? new Date(application.createdAt).toTimeString() : undefined,
     status: application?.workflowStatus?.name || application?.status || (submittedOnly ? 'Submitted' : 'Draft'),
     status_id: application?.workflowStatusId ?? (application?.isSubmit ? 1 : (submittedOnly ? 9 : 0)),
     workflowStatus: application?.workflowStatus
       ? {
-          id: application.workflowStatus.id || 0,
-          code: application.workflowStatus.code || '',
-          name: application.workflowStatus.name || '',
-        }
+        id: application.workflowStatus.id || 0,
+        code: application.workflowStatus.code || '',
+        name: application.workflowStatus.name || '',
+      }
       : undefined,
     currentUser:
       application?.currentUser ||
       (application?.currentUserId
         ? {
-            id: application.currentUserId,
-            username: application.currentUserName || application.currentUserUsername || undefined,
-          }
+          id: application.currentUserId,
+          username: application.currentUserName || application.currentUserUsername || undefined,
+        }
         : undefined),
     previousUser: application?.previousUser || undefined,
     assignedTo: String(application?.currentUserId || ''),
@@ -55,14 +55,14 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
     documents: Array.isArray(application?.documents)
       ? application.documents
       : Array.isArray(application?.fileUploads)
-      ? application.fileUploads.map((upload: any) => ({
+        ? application.fileUploads.map((upload: any) => ({
           ...upload,
           name: upload?.fileName || upload?.name || '',
           url:
             upload?.fileUrl || upload?.url || upload?.path || upload?.downloadUrl || '',
           type: upload?.fileType || upload?.type || '',
         }))
-      : [],
+        : [],
     history: Array.isArray(application?.history) ? application.history : [],
     workflowHistories: Array.isArray(application?.workflowHistories) ? application.workflowHistories : [],
     presentAddress: application?.presentAddress || undefined,
@@ -83,21 +83,21 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
         if (bio && bio.photo && typeof bio.photo.url === 'string' && bio.photo.url.trim()) {
           return bio.photo.url.trim();
         }
-        
+
         // Check direct photoUrl
         if (typeof application?.photoUrl === 'string' && application.photoUrl.trim()) {
           return application.photoUrl.trim();
         }
-        
+
         // Check fileUploads for PHOTOGRAPH type
         const uploads = application?.fileUploads || [];
         if (Array.isArray(uploads)) {
-          const byType = uploads.find((f: any) => 
-            ((f.fileType || f.type || '') + '').toString().toUpperCase().includes('PHOTOGRAPH') && 
+          const byType = uploads.find((f: any) =>
+            ((f.fileType || f.type || '') + '').toString().toUpperCase().includes('PHOTOGRAPH') &&
             (f.fileUrl || f.url)
           );
           if (byType) return (byType.fileUrl || byType.url || '').toString();
-          
+
           // Fallback: check for photo/photograph in filename
           const byName = uploads.find((f: any) => {
             const name = (f.fileName || f.name || '').toString().toLowerCase();
@@ -105,7 +105,7 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
           });
           if (byName) return (byName.fileUrl || byName.url || '').toString();
         }
-        
+
         return undefined;
       } catch {
         return undefined;
@@ -122,7 +122,7 @@ export const normalizeRenewalApplication = (application: any, submittedOnly: boo
     },
     usersInHierarchy: Array.isArray(application?.usersInHierarchy) ? application.usersInHierarchy : [],
     // Keep linkage IDs for renewal edit-routing in draft mode.
-    ...( {
+    ...({
       renewalId: application?.id,
       renewalApplicationId: application?.id,
       applicationId:

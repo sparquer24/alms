@@ -7,13 +7,13 @@ import { LicensesService } from './licenses.service';
 export class LicensesController {
   constructor(private readonly licensesService: LicensesService) {}
 
-  @Post('generate/:sourceApplicationId')
+  @Post('generate/:freshApplicationId')
   @ApiOperation({ summary: 'Generate a license PDF from a fresh application' })
   async generateLicense(
-    @Param('sourceApplicationId') sourceApplicationId: string,
+    @Param('freshApplicationId') freshApplicationId: string,
     @Body('issuedBy') issuedBy: string | number
   ) {
-    return this.licensesService.generateLicensePdf(Number(sourceApplicationId), Number(issuedBy));
+    return this.licensesService.generateLicensePdf(Number(freshApplicationId), Number(issuedBy));
   }
 
   // IMPORTANT: Static-path GET routes must come BEFORE parameterized :id routes
@@ -27,7 +27,7 @@ export class LicensesController {
   @ApiQuery({ name: 'status', required: false, enum: ['ACTIVE', 'EXPIRED', 'CANCELLED', 'SUSPENDED', 'REVOKED'] })
   @ApiQuery({ name: 'licenseNumber', required: false, description: 'Filter by license number (partial match)' })
   @ApiQuery({ name: 'aadharNumber', required: false, description: 'Filter by aadhar number' })
-  @ApiQuery({ name: 'sourceApplicationId', required: false, type: Number, description: 'Filter by source application ID' })
+  @ApiQuery({ name: 'freshApplicationId', required: false, type: Number, description: 'Filter by fresh application ID' })
   @ApiQuery({ name: 'expiringWithinDays', required: false, type: Number, description: 'Filter active licenses expiring within N days' })
   @ApiQuery({ name: 'createdFrom', required: false, description: 'Filter by source marker, e.g. Fresh or Imported' })
   @ApiQuery({ name: 'orderBy', required: false, example: 'createdAt', enum: ['id', 'licenseNumber', 'firstName', 'lastName', 'createdAt', 'validTill', 'status'] })
@@ -39,7 +39,7 @@ export class LicensesController {
     @Query('status') status?: string,
     @Query('licenseNumber') licenseNumber?: string,
     @Query('aadharNumber') aadharNumber?: string,
-    @Query('sourceApplicationId') sourceApplicationId?: string,
+    @Query('freshApplicationId') freshApplicationId?: string,
     @Query('expiringWithinDays') expiringWithinDays?: string,
     @Query('createdFrom') createdFrom?: string,
     @Query('orderBy') orderBy?: string,
@@ -52,7 +52,7 @@ export class LicensesController {
       status,
       licenseNumber,
       aadharNumber,
-      sourceApplicationId: sourceApplicationId ? Number(sourceApplicationId) : undefined,
+      freshApplicationId: freshApplicationId ? Number(freshApplicationId) : undefined,
       expiringWithinDays: expiringWithinDays ? Number(expiringWithinDays) : undefined,
       createdFrom,
       orderBy,

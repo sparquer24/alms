@@ -69,15 +69,15 @@ export class RenewalService {
 
   static async findRenewalByLicenseNumber(
     licenseNumber: string,
-  ): Promise<{ licenseNumber?: string; [key: string]: unknown } | null> {
+  ): Promise<{ licenseNumber?: string;[key: string]: unknown } | null> {
     if (!licenseNumber?.trim()) return null;
 
-    const response = await apiClient.get<{ data?: Array<{ licenseNumber?: string; [key: string]: unknown }> }>(
+    const response = await apiClient.get<{ data?: Array<{ licenseNumber?: string;[key: string]: unknown }> }>(
       '/renewal-forms',
       {
-      search: licenseNumber.trim(),
-      limit: 25,
-      page: 1,
+        search: licenseNumber.trim(),
+        limit: 25,
+        page: 1,
       },
     );
 
@@ -164,13 +164,13 @@ export class RenewalService {
       ...(filters?.limit && { limit: String(filters.limit) }),
       ...(filters?.status && { status: filters.status }),
     });
-    
+
     return apiClient.get(`/workflow/applications?${params.toString()}`);
   }
 
   /**
    * Handle workflow action (forward, approve, reject, etc.) on renewal application
-   * @param applicationId - Renewal Application ID to perform action on
+   * @param applicationId - Renewal ID to perform action on
    * @param actionId - Action ID from Actiones table
    * @param nextUserId - User ID to forward/assign to (required for forward action)
    * @param remarks - Remarks/comments for the action

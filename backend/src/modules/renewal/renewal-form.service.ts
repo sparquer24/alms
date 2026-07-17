@@ -1275,7 +1275,7 @@ export class RenewalFormService {
             permanentRangeOfficeId: freshLicense.permanentAddress?.rangeOfficeId,
             occupation: freshLicense.occupationAndBusiness?.occupation,
             officeAddress: freshLicense.occupationAndBusiness?.officeAddress,
-            sourceApplicationId: licenseId,
+            freshApplicationId: licenseId,
             issuedBy: currentUserId,
           };
 

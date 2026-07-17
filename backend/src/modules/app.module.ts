@@ -22,8 +22,10 @@ import { HearingsModule } from './hearings/hearings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { AuditModule } from './audit/audit.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule, DocumentsModule],
+
 })
 export class AppModule { }

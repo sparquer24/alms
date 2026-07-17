@@ -42,23 +42,23 @@ FreshLicenseApplicationPersonalDetails
 
 ### Key Linkage Rules
 
-| Link | How It Works |
-|---|---|
-| **Fresh → Renewal** | `RenewalFormPersonalDetails.freshLicenseId` → `FreshLicenseApplicationPersonalDetails.id`. Also, `RenewalFormPersonalDetails.licenseNumber` = original fresh app's `acknowledgementNo`. |
-| **Fresh → Cancellation** | `CancelFormRequests.freshLicenseId` → `FreshLicenseApplicationPersonalDetails.id`. The cancellation targets a specific fresh license to cancel it. |
-| **Biometric Link** | Both forms **read** biometric templates from `FLAFBiometricDatas` (fresh app) for verification. Renewal also **creates** new `RenewalBiometricDatas` for re-enrollment. |
-| **Workflow History** | Three separate tables, same structure, different FK targets: `FreshLicenseApplicationsFormWorkflowHistories`, `RenewalApplicationsFormWorkflowHistories`, `CancelWorkflowHistories`. |
+| Link                     | How It Works                                                                                                                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fresh → Renewal**      | `RenewalFormPersonalDetails.freshLicenseId` → `FreshLicenseApplicationPersonalDetails.id`. Also, `RenewalFormPersonalDetails.licenseNumber` = original fresh app's `acknowledgementNo`. |
+| **Fresh → Cancellation** | `CancelFormRequests.freshLicenseId` → `FreshLicenseApplicationPersonalDetails.id`. The cancellation targets a specific fresh license to cancel it.                                      |
+| **Biometric Link**       | Both forms **read** biometric templates from `FLAFBiometricDatas` (fresh app) for verification. Renewal also **creates** new `RenewalBiometricDatas` for re-enrollment.                 |
+| **Workflow History**     | Three separate tables, same structure, different FK targets: `FreshLicenseApplicationsFormWorkflowHistories`, `RenewalApplicationsFormWorkflowHistories`, `CancelWorkflowHistories`.    |
 
 ### Workflow History Table Comparison
 
-| Field | Fresh | Renewal | Cancel |
-|---|---|---|---|
-| **Table** | `FreshLicenseApplicationsFormWorkflowHistories` | `RenewalApplicationsFormWorkflowHistories` | `CancelWorkflowHistories` |
+| Field                 | Fresh                                                         | Renewal                                           | Cancel                                    |
+| --------------------- | ------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------- |
+| **Table**             | `FreshLicenseApplicationsFormWorkflowHistories`               | `RenewalApplicationsFormWorkflowHistories`        | `CancelWorkflowHistories`                 |
 | **FK to application** | `applicationId` → `FreshLicenseApplicationPersonalDetails.id` | `applicationId` → `RenewalFormPersonalDetails.id` | `applicationId` → `CancelFormRequests.id` |
-| **Action takers** | `previousUserId`, `nextUserId` → `Users` | Same | Same |
-| **Roles** | `previousRoleId`, `nextRoleId` → `Roles` | Same | Same |
-| **Action lookup** | `actionesId` → `Actiones` | Same | Same |
-| **Attachments** | `attachments` (JSON) | Same | Same |
+| **Action takers**     | `previousUserId`, `nextUserId` → `Users`                      | Same                                              | Same                                      |
+| **Roles**             | `previousRoleId`, `nextRoleId` → `Roles`                      | Same                                              | Same                                      |
+| **Action lookup**     | `actionesId` → `Actiones`                                     | Same                                              | Same                                      |
+| **Attachments**       | `attachments` (JSON)                                          | Same                                              | Same                                      |
 
 ---
 
@@ -75,17 +75,18 @@ POST /cancel-forms/:id/action   ← SEPARATE: only used by Cancel (dual path)
 
 Both `RenewalWorkflowService` and `CancelWorkflowService` have **identical method signatures** and both hit the **same `/workflow/action`** endpoint:
 
-| Method | RenewalWorkflowService | CancelWorkflowService | Same? |
-|---|---|---|---|
-| `performAction()` | ✅ | ✅ | ✅ |
-| `forwardApplication()` | ✅ | ✅ | ✅ |
-| `approveApplication()` | ✅ | ✅ | ✅ |
-| `rejectApplication()` | ✅ | ✅ | ✅ |
-| `requestInfoApplication()` | ✅ | ✅ | ✅ |
+| Method                     | RenewalWorkflowService | CancelWorkflowService | Same? |
+| -------------------------- | ---------------------- | --------------------- | ----- |
+| `performAction()`          | ✅                     | ✅                    | ✅    |
+| `forwardApplication()`     | ✅                     | ✅                    | ✅    |
+| `approveApplication()`     | ✅                     | ✅                    | ✅    |
+| `rejectApplication()`      | ✅                     | ✅                    | ✅    |
+| `requestInfoApplication()` | ✅                     | ✅                    | ✅    |
 
 ### Dual-Path Problem in Cancellation
 
 Cancellation has a **dual-path** architecture for approvals:
+
 1. **Primary path:** `POST /workflow/action` — For standard workflow history
 2. **Fallback path:** `POST /cancel-forms/:id/action` — For actually updating the original application status to CANCELLED
 
@@ -111,7 +112,7 @@ Both services use the same helper to resolve action names to IDs:
 private static async getActionIdByCode(actionCode: string): Promise<number> {
   const data = await RenewalService.getWorkflowStatusesAndActions();
   const actions = data?.actions || [];
-  
+
   let action = actions.find(
     (a: any) => a.code?.toUpperCase() === actionCode.toUpperCase()
   );
@@ -120,7 +121,7 @@ private static async getActionIdByCode(actionCode: string): Promise<number> {
   if (!action && actionCode?.toUpperCase() === 'INITIATE') {
     action = actions.find((a: any) => a.code?.toUpperCase() === 'INITIATED');
   }
-  
+
   return action.id;
 }
 ```
@@ -136,27 +137,32 @@ private static async getActionIdByCode(actionCode: string): Promise<number> {
 ```typescript
 interface ApplicationData {
   // Personal (shared across all)
-  firstName, middleName, lastName
-  parentOrSpouseName
-  sex, dateOfBirth, placeOfBirth
-  panNumber, aadharNumber
+  firstName;
+  middleName;
+  lastName;
+  parentOrSpouseName;
+  sex;
+  dateOfBirth;
+  placeOfBirth;
+  panNumber;
+  aadharNumber;
 
   // Addresses (shared structure, separate DB tables)
-  presentAddress     // Same shape for fresh & renewal
-  permanentAddress   // Same shape for fresh & renewal
-  occupationAndBusiness  // Same shape
+  presentAddress; // Same shape for fresh & renewal
+  permanentAddress; // Same shape for fresh & renewal
+  occupationAndBusiness; // Same shape
 
   // License (shared structure)
-  licenseDetails     // needForLicense, armsCategory, areaOfValidity, requestedWeapons
-  licenseHistories   // hasAppliedBefore, previousResult, etc.
-  criminalHistories  // isConvicted, firDetails, etc.
+  licenseDetails; // needForLicense, armsCategory, areaOfValidity, requestedWeapons
+  licenseHistories; // hasAppliedBefore, previousResult, etc.
+  criminalHistories; // isConvicted, firDetails, etc.
 
   // Workflow (shared)
-  workflowStatus: { id, code, name }
-  currentUser: { id, username }
+  workflowStatus: { id; code; name };
+  currentUser: { id; username };
 
   // Type discriminator
-  applicationType: string;  // "FreshApplication" | "Renewal" | "CancelApplication"
+  applicationType: string; // "FreshApplication" | "Renewal" | "CancelApplication"
 
   // Status — shared enum
   status?: ApplicationStatus;
@@ -167,24 +173,35 @@ interface ApplicationData {
 
 ```typescript
 type ApplicationStatus =
-  | 'pending' | 'approved' | 'rejected' | 'returned'
-  | 'red-flagged' | 'disposed' | 'initiated'
-  | 'cancelled' | 're-enquiry' | 'ground-report'
-  | 'closed' | 'recommended' | 'under_review'
-  | 'forwarded' | 'final_disposal' | 'sent';
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "returned"
+  | "red-flagged"
+  | "disposed"
+  | "initiated"
+  | "cancelled"
+  | "re-enquiry"
+  | "ground-report"
+  | "closed"
+  | "recommended"
+  | "under_review"
+  | "forwarded"
+  | "final_disposal"
+  | "sent";
 ```
 
 ### Type Mapping in `applicationMapper.ts`
 
 ```typescript
-const statusMap: Record<string, ApplicationData['status']> = {
-  'forwarded': 'pending',
-  'returned': 'returned',
-  'red_flagged': 'red-flagged',
-  'initiated': 'initiated',
-  'approved': 'approved',
-  'rejected': 'rejected',
-  'cancelled': 'cancelled',
+const statusMap: Record<string, ApplicationData["status"]> = {
+  forwarded: "pending",
+  returned: "returned",
+  red_flagged: "red-flagged",
+  initiated: "initiated",
+  approved: "approved",
+  rejected: "rejected",
+  cancelled: "cancelled",
   // ... plus all uppercase variants
 };
 ```
@@ -197,29 +214,29 @@ const statusMap: Record<string, ApplicationData['status']> = {
 
 ### Shared Components (Same across all forms)
 
-| Component | Used In | Notes |
-|---|---|---|
-| `PersonalDetailsSection` | Fresh & Renewal forms | Same fields, same layout |
-| `AddressDetailsSection` | Fresh & Renewal forms | Same `LocationHierarchy` component |
-| `OccupationSection` | Fresh & Renewal forms | Same fields |
-| `CriminalHistory` | Fresh & Renewal forms | Same FIR details structure |
-| `LicenseHistory` | Fresh & Renewal forms | Same fields |
-| `LicenseDetailsSection` | Fresh & Renewal forms | Same weapon selection, ammunition |
-| `BiometricInformation` | Fresh & Renewal forms | Same Mantra SDK, same modals |
-| `ProceedingsForm` | **All** — application detail page | Same action processor |
+| Component                     | Used In                           | Notes                                 |
+| ----------------------------- | --------------------------------- | ------------------------------------- |
+| `PersonalDetailsSection`      | Fresh & Renewal forms             | Same fields, same layout              |
+| `AddressDetailsSection`       | Fresh & Renewal forms             | Same `LocationHierarchy` component    |
+| `OccupationSection`           | Fresh & Renewal forms             | Same fields                           |
+| `CriminalHistory`             | Fresh & Renewal forms             | Same FIR details structure            |
+| `LicenseHistory`              | Fresh & Renewal forms             | Same fields                           |
+| `LicenseDetailsSection`       | Fresh & Renewal forms             | Same weapon selection, ammunition     |
+| `BiometricInformation`        | Fresh & Renewal forms             | Same Mantra SDK, same modals          |
+| `ProceedingsForm`             | **All** — application detail page | Same action processor                 |
 | `EnhancedApplicationTimeline` | **All** — application detail page | Reads `workflowHistories` generically |
-| `StatusBadge` | **All** — everywhere | Uses `getStatusStyle()` for colors |
-| `ProcessApplicationModal` | **All** — detail page | Same forward/approve/reject/flag |
+| `StatusBadge`                 | **All** — everywhere              | Uses `getStatusStyle()` for colors    |
+| `ProcessApplicationModal`     | **All** — detail page             | Same forward/approve/reject/flag      |
 
 ### Distinct Pages
 
-| Page | Path | Application Type | Entry Point |
-|---|---|---|---|
-| Fresh Application Form | `/forms/createFreshApplication/...` | `FreshApplication` | New application |
-| Renewal Form | `/forms/renewal?applicationId=X&renewalId=Y` | `Renewal` | From fresh app detail → "Renew" |
-| Cancel Form (Submit) | `/cancelForm/new?applicationId=X` | `CancelApplication` | From fresh app → "Cancel" |
-| Cancel Form (List) | `/cancelForm` | Lists cancel requests | From sidebar menu |
-| Application Detail | `/application/:id?type=renewal` | **Both** fresh & renewal | From inbox / search |
+| Page                   | Path                                         | Application Type         | Entry Point                     |
+| ---------------------- | -------------------------------------------- | ------------------------ | ------------------------------- |
+| Fresh Application Form | `/forms/createFreshApplication/...`          | `FreshApplication`       | New application                 |
+| Renewal Form           | `/forms/renewal?applicationId=X&renewalId=Y` | `Renewal`                | From fresh app detail → "Renew" |
+| Cancel Form (Submit)   | `/cancelForm/new?applicationId=X`            | `CancelApplication`      | From fresh app → "Cancel"       |
+| Cancel Form (List)     | `/cancelForm`                                | Lists cancel requests    | From sidebar menu               |
+| Application Detail     | `/application/:id?type=renewal`              | **Both** fresh & renewal | From inbox / search             |
 
 ### Header & Sidebar
 
@@ -228,8 +245,8 @@ const statusMap: Record<string, ApplicationData['status']> = {
 
 ```typescript
 // From Sidebar.tsx
-if (pathname.startsWith('/cancelForm')) {
-  const cancelKey = 'cancelform';
+if (pathname.startsWith("/cancelForm")) {
+  const cancelKey = "cancelform";
   setActiveItem(cancelKey);
 }
 ```
@@ -291,7 +308,7 @@ Fresh Application (approved / active)
 ### Renewal → License Merge Flow
 
 ```
-Renewal Application (approved)
+Renewal (approved)
   │
   ├── On merge:
   │   ├── Reads updated data from RenewalFormPersonalDetails
@@ -312,31 +329,31 @@ Renewal Application (approved)
 
 ### Terminology Mapping
 
-| Concept | Fresh Form | Renewal Form | Cancel Form | Detail Page |
-|---|---|---|---|---|
-| **Application Type** | `FreshApplication` | `Renewal` / `Renewal Application` | `Cancel Application` | `applicationType` field |
-| **License Number** | `acknowledgementNo` | `licenseNumber` (from fresh's ack) | N/A | `acknowledgementNo`, `licenseNumber` |
-| **Applicant Name** | `firstName + middleName + lastName` | Same | Fetched from fresh | Same |
-| **Status** | `workflowStatus.name` | `workflowStatus.name` | `status` string field + `workFlowStatusId` | `workflowStatus` object |
-| **Current User** | `currentUser.username` | Same | `requester.username` | `currentUser.username` |
-| **Workflow History** | `FreshLicenseApplicationsFormWorkflowHistories` | `RenewalApplicationsFormWorkflowHistories` | `CancelWorkflowHistories` | **All mapped to** `workflowHistories` |
-| **Biometric Data** | `FLAFBiometricDatas.biometricData` | `RenewalBiometricDatas.biometricData` | Read-only from fresh | `biometricData` field |
-| **Document Uploads** | `FLAFFileUploads` | `RenewalFileUploads` | None yet | Mapped generically in `documents[]` |
-| **Route Pattern** | `/application/:id` | `/application/:id?type=renewal` | `/cancelForm/:id` | `/application/:id` |
+| Concept              | Fresh Form                                      | Renewal Form                               | Cancel Form                                | Detail Page                           |
+| -------------------- | ----------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------- |
+| **Application Type** | `FreshApplication`                              | `Renewal` / `Renewal`                      | `Cancel Application`                       | `applicationType` field               |
+| **License Number**   | `acknowledgementNo`                             | `licenseNumber` (from fresh's ack)         | N/A                                        | `acknowledgementNo`, `licenseNumber`  |
+| **Applicant Name**   | `firstName + middleName + lastName`             | Same                                       | Fetched from fresh                         | Same                                  |
+| **Status**           | `workflowStatus.name`                           | `workflowStatus.name`                      | `status` string field + `workFlowStatusId` | `workflowStatus` object               |
+| **Current User**     | `currentUser.username`                          | Same                                       | `requester.username`                       | `currentUser.username`                |
+| **Workflow History** | `FreshLicenseApplicationsFormWorkflowHistories` | `RenewalApplicationsFormWorkflowHistories` | `CancelWorkflowHistories`                  | **All mapped to** `workflowHistories` |
+| **Biometric Data**   | `FLAFBiometricDatas.biometricData`              | `RenewalBiometricDatas.biometricData`      | Read-only from fresh                       | `biometricData` field                 |
+| **Document Uploads** | `FLAFFileUploads`                               | `RenewalFileUploads`                       | None yet                                   | Mapped generically in `documents[]`   |
+| **Route Pattern**    | `/application/:id`                              | `/application/:id?type=renewal`            | `/cancelForm/:id`                          | `/application/:id`                    |
 
 ### Field Name Variations (legacy/optional aliases)
 
 The `ApplicationData` type tracks multiple potential field names to handle API variations:
 
-| Concept | Primary Field | Aliases |
-|---|---|---|
-| Date of Birth | `dateOfBirth` | `dob` |
-| Gender | `sex` | `gender` |
-| Applicant Name | `firstName`, `middleName`, `lastName` | `applicantName` (combined) |
-| Mobile | `applicantMobile` | `mobileNumber`, `phoneNumber` |
-| Email | `applicantEmail` | `email` |
-| License Number | `licenseNumber` | `almsLicenseId`, `licenseId`, `previousLicenseNumber` |
-| Acknowledgement No | `acknowledgementNo` | `ackNo` |
+| Concept            | Primary Field                         | Aliases                                               |
+| ------------------ | ------------------------------------- | ----------------------------------------------------- |
+| Date of Birth      | `dateOfBirth`                         | `dob`                                                 |
+| Gender             | `sex`                                 | `gender`                                              |
+| Applicant Name     | `firstName`, `middleName`, `lastName` | `applicantName` (combined)                            |
+| Mobile             | `applicantMobile`                     | `mobileNumber`, `phoneNumber`                         |
+| Email              | `applicantEmail`                      | `email`                                               |
+| License Number     | `licenseNumber`                       | `almsLicenseId`, `licenseId`, `previousLicenseNumber` |
+| Acknowledgement No | `acknowledgementNo`                   | `ackNo`                                               |
 
 ---
 
@@ -345,6 +362,7 @@ The `ApplicationData` type tracks multiple potential field names to handle API v
 ### Gap 1: 🔴 Cancellation Has No File Uploads for Supporting Documents
 
 The user's requirement says applicants must provide "Supporting documents" for cancellation, but:
+
 - **Frontend:** `SubmitCancelForm.tsx` has zero file upload capability
 - **Backend:** `CancelFormRequests` model has no `fileUploads`, `attachments`, or `documents` relation
 - **Schema:** No `CancelFormFileUploads` table exists
@@ -352,6 +370,7 @@ The user's requirement says applicants must provide "Supporting documents" for c
 ### Gap 2: 🔴 Cancellation Doesn't Capture Firearm Surrender Details
 
 The user's requirement says applicants must provide "Firearm surrender details," but the form only has:
+
 - ✅ `cancellationReason` (text)
 - ❌ No fields for:
   - Surrendered weapon(s) — make, model, serial number
@@ -365,7 +384,7 @@ In `ApplicationDetailClient.tsx` (lines ~227–265), the `handleProcessApplicati
 
 ```typescript
 // Simulate API call delay
-await new Promise(resolve => setTimeout(resolve, 1500));
+await new Promise((resolve) => setTimeout(resolve, 1500));
 // Update local state only
 const updatedApplication = { ...application };
 ```
@@ -388,6 +407,7 @@ This dual approach creates inconsistency in status tracking and reporting.
 ### Gap 6: 🟡 Multiple Optional/Legacy Field Names in ApplicationData
 
 The `ApplicationData` type has grown many optional aliases over time. While functional, this is fragile:
+
 - Any new API format needs new aliases added
 - TypeScript doesn't enforce which field is the "source of truth"
 - Example: `dateOfBirth` / `dob`, `gender` / `sex`, `firstName` / `applicantName` all coexist
@@ -398,6 +418,7 @@ The `ApplicationData` type has grown many optional aliases over time. While func
 if (pathname.startsWith('/cancelForm')) {
   const cancelKey = 'cancelform';
 ```
+
 This string-based routing is not driven by the menu configuration and would break if the route changes.
 
 ### Gap 8: 🟢 Cancel Workflow Service Calls Two Endpoints for Approval
@@ -500,21 +521,21 @@ These two calls should be wrapped in a single backend transaction instead of dep
 
 ## Appendix: Key File References
 
-| File | Purpose |
-|---|---|
-| `backend/prisma/schema.prisma` | All database models and relationships |
-| `backend/src/modules/CancelForm/cancel-form.service.ts` | Backend cancellation logic |
-| `backend/src/modules/renewal/renewal-form.service.ts` | Backend renewal logic (including merge) |
-| `backend/src/modules/FLAWorkflow/workflow.service.ts` | Unified workflow engine |
-| `frontend/src/types/index.ts` | `ApplicationData` shared type |
-| `frontend/src/types/api.ts` | `APIApplication`, `ApiResponse` types |
-| `frontend/src/utils/applicationMapper.ts` | API → UI status mapping |
-| `frontend/src/utils/applicationFormatters.ts` | Formatting utilities |
-| `frontend/src/app/application/[id]/ApplicationDetailClient.tsx` | Unified detail page |
-| `frontend/src/app/forms/renewal/page.tsx` | Renewal form (includes biometric verification) |
-| `frontend/src/components/cancelForm/SubmitCancelForm.tsx` | Cancellation form |
-| `frontend/src/services/cancelWorkflowService.ts` | Cancel workflow service |
-| `frontend/src/services/renewalWorkflowService.ts` | Renewal workflow service |
-| `frontend/src/hooks/useRenewalWorkflow.ts` | Renewal workflow hook |
-| `frontend/src/components/forms/renewal/sections/BiometricInformation.tsx` | Biometric capture component |
-| `frontend/src/components/ProceedingsForm.tsx` | Shared action processor |
+| File                                                                      | Purpose                                        |
+| ------------------------------------------------------------------------- | ---------------------------------------------- |
+| `backend/prisma/schema.prisma`                                            | All database models and relationships          |
+| `backend/src/modules/CancelForm/cancel-form.service.ts`                   | Backend cancellation logic                     |
+| `backend/src/modules/renewal/renewal-form.service.ts`                     | Backend renewal logic (including merge)        |
+| `backend/src/modules/FLAWorkflow/workflow.service.ts`                     | Unified workflow engine                        |
+| `frontend/src/types/index.ts`                                             | `ApplicationData` shared type                  |
+| `frontend/src/types/api.ts`                                               | `APIApplication`, `ApiResponse` types          |
+| `frontend/src/utils/applicationMapper.ts`                                 | API → UI status mapping                        |
+| `frontend/src/utils/applicationFormatters.ts`                             | Formatting utilities                           |
+| `frontend/src/app/application/[id]/ApplicationDetailClient.tsx`           | Unified detail page                            |
+| `frontend/src/app/forms/renewal/page.tsx`                                 | Renewal form (includes biometric verification) |
+| `frontend/src/components/cancelForm/SubmitCancelForm.tsx`                 | Cancellation form                              |
+| `frontend/src/services/cancelWorkflowService.ts`                          | Cancel workflow service                        |
+| `frontend/src/services/renewalWorkflowService.ts`                         | Renewal workflow service                       |
+| `frontend/src/hooks/useRenewalWorkflow.ts`                                | Renewal workflow hook                          |
+| `frontend/src/components/forms/renewal/sections/BiometricInformation.tsx` | Biometric capture component                    |
+| `frontend/src/components/ProceedingsForm.tsx`                             | Shared action processor                        |

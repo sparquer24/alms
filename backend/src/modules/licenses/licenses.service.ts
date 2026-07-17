@@ -10,7 +10,7 @@ import * as QRCode from 'qrcode';
 export class LicensesService {
   private readonly logger = new Logger(LicensesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   private normalizeApplicationType(lastModifiedAppType?: string | null): 'FRESH' | 'RENEWAL' | 'CANCELLATION' | null {
     if (!lastModifiedAppType) {
@@ -102,7 +102,7 @@ export class LicensesService {
           district: true,
         },
       },
-   //   biometricData: true,
+      //   biometricData: true,
       criminalHistories: true,
       licenseHistories: true,
       licenseDetails: {
@@ -110,7 +110,7 @@ export class LicensesService {
           requestedWeapons: true,
         },
       },
-   //   fileUploads: true,
+      //   fileUploads: true,
     };
   }
 
@@ -191,8 +191,8 @@ export class LicensesService {
       },
       criminalHistories: true,
       licenseHistories: true,
-     fileUploads: true,
-     biometricData: true
+      fileUploads: true,
+      biometricData: true
     };
   }
 
@@ -210,7 +210,7 @@ export class LicensesService {
     });
 
     if (workflowHistories.length > 0) {
-      application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }: { previousUser: any; previousRole: any; nextUser: any; nextRole: any; [key: string]: any }) => ({
+      application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }: { previousUser: any; previousRole: any; nextUser: any; nextRole: any;[key: string]: any }) => ({
         ...rest,
         previousUserName: previousUser?.username ?? null,
         previousRoleName: previousRole?.name ?? null,
@@ -224,53 +224,92 @@ export class LicensesService {
 
   private async loadApplicationForLicense(licenseRecord: any) {
     const applicationType = this.normalizeApplicationType(licenseRecord?.lastModifiedAppType);
-    const sourceApplicationId = licenseRecord?.sourceApplicationId;
-
-    if (!sourceApplicationId) {
-      return null;
-    }
 
     if (!applicationType) {
       throw new BadRequestException(`Unsupported lastModifiedAppType: ${licenseRecord?.lastModifiedAppType}`);
     }
 
     if (applicationType === 'FRESH') {
+      const appId = licenseRecord?.freshApplicationId;
+      if (!appId) return null;
+
       const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: sourceApplicationId },
+        where: { id: appId },
         include: this.buildFreshApplicationInclude(),
       });
 
       if (!application) {
-        throw new Error(' Fresh License Application not found');
+        throw new Error('Fresh Application not found');
       }
-       return application;
+      return application;
     }
 
-    const application = await this.prisma.renewalFormPersonalDetails.findUnique({
-      where: { id: sourceApplicationId },
-      include: this.buildRenewalApplicationInclude(),
-    });
+    if (applicationType === 'RENEWAL') {
+      const appId = licenseRecord?.renewalApplicationId;
+      if (!appId) return null;
 
-    if (!application) {
-      throw new Error(' Renewal License Application not found');
-    }
-
-    let freshApplicationId: number | null = null;
-    if (application.licenseNumber) {
-      const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
-        where: { acknowledgementNo: application.licenseNumber },
-        select: { id: true },
+      const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: appId },
+        include: this.buildRenewalApplicationInclude(),
       });
 
-      if (freshApp) {
-        freshApplicationId = freshApp.id;
+      if (!application) {
+        throw new Error('Renewal License Application not found');
       }
+
+      let freshApplicationId: number | null = null;
+      if (application.licenseNumber) {
+        const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
+          where: { acknowledgementNo: application.licenseNumber },
+          select: { id: true },
+        });
+
+        if (freshApp) {
+          freshApplicationId = freshApp.id;
+        }
+      }
+
+      return {
+        ...application,
+        freshApplicationId,
+      };
     }
 
-    return {
-      ...application,
-      freshApplicationId,
-    };
+    // For CANCELLATION type, look up by cancelApplicationId
+    const cancelAppId = licenseRecord?.cancelApplicationId;
+    if (cancelAppId) {
+      const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
+        where: { id: cancelAppId },
+        include: {
+          workflowStatus: true,
+          requester: { select: { id: true, username: true } },
+          actioner: { select: { id: true, username: true } },
+          Licenses: { select: { id: true, licenseNumber: true } },
+        }
+      });
+      if (cancelRequest) return cancelRequest;
+    }
+
+    // Fallback: try fresh first, then renewal
+    let appId = licenseRecord?.freshApplicationId;
+    if (appId) {
+      const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: appId },
+        include: this.buildFreshApplicationInclude(),
+      });
+      if (application) return application;
+    }
+
+    appId = licenseRecord?.renewalApplicationId;
+    if (appId) {
+      const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: appId },
+        include: this.buildRenewalApplicationInclude(),
+      });
+      if (application) return application;
+    }
+
+    return null;
   }
 
   buildLicenseDetailResponse(license: any, sourceApplication: any) {
@@ -300,7 +339,9 @@ export class LicensesService {
         licenseId: license.id,
         licenseNumber: license.licenseNumber,
         almsLicenseId: license.almsLicenseId,
-        sourceApplicationId: license.sourceApplicationId,
+        freshApplicationId: license.freshApplicationId,
+        renewalApplicationId: license.renewalApplicationId,
+        cancelApplicationId: license.cancelApplicationId,
         lastModifiedAppType: license.lastModifiedAppType,
       },
       applicantName: [sourceApplication.firstName, sourceApplication.middleName, sourceApplication.lastName].filter(Boolean).join(' '),
@@ -313,19 +354,19 @@ export class LicensesService {
     return transformed;
   }
 
-  async generateLicensePdf(sourceApplicationId: number, issuedBy: number) {
+  async generateLicensePdf(freshApplicationId: number, issuedBy: number) {
     // Check if license already exists
     const existingLicense = await this.prisma.licenses.findFirst({
-      where: { sourceApplicationId }
+      where: { freshApplicationId }
     });
 
     if (existingLicense) {
-      this.logger.log(`License already exists for application ${sourceApplicationId}, returning existing`);
+      this.logger.log(`License already exists for application ${freshApplicationId}, returning existing`);
       return existingLicense;
     }
 
     const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-      where: { id: sourceApplicationId },
+      where: { id: freshApplicationId },
       include: {
         presentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true, RangeOffices: true } },
         permanentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true, RangeOffices: true } },
@@ -340,9 +381,9 @@ export class LicensesService {
 
     // Fetch Applicant's Photograph
     const photoUpload = await this.prisma.fLAFFileUploads.findFirst({
-      where: { applicationId: sourceApplicationId, fileType: 'PHOTOGRAPH' }
+      where: { applicationId: freshApplicationId, fileType: 'PHOTOGRAPH' }
     });
-    
+
     let photoBase64 = '';
     if (photoUpload && (photoUpload.fileUrl || photoUpload.fileName)) {
       try {
@@ -351,22 +392,22 @@ export class LicensesService {
           // It's already a base64 string from the frontend
           photoBase64 = photoPath;
         } else if (photoPath && photoPath.startsWith('/uploads/')) {
-           photoPath = path.join(process.cwd(), photoPath);
-           if (fs.existsSync(photoPath)) {
-             const photoBuffer = fs.readFileSync(photoPath);
-             const ext = path.extname(photoPath).toLowerCase().replace('.', '') || 'jpeg';
-             photoBase64 = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${photoBuffer.toString('base64')}`;
-           }
+          photoPath = path.join(process.cwd(), photoPath);
+          if (fs.existsSync(photoPath)) {
+            const photoBuffer = fs.readFileSync(photoPath);
+            const ext = path.extname(photoPath).toLowerCase().replace('.', '') || 'jpeg';
+            photoBase64 = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${photoBuffer.toString('base64')}`;
+          }
         } else {
-           const nameToUse = photoPath ? photoPath.split('/').pop() : photoUpload.fileName;
-           const localPath = path.join(process.cwd(), 'uploads', nameToUse || '');
-           if (fs.existsSync(localPath)) {
-             const photoBuffer = fs.readFileSync(localPath);
-             const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpeg';
-             photoBase64 = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${photoBuffer.toString('base64')}`;
-           } else {
-             this.logger.warn(`Photograph file not found at path: ${localPath}`);
-           }
+          const nameToUse = photoPath ? photoPath.split('/').pop() : photoUpload.fileName;
+          const localPath = path.join(process.cwd(), 'uploads', nameToUse || '');
+          if (fs.existsSync(localPath)) {
+            const photoBuffer = fs.readFileSync(localPath);
+            const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpeg';
+            photoBase64 = `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${photoBuffer.toString('base64')}`;
+          } else {
+            this.logger.warn(`Photograph file not found at path: ${localPath}`);
+          }
         }
       } catch (err) {
         this.logger.error('Failed to read photograph: ' + err);
@@ -378,7 +419,7 @@ export class LicensesService {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const ms = now.getMilliseconds().toString().padStart(6, '0');
     const licenseNumber = `LUAN${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${ms}`;
-    
+
     const validFrom = new Date();
     const validTill = new Date();
     validTill.setFullYear(validTill.getFullYear() + 2); // 2 years validity
@@ -386,7 +427,7 @@ export class LicensesService {
     // Generate QR Code
     const qrData = JSON.stringify({
       licenseNumber,
-      sourceApplicationId,
+      freshApplicationId,
       validTill: validTill.toISOString().split('T')[0]
     });
     const qrCodeUrl = await QRCode.toDataURL(qrData, { width: 120, margin: 1 });
@@ -685,7 +726,7 @@ export class LicensesService {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'domcontentloaded' });
-    
+
     const pdfBuffer = await page.pdf({ format: 'A4' });
     await browser.close();
 
@@ -704,7 +745,7 @@ export class LicensesService {
           // === IDENTIFIERS ===
           licenseNumber,
           almsLicenseId: application.almsLicenseId,
-          sourceApplicationId,
+          freshApplicationId,
           issueDate: new Date(),
 
           // === PERSONAL DETAILS ===
@@ -774,7 +815,7 @@ export class LicensesService {
         data: {
           licenseId: created.id,
           action: 'ISSUED',
-          applicationId: sourceApplicationId,
+          applicationId: freshApplicationId,
           applicationType: 'FRESH',
           newStatus: LicenseStatus.ACTIVE,
           changedBy: issuedBy,
@@ -785,7 +826,7 @@ export class LicensesService {
       return created;
     });
 
-    this.logger.log(`Generated license ${licenseNumber} for application ${sourceApplicationId}`);
+    this.logger.log(`Generated license ${licenseNumber} for application ${freshApplicationId}`);
     return license;
   }
 
@@ -817,22 +858,24 @@ export class LicensesService {
     if (draftRenewal) {
       return draftRenewal;
     }
-    console.log('No draft renewal found, proceeding to standard license lookup for id:', id);``
+    console.log('No draft renewal found, proceeding to standard license lookup for id:', id); ``
     // Fall through to standard license lookup
     const licenseRecord = await this.prisma.licenses.findUnique({
-        where: isLicenseNumber
-          ? { licenseNumber: id}
-          : { id: Number(id) },
-          select: {
-            id: true,
-            licenseNumber: true,
-            almsLicenseId: true,
-            sourceApplicationId: true,
-            lastModifiedAppType: true,
-          },
+      where: isLicenseNumber
+        ? { licenseNumber: id }
+        : { id: Number(id) },
+      select: {
+        id: true,
+        licenseNumber: true,
+        almsLicenseId: true,
+        freshApplicationId: true,
+        renewalApplicationId: true,
+        cancelApplicationId: true,
+        lastModifiedAppType: true,
+      },
     })
     console.log('License Record:', licenseRecord);
-    if (!licenseRecord) { 
+    if (!licenseRecord) {
       throw new Error('License not found');
     }
 
@@ -856,7 +899,7 @@ export class LicensesService {
     status?: string;
     licenseNumber?: string;
     aadharNumber?: string;
-    sourceApplicationId?: number;
+    freshApplicationId?: number;
     expiringWithinDays?: number;
     createdFrom?: string;
     orderBy?: string;
@@ -868,8 +911,8 @@ export class LicensesService {
 
     const where: any = {};
 
-    if (filters.sourceApplicationId) {
-      where.sourceApplicationId = filters.sourceApplicationId;
+    if (filters.freshApplicationId) {
+      where.freshApplicationId = filters.freshApplicationId;
     }
 
     if (filters.expiringWithinDays) {
@@ -884,9 +927,9 @@ export class LicensesService {
     if (filters.createdFrom) {
       const normalized = String(filters.createdFrom).toUpperCase();
       if (normalized.includes('FRESH')) {
-        where.sourceApplicationId = { not: null };
+        where.freshApplicationId = { not: null };
       } else if (normalized.includes('IMPORT')) {
-        where.sourceApplicationId = null;
+        where.freshApplicationId = null;
       }
     }
 
@@ -935,28 +978,28 @@ export class LicensesService {
     const renewalLicenseIds: number[] = [];
     for (const lic of licenses) {
       const appType = this.normalizeApplicationType(lic.lastModifiedAppType);
-      if (lic.sourceApplicationId && appType === 'FRESH') {
-        freshLicenseIds.push(lic.sourceApplicationId);
-      } else if (lic.sourceApplicationId && appType === 'RENEWAL') {
-        renewalLicenseIds.push(lic.sourceApplicationId);
+      if (lic.freshApplicationId && appType === 'FRESH') {
+        freshLicenseIds.push(lic.freshApplicationId);
+      } else if (lic.renewalApplicationId && appType === 'RENEWAL') {
+        renewalLicenseIds.push(lic.renewalApplicationId);
       }
     }
 
     // Fetch all fresh source apps in one query
     const freshApps = freshLicenseIds.length > 0
       ? await this.prisma.freshLicenseApplicationPersonalDetails.findMany({
-          where: { id: { in: freshLicenseIds } },
-          select: { id: true, acknowledgementNo: true, almsLicenseId: true },
-        })
+        where: { id: { in: freshLicenseIds } },
+        select: { id: true, acknowledgementNo: true, almsLicenseId: true },
+      })
       : [];
     const freshAppMap = new Map(freshApps.map(a => [a.id, a]));
 
     // Fetch all renewal source apps in one query
     const renewalApps = renewalLicenseIds.length > 0
       ? await this.prisma.renewalFormPersonalDetails.findMany({
-          where: { id: { in: renewalLicenseIds } },
-          select: { id: true, acknowledgementNo: true },
-        })
+        where: { id: { in: renewalLicenseIds } },
+        select: { id: true, acknowledgementNo: true },
+      })
       : [];
     const renewalAppMap = new Map(renewalApps.map(a => [a.id, a]));
 
@@ -964,13 +1007,13 @@ export class LicensesService {
     const data = licenses.map((license) => {
       let sourceAppMeta: { id: number; acknowledgementNo: string | null; almsLicenseId: string | null } | null = null;
       const appType = this.normalizeApplicationType(license.lastModifiedAppType);
-      if (license.sourceApplicationId && appType === 'FRESH') {
-        const app = freshAppMap.get(license.sourceApplicationId);
+      if (license.freshApplicationId && appType === 'FRESH') {
+        const app = freshAppMap.get(license.freshApplicationId);
         if (app) {
           sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: app.almsLicenseId };
         }
-      } else if (license.sourceApplicationId && appType === 'RENEWAL') {
-        const app = renewalAppMap.get(license.sourceApplicationId);
+      } else if (license.renewalApplicationId && appType === 'RENEWAL') {
+        const app = renewalAppMap.get(license.renewalApplicationId);
         if (app) {
           sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: null };
         }
@@ -1014,20 +1057,20 @@ export class LicensesService {
       }
     });
 
-    if (license && license.sourceApplicationId) {
+    if (license) {
       const appType = this.normalizeApplicationType(license.lastModifiedAppType);
       let sourceAppMeta: { id: number; acknowledgementNo: string | null; almsLicenseId: string | null } | null = null;
-      if (appType === 'FRESH') {
+      if (appType === 'FRESH' && license.freshApplicationId) {
         const app = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-          where: { id: license.sourceApplicationId },
+          where: { id: license.freshApplicationId },
           select: { id: true, acknowledgementNo: true, almsLicenseId: true },
         });
         if (app) {
           sourceAppMeta = { id: app.id, acknowledgementNo: app.acknowledgementNo, almsLicenseId: app.almsLicenseId };
         }
-      } else if (appType === 'RENEWAL') {
+      } else if (appType === 'RENEWAL' && license.renewalApplicationId) {
         const app = await this.prisma.renewalFormPersonalDetails.findUnique({
-          where: { id: license.sourceApplicationId },
+          where: { id: license.renewalApplicationId },
           select: { id: true, acknowledgementNo: true },
         });
         if (app) {
@@ -1037,7 +1080,7 @@ export class LicensesService {
       return { ...license, sourceApplication: sourceAppMeta };
     }
 
-    return { ...license, sourceApplication: null };
+    return null;
   }
 
   /**
@@ -1143,13 +1186,15 @@ export class LicensesService {
       where: { id: licenseId },
       select: {
         id: true,
-        sourceApplicationId: true,
+        freshApplicationId: true,
+        renewalApplicationId: true,
+        cancelApplicationId: true,
         lastModifiedAppType: true,
         licenseNumber: true,
       }
     });
 
-    if (!license?.sourceApplicationId) {
+    if (!license) {
       throw new Error('License not found');
     }
 
@@ -1159,8 +1204,11 @@ export class LicensesService {
     }
 
     if (appType === 'FRESH') {
+      if (!license.freshApplicationId) {
+        throw new Error('Fresh application ID not found on license');
+      }
       const sourceApplication = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: license.sourceApplicationId },
+        where: { id: license.freshApplicationId },
         include: {
           presentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
           permanentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
@@ -1173,14 +1221,17 @@ export class LicensesService {
         }
       });
       if (!sourceApplication) {
-        throw new Error('Fresh License Application not found');
+        throw new Error('Fresh Application not found');
       }
       return sourceApplication;
     }
 
     if (appType === 'RENEWAL') {
+      if (!license.renewalApplicationId) {
+        throw new Error('Renewal application ID not found on license');
+      }
       const sourceApplication = await this.prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: license.sourceApplicationId },
+        where: { id: license.renewalApplicationId },
         include: {
           presentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
           permanentAddress: { include: { state: true, district: true, policeStation: true, zone: true, division: true } },
@@ -1212,8 +1263,13 @@ export class LicensesService {
     }
 
     if (appType === 'CANCELLATION') {
+      // For cancellations, use cancelApplicationId (with fallback to fresh/renewal)
+      const lookupId = license.cancelApplicationId || license.freshApplicationId || license.renewalApplicationId;
+      if (!lookupId) {
+        throw new Error('No application ID found for cancellation lookup');
+      }
       const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
-        where: { id: license.sourceApplicationId },
+        where: { id: lookupId },
         include: {
           workflowStatus: true,
           requester: { select: { id: true, username: true } },
