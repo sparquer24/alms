@@ -437,7 +437,7 @@ model FreshLicenseApplicationsFormWorkflowHistories {
 model RenewalFormPersonalDetails {
   id                         Int                                        @id @default(autoincrement())
   acknowledgementNo          String?
-  licenseNumber              String                                     @unique
+  licenseNumber              String
   firstName                  String
   middleName                 String?
   lastName                   String
@@ -762,6 +762,8 @@ model Licenses {
   suspendedReason            String?
   suspendedDate              DateTime?
   lastRenewedDate            DateTime?
+  lastModifiedRenewalId      Int?
+  renewalIds                 Int[]
   qrCodeUrl                  String?
   pdfUrl                     String?
   digitalSignature           String?

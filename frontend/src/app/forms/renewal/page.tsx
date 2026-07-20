@@ -2022,6 +2022,11 @@ const loadExistingRenewalByLicenseNumber = async (
   const existing = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
   if (!existing) return false;
 
+  // If the existing renewal is approved, allow creating a new one
+  if (existing.isApproved) {
+    return false;
+  }
+
   const existingRenewalId = getTextValue(existing?.id, existing?.renewalApplicationId);
   if (!existingRenewalId) {
     throw new Error('A matching renewal license was found but no renewal ID was returned.');
@@ -2742,8 +2747,9 @@ function RenewalFormPageContent() {
         if (licenseNumber) {
           const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
 
-          if (existingRenewal) {
-            // Existing renewal found — load renewal data as sole source of truth.
+          if (existingRenewal && !existingRenewal.isApproved) {
+            // Existing renewal found but NOT approved (Pending/In Progress/Rejected) —
+            // load renewal data as sole source of truth so the user can continue editing.
             const existingRenewalId = getTextValue(
               existingRenewal?.id,
               existingRenewal?.renewalApplicationId

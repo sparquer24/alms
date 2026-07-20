@@ -127,9 +127,9 @@ export class WorkflowService {
     }
   }
 
-  async getWorkflowHistory(applicationId: number, applicationType: string = 'fresh') {
+  async getWorkflowHistory(applicationId: number, applicationType: string = 'fresh'): Promise<any[]> {
     if (applicationType.toLowerCase().includes('renew')) {
-      return await prisma.renewalApplicationsFormWorkflowHistories.findMany({
+      const history = await prisma.renewalApplicationsFormWorkflowHistories.findMany({
         where: { applicationId },
         include: {
           actiones: true,
@@ -138,8 +138,24 @@ export class WorkflowService {
         },
         orderBy: { createdAt: 'asc' }
       });
+
+      // If no direct results, the applicationId might be a license ID — resolve it
+      if (history.length === 0) {
+        const license = await prisma.licenses.findUnique({
+          where: { id: applicationId },
+          select: { renewalApplicationId: true, freshApplicationId: true },
+        });
+        if (license?.renewalApplicationId && license.renewalApplicationId !== applicationId) {
+          return this.getWorkflowHistory(license.renewalApplicationId, 'renewal');
+        }
+        if (license?.freshApplicationId && license.freshApplicationId !== applicationId) {
+          return this.getWorkflowHistory(license.freshApplicationId, 'fresh');
+        }
+      }
+
+      return history;
     } else if (applicationType.toLowerCase().includes('cancel')) {
-      return await prisma.cancelWorkflowHistories.findMany({
+      const history = await prisma.cancelWorkflowHistories.findMany({
         where: { applicationId },
         include: {
           actiones: true,
@@ -148,8 +164,21 @@ export class WorkflowService {
         },
         orderBy: { createdAt: 'asc' }
       });
+
+      // If no direct results, try resolving via license ID
+      if (history.length === 0) {
+        const license = await prisma.licenses.findUnique({
+          where: { id: applicationId },
+          select: { cancelApplicationId: true },
+        });
+        if (license?.cancelApplicationId && license.cancelApplicationId !== applicationId) {
+          return this.getWorkflowHistory(license.cancelApplicationId, 'cancel');
+        }
+      }
+
+      return history;
     } else {
-      return await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+      const history = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
         where: { applicationId },
         include: {
           actiones: true,
@@ -158,6 +187,19 @@ export class WorkflowService {
         },
         orderBy: { createdAt: 'asc' }
       });
+
+      // If no direct results, try resolving via license ID
+      if (history.length === 0) {
+        const license = await prisma.licenses.findUnique({
+          where: { id: applicationId },
+          select: { freshApplicationId: true },
+        });
+        if (license?.freshApplicationId && license.freshApplicationId !== applicationId) {
+          return this.getWorkflowHistory(license.freshApplicationId, 'fresh');
+        }
+      }
+
+      return history;
     }
   }
 
@@ -584,10 +626,15 @@ export class WorkflowService {
 
     if (!renewalApp) return;
 
-    // Find the existing license by licenseNumber
-    const existingLicense = await prisma.licenses.findUnique({
-      where: { licenseNumber: renewalApp.licenseNumber }
-    });
+    // Find the existing license by licenseId (from the renewal form)
+    // If licenseId is not set, fall back to licenseNumber lookup
+    const existingLicense = renewalApp.licenseId
+      ? await prisma.licenses.findUnique({
+          where: { id: renewalApp.licenseId }
+        })
+      : await prisma.licenses.findUnique({
+          where: { licenseNumber: renewalApp.licenseNumber }
+        });
 
     if (!existingLicense) return;
 
@@ -642,6 +689,10 @@ export class WorkflowService {
         // Update tracking
         renewalCount: { increment: 1 },
         renewalApplicationId: renewalApplicationId,
+        lastModifiedRenewalId: renewalApplicationId,
+        renewalIds: {
+          push: renewalApplicationId,
+        },
         lastModifiedAppType: 'RENEWAL',
         status: LicenseStatus.ACTIVE,
 

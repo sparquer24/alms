@@ -372,21 +372,22 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         }
         setOriginalLicenseData(license);
 
-        // Now call the Workflow History API using the License's sourceApplicationId
-        // and lastModifiedAppType. Avoid duplicate calls for the same license.
+        // Now call the Workflow History API using the license ID from the License GET API response.
         if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
           originalLicenseHistoryLoadedIdRef.current = licenseId;
           setOriginalLicenseHistory([]);
+
           const lastModifiedAppType =
             license.lastModifiedAppType ?? (license as any).lastModifiedAppTypeId ?? 'FRESH';
-          const historyAppId =
-            lastModifiedAppType === 'FRESH'
-              ? (license.freshApplicationId ?? (license as any).freshAppId ?? null)
-              : (license.renewalApplicationId ?? (license as any).renewalAppId ?? null);
-          if (historyAppId) {
+
+          // Use the license ID from the License GET API response as the identifier
+          // for fetching workflow history.
+          const resolvedLicenseId = (license as any).licenseId;
+
+          if (resolvedLicenseId) {
             try {
               const historyResponse = await apiClient.get<any>(
-                `/workflow/history/${historyAppId}?type=${lastModifiedAppType}`
+                `/workflow/history/${resolvedLicenseId}?type=${lastModifiedAppType}`
               );
               if (historyResponse && historyResponse.success) {
                 setOriginalLicenseHistory(historyResponse.data);
@@ -416,17 +417,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       if (activeTab !== 'original' || !originalLicenseData) return;
 
       const lastAppType = (originalLicenseData as any).lastModifiedAppType;
-      const sourceId =
-        lastAppType === 'FRESH'
-          ? (originalLicenseData as any).freshApplicationId
-          : lastAppType === 'RENEWAL'
-            ? (originalLicenseData as any).renewalApplicationId
-            : (originalLicenseData as any).cancelApplicationId;
-      if (!sourceId || !lastAppType) return;
+      const licensePk = (originalLicenseData as any).licenseId;
+      if (!licensePk || !lastAppType) return;
 
       setOriginDocumentsLoading(true);
       try {
-        const docs = await getDocuments(Number(sourceId), lastAppType);
+        const docs = await getDocuments(Number(licensePk), lastAppType);
         setOriginDocuments(docs);
       } catch (err) {
         console.error('Failed to fetch origin documents:', err);

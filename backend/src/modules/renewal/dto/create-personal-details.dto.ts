@@ -65,6 +65,11 @@ export class CreateRenewalPersonalDetailsDto {
   @IsString()
   aadharNumber?: string;
 
+  @ApiPropertyOptional({ example: 'Mumbai', description: 'Place of birth' })
+  @IsOptional()
+  @IsString()
+  placeOfBirth?: string;
+
   @ApiPropertyOptional({ description: 'User ID who is filling the form' })
   @IsOptional()
   filledBy?: string;

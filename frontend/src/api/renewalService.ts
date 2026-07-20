@@ -93,7 +93,22 @@ export class RenewalService {
   }
 
   static async createRenewalForm(payload: Record<string, any>): Promise<any> {
-    return apiClient.post('/renewal-forms', payload);
+    try {
+      return await apiClient.post('/renewal-forms', payload);
+    } catch (error: any) {
+      // Catch HTTP 409 Conflict — "A Renewal application is already in progress."
+      // Re-throw with a user-friendly message so the caller can display it.
+      if (error?.status === 409 || error?.response?.status === 409) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'A Renewal application is already in progress.';
+        const enhancedError = new Error(message);
+        (enhancedError as any).status = 409;
+        throw enhancedError;
+      }
+      throw error;
+    }
   }
 
   static async getRenewalForm(renewalId: string | number): Promise<any> {
