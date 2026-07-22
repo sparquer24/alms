@@ -172,69 +172,77 @@ frontend/
 ## 2. Technology Stack
 
 ### Core Framework
-| Technology | Version | Purpose |
-|---|---|---|
-| **Next.js** | ^15.3.3 | React framework with App Router |
-| **React** | ^18.3.1 | UI library |
-| **TypeScript** | ^5.9.3 | Type safety |
-| **Tailwind CSS** | ^3.3.5 | Utility-first styling |
+
+| Technology       | Version | Purpose                         |
+| ---------------- | ------- | ------------------------------- |
+| **Next.js**      | ^15.3.3 | React framework with App Router |
+| **React**        | ^18.3.1 | UI library                      |
+| **TypeScript**   | ^5.9.3  | Type safety                     |
+| **Tailwind CSS** | ^3.3.5  | Utility-first styling           |
 
 ### State Management
-| Library | Version | Purpose |
-|---|---|---|
-| **@reduxjs/toolkit** | ^2.8.2 | Global state (auth, UI, admin) |
-| **react-redux** | ^9.2.0 | React bindings for Redux |
-| **@tanstack/react-query** | ^5.90.10 | Server state / data fetching |
+
+| Library                   | Version  | Purpose                        |
+| ------------------------- | -------- | ------------------------------ |
+| **@reduxjs/toolkit**      | ^2.8.2   | Global state (auth, UI, admin) |
+| **react-redux**           | ^9.2.0   | React bindings for Redux       |
+| **@tanstack/react-query** | ^5.90.10 | Server state / data fetching   |
 
 ### UI & Styling Libraries
-| Library | Version | Purpose |
-|---|---|---|
-| **@heroicons/react** | ^1.0.6 | SVG icons |
-| **lucide-react** | ^0.525.0 | Icon library |
-| **react-icons** | ^5.5.0 | Icon components |
-| **@mantine/core** | ^5.10.5 | UI component library |
-| **@mantine/rte** | ^5.10.5 | Rich text editor |
-| **@tiptap/react** | ^3.13.0 | Rich text editor engine |
-| **react-select** | ^5.10.1 | Enhanced select inputs |
-| **react-datepicker** | ^8.4.0 | Date picker |
+
+| Library              | Version  | Purpose                 |
+| -------------------- | -------- | ----------------------- |
+| **@heroicons/react** | ^1.0.6   | SVG icons               |
+| **lucide-react**     | ^0.525.0 | Icon library            |
+| **react-icons**      | ^5.5.0   | Icon components         |
+| **@mantine/core**    | ^5.10.5  | UI component library    |
+| **@mantine/rte**     | ^5.10.5  | Rich text editor        |
+| **@tiptap/react**    | ^3.13.0  | Rich text editor engine |
+| **react-select**     | ^5.10.1  | Enhanced select inputs  |
+| **react-datepicker** | ^8.4.0   | Date picker             |
 
 ### Charts & Data Visualization
-| Library | Version | Purpose |
-|---|---|---|
-| **recharts** | ^3.0.2 | React chart library |
-| **chart.js** | ^4.5.0 | Chart rendering |
-| **react-chartjs-2** | ^5.3.0 | React wrapper for Chart.js |
+
+| Library             | Version | Purpose                    |
+| ------------------- | ------- | -------------------------- |
+| **recharts**        | ^3.0.2  | React chart library        |
+| **chart.js**        | ^4.5.0  | Chart rendering            |
+| **react-chartjs-2** | ^5.3.0  | React wrapper for Chart.js |
 
 ### HTTP & API
-| Library | Version | Purpose |
-|---|---|---|
-| **axios** | ^1.10.0 | HTTP client |
-| **jose** | ^6.2.3 | JWT decoding |
-| **cookies-next** | ^6.0.0 | Cookie management |
+
+| Library          | Version | Purpose           |
+| ---------------- | ------- | ----------------- |
+| **axios**        | ^1.10.0 | HTTP client       |
+| **jose**         | ^6.2.3  | JWT decoding      |
+| **cookies-next** | ^6.0.0  | Cookie management |
 
 ### Document & Export
-| Library | Version | Purpose |
-|---|---|---|
-| **jspdf** | ^3.0.1 | PDF generation |
-| **html2canvas** | ^1.4.1 | HTML to canvas (PDF export) |
-| **xlsx** | ^0.18.5 | Excel export |
-| **papaparse** | ^5.5.3 | CSV parsing |
-| **file-saver** | ^2.0.5 | File download |
+
+| Library         | Version | Purpose                     |
+| --------------- | ------- | --------------------------- |
+| **jspdf**       | ^3.0.1  | PDF generation              |
+| **html2canvas** | ^1.4.1  | HTML to canvas (PDF export) |
+| **xlsx**        | ^0.18.5 | Excel export                |
+| **papaparse**   | ^5.5.3  | CSV parsing                 |
+| **file-saver**  | ^2.0.5  | File download               |
 
 ### Testing
-| Library | Version | Purpose |
-|---|---|---|
-| **jest** | ^30.0.3 | Test runner |
-| **@testing-library/react** | ^16.3.0 | Component testing |
-| **ts-jest** | ^29.4.0 | TypeScript Jest transformer |
+
+| Library                    | Version | Purpose                     |
+| -------------------------- | ------- | --------------------------- |
+| **jest**                   | ^30.0.3 | Test runner                 |
+| **@testing-library/react** | ^16.3.0 | Component testing           |
+| **ts-jest**                | ^29.4.0 | TypeScript Jest transformer |
 
 ### Development Tools
-| Library | Version | Purpose |
-|---|---|---|
-| **eslint** | ^9 | Linting |
-| **prettier** | ^3.2.5 | Code formatting |
+
+| Library                   | Version  | Purpose         |
+| ------------------------- | -------- | --------------- |
+| **eslint**                | ^9       | Linting         |
+| **prettier**              | ^3.2.5   | Code formatting |
 | **@next/bundle-analyzer** | ^15.5.15 | Bundle analysis |
-| **postcss** | ^8.4.31 | CSS processing |
+| **postcss**               | ^8.4.31  | CSS processing  |
 
 ---
 
@@ -243,6 +251,7 @@ frontend/
 ### 3.1 Next.js App Router Structure
 
 The application uses **Next.js App Router** with a mix of:
+
 - **Server Components** (default)
 - **Client Components** (`"use client"` directive — most pages)
 - **Dynamic Routes** (`[id]`, `[step]`, `[type]`)
@@ -269,7 +278,7 @@ The application uses **Next.js App Router** with a mix of:
 
 /inbox                              → Inbox (role-based, redirects to ?type=forwarded)
 /inbox?type=forwarded               → Forwarded applications
-/inbox?type=returned                → Returned applications  
+/inbox?type=returned                → Returned applications
 /inbox?type=redflagged              → Red-flagged applications
 /inbox?type=reenquiry               → Re-enquiry applications
 /inbox?type=sent                    → Sent (recommended) applications
@@ -380,6 +389,7 @@ RootProviders
 ### 4.2 Core Layout Components
 
 #### Sidebar (`src/components/Sidebar.tsx`)
+
 - **Role-based menu rendering** — Reads menu items from role config (cookie or defaults)
 - **Inbox sub-menu** — Forwarded, Returned, Red Flagged, Re-Enquiry with badge counts
 - **Admin/Super Admin menus** — 5 items: User Management, Role Management, Analytics, Flow Mapping, Locations Management
@@ -390,7 +400,8 @@ RootProviders
 - **Mobile responsive** — Collapsible hamburger menu on small screens
 
 #### Header (`src/components/Header.tsx`)
-- **Create Form dropdown** — For ZS role users (Fresh Application, Renewal Application)
+
+- **Create Form dropdown** — For ZS role users (Fresh Application, Renewal)
 - **Renewal modal** — Validates fresh application is approved before creating renewal
 - **Breadcrumb support** — Configurable breadcrumb trail
 - **Status badge** — Optional status indicator for detail views
@@ -399,6 +410,7 @@ RootProviders
 - **User avatar** — First letter of username with link to settings
 
 #### Footer (`src/components/Footer.tsx`)
+
 - Dark/light variant support
 - Configurable via `variant` prop
 
@@ -406,42 +418,43 @@ RootProviders
 
 All in `src/components/admin/`:
 
-| Component | Purpose |
-|---|---|
-| `AdminTable` | Reusable data table with sort, filter, pagination |
-| `AdminCard` | Info card with title, content, optional actions |
-| `AdminModal` | Modal dialog with configurable size |
-| `AdminFilter` | Filter bar with search, date range, status select |
-| `AdminToolbar` | Action toolbar with buttons |
-| `AdminErrorAlert` | Error display with retry |
-| `AdminErrorBoundary` | React error boundary wrapper |
-| `AdminFormSkeleton` | Form loading skeleton |
-| `AdminTableSkeleton` | Table loading skeleton |
-| `AdminCardSkeleton` | Card loading skeleton |
-| `AdminSectionSkeleton` | Section loading skeleton |
-| `Breadcrumb` | Navigation breadcrumbs |
-| `ConfirmationDialog` | Confirm/cancel dialog |
-| `PermissionMatrix` | Role-permission grid |
-| `RoleFormModal` | Role create/edit form |
-| `RoleTable` | Roles list table |
-| `WorkflowGraphPreview` | Workflow visualization |
+| Component              | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `AdminTable`           | Reusable data table with sort, filter, pagination |
+| `AdminCard`            | Info card with title, content, optional actions   |
+| `AdminModal`           | Modal dialog with configurable size               |
+| `AdminFilter`          | Filter bar with search, date range, status select |
+| `AdminToolbar`         | Action toolbar with buttons                       |
+| `AdminErrorAlert`      | Error display with retry                          |
+| `AdminErrorBoundary`   | React error boundary wrapper                      |
+| `AdminFormSkeleton`    | Form loading skeleton                             |
+| `AdminTableSkeleton`   | Table loading skeleton                            |
+| `AdminCardSkeleton`    | Card loading skeleton                             |
+| `AdminSectionSkeleton` | Section loading skeleton                          |
+| `Breadcrumb`           | Navigation breadcrumbs                            |
+| `ConfirmationDialog`   | Confirm/cancel dialog                             |
+| `PermissionMatrix`     | Role-permission grid                              |
+| `RoleFormModal`        | Role create/edit form                             |
+| `RoleTable`            | Roles list table                                  |
+| `WorkflowGraphPreview` | Workflow visualization                            |
 
 ### 4.4 Analytics Components
 
-| Component | Purpose |
-|---|---|
-| `AnalyticsDashboard` | Main analytics dashboard wrapper |
-| `AdminActivityFeed` | Recent admin actions timeline |
-| `FiltersHeader` | Date range and filter controls |
-| `SummaryStats` | Key metrics cards (pending, approved, etc.) |
-| `TimelineChart` | Application trends over time |
-| `RoleLoadChart` | Workload per admin role |
-| `StatusDistributionChart` | Status breakdown pie/bar chart |
-| `ApplicationsTable` | Filterable applications list |
+| Component                 | Purpose                                     |
+| ------------------------- | ------------------------------------------- |
+| `AnalyticsDashboard`      | Main analytics dashboard wrapper            |
+| `AdminActivityFeed`       | Recent admin actions timeline               |
+| `FiltersHeader`           | Date range and filter controls              |
+| `SummaryStats`            | Key metrics cards (pending, approved, etc.) |
+| `TimelineChart`           | Application trends over time                |
+| `RoleLoadChart`           | Workload per admin role                     |
+| `StatusDistributionChart` | Status breakdown pie/bar chart              |
+| `ApplicationsTable`       | Filterable applications list                |
 
 ### 4.5 Form Components (Fresh Application)
 
 #### Modular approach (`createFreshApplicationForm/`)
+
 ```
 steps/
 ├── PersonalInfo.tsx
@@ -460,6 +473,7 @@ ui/
 ```
 
 #### Legacy approach (`forms/freshApplication/`)
+
 ```
 FreshApplicationFormContext.tsx
 PersonalInformation.tsx
@@ -477,36 +491,37 @@ Declaration.tsx
 
 ### 4.6 Form Elements (`forms/elements/`)
 
-| Component | Purpose |
-|---|---|
-| `Button` | Reusable button with variants |
-| `Input` | Text input with validation |
-| `Select` | Dropdown select |
-| `Checkbox` | Checkbox input |
-| `DateOfBirth` | Date of birth picker |
-| `FileUpload` | File upload with preview |
-| `FormField` | Generic form field wrapper |
-| `Card` | Card container |
-| `Alert` | Alert/notification banner |
-| `LocationHierarchy` | Cascading location selector |
-| `StepHeader` | Form step indicator |
-| `Tooltip` | Tooltip popover |
-| `footer` | Form step footer |
+| Component           | Purpose                       |
+| ------------------- | ----------------------------- |
+| `Button`            | Reusable button with variants |
+| `Input`             | Text input with validation    |
+| `Select`            | Dropdown select               |
+| `Checkbox`          | Checkbox input                |
+| `DateOfBirth`       | Date of birth picker          |
+| `FileUpload`        | File upload with preview      |
+| `FormField`         | Generic form field wrapper    |
+| `Card`              | Card container                |
+| `Alert`             | Alert/notification banner     |
+| `LocationHierarchy` | Cascading location selector   |
+| `StepHeader`        | Form step indicator           |
+| `Tooltip`           | Tooltip popover               |
+| `footer`            | Form step footer              |
 
 ### 4.7 Renewal Components
 
-| Component | Purpose |
-|---|---|
+| Component                       | Purpose             |
+| ------------------------------- | ------------------- |
 | `RenewalApplicationDetailsPage` | Renewal detail view |
-| `RenewalHeader` | Renewal form header |
-| `RenewalSummary` | Renewal summary |
-| `ProceedingsForm` | Proceedings form |
-| `RenewalProceedingsForm` | Renewal proceedings |
+| `RenewalHeader`                 | Renewal form header |
+| `RenewalSummary`                | Renewal summary     |
+| `ProceedingsForm`               | Proceedings form    |
+| `RenewalProceedingsForm`        | Renewal proceedings |
 
 #### Renewal Sections (`forms/renewal/sections/`)
+
 ```
 PersonalDetailsSection.tsx
-AddressDetailsSection.tsx  
+AddressDetailsSection.tsx
 OccupationSection.tsx
 CriminalHistory.tsx
 LicenseHistory.tsx
@@ -518,30 +533,30 @@ DeclarationSection.tsx
 
 ### 4.8 Other Key Components
 
-| Component | Purpose |
-|---|---|
-| `ApplicationTable` | Main application listing table |
-| `ApplicationTimeline` | Application status/action timeline |
-| `EnhancedApplicationTimeline` | Enhanced timeline with more details |
-| `ApprovedApplicationsList` | List of approved apps |
-| `ForwardApplicationModal` | Forward app with user/role selection |
-| `ProcessApplicationModal` | Process (approve/reject/flag) modal |
-| `BatchProcessingModal` | Batch process multiple applications |
-| `ConfirmationModal` | Generic confirmation dialog |
-| `SuccessModal` | Success notification modal |
-| `NotificationDropdown` | Notifications dropdown panel |
-| `QRCodeDisplay` | QR code display component |
-| `RichTextEditor` | Rich text editor (Mantine/TipTap) |
-| `TiptapRichTextEditor` | TipTap-based rich text editor |
-| `CascadingLocationSelect` | State → District → Zone → Division → Police Station |
-| `FormStepNavigation` | Multi-step form navigation |
-| `MultiStepForm` | Generic multi-step form container |
-| `LoadingState` | Loading indicator |
-| `Skeleton` | Skeleton loaders |
-| `DashboardCharts` | Dashboard summary charts |
-| `DashboardSummary` | Dashboard statistics summary |
-| `ProtectedRoute` | Auth route guard component |
-| `InboxBootloaderClient` | Initial inbox data loader |
+| Component                     | Purpose                                             |
+| ----------------------------- | --------------------------------------------------- |
+| `ApplicationTable`            | Main application listing table                      |
+| `ApplicationTimeline`         | Application status/action timeline                  |
+| `EnhancedApplicationTimeline` | Enhanced timeline with more details                 |
+| `ApprovedApplicationsList`    | List of approved apps                               |
+| `ForwardApplicationModal`     | Forward app with user/role selection                |
+| `ProcessApplicationModal`     | Process (approve/reject/flag) modal                 |
+| `BatchProcessingModal`        | Batch process multiple applications                 |
+| `ConfirmationModal`           | Generic confirmation dialog                         |
+| `SuccessModal`                | Success notification modal                          |
+| `NotificationDropdown`        | Notifications dropdown panel                        |
+| `QRCodeDisplay`               | QR code display component                           |
+| `RichTextEditor`              | Rich text editor (Mantine/TipTap)                   |
+| `TiptapRichTextEditor`        | TipTap-based rich text editor                       |
+| `CascadingLocationSelect`     | State → District → Zone → Division → Police Station |
+| `FormStepNavigation`          | Multi-step form navigation                          |
+| `MultiStepForm`               | Generic multi-step form container                   |
+| `LoadingState`                | Loading indicator                                   |
+| `Skeleton`                    | Skeleton loaders                                    |
+| `DashboardCharts`             | Dashboard summary charts                            |
+| `DashboardSummary`            | Dashboard statistics summary                        |
+| `ProtectedRoute`              | Auth route guard component                          |
+| `InboxBootloaderClient`       | Initial inbox data loader                           |
 
 ---
 
@@ -571,61 +586,65 @@ interface AuthState {
   token: string | null;
   loading: boolean;
   error: string | null;
-  initialized: boolean;  // Auth initialization completed
+  initialized: boolean; // Auth initialization completed
 }
 
 // Selectors
-selectCurrentUser
-selectIsAuthenticated
-selectAuthToken
-selectAuthLoading
-selectAuthError
-selectAuthInitialized
+selectCurrentUser;
+selectIsAuthenticated;
+selectAuthToken;
+selectAuthLoading;
+selectAuthError;
+selectAuthInitialized;
 ```
 
 ### 5.3 UI Slice (`src/store/slices/uiSlice.ts`)
 
 Manages inbox panel open/close state:
+
 - `toggleInbox`
 - `openInbox`
 - `closeInbox`
 
 ### 5.4 Auth Thunks (`src/store/thunks/authThunks.ts`)
 
-| Thunk | Trigger | Description |
-|---|---|---|
-| `login` | Login form submit | Calls AuthApi.login, persists cookies, fetches user profile |
-| `logoutUser` | Logout button | Calls AuthApi.logout, clears cookies, redirects to /login |
-| `initializeAuth` | App mount | Reads auth cookie, validates token via /auth/getMe |
-| `getCurrentUser` | Manual refresh | Fetches current user profile |
+| Thunk            | Trigger           | Description                                                 |
+| ---------------- | ----------------- | ----------------------------------------------------------- |
+| `login`          | Login form submit | Calls AuthApi.login, persists cookies, fetches user profile |
+| `logoutUser`     | Logout button     | Calls AuthApi.logout, clears cookies, redirects to /login   |
+| `initializeAuth` | App mount         | Reads auth cookie, validates token via /auth/getMe          |
+| `getCurrentUser` | Manual refresh    | Fetches current user profile                                |
 
 **Cookie persistence:** Auth thunks synchronize Redux state with browser cookies:
+
 - `auth` cookie — JWT token
 - `role` cookie — User role code (uppercase)
 - `user` cookie — Minimal user JSON (id, role, username, name)
 
 ### 5.5 React Context Providers
 
-| Context | File | Purpose |
-|---|---|---|
-| `LayoutContext` | `config/layoutContext.tsx` | showHeader/showSidebar state |
-| `NotificationContext` | `config/notificationContext.tsx` | Notification state with polling |
-| `ApplicationContext` | `context/ApplicationContext.tsx` | Application list state (localStorage persisted) |
-| `InboxContext` | `context/InboxContext.tsx` | Inbox type selection & data loading |
-| `GlobalActionContext` | `context/GlobalActionContext.tsx` | Prevent duplicate navigations/actions |
-| `UserContext` | `context/UserContext.tsx` | Current user state |
-| `AdminAuthContext` | `context/AdminAuthContext.tsx` | Admin-specific auth |
-| `AdminMenuContext` | `context/AdminMenuContext.tsx` | Admin menu active state |
-| `AdminThemeContext` | `context/AdminThemeContext.tsx` | Admin theme (light/dark) |
+| Context               | File                              | Purpose                                         |
+| --------------------- | --------------------------------- | ----------------------------------------------- |
+| `LayoutContext`       | `config/layoutContext.tsx`        | showHeader/showSidebar state                    |
+| `NotificationContext` | `config/notificationContext.tsx`  | Notification state with polling                 |
+| `ApplicationContext`  | `context/ApplicationContext.tsx`  | Application list state (localStorage persisted) |
+| `InboxContext`        | `context/InboxContext.tsx`        | Inbox type selection & data loading             |
+| `GlobalActionContext` | `context/GlobalActionContext.tsx` | Prevent duplicate navigations/actions           |
+| `UserContext`         | `context/UserContext.tsx`         | Current user state                              |
+| `AdminAuthContext`    | `context/AdminAuthContext.tsx`    | Admin-specific auth                             |
+| `AdminMenuContext`    | `context/AdminMenuContext.tsx`    | Admin menu active state                         |
+| `AdminThemeContext`   | `context/AdminThemeContext.tsx`   | Admin theme (light/dark)                        |
 
 ### 5.6 Lightweight Stores
 
 **Fresh Form Store** (`src/stores/useFreshFormStore.ts`):
+
 - Uses React `useSyncExternalStore` hook
 - Module-level state (no external dependency like Zustand)
 - API: `useFreshFormStore()` → `{ formData, setField, reset }`
 
 **Application Store** (`src/store/applicationStore.ts`):
+
 - Custom minimal store with subscribe/listener pattern
 - Simple `setApplications` / `clearApplications` API
 
@@ -680,27 +699,29 @@ API Service Class (api/applicationService.ts)
 ### 6.2 API Client Classes
 
 #### AuthApi (public endpoints — no token required for login)
-| Method | Endpoint | Description |
-|---|---|---|
-| `login` | POST `/auth/login` | User authentication |
-| `getCurrentUser` | GET `/auth/me` | Current user profile |
-| `getMe` | GET `/auth/getMe` | Minimal user object |
-| `logout` | POST `/auth/logout` | Session invalidation |
-| `changePassword` | POST `/auth/change-password` | Password change |
-| `resetPassword` | POST `/auth/reset-password` | Password reset email |
-| `refreshToken` | POST `/auth/refresh-token` | Token refresh |
+
+| Method           | Endpoint                     | Description          |
+| ---------------- | ---------------------------- | -------------------- |
+| `login`          | POST `/auth/login`           | User authentication  |
+| `getCurrentUser` | GET `/auth/me`               | Current user profile |
+| `getMe`          | GET `/auth/getMe`            | Minimal user object  |
+| `logout`         | POST `/auth/logout`          | Session invalidation |
+| `changePassword` | POST `/auth/change-password` | Password change      |
+| `resetPassword`  | POST `/auth/reset-password`  | Password reset email |
+| `refreshToken`   | POST `/auth/refresh-token`   | Token refresh        |
 
 #### ApplicationApi (authenticated)
-| Method | Endpoint | Description |
-|---|---|---|
-| `getAll` | GET `/application-form` | List applications (with optional `statusIds`, `isSent`, `isOwned`) |
-| `getById` | GET `/application-form?applicationId={id}` | Single application |
-| `create` | POST `/application-form` | Create fresh application |
-| `updateStatus` | PUT `/applications/{id}/status` | Update status |
-| `forward` | POST `/applications/{id}/forward` | Forward to next user |
-| `batchProcess` | POST `/applications/batch` | Batch process applications |
-| `getByStatuses` | GET `/application-form?statusIds={ids}` | Filter by status IDs |
-| `deleteApplication` | DELETE `/application-form/application/{id}` | Delete application |
+
+| Method              | Endpoint                                    | Description                                                        |
+| ------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| `getAll`            | GET `/application-form`                     | List applications (with optional `statusIds`, `isSent`, `isOwned`) |
+| `getById`           | GET `/application-form?applicationId={id}`  | Single application                                                 |
+| `create`            | POST `/application-form`                    | Create fresh application                                           |
+| `updateStatus`      | PUT `/applications/{id}/status`             | Update status                                                      |
+| `forward`           | POST `/applications/{id}/forward`           | Forward to next user                                               |
+| `batchProcess`      | POST `/applications/batch`                  | Batch process applications                                         |
+| `getByStatuses`     | GET `/application-form?statusIds={ids}`     | Filter by status IDs                                               |
+| `deleteApplication` | DELETE `/application-form/application/{id}` | Delete application                                                 |
 
 #### SidebarApiCalls Service (`sidebarApiCalls.ts`)
 
@@ -725,11 +746,13 @@ This is the primary data fetching service used by pages. Key features:
 ### 6.4 Authentication API Client (`src/config/authenticatedApiClient.ts`)
 
 Wraps axios with `ensureAuthHeader()` that checks:
+
 1. Existing axios Authorization header (in-flight login)
 2. `auth` cookie (normal usage)
 3. Redirects to `/login` if no token found (browser only)
 
 Provides:
+
 - `get()`, `post()`, `put()`, `delete()`, `uploadFile()` methods
 - URL building with `/api` deduplication
 - 401 auto-redirect on any method
@@ -781,16 +804,22 @@ App mounts
 **File:** `src/utils/roleUtils.ts` + `src/store/thunks/authThunks.ts`
 
 Handles multiple role formats:
+
 - String role codes: `'ADMIN'`, `'ZS'`, `'SHO'`
 - Object roles: `{ code: 'ADMIN' }`, `{ name: 'Zonal Superintendent' }`
 - Numeric role IDs: `'12'` → `'SUPER_ADMIN'`, `'2'` → `'ZS'`
 
 **Numeric Role ID Map:**
+
 ```typescript
 const NUMERIC_ROLE_MAP = {
-  '2': 'ZS',   '3': 'ADMIN',     '7': 'ZS',
-  '12': 'SUPER_ADMIN', '14': 'ADMIN',
-  '15': 'SUPER_ADMIN', '16': 'SUPER_ADMIN',
+  "2": "ZS",
+  "3": "ADMIN",
+  "7": "ZS",
+  "12": "SUPER_ADMIN",
+  "14": "ADMIN",
+  "15": "SUPER_ADMIN",
+  "16": "SUPER_ADMIN",
 };
 ```
 
@@ -875,7 +904,7 @@ API Submission:
 
 ### 8.3 Renewal Form
 
-- **Trigger**: ZS user clicks "Create Form" → "Renewal Application"
+- **Trigger**: ZS user clicks "Create Form" → "Renewal"
 - **Lookup**: Enter approved Fresh Application ID
 - **Validation**: Checks workflow status is APPROVED or has APPROVED history
 - **Redirect**: `/forms/renewal?applicationId={id}`
@@ -885,16 +914,16 @@ API Submission:
 ```typescript
 // src/config/formRoutes.ts
 FORM_ROUTES = {
-  PERSONAL_INFO:    '/forms/createFreshApplication/personal-information',
-  ADDRESS_DETAILS:  '/forms/createFreshApplication/address-details',
-  OCCUPATION_DETAILS: '/forms/createFreshApplication/occupation-business',
-  CRIMINAL_HISTORY: '/forms/createFreshApplication/criminal-history',
-  LICENSE_HISTORY:  '/forms/createFreshApplication/license-history',
-  LICENSE_DETAILS:  '/forms/createFreshApplication/license-details',
-  BIOMETRIC_INFO:   '/forms/createFreshApplication/biometric-information',
-  DOCUMENTS_UPLOAD: '/forms/createFreshApplication/documents-upload',
-  PREVIEW:          '/forms/createFreshApplication/preview',
-  DECLARATION:      '/forms/createFreshApplication/declaration',
+  PERSONAL_INFO: "/forms/createFreshApplication/personal-information",
+  ADDRESS_DETAILS: "/forms/createFreshApplication/address-details",
+  OCCUPATION_DETAILS: "/forms/createFreshApplication/occupation-business",
+  CRIMINAL_HISTORY: "/forms/createFreshApplication/criminal-history",
+  LICENSE_HISTORY: "/forms/createFreshApplication/license-history",
+  LICENSE_DETAILS: "/forms/createFreshApplication/license-details",
+  BIOMETRIC_INFO: "/forms/createFreshApplication/biometric-information",
+  DOCUMENTS_UPLOAD: "/forms/createFreshApplication/documents-upload",
+  PREVIEW: "/forms/createFreshApplication/preview",
+  DECLARATION: "/forms/createFreshApplication/declaration",
 };
 ```
 
@@ -904,27 +933,28 @@ FORM_ROUTES = {
 
 ### 9.1 Roles in the System
 
-| Role Code | Display Name | Type |
-|---|---|---|
-| `SUPER_ADMIN` | Super Administrator | System Admin |
-| `ADMIN` | System Administrator | System Admin |
-| `DCP` | Deputy Commissioner of Police | Officer |
-| `ACP` | Assistant Commissioner of Police | Officer |
-| `CP` | Commissioner of Police | Officer |
-| `SHO` | Station House Officer | Officer |
-| `ZS` | Zonal Superintendent | Officer |
-| `ADO` | Administrative Officer | Support |
-| `CADO` | Chief Administrative Officer | Support |
-| `AS` | Arms Superintendent | Support |
-| `ARMS_SUPDT` | ARMS Superintendent | Support |
-| `ARMS_SEAT` | ARMS Seat | Support |
-| `JTCP` | Joint Commissioner of Police | Officer |
-| `ACO` | Assistant Compliance Officer | Support |
-| `APPLICANT` | License Applicant | Citizen |
+| Role Code     | Display Name                     | Type         |
+| ------------- | -------------------------------- | ------------ |
+| `SUPER_ADMIN` | Super Administrator              | System Admin |
+| `ADMIN`       | System Administrator             | System Admin |
+| `DCP`         | Deputy Commissioner of Police    | Officer      |
+| `ACP`         | Assistant Commissioner of Police | Officer      |
+| `CP`          | Commissioner of Police           | Officer      |
+| `SHO`         | Station House Officer            | Officer      |
+| `ZS`          | Zonal Superintendent             | Officer      |
+| `ADO`         | Administrative Officer           | Support      |
+| `CADO`        | Chief Administrative Officer     | Support      |
+| `AS`          | Arms Superintendent              | Support      |
+| `ARMS_SUPDT`  | ARMS Superintendent              | Support      |
+| `ARMS_SEAT`   | ARMS Seat                        | Support      |
+| `JTCP`        | Joint Commissioner of Police     | Officer      |
+| `ACO`         | Assistant Compliance Officer     | Support      |
+| `APPLICANT`   | License Applicant                | Citizen      |
 
 ### 9.2 Role Configuration (`src/config/roles.ts`)
 
 Each role has:
+
 - **permissions**: Array of permission strings
 - **dashboardTitle**: Display name in sidebar header
 - **canAccessSettings**: Boolean flag
@@ -932,40 +962,40 @@ Each role has:
 
 **Default menu items** are defined in `roleSpecificMenuDefaults` for each role:
 
-| Role | Menu Items |
-|---|---|
-| **ZS** | freshform, inbox (statusIds: [1,9]), sent, closed, drafts, finaldisposal, analytics, applications |
-| **SHO** | inbox (statusIds: [1,9]), sent |
-| **ACP** | inbox (statusIds: [1,9]), sent |
-| **DCP** | inbox (statusIds: [1,9,11]), sent |
-| **AS** | inbox (statusIds: [1,9]), sent |
-| **ADO** | inbox (statusIds: [1,9]), sent |
-| **CADO** | inbox (statusIds: [1,9,11]), sent |
-| **JTCP** | inbox (statusIds: [1,9,11]), sent, analytics |
-| **CP** | inbox (statusIds: [1,9,11]), sent, analytics |
-| **ARMS_SUPDT** | inbox (statusIds: [1,9]), sent |
-| **ARMS_SEAT** | inbox (statusIds: [1,9]), sent |
-| **ACO** | inbox (statusIds: [1,9]), sent |
-| **ADMIN** | User Management, Role Management, Analytics, Flow Mapping, Locations Management |
-| **SUPER_ADMIN** | Same as ADMIN but under `/superAdmin/` routes |
+| Role            | Menu Items                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| **ZS**          | freshform, inbox (statusIds: [1,9]), sent, closed, drafts, finaldisposal, analytics, applications |
+| **SHO**         | inbox (statusIds: [1,9]), sent                                                                    |
+| **ACP**         | inbox (statusIds: [1,9]), sent                                                                    |
+| **DCP**         | inbox (statusIds: [1,9,11]), sent                                                                 |
+| **AS**          | inbox (statusIds: [1,9]), sent                                                                    |
+| **ADO**         | inbox (statusIds: [1,9]), sent                                                                    |
+| **CADO**        | inbox (statusIds: [1,9,11]), sent                                                                 |
+| **JTCP**        | inbox (statusIds: [1,9,11]), sent, analytics                                                      |
+| **CP**          | inbox (statusIds: [1,9,11]), sent, analytics                                                      |
+| **ARMS_SUPDT**  | inbox (statusIds: [1,9]), sent                                                                    |
+| **ARMS_SEAT**   | inbox (statusIds: [1,9]), sent                                                                    |
+| **ACO**         | inbox (statusIds: [1,9]), sent                                                                    |
+| **ADMIN**       | User Management, Role Management, Analytics, Flow Mapping, Locations Management                   |
+| **SUPER_ADMIN** | Same as ADMIN but under `/superAdmin/` routes                                                     |
 
 ### 9.3 Status ID Mapping (`src/config/statusMap.ts`)
 
 Maps menu keys to backend numeric status IDs:
 
-| Key | Status IDs | Description |
-|---|---|---|
-| `forwarded` | [1, 9, 3, 11] | FORWARD + INITIATE |
-| `returned` | [2, 13] | REJECT (treated as returned) |
-| `redflagged` | [8] | RED_FLAG |
-| `disposed` / `finaldisposal` | [7] | DISPOSE |
-| `approved` | [11, 3] | RECOMMEND + APPROVED |
-| `freshform` | [9] | INITIATE |
-| `closed` | [10] | CLOSE |
-| `cancelled` | [4] | CANCEL |
-| `reEnquiry` | [5] | RE_ENQUIRY |
-| `groundReport` | [6] | GROUND_REPORT |
-| `drafts` | [12] | DRAFTS |
+| Key                          | Status IDs    | Description                  |
+| ---------------------------- | ------------- | ---------------------------- |
+| `forwarded`                  | [1, 9, 3, 11] | FORWARD + INITIATE           |
+| `returned`                   | [2, 13]       | REJECT (treated as returned) |
+| `redflagged`                 | [8]           | RED_FLAG                     |
+| `disposed` / `finaldisposal` | [7]           | DISPOSE                      |
+| `approved`                   | [11, 3]       | RECOMMEND + APPROVED         |
+| `freshform`                  | [9]           | INITIATE                     |
+| `closed`                     | [10]          | CLOSE                        |
+| `cancelled`                  | [4]           | CANCEL                       |
+| `reEnquiry`                  | [5]           | RE_ENQUIRY                   |
+| `groundReport`               | [6]           | GROUND_REPORT                |
+| `drafts`                     | [12]          | DRAFTS                       |
 
 ### 9.4 Role Hierarchy (`src/utils/roleUtils.ts`)
 
@@ -1007,32 +1037,44 @@ Defines available actions per role:
 ### 10.1 Custom Hooks
 
 #### `useAuth()` (`src/hooks/useAuth.ts`)
+
 Reads auth state from Redux store via selectors:
+
 ```typescript
-const { user, userRole, userName, userId, token, isAuthenticated, isLoading, initialized } = useAuth();
+const {
+  user,
+  userRole,
+  userName,
+  userId,
+  token,
+  isAuthenticated,
+  isLoading,
+  initialized,
+} = useAuth();
 ```
 
 #### `useSidebarCounts()` (`src/hooks/useSidebarCounts.ts`)
+
 - Fetches application counts for sidebar badges
 - 2-minute throttle between fetches
 - Returns: `{ applicationCounts, loading, error, refreshCounts, lastFetch }`
 
 ### 10.2 Utility Functions
 
-| File | Key Exports | Purpose |
-|---|---|---|
-| `roleUtils.ts` | `normalizeRole()`, `isAdminRole()`, `isRoleIn()`, `getRoleHierarchy()`, `getRoleDisplayNames()`, `getRoleBasedActions()` | Role normalization and checks |
-| `authCookies.ts` | `getAuthTokenFromCookie()`, `getUserFromCookie()`, `isAuthCookieValid()` | Cookie-based auth |
-| `applicationMapper.ts` | `mapAPIApplicationToTableData()` | API → ApplicationData transform |
-| `apiUtils.ts` | `fetchNextUsers()`, `fetchUsers()`, `fetchUsersByRoles()` | User fetching |
-| `navigationUtils.ts` | `navigateToDefaultMenu()`, `getDefaultMenuItemForRole()` | Post-login navigation |
-| `icons.tsx` | CheckIcon, ForwardIcon, RejectIcon, ReturnIcon, FlagIcon, DisposeIcon, ReviewIcon, PendingIcon | SVG icon components |
-| `stringUtils.ts` | `capitalieWords()` | String formatting |
-| `imageCompress.ts` | Image compression utilities | Client-side image compression |
-| `formDataLoader.ts` | Form data loading helpers | Load form state from API |
-| `adminPagePreloader.ts` | `preloadAdminPages()` | Prefetch admin pages |
-| `loggingUtils.ts` | Logging utilities | Debug logging helpers |
-| `renewalFileUpload.ts` | Renewal file upload | Renewal-specific upload logic |
+| File                    | Key Exports                                                                                                              | Purpose                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| `roleUtils.ts`          | `normalizeRole()`, `isAdminRole()`, `isRoleIn()`, `getRoleHierarchy()`, `getRoleDisplayNames()`, `getRoleBasedActions()` | Role normalization and checks   |
+| `authCookies.ts`        | `getAuthTokenFromCookie()`, `getUserFromCookie()`, `isAuthCookieValid()`                                                 | Cookie-based auth               |
+| `applicationMapper.ts`  | `mapAPIApplicationToTableData()`                                                                                         | API → ApplicationData transform |
+| `apiUtils.ts`           | `fetchNextUsers()`, `fetchUsers()`, `fetchUsersByRoles()`                                                                | User fetching                   |
+| `navigationUtils.ts`    | `navigateToDefaultMenu()`, `getDefaultMenuItemForRole()`                                                                 | Post-login navigation           |
+| `icons.tsx`             | CheckIcon, ForwardIcon, RejectIcon, ReturnIcon, FlagIcon, DisposeIcon, ReviewIcon, PendingIcon                           | SVG icon components             |
+| `stringUtils.ts`        | `capitalieWords()`                                                                                                       | String formatting               |
+| `imageCompress.ts`      | Image compression utilities                                                                                              | Client-side image compression   |
+| `formDataLoader.ts`     | Form data loading helpers                                                                                                | Load form state from API        |
+| `adminPagePreloader.ts` | `preloadAdminPages()`                                                                                                    | Prefetch admin pages            |
+| `loggingUtils.ts`       | Logging utilities                                                                                                        | Debug logging helpers           |
+| `renewalFileUpload.ts`  | Renewal file upload                                                                                                      | Renewal-specific upload logic   |
 
 ---
 
@@ -1042,52 +1084,176 @@ const { user, userRole, userName, userId, token, isAuthenticated, isLoading, ini
 
 ```typescript
 // User
-interface User { id, name, username, email, role, designation, createdAt, lastLogin, permissions, availableActions, location }
+interface User {
+  id;
+  name;
+  username;
+  email;
+  role;
+  designation;
+  createdAt;
+  lastLogin;
+  permissions;
+  availableActions;
+  location;
+}
 
 // Auth State
-interface AuthState { isAuthenticated, user, token, loading, error }
+interface AuthState {
+  isAuthenticated;
+  user;
+  token;
+  loading;
+  error;
+}
 
 // Application Data (comprehensive — 100+ fields)
 interface ApplicationData {
-  id, acknowledgementNo, firstName, lastName, applicantName, applicantMobile, applicantEmail,
-  fatherName, sex, dob, aadharNumber, panNumber, placeOfBirth,
-  presentAddress, permanentAddress, occupationAndBusiness,
-  status, status_id, workflowStatus, currentUser, previousUser,
-  applicationType, applicationDate,
-  documents, biometricData, history, workflowHistories,
-  criminalHistories, licenseHistories, licenseDetails,
-  actions: { canForward, canApprove, canReject, canRaiseRedflag, canReturn, canDispose }, // 7 boolean flags
-  usersInHierarchy, // Array of { id, username, roleId, locationIds }
+  id;
+  acknowledgementNo;
+  firstName;
+  lastName;
+  applicantName;
+  applicantMobile;
+  applicantEmail;
+  fatherName;
+  sex;
+  dob;
+  aadharNumber;
+  panNumber;
+  placeOfBirth;
+  presentAddress;
+  permanentAddress;
+  occupationAndBusiness;
+  status;
+  status_id;
+  workflowStatus;
+  currentUser;
+  previousUser;
+  applicationType;
+  applicationDate;
+  documents;
+  biometricData;
+  history;
+  workflowHistories;
+  criminalHistories;
+  licenseHistories;
+  licenseDetails;
+  actions: {
+    canForward;
+    canApprove;
+    canReject;
+    canRaiseRedflag;
+    canReturn;
+    canDispose;
+  }; // 7 boolean flags
+  usersInHierarchy; // Array of { id, username, roleId, locationIds }
 }
 
 // Workflow
-interface WorkflowHistory { id, applicationId, previousUserId, nextUserId, actionTaken, remarks, attachments, actiones }
-interface WorkflowActiones { id, code, name, description, isActive }
+interface WorkflowHistory {
+  id;
+  applicationId;
+  previousUserId;
+  nextUserId;
+  actionTaken;
+  remarks;
+  attachments;
+  actiones;
+}
+interface WorkflowActiones {
+  id;
+  code;
+  name;
+  description;
+  isActive;
+}
 
 // Application Status
-type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'returned' | 'red-flagged' | 'disposed'
-  | 'initiated' | 'cancelled' | 're-enquiry' | 'ground-report' | 'closed'
-  | 'recommended' | 'under_review' | 'forwarded' | 'final_disposal' | 'sent';
+type ApplicationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "returned"
+  | "red-flagged"
+  | "disposed"
+  | "initiated"
+  | "cancelled"
+  | "re-enquiry"
+  | "ground-report"
+  | "closed"
+  | "recommended"
+  | "under_review"
+  | "forwarded"
+  | "final_disposal"
+  | "sent";
 
 // Location
-interface LocationOption { id: number; name: string }
-interface State extends LocationOption { districts }
-interface District extends LocationOption { stateId, zones }
-interface Zone extends LocationOption { districtId, divisions }
-interface Division extends LocationOption { zoneId, stations }
-interface PoliceStation extends LocationOption { divisionId }
+interface LocationOption {
+  id: number;
+  name: string;
+}
+interface State extends LocationOption {
+  districts;
+}
+interface District extends LocationOption {
+  stateId;
+  zones;
+}
+interface Zone extends LocationOption {
+  districtId;
+  divisions;
+}
+interface Division extends LocationOption {
+  zoneId;
+  stations;
+}
+interface PoliceStation extends LocationOption {
+  divisionId;
+}
 
 // User Role
-type UserRole = 'ADMIN' | 'DCP' | 'ACP' | 'CP' | 'ARMS_SUPDT' | 'SHO' | 'ZS' | 'APPLICANT'
-  | 'ADO' | 'CADO' | 'AS' | 'ARMS_SEAT' | 'JTCP';
+type UserRole =
+  | "ADMIN"
+  | "DCP"
+  | "ACP"
+  | "CP"
+  | "ARMS_SUPDT"
+  | "SHO"
+  | "ZS"
+  | "APPLICANT"
+  | "ADO"
+  | "CADO"
+  | "AS"
+  | "ARMS_SEAT"
+  | "JTCP";
 ```
 
 ### 11.2 API Types (`src/types/api.ts`)
 
 ```typescript
-interface ApiResponse<T> { success, message?, data, error? }
-interface APIApplication { id, acknowledgementNo, firstName, lastName, status, createdAt, applicationType }
-interface ApplicationQueryParams { statusIds?, page?, limit?, search?, isSent? }
+interface ApiResponse<T> {
+  success;
+  message?;
+  data;
+  error?;
+}
+interface APIApplication {
+  id;
+  acknowledgementNo;
+  firstName;
+  lastName;
+  status;
+  createdAt;
+  applicationType;
+}
+interface ApplicationQueryParams {
+  statusIds?;
+  page?;
+  limit?;
+  search?;
+  isSent?;
+}
 ```
 
 ---
@@ -1097,6 +1263,7 @@ interface ApplicationQueryParams { statusIds?, page?, limit?, search?, isSent? }
 ### 12.1 Edge Middleware (`proxy.ts`)
 
 Runs on all non-static, non-API routes. Handles:
+
 - **Auth cookie parsing**: Raw JWT, JSON-wrapped, or standard cookie
 - **Role extraction**: From auth cookie, role cookie, or user cookie
 - **Route protection**: Public vs protected vs admin routes
@@ -1108,16 +1275,20 @@ Runs on all non-static, non-API routes. Handles:
 
 ```javascript
 headers: [
-  { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-]
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+];
 ```
 
 ### 12.3 401 Handling
 
 **Axios response interceptor**: On 401 from any non-login request:
+
 1. Clears `auth`, `user`, `role` cookies
 2. Redirects to `/login`
 
@@ -1208,29 +1379,29 @@ npm run dev
 
 ### 14.2 Available Scripts
 
-| Script | Command | Description |
-|---|---|---|
-| `dev` | `next dev` | Development server (port 5000) |
-| `build` | `next build` | Production build |
-| `build:analyze` | `ANALYZE=true next build` | Bundle analysis |
-| `start` | `next start` | Production server |
-| `lint` | `eslint .` | Lint check |
-| `lint:fix` | `eslint . --fix` | Lint auto-fix |
-| `format` | `prettier --write .` | Format code |
-| `format:check` | `prettier --check .` | Check formatting |
-| `type-check` | `tsc --noEmit` | TypeScript check |
-| `test` | `jest` | Run tests |
-| `test:watch` | `jest --watch` | Watch mode tests |
-| `test:coverage` | `jest --coverage` | Test coverage |
-| `code-quality` | All quality checks | Combined lint + format + types |
+| Script          | Command                   | Description                    |
+| --------------- | ------------------------- | ------------------------------ |
+| `dev`           | `next dev`                | Development server (port 5000) |
+| `build`         | `next build`              | Production build               |
+| `build:analyze` | `ANALYZE=true next build` | Bundle analysis                |
+| `start`         | `next start`              | Production server              |
+| `lint`          | `eslint .`                | Lint check                     |
+| `lint:fix`      | `eslint . --fix`          | Lint auto-fix                  |
+| `format`        | `prettier --write .`      | Format code                    |
+| `format:check`  | `prettier --check .`      | Check formatting               |
+| `type-check`    | `tsc --noEmit`            | TypeScript check               |
+| `test`          | `jest`                    | Run tests                      |
+| `test:watch`    | `jest --watch`            | Watch mode tests               |
+| `test:coverage` | `jest --coverage`         | Test coverage                  |
+| `code-quality`  | All quality checks        | Combined lint + format + types |
 
 ### 14.3 Environment Variables
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | `/api` | Backend API base URL |
-| `BACKEND_URL` | `http://localhost:3001` | Backend URL for rewrites |
-| `PORT` | `5000` | Dev server port |
+| Variable              | Default                 | Purpose                  |
+| --------------------- | ----------------------- | ------------------------ |
+| `NEXT_PUBLIC_API_URL` | `/api`                  | Backend API base URL     |
+| `BACKEND_URL`         | `http://localhost:3001` | Backend URL for rewrites |
+| `PORT`                | `5000`                  | Dev server port          |
 
 ### 14.4 Build & Deployment
 
@@ -1285,60 +1456,62 @@ npm run build
 
 ### A. API Endpoint Summary
 
-| Endpoint | Method | Auth | Service | Purpose |
-|---|---|---|---|---|
-| `/auth/login` | POST | No | AuthApi | User login |
-| `/auth/me` | GET | Yes | AuthApi | Current user |
-| `/auth/getMe` | GET | Yes | AuthApi | Minimal user |
-| `/auth/logout` | POST | Yes | AuthApi | Logout |
-| `/auth/change-password` | POST | Yes | AuthApi | Change password |
-| `/application-form` | GET | Yes | ApplicationApi | List applications |
-| `/application-form` | POST | Yes | ApplicationApi | Create application |
-| `/application-form?applicationId={id}` | PATCH | Yes | ApplicationService | Update application |
-| `/applications/{id}/status` | PUT | Yes | ApplicationApi | Update status |
-| `/applications/{id}/forward` | POST | Yes | ApplicationApi | Forward application |
-| `/applications/batch` | POST | Yes | ApplicationApi | Batch process |
-| `/application-form/application/{id}` | DELETE | Yes | ApplicationApi | Delete |
-| `/users` | GET | Yes | UserApi | List users by role |
-| `/users/next` | GET | Yes | apiUtils | Next users for forward |
-| `/locations/states` | GET | Yes | CascadingLocationSelect | States list |
-| `/locations/districts` | GET | Yes | CascadingLocationSelect | Districts by state |
-| `/locations/zones` | GET | Yes | CascadingLocationSelect | Zones by district |
-| `/locations/divisions` | GET | Yes | CascadingLocationSelect | Divisions by zone |
-| `/locations/police-stations` | GET | Yes | CascadingLocationSelect | Police stations |
-| `/qrcode/generate/{id}` | GET | Yes | QRCodeApi | Generate QR |
-| `/qrcode/check/{id}` | GET | Yes | QRCodeApi | Check QR permission |
-| `/public/application/{id}` | GET | No | PublicApi | Public app details |
-| `/Weapons` | GET | Yes | WeaponsService | Weapons list |
+| Endpoint                               | Method | Auth | Service                 | Purpose                |
+| -------------------------------------- | ------ | ---- | ----------------------- | ---------------------- |
+| `/auth/login`                          | POST   | No   | AuthApi                 | User login             |
+| `/auth/me`                             | GET    | Yes  | AuthApi                 | Current user           |
+| `/auth/getMe`                          | GET    | Yes  | AuthApi                 | Minimal user           |
+| `/auth/logout`                         | POST   | Yes  | AuthApi                 | Logout                 |
+| `/auth/change-password`                | POST   | Yes  | AuthApi                 | Change password        |
+| `/application-form`                    | GET    | Yes  | ApplicationApi          | List applications      |
+| `/application-form`                    | POST   | Yes  | ApplicationApi          | Create application     |
+| `/application-form?applicationId={id}` | PATCH  | Yes  | ApplicationService      | Update application     |
+| `/applications/{id}/status`            | PUT    | Yes  | ApplicationApi          | Update status          |
+| `/applications/{id}/forward`           | POST   | Yes  | ApplicationApi          | Forward application    |
+| `/applications/batch`                  | POST   | Yes  | ApplicationApi          | Batch process          |
+| `/application-form/application/{id}`   | DELETE | Yes  | ApplicationApi          | Delete                 |
+| `/users`                               | GET    | Yes  | UserApi                 | List users by role     |
+| `/users/next`                          | GET    | Yes  | apiUtils                | Next users for forward |
+| `/locations/states`                    | GET    | Yes  | CascadingLocationSelect | States list            |
+| `/locations/districts`                 | GET    | Yes  | CascadingLocationSelect | Districts by state     |
+| `/locations/zones`                     | GET    | Yes  | CascadingLocationSelect | Zones by district      |
+| `/locations/divisions`                 | GET    | Yes  | CascadingLocationSelect | Divisions by zone      |
+| `/locations/police-stations`           | GET    | Yes  | CascadingLocationSelect | Police stations        |
+| `/qrcode/generate/{id}`                | GET    | Yes  | QRCodeApi               | Generate QR            |
+| `/qrcode/check/{id}`                   | GET    | Yes  | QRCodeApi               | Check QR permission    |
+| `/public/application/{id}`             | GET    | No   | PublicApi               | Public app details     |
+| `/Weapons`                             | GET    | Yes  | WeaponsService          | Weapons list           |
 
 ### B. Key Data Transformations
 
 **API → ApplicationData** (in `sidebarApiCalls.ts`):
+
 - `transformApiApplicationToApplicationData()` — For list endpoints
 - `transformDetailedToApplicationData()` — For single application GET
 
 **FormData → API Payload** (in `ApplicationService`):
+
 - `preparePayload()` — Section-specific transforms for personal, address, occupation, criminal, license-history, license-details
 
 ### C. Cache Strategy
 
-| Cache | Location | TTL | Purpose |
-|---|---|---|---|
-| In-memory | `sidebarApiCalls.ts` (Map) | 30s | Application list fetches |
-| Application counts | `sidebarApiCalls.ts` | 5 min | Sidebar badge counts |
-| localStorage | `ApplicationContext` | Persistent | Application list |
-| localStorage | `FreshApplicationForm` | Persistent | Form draft |
-| React Query | `RootProviders` | 5 min stale / 10 min GC | Server state |
+| Cache              | Location                   | TTL                     | Purpose                  |
+| ------------------ | -------------------------- | ----------------------- | ------------------------ |
+| In-memory          | `sidebarApiCalls.ts` (Map) | 30s                     | Application list fetches |
+| Application counts | `sidebarApiCalls.ts`       | 5 min                   | Sidebar badge counts     |
+| localStorage       | `ApplicationContext`       | Persistent              | Application list         |
+| localStorage       | `FreshApplicationForm`     | Persistent              | Form draft               |
+| React Query        | `RootProviders`            | 5 min stale / 10 min GC | Server state             |
 
 ### D. ZS-Specific Features
 
 - **"Create Form" button** in header — only visible for ZS role
 - **Fresh Application**: Navigates to `/forms/createFreshApplication/personal-information`
-- **Renewal Application**: Opens modal, validates approved fresh application, redirects to `/forms/renewal`
+- **Renewal**: Opens modal, validates approved fresh application, redirects to `/forms/renewal`
 - **QR Code generation**: ZS-only permission via `/qrcode/generate/{id}`
 - **Fresh Form menu item**: Default first menu item for ZS
 - **Ownership filter**: `isOwned=true` param added to application list calls for ZS
 
 ---
 
-*Generated: June 2026 | ALMS Frontend v1.0*
+_Generated: June 2026 | ALMS Frontend v1.0_

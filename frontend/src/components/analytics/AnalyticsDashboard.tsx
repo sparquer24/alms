@@ -173,11 +173,19 @@ export default function AnalyticsDashboard() {
     const totalPending = applicationStates.find((s: any) => s.state === 'pending')?.count || 0;
     const totalRejected = applicationStates.find((s: any) => s.state === 'rejected')?.count || 0;
 
+    // Compute breakdown by type from weekly data or state data
+    const totalFresh = applicationsByWeek.reduce((sum: number, item: any) => sum + (item.fresh || 0), 0);
+    const totalRenewal = applicationsByWeek.reduce((sum: number, item: any) => sum + (item.renewal || 0), 0);
+    const totalCancel = applicationsByWeek.reduce((sum: number, item: any) => sum + (item.cancel || 0), 0);
+
     return {
       totalApplications,
       totalApproved,
       totalPending,
       totalRejected,
+      totalFresh,
+      totalRenewal,
+      totalCancel,
       approvalRate:
         totalApplications > 0 ? ((totalApproved / totalApplications) * 100).toFixed(1) : '0',
     };

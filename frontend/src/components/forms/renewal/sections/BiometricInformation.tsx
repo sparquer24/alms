@@ -1551,7 +1551,7 @@ const BiometricInformation = forwardRef(function BiometricInformation(
                 <h3 className='text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide'>Existing Record Details</h3>
                 <div className='space-y-3'>
                   <div className='flex items-center justify-between py-2 border-b border-gray-200'>
-                    <span className='text-sm text-gray-600'>Application ID</span>
+                    <span className='text-sm text-gray-600'>License ID</span>
                     <span className='text-sm font-semibold text-gray-900'>{duplicateMatchInfo.applicationId}</span>
                   </div>
                   {duplicateMatchInfo.almsLicenseId && (

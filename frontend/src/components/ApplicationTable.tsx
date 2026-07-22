@@ -95,7 +95,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     // Local search state
     const [searchQuery, setSearchQuery] = useState<string>('');
-    // Application type filter state: 'All' | 'Fresh License' | 'Renewal Application'
+    // Application type filter state: 'All' | 'Fresh' | 'Renewal'
     const [applicationTypeFilter, setApplicationTypeFilter] = React.useState<string>('All');
 
     // Determine base applications list in this order: filtered -> prop -> context -> empty array
@@ -192,7 +192,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Clear loadingRowId when component unmounts (e.g. during page navigation)
     // so the spinner state is reset when the user returns to the table.
     React.useEffect(() => {
-      return () => { setLoadingRowId(null); };
+      return () => {
+        setLoadingRowId(null);
+      };
     }, []);
 
     const isApplicationUnread = useCallback(
@@ -249,34 +251,40 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                   draftApp?.id ||
                   id
               );
-              let applicationId = String(
-                (draftApp as any)?.applicationId ||
+              let licenseId = String(
+                (draftApp as any)?.licenseNumber ||
+                  (draftApp as any)?.licenseId ||
+                  (draftApp as any)?.freshLicenseId ||
+                  (draftApp as any)?.applicationId ||
                   (draftApp as any)?.freshApplicationId ||
                   (draftApp as any)?.sourceApplicationId ||
                   (draftApp as any)?.renewalLicenseId ||
                   ''
               );
 
-              // If applicationId is empty, fetch the renewal form to get the linked applicationId
-              if (!applicationId && renewalId) {
+              // If licenseId is empty, fetch the renewal form to get the linked license details
+              if (!licenseId && renewalId) {
                 try {
                   const renewalResponse = await RenewalService.getRenewalForm(renewalId);
                   const renewalData = renewalResponse?.data || renewalResponse;
-                  applicationId = String(
-                    renewalData?.applicationId ||
+                  licenseId = String(
+                    renewalData?.licenseNumber ||
+                      renewalData?.licenseId ||
+                      renewalData?.freshLicenseId ||
+                      renewalData?.applicationId ||
                       renewalData?.freshApplicationId ||
                       renewalData?.sourceApplicationId ||
                       renewalData?.renewalLicenseId ||
                       ''
                   );
                 } catch (err) {
-                  // If fetch fails, continue with empty applicationId - the renewal form will handle it
-                  console.error('Failed to fetch renewal form for applicationId:', err);
+                  // If fetch fails, continue with empty licenseId - the renewal form will handle it
+                  console.error('Failed to fetch renewal form for licenseId:', err);
                 }
               }
 
               await router.push(
-                `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(renewalId)}`
+                `/forms/renewal?licenseId=${encodeURIComponent(licenseId)}&renewalId=${encodeURIComponent(renewalId)}`
               );
               return;
             }
@@ -426,8 +434,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 aria-label='Filter by application type'
               >
                 <option value='All'>All Types</option>
-                <option value='Fresh License'>Fresh License</option>
-                <option value='Renewal Application'>Renewal Application</option>
+                <option value='Fresh'>Fresh</option>
+                <option value='Renewal'>Renewal</option>
               </select>
 
               <button

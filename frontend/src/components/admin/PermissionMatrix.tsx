@@ -17,7 +17,7 @@ interface PermissionMatrixProps {
 const PERMISSION_LIST: Permission[] = [
   // Capability Permissions
   { key: 'can_forward', label: 'Can Forward Applications', category: 'Capabilities' },
-  { key: 'can_FLAF', label: 'Can FLAF (Fresh License Form)', category: 'Capabilities' },
+  { key: 'can_FLAF', label: 'Can FLAF (Fresh Form)', category: 'Capabilities' },
   {
     key: 'can_generate_ground_report',
     label: 'Can Generate Ground Report',

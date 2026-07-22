@@ -28,6 +28,7 @@
 The **Arms License Management System (ALMS)** is a comprehensive digital platform to manage the complete lifecycle of arms (firearm) license applications in Indian police jurisdictions. It replaces traditional paper-based workflows with a fully digitized, multi-level approval system.
 
 **Core Objectives:**
+
 - Digitize the entire arms license application process
 - Enable multi-level verification and approval through police hierarchy
 - Provide biometric (fingerprint) enrollment and duplicate detection
@@ -37,15 +38,15 @@ The **Arms License Management System (ALMS)** is a comprehensive digital platfor
 
 ## 1.2 Key Stakeholders
 
-| Stakeholder | Role in System |
-|---|---|
-| **Citizens / Applicants** | Submit fresh & renewal applications, upload documents, track status |
-| **Station House Officer (SHO)** | First-level verification, ground reports, forwarding |
-| **Zonal Superintendent (ZS)** | Zone-level review and recommendation |
-| **ACP / DCP** | District/zone level review, approval recommendation |
-| **Joint CP / Commissioner (CP)** | Final approval authority |
-| **ADMIN / SUPER_ADMIN** | System configuration, user management, analytics |
-| **Arms Superintendent (AS)** | License issuance and management |
+| Stakeholder                      | Role in System                                                      |
+| -------------------------------- | ------------------------------------------------------------------- |
+| **Citizens / Applicants**        | Submit fresh & renewal applications, upload documents, track status |
+| **Station House Officer (SHO)**  | First-level verification, ground reports, forwarding                |
+| **Zonal Superintendent (ZS)**    | Zone-level review and recommendation                                |
+| **ACP / DCP**                    | District/zone level review, approval recommendation                 |
+| **Joint CP / Commissioner (CP)** | Final approval authority                                            |
+| **ADMIN / SUPER_ADMIN**          | System configuration, user management, analytics                    |
+| **Arms Superintendent (AS)**     | License issuance and management                                     |
 
 ---
 
@@ -162,13 +163,13 @@ flowchart TD
     E -->|Expired/Invalid| C
     E -->|Valid| F[Extract role from token]
     F --> G{Role?}
-    
+
     G -->|ADMIN| H[Redirect to /admin/dashboard]
     G -->|SUPER_ADMIN| I[Redirect to /superAdmin/...]
     G -->|APPLICANT| J[Show applicant dashboard]
     G -->|SHO/ZS/ACP/DCP/JTCP/CP| K[Redirect to officer dashboard]
     G -->|AS/ADO/CADO| L[Redirect to arms dashboard]
-    
+
     H --> M[Admin: Manage users, roles, locations, analytics]
     I --> N[Super Admin: Full system control, flow mapping]
     J --> O[Applicant: Submit fresh/renewal applications]
@@ -180,7 +181,7 @@ flowchart TD
 
 # 3. Business Logic & Workflows
 
-## 3.1 Fresh License Application Lifecycle
+## 3.1 Fresh Application Lifecycle
 
 ```mermaid
 flowchart LR
@@ -188,7 +189,7 @@ flowchart LR
     DRAFT --> INITIATE[INITIATE<br/>Submit for review]
     INITIATE --> FORWARD[FORWARD<br/>Assigned to officer]
     FORWARD --> UNDER_REVIEW[UNDER_REVIEW<br/>Officer reviews]
-    
+
     UNDER_REVIEW --> RECOMMEND[RECOMMEND<br/>Officer recommends]
     UNDER_REVIEW --> NOT_RECOMMEND[NOT_RECOMMEND<br/>Not recommended]
     UNDER_REVIEW --> RE_ENQUIRY[RE_ENQUIRY<br/>More info needed]
@@ -222,11 +223,11 @@ flowchart TB
         S09[Step 9<br/>Preview<br/>Review all data] --> S10
         S10[Step 10<br/>Declaration<br/>Accept terms & submit]
     end
-    
+
     S10 --> SUBMITTED[Application Submitted<br/>Status: INITIATE]
 ```
 
-## 3.2 Renewal Application Lifecycle
+## 3.2 Renewal Lifecycle
 
 ```mermaid
 flowchart LR
@@ -259,11 +260,11 @@ flowchart TD
     DEL_REQ[Delete Request<br/>Received] --> CHECK_STATUS{Application<br/>Status?}
     CHECK_STATUS -->|DRAFT| ALLOWED[Allow Deletion]
     CHECK_STATUS -->|INITIATE or beyond| BLOCKED[Block Deletion]
-    
+
     ALLOWED --> DEL_CHILD[Delete child records:<br/>CriminalHistories<br/>LicenseHistories<br/>LicenseDetails<br/>BiometricData<br/>FileUploads<br/>Addresses]
     DEL_CHILD --> DEL_MAIN[Delete main<br/>application record]
     DEL_MAIN --> DONE[Deleted Successfully]
-    
+
     BLOCKED --> MSG[Error: Only DRAFT<br/>applications can<br/>be deleted]
 ```
 
@@ -272,30 +273,30 @@ flowchart TD
 ```mermaid
 stateDiagram-v2
     [*] --> DRAFT: Applicant creates
-    
+
     DRAFT --> INITIATE: Submit application
     DRAFT --> [*]: Delete draft
-    
+
     INITIATE --> UNDER_REVIEW: Officer takes up
     INITIATE --> FORWARD: Forward to other
-    
+
     FORWARD --> UNDER_REVIEW: Received by next
-    
+
     UNDER_REVIEW --> RECOMMEND: Recommend
     UNDER_REVIEW --> NOT_RECOMMEND: Not recommend
     UNDER_REVIEW --> RE_ENQUIRY: Request more info
     UNDER_REVIEW --> GROUND_REPORT: Generate report
     UNDER_REVIEW --> FORWARD: Forward up hierarchy
-    
+
     RECOMMEND --> APPROVED: Final approve
     RECOMMEND --> FORWARD: Forward for higher approval
-    
+
     NOT_RECOMMEND --> REJECT: Reject
     NOT_RECOMMEND --> FORWARD: Forward for review
-    
+
     RE_ENQUIRY --> UNDER_REVIEW: Re-enquiry done
     GROUND_REPORT --> UNDER_REVIEW: Report received
-    
+
     APPROVED --> [*]: Terminal - License Issued
     REJECT --> [*]: Terminal - Rejected
     CLOSE --> [*]: Terminal - Closed
@@ -310,27 +311,27 @@ stateDiagram-v2
 ```mermaid
 graph TB
     LEVEL0[Level 0: APPLICANT] -->|Submit| LEVEL1
-    
+
     subgraph LEVEL1[Level 1: Station House Officer]
         SHO[SHO<br/>Station House Officer]
     end
-    
+
     subgraph LEVEL2[Level 2: Zonal Level]
         ZS[ZS<br/>Zonal Superintendent]
     end
-    
+
     subgraph LEVEL3[Level 3: Assistant Commissioner]
         ACP[ACP<br/>Assistant Commissioner<br/>of Police]
     end
-    
+
     subgraph LEVEL4[Level 4: Deputy Commissioner]
         DCP[DCP<br/>Deputy Commissioner<br/>of Police]
     end
-    
+
     subgraph LEVEL5[Level 5: Joint Commissioner]
         JTCP[JTCP<br/>Joint Commissioner<br/>of Police]
     end
-    
+
     subgraph LEVEL6[Level 6: Commissioner]
         CP[CP<br/>Commissioner<br/>of Police]
     end
@@ -340,9 +341,9 @@ graph TB
     ACP -->|Forward / Recommend| DCP
     DCP -->|Forward / Recommend| JTCP
     JTCP -->|Forward / Recommend| CP
-    
+
     CP -->|Final Approval| APPROVED[✓ APPROVED]
-    
+
     style APPROVED fill:#22c55e,color:#fff
     style LEVEL0 fill:#f3f4f6
     style LEVEL1 fill:#dbeafe
@@ -412,35 +413,35 @@ flowchart LR
 
 ## 4.1 Complete Role Reference
 
-| # | Role Code | Display Name | Category | Can Access Settings | Can Forward | Can Re-enquiry | Can Generate Report | Can FLAF | Can Create Fresh License |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | `APPLICANT` | Applicant | Citizen | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| 2 | `SHO` | Station House Officer | Police | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 3 | `ZS` | Zonal Superintendent | Police | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 4 | `ACP` | Asst. Commissioner of Police | Police | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 5 | `DCP` | Dy. Commissioner of Police | Police | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 6 | `JTCP` | Joint Commissioner of Police | Police | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| 7 | `CP` | Commissioner of Police | Police | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| 8 | `AS` | Arms Superintendent | Police | ✗ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| 9 | `ADO` | Administrative Officer | Admin | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| 10 | `CADO` | Chief Administrative Officer | Admin | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| 11 | `ADMIN` | System Administrator | Admin | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ |
-| 12 | `SUPER_ADMIN` | Super Administrator | Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| #   | Role Code     | Display Name                 | Category | Can Access Settings | Can Forward | Can Re-enquiry | Can Generate Report | Can FLAF | Can Create Fresh |
+| --- | ------------- | ---------------------------- | -------- | ------------------- | ----------- | -------------- | ------------------- | -------- | ---------------- |
+| 1   | `APPLICANT`   | Applicant                    | Citizen  | ✗                   | ✗           | ✗              | ✗                   | ✗        | ✗                |
+| 2   | `SHO`         | Station House Officer        | Police   | ✗                   | ✓           | ✓              | ✓                   | ✓        | ✓                |
+| 3   | `ZS`          | Zonal Superintendent         | Police   | ✗                   | ✓           | ✓              | ✓                   | ✓        | ✓                |
+| 4   | `ACP`         | Asst. Commissioner of Police | Police   | ✗                   | ✓           | ✓              | ✓                   | ✓        | ✓                |
+| 5   | `DCP`         | Dy. Commissioner of Police   | Police   | ✗                   | ✓           | ✓              | ✓                   | ✓        | ✓                |
+| 6   | `JTCP`        | Joint Commissioner of Police | Police   | ✗                   | ✓           | ✗              | ✗                   | ✓        | ✓                |
+| 7   | `CP`          | Commissioner of Police       | Police   | ✗                   | ✓           | ✗              | ✗                   | ✓        | ✓                |
+| 8   | `AS`          | Arms Superintendent          | Police   | ✗                   | ✓           | ✗              | ✗                   | ✓        | ✓                |
+| 9   | `ADO`         | Administrative Officer       | Admin    | ✓                   | ✓           | ✗              | ✗                   | ✓        | ✓                |
+| 10  | `CADO`        | Chief Administrative Officer | Admin    | ✓                   | ✓           | ✗              | ✗                   | ✓        | ✓                |
+| 11  | `ADMIN`       | System Administrator         | Admin    | ✓                   | ✓           | ✗              | ✗                   | ✓        | ✓                |
+| 12  | `SUPER_ADMIN` | Super Administrator          | Admin    | ✓                   | ✓           | ✓              | ✓                   | ✓        | ✓                |
 
 ## 4.2 Role Permission Flags (from `Roles` model)
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `is_active` | `Boolean` | `true` | Whether the role is active for login |
-| `dashboard_title` | `String` | — | Custom title shown on the role's dashboard |
-| `menu_items` | `Json?` | — | JSON array of menu configurations for the sidebar |
-| `permissions` | `Json?` | — | JSON object with custom permission flags |
-| `can_access_settings` | `Boolean` | `false` | Can access system settings pages |
-| `can_forward` | `Boolean` | `false` | Can forward applications to next user |
-| `can_re_enquiry` | `Boolean` | `false` | Can request re-enquiry on applications |
-| `can_generate_ground_report` | `Boolean` | `false` | Can generate ground reports |
-| `can_FLAF` | `Boolean` | `false` | Can access Fresh License Application Form |
-| `can_create_freshLicence` | `Boolean` | `false` | Can create fresh license records |
+| Field                        | Type      | Default | Description                                       |
+| ---------------------------- | --------- | ------- | ------------------------------------------------- |
+| `is_active`                  | `Boolean` | `true`  | Whether the role is active for login              |
+| `dashboard_title`            | `String`  | —       | Custom title shown on the role's dashboard        |
+| `menu_items`                 | `Json?`   | —       | JSON array of menu configurations for the sidebar |
+| `permissions`                | `Json?`   | —       | JSON object with custom permission flags          |
+| `can_access_settings`        | `Boolean` | `false` | Can access system settings pages                  |
+| `can_forward`                | `Boolean` | `false` | Can forward applications to next user             |
+| `can_re_enquiry`             | `Boolean` | `false` | Can request re-enquiry on applications            |
+| `can_generate_ground_report` | `Boolean` | `false` | Can generate ground reports                       |
+| `can_FLAF`                   | `Boolean` | `false` | Can access Fresh Application Form                 |
+| `can_create_freshLicence`    | `Boolean` | `false` | Can create fresh license records                  |
 
 ## 4.3 Role-Action Mapping
 
@@ -459,6 +460,7 @@ erDiagram
 ```
 
 **Logic**:
+
 - A role `roleId` can only perform actions that are in `RolesActionsMapping` with `isActive = true`
 - The `WorkflowService.handleUserAction()` validates this before processing
 - Attempting an unmapped action results in `403 Forbidden`
@@ -543,7 +545,7 @@ graph TB
     LAYOUT --> HEADER
     LAYOUT --> SIDEBAR
     LAYOUT --> PAGES
-    
+
     INBOX --> APP_TABLE
     INBOX_TYPE --> APP_TABLE
     APP_DETAIL --> PROC_MODAL
@@ -551,14 +553,14 @@ graph TB
     APP_DETAIL --> PROCEEDINGS
     APP_DETAIL --> QR_DISPLAY
     APP_DETAIL --> RENEWAL_PROC
-    
+
     FRESH_FORM --> FRESH_FORM_COMPS
     FRESH_FORM --> CASCADE_LOC
-    
+
     ADMIN --> ADMIN_COMPS
     ADMIN --> ANALYTICS
     ADMIN --> CHARTS
-    
+
     SUPER_ADMIN --> ADMIN_COMPS
 ```
 
@@ -609,14 +611,14 @@ graph TB
 ```mermaid
 graph TB
     COMP[React Components] --> HOOKS
-    
+
     subgraph API_LAYER["API Service Layer"]
         AXIOS[axiosConfig.ts<br/>Base axios instance]
         AXIOS --> INTERCEPTORS[Interceptors<br/>Auth header, 401 handling]
-        
+
         AUTH_CLIENT[authenticatedApiClient.ts<br/>ApiClient class]
         AUTH_CLIENT --> AXIOS
-        
+
         APP_SVC[applicationService.ts<br/>Fresh app CRUD]
         RENEWAL_SVC[renewalService.ts<br/>Renewal CRUD]
         LOCATION_SVC[locationApi.ts<br/>Location hierarchy]
@@ -624,7 +626,7 @@ graph TB
         BIOMETRIC_SVC[biometricAPIService.ts<br/>Biometric operations]
         SIDEBAR_SVC[sidebarApiCalls.ts<br/>Status-based queries]
         WEAPON_SVC[weapons.ts<br/>Weapon types]
-        
+
         APP_SVC --> AUTH_CLIENT
         RENEWAL_SVC --> AUTH_CLIENT
         LOCATION_SVC --> AXIOS
@@ -633,7 +635,7 @@ graph TB
         SIDEBAR_SVC --> AUTH_CLIENT
         WEAPON_SVC --> AUTH_CLIENT
     end
-    
+
     HOOKS --> API_LAYER
 ```
 
@@ -661,7 +663,7 @@ graph TB
     ROOT --> ANALYTICS[AnalyticsModule]
     ROOT --> PUBLIC[PublicModule]
     ROOT --> QR[QRCodeModule]
-    
+
     AUTH --> PRISMA_SVC(PrismaService)
     FRESH --> PRISMA_SVC
     RENEWAL --> PRISMA_SVC
@@ -669,11 +671,11 @@ graph TB
     BIOMETRIC --> PRISMA_SVC
     LOCATIONS --> PRISMA_SVC
     ANALYTICS --> PRISMA_SVC
-    
+
     WORKFLOW --> CONSTANTS[Workflow Constants<br/>workflow-actions.ts]
     FRESH --> CONSTANTS
     RENEWAL --> CONSTANTS
-    
+
     GUARDS[AuthGuard / JwtAuthGuard] --> AUTH
     GUARDS --> FRESH
     GUARDS --> RENEWAL
@@ -689,33 +691,33 @@ flowchart TD
     REQ[HTTP Request] --> CORS[CORS Check]
     CORS --> GLOBAL_PREFIX[Global Prefix: /api]
     GLOBAL_PREFIX --> GUARD{Auth Guard}
-    
+
     GUARD -->|JwtAuthGuard| JWT_CHECK{Has valid<br/>JWT token?}
     GUARD -->|AuthGuard| AUTH_CHECK{JWT valid<br/>& user exists?}
-    
+
     JWT_CHECK -->|No| 401[401 Unauthorized]
     AUTH_CHECK -->|No| 401
-    
+
     JWT_CHECK -->|Yes| DECODED[JWT Decoded<br/>Attach to request.user]
     AUTH_CHECK -->|Yes| DB_USER[Fetch user from DB<br/>Include role & location]
     DB_USER --> ROLE_CHECK{Role has<br/>permission?}
-    
+
     ROLE_CHECK -->|No| 403[403 Forbidden]
     ROLE_CHECK -->|Yes| DECODED
-    
+
     DECODED --> CONTROLLER[Route to Controller]
     CONTROLLER --> VALIDATION[ValidationPipe<br/>DTO validation]
     VALIDATION --> SERVICE[Business Service]
     SERVICE --> DATABASE[Database Operations via Prisma]
-    
+
     DATABASE --> RESPONSE[Response]
     SERVICE --> RESPONSE
-    
+
     RESPONSE --> LOGGING[LoggingInterceptor<br/>Log request/response]
     LOGGING --> ERROR_CHECK{Error?}
     ERROR_CHECK -->|Yes| ERROR_HANDLER[ErrorsInterceptor /<br/>AllExceptionsFilter]
     ERROR_CHECK -->|No| CLIENT[Client Response]
-    
+
     ERROR_HANDLER --> CLIENT
 ```
 
@@ -723,110 +725,110 @@ flowchart TD
 
 ### Authentication Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller       | Route   | Methods                                                |
+| ---------------- | ------- | ------------------------------------------------------ |
 | `AuthController` | `/auth` | `POST login`, `GET getMe`, `POST logout`, `GET verify` |
 
-| Service | Key Dependencies |
-|---|---|
+| Service       | Key Dependencies          |
+| ------------- | ------------------------- |
 | `AuthService` | `prisma`, `jwt`, `bcrypt` |
 
 ### User Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller       | Route    | Methods                                           |
+| ---------------- | -------- | ------------------------------------------------- |
 | `UserController` | `/users` | `POST`, `GET`, `GET :id`, `PUT :id`, `DELETE :id` |
 
-| Service | Key Methods |
-|---|---|
+| Service       | Key Methods                                       |
+| ------------- | ------------------------------------------------- |
 | `UserService` | CRUD operations with role and location assignment |
 
 ### Roles Module
 
-| Controller | Route | Methods |
-|---|---|---|
-| `RolesController` | `/admin/roles` | `GET`, `GET :id`, `POST`, `PUT :id`, `DELETE :id`, `PATCH :id/deactivate`, `PATCH :id/activate` |
-| `PublicRolesController` | `/roles` | `GET` (public) |
+| Controller              | Route          | Methods                                                                                         |
+| ----------------------- | -------------- | ----------------------------------------------------------------------------------------------- |
+| `RolesController`       | `/admin/roles` | `GET`, `GET :id`, `POST`, `PUT :id`, `DELETE :id`, `PATCH :id/deactivate`, `PATCH :id/activate` |
+| `PublicRolesController` | `/roles`       | `GET` (public)                                                                                  |
 
-| Service | Key Methods |
-|---|---|
+| Service        | Key Methods                                    |
+| -------------- | ---------------------------------------------- |
 | `RolesService` | CRUD with permission and menu_items management |
 
 ### Status Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller         | Route     | Methods                    |
+| ------------------ | --------- | -------------------------- |
 | `StatusController` | `/status` | `POST`, `GET`, `PATCH :id` |
 
 ### Actions Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller           | Route       | Methods                                                                                              |
+| -------------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
 | `ActionesController` | `/actiones` | `GET`, `POST RolesActionsMapping`, `PATCH RolesActionsMapping/:id`, `DELETE RolesActionsMapping/:id` |
 
-### Fresh License Application Module
+### Fresh Application Module
 
-| Controller | Route | Methods |
-|---|---|---|
-| `ApplicationFormController` | `/application-form` | `POST personal-details`, `PATCH`, `POST :applicationId/upload-file`, `DELETE :id`, `DELETE application/:id`, `GET`, `GET helpers/states`, `GET helpers/districts/:stateId`, `GET helpers/police-stations/:divisionId`, `GET helpers/validate-ids`, `GET users-in-hierarchy/:applicationId` |
-| `ApplicationHierarchyController` | `/users-in-hierarchy` | `GET :applicationId` |
+| Controller                       | Route                 | Methods                                                                                                                                                                                                                                                                                    |
+| -------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ApplicationFormController`      | `/application-form`   | `POST personal-details`, `PATCH`, `POST :applicationId/upload-file`, `DELETE :id`, `DELETE application/:id`, `GET`, `GET helpers/states`, `GET helpers/districts/:stateId`, `GET helpers/police-stations/:divisionId`, `GET helpers/validate-ids`, `GET users-in-hierarchy/:applicationId` |
+| `ApplicationHierarchyController` | `/users-in-hierarchy` | `GET :applicationId`                                                                                                                                                                                                                                                                       |
 
-### Renewal Application Module
+### Renewal Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller              | Route            | Methods                                                                                                                                                                                                                             |
+| ----------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RenewalFormController` | `/renewal-forms` | `POST`, `PATCH`, `POST /:applicationId/upload-file`, `DELETE /file/:fileId`, `DELETE /application/:applicationId`, `GET`, `GET /:applicationId`, `GET merge-audit-logs/all`, `GET merge-audit-logs/:mergeId`, `POST approved/merge` |
 
 ### Workflow Module
 
-| Controller | Route | Methods |
-|---|---|---|
-| `WorkflowController` | `/workflow` | `POST action` |
+| Controller                      | Route       | Methods                                    |
+| ------------------------------- | ----------- | ------------------------------------------ |
+| `WorkflowController`            | `/workflow` | `POST action`                              |
 | `WorkflowController (statuses)` | `/workflow` | `GET statuses-actions`, `GET applications` |
 
 ### Flow Mapping Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller              | Route           | Methods                                                                                                                                                                      |
+| ----------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `FlowMappingController` | `/flow-mapping` | `GET :roleId`, `GET`, `PUT :roleId`, `POST`, `POST validate`, `DELETE :roleId`, `GET :roleId/next-roles`, `POST :sourceRoleId/duplicate/:targetRoleId`, `POST :roleId/reset` |
 
 ### Locations Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller            | Route        | Methods                                                                   |
+| --------------------- | ------------ | ------------------------------------------------------------------------- |
 | `LocationsController` | `/locations` | CRUD for states, districts, zones, divisions, police stations + hierarchy |
 
 ### Weapons Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller          | Route      | Methods                   |
+| ------------------- | ---------- | ------------------------- |
 | `WeaponsController` | `/Weapons` | `GET` (list weapon types) |
 
 ### Biometric Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller            | Route        | Methods                                                                                                                                                                                                                                 |
+| --------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BiometricController` | `/biometric` | `POST device/status`, `GET templates/for-matching`, `POST enroll/:applicantId`, `POST store/:applicantId`, `POST verify/:applicantId`, `GET enrolled/:applicantId`, `DELETE :applicantId/:fingerprintId`, `GET audit-logs/:applicantId` |
 
-| Service | Description |
-|---|---|
-| `BiometricService` | Core biometric operations: enrollment, verification, template matching, duplicate detection |
-| `BiometricEncryptionService` | Template encryption/decryption |
-| `BiometricAuditService` | Biometric action audit logging |
+| Service                      | Description                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `BiometricService`           | Core biometric operations: enrollment, verification, template matching, duplicate detection |
+| `BiometricEncryptionService` | Template encryption/decryption                                                              |
+| `BiometricAuditService`      | Biometric action audit logging                                                              |
 
 ### Analytics Module
 
-| Controller | Route | Methods |
-|---|---|---|
+| Controller            | Route              | Methods                                                                                               |
+| --------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | `AnalyticsController` | `/admin/analytics` | `GET applications`, `GET role-load`, `GET states`, `GET admin-activities`, `GET applications/details` |
 
 ### Other Modules
 
-| Module | Services |
-|---|---|
-| `PublicModule` | `PublicService` — public application lookup |
+| Module         | Services                                            |
+| -------------- | --------------------------------------------------- |
+| `PublicModule` | `PublicService` — public application lookup         |
 | `QRCodeModule` | `QRCodeService` — QR code generation & verification |
-| `HealthModule` | Health check endpoints |
+| `HealthModule` | Health check endpoints                              |
 
 ---
 
@@ -841,6 +843,7 @@ Authenticate user credentials.
 **Auth:** None (public)
 
 **Request Body:**
+
 ```json
 {
   "username": "string (required) - Login username",
@@ -849,6 +852,7 @@ Authenticate user credentials.
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -894,6 +898,7 @@ Get current user's profile with location details.
 **Auth:** `AuthGuard` (Bearer token required)
 
 **Success Response (200):**
+
 ```json
 {
   "id": "1",
@@ -929,6 +934,7 @@ Verify if the current JWT token is valid.
 **Auth:** `AuthGuard` (Bearer token required)
 
 **Success Response (200):**
+
 ```json
 {
   "valid": true,
@@ -951,6 +957,7 @@ Logout current session.
 **Auth:** None
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -960,7 +967,7 @@ Logout current session.
 
 ---
 
-## 7.2 Fresh License Application APIs
+## 7.2 Fresh Application APIs
 
 All endpoints below require `AuthGuard` (Bearer token).
 
@@ -969,6 +976,7 @@ All endpoints below require `AuthGuard` (Bearer token).
 Create new application with personal details. Application is automatically set to **DRAFT** status.
 
 **Request Body:**
+
 ```json
 {
   "acknowledgementNo": "string (optional) - Custom acknowledgement number",
@@ -990,6 +998,7 @@ Create new application with personal details. Application is automatically set t
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -1015,6 +1024,7 @@ Update application sections. Supports partial updates of any combination of sect
 **Request Body — Sections (all optional):**
 
 **Section A: Present Address**
+
 ```json
 {
   "presentAddress": {
@@ -1036,6 +1046,7 @@ Update application sections. Supports partial updates of any combination of sect
 **Section B: Permanent Address** (same structure as Present Address)
 
 **Section C: Personal Details Update**
+
 ```json
 {
   "personalDetails": {
@@ -1056,6 +1067,7 @@ Update application sections. Supports partial updates of any combination of sect
 ```
 
 **Section D: Occupation & Business**
+
 ```json
 {
   "occupationAndBusiness": {
@@ -1070,6 +1082,7 @@ Update application sections. Supports partial updates of any combination of sect
 ```
 
 **Section E: Criminal History** (replaces all existing)
+
 ```json
 {
   "criminalHistories": [
@@ -1096,6 +1109,7 @@ Update application sections. Supports partial updates of any combination of sect
 ```
 
 **Section F: License History** (replaces all existing)
+
 ```json
 {
   "licenseHistories": [
@@ -1119,6 +1133,7 @@ Update application sections. Supports partial updates of any combination of sect
 ```
 
 **Section G: License Details** (replaces all existing)
+
 ```json
 {
   "licenseDetails": [
@@ -1137,6 +1152,7 @@ Update application sections. Supports partial updates of any combination of sect
 ```
 
 **Section H: Biometric Data**
+
 ```json
 {
   "biometricData": {
@@ -1169,6 +1185,7 @@ Update application sections. Supports partial updates of any combination of sect
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1211,6 +1228,7 @@ Store file URL and metadata for an application.
 | `applicationId` | number | Application ID |
 
 **Request Body:**
+
 ```json
 {
   "fileType": "enum (required) - AADHAR_CARD | PAN_CARD | TRAINING_CERTIFICATE | OTHER_STATE_LICENSE | EXISTING_LICENSE | SAFE_CUSTODY | MEDICAL_REPORT | REJECTED_LICENSE | CLAIM_DOCS | SIGNATURE_THUMB | PHOTOGRAPH | IRIS_SCAN | OTHER",
@@ -1221,6 +1239,7 @@ Store file URL and metadata for an application.
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -1247,11 +1266,12 @@ Delete a specific file record.
 
 **Auth:** `AuthGuard`
 
-| Param | Type | Description |
-|---|---|---|
-| `id` | number | Uploaded file ID to delete |
+| Param | Type   | Description                |
+| ----- | ------ | -------------------------- |
+| `id`  | number | Uploaded file ID to delete |
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1268,11 +1288,12 @@ Delete an entire application. Only DRAFT applications can be deleted.
 
 **Auth:** `AuthGuard`
 
-| Param | Type | Description |
-|---|---|---|
-| `id` | number | Application ID to delete |
+| Param | Type   | Description              |
+| ----- | ------ | ------------------------ |
+| `id`  | number | Application ID to delete |
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1307,6 +1328,7 @@ Get applications with filtering, pagination, and search.
 | `isSent` | boolean | `false` | Filter by applications sent by user |
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1317,7 +1339,7 @@ Get applications with filtering, pagination, and search.
       "almsLicenseId": "ALMS...",
       "acknowledgementNo": "ALMS1696050000000",
       "applicantName": "John Doe",
-      "applicationType": "Fresh License",
+      "applicationType": "Fresh",
       "createdAt": "2023-10-05T12:00:00.000Z",
       "workflowStatusId": 1,
       "workflowStatus": {
@@ -1351,6 +1373,7 @@ Get all states for form dropdowns.
 **Auth:** `AuthGuard`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1371,6 +1394,7 @@ Get districts by state ID.
 **Auth:** `AuthGuard`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1391,6 +1415,7 @@ Get police stations by division ID.
 **Auth:** `AuthGuard`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1411,6 +1436,7 @@ Validate reference IDs (state, district).
 **Auth:** `AuthGuard`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1439,12 +1465,14 @@ Get users in hierarchy that the current user can forward the application to.
 **Auth:** `AuthGuard`
 
 **Business Logic:**
+
 1. Fetches the application to determine the applicant's location (present address)
 2. Gets the current user's role
 3. Looks up `RoleFlowMapping` for the current role → finds `nextRoleIds`
 4. Queries users whose `roleId` is in `nextRoleIds` AND whose location matches the applicant's location
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1462,7 +1490,7 @@ Get users in hierarchy that the current user can forward the application to.
 
 ---
 
-## 7.3 Renewal Application APIs
+## 7.3 Renewal APIs
 
 All endpoints below require `AuthGuard` unless specified.
 
@@ -1473,6 +1501,7 @@ Create a new renewal application with personal details.
 **Auth:** `AuthGuard`
 
 **Request Body:**
+
 ```json
 {
   "licenseNumber": "ALMS1696050000000 (required) - Existing license number to renew",
@@ -1490,6 +1519,7 @@ Create a new renewal application with personal details.
 ```
 
 **Response (201):**
+
 ```json
 {
   "id": 1,
@@ -1525,6 +1555,7 @@ Update renewal application details.
 | `isSubmit` | boolean | No | Whether to submit |
 
 **Request Body:**
+
 ```json
 {
   "personalDetails": { ... },
@@ -1549,6 +1580,7 @@ Upload file to renewal application.
 **Auth:** `AuthGuard`
 
 **Request Body:**
+
 ```json
 {
   "fileType": "AADHAR_CARD",
@@ -1598,6 +1630,7 @@ Get renewal applications with pagination, filtering, and search.
 | `orderBy` | string | `createdAt` | Sort field |
 
 **Response (200):**
+
 ```json
 {
   "data": [ ... ],
@@ -1614,6 +1647,7 @@ Get single renewal application with all details.
 **Auth:** `AuthGuard`
 
 **Response (200):**
+
 ```json
 {
   "id": 1,
@@ -1641,6 +1675,7 @@ Merge renewal license data into fresh license record.
 **Auth:** `JwtAuthGuard` (JTCP or CP role required)
 
 **Request Body:**
+
 ```json
 {
   "freshLicenseId": 1,
@@ -1649,6 +1684,7 @@ Merge renewal license data into fresh license record.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1666,6 +1702,7 @@ Merge renewal license data into fresh license record.
 ```
 
 **Merge Logic:**
+
 - Validates `freshLicense.acknowledgementNo === renewalLicense.licenseNumber`
 - Merges: personal details, addresses (present & permanent), occupation, license details
 - Creates a `LicensesMergeAuditLog` entry
@@ -1700,6 +1737,7 @@ Process a workflow action on an application.
 **Auth:** `JwtAuthGuard` (Bearer token required)
 
 **Request Body:**
+
 ```json
 {
   "applicationId": 1,
@@ -1719,6 +1757,7 @@ Process a workflow action on an application.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1735,6 +1774,7 @@ Process a workflow action on an application.
 | **In-Place** | `RE_ENQUIRY`, `GROUND_REPORT`, `RECOMMEND`, `INITIATE`, `RED_FLAG` | No |
 
 **Processing Pipeline:**
+
 1. Extract user from JWT
 2. Validate `actionId` exists and is active in `Actiones` table
 3. Check role-action permission via `RolesActionsMapping`
@@ -1753,6 +1793,7 @@ Get all available statuses and actions.
 **Auth:** `JwtAuthGuard`
 
 **Response (200):**
+
 ```json
 {
   "statuses": [
@@ -1761,7 +1802,13 @@ Get all available statuses and actions.
     { "id": 3, "code": "FORWARD", "name": "Forward", "isActive": true }
   ],
   "actions": [
-    { "id": 1, "code": "FORWARD", "name": "Forward", "description": "...", "isActive": true },
+    {
+      "id": 1,
+      "code": "FORWARD",
+      "name": "Forward",
+      "description": "...",
+      "isActive": true
+    },
     { "id": 2, "code": "APPROVED", "name": "Approved", "isActive": true }
   ]
 }
@@ -1775,8 +1822,8 @@ Get applications for workflow by type.
 
 **Auth:** `JwtAuthGuard`
 
-| Param | Value | Description |
-|---|---|---|
+| Param             | Value                                                     | Description      |
+| ----------------- | --------------------------------------------------------- | ---------------- |
 | `applicationType` | `FreshLicenseApplicationForm` \| `RenewalApplicationForm` | Application type |
 
 ---
@@ -1790,6 +1837,7 @@ All endpoints require `AuthGuard`.
 Get all flow mappings.
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1797,7 +1845,11 @@ Get all flow mappings.
     {
       "id": 1,
       "currentRoleId": 2,
-      "currentRole": { "id": 2, "code": "SHO", "name": "Station House Officer" },
+      "currentRole": {
+        "id": 2,
+        "code": "SHO",
+        "name": "Station House Officer"
+      },
       "nextRoleIds": [3, 4],
       "nextRoles": [
         { "id": 3, "code": "ZS", "name": "Zonal Superintendent" },
@@ -1818,6 +1870,7 @@ Get flow mapping for a specific role.
 Update flow mapping for a role.
 
 **Request Body:**
+
 ```json
 {
   "nextRoleIds": [3, 4, 5]
@@ -1829,6 +1882,7 @@ Update flow mapping for a role.
 Create new flow mapping.
 
 **Request Body:**
+
 ```json
 {
   "currentRoleId": 2,
@@ -1865,6 +1919,7 @@ Reset flow mapping to system defaults.
 Get all states.
 
 **Response (200):**
+
 ```json
 [
   { "id": 1, "name": "West Bengal", "createdAt": "...", "updatedAt": "..." },
@@ -1894,18 +1949,18 @@ Get hierarchical location data. Supports querying at any level.
 
 ### POST / PUT Endpoints for CRUD
 
-| Method | Endpoint | Body |
-|---|---|---|
-| `POST` | `/api/locations/states` | `{ "name": "New State" }` |
-| `POST` | `/api/locations/districts` | `{ "name": "New District", "stateId": 1 }` |
-| `POST` | `/api/locations/zones` | `{ "name": "New Zone", "districtId": 1 }` |
-| `POST` | `/api/locations/divisions` | `{ "name": "New Division", "zoneId": 1 }` |
-| `POST` | `/api/locations/police-stations` | `{ "name": "New PS", "divisionId": 1 }` |
-| `PUT` | `/api/locations/states/:id` | `{ "name": "Updated Name" }` |
-| `PUT` | `/api/locations/districts/:id` | `{ "name": "Updated Name" }` |
-| `PUT` | `/api/locations/zones/:id` | `{ "name": "Updated Name" }` |
-| `PUT` | `/api/locations/divisions/:id` | `{ "name": "Updated Name" }` |
-| `PUT` | `/api/locations/police-stations/:id` | `{ "name": "Updated Name" }` |
+| Method | Endpoint                             | Body                                       |
+| ------ | ------------------------------------ | ------------------------------------------ |
+| `POST` | `/api/locations/states`              | `{ "name": "New State" }`                  |
+| `POST` | `/api/locations/districts`           | `{ "name": "New District", "stateId": 1 }` |
+| `POST` | `/api/locations/zones`               | `{ "name": "New Zone", "districtId": 1 }`  |
+| `POST` | `/api/locations/divisions`           | `{ "name": "New Division", "zoneId": 1 }`  |
+| `POST` | `/api/locations/police-stations`     | `{ "name": "New PS", "divisionId": 1 }`    |
+| `PUT`  | `/api/locations/states/:id`          | `{ "name": "Updated Name" }`               |
+| `PUT`  | `/api/locations/districts/:id`       | `{ "name": "Updated Name" }`               |
+| `PUT`  | `/api/locations/zones/:id`           | `{ "name": "Updated Name" }`               |
+| `PUT`  | `/api/locations/divisions/:id`       | `{ "name": "Updated Name" }`               |
+| `PUT`  | `/api/locations/police-stations/:id` | `{ "name": "Updated Name" }`               |
 
 ---
 
@@ -1924,6 +1979,7 @@ Check biometric device connection status.
 Get all stored fingerprint templates for client-side matching.
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1948,6 +2004,7 @@ Get all stored fingerprint templates for client-side matching.
 Enroll a fingerprint with duplicate validation.
 
 **Request Body:**
+
 ```json
 {
   "fingerTemplate": {
@@ -1961,6 +2018,7 @@ Enroll a fingerprint with duplicate validation.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -1985,6 +2043,7 @@ Store a fingerprint directly (after client-side validation passes).
 Verify a captured fingerprint against stored templates.
 
 **Request Body:**
+
 ```json
 {
   "fingerTemplate": {
@@ -1997,6 +2056,7 @@ Verify a captured fingerprint against stored templates.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -2030,6 +2090,7 @@ Get biometric audit logs for an application.
 Create a new user.
 
 **Request Body:**
+
 ```json
 {
   "username": "new_user",
@@ -2074,6 +2135,7 @@ Get applications aggregated by ISO week.
 **Query Parameters:** `fromDate`, `toDate`, `stateId`, `zoneId`
 
 **Response:**
+
 ```json
 [
   { "week": "2024-W14", "count": 25 },
@@ -2086,6 +2148,7 @@ Get applications aggregated by ISO week.
 Get application load distributed by role.
 
 **Response:**
+
 ```json
 [
   { "name": "Station House Officer", "value": 45, "code": "SHO" },
@@ -2098,6 +2161,7 @@ Get application load distributed by role.
 Get state distribution (approved/rejected/pending counts).
 
 **Response:**
+
 ```json
 [
   { "state": "approved", "count": 120 },
@@ -2111,6 +2175,7 @@ Get state distribution (approved/rejected/pending counts).
 Get recent admin activity feed.
 
 **Response:**
+
 ```json
 [
   {
@@ -2141,6 +2206,7 @@ Public endpoint to verify license status (used by QR code scanners).
 **Auth:** None (public)
 
 **Response (200):**
+
 ```json
 {
   "applicantName": "John Doe",
@@ -2173,6 +2239,7 @@ Check if QR code is valid for an application.
 Basic health check.
 
 **Response (200):**
+
 ```json
 {
   "status": "ok",
@@ -2198,16 +2265,16 @@ erDiagram
     Users |o--o| Zones : "located in zone"
     Users |o--o| Divisions : "located in division"
     Users |o--o| PoliceStations : "located in station"
-    
+
     Roles ||--o{ RolesActionsMapping : "permitted actions"
     Actiones ||--o{ RolesActionsMapping : "mapped to roles"
     Roles ||--o| RoleFlowMapping : "flow config"
-    
+
     States ||--o{ Districts : "contains"
     Districts ||--o{ Zones : "contains"
     Zones ||--o{ Divisions : "contains"
     Divisions ||--o{ PoliceStations : "contains"
-    
+
     FreshLicenseApplicationPersonalDetails |o--|| Statuses : "workflow status"
     FreshLicenseApplicationPersonalDetails |o--o| Users : "current owner"
     FreshLicenseApplicationPersonalDetails |o--o| Users : "previous owner"
@@ -2253,257 +2320,257 @@ erDiagram
 
 #### `Users`
 
-| Column | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `id` | `Int` (PK) | ✓ | autoincrement | Unique user ID |
-| `username` | `String` | ✓ | — | Login username |
-| `email` | `String?` | — | — | Email (unique) |
-| `password` | `String` | ✓ | — | bcrypt hashed password |
-| `phoneNo` | `String?` | — | — | Phone number (unique) |
-| `roleId` | `Int` (FK) | ✓ | — | FK → Roles.id |
-| `stateId` | `Int?` (FK) | — | — | FK → States.id |
-| `districtId` | `Int?` (FK) | — | — | FK → Districts.id |
-| `zoneId` | `Int?` (FK) | — | — | FK → Zones.id |
-| `divisionId` | `Int?` (FK) | — | — | FK → Divisions.id |
-| `policeStationId` | `Int?` (FK) | — | — | FK → PoliceStations.id |
-| `createdAt` | `DateTime` | ✓ | `now()` | Creation timestamp |
-| `updatedAt` | `DateTime` | ✓ | `@updatedAt` | Update timestamp |
+| Column            | Type        | Required | Default       | Description            |
+| ----------------- | ----------- | -------- | ------------- | ---------------------- |
+| `id`              | `Int` (PK)  | ✓        | autoincrement | Unique user ID         |
+| `username`        | `String`    | ✓        | —             | Login username         |
+| `email`           | `String?`   | —        | —             | Email (unique)         |
+| `password`        | `String`    | ✓        | —             | bcrypt hashed password |
+| `phoneNo`         | `String?`   | —        | —             | Phone number (unique)  |
+| `roleId`          | `Int` (FK)  | ✓        | —             | FK → Roles.id          |
+| `stateId`         | `Int?` (FK) | —        | —             | FK → States.id         |
+| `districtId`      | `Int?` (FK) | —        | —             | FK → Districts.id      |
+| `zoneId`          | `Int?` (FK) | —        | —             | FK → Zones.id          |
+| `divisionId`      | `Int?` (FK) | —        | —             | FK → Divisions.id      |
+| `policeStationId` | `Int?` (FK) | —        | —             | FK → PoliceStations.id |
+| `createdAt`       | `DateTime`  | ✓        | `now()`       | Creation timestamp     |
+| `updatedAt`       | `DateTime`  | ✓        | `@updatedAt`  | Update timestamp       |
 
 #### `Roles`
 
-| Column | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `id` | `Int` (PK) | ✓ | autoincrement | Unique role ID |
-| `code` | `String` (unique) | ✓ | — | Role code (e.g., ADMIN, DCP) |
-| `name` | `String` | ✓ | — | Display name |
-| `is_active` | `Boolean` | ✓ | `true` | Active flag |
-| `dashboard_title` | `String` | ✓ | — | Dashboard heading text |
-| `menu_items` | `Json?` | — | — | JSON array of menu item configs |
-| `permissions` | `Json?` | — | — | JSON object of permissions |
-| `can_access_settings` | `Boolean` | ✓ | `false` | Settings access |
-| `can_forward` | `Boolean` | ✓ | `false` | Forward capability |
-| `can_re_enquiry` | `Boolean` | ✓ | `false` | Re-enquiry capability |
-| `can_generate_ground_report` | `Boolean` | ✓ | `false` | Ground report capability |
-| `can_FLAF` | `Boolean` | ✓ | `false` | Fresh license form access |
-| `can_create_freshLicence` | `Boolean` | ✓ | `false` | Fresh license creation |
-| `created_at` | `DateTime` | ✓ | `now()` | — |
-| `updated_at` | `DateTime` | ✓ | `@updatedAt` | — |
+| Column                       | Type              | Required | Default       | Description                     |
+| ---------------------------- | ----------------- | -------- | ------------- | ------------------------------- |
+| `id`                         | `Int` (PK)        | ✓        | autoincrement | Unique role ID                  |
+| `code`                       | `String` (unique) | ✓        | —             | Role code (e.g., ADMIN, DCP)    |
+| `name`                       | `String`          | ✓        | —             | Display name                    |
+| `is_active`                  | `Boolean`         | ✓        | `true`        | Active flag                     |
+| `dashboard_title`            | `String`          | ✓        | —             | Dashboard heading text          |
+| `menu_items`                 | `Json?`           | —        | —             | JSON array of menu item configs |
+| `permissions`                | `Json?`           | —        | —             | JSON object of permissions      |
+| `can_access_settings`        | `Boolean`         | ✓        | `false`       | Settings access                 |
+| `can_forward`                | `Boolean`         | ✓        | `false`       | Forward capability              |
+| `can_re_enquiry`             | `Boolean`         | ✓        | `false`       | Re-enquiry capability           |
+| `can_generate_ground_report` | `Boolean`         | ✓        | `false`       | Ground report capability        |
+| `can_FLAF`                   | `Boolean`         | ✓        | `false`       | Fresh license form access       |
+| `can_create_freshLicence`    | `Boolean`         | ✓        | `false`       | Fresh license creation          |
+| `created_at`                 | `DateTime`        | ✓        | `now()`       | —                               |
+| `updated_at`                 | `DateTime`        | ✓        | `@updatedAt`  | —                               |
 
 #### `RolesActionsMapping`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `roleId` | `Int` (FK) | FK → Roles.id |
-| `actionId` | `Int` (FK) | FK → Actiones.id |
-| `isActive` | `Boolean` (default: `true`) | Whether mapping is active |
-| **Unique constraint** | | `@@unique([roleId, actionId])` |
+| Column                | Type                        | Description                    |
+| --------------------- | --------------------------- | ------------------------------ |
+| `id`                  | `Int` (PK)                  | Auto-increment                 |
+| `roleId`              | `Int` (FK)                  | FK → Roles.id                  |
+| `actionId`            | `Int` (FK)                  | FK → Actiones.id               |
+| `isActive`            | `Boolean` (default: `true`) | Whether mapping is active      |
+| **Unique constraint** |                             | `@@unique([roleId, actionId])` |
 
 #### `RoleFlowMapping`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `currentRoleId` | `Int` (FK, unique) | FK → Roles.id |
-| `nextRoleIds` | `Int[]` | Array of role IDs for forwarding |
-| `updatedBy` | `Int?` (FK) | FK → Users.id |
-| `createdAt` / `updatedAt` | `DateTime` | Timestamps |
+| Column                    | Type               | Description                      |
+| ------------------------- | ------------------ | -------------------------------- |
+| `id`                      | `Int` (PK)         | Auto-increment                   |
+| `currentRoleId`           | `Int` (FK, unique) | FK → Roles.id                    |
+| `nextRoleIds`             | `Int[]`            | Array of role IDs for forwarding |
+| `updatedBy`               | `Int?` (FK)        | FK → Users.id                    |
+| `createdAt` / `updatedAt` | `DateTime`         | Timestamps                       |
 
 ### 8.2.2 Workflow
 
 #### `Statuses`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `code` | `String` (unique) | Status code (DRAFT, INITIATE, APPROVED, etc.) |
-| `name` | `String` | Display name |
-| `description` | `String?` | Description |
-| `isActive` | `Boolean` (default: `true`) | Active flag |
-| `isStarted` | `Boolean` (default: `false`) | Whether this is the initial/start status |
-| `createdAt` / `updatedAt` | `DateTime` | Timestamps |
+| Column                    | Type                         | Description                                   |
+| ------------------------- | ---------------------------- | --------------------------------------------- |
+| `id`                      | `Int` (PK)                   | Auto-increment                                |
+| `code`                    | `String` (unique)            | Status code (DRAFT, INITIATE, APPROVED, etc.) |
+| `name`                    | `String`                     | Display name                                  |
+| `description`             | `String?`                    | Description                                   |
+| `isActive`                | `Boolean` (default: `true`)  | Active flag                                   |
+| `isStarted`               | `Boolean` (default: `false`) | Whether this is the initial/start status      |
+| `createdAt` / `updatedAt` | `DateTime`                   | Timestamps                                    |
 
 #### `Actiones`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `code` | `String` (unique) | Action code (FORWARD, APPROVED, REJECT, etc.) |
-| `name` | `String` | Display name |
-| `description` | `String?` | Description |
-| `isActive` | `Boolean` (default: `true`) | Active flag |
-| `createdAt` / `updatedAt` | `DateTime` | Timestamps |
+| Column                    | Type                        | Description                                   |
+| ------------------------- | --------------------------- | --------------------------------------------- |
+| `id`                      | `Int` (PK)                  | Auto-increment                                |
+| `code`                    | `String` (unique)           | Action code (FORWARD, APPROVED, REJECT, etc.) |
+| `name`                    | `String`                    | Display name                                  |
+| `description`             | `String?`                   | Description                                   |
+| `isActive`                | `Boolean` (default: `true`) | Active flag                                   |
+| `createdAt` / `updatedAt` | `DateTime`                  | Timestamps                                    |
 
-### 8.2.3 Fresh License Application Models
+### 8.2.3 Fresh Application Models
 
 #### `FreshLicenseApplicationPersonalDetails`
 
-| Column | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `id` | `Int` (PK) | ✓ | autoincrement | Application ID |
-| `acknowledgementNo` | `String?` (unique) | — | — | Application reference number |
-| `firstName` | `String` | ✓ | — | Applicant first name |
-| `middleName` | `String?` | — | — | Middle name |
-| `lastName` | `String` | ✓ | — | Last name |
-| `parentOrSpouseName` | `String` | ✓ | — | Parent/spouse name |
-| `sex` | `Sex` (enum) | ✓ | — | MALE / FEMALE / OTHER |
-| `placeOfBirth` | `String?` | — | — | Birth place |
-| `dateOfBirth` | `DateTime?` | — | — | Date of birth |
-| `dobInWords` | `String?` | — | — | DOB written out |
-| `panNumber` | `String?` | — | — | PAN number |
-| `aadharNumber` | `String?` | — | — | 12-digit Aadhar |
-| `almsLicenseId` | `String?` | — | — | ALMS license ID |
-| `filledBy` | `String?` | — | — | Who filled form |
-| `occupationAndBusinessId` | `Int?` (FK) | — | — | FK → FLAFOccupationAndBusiness |
-| `presentAddressId` | `Int?` (FK) | — | — | FK → FLAFAddressesAndContactDetails |
-| `permanentAddressId` | `Int?` (FK) | — | — | FK → FLAFAddressesAndContactDetails |
-| `currentUserId` | `Int?` (FK) | — | — | FK → Users (current owner) |
-| `previousUserId` | `Int?` (FK) | — | — | FK → Users (previous owner) |
-| `workflowStatusId` | `Int?` (FK) | — | — | FK → Statuses |
-| `isApproved` | `Boolean?` | — | `false` | Approved flag |
-| `isRejected` | `Boolean?` | — | `false` | Rejected flag |
-| `isPending` | `Boolean?` | — | `false` | Pending flag |
-| `isRecommended` | `Boolean?` | — | `false` | Recommended flag |
-| `isNotRecommended` | `Boolean?` | — | `false` | Not recommended flag |
-| `isReEnquiry` | `Boolean?` | — | `false` | Re-enquiry flag |
-| `isReEnquiryDone` | `Boolean?` | — | `false` | Re-enquiry completed |
-| `isGroundReportGenerated` | `Boolean?` | — | `false` | Ground report flag |
-| `isFLAFGenerated` | `Boolean?` | — | `false` | FLAF generated flag |
-| `isDeclarationAccepted` | `Boolean?` | — | `false` | Declarations accepted |
-| `isAwareOfLegalConsequences` | `Boolean?` | — | `false` | Legal awareness |
-| `isTermsAccepted` | `Boolean?` | — | `false` | Terms accepted |
-| `isSubmit` | `Boolean?` | — | `false` | Submitted flag |
-| `createdAt` / `updatedAt` | `DateTime` | ✓ | Timestamps | — |
+| Column                       | Type               | Required | Default       | Description                         |
+| ---------------------------- | ------------------ | -------- | ------------- | ----------------------------------- |
+| `id`                         | `Int` (PK)         | ✓        | autoincrement | Application ID                      |
+| `acknowledgementNo`          | `String?` (unique) | —        | —             | Application reference number        |
+| `firstName`                  | `String`           | ✓        | —             | Applicant first name                |
+| `middleName`                 | `String?`          | —        | —             | Middle name                         |
+| `lastName`                   | `String`           | ✓        | —             | Last name                           |
+| `parentOrSpouseName`         | `String`           | ✓        | —             | Parent/spouse name                  |
+| `sex`                        | `Sex` (enum)       | ✓        | —             | MALE / FEMALE / OTHER               |
+| `placeOfBirth`               | `String?`          | —        | —             | Birth place                         |
+| `dateOfBirth`                | `DateTime?`        | —        | —             | Date of birth                       |
+| `dobInWords`                 | `String?`          | —        | —             | DOB written out                     |
+| `panNumber`                  | `String?`          | —        | —             | PAN number                          |
+| `aadharNumber`               | `String?`          | —        | —             | 12-digit Aadhar                     |
+| `almsLicenseId`              | `String?`          | —        | —             | ALMS license ID                     |
+| `filledBy`                   | `String?`          | —        | —             | Who filled form                     |
+| `occupationAndBusinessId`    | `Int?` (FK)        | —        | —             | FK → FLAFOccupationAndBusiness      |
+| `presentAddressId`           | `Int?` (FK)        | —        | —             | FK → FLAFAddressesAndContactDetails |
+| `permanentAddressId`         | `Int?` (FK)        | —        | —             | FK → FLAFAddressesAndContactDetails |
+| `currentUserId`              | `Int?` (FK)        | —        | —             | FK → Users (current owner)          |
+| `previousUserId`             | `Int?` (FK)        | —        | —             | FK → Users (previous owner)         |
+| `workflowStatusId`           | `Int?` (FK)        | —        | —             | FK → Statuses                       |
+| `isApproved`                 | `Boolean?`         | —        | `false`       | Approved flag                       |
+| `isRejected`                 | `Boolean?`         | —        | `false`       | Rejected flag                       |
+| `isPending`                  | `Boolean?`         | —        | `false`       | Pending flag                        |
+| `isRecommended`              | `Boolean?`         | —        | `false`       | Recommended flag                    |
+| `isNotRecommended`           | `Boolean?`         | —        | `false`       | Not recommended flag                |
+| `isReEnquiry`                | `Boolean?`         | —        | `false`       | Re-enquiry flag                     |
+| `isReEnquiryDone`            | `Boolean?`         | —        | `false`       | Re-enquiry completed                |
+| `isGroundReportGenerated`    | `Boolean?`         | —        | `false`       | Ground report flag                  |
+| `isFLAFGenerated`            | `Boolean?`         | —        | `false`       | FLAF generated flag                 |
+| `isDeclarationAccepted`      | `Boolean?`         | —        | `false`       | Declarations accepted               |
+| `isAwareOfLegalConsequences` | `Boolean?`         | —        | `false`       | Legal awareness                     |
+| `isTermsAccepted`            | `Boolean?`         | —        | `false`       | Terms accepted                      |
+| `isSubmit`                   | `Boolean?`         | —        | `false`       | Submitted flag                      |
+| `createdAt` / `updatedAt`    | `DateTime`         | ✓        | Timestamps    | —                                   |
 
 #### `FLAFAddressesAndContactDetails`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `addressLine` | `String` | Full address |
-| `stateId` | `Int` (FK) | FK → States.id |
-| `districtId` | `Int` (FK) | FK → Districts.id |
-| `policeStationId` | `Int` (FK) | FK → PoliceStations.id |
-| `zoneId` | `Int` (FK) | FK → Zones.id |
-| `divisionId` | `Int` (FK) | FK → Divisions.id |
-| `sinceResiding` | `DateTime` | Date since residing |
-| `telephoneOffice` | `String?` | Office phone |
-| `telephoneResidence` | `String?` | Residence phone |
-| `officeMobileNumber` | `String?` | Office mobile |
-| `alternativeMobile` | `String?` | Alt mobile |
+| Column               | Type       | Description            |
+| -------------------- | ---------- | ---------------------- |
+| `id`                 | `Int` (PK) | Auto-increment         |
+| `addressLine`        | `String`   | Full address           |
+| `stateId`            | `Int` (FK) | FK → States.id         |
+| `districtId`         | `Int` (FK) | FK → Districts.id      |
+| `policeStationId`    | `Int` (FK) | FK → PoliceStations.id |
+| `zoneId`             | `Int` (FK) | FK → Zones.id          |
+| `divisionId`         | `Int` (FK) | FK → Divisions.id      |
+| `sinceResiding`      | `DateTime` | Date since residing    |
+| `telephoneOffice`    | `String?`  | Office phone           |
+| `telephoneResidence` | `String?`  | Residence phone        |
+| `officeMobileNumber` | `String?`  | Office mobile          |
+| `alternativeMobile`  | `String?`  | Alt mobile             |
 
 #### `FLAFOccupationAndBusiness`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `occupation` | `String` | Occupation name |
-| `officeAddress` | `String` | Office address |
-| `stateId` | `Int` (FK) | FK → States.id |
-| `districtId` | `Int` (FK) | FK → Districts.id |
-| `cropLocation` | `String?` | Crop location (farmers) |
-| `areaUnderCultivation` | `Float?` | Area in acres |
+| Column                 | Type       | Description             |
+| ---------------------- | ---------- | ----------------------- |
+| `id`                   | `Int` (PK) | Auto-increment          |
+| `occupation`           | `String`   | Occupation name         |
+| `officeAddress`        | `String`   | Office address          |
+| `stateId`              | `Int` (FK) | FK → States.id          |
+| `districtId`           | `Int` (FK) | FK → Districts.id       |
+| `cropLocation`         | `String?`  | Crop location (farmers) |
+| `areaUnderCultivation` | `Float?`   | Area in acres           |
 
 #### `FLAFCriminalHistories`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `applicationId` | `Int` (FK) | FK → FreshLicenseApplicationPersonalDetails |
-| `isConvicted` | `Boolean` (default: `false`) | Convicted flag |
-| `isBondExecuted` | `Boolean` (default: `false`) | Bond executed |
-| `bondDate` | `DateTime?` | Bond date |
-| `bondPeriod` | `String?` | Bond period |
-| `isProhibited` | `Boolean` (default: `false`) | Prohibited flag |
-| `prohibitionDate` | `DateTime?` | Prohibition date |
-| `prohibitionPeriod` | `String?` | Prohibition period |
-| `firDetails` | `Json?` | FIR details as JSON array |
+| Column              | Type                         | Description                                 |
+| ------------------- | ---------------------------- | ------------------------------------------- |
+| `id`                | `Int` (PK)                   | Auto-increment                              |
+| `applicationId`     | `Int` (FK)                   | FK → FreshLicenseApplicationPersonalDetails |
+| `isConvicted`       | `Boolean` (default: `false`) | Convicted flag                              |
+| `isBondExecuted`    | `Boolean` (default: `false`) | Bond executed                               |
+| `bondDate`          | `DateTime?`                  | Bond date                                   |
+| `bondPeriod`        | `String?`                    | Bond period                                 |
+| `isProhibited`      | `Boolean` (default: `false`) | Prohibited flag                             |
+| `prohibitionDate`   | `DateTime?`                  | Prohibition date                            |
+| `prohibitionPeriod` | `String?`                    | Prohibition period                          |
+| `firDetails`        | `Json?`                      | FIR details as JSON array                   |
 
 #### `FLAFLicenseHistories`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `applicationId` | `Int` (FK) | FK → application |
-| `hasAppliedBefore` | `Boolean` | Previously applied |
-| `dateAppliedFor` | `DateTime?` | Previous application date |
-| `previousAuthorityName` | `String?` | Previous authority |
-| `previousResult` | `LicenseResult?` | APPROVED/REJECTED/PENDING |
-| `hasLicenceSuspended` | `Boolean` | Suspension flag |
-| `suspensionAuthorityName` | `String?` | Suspension authority |
-| `suspensionReason` | `String?` | Suspension reason |
-| `hasFamilyLicence` | `Boolean` | Family license flag |
-| `familyMemberName` | `String?` | Family member name |
-| `familyLicenceNumber` | `String?` | Family license number |
-| `familyWeaponsEndorsed` | `String[]` | Array of weapons |
-| `hasSafePlace` | `Boolean` | Safe place flag |
-| `safePlaceDetails` | `String?` | Safe place details |
-| `hasTraining` | `Boolean` | Training flag |
-| `trainingDetails` | `String?` | Training details |
+| Column                    | Type             | Description               |
+| ------------------------- | ---------------- | ------------------------- |
+| `id`                      | `Int` (PK)       | Auto-increment            |
+| `applicationId`           | `Int` (FK)       | FK → application          |
+| `hasAppliedBefore`        | `Boolean`        | Previously applied        |
+| `dateAppliedFor`          | `DateTime?`      | Previous application date |
+| `previousAuthorityName`   | `String?`        | Previous authority        |
+| `previousResult`          | `LicenseResult?` | APPROVED/REJECTED/PENDING |
+| `hasLicenceSuspended`     | `Boolean`        | Suspension flag           |
+| `suspensionAuthorityName` | `String?`        | Suspension authority      |
+| `suspensionReason`        | `String?`        | Suspension reason         |
+| `hasFamilyLicence`        | `Boolean`        | Family license flag       |
+| `familyMemberName`        | `String?`        | Family member name        |
+| `familyLicenceNumber`     | `String?`        | Family license number     |
+| `familyWeaponsEndorsed`   | `String[]`       | Array of weapons          |
+| `hasSafePlace`            | `Boolean`        | Safe place flag           |
+| `safePlaceDetails`        | `String?`        | Safe place details        |
+| `hasTraining`             | `Boolean`        | Training flag             |
+| `trainingDetails`         | `String?`        | Training details          |
 
 #### `FLAFLicenseDetails`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `applicationId` | `Int` (FK) | FK → application |
-| `needForLicense` | `LicensePurpose?` | SELF_PROTECTION / SPORTS / HEIRLOOM_POLICY |
-| `armsCategory` | `ArmsCategory?` | RESTRICTED / PERMISSIBLE |
-| `areaOfValidity` | `String?` | Validity area |
-| `ammunitionDescription` | `String?` | Ammunition details |
-| `specialConsiderationReason` | `String?` | Special reason |
-| `licencePlaceArea` | `String?` | License place area |
-| `wildBeastsSpecification` | `String?` | Wild beasts |
-| Many-to-Many | `WeaponTypeMaster[]` | `requestedWeapons` |
+| Column                       | Type                 | Description                                |
+| ---------------------------- | -------------------- | ------------------------------------------ |
+| `id`                         | `Int` (PK)           | Auto-increment                             |
+| `applicationId`              | `Int` (FK)           | FK → application                           |
+| `needForLicense`             | `LicensePurpose?`    | SELF_PROTECTION / SPORTS / HEIRLOOM_POLICY |
+| `armsCategory`               | `ArmsCategory?`      | RESTRICTED / PERMISSIBLE                   |
+| `areaOfValidity`             | `String?`            | Validity area                              |
+| `ammunitionDescription`      | `String?`            | Ammunition details                         |
+| `specialConsiderationReason` | `String?`            | Special reason                             |
+| `licencePlaceArea`           | `String?`            | License place area                         |
+| `wildBeastsSpecification`    | `String?`            | Wild beasts                                |
+| Many-to-Many                 | `WeaponTypeMaster[]` | `requestedWeapons`                         |
 
 #### `FLAFBiometricDatas`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `applicationId` | `Int` (FK, unique) | FK → application |
-| `biometricData` | `Json` | JSON object with signature, photo, iris, fingerprints |
+| Column          | Type               | Description                                           |
+| --------------- | ------------------ | ----------------------------------------------------- |
+| `id`            | `Int` (PK)         | Auto-increment                                        |
+| `applicationId` | `Int` (FK, unique) | FK → application                                      |
+| `biometricData` | `Json`             | JSON object with signature, photo, iris, fingerprints |
 
 #### `FLAFFileUploads`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `applicationId` | `Int` (FK) | FK → application |
-| `fileType` | `FileType` (enum) | File category |
-| `fileUrl` | `String` | File URL/path |
-| `fileName` | `String` | Original filename |
-| `fileSize` | `Int` | Size in bytes |
-| `uploadedAt` | `DateTime` | Upload timestamp |
+| Column          | Type              | Description       |
+| --------------- | ----------------- | ----------------- |
+| `id`            | `Int` (PK)        | Auto-increment    |
+| `applicationId` | `Int` (FK)        | FK → application  |
+| `fileType`      | `FileType` (enum) | File category     |
+| `fileUrl`       | `String`          | File URL/path     |
+| `fileName`      | `String`          | Original filename |
+| `fileSize`      | `Int`             | Size in bytes     |
+| `uploadedAt`    | `DateTime`        | Upload timestamp  |
 
 #### `FreshLicenseApplicationsFormWorkflowHistories`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `applicationId` | `Int` (FK) | FK → application |
-| `previousUserId` | `Int` (FK) | FK → Users (sender) |
-| `nextUserId` | `Int` (FK) | FK → Users (receiver) |
-| `actionTaken` | `String` | Action performed |
-| `remarks` | `String?` | Remarks/comments |
-| `previousRoleId` | `Int?` (FK) | FK → Roles |
-| `nextRoleId` | `Int?` (FK) | FK → Roles |
-| `actionesId` | `Int?` (FK) | FK → Actiones |
-| `attachments` | `Json?` | Attachments JSON |
-| `createdAt` | `DateTime` | Timestamp |
+| Column           | Type        | Description           |
+| ---------------- | ----------- | --------------------- |
+| `id`             | `Int` (PK)  | Auto-increment        |
+| `applicationId`  | `Int` (FK)  | FK → application      |
+| `previousUserId` | `Int` (FK)  | FK → Users (sender)   |
+| `nextUserId`     | `Int` (FK)  | FK → Users (receiver) |
+| `actionTaken`    | `String`    | Action performed      |
+| `remarks`        | `String?`   | Remarks/comments      |
+| `previousRoleId` | `Int?` (FK) | FK → Roles            |
+| `nextRoleId`     | `Int?` (FK) | FK → Roles            |
+| `actionesId`     | `Int?` (FK) | FK → Actiones         |
+| `attachments`    | `Json?`     | Attachments JSON      |
+| `createdAt`      | `DateTime`  | Timestamp             |
 
-### 8.2.4 Renewal Application Models
+### 8.2.4 Renewal Models
 
 The renewal models mirror the fresh license models closely, but are in separate tables:
 
-| Renewal Table | Fresh Counterpart |
-|---|---|
-| `RenewalFormPersonalDetails` | `FreshLicenseApplicationPersonalDetails` |
-| `RenewalAddressesAndContactDetails` | `FLAFAddressesAndContactDetails` |
-| `RenewalOccupationAndBusiness` | `FLAFOccupationAndBusiness` |
-| `RenewalLicenseDetails` | `FLAFLicenseDetails` |
-| `RenewalFileUploads` | `FLAFFileUploads` |
-| `RenewalBiometricDatas` | `FLAFBiometricDatas` |
+| Renewal Table                              | Fresh Counterpart                               |
+| ------------------------------------------ | ----------------------------------------------- |
+| `RenewalFormPersonalDetails`               | `FreshLicenseApplicationPersonalDetails`        |
+| `RenewalAddressesAndContactDetails`        | `FLAFAddressesAndContactDetails`                |
+| `RenewalOccupationAndBusiness`             | `FLAFOccupationAndBusiness`                     |
+| `RenewalLicenseDetails`                    | `FLAFLicenseDetails`                            |
+| `RenewalFileUploads`                       | `FLAFFileUploads`                               |
+| `RenewalBiometricDatas`                    | `FLAFBiometricDatas`                            |
 | `RenewalApplicationsFormWorkflowHistories` | `FreshLicenseApplicationsFormWorkflowHistories` |
 
 ### 8.2.5 Location Hierarchy
@@ -2522,26 +2589,26 @@ Each location table has: `id` (PK), `name` (unique), parent FK, `createdAt`, `up
 
 #### `WeaponTypeMaster`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `name` | `String` (unique) | Weapon name |
-| `description` | `String?` | Description |
-| `imageUrl` | `String?` | Image URL |
+| Column        | Type              | Description    |
+| ------------- | ----------------- | -------------- |
+| `id`          | `Int` (PK)        | Auto-increment |
+| `name`        | `String` (unique) | Weapon name    |
+| `description` | `String?`         | Description    |
+| `imageUrl`    | `String?`         | Image URL      |
 
 #### `LicensesMergeAuditLog`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | `Int` (PK) | Auto-increment |
-| `mergeId` | `String` (unique) | Merge identifier |
-| `freshLicenseId` | `Int` (FK) | FK → FreshLicenseApplicationPersonalDetails |
-| `renewalLicenseId` | `Int` (FK) | FK → RenewalFormPersonalDetails |
-| `mergedFields` | `String?` | Comma-separated field names |
-| `mergedBy` | `Int?` (FK) | FK → Users |
-| `mergedAt` | `DateTime` | Merge timestamp |
-| `status` | `String` (default: COMPLETED) | Merge status |
-| `remarks` | `String?` | Remarks |
+| Column             | Type                          | Description                                 |
+| ------------------ | ----------------------------- | ------------------------------------------- |
+| `id`               | `Int` (PK)                    | Auto-increment                              |
+| `mergeId`          | `String` (unique)             | Merge identifier                            |
+| `freshLicenseId`   | `Int` (FK)                    | FK → FreshLicenseApplicationPersonalDetails |
+| `renewalLicenseId` | `Int` (FK)                    | FK → RenewalFormPersonalDetails             |
+| `mergedFields`     | `String?`                     | Comma-separated field names                 |
+| `mergedBy`         | `Int?` (FK)                   | FK → Users                                  |
+| `mergedAt`         | `DateTime`                    | Merge timestamp                             |
+| `status`           | `String` (default: COMPLETED) | Merge status                                |
+| `remarks`          | `String?`                     | Remarks                                     |
 
 ### 8.2.7 Enum Reference
 
@@ -2603,7 +2670,7 @@ sequenceDiagram
     Backend->>DB: Find user by username
     DB-->>Backend: User with role + password hash
     Backend->>Backend: bcrypt.compare(password, hash)
-    
+
     alt Invalid credentials
         Backend-->>Frontend: 401 { message: "Invalid username or password" }
         Frontend-->>User: Show error
@@ -2644,15 +2711,15 @@ sequenceDiagram
 
 ## 9.3 Auth Guard Comparison
 
-| Feature | `JwtAuthGuard` | `AuthGuard` |
-|---|---|---|
-| **Usage** | Admin/analytics endpoints | Application/CRUD endpoints |
-| **DB Lookup** | No (JWT only) | Yes (fetch user from DB) |
-| **Role Check** | No | Yes (`@Roles` decorator) |
-| **Permission Check** | No | Yes (via decorators) |
-| **User Attached** | `req.user` with decoded JWT + mapped fields | `req.user` with decoded JWT + full user object |
-| **Error Messages** | Generic | Detailed (role inactive, user not found, etc.) |
-| **Performance** | Fast | Medium (DB query on each request) |
+| Feature              | `JwtAuthGuard`                              | `AuthGuard`                                    |
+| -------------------- | ------------------------------------------- | ---------------------------------------------- |
+| **Usage**            | Admin/analytics endpoints                   | Application/CRUD endpoints                     |
+| **DB Lookup**        | No (JWT only)                               | Yes (fetch user from DB)                       |
+| **Role Check**       | No                                          | Yes (`@Roles` decorator)                       |
+| **Permission Check** | No                                          | Yes (via decorators)                           |
+| **User Attached**    | `req.user` with decoded JWT + mapped fields | `req.user` with decoded JWT + full user object |
+| **Error Messages**   | Generic                                     | Detailed (role inactive, user not found, etc.) |
+| **Performance**      | Fast                                        | Medium (DB query on each request)              |
 
 ## 9.4 Role-Based Access Control Flow
 
@@ -2685,32 +2752,32 @@ flowchart TD
     USER --> ROLE[Get user roleId]
     ROLE --> VALIDATE[Validate actionId against Actiones table]
     VALIDATE --> PERM_CHECK[Check RolesActionsMapping:<br/>roleId + actionId]
-    
+
     PERM_CHECK --> PERM{Has Permission?}
     PERM -->|No| FORBIDDEN[403 Forbidden]
     PERM -->|Yes| ACTION_TYPE{Action Type}
-    
+
     ACTION_TYPE -->|TERMINAL| TERMINAL_PROC[Process terminal<br/>APPROVED / REJECT / CLOSE / DISPOSE / CANCEL]
     ACTION_TYPE -->|FORWARD| FORWARD_PROC[Process forward<br/>Requires nextUserId]
     ACTION_TYPE -->|IN_PLACE| IN_PLACE_PROC[Process in-place<br/>RECOMMEND / RE_ENQUIRY / etc.]
-    
+
     TERMINAL_PROC --> STATUS_FLAGS
     FORWARD_PROC --> STATUS_FLAGS
     IN_PLACE_PROC --> STATUS_FLAGS
-    
+
     STATUS_FLAGS[Set boolean flags:<br/>isApproved / isRejected / isRecommended etc.]
     STATUS_FLAGS --> UPDATE_STATUS[Update workflowStatusId]
     UPDATE_STATUS --> PRESERVE{Preserve terminal?}
-    
+
     PRESERVE -->|Already approved/rejected| KEEP_TERMINAL[Keep terminal status]
     PRESERVE -->|Not terminal| SET_NEW[Set new status]
-    
+
     KEEP_TERMINAL --> UPDATE_APP[Update application record]
     SET_NEW --> UPDATE_APP
-    
+
     UPDATE_APP --> HISTORY[Create workflow history entry]
     HISTORY --> HISTORY_DATA[Store: previousUser, nextUser,<br/>actionTaken, remarks, roleIds,<br/>actionesId, attachments]
-    
+
     HISTORY_DATA --> RESPONSE[Return success response]
 ```
 
@@ -2740,11 +2807,11 @@ When an application has been marked with a terminal action (APPROVED/REJECT/RECO
 ```typescript
 // WorkflowService - Fresh Application Processing
 if (application.isApproved) {
-  newStatusId = status.code === 'APPROVED' ? status.id : approvedStatus.id;
+  newStatusId = status.code === "APPROVED" ? status.id : approvedStatus.id;
 } else if (application.isRejected) {
-  newStatusId = status.code === 'REJECT' ? status.id : rejectedStatus.id;
+  newStatusId = status.code === "REJECT" ? status.id : rejectedStatus.id;
 } else if (application.isRecommended) {
-  newStatusId = status.code === 'RECOMMEND' ? status.id : recommendedStatus.id;
+  newStatusId = status.code === "RECOMMEND" ? status.id : recommendedStatus.id;
 }
 ```
 
@@ -2772,13 +2839,13 @@ flowchart TD
 
 ## 11.1 Prerequisites
 
-| Requirement | Version | Purpose |
-|---|---|---|
-| Node.js | 18+ (LTS) | Runtime |
-| PostgreSQL | 14+ | Database |
-| npm / yarn | Latest | Package management |
-| Docker | 20+ | Containerization |
-| Git | Latest | Version control |
+| Requirement | Version   | Purpose            |
+| ----------- | --------- | ------------------ |
+| Node.js     | 18+ (LTS) | Runtime            |
+| PostgreSQL  | 14+       | Database           |
+| npm / yarn  | Latest    | Package management |
+| Docker      | 20+       | Containerization   |
+| Git         | Latest    | Version control    |
 
 ## 11.2 Quick Start
 
@@ -2838,28 +2905,28 @@ NEXT_PUBLIC_APP_URL=http://localhost:3001
 
 ### Backend
 
-| Script | Description |
-|---|---|
-| `npm run start:dev` | Start with hot-reload (NestJS watch mode) |
-| `npm run build` | Compile to `/dist` |
-| `npm run start:prod` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run Jest tests |
-| `npx prisma studio` | Open Prisma Studio GUI |
-| `npx prisma generate` | Regenerate Prisma client |
-| `npx prisma migrate dev` | Create/apply migrations |
-| `npx prisma migrate deploy` | Apply migrations (production) |
-| `npx prisma db seed` | Run seed script |
+| Script                      | Description                               |
+| --------------------------- | ----------------------------------------- |
+| `npm run start:dev`         | Start with hot-reload (NestJS watch mode) |
+| `npm run build`             | Compile to `/dist`                        |
+| `npm run start:prod`        | Start production server                   |
+| `npm run lint`              | Run ESLint                                |
+| `npm run test`              | Run Jest tests                            |
+| `npx prisma studio`         | Open Prisma Studio GUI                    |
+| `npx prisma generate`       | Regenerate Prisma client                  |
+| `npx prisma migrate dev`    | Create/apply migrations                   |
+| `npx prisma migrate deploy` | Apply migrations (production)             |
+| `npx prisma db seed`        | Run seed script                           |
 
 ### Frontend
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start Next.js dev server |
-| `npm run build` | Build for production |
-| `npm start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run Jest tests |
+| Script          | Description              |
+| --------------- | ------------------------ |
+| `npm run dev`   | Start Next.js dev server |
+| `npm run build` | Build for production     |
+| `npm start`     | Start production server  |
+| `npm run lint`  | Run ESLint               |
+| `npm run test`  | Run Jest tests           |
 
 ## 11.5 Docker Commands
 
@@ -2912,7 +2979,7 @@ sequenceDiagram
     participant DB
 
     Note over Citizen: === FORM FILLING PHASE ===
-    
+
     Citizen->>Frontend: Navigate to fresh application
     Frontend->>Frontend: Initialize multi-step form
     Citizen->>Frontend: Step 1: Fill personal info (name, Aadhar, PAN, DOB)
@@ -2924,9 +2991,9 @@ sequenceDiagram
     Backend->>DB: Create/update FLAFAddressesAndContactDetails
     Frontend->>Citizen: Step 3-8: Fill remaining sections
     Frontend->>Backend: PATCH calls for each section
-    
+
     Note over Citizen: === SUBMISSION PHASE ===
-    
+
     Citizen->>Frontend: Step 9: Preview all data
     Citizen->>Frontend: Step 10: Accept declaration & submit
     Frontend->>Backend: PATCH /api/application-form?applicationId=123&isSubmit=true
@@ -2939,20 +3006,20 @@ sequenceDiagram
     Frontend->>Citizen: Show success with application number
 
     Note over Citizen: === PROCESSING PHASE ===
-    
+
     Citizen->>Frontend: Track application status
     Frontend->>Backend: GET /api/application-form?applicationId=123
     Backend->>DB: Fetch application with workflowStatus
     Backend-->>Frontend: { status: "UNDER_REVIEW" }
     Frontend->>Citizen: Application under review
-    
+
     Citizen->>Frontend: Check status again later
     Frontend->>Backend: GET /api/application-form?applicationId=123
     Backend-->>Frontend: { status: "APPROVED" }
     Frontend->>Citizen: License approved!
 ```
 
-## 12.2 Complete Renewal Application Journey
+## 12.2 Complete Renewal Journey
 
 ```mermaid
 sequenceDiagram
@@ -2970,7 +3037,7 @@ sequenceDiagram
     Backend->>DB: Get DRAFT status
     Backend->>DB: Create RenewalFormPersonalDetails
     Backend-->>Frontend: { id: 5, acknowledgementNo: "RENEWAL-..." }
-    
+
     Note over Citizen: === DATA COPY ===
     Citizen->>Frontend: Request to copy from fresh license
     Frontend->>Backend: Copy from fresh license (internal service)
@@ -2979,24 +3046,24 @@ sequenceDiagram
     Backend->>DB: Create renewal occupation (copied)
     Backend->>DB: Update renewal with copied data
     Backend-->>Frontend: Renewal pre-filled with existing data
-    
+
     Note over Citizen: === UPDATE ===
     Citizen->>Frontend: Update address, occupation as needed
     Frontend->>Backend: PATCH /api/renewal-forms?applicationId=5
     Backend->>DB: Update sections
     Citizen->>Frontend: Upload documents
     Frontend->>Backend: POST /api/renewal-forms/5/upload-file
-    
+
     Note over Citizen: === SUBMIT ===
     Citizen->>Frontend: Accept declaration & submit
     Frontend->>Backend: PATCH /api/renewal-forms?applicationId=5&isSubmit=true
     Backend->>DB: Set workflowStatusId = INITIATE
     Backend->>DB: Create workflow history
     Backend-->>Frontend: Renewal submitted
-    
+
     Note over Citizen: === WORKFLOW ===
     Note over Backend: Application goes through police hierarchy
-    
+
     Note over Citizen: === MERGE (After Approval) ===
     Citizen->>Frontend: Check status - APPROVED
     Admin->>Frontend: Navigate to merge page
@@ -3024,7 +3091,7 @@ sequenceDiagram
     Frontend->>Backend: POST /api/auth/login
     Backend-->>Frontend: { token, role: "DCP" }
     Frontend->>Frontend: Redirect to DCP dashboard
-    
+
     Note over Officer: === INBOX ===
     Officer->>Frontend: View inbox
     Frontend->>Backend: GET /api/application-form?statusIds=1,2,3&isOwned=true
@@ -3032,7 +3099,7 @@ sequenceDiagram
     DB-->>Backend: Application list
     Backend-->>Frontend: { data: [apps], pagination }
     Frontend->>Officer: Display application table with status badges
-    
+
     Note over Officer: === REVIEW ===
     Officer->>Frontend: Click application #123
     Frontend->>Backend: GET /api/application-form?applicationId=123
@@ -3040,7 +3107,7 @@ sequenceDiagram
     DB-->>Backend: Complete application data
     Backend-->>Frontend: Full application detail
     Frontend->>Officer: Display: personal info, addresses, documents, history
-    
+
     Note over Officer: === DECISION ===
     Officer->>Frontend: Click "Process" button
     Frontend->>Backend: GET /api/application-form/users-in-hierarchy/123
@@ -3048,7 +3115,7 @@ sequenceDiagram
     DB-->>Backend: Eligible next users
     Backend-->>Frontend: { data: [nextUsers] }
     Frontend->>Officer: Show ProcessModal with actions & user list
-    
+
     Officer->>Frontend: Select: Forward to ZS
     Officer->>Frontend: Add remarks: "Verified documents. Recommended."
     Frontend->>Backend: POST /api/workflow/action
@@ -3059,7 +3126,7 @@ sequenceDiagram
     Backend->>DB: Create workflow history
     Backend-->>Frontend: { success, message: "forward performed successfully" }
     Frontend->>Officer: Action successful! Redirect to inbox
-    
+
     Note over Officer: === CONTINUE ===
     Officer->>Frontend: Back to inbox, next application...
 ```
@@ -3068,51 +3135,51 @@ sequenceDiagram
 
 ## Appendix A: API Status Codes Reference
 
-| Status Code | Description |
-|---|---|
-| `200` | Success |
-| `201` | Created |
-| `204` | No Content (delete success) |
-| `400` | Bad Request — Invalid input |
-| `401` | Unauthorized — Missing/invalid token |
-| `403` | Forbidden — Insufficient role/permissions |
-| `404` | Not Found — Resource doesn't exist |
-| `409` | Conflict — Duplicate entry |
-| `500` | Internal Server Error |
+| Status Code | Description                               |
+| ----------- | ----------------------------------------- |
+| `200`       | Success                                   |
+| `201`       | Created                                   |
+| `204`       | No Content (delete success)               |
+| `400`       | Bad Request — Invalid input               |
+| `401`       | Unauthorized — Missing/invalid token      |
+| `403`       | Forbidden — Insufficient role/permissions |
+| `404`       | Not Found — Resource doesn't exist        |
+| `409`       | Conflict — Duplicate entry                |
+| `500`       | Internal Server Error                     |
 
 ## Appendix B: File Type Enum Values
 
-| Value | Description |
-|---|---|
-| `AADHAR_CARD` | Aadhar card (identity proof) |
-| `PAN_CARD` | PAN card (tax identity) |
-| `TRAINING_CERTIFICATE` | Arms training certificate |
-| `OTHER_STATE_LICENSE` | License from another state |
-| `EXISTING_LICENSE` | Current/previous license |
-| `SAFE_CUSTODY` | Safe custody document |
-| `MEDICAL_REPORT` | Medical fitness report |
-| `REJECTED_LICENSE` | Previously rejected license |
-| `CLAIM_DOCS` | Claim/ownership documents |
-| `SIGNATURE_THUMB` | Signature or thumbprint |
-| `PHOTOGRAPH` | Passport-size photo |
-| `IRIS_SCAN` | Iris biometric scan |
-| `OTHER` | Other supporting documents |
+| Value                  | Description                  |
+| ---------------------- | ---------------------------- |
+| `AADHAR_CARD`          | Aadhar card (identity proof) |
+| `PAN_CARD`             | PAN card (tax identity)      |
+| `TRAINING_CERTIFICATE` | Arms training certificate    |
+| `OTHER_STATE_LICENSE`  | License from another state   |
+| `EXISTING_LICENSE`     | Current/previous license     |
+| `SAFE_CUSTODY`         | Safe custody document        |
+| `MEDICAL_REPORT`       | Medical fitness report       |
+| `REJECTED_LICENSE`     | Previously rejected license  |
+| `CLAIM_DOCS`           | Claim/ownership documents    |
+| `SIGNATURE_THUMB`      | Signature or thumbprint      |
+| `PHOTOGRAPH`           | Passport-size photo          |
+| `IRIS_SCAN`            | Iris biometric scan          |
+| `OTHER`                | Other supporting documents   |
 
 ## Appendix C: Status Code Constants
 
 ```typescript
 export const STATUS_CODES = {
-  DRAFT: 'DRAFT',
-  INITIATE: 'INITIATE',
-  FORWARD: 'FORWARD',
-  UNDER_REVIEW: 'UNDER_REVIEW',
-  RE_ENQUIRY: 'RE_ENQUIRY',
-  GROUND_REPORT: 'GROUND_REPORT',
-  APPROVED: 'APPROVED',
-  REJECT: 'REJECT',
-  CLOSE: 'CLOSE',
-  DISPOSE: 'DISPOSE',
-  CANCEL: 'CANCEL'
+  DRAFT: "DRAFT",
+  INITIATE: "INITIATE",
+  FORWARD: "FORWARD",
+  UNDER_REVIEW: "UNDER_REVIEW",
+  RE_ENQUIRY: "RE_ENQUIRY",
+  GROUND_REPORT: "GROUND_REPORT",
+  APPROVED: "APPROVED",
+  REJECT: "REJECT",
+  CLOSE: "CLOSE",
+  DISPOSE: "DISPOSE",
+  CANCEL: "CANCEL",
 };
 ```
 
@@ -3120,28 +3187,28 @@ export const STATUS_CODES = {
 
 ```typescript
 export const ACTION_CODES = {
-  INITIATE: 'INITIATE',
-  FORWARD: 'FORWARD',
-  RE_ENQUIRY: 'RE_ENQUIRY',
-  GROUND_REPORT: 'GROUND_REPORT',
-  RECOMMEND: 'RECOMMEND',
-  NOT_RECOMMEND: 'NOT_RECOMMEND',
-  APPROVED: 'APPROVED',
-  REJECT: 'REJECT',
-  CLOSE: 'CLOSE',
-  DISPOSE: 'DISPOSE',
-  CANCEL: 'CANCEL',
-  RED_FLAG: 'RED_FLAG'
+  INITIATE: "INITIATE",
+  FORWARD: "FORWARD",
+  RE_ENQUIRY: "RE_ENQUIRY",
+  GROUND_REPORT: "GROUND_REPORT",
+  RECOMMEND: "RECOMMEND",
+  NOT_RECOMMEND: "NOT_RECOMMEND",
+  APPROVED: "APPROVED",
+  REJECT: "REJECT",
+  CLOSE: "CLOSE",
+  DISPOSE: "DISPOSE",
+  CANCEL: "CANCEL",
+  RED_FLAG: "RED_FLAG",
 };
 ```
 
 ## Appendix E: Action Categories
 
-| Category | Actions | Description |
-|---|---|---|
-| **Terminal** | `REJECT`, `APPROVED`, `CLOSE`, `DISPOSE`, `CANCEL` | Ends the workflow |
-| **Forward** | `FORWARD` | Transfers to another user |
-| **In-Place** | `RE_ENQUIRY`, `GROUND_REPORT`, `RECOMMEND`, `INITIATE`, `RED_FLAG` | Stays with current user |
+| Category     | Actions                                                            | Description               |
+| ------------ | ------------------------------------------------------------------ | ------------------------- |
+| **Terminal** | `REJECT`, `APPROVED`, `CLOSE`, `DISPOSE`, `CANCEL`                 | Ends the workflow         |
+| **Forward**  | `FORWARD`                                                          | Transfers to another user |
+| **In-Place** | `RE_ENQUIRY`, `GROUND_REPORT`, `RECOMMEND`, `INITIATE`, `RED_FLAG` | Stays with current user   |
 
 ---
 

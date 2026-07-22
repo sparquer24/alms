@@ -3,13 +3,17 @@ import { IsNotEmpty, IsNumber, IsString, IsOptional, MinLength, MaxLength } from
 
 export class CreateCancelRequestDto {
   @ApiProperty({
-    description: 'ID of the fresh license application to cancel',
+    description: 'ID of the License application to cancel',
     example: 1,
     type: Number,
   })
   @IsNotEmpty()
   @IsNumber()
-  freshLicenseId!: number;
+  licenseId!: number;
+  
+  @IsNotEmpty()
+  @IsString()
+  applicantName!: string;
 
   @ApiProperty({
     description: 'Type of the application (FreshLicenseApplicationForm or RenewalApplicationForm)',
@@ -52,7 +56,7 @@ export class CreateCancelRequestResponseDto {
   @ApiProperty({
     example: {
       id: 1,
-      freshLicenseId: 123,
+      licenseId: 123,
       applicationType: 'FreshLicenseApplicationForm',
       cancellationReason: 'Applicant no longer requires the license',
       remarks: 'Applicant has moved to another state',

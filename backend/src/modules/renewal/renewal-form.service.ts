@@ -19,7 +19,7 @@ export class RenewalFormService {
   ): Promise<RenewalFormResponse> {
     try {
       // Verify the license exists and get the license holder info
-      const existingLicense = await prisma.renewalFormPersonalDetails.findUnique({
+      const existingLicense = await prisma.renewalFormPersonalDetails.findFirst({
         where: { licenseNumber: createRequest.licenseNumber },
       });
 
@@ -29,8 +29,26 @@ export class RenewalFormService {
         );
       }
 
+      // Fetch the almsLicenseId from the Licenses table to populate renewalLicenseId
+      let renewalLicenseId: string | null = null;
+      if (createRequest.licenseId) {
+        const lic = await prisma.licenses.findUnique({
+          where: { id: createRequest.licenseId },
+        });
+        if (lic) {
+          renewalLicenseId = lic.almsLicenseId;
+        }
+      } else if (createRequest.licenseNumber) {
+        const lic = await prisma.licenses.findUnique({
+          where: { licenseNumber: createRequest.licenseNumber },
+        });
+        if (lic) {
+          renewalLicenseId = lic.almsLicenseId;
+        }
+      }
+
       // Generate acknowledgement number
-      const acknowledgementNo = `RENEWAL-${Date.now()}-${uuidv4().substring(0, 8)}`;
+      const acknowledgementNo = `RAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
       const newApplication = await prisma.$transaction(async (tx: any) => {
         // Get DRAFT status ID
@@ -46,8 +64,9 @@ export class RenewalFormService {
         const application = await tx.renewalFormPersonalDetails.create({
           data: {
             acknowledgementNo,
-            freshLicenseId: createRequest.freshLicenseId,
+            licenseId: createRequest.licenseId,
             licenseNumber: createRequest.licenseNumber,
+            renewalLicenseId,
             firstName: createRequest.firstName,
             middleName: createRequest.middleName,
             lastName: createRequest.lastName,
@@ -115,9 +134,10 @@ export class RenewalFormService {
       const shouldCreateWorkflowHistory = patchData.isSubmit === true && !!currentUserId;
 
       // Pre-fetch required data in parallel to reduce latency
-      const [application, statuses, userExists] = await Promise.all([
+      const result = await Promise.all([
         prisma.renewalFormPersonalDetails.findUnique({
           where: { id: applicationId },
+          // cast select to any to avoid transient type mismatches from generated client
           select: {
             id: true,
             presentAddressId: true,
@@ -127,8 +147,8 @@ export class RenewalFormService {
             isAwareOfLegalConsequences: true,
             isTermsAccepted: true,
             licenseDetails: { select: { id: true } },
-            freshLicenseId: true,
-          },
+            licenseId: true,
+          } as any,
         }),
         // Fetch statuses needed for submit/rollback behavior
         shouldHandleSubmit
@@ -141,6 +161,10 @@ export class RenewalFormService {
           ? prisma.users.findUnique({ where: { id: currentUserId } })
           : Promise.resolve(null),
       ]);
+
+      const application: any = result[0];
+      const statuses: any = result[1];
+      const userExists: any = result[2];
 
       if (!application) {
         throw new NotFoundException('Renewal application not found.');
@@ -173,6 +197,14 @@ export class RenewalFormService {
       let updateData: any = patchData.personalDetails ? { ...patchData.personalDetails } : {};
       if (updateData.dateOfBirth) {
         updateData.dateOfBirth = new Date(updateData.dateOfBirth);
+      }
+
+      // Update licenseId/licenseNumber on parent record if provided
+      if (patchData.licenseId !== undefined) {
+        updateData.licenseId = patchData.licenseId;
+      }
+      if (patchData.licenseNumber !== undefined) {
+        updateData.licenseNumber = patchData.licenseNumber;
       }
       const relationUpdates: Promise<void>[] = [];
 
@@ -440,6 +472,9 @@ export class RenewalFormService {
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
               RangeOffices: { select: { id: true, name: true } },
+              zone: { select: { id: true, name: true } },
+              division: { select: { id: true, name: true } },
+              policeStation: { select: { id: true, name: true } },
             }
           },
           permanentAddress: {
@@ -452,6 +487,9 @@ export class RenewalFormService {
               state: { select: { id: true, name: true } },
               district: { select: { id: true, name: true } },
               RangeOffices: { select: { id: true, name: true } },
+              zone: { select: { id: true, name: true } },
+              division: { select: { id: true, name: true } },
+              policeStation: { select: { id: true, name: true } },
             }
           },
           occupationAndBusiness: {
@@ -655,7 +693,20 @@ export class RenewalFormService {
             },
           },
           presentAddress: {
-            include: {
+            select: {
+              id: true,
+              addressLine: true,
+              stateId: true,
+              districtId: true,
+              policeStationId: true,
+              sinceResiding: true,
+              divisionId: true,
+              zoneId: true,
+              telephoneOffice: true,
+              telephoneResidence: true,
+              officeMobileNumber: true,
+              alternativeMobile: true,
+              rangeOfficeId: true,
               state: true,
               district: true,
               RangeOffices: true,
@@ -665,7 +716,20 @@ export class RenewalFormService {
             },
           },
           permanentAddress: {
-            include: {
+            select: {
+              id: true,
+              addressLine: true,
+              stateId: true,
+              districtId: true,
+              policeStationId: true,
+              sinceResiding: true,
+              divisionId: true,
+              zoneId: true,
+              telephoneOffice: true,
+              telephoneResidence: true,
+              officeMobileNumber: true,
+              alternativeMobile: true,
+              rangeOfficeId: true,
               state: true,
               district: true,
               RangeOffices: true,
@@ -675,10 +739,17 @@ export class RenewalFormService {
             },
           },
           occupationAndBusiness: {
-            include: {
+            select: {
+              id: true,
+              occupation: true,
+              officeAddress: true,
+              stateId: true,
+              districtId: true,
+              cropLocation: true,
+              areaUnderCultivation: true,
               state: true,
               district: true,
-            }, 
+            },
           },
           licenseDetails: {
             include: { requestedWeapons: true },
@@ -722,7 +793,6 @@ export class RenewalFormService {
 
       return {
         ...application,
-        applicationId: freshApplicationId,
         freshApplicationId: freshApplicationId,
       };
     } catch (error) {
@@ -872,7 +942,7 @@ export class RenewalFormService {
    * Merge renewal license data into fresh license record
    */
   async mergeLicenses(
-    freshLicenseId: number,
+    licenseId: number,
     renewalLicenseId: number,
     currentUserId: number,
   ): Promise<any> {
@@ -884,7 +954,7 @@ export class RenewalFormService {
 
       // Fetch fresh license
       const freshLicense = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: freshLicenseId },
+        where: { id: licenseId },
         include: {
           presentAddress: true,
           permanentAddress: true,
@@ -899,8 +969,12 @@ export class RenewalFormService {
 
       if (!freshLicense) {
         throw new NotFoundException(
-          `Fresh license with ID ${freshLicenseId} not found`
+          `License with ID ${licenseId} not found`
         );
+      }
+      // Ensure the fresh license has been approved before creating a master Licenses record
+      if (!freshLicense.isApproved) {
+        throw new BadRequestException('Merge can only be performed after fresh license approval');
       }
 
       // Fetch renewal license
@@ -1129,7 +1203,7 @@ export class RenewalFormService {
             // Create new license details
             await tx.FLAFLicenseDetails.create({
               data: {
-                applicationId: freshLicenseId,
+                applicationId: licenseId,
                 needForLicense: renewalLicDetail.needForLicense as any,
                 armsCategory: renewalLicDetail.armsCategory as any,
                 areaOfValidity: renewalLicDetail.areaOfValidity,
@@ -1152,7 +1226,7 @@ export class RenewalFormService {
         // Update fresh license personal details
         personalUpdateData.updatedAt = new Date();
         const updatedFreshLicense = await tx.freshLicenseApplicationPersonalDetails.update({
-          where: { id: freshLicenseId },
+            where: { id: licenseId },
           data: personalUpdateData,
           include: {
             workflowStatus: true,
@@ -1161,17 +1235,69 @@ export class RenewalFormService {
         });
 
         // Create merge audit log
+        // Create Licenses master record from approved fresh license
+        let createdLicense: any = null;
+        try {
+          const licenseDetail = freshLicense.licenseDetails?.[0];
+          const licenseData: any = {
+            licenseNumber: `LIC-${Date.now()}-${licenseId}`,
+            issueDate: new Date(),
+            firstName: freshLicense.firstName,
+            middleName: freshLicense.middleName,
+            lastName: freshLicense.lastName,
+            parentOrSpouseName: freshLicense.parentOrSpouseName,
+            sex: freshLicense.sex,
+            dateOfBirth: freshLicense.dateOfBirth,
+            placeOfBirth: freshLicense.placeOfBirth,
+            aadharNumber: freshLicense.aadharNumber,
+            panNumber: freshLicense.panNumber,
+            validFrom: new Date(),
+            validTill: new Date(new Date().setFullYear(new Date().getFullYear() + 5)),
+            armsCategory: licenseDetail?.armsCategory,
+            areaOfValidity: licenseDetail?.areaOfValidity,
+            ammunitionDescription: licenseDetail?.ammunitionDescription,
+            licencePlaceArea: licenseDetail?.licencePlaceArea,
+            specialConsiderationReason: licenseDetail?.specialConsiderationReason,
+            needForLicense: licenseDetail?.needForLicense,
+            presentAddressLine: freshLicense.presentAddress?.addressLine,
+            presentStateId: freshLicense.presentAddress?.stateId,
+            presentDistrictId: freshLicense.presentAddress?.districtId,
+            presentPoliceStationId: freshLicense.presentAddress?.policeStationId,
+            presentZoneId: freshLicense.presentAddress?.zoneId,
+            presentDivisionId: freshLicense.presentAddress?.divisionId,
+            presentRangeOfficeId: freshLicense.presentAddress?.rangeOfficeId,
+            permanentAddressLine: freshLicense.permanentAddress?.addressLine,
+            permanentStateId: freshLicense.permanentAddress?.stateId,
+            permanentDistrictId: freshLicense.permanentAddress?.districtId,
+            permanentPoliceStationId: freshLicense.permanentAddress?.policeStationId,
+            permanentZoneId: freshLicense.permanentAddress?.zoneId,
+            permanentDivisionId: freshLicense.permanentAddress?.divisionId,
+            permanentRangeOfficeId: freshLicense.permanentAddress?.rangeOfficeId,
+            occupation: freshLicense.occupationAndBusiness?.occupation,
+            officeAddress: freshLicense.occupationAndBusiness?.officeAddress,
+            freshApplicationId: licenseId,
+            issuedBy: currentUserId,
+          };
+
+          createdLicense = await tx.licenses.create({ data: licenseData });
+          mergedFields.push('licenseCreated');
+        } catch (createLicenseError: any) {
+          // If license creation fails, continue to create audit log but transaction will rollback on error propagation
+          createdLicense = null;
+        }
+
+        // Create merge audit log
         try {
           const mergeLog = await tx.LicensesMergeAuditLog.create({
             data: {
               mergeId,
-              freshLicenseId,
+              freshLicenseId: licenseId,
               renewalLicenseId,
               mergedFields: mergedFields.join(','),
               mergedBy: currentUserId,
               mergedAt: new Date(),
               status: 'COMPLETED',
-              remarks: `Merged renewal license ${renewalLicenseId} into fresh license ${freshLicenseId}`,
+              remarks: `Merged renewal license ${renewalLicenseId} into fresh license ${licenseId}`,
             },
           });
         } catch (auditLogError: any) {
@@ -1183,12 +1309,13 @@ export class RenewalFormService {
           message: 'Renewal license successfully merged into fresh license',
           data: {
             mergeId,
-            freshLicenseId,
+            licenseId,
             renewalLicenseId,
             mergedFields,
             mergedAt: new Date(),
             mergedBy: currentUserId,
             freshLicenseUpdated: this.mapApplicationToResponse(updatedFreshLicense),
+            createdLicenseId: createdLicense ? createdLicense.id : undefined,
           },
         };
       });
@@ -1214,7 +1341,7 @@ export class RenewalFormService {
 
       const where: any = {};
       if (filters.mergeId) where.mergeId = { contains: filters.mergeId };
-      if (filters.freshLicenseId) where.freshLicenseId = parseInt(filters.freshLicenseId);
+      if (filters.licenseId) where.licenseId = parseInt(filters.licenseId);
       if (filters.renewalLicenseId) where.renewalLicenseId = parseInt(filters.renewalLicenseId);
       if (filters.status) where.status = filters.status;
       if (filters.mergedBy) where.mergedBy = parseInt(filters.mergedBy);
@@ -1471,6 +1598,8 @@ export class RenewalFormService {
           data: {
             acknowledgementNo,
             licenseNumber,
+            licenseId: freshLicense.licenseId || null,
+            renewalLicenseId: freshLicense.almsLicenseId || null,
             firstName: freshLicense.firstName,
             middleName: freshLicense.middleName || null,
             lastName: freshLicense.lastName,
@@ -1525,7 +1654,7 @@ export class RenewalFormService {
     return {
       id: application.id,
       acknowledgementNo: application.acknowledgementNo,
-      freshLicenseId: application.freshLicenseId,
+      licenseId: application.licenseId,
       licenseNumber: application.licenseNumber,
       applicantName: applicantName,
       parentOrSpouseName: application.parentOrSpouseName,

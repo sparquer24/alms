@@ -250,6 +250,16 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                         </div>
                         <p className={`text-sm mt-1 ${style.textColor}`}>{latestActivity.action}</p>
                         <div className='flex flex-wrap items-center gap-3 mt-2'>
+                          {latestActivity.applicationType && (
+                            <span className='px-2 py-0.5 rounded text-xs font-semibold'
+                              style={{
+                                backgroundColor: latestActivity.applicationType === 'FRESH' ? '#EFF6FF' : latestActivity.applicationType === 'RENEWAL' ? '#ECFDF5' : '#FEF3C7',
+                                color: latestActivity.applicationType === 'FRESH' ? '#2563EB' : latestActivity.applicationType === 'RENEWAL' ? '#059669' : '#D97706',
+                              }}
+                            >
+                              {latestActivity.applicationType}
+                            </span>
+                          )}
                           {latestActivity.applicantName && (
                             <div className='flex items-center gap-1.5'>
                               <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
@@ -335,6 +345,16 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                             <div className='flex-1'>
                             <p className={`text-sm font-medium ${activityStyle.textColor}`}>{activity.action}</p>
                               <div className='flex flex-wrap items-center gap-3 mt-1.5'>
+                                {activity.applicationType && (
+                                  <span className='px-2 py-0.5 rounded text-xs font-semibold'
+                                    style={{
+                                      backgroundColor: activity.applicationType === 'FRESH' ? '#EFF6FF' : activity.applicationType === 'RENEWAL' ? '#ECFDF5' : '#FEF3C7',
+                                      color: activity.applicationType === 'FRESH' ? '#2563EB' : activity.applicationType === 'RENEWAL' ? '#059669' : '#D97706',
+                                    }}
+                                  >
+                                    {activity.applicationType}
+                                  </span>
+                                )}
                                 {activity.applicantName && (
                                   <div className='flex items-center gap-1'>
                                     <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>
@@ -421,6 +441,16 @@ export function AdminActivityFeed({ activities, isLoading, error }: AdminActivit
                       </div>
                       <p className={`text-sm font-medium ${style.textColor}`}>{activity.action}</p>
                       <div className='flex flex-wrap items-center gap-3 mt-2'>
+                        {activity.applicationType && (
+                          <span className='px-2 py-0.5 rounded text-xs font-semibold'
+                            style={{
+                              backgroundColor: activity.applicationType === 'FRESH' ? '#EFF6FF' : activity.applicationType === 'RENEWAL' ? '#ECFDF5' : '#FEF3C7',
+                              color: activity.applicationType === 'FRESH' ? '#2563EB' : activity.applicationType === 'RENEWAL' ? '#059669' : '#D97706',
+                            }}
+                          >
+                            {activity.applicationType}
+                          </span>
+                        )}
                         {activity.applicantName && (
                           <div className='flex items-center gap-1.5'>
                             <span className='text-xs font-semibold text-gray-500 dark:text-gray-400'>

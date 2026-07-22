@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Query, Delete, Patch, UseGuards, Request, HttpCode, HttpStatus, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam, ApiCreatedResponse, ApiOkResponse,} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiQuery, ApiParam, ApiCreatedResponse, ApiOkResponse, } from '@nestjs/swagger';
 import { RenewalFormService } from './renewal-form.service';
 import { CreateRenewalPersonalDetailsDto } from './dto/create-personal-details.dto';
 import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-details.dto';
@@ -276,7 +276,7 @@ export class RenewalFormController {
     @Body() patchData: PatchRenewalApplicationDetailsDto,
     @Request() req: any,
     @Query('isSubmit') isSubmit?: string,
-    
+
   ): Promise<RenewalFormResponse> {
     const userId = Number(req?.user?.sub || req?.user?.user_id);
     const submitApp = isSubmit !== undefined ? isSubmit === 'true' : patchData.isSubmit === true
@@ -353,7 +353,7 @@ export class RenewalFormController {
         }
       }
     }
-  }) 
+  })
   @ApiResponse({ status: 400, description: 'Cannot delete file from non-DRAFT application' })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
@@ -529,10 +529,10 @@ export class RenewalFormController {
     description: 'Filter by merge ID',
   })
   @ApiQuery({
-    name: 'freshLicenseId',
+    name: 'licenseId',
     required: false,
     type: Number,
-    description: 'Filter by fresh license ID',
+    description: 'Filter by license ID (replaces freshLicenseId)',
   })
   @ApiQuery({
     name: 'renewalLicenseId',
@@ -599,10 +599,10 @@ export class RenewalFormController {
     type: MergeLicenseDto,
     description: 'IDs for the licenses to merge',
     examples: {
-      'Merge Renewal to Fresh License': {
+      'Merge Renewal to Fresh': {
         summary: 'Merge renewal form 5 into fresh license 1',
         value: {
-          freshLicenseId: 1,
+          licenseId: 1,
           renewalLicenseId: 5,
         },
       },
@@ -617,7 +617,7 @@ export class RenewalFormController {
       message: 'Renewal license successfully merged into fresh license',
       data: {
         mergeId: 'MERGE-1715754373000-12345678',
-        freshLicenseId: 1,
+        licenseId: 1,
         renewalLicenseId: 5,
         mergedFields: ['firstName', 'lastName', 'dateOfBirth', 'aadharNumber', 'panNumber', 'presentAddress', 'occupationAndBusiness', 'licenseDetails'],
         mergedAt: '2024-05-15T11:15:30.000Z',
@@ -684,37 +684,37 @@ export class RenewalFormController {
     try {
       // Check user role - handles multiple JWT role structures
       const allowedRoles = ['JTCP', 'CP'];
-      
+
       // Try multiple ways to extract roles from JWT
       let userRoles: string[] = [];
-      
+
       // Method 1: Check req.user.roleCode (set by JwtAuthGuard from role_code in token)
       if (req.user?.roleCode && typeof req.user.roleCode === 'string') {
         userRoles = [req.user.roleCode];
       }
-      
+
       // Method 2: Check req.user.roles (array of objects)
       if (!userRoles.length && req.user?.roles && Array.isArray(req.user.roles)) {
-        userRoles = req.user.roles.map((role: any) => 
+        userRoles = req.user.roles.map((role: any) =>
           role?.code || role?.name || role
         ).filter((r: any) => r);
       }
-      
+
       // Method 3: Check req.user.role (single string)
       if (!userRoles.length && req.user?.role && typeof req.user.role === 'string') {
         userRoles = [req.user.role];
       }
-      
+
       // Method 4: Check req.user.userRole (single string)
       if (!userRoles.length && req.user?.userRole && typeof req.user.userRole === 'string') {
         userRoles = [req.user.userRole];
       }
-      
+
       // Method 5: Check req.user.user_role (snake_case)
       if (!userRoles.length && (req.user as any)?.user_role && typeof (req.user as any).user_role === 'string') {
         userRoles = [(req.user as any).user_role];
       }
-      
+
       // Method 6: Check req.user.permissions
       if (!userRoles.length && req.user?.permissions && Array.isArray(req.user.permissions)) {
         userRoles = req.user.permissions.map((perm: any) =>
@@ -737,7 +737,7 @@ export class RenewalFormController {
         throw new ForbiddenException('User ID not found in token');
       }
       return await this.renewalFormService.mergeLicenses(
-        mergeData.freshLicenseId,
+        mergeData.licenseId,
         mergeData.renewalLicenseId,
         userId,
       );

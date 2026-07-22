@@ -1,4 +1,4 @@
-# ALMS — Renewal Application API Workflow Documentation
+# ALMS — Renewal API Workflow Documentation
 
 > **Version:** 1.0  
 > **Last Updated:** 17 June 2026  
@@ -28,7 +28,7 @@
 
 ## 1. Overview
 
-The Renewal Application module allows applicants with an existing **Fresh License** (approved and issued) to apply for license renewal. The workflow is designed to:
+The Renewal module allows applicants with an existing **Fresh** (approved and issued) to apply for license renewal. The workflow is designed to:
 
 - **Pre-fill** the renewal form from existing application data (minimizing re-entry)
 - **Avoid redundant API calls** by checking for existing renewals first
@@ -37,23 +37,23 @@ The Renewal Application module allows applicants with an existing **Fresh Licens
 
 ### Key Principles
 
-| Principle | Description |
-|---|---|
-| **Single Source of Truth** | Once a `renewalId` exists, the Renewal GET API is the only data source. Fresh application data is never re-fetched. |
-| **Lazy Creation** | A renewal DRAFT is created only when no existing renewal is found for the license number. |
-| **Section-Based Patching** | The PATCH API accepts partial payloads, so only changed sections are sent. |
-| **Idempotent Lookups** | The `findRenewalByLicenseNumber` check prevents duplicate renewal records. |
-| **Shared Workflow** | Renewal and Fresh License applications share the same workflow engine (`Statuses`/`Actiones` tables), differentiated by `applicationType` parameter. |
+| Principle                  | Description                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Single Source of Truth** | Once a `renewalId` exists, the Renewal GET API is the only data source. Fresh application data is never re-fetched.                          |
+| **Lazy Creation**          | A renewal DRAFT is created only when no existing renewal is found for the license number.                                                    |
+| **Section-Based Patching** | The PATCH API accepts partial payloads, so only changed sections are sent.                                                                   |
+| **Idempotent Lookups**     | The `findRenewalByLicenseNumber` check prevents duplicate renewal records.                                                                   |
+| **Shared Workflow**        | Renewal and Fresh applications share the same workflow engine (`Statuses`/`Actiones` tables), differentiated by `applicationType` parameter. |
 
 ### Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 15, React, TypeScript |
-| Backend | NestJS, TypeScript |
-| ORM | Prisma |
-| Database | PostgreSQL |
-| API Pattern | REST with JWT Authentication |
+| Layer            | Technology                                                  |
+| ---------------- | ----------------------------------------------------------- |
+| Frontend         | Next.js 15, React, TypeScript                               |
+| Backend          | NestJS, TypeScript                                          |
+| ORM              | Prisma                                                      |
+| Database         | PostgreSQL                                                  |
+| API Pattern      | REST with JWT Authentication                                |
 | State Management | React local state (`useState`, `useRef`) — no Redux/Zustand |
 
 ---
@@ -63,30 +63,30 @@ The Renewal Application module allows applicants with an existing **Fresh Licens
 ```mermaid
 flowchart TD
     A["User clicks 'Start Renewal'"] --> B{"renewalId in URL?"}
-    
+
     B -- Yes --> C["GET /renewal-forms/:renewalId"]
     C --> D["Load form from Renewal data"]
     D --> E["Form Ready (Edit Mode)"]
-    
+
     B -- No --> F["GET /applications/:applicationId"]
     F --> G["Extract licenseNumber from Fresh App"]
     G --> H{"Existing renewal for this license?"}
-    
+
     H -- Yes --> I["GET /renewal-forms/:existingRenewalId"]
     I --> J["Update URL with renewalId"]
     J --> D
-    
+
     H -- No --> K["Pre-fill form from Fresh App data"]
     K --> L["POST /renewal-forms (Create DRAFT)"]
     L --> M["Receive new renewalId"]
     M --> N["Update URL with renewalId"]
     N --> E
-    
+
     E --> O{"User Action"}
     O -- "Save Draft" --> P["PATCH /renewal-forms?applicationId=X"]
     O -- "Submit" --> Q["PATCH /renewal-forms?applicationId=X&isSubmit=true"]
     O -- "Upload File" --> R["POST /renewal-forms/:id/upload-file"]
-    
+
     P --> E
     Q --> S["Workflow Engine"]
     R --> E
@@ -103,44 +103,44 @@ flowchart TD
 
 ### 3.1 Renewal Form APIs
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| `POST` | `/renewal-forms` | Create a new renewal form (DRAFT) | JWT |
-| `GET` | `/renewal-forms` | List/search renewal applications | JWT |
-| `GET` | `/renewal-forms/:applicationId` | Get a specific renewal by ID | JWT |
-| `PATCH` | `/renewal-forms?applicationId=X` | Update renewal sections | JWT |
-| `POST` | `/renewal-forms/:applicationId/upload-file` | Upload document to renewal | JWT |
-| `DELETE` | `/renewal-forms/file/:fileId` | Delete a specific document | JWT |
-| `DELETE` | `/renewal-forms/application/:applicationId` | Delete entire DRAFT renewal | JWT |
+| Method   | Endpoint                                    | Description                       | Auth |
+| -------- | ------------------------------------------- | --------------------------------- | ---- |
+| `POST`   | `/renewal-forms`                            | Create a new renewal form (DRAFT) | JWT  |
+| `GET`    | `/renewal-forms`                            | List/search renewal applications  | JWT  |
+| `GET`    | `/renewal-forms/:applicationId`             | Get a specific renewal by ID      | JWT  |
+| `PATCH`  | `/renewal-forms?applicationId=X`            | Update renewal sections           | JWT  |
+| `POST`   | `/renewal-forms/:applicationId/upload-file` | Upload document to renewal        | JWT  |
+| `DELETE` | `/renewal-forms/file/:fileId`               | Delete a specific document        | JWT  |
+| `DELETE` | `/renewal-forms/application/:applicationId` | Delete entire DRAFT renewal       | JWT  |
 
 ### 3.2 Complete Endpoint Catalog (All 15 Endpoints)
 
-| # | Method | Endpoint | Purpose | Auth |
-|---|--------|----------|---------|------|
-| 1 | `POST` | `/renewal-forms` | Create new renewal DRAFT | JWT |
-| 2 | `GET` | `/renewal-forms` | List/search renewals (paginated) | JWT |
-| 3 | `GET` | `/renewal-forms/:applicationId` | Get renewal by ID | JWT |
-| 4 | `PATCH` | `/renewal-forms?applicationId=X&isSubmit=Y` | Update/submit renewal | JWT |
-| 5 | `POST` | `/renewal-forms/:id/upload-file` | Upload document | JWT |
-| 6 | `DELETE` | `/renewal-forms/file/:fileId` | Delete document | JWT |
-| 7 | `DELETE` | `/renewal-forms/application/:id` | Delete DRAFT renewal | JWT |
-| 8 | `POST` | `/renewal-forms/approved/merge` | Merge into fresh license (JTCP/CP) | JWT |
-| 9 | `GET` | `/renewal-forms/merge-audit-logs/all` | Merge audit trail | JWT |
-| 10 | `GET` | `/renewal-forms/merge-audit-logs/:mergeId` | Specific merge log | JWT |
-| 11 | `GET` | `/application-form?applicationId=X` | Fresh app data (for pre-fill) | JWT |
-| 12 | `GET` | `/workflow/statuses-actions` | Workflow statuses & actions | JWT |
-| 13 | `POST` | `/workflow/action` | Perform workflow action | JWT |
-| 14 | `GET` | `/workflow/applications?applicationType=RenewalApplicationForm` | Renewal apps in workflow | JWT |
-| 15 | `GET` | `/users-in-hierarchy/:id?applicationType=RenewalApplicationForm` | Officers for forwarding | JWT |
+| #   | Method   | Endpoint                                                         | Purpose                            | Auth |
+| --- | -------- | ---------------------------------------------------------------- | ---------------------------------- | ---- |
+| 1   | `POST`   | `/renewal-forms`                                                 | Create new renewal DRAFT           | JWT  |
+| 2   | `GET`    | `/renewal-forms`                                                 | List/search renewals (paginated)   | JWT  |
+| 3   | `GET`    | `/renewal-forms/:applicationId`                                  | Get renewal by ID                  | JWT  |
+| 4   | `PATCH`  | `/renewal-forms?applicationId=X&isSubmit=Y`                      | Update/submit renewal              | JWT  |
+| 5   | `POST`   | `/renewal-forms/:id/upload-file`                                 | Upload document                    | JWT  |
+| 6   | `DELETE` | `/renewal-forms/file/:fileId`                                    | Delete document                    | JWT  |
+| 7   | `DELETE` | `/renewal-forms/application/:id`                                 | Delete DRAFT renewal               | JWT  |
+| 8   | `POST`   | `/renewal-forms/approved/merge`                                  | Merge into fresh license (JTCP/CP) | JWT  |
+| 9   | `GET`    | `/renewal-forms/merge-audit-logs/all`                            | Merge audit trail                  | JWT  |
+| 10  | `GET`    | `/renewal-forms/merge-audit-logs/:mergeId`                       | Specific merge log                 | JWT  |
+| 11  | `GET`    | `/application-form?applicationId=X`                              | Fresh app data (for pre-fill)      | JWT  |
+| 12  | `GET`    | `/workflow/statuses-actions`                                     | Workflow statuses & actions        | JWT  |
+| 13  | `POST`   | `/workflow/action`                                               | Perform workflow action            | JWT  |
+| 14  | `GET`    | `/workflow/applications?applicationType=RenewalApplicationForm`  | Renewal apps in workflow           | JWT  |
+| 15  | `GET`    | `/users-in-hierarchy/:id?applicationType=RenewalApplicationForm` | Officers for forwarding            | JWT  |
 
 ### 3.3 API Configuration
 
 The frontend uses **two API client patterns**:
 
-| Client | File | Used By |
-|---|---|---|
-| `apiClient` (class-based) | [authenticatedApiClient.ts](file:///c:/Users/preml/Desktop/office/alms/frontend/src/config/authenticatedApiClient.ts) | `RenewalService` |
-| `axiosConfig` (function-based) | [axiosConfig.ts](file:///c:/Users/preml/Desktop/office/alms/frontend/src/api/axiosConfig.ts) | `ApplicationService`, PATCH operations |
+| Client                         | File                                                                                                                  | Used By                                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `apiClient` (class-based)      | [authenticatedApiClient.ts](file:///c:/Users/preml/Desktop/office/alms/frontend/src/config/authenticatedApiClient.ts) | `RenewalService`                       |
+| `axiosConfig` (function-based) | [axiosConfig.ts](file:///c:/Users/preml/Desktop/office/alms/frontend/src/api/axiosConfig.ts)                          | `ApplicationService`, PATCH operations |
 
 **Base URL:** `process.env.NEXT_PUBLIC_API_URL || '/api'`  
 **Auth:** Bearer token from cookie (`jsCookie.get('auth')`)  
@@ -154,6 +154,7 @@ The frontend uses **two API client patterns**:
 **Purpose:** Creates a new renewal application record with DRAFT status.
 
 **Request Body:**
+
 ```json
 {
   "licenseNumber": "ARM-2025-001",
@@ -173,6 +174,7 @@ The frontend uses **two API client patterns**:
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -196,12 +198,13 @@ The frontend uses **two API client patterns**:
 
 **Query Parameters:**
 
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `applicationId` | number | Yes | The renewal application ID |
-| `isSubmit` | boolean | No | Set `true` to submit after saving |
+| Param           | Type    | Required | Description                       |
+| --------------- | ------- | -------- | --------------------------------- |
+| `applicationId` | number  | Yes      | The renewal application ID        |
+| `isSubmit`      | boolean | No       | Set `true` to submit after saving |
 
 **Request Body (Section-Based):**
+
 ```json
 {
   "personalDetails": {
@@ -245,12 +248,14 @@ The frontend uses **two API client patterns**:
     "licencePlaceArea": "Residence",
     "requestedWeaponIds": [1, 2, 3]
   },
-  "licenseHistories": [{
-    "hasAppliedBefore": true,
-    "dateAppliedFor": "2024-01-15",
-    "previousAuthorityName": "DM Office",
-    "previousResult": "APPROVED"
-  }],
+  "licenseHistories": [
+    {
+      "hasAppliedBefore": true,
+      "dateAppliedFor": "2024-01-15",
+      "previousAuthorityName": "DM Office",
+      "previousResult": "APPROVED"
+    }
+  ],
   "acceptanceFlags": {
     "isDeclarationAccepted": true,
     "isAwareOfLegalConsequences": true,
@@ -264,6 +269,7 @@ The frontend uses **two API client patterns**:
 #### POST `/renewal-forms/:applicationId/upload-file` — Upload Document
 
 **Request Body:**
+
 ```json
 {
   "fileType": "AADHAR_CARD",
@@ -275,20 +281,20 @@ The frontend uses **two API client patterns**:
 
 **Supported File Types:**
 
-| File Type Key | Description |
-|---|---|
-| `AADHAR_CARD` | Aadhaar / ID Proof |
-| `PAN_CARD` | PAN Card |
-| `TRAINING_CERTIFICATE` | Arms Training Certificate |
-| `MEDICAL_REPORT` | Medical Fitness Certificate |
-| `OTHER_STATE_LICENSE` | License from Another State |
-| `EXISTING_LICENSE` | Current Arms License Copy |
-| `SAFE_CUSTODY` | Safe Custody Proof |
-| `PHOTOGRAPH` | Applicant Photograph |
-| `SIGNATURE_THUMB` | Signature / Fingerprint |
-| `IRIS_SCAN` | Iris Scan Data |
-| `CLAIM_DOCS` | Special Claim Documents |
-| `OTHER` | Other Supporting Documents |
+| File Type Key          | Description                 |
+| ---------------------- | --------------------------- |
+| `AADHAR_CARD`          | Aadhaar / ID Proof          |
+| `PAN_CARD`             | PAN Card                    |
+| `TRAINING_CERTIFICATE` | Arms Training Certificate   |
+| `MEDICAL_REPORT`       | Medical Fitness Certificate |
+| `OTHER_STATE_LICENSE`  | License from Another State  |
+| `EXISTING_LICENSE`     | Current Arms License Copy   |
+| `SAFE_CUSTODY`         | Safe Custody Proof          |
+| `PHOTOGRAPH`           | Applicant Photograph        |
+| `SIGNATURE_THUMB`      | Signature / Fingerprint     |
+| `IRIS_SCAN`            | Iris Scan Data              |
+| `CLAIM_DOCS`           | Special Claim Documents     |
+| `OTHER`                | Other Supporting Documents  |
 
 ---
 
@@ -410,17 +416,17 @@ erDiagram
 
 ### 4.2 Table Summary
 
-| # | Table | Purpose | FK Cascade |
-|---|-------|---------|------------|
-| 1 | `RenewalFormPersonalDetails` | Main application record | — |
-| 2 | `RenewalAddressesAndContactDetails` | Present & permanent addresses | ON DELETE CASCADE |
-| 3 | `RenewalOccupationAndBusiness` | Occupation details | ON DELETE CASCADE |
-| 4 | `RenewalLicenseDetails` | License specifications | ON DELETE CASCADE |
-| 5 | `RenewalFileUploads` | Document attachments | ON DELETE CASCADE |
-| 6 | `RenewalBiometricDatas` | Biometric capture data | ON DELETE CASCADE |
-| 7 | `RenewalApplicationsFormWorkflowHistories` | Workflow audit trail | ON DELETE CASCADE |
-| 8 | `_RenewalRequestedWeapons` | M:N weapons junction | — |
-| 9 | `LicensesMergeAuditLog` | Merge operation records | — |
+| #   | Table                                      | Purpose                       | FK Cascade        |
+| --- | ------------------------------------------ | ----------------------------- | ----------------- |
+| 1   | `RenewalFormPersonalDetails`               | Main application record       | —                 |
+| 2   | `RenewalAddressesAndContactDetails`        | Present & permanent addresses | ON DELETE CASCADE |
+| 3   | `RenewalOccupationAndBusiness`             | Occupation details            | ON DELETE CASCADE |
+| 4   | `RenewalLicenseDetails`                    | License specifications        | ON DELETE CASCADE |
+| 5   | `RenewalFileUploads`                       | Document attachments          | ON DELETE CASCADE |
+| 6   | `RenewalBiometricDatas`                    | Biometric capture data        | ON DELETE CASCADE |
+| 7   | `RenewalApplicationsFormWorkflowHistories` | Workflow audit trail          | ON DELETE CASCADE |
+| 8   | `_RenewalRequestedWeapons`                 | M:N weapons junction          | —                 |
+| 9   | `LicensesMergeAuditLog`                    | Merge operation records       | —                 |
 
 > [!NOTE]
 > All child tables use `ON DELETE CASCADE` — deleting a renewal application automatically removes all related records.
@@ -446,11 +452,11 @@ stateDiagram-v2
     SearchExistingRenewal --> CreateNewDraft: Renewal NOT FOUND
 
     LoadExistingRenewal --> LoadRenewalById: redirect with renewalId
-    
+
     CreateNewDraft --> CheckSubmitted: Verify fresh app is submitted
     CheckSubmitted --> PostCreateRenewal: POST /renewal-forms
     CheckSubmitted --> ErrorState: Fresh app not submitted
-    
+
     PostCreateRenewal --> FormReady: renewalId received
     LoadRenewalById --> FormReady: GET /renewal-forms/:id
 
@@ -498,11 +504,11 @@ Step 3:  PATCH /renewal-forms?applicationId=X&isSubmit=true → Submit
 
 ### 6.1 Decision Matrix — Which API to Call
 
-| Condition | API Used | Rationale |
-|---|---|---|
-| `renewalId` is in URL params | `GET /renewal-forms/:renewalId` | Direct load — renewal is the source of truth |
-| `renewalId` NOT in URL, but renewal exists for the license | `GET /renewal-forms/:existingId` | Found via `findRenewalByLicenseNumber` search |
-| No `renewalId`, no existing renewal | `GET /applications/:appId` → `POST /renewal-forms` | Pre-fill from fresh, then create DRAFT |
+| Condition                                                  | API Used                                           | Rationale                                     |
+| ---------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| `renewalId` is in URL params                               | `GET /renewal-forms/:renewalId`                    | Direct load — renewal is the source of truth  |
+| `renewalId` NOT in URL, but renewal exists for the license | `GET /renewal-forms/:existingId`                   | Found via `findRenewalByLicenseNumber` search |
+| No `renewalId`, no existing renewal                        | `GET /applications/:appId` → `POST /renewal-forms` | Pre-fill from fresh, then create DRAFT        |
 
 ### 6.2 Avoiding Redundant API Calls
 
@@ -559,7 +565,7 @@ await createDraftRenewalFromFreshApplication(...);
 
 ## 7. Scenario Walkthroughs
 
-### 7.1 Create New Renewal Application
+### 7.1 Create New Renewal
 
 ```mermaid
 sequenceDiagram
@@ -615,7 +621,7 @@ sequenceDiagram
     participant RenewalAPI as Renewal API
 
     User->>Frontend: Fills personal details & clicks "Save"
-    
+
     Frontend->>Frontend: Build section-based payload
     Note over Frontend: Only includes non-empty sections
 
@@ -624,10 +630,10 @@ sequenceDiagram
     RenewalAPI-->>Frontend: { success: true, updatedSections: [...] }
 
     Frontend->>User: Toast: "Saved successfully"
-    
+
     User->>Frontend: Continues filling other sections...
     User->>Frontend: Clicks "Save" again
-    
+
     Frontend->>RenewalAPI: PATCH /renewal-forms?applicationId=42
     Note right of Frontend: { occupationAndBusiness: {...}, licenseDetails: {...} }
     RenewalAPI-->>Frontend: Updated data
@@ -717,15 +723,15 @@ flowchart TB
 
 ### 8.2 Key State Variables
 
-| Variable | Type | Purpose |
-|---|---|---|
-| `formData` | `RenewalFormState` | Complete form state with all sections |
-| `renewalRecord` | `any` | Raw API response (for merge logic) |
-| `createdRenewalIdRef` | `Ref<string>` | Tracks the renewal ID to prevent duplicate creates |
-| `activeRenewalId` | `string` | `renewalId` from URL or `createdRenewalIdRef` |
-| `isLoading` | `boolean` | Initial data loading indicator |
-| `isSaving` | `boolean` | Save/submit operation in progress |
-| `isReadOnly` | `boolean` | True when status is APPROVED |
+| Variable              | Type               | Purpose                                            |
+| --------------------- | ------------------ | -------------------------------------------------- |
+| `formData`            | `RenewalFormState` | Complete form state with all sections              |
+| `renewalRecord`       | `any`              | Raw API response (for merge logic)                 |
+| `createdRenewalIdRef` | `Ref<string>`      | Tracks the renewal ID to prevent duplicate creates |
+| `activeRenewalId`     | `string`           | `renewalId` from URL or `createdRenewalIdRef`      |
+| `isLoading`           | `boolean`          | Initial data loading indicator                     |
+| `isSaving`            | `boolean`          | Save/submit operation in progress                  |
+| `isReadOnly`          | `boolean`          | True when status is APPROVED                       |
 
 ### 8.3 Form State Structure (`RenewalFormState`)
 
@@ -751,7 +757,7 @@ type RenewalFormState = {
 
   // Address Details
   presentAddress: string;
-  presentState: string;     // Location ID (string)
+  presentState: string; // Location ID (string)
   presentDistrict: string;
   presentZone: string;
   presentDivision: string;
@@ -765,7 +771,7 @@ type RenewalFormState = {
   officeBusinessDistrict: string;
 
   // License Details
-  armsOptionType: string;   // "RESTRICTED" | "PERMISSIBLE"
+  armsOptionType: string; // "RESTRICTED" | "PERMISSIBLE"
   weaponType: string;
   weaponReason: string;
   licenseValidity: string;
@@ -805,27 +811,27 @@ type RenewalFormState = {
 
 #### RenewalService ([renewalService.ts](file:///c:/Users/preml/Desktop/office/alms/frontend/src/api/renewalService.ts))
 
-| Method | Description |
-|---|---|
-| `findRenewalByLicenseNumber(license)` | Search for existing renewal by license number |
-| `createRenewalForm(payload)` | POST — create new renewal draft |
-| `getRenewalForm(id)` | GET — fetch renewal by ID |
-| `updateRenewalForm(id, payload, options)` | PATCH — update renewal sections |
-| `uploadDocument(id, fileType, file)` | Upload file (auto base64 conversion) |
-| `deleteRenewalFile(fileId)` | Delete uploaded document |
-| `handleWorkflowAction(...)` | Perform workflow action |
+| Method                                    | Description                                   |
+| ----------------------------------------- | --------------------------------------------- |
+| `findRenewalByLicenseNumber(license)`     | Search for existing renewal by license number |
+| `createRenewalForm(payload)`              | POST — create new renewal draft               |
+| `getRenewalForm(id)`                      | GET — fetch renewal by ID                     |
+| `updateRenewalForm(id, payload, options)` | PATCH — update renewal sections               |
+| `uploadDocument(id, fileType, file)`      | Upload file (auto base64 conversion)          |
+| `deleteRenewalFile(fileId)`               | Delete uploaded document                      |
+| `handleWorkflowAction(...)`               | Perform workflow action                       |
 
 #### RenewalWorkflowService ([renewalWorkflowService.ts](file:///c:/Users/preml/Desktop/office/alms/frontend/src/services/renewalWorkflowService.ts))
 
-| Method | Description |
-|---|---|
-| `submitRenewalForWorkflow(appId)` | Auto-resolve INITIATE action ID and submit |
-| `forwardRenewalApplication(appId, nextUserId, remarks)` | Forward to next officer |
-| `approveRenewalApplication(appId, remarks)` | Approve the application |
-| `rejectRenewalApplication(appId, remarks)` | Reject the application |
-| `requestInfoRenewalApplication(appId, remarks)` | Request more info from applicant |
-| `disposeRenewalApplication(appId, remarks)` | Dispose the application |
-| `raiseRedFlagRenewalApplication(appId, remarks)` | Raise a red flag |
+| Method                                                  | Description                                |
+| ------------------------------------------------------- | ------------------------------------------ |
+| `submitRenewalForWorkflow(appId)`                       | Auto-resolve INITIATE action ID and submit |
+| `forwardRenewalApplication(appId, nextUserId, remarks)` | Forward to next officer                    |
+| `approveRenewalApplication(appId, remarks)`             | Approve the application                    |
+| `rejectRenewalApplication(appId, remarks)`              | Reject the application                     |
+| `requestInfoRenewalApplication(appId, remarks)`         | Request more info from applicant           |
+| `disposeRenewalApplication(appId, remarks)`             | Dispose the application                    |
+| `raiseRedFlagRenewalApplication(appId, remarks)`        | Raise a red flag                           |
 
 ---
 
@@ -835,34 +841,34 @@ type RenewalFormState = {
 
 The system maps data from the Fresh Application API response to the `RenewalFormState`. Key mappings:
 
-| Fresh App Field | Renewal Form Field | Notes |
-|---|---|---|
-| `firstName` | `applicantName` | Also checks `personalDetails.firstName` |
-| `middleName` | `applicantMiddleName` | |
-| `lastName` | `applicantLastName` | |
-| `parentOrSpouseName` | `fatherName` | |
-| `sex` | `applicantGender` | Normalized: M→MALE, F→FEMALE |
-| `dateOfBirth` | `applicantDateOfBirth` | ISO date format (YYYY-MM-DD) |
-| `aadharNumber` | `aadharNumber` | |
-| `panNumber` | `panNumber` | |
-| `presentAddress.addressLine` | `presentAddress` | |
-| `presentAddress.stateId` | `presentState` | Stored as string |
-| `occupationAndBusiness.occupation` | `occupation` | |
-| `licenseDetails[0].needForLicense` | `weaponReason` | Mapped: `SELF_PROTECTION` → `self_defense` |
-| `licenseDetails[0].armsCategory` | `armsOptionType` | `RESTRICTED` or `PERMISSIBLE` |
+| Fresh App Field                    | Renewal Form Field     | Notes                                      |
+| ---------------------------------- | ---------------------- | ------------------------------------------ |
+| `firstName`                        | `applicantName`        | Also checks `personalDetails.firstName`    |
+| `middleName`                       | `applicantMiddleName`  |                                            |
+| `lastName`                         | `applicantLastName`    |                                            |
+| `parentOrSpouseName`               | `fatherName`           |                                            |
+| `sex`                              | `applicantGender`      | Normalized: M→MALE, F→FEMALE               |
+| `dateOfBirth`                      | `applicantDateOfBirth` | ISO date format (YYYY-MM-DD)               |
+| `aadharNumber`                     | `aadharNumber`         |                                            |
+| `panNumber`                        | `panNumber`            |                                            |
+| `presentAddress.addressLine`       | `presentAddress`       |                                            |
+| `presentAddress.stateId`           | `presentState`         | Stored as string                           |
+| `occupationAndBusiness.occupation` | `occupation`           |                                            |
+| `licenseDetails[0].needForLicense` | `weaponReason`         | Mapped: `SELF_PROTECTION` → `self_defense` |
+| `licenseDetails[0].armsCategory`   | `armsOptionType`       | `RESTRICTED` or `PERMISSIBLE`              |
 
 ### 9.2 Renewal Form → PATCH API Payload Mapping
 
-| Form Field | PATCH Payload Path | Notes |
-|---|---|---|
-| `applicantName` | `personalDetails.firstName` | |
-| `fatherName` | `personalDetails.parentOrSpouseName` | |
-| `presentAddress` | `addressDetails.addressLine` | |
-| `presentState` | `addressDetails.stateId` | Converted to number |
-| `occupation` | `occupationAndBusiness.occupation` | |
-| `weaponReason` | `licenseDetails.needForLicense` | Reverse mapped: `self_defense` → `SELF_PROTECTION` |
-| `carryAreaDistrict` | `licenseDetails.areaOfValidity` | Combined: "DISTRICT, STATE" |
-| `declaration.agreeToTruth` | `acceptanceFlags.isDeclarationAccepted` | |
+| Form Field                 | PATCH Payload Path                      | Notes                                              |
+| -------------------------- | --------------------------------------- | -------------------------------------------------- |
+| `applicantName`            | `personalDetails.firstName`             |                                                    |
+| `fatherName`               | `personalDetails.parentOrSpouseName`    |                                                    |
+| `presentAddress`           | `addressDetails.addressLine`            |                                                    |
+| `presentState`             | `addressDetails.stateId`                | Converted to number                                |
+| `occupation`               | `occupationAndBusiness.occupation`      |                                                    |
+| `weaponReason`             | `licenseDetails.needForLicense`         | Reverse mapped: `self_defense` → `SELF_PROTECTION` |
+| `carryAreaDistrict`        | `licenseDetails.areaOfValidity`         | Combined: "DISTRICT, STATE"                        |
+| `declaration.agreeToTruth` | `acceptanceFlags.isDeclarationAccepted` |                                                    |
 
 ---
 
@@ -893,7 +899,7 @@ sequenceDiagram
 When a renewal is created from fresh application data, existing documents from the fresh application are automatically synced:
 
 1. **During creation:** `applyPrefilledDocumentUploads()` iterates document fields
-2. **For each prefilled doc:** Calls `POST /renewal-forms/:id/upload-file`  
+2. **For each prefilled doc:** Calls `POST /renewal-forms/:id/upload-file`
 3. **Marks as synced:** Prevents duplicate re-uploads on subsequent loads
 4. **Background sync:** `usePrefilledDocumentSync` hook handles evidence files asynchronously
 
@@ -902,18 +908,18 @@ When a renewal is created from fresh application data, existing documents from t
 ```typescript
 // Frontend field name → API file type mapping
 const FILE_TYPE_MAP = {
-  idProofUploaded:           'AADHAR_CARD',
-  panCardUploaded:           'PAN_CARD',
-  trainingCertificateUploaded: 'TRAINING_CERTIFICATE',
-  medicalCertificateUploaded:  'MEDICAL_REPORT',
-  otherStateLicenseUploaded:   'OTHER_STATE_LICENSE',
-  existingArmsLicenseUploaded: 'EXISTING_LICENSE',
-  safeCustodyUploaded:         'SAFE_CUSTODY',
-  photographUploaded:          'PHOTOGRAPH',
-  selectedFingerprint:         'SIGNATURE_THUMB',
-  signature:                   'SIGNATURE_THUMB',
-  irisScan:                    'IRIS_SCAN',
-  claimDocsUploaded:           'CLAIM_DOCS',
+  idProofUploaded: "AADHAR_CARD",
+  panCardUploaded: "PAN_CARD",
+  trainingCertificateUploaded: "TRAINING_CERTIFICATE",
+  medicalCertificateUploaded: "MEDICAL_REPORT",
+  otherStateLicenseUploaded: "OTHER_STATE_LICENSE",
+  existingArmsLicenseUploaded: "EXISTING_LICENSE",
+  safeCustodyUploaded: "SAFE_CUSTODY",
+  photographUploaded: "PHOTOGRAPH",
+  selectedFingerprint: "SIGNATURE_THUMB",
+  signature: "SIGNATURE_THUMB",
+  irisScan: "IRIS_SCAN",
+  claimDocsUploaded: "CLAIM_DOCS",
 };
 ```
 
@@ -943,16 +949,16 @@ flowchart LR
     style CP fill:#831843,color:#fff
 ```
 
-| Role | Code | Responsibility |
-|---|---|---|
-| Applicant | — | Creates and submits renewal application |
-| Zonal Sergeant | `ZS` | Initial review, forwards to SHO |
-| Station House Officer | `SHO` | Station-level verification, Ground Report (via jsPDF) |
-| Asst. Commissioner | `ACP` | Review and forward/recommend |
-| Dy. Commissioner | `DCP` | Senior review and forward |
-| Chief Admin Officer | `CADO` | Administrative review |
-| Joint Commissioner | `JTCP` | Final review, can merge licenses |
-| Commissioner | `CP` | Final approval authority, can merge licenses |
+| Role                  | Code   | Responsibility                                        |
+| --------------------- | ------ | ----------------------------------------------------- |
+| Applicant             | —      | Creates and submits renewal application               |
+| Zonal Sergeant        | `ZS`   | Initial review, forwards to SHO                       |
+| Station House Officer | `SHO`  | Station-level verification, Ground Report (via jsPDF) |
+| Asst. Commissioner    | `ACP`  | Review and forward/recommend                          |
+| Dy. Commissioner      | `DCP`  | Senior review and forward                             |
+| Chief Admin Officer   | `CADO` | Administrative review                                 |
+| Joint Commissioner    | `JTCP` | Final review, can merge licenses                      |
+| Commissioner          | `CP`   | Final approval authority, can merge licenses          |
 
 > [!IMPORTANT]
 > Only **JTCP** and **CP** roles can perform the **Merge License** operation after approval.
@@ -961,12 +967,12 @@ flowchart LR
 
 Officers processing renewal applications use only 4 APIs:
 
-| # | API | Purpose |
-|---|-----|---------|
-| 1 | `GET /renewal-forms/:id` | Load full renewal application details |
-| 2 | `GET /workflow/statuses-actions` | Get available statuses and actions for the role |
-| 3 | `GET /users-in-hierarchy/:id?applicationType=RenewalApplicationForm` | Get list of officers to forward to |
-| 4 | `POST /workflow/action` | Perform action (forward, approve, reject, etc.) |
+| #   | API                                                                  | Purpose                                         |
+| --- | -------------------------------------------------------------------- | ----------------------------------------------- |
+| 1   | `GET /renewal-forms/:id`                                             | Load full renewal application details           |
+| 2   | `GET /workflow/statuses-actions`                                     | Get available statuses and actions for the role |
+| 3   | `GET /users-in-hierarchy/:id?applicationType=RenewalApplicationForm` | Get list of officers to forward to              |
+| 4   | `POST /workflow/action`                                              | Perform action (forward, approve, reject, etc.) |
 
 ### 11.3 Workflow State Machine
 
@@ -998,20 +1004,20 @@ stateDiagram-v2
 
 ### 11.4 Workflow Status IDs
 
-| ID | Code | Description |
-|---|---|---|
-| 1 | `FORWARD` | Forwarded to next officer |
-| 2 | `REJECT` | Application rejected |
-| 3 | `APPROVED` | Application approved |
-| 4 | `CANCEL` | Application cancelled |
-| 5 | `RE_ENQUIRY` | Re-enquiry requested |
-| — | `DRAFT` | Initial draft state |
-| — | `INITIATED` | Submitted for review |
-| — | `RED_FLAG` | Red flagged |
-| — | `DISPOSE` | Disposed |
-| — | `RECOMMEND` | Recommended |
-| — | `NOT_RECOMMEND` | Not recommended |
-| — | `GROUND_REPORT` | Ground report generated |
+| ID  | Code            | Description               |
+| --- | --------------- | ------------------------- |
+| 1   | `FORWARD`       | Forwarded to next officer |
+| 2   | `REJECT`        | Application rejected      |
+| 3   | `APPROVED`      | Application approved      |
+| 4   | `CANCEL`        | Application cancelled     |
+| 5   | `RE_ENQUIRY`    | Re-enquiry requested      |
+| —   | `DRAFT`         | Initial draft state       |
+| —   | `INITIATED`     | Submitted for review      |
+| —   | `RED_FLAG`      | Red flagged               |
+| —   | `DISPOSE`       | Disposed                  |
+| —   | `RECOMMEND`     | Recommended               |
+| —   | `NOT_RECOMMEND` | Not recommended           |
+| —   | `GROUND_REPORT` | Ground report generated   |
 
 ### 11.5 Workflow API Usage
 
@@ -1022,7 +1028,11 @@ All workflow actions use the unified `POST /workflow/action` endpoint, different
 await RenewalWorkflowService.submitRenewalForWorkflow(applicationId);
 
 // Forward to next officer
-await RenewalWorkflowService.forwardRenewalApplication(applicationId, nextUserId, remarks);
+await RenewalWorkflowService.forwardRenewalApplication(
+  applicationId,
+  nextUserId,
+  remarks,
+);
 
 // Approve
 await RenewalWorkflowService.approveRenewalApplication(applicationId, remarks);
@@ -1031,7 +1041,10 @@ await RenewalWorkflowService.approveRenewalApplication(applicationId, remarks);
 await RenewalWorkflowService.rejectRenewalApplication(applicationId, remarks);
 
 // Request additional info
-await RenewalWorkflowService.requestInfoRenewalApplication(applicationId, remarks);
+await RenewalWorkflowService.requestInfoRenewalApplication(
+  applicationId,
+  remarks,
+);
 ```
 
 **Payload structure:**
@@ -1060,6 +1073,7 @@ This updates the fresh license record with the latest renewal data (personal det
 **Validation:** The merge endpoint validates that `freshLicense.acknowledgementNo === renewalLicense.licenseNumber`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1067,7 +1081,16 @@ This updates the fresh license record with the latest renewal data (personal det
     "mergeId": "MERGE-1779191518061-72453e46",
     "freshLicenseId": 1,
     "renewalLicenseId": 42,
-    "mergedFields": ["firstName", "lastName", "dateOfBirth", "aadharNumber", "panNumber", "presentAddress", "occupationAndBusiness", "licenseDetails"],
+    "mergedFields": [
+      "firstName",
+      "lastName",
+      "dateOfBirth",
+      "aadharNumber",
+      "panNumber",
+      "presentAddress",
+      "occupationAndBusiness",
+      "licenseDetails"
+    ],
     "mergedAt": "2026-06-15T11:15:30.000Z",
     "mergedBy": 2
   }
@@ -1080,19 +1103,19 @@ This updates the fresh license record with the latest renewal data (personal det
 
 ### 12.1 Data Transfer Objects (Backend)
 
-| DTO | Endpoint | Purpose |
-|---|---|---|
-| `CreateRenewalPersonalDetailsDto` | `POST /renewal-forms` | Create new draft with personal data |
-| `PatchRenewalApplicationDetailsDto` | `PATCH /renewal-forms` | Update any section (nested structure) |
-| `PatchPersonalDetailsDto` | Nested in PATCH | Update personal details only |
-| `PatchAddressDetailsDto` | Nested in PATCH | Update address details only |
-| `PatchOccupationBusinessDto` | Nested in PATCH | Update occupation only |
-| `PatchLicenseDetailsDto` | Nested in PATCH | Update license details only |
-| `GetRenewalApplicationsDto` | `GET /renewal-forms` | Query filters (page, limit, search, status) |
-| `UploadRenewalFileDto` | `POST .../upload-file` | File metadata (type, URL, name, size) |
-| `UpdateRenewalWorkflowStatusDto` | Internal | Workflow status update |
-| `MergeLicenseDto` | `POST .../merge` | Merge request (freshId + renewalId) |
-| `MergeResponseDto` | Response | Merge result with audit data |
+| DTO                                 | Endpoint               | Purpose                                     |
+| ----------------------------------- | ---------------------- | ------------------------------------------- |
+| `CreateRenewalPersonalDetailsDto`   | `POST /renewal-forms`  | Create new draft with personal data         |
+| `PatchRenewalApplicationDetailsDto` | `PATCH /renewal-forms` | Update any section (nested structure)       |
+| `PatchPersonalDetailsDto`           | Nested in PATCH        | Update personal details only                |
+| `PatchAddressDetailsDto`            | Nested in PATCH        | Update address details only                 |
+| `PatchOccupationBusinessDto`        | Nested in PATCH        | Update occupation only                      |
+| `PatchLicenseDetailsDto`            | Nested in PATCH        | Update license details only                 |
+| `GetRenewalApplicationsDto`         | `GET /renewal-forms`   | Query filters (page, limit, search, status) |
+| `UploadRenewalFileDto`              | `POST .../upload-file` | File metadata (type, URL, name, size)       |
+| `UpdateRenewalWorkflowStatusDto`    | Internal               | Workflow status update                      |
+| `MergeLicenseDto`                   | `POST .../merge`       | Merge request (freshId + renewalId)         |
+| `MergeResponseDto`                  | Response               | Merge result with audit data                |
 
 ### 12.2 Nested PATCH Payload Structure
 
@@ -1125,14 +1148,14 @@ flowchart TB
 
 ### 13.1 Error Scenarios
 
-| Scenario | Detection | Recovery |
-|---|---|---|
-| Renewal already exists for license | POST returns 400 with "already exists" message | Auto-search by license number and load existing |
-| Fresh app not submitted | `isSubmit !== true` in fresh app response | Show error: "Your application has not been submitted" |
-| No fresh app data found | `freshData` is null after GET | Show error: "No fresh application data found" |
-| Renewal ID in URL but record deleted | GET returns 404 | Show error message, redirect to dashboard |
-| Network failure during save | PATCH throws error | Toast error, retain form data in state |
-| Duplicate create race condition | `createdRenewalIdRef` guard | Skip creation if ref is already set |
+| Scenario                             | Detection                                      | Recovery                                              |
+| ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------- |
+| Renewal already exists for license   | POST returns 400 with "already exists" message | Auto-search by license number and load existing       |
+| Fresh app not submitted              | `isSubmit !== true` in fresh app response      | Show error: "Your application has not been submitted" |
+| No fresh app data found              | `freshData` is null after GET                  | Show error: "No fresh application data found"         |
+| Renewal ID in URL but record deleted | GET returns 404                                | Show error message, redirect to dashboard             |
+| Network failure during save          | PATCH throws error                             | Toast error, retain form data in state                |
+| Duplicate create race condition      | `createdRenewalIdRef` guard                    | Skip creation if ref is already set                   |
 
 ### 13.2 Duplicate Prevention
 
@@ -1149,6 +1172,7 @@ const createDraftRenewalFromFreshApplication = async (...) => {
 ### 13.3 Read-Only Mode
 
 When a renewal has `workflowStatus.code === "APPROVED"`:
+
 - Form fields become read-only
 - A modal informs the user
 - Save/submit buttons are disabled
@@ -1159,13 +1183,13 @@ When a renewal has `workflowStatus.code === "APPROVED"`:
 
 ### 14.1 API Call Optimization Summary
 
-| ❌ Don't | ✅ Do |
-|---|---|
-| Fetch fresh app on every renewal form load | Only fetch fresh app when creating a NEW renewal |
-| Call both GET APIs simultaneously | Use `renewalId` check to determine which API to call |
-| Send full payload on every save | Send only changed sections via PATCH |
-| Upload all documents in sequence | Upload documents in parallel where possible |
-| Re-create renewal on "already exists" error | Search by license number and load existing |
+| ❌ Don't                                    | ✅ Do                                                |
+| ------------------------------------------- | ---------------------------------------------------- |
+| Fetch fresh app on every renewal form load  | Only fetch fresh app when creating a NEW renewal     |
+| Call both GET APIs simultaneously           | Use `renewalId` check to determine which API to call |
+| Send full payload on every save             | Send only changed sections via PATCH                 |
+| Upload all documents in sequence            | Upload documents in parallel where possible          |
+| Re-create renewal on "already exists" error | Search by license number and load existing           |
 
 ### 14.2 Frontend Performance Tips
 

@@ -10,7 +10,7 @@ import { create } from "domain";
 @ApiBearerAuth('JWT-auth')
 @Controller("actiones")
 export class ActionesController {
-  constructor(private readonly actionesService: ActionesService) {}
+  constructor(private readonly actionesService: ActionesService) { }
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -18,30 +18,30 @@ export class ActionesController {
     summary: "Get actions",
     description: "Retrieve actions for the authenticated user (based on token). Optionally filter based on application status.",
   })
-  @ApiQuery({ 
-    name: 'applicationId', 
-    required: false, 
-    type: Number, 
-    description: 'Optional applicationId to filter actions based on application status (excludes APPROVED action if already approved, REJECT action if already rejected)' 
+  @ApiQuery({
+    name: 'applicationId',
+    required: false,
+    type: Number,
+    description: 'Optional applicationId to filter actions based on application status (excludes APPROVED action if already approved, REJECT action if already rejected)'
   })
   @ApiQuery({
     name: 'applicationType',
     required: false,
     type: String,
-    description: 'Optional application type to filter actions (e.g., "Fresh License" or "Renewal Application)'
+    description: 'Optional application type to filter actions (e.g., "Fresh" or "Renewal)'
   })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   async getActiones(
     @Request() req: any,
-    @Query('applicationId') applicationId?: string, 
+    @Query('applicationId') applicationId?: string,
     @Query('applicationType') applicationType?: string
   ): Promise<Actiones[]> {
     // JwtAuthGuard guarantees request.user is set to decoded token if valid
     const tokenUserId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
 
-     return this.actionesService.getActiones(
+    return this.actionesService.getActiones(
       tokenUserId,
       applicationId ? Number(applicationId) : undefined, applicationType ? String(applicationType) : undefined
     );
@@ -126,13 +126,13 @@ export class ActionesController {
     status: 200,
     description: "Action created successfully",
   })
-  async createAction(@Body() mappingData: RolesActionsMapping ) {
-    try{
+  async createAction(@Body() mappingData: RolesActionsMapping) {
+    try {
       return this.actionesService.createAction(mappingData);
     }
-    catch(error){
+    catch (error) {
       throw error;
-    } 
+    }
   }
 
   @Put("RolesActionsMapping/:id")
@@ -159,16 +159,16 @@ export class ActionesController {
     status: 200,
     description: "Action updated successfully",
   })
-  async updateAction(@Param('id') id : number, @Body() mappingData: RolesActionsMapping ) {
-   try {
+  async updateAction(@Param('id') id: number, @Body() mappingData: RolesActionsMapping) {
+    try {
       return this.actionesService.updateAction(Number(id), mappingData);
     } catch (error) {
       throw error;
     }
- }
+  }
   @Delete("RolesActionsMapping/:id")
   @ApiOperation({
-    summary: "Delete action mapping", 
+    summary: "Delete action mapping",
     description: "Delete an existing action mapping entry",
   })
   @ApiBody({

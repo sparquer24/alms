@@ -124,7 +124,7 @@ export const AdminTable = React.forwardRef<HTMLDivElement, AdminTableProps<any>>
               ) : (
                 data.map((row, rowIdx) => (
                   <tr
-                    key={String(row[rowKey])}
+                    key={`${String(row[rowKey])}-${(row as any).applicationType || 'default'}`}
                     onClick={() => onRowClick?.(row)}
                     style={{
                       borderBottom: `1px solid ${colors.border}`,

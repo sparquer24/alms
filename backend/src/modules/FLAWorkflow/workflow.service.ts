@@ -20,7 +20,7 @@ export class WorkflowService {
   }
 
   async getApplicationsByType(applicationType: string) {
-    if (applicationType === 'flawUpdate' || applicationType === 'FreshLicenseApplicationForm') {
+    if (applicationType === 'flawUpdate' || applicationType === 'FreshLicenseApplicationForm' || applicationType.toLowerCase() === 'fresh') {
       return await prisma.freshLicenseApplicationPersonalDetails.findMany({
         select: {
           id: true,
@@ -37,7 +37,7 @@ export class WorkflowService {
           updatedAt: true,
         }
       });
-    } else if (applicationType === 'renewUpdate' || applicationType === 'RenewalApplicationForm') {
+    } else if (applicationType === 'renewUpdate' || applicationType === 'RenewalApplicationForm' || applicationType.toLowerCase() === 'renewal') {
       return await prisma.renewalFormPersonalDetails.findMany({
         select: {
           id: true,
@@ -54,69 +54,75 @@ export class WorkflowService {
           updatedAt: true,
         }
       });
-    } else if (
-      applicationType === 'CancelFormRequest' ||
-      applicationType === 'CancelApplication' ||
-      applicationType === 'CancelForm' ||
-      applicationType === 'cancel'
-    ) {
-      const cancelRequests = await prisma.cancelFormRequests.findMany({
-        select: {
-          id: true,
-          freshLicenseId: true,
-          applicationType: true,
-          cancellationReason: true,
-          remarks: true,
-          status: true,
-          workFlowStatusId: true,
-          currentUserId: true,
-          previousUserId: true,
-          requestedBy: true,
-          actionedBy: true,
-          requestedDate: true,
-          actionedDate: true,
-          createdAt: true,
-          updatedAt: true,
-          freshLicense: {
-            select: {
-              id: true,
-              firstName: true,
-              middleName: true,
-              lastName: true,
-            },
-          },
-        }
-      });
-      return cancelRequests.map(r => {
-        const applicantName = r.freshLicense
-          ? [r.freshLicense.firstName, r.freshLicense.middleName, r.freshLicense.lastName]
-              .filter(Boolean)
-              .join(' ') || 'Applicant'
-          : 'Applicant';
+    } 
+    // else if (
+    //   applicationType === 'CancelFormRequest' ||
+    //   applicationType === 'CancelApplication' ||
+    //   applicationType === 'CancelForm' ||
+    //   applicationType === 'cancel'
+    // ) {
+    //   const cancelRequests = await prisma.cancelFormRequests.findMany({
+    //     select: {
+    //       id: true,
+    //       licenseId: true,
+    //       applicationType: true,
+    //       cancellationReason: true,
+    //       remarks: true,
+    //       workFlowStatusId: true,
+    //       workflowStatus: {
+    //         select: {
+    //           code: true,
+    //         },
+    //       },
+    //       currentUserId: true,
+    //       previousUserId: true,
+    //       requestedBy: true,
+    //       actionedBy: true,
+    //       requestedDate: true,
+    //       actionedDate: true,
+    //       createdAt: true,
+    //       updatedAt: true,
+    //       Licenses: {
+    //         select: {
+    //           id: true,
+    //           firstName: true,
+    //           middleName: true,
+    //           lastName: true,
+    //         },
+    //       },
+    //     }
+    //   });
+    //   return cancelRequests.map(r => {
+    //     const applicantName = r.Licenses
+    //       ? [r.Licenses.firstName, r.Licenses.middleName, r.Licenses.lastName]
+    //           .filter(Boolean)
+    //           .join(' ') || 'Applicant'
+    //       : 'Applicant';
 
-        return {
-          id: r.id,
-          freshLicenseId: r.freshLicenseId,
-          applicationType: r.applicationType,
-          cancellationReason: r.cancellationReason,
-          remarks: r.remarks,
-          applicantName,
-          requestedDate: r.requestedDate,
-          actionedDate: r.actionedDate,
-          workflowStatusId: r.workFlowStatusId,
-          currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
-          previousUserId: r.previousUserId || r.requestedBy,
-          isApproved: r.status === 'APPROVED',
-          isRejected: r.status === 'REJECTED',
-          isRecommended: false,
-          isNotRecommended: false,
-          isPending: r.status === 'PENDING',
-          isReEnquiry: false,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-        };
-      });
-    } else {
+    //     return {
+    //       id: r.id,
+    //       freshLicenseId: r.licenseId,
+    //       applicationType: r.applicationType,
+    //       cancellationReason: r.cancellationReason,
+    //       remarks: r.remarks,
+    //       applicantName,
+    //       requestedDate: r.requestedDate,
+    //       actionedDate: r.actionedDate,
+    //       workflowStatusId: r.workFlowStatusId,
+    //       currentUserId: r.currentUserId || r.actionedBy || r.requestedBy,
+    //       previousUserId: r.previousUserId || r.requestedBy,
+    //       isApproved: isApprovalAction(r.workflowStatus?.code || ''),
+    //       isRejected: isRejectionAction(r.workflowStatus?.code || ''),
+    //       isRecommended: false,
+    //       isNotRecommended: false,
+    //       isPending: !isTerminalAction(r.workflowStatus?.code || ''),
+    //       isReEnquiry: false,
+    //       createdAt: r.createdAt,
+    //       updatedAt: r.updatedAt,
+    //     };
+    //   });
+    // } 
+    else {
       throw new Error(`Invalid applicationType: ${applicationType}`);
     }
   }
@@ -318,7 +324,7 @@ export class WorkflowService {
   private async issueLicenseFromFreshApproval(applicationId: number, issuedBy: number) {
     // Check if license already exists for this application
     const existingLicense = await prisma.licenses.findFirst({
-      where: { sourceApplicationId: applicationId }
+      where: { freshApplicationId: applicationId }
     });
     if (existingLicense) return;
 
@@ -348,7 +354,7 @@ export class WorkflowService {
         data: {
           licenseNumber,
           almsLicenseId: appData.almsLicenseId,
-          sourceApplicationId: appData.id,
+          freshApplicationId: appData.id,
           issueDate: new Date(),
           firstName: appData.firstName,
           middleName: appData.middleName,
@@ -403,6 +409,14 @@ export class WorkflowService {
           newStatus: LicenseStatus.ACTIVE,
           changedBy: issuedBy,
           remarks: 'License issued upon fresh application approval',
+        }
+      });
+
+      // Link the FreshApplication to the newly created license
+      await tx.freshLicenseApplicationPersonalDetails.update({
+        where: { id: appData.id },
+        data: {
+          licenseId: created.id
         }
       });
 
@@ -627,7 +641,7 @@ export class WorkflowService {
 
         // Update tracking
         renewalCount: { increment: 1 },
-        lastModifiedByAppId: renewalApplicationId,
+        renewalApplicationId: renewalApplicationId,
         lastModifiedAppType: 'RENEWAL',
         status: LicenseStatus.ACTIVE,
 
@@ -649,6 +663,14 @@ export class WorkflowService {
         newStatus: LicenseStatus.ACTIVE,
         changedBy,
         remarks: 'License renewed upon renewal application approval',
+      }
+    });
+    // Update the renewal application with the licenseId and licenseNumber
+    await tx.renewalFormPersonalDetails.update({
+      where: { id: renewalApplicationId },
+      data: {
+        licenseId: updatedLicense.id ,
+        licenseNumber: updatedLicense.licenseNumber,
       }
     });
 
@@ -748,209 +770,215 @@ export class WorkflowService {
     applicationId: number;
     currentUserId: number;
   }, status: any, nextUserId: number, actionCode:string, nextUserRoleId: any, currentRoleId: number){
-    // 1. Fetch the cancel request
-    const cancelRequest = await prisma.cancelFormRequests.findUnique({
-      where: { id: payload.applicationId },
-    });
-    if (!cancelRequest) {
-      throw new NotFoundException('Cancel request not found');
-    }
+//     // 1. Fetch the cancel request
+//     const cancelRequest = await prisma.cancelFormRequests.findUnique({
+//       where: { id: payload.applicationId },
+//       include: {
+//         workflowStatus: {
+//           select: {
+//             code: true,
+//           },
+//         },
+//       },
+//     });
+//     if (!cancelRequest) {
+//       throw new NotFoundException('Cancel request not found');
+//     }
 
-    // Only PENDING cancel requests can be processed via workflow
-    if (cancelRequest.status !== 'PENDING') {
-      throw new BadRequestException('Cancel request has already been processed.');
-    }
+//     if (isTerminalAction(cancelRequest.workflowStatus?.code || '')) {
+//       throw new BadRequestException('Cancel request has already been processed.');
+//     }
 
-    const isRenewal = cancelRequest.applicationType.toLowerCase().includes('renewal');
+//     const isRenewal = cancelRequest.applicationType.toLowerCase().includes('renewal');
 
-    // 2. Fetch the original application using freshLicenseId
-    let application: any;
-    if (!cancelRequest.freshLicenseId) {
-      throw new BadRequestException('Cancel request has no associated fresh license application.');
-    }
-    if (isRenewal) {
-      application = await prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: cancelRequest.freshLicenseId },
-      });
-    } else {
-      application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: cancelRequest.freshLicenseId },
-      });
-    }
+//     // 2. Fetch the original application using licenseId
+//     let application: any;
+//     if (!cancelRequest.licenseId) {
+//       throw new BadRequestException('Cancel request has no associated license.');
+//     }
+//     if (isRenewal) {
+//       application = await prisma.renewalFormPersonalDetails.findUnique({
+//         where: { id: cancelRequest.licenseId },
+//       });
+//     } else {
+//       application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+//         where: { id: cancelRequest.licenseId },
+//       });
+//     }
 
-    if (!application) {
-      throw new NotFoundException('Original application not found');
-    }
+//     if (!application) {
+//       throw new NotFoundException('Original application not found');
+//     }
 
-    const newStatusId = status ? status.id : cancelRequest.workFlowStatusId;
+//     const newStatusId = status ? status.id : cancelRequest.workFlowStatusId;
 
-    // 3. Build cancel request update data - mirrors Fresh/Renewal currentUserId/previousUserId tracking
-    const cancelUpdateData: any = {
-      actionedBy: payload.currentUserId,
-      actionedDate: new Date(),
-      previousUserId: cancelRequest.actionedBy || cancelRequest.requestedBy,
-      currentUserId: nextUserId,
-    };
+//     // 3. Build cancel request update data - mirrors Fresh/Renewal currentUserId/previousUserId tracking
+//     const cancelUpdateData: any = {
+//       actionedBy: payload.currentUserId,
+//       actionedDate: new Date(),
+//       previousUserId: cancelRequest.actionedBy || cancelRequest.requestedBy,
+//       currentUserId: nextUserId,
+//     };
 
-    // 4. Determine action outcome
-    // CancelFormRequests uses 'status' field (PENDING/APPROVED/REJECTED) — no boolean flags
-    if (isTerminalAction(actionCode)) {
-      if (isApprovalAction(actionCode)) {
-        // APPROVED: mark cancel request as APPROVED, cancel the original application
-        cancelUpdateData.status = 'APPROVED';
-        cancelUpdateData.workFlowStatusId = newStatusId;
-      } else if (isRejectionAction(actionCode)) {
-        // REJECTED: mark cancel request as REJECTED, do NOT modify original app
-        cancelUpdateData.status = 'REJECTED';
-        cancelUpdateData.workFlowStatusId = newStatusId;
-      }
-    } else {
-      // Non-terminal action (FORWARD, etc.): just update workflow status
-      cancelUpdateData.workFlowStatusId = newStatusId;
-    }
+//     // 4. Determine action outcome
+//     const isApprovedAction = isTerminalAction(actionCode) && isApprovalAction(actionCode);
+//     const isRejectedAction = isTerminalAction(actionCode) && isRejectionAction(actionCode);
 
-    if (payload.remarks) {
-      const originalRemarks = cancelRequest.remarks || '';
-      cancelUpdateData.remarks = originalRemarks
-        ? `${originalRemarks}\n[Action: ${actionCode}] ${payload.remarks}`
-        : `[Action: ${actionCode}] ${payload.remarks}`;
-    }
+//     if (isTerminalAction(actionCode)) {
+//       if (isApprovalAction(actionCode)) {
+//         // APPROVED: mark cancel request as APPROVED, cancel the original application
+//         cancelUpdateData.workFlowStatusId = newStatusId;
+//       } else if (isRejectionAction(actionCode)) {
+//         // REJECTED: mark cancel request as REJECTED, do NOT modify original app
+//         cancelUpdateData.workFlowStatusId = newStatusId;
+//       }
+//     } else {
+//       // Non-terminal action (FORWARD, etc.): just update workflow status
+//       cancelUpdateData.workFlowStatusId = newStatusId;
+//     }
 
-    // 5. Execute all updates in a transaction
-    await prisma.$transaction(async (tx: any) => {
-      // Update the cancel request
-      await tx.cancelFormRequests.update({
-        where: { id: payload.applicationId },
-        data: cancelUpdateData,
-      });
+//     if (payload.remarks) {
+//       const originalRemarks = cancelRequest.remarks || '';
+//       cancelUpdateData.remarks = originalRemarks
+//         ? `${originalRemarks}\n[Action: ${actionCode}] ${payload.remarks}`
+//         : `[Action: ${actionCode}] ${payload.remarks}`;
+//     }
 
-      // Determine the type of workflow history entry to create on the original application
-      let actionTaken = actionCode;
-      const previousUserIdForHistory = application.currentUserId || payload.currentUserId;
+//     // 5. Execute all updates in a transaction
+//     await prisma.$transaction(async (tx: any) => {
+//       // Update the cancel request
+//       await tx.cancelFormRequests.update({
+//         where: { id: payload.applicationId },
+//         data: cancelUpdateData,
+//       });
 
-      if (cancelUpdateData.status === 'APPROVED') {
-        // Find the CANCEL status for final approval
-        const cancelStatus = await tx.statuses.findFirst({ where: { code: ACTION_CODES.CANCEL } });
+//       // Determine the type of workflow history entry to create on the original application
+//       let actionTaken = actionCode;
+//       const previousUserIdForHistory = application.currentUserId || payload.currentUserId;
 
-        // Update the original application to CANCELLED
-        if (isRenewal) {
-          await tx.renewalFormPersonalDetails.update({
-            where: { id: cancelRequest.freshLicenseId },
-            data: {
-              workflowStatusId: cancelStatus?.id || newStatusId,
-              isPending: false,
-            },
-          });
-        } else {
-          await tx.freshLicenseApplicationPersonalDetails.update({
-            where: { id: cancelRequest.freshLicenseId },
-            data: {
-              workflowStatusId: cancelStatus?.id || newStatusId,
-              isPending: false,
-            },
-          });
-        }
+//       if (isApprovedAction) {
+//         // Find the CANCEL status for final approval
+//         const cancelStatus = await tx.statuses.findFirst({ where: { code: ACTION_CODES.CANCEL } });
 
-        // === LICENSE HOOK: Cancel license on cancel request approval ===
-        try {
-          if (cancelRequest.freshLicenseId) {
-            const licenseToCancel = await tx.licenses.findFirst({
-              where: {
-                OR: [
-                  { sourceApplicationId: cancelRequest.freshLicenseId },
-                  { licenseNumber: application.licenseNumber },
-                ],
-              },
-            });
+//         // Update the original application to CANCELLED
+//         if (isRenewal) {
+//           await tx.renewalFormPersonalDetails.update({
+//             where: { id: cancelRequest.licenseId },
+//             data: {
+//               workflowStatusId: cancelStatus?.id || newStatusId,
+//               isPending: false,
+//             },
+//           });
+//         } else {
+//           await tx.freshLicenseApplicationPersonalDetails.update({
+//             where: { id: cancelRequest.licenseId },
+//             data: {
+//               workflowStatusId: cancelStatus?.id || newStatusId,
+//               isPending: false,
+//             },
+//           });
+//         }
 
-            if (licenseToCancel) {
-              await tx.licenses.update({
-                where: { id: licenseToCancel.id },
-                data: {
-                  status: LicenseStatus.CANCELLED,
-                  cancellationReason: cancelRequest.cancellationReason,
-                  cancellationDate: new Date(),
-                  lastModifiedByAppId: payload.applicationId,
-                  lastModifiedAppType: 'CANCELLATION',
-                },
-              });
+//         // === LICENSE HOOK: Cancel license on cancel request approval ===
+//         try {
+//           if (cancelRequest.licenseId) {
+//             const licenseToCancel = await tx.licenses.findFirst({
+//               where: {
+//                 OR: [
+//                   { freshApplicationId: cancelRequest.licenseId },
+//                   { licenseNumber: application.licenseNumber },
+//                 ],
+//               },
+//             });
 
-              await tx.licenseWorkflowHistory.create({
-                data: {
-                  licenseId: licenseToCancel.id,
-                  action: 'CANCELLED',
-                  applicationId: payload.applicationId,
-                  applicationType: 'CANCELLATION',
-                  previousStatus: licenseToCancel.status,
-                  newStatus: LicenseStatus.CANCELLED,
-                  changedBy: payload.currentUserId,
-                  remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
-                },
-              });
-            }
-          }
-        } catch (err) {
-          console.error('[LicenseHook] Failed to cancel license:', err);
-        }
+//             if (licenseToCancel) {
+//               await tx.licenses.update({
+//                 where: { id: licenseToCancel.id },
+//                 data: {
+//                   status: LicenseStatus.CANCELLED,
+//                   cancellationReason: cancelRequest.cancellationReason,
+//                   cancellationDate: new Date(),
+//                   cancelApplicationId: payload.applicationId,
+//                   lastModifiedAppType: 'CANCELLATION',
+//                 },
+//               });
 
-        actionTaken = ACTION_CODES.CANCEL;
-      } else if (cancelUpdateData.status === 'REJECTED') {
-        // REJECTED: application unchanged, history entry records the rejection
-        actionTaken = ACTION_CODES.REJECT;
-      }
+//               await tx.licenseWorkflowHistory.create({
+//                 data: {
+//                   licenseId: licenseToCancel.id,
+//                   action: 'CANCELLED',
+//                   applicationId: payload.applicationId,
+//                   applicationType: 'CANCELLATION',
+//                   previousStatus: licenseToCancel.status,
+//                   newStatus: LicenseStatus.CANCELLED,
+//                   changedBy: payload.currentUserId,
+//                   remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
+//                 },
+//               });
+//             }
+//           }
+//         } catch (err) {
+//           console.error('[LicenseHook] Failed to cancel license:', err);
+//         }
 
-      // Create workflow history on the original application
-      const remarks = cancelUpdateData.status === 'APPROVED'
-        ? `Cancel request approved. Application cancelled. Reason: ${cancelRequest.cancellationReason}`
-        : cancelUpdateData.status === 'REJECTED'
-          ? `Cancel request rejected. ${payload.remarks || ''}`
-          : `Cancel request forwarded. ${payload.remarks || ''}`;
+//         actionTaken = ACTION_CODES.CANCEL;
+//       } else if (isRejectedAction) {
+//         // REJECTED: application unchanged, history entry records the rejection
+//         actionTaken = ACTION_CODES.REJECT;
+//       }
 
-      if (isRenewal) {
-        await tx.renewalApplicationsFormWorkflowHistories.create({
-          data: {
-            applicationId: cancelRequest.freshLicenseId,
-            previousUserId: previousUserIdForHistory,
-            nextUserId: nextUserId || payload.currentUserId,
-            actionTaken: actionTaken,
-            remarks: remarks,
-            previousRoleId: currentRoleId,
-            nextRoleId: nextUserRoleId?.roleId || null,
-            actionesId: payload.actionId,
-          },
-        });
-      } else {
-        await tx.freshLicenseApplicationsFormWorkflowHistories.create({
-          data: {
-            applicationId: cancelRequest.freshLicenseId,
-            previousUserId: previousUserIdForHistory,
-            nextUserId: nextUserId || payload.currentUserId,
-            actionTaken: actionTaken,
-            remarks: remarks,
-            previousRoleId: currentRoleId,
-            nextRoleId: nextUserRoleId?.roleId || null,
-            actionesId: payload.actionId,
-          },
-        });
-      }
+//       // Create workflow history on the original application
+//       const remarks = isApprovedAction
+//         ? `Cancel request approved. Application cancelled. Reason: ${cancelRequest.cancellationReason}`
+//         : isRejectedAction
+//           ? `Cancel request rejected. ${payload.remarks || ''}`
+//           : `Cancel request forwarded. ${payload.remarks || ''}`;
 
-      // Create CancelWorkflowHistories entry for the cancel request itself
-      // This mirrors the workflow history pattern from Fresh/Renewal applications
-      await tx.cancelWorkflowHistories.create({
-        data: {
-          applicationId: payload.applicationId,
-          previousUserId: cancelRequest.actionedBy || payload.currentUserId,
-          nextUserId: nextUserId || payload.currentUserId,
-          actionTaken: actionTaken,
-          remarks: remarks,
-          previousRoleId: currentRoleId,
-          nextRoleId: nextUserRoleId?.roleId || null,
-          actionesId: payload.actionId,
-        },
-      });
-    });
+//       if (isRenewal) {
+//         await tx.renewalApplicationsFormWorkflowHistories.create({
+//           data: {
+//             applicationId: cancelRequest.licenseId,
+//             previousUserId: previousUserIdForHistory,
+//             nextUserId: nextUserId || payload.currentUserId,
+//             actionTaken: actionTaken,
+//             remarks: remarks,
+//             previousRoleId: currentRoleId,
+//             nextRoleId: nextUserRoleId?.roleId || null,
+//             actionesId: payload.actionId,
+//           },
+//         });
+//       } else {
+//         await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+//           data: {
+//             applicationId: cancelRequest.licenseId,
+//             previousUserId: previousUserIdForHistory,
+//             nextUserId: nextUserId || payload.currentUserId,
+//             actionTaken: actionTaken,
+//             remarks: remarks,
+//             previousRoleId: currentRoleId,
+//             nextRoleId: nextUserRoleId?.roleId || null,
+//             actionesId: payload.actionId,
+//           },
+//         });
+//       }
 
-    return cancelRequest;
+//       // Create CancelWorkflowHistories entry for the cancel request itself
+//       // This mirrors the workflow history pattern from Fresh/Renewal applications
+//       await tx.cancelWorkflowHistories.create({
+//         data: {
+//           applicationId: payload.applicationId,
+//           previousUserId: cancelRequest.actionedBy || payload.currentUserId,
+//           nextUserId: nextUserId || payload.currentUserId,
+//           actionTaken: actionTaken,
+//           remarks: remarks,
+//           previousRoleId: currentRoleId,
+//           nextRoleId: nextUserRoleId?.roleId || null,
+//           actionesId: payload.actionId,
+//         },
+//       });
+//     });
+
+//     return cancelRequest;
  }
 
 }

@@ -2,17 +2,26 @@ export class ApplicationsDataDto {
     week!: string;
     count!: number;
     date?: string;
+    fresh?: number;
+    renewal?: number;
+    cancel?: number;
 }
 
 export class RoleLoadDataDto {
     name!: string;
     value!: number;
     code?: string;
+    fresh?: number;
+    renewal?: number;
+    cancel?: number;
 }
 
 export class StateDataDto {
     state!: string;
     count!: number;
+    fresh?: number;
+    renewal?: number;
+    cancel?: number;
 }
 
 export class AdminActivityDto {
@@ -23,6 +32,7 @@ export class AdminActivityDto {
     timestamp?: number;
     almsLicenseId?: string;
     applicantName?: string;
+    applicationType?: string;
 }
 
 export class AnalyticsResponseDto<T> {
@@ -41,5 +51,6 @@ export class ApplicationRecordDto {
     status!: string;
     actionTakenAt?: string | null;
     daysTillToday?: number | null;
+    applicationType?: 'FRESH' | 'RENEWAL' | 'CANCEL';
 }
 
