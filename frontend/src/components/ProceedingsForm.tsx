@@ -238,21 +238,20 @@ export default function ProceedingsForm({
     return null;
   }, [currentRole]);
 
-  const isCloseActionForZSWithSpecialStatus = useMemo(() => {
-    const isSpecialStatus =
-      applicationData?.isApproved === true ||
-      applicationData?.isRejected === true ||
-      applicationData?.isRecommended === true ||
-      applicationData?.isNotRecommended === true;
-    return currentRole === 'ZS' && selectedAction?.code?.toUpperCase() === 'CLOSE' && isSpecialStatus;
-  }, [currentRole, selectedAction, applicationData]);
+  // General Close action: populate Forward To with self user and make read-only
+  const isCloseAction = selectedAction?.code?.toUpperCase() === 'CLOSE';
 
-  // Auto-select ZS user if Close action is selected under special conditions
+  // Auto-select self user if Close action is selected
   useEffect(() => {
-    if (isCloseActionForZSWithSpecialStatus && currentZSUserOption) {
+    if (isCloseAction && currentZSUserOption) {
       setNextUser(currentZSUserOption);
     }
-  }, [isCloseActionForZSWithSpecialStatus, currentZSUserOption]);
+  }, [isCloseAction, currentZSUserOption]);
+
+  // Track whether the user has successfully submitted a CLOSE action in this session.
+  // The "Application Already Closed" message only appears after a CLOSE submission,
+  // not automatically on page load based on prior status.
+  const [hasBeenClosedViaSubmit, setHasBeenClosedViaSubmit] = useState(false);
 
 
   // Fetch actions from backend on mount
@@ -404,7 +403,7 @@ export default function ProceedingsForm({
     if (!selectedAction) errors.action = 'Please select an action type.';
     if (!remarks.trim()) errors.remarks = 'Please add remarks before submitting.';
     
-    const hasNextUserVal = isCloseActionForZSWithSpecialStatus ? !!currentZSUserOption : !!nextUser;
+    const hasNextUserVal = isCloseAction ? !!currentZSUserOption : !!nextUser;
     if (!hasNextUserVal) errors.nextUser = 'Please select the next proceeding officer.';
     
     if (roleFromCookie === 'SHO' && !draftLetter.trim())
@@ -433,7 +432,7 @@ export default function ProceedingsForm({
     };
 
     // Add next user as next proceeding officer (if provided)
-    if (isCloseActionForZSWithSpecialStatus && currentZSUserOption) {
+    if (isCloseAction && currentZSUserOption) {
       payload.nextUserId = Number(currentZSUserOption.value);
     } else if (nextUser?.value) {
       payload.nextUserId = Number(nextUser.value);
@@ -523,6 +522,12 @@ export default function ProceedingsForm({
 
       const result = await postData(`/workflow/action`, payload);
       setSuccess(result.message || 'Action completed successfully.');
+
+      // If the submitted action was CLOSE, flip to closed state so the form
+      // is replaced with the "Application Already Closed" message.
+      if (selectedAction?.code?.toUpperCase() === 'CLOSE') {
+        setHasBeenClosedViaSubmit(true);
+      }
 
       // Reset form
       setSelectedAction(null);
@@ -1132,6 +1137,26 @@ ${content}
       {/* Proceedings Form */}
       <div className={styles.scrollPanel}>
         <div className={styles.proceedingsPanel}>
+          {hasBeenClosedViaSubmit ? (
+            <div className='flex flex-col items-center justify-center py-16 px-8 text-center'>
+              <div className='w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4'>
+                <svg className='w-8 h-8 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M12 15v2m0 0v2m0-2h2m-2 0H10m9.364-7.364A9 9 0 1112 3a9 9 0 017.364 12.636z' />
+                </svg>
+              </div>
+              <h3 className='text-lg font-semibold text-slate-700 mb-2'>
+                Application Already Closed
+              </h3>
+              <p className='text-sm text-slate-500 max-w-md'>
+                This application has already reached a terminal state and cannot be processed further.
+              </p>
+              {applicationData?.workflowStatus?.name && (
+                <span className='mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600'>
+                  Status: {applicationData.workflowStatus.name}
+                </span>
+              )}
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className={styles.formContent}>
             {/* Top validation banner when there are missing fields */}
             {Object.keys(missingFields || {}).length > 0 && (
@@ -1201,14 +1226,14 @@ ${content}
               </label>
               <div className={styles.selectContainer} ref={nextUserRef}>
                 <SelectFixed
-                  options={isCloseActionForZSWithSpecialStatus && currentZSUserOption ? [currentZSUserOption] : userOptions}
-                  value={isCloseActionForZSWithSpecialStatus && currentZSUserOption ? currentZSUserOption : nextUser}
+                  options={isCloseAction && currentZSUserOption ? [currentZSUserOption] : userOptions}
+                  value={isCloseAction && currentZSUserOption ? currentZSUserOption : nextUser}
                   onChange={setNextUser}
                   placeholder={
                     fetchingUsers ? 'Loading users...' : 'Select user (next proceeding officer)'
                   }
                   isLoading={fetchingUsers}
-                  isDisabled={isSubmitting || fetchingUsers || isCloseActionForZSWithSpecialStatus}
+                  isDisabled={isSubmitting || fetchingUsers || isCloseAction}
                   className='text-sm'
                   styles={{
                     control: (provided: any, state: any) => ({
@@ -1573,6 +1598,7 @@ ${content}
               </button>
             </div>
           </form>
+          )}
         </div>
       </div>
 

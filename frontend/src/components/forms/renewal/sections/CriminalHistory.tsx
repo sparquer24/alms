@@ -118,7 +118,26 @@ const CriminalHistory = forwardRef(function CriminalHistory(
     focusFirstInvalid: () => {
       const firstKey = Object.keys(errors).find(key => !!errors[key]);
       if (firstKey) {
-        const el = document.getElementById(firstKey);
+        // Try exact match first
+        let el = document.getElementById(firstKey);
+        // Map error keys to their actual input name prefixes for FIR detail fields
+        // where the error key differs from the input name
+        const FIR_INPUT_PREFIX_MAP: Record<string, string> = {
+          policeStationCriminal: 'policeStation',
+          criminalUnit: 'unit',
+          criminalDistrict: 'district',
+          criminalState: 'state',
+        };
+        // If no exact match, try finding an input whose id starts with the mapped prefix
+        if (!el) {
+          const searchPrefix = FIR_INPUT_PREFIX_MAP[firstKey] || firstKey;
+          const prefixInput = document.querySelector<HTMLElement>(
+            `input[id^="${searchPrefix}-"], textarea[id^="${searchPrefix}-"]`
+          );
+          if (prefixInput) {
+            el = prefixInput;
+          }
+        }
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           try {

@@ -6,6 +6,7 @@ import { PatchRenewalApplicationDetailsDto } from './dto/patch-application-detai
 import { UploadRenewalFileDto, UploadRenewalFileResponseDto } from './dto/upload-file.dto';
 import { GetRenewalApplicationsDto } from './dto/get-applications.dto';
 import { UpdateRenewalWorkflowStatusDto } from './dto/update-workflow-status.dto';
+import { ACTION_CODES } from '../../constants/workflow-actions';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -46,8 +47,18 @@ export class RenewalFormService {
       if (existingRenewal) {
         if (!existingRenewal.isApproved) {
           // Existing renewal is NOT approved (Pending/In Progress/Rejected/etc.)
-          // Return it so the user can resume editing instead of creating a new one
-          return this.mapApplicationToResponse(existingRenewal);
+          // Check if the latest workflow history actionTaken is CLOSE — if so, allow
+          // creating a new renewal (auto-assigned to self user) instead of returning
+          // the existing one.
+          const latestHistory = await prisma.renewalApplicationsFormWorkflowHistories.findFirst({
+            where: { applicationId: existingRenewal.id },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (!latestHistory || latestHistory.actionTaken !== ACTION_CODES.CLOSE) {
+            // Not a closed renewal — return existing so the user can resume
+            return this.mapApplicationToResponse(existingRenewal);
+          }
+          // actionTaken IS CLOSE → fall through to create a new renewal
         }
         // Existing renewal IS approved → fall through to create a new renewal
       }
@@ -1573,8 +1584,18 @@ export class RenewalFormService {
       if (existingRenewal) {
         if (!existingRenewal.isApproved) {
           // Existing renewal is NOT approved (Pending/In Progress/Rejected/etc.)
-          // Return it so the user can resume editing instead of creating a new one
-          return this.mapApplicationToResponse(existingRenewal);
+          // Check if the latest workflow history actionTaken is CLOSE — if so, allow
+          // creating a new renewal (auto-assigned to self user) instead of returning
+          // the existing one.
+          const latestHistory = await prisma.renewalApplicationsFormWorkflowHistories.findFirst({
+            where: { applicationId: existingRenewal.id },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (!latestHistory || latestHistory.actionTaken !== ACTION_CODES.CLOSE) {
+            // Not a closed renewal — return existing so the user can resume
+            return this.mapApplicationToResponse(existingRenewal);
+          }
+          // actionTaken IS CLOSE → fall through to create a new renewal
         }
         // Existing renewal IS approved → fall through to create a new renewal
       }
