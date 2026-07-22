@@ -3,6 +3,7 @@
 ## Overview
 
 The `/admin/roleMapping` page has been completely revamped with professional role management features including:
+
 - Full CRUD operations (Create, Read, Update, Delete)
 - Advanced search and filtering
 - Permission matrix management
@@ -154,16 +155,20 @@ No changes can be made from this view.
 ## Permission Categories
 
 ### Capabilities (6 total)
+
 Core role abilities:
+
 - **can_forward**: Forward applications
-- **can_FLAF**: Fresh License Application Form access
+- **can_FLAF**: Fresh Application Form access
 - **can_generate_ground_report**: Generate ground reports
 - **can_re_enquiry**: Conduct re-enquiries
 - **can_create_freshLicence**: Create fresh licenses
 - **can_access_settings**: Access system settings
 
 ### View Permissions (8 total)
+
 What the role can see:
+
 - canViewFreshForm
 - canViewForwarded
 - canViewReturned
@@ -174,12 +179,14 @@ What the role can see:
 - canViewReports
 
 ### Action Permissions (12 total)
+
 What actions the role can perform:
+
 - canSubmitApplication
 - canCaptureUIN
 - canCaptureBiometrics
 - canUploadDocuments
-- canForwardTo* (ACP, SHO, DCP, AS, CP)
+- canForwardTo\* (ACP, SHO, DCP, AS, CP)
 - canConductEnquiry
 - canAddRemarks
 - canApproveTA
@@ -193,27 +200,32 @@ What actions the role can perform:
 ## Tips & Tricks
 
 ### 💡 Auto-Generate Role Codes
+
 - Type a role name
 - Code auto-generates to lowercase with underscores
 - Example: "Senior Inspector" → "senior_inspector"
 - Can manually edit if needed
 
 ### 💡 Bulk Permission Selection
+
 - Click category header checkbox to select all in that category
 - Uncheck to deselect all
 - Much faster than individual checkboxes
 
 ### 💡 Permission Count Summary
+
 - See "X of Y" enabled for each category
 - Helps understand role permissions at a glance
 - Summary at bottom shows total permissions enabled
 
 ### 💡 Combine Filters
+
 - Use search + status filter together
 - Example: Search for "inspector" + filter by "active"
 - Creates powerful queries
 
 ### 💡 Sort + Filter
+
 - Sort while filtering
 - Sorting works on filtered results
 - Great for finding specific roles quickly
@@ -274,26 +286,34 @@ What actions the role can perform:
 ## Troubleshooting
 
 ### Issue: Role code already exists
-**Solution**: 
+
+**Solution**:
+
 - Role codes must be unique
 - Edit the code to something different
 - Try adding a number or suffix
 
 ### Issue: Form won't submit
+
 **Solution**:
+
 - Check for red error messages
 - Role Name is required
 - Dashboard Title is required
 - Fix the highlighted fields
 
 ### Issue: Changes not showing
+
 **Solution**:
+
 - Try refreshing the page
 - Check for error notifications
 - Look at browser console for errors
 
 ### Issue: Can't delete role
+
 **Solution**:
+
 - Role might be in use by users
 - Try deactivating instead
 - Contact administrator if needed
@@ -302,11 +322,11 @@ What actions the role can perform:
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Esc` | Close any open modal |
-| `Tab` | Navigate form fields |
-| `Enter` | Submit form (when on submit button) |
+| Shortcut | Action                              |
+| -------- | ----------------------------------- |
+| `Esc`    | Close any open modal                |
+| `Tab`    | Navigate form fields                |
+| `Enter`  | Submit form (when on submit button) |
 
 ---
 
@@ -314,24 +334,26 @@ What actions the role can perform:
 
 ### Color Meanings
 
-| Color | Meaning |
-|-------|---------|
-| 🟢 Green | Active/Success |
-| 🔴 Red | Delete/Error |
-| 🟠 Orange | Warning/Update |
-| 🔵 Blue | Primary/Edit |
-| ⚫ Gray | Inactive/Disabled |
+| Color     | Meaning           |
+| --------- | ----------------- |
+| 🟢 Green  | Active/Success    |
+| 🔴 Red    | Delete/Error      |
+| 🟠 Orange | Warning/Update    |
+| 🔵 Blue   | Primary/Edit      |
+| ⚫ Gray   | Inactive/Disabled |
 
 ---
 
 ## Performance Tips
 
 ✅ **Do This:**
+
 - Search to filter roles
 - Use status filter
 - Sort large lists
 
 ❌ **Avoid This:**
+
 - Creating 100s of roles at once
 - Very long descriptions
 - Special characters in codes
@@ -366,6 +388,7 @@ A: That's allowed! Role codes must be unique, but names can match.
 ## Support
 
 For issues or questions:
+
 1. Check the documentation files:
    - `ROLE_MAPPING_REVAMP_COMPLETE.md`
    - `ROLE_MAPPING_IMPLEMENTATION_SUMMARY.md`
@@ -377,21 +400,21 @@ For issues or questions:
 
 ## What's New vs Old
 
-| Feature | Old | New |
-|---------|-----|-----|
-| Add Role | ✓ | ✓✓ (Better UI) |
-| Edit Role | ✗ | ✓ |
-| Delete Role | ✓ | ✓ (Safer) |
-| Deactivate | ✗ | ✓ |
-| Permissions | ✗ | ✓ (26 permissions) |
-| Search | Limited | ✓ (Name + Code) |
-| Filter | ✗ | ✓ (Status) |
-| Sort | ✗ | ✓ (Multi-column) |
-| Pagination | ✗ | ✓ |
-| Audit Info | ✗ | ✓ (Created/Updated) |
-| Confirmation Dialogs | ✗ | ✓ |
-| Validation | ✗ | ✓ (With errors) |
-| Dark Theme | ✗ | ✓ |
+| Feature              | Old     | New                 |
+| -------------------- | ------- | ------------------- |
+| Add Role             | ✓       | ✓✓ (Better UI)      |
+| Edit Role            | ✗       | ✓                   |
+| Delete Role          | ✓       | ✓ (Safer)           |
+| Deactivate           | ✗       | ✓                   |
+| Permissions          | ✗       | ✓ (26 permissions)  |
+| Search               | Limited | ✓ (Name + Code)     |
+| Filter               | ✗       | ✓ (Status)          |
+| Sort                 | ✗       | ✓ (Multi-column)    |
+| Pagination           | ✗       | ✓                   |
+| Audit Info           | ✗       | ✓ (Created/Updated) |
+| Confirmation Dialogs | ✗       | ✓                   |
+| Validation           | ✗       | ✓ (With errors)     |
+| Dark Theme           | ✗       | ✓                   |
 
 ---
 

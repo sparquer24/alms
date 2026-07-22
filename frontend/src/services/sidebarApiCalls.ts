@@ -100,7 +100,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     address: detailedApp.presentAddress?.addressLine || detailedApp.address || undefined,
     presentAddress: detailedApp.presentAddress || undefined,
     permanentAddress: detailedApp.permanentAddress || undefined,
-    applicationType: detailedApp.applicationType || detailedApp.formType || 'Fresh License',
+    applicationType: detailedApp.applicationType || detailedApp.formType || 'Fresh',
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
     status: statusName || detailedApp.status || undefined,
@@ -700,11 +700,11 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     (apiApp?.applicationType && /cancel/i.test(String(apiApp.applicationType)))
   );
 
-  const applicationTypeLabel = isCancel 
-    ? 'Cancel Request' 
-    : isRenewal 
-      ? 'Renewal Application' 
-      : 'Fresh License';
+  const applicationTypeLabel = isCancel
+    ? 'Cancel Request'
+    : isRenewal
+      ? 'Renewal'
+      : 'Fresh';
 
   return {
     id: String(apiApp.id || ''),

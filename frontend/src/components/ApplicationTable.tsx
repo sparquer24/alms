@@ -95,7 +95,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
 
     // Local search state
     const [searchQuery, setSearchQuery] = useState<string>('');
-    // Application type filter state: 'All' | 'Fresh License' | 'Renewal Application'
+    // Application type filter state: 'All' | 'Fresh' | 'Renewal'
     const [applicationTypeFilter, setApplicationTypeFilter] = React.useState<string>('All');
 
     // Determine base applications list in this order: filtered -> prop -> context -> empty array
@@ -192,7 +192,9 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     // Clear loadingRowId when component unmounts (e.g. during page navigation)
     // so the spinner state is reset when the user returns to the table.
     React.useEffect(() => {
-      return () => { setLoadingRowId(null); };
+      return () => {
+        setLoadingRowId(null);
+      };
     }, []);
 
     const isApplicationUnread = useCallback(
@@ -432,8 +434,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 aria-label='Filter by application type'
               >
                 <option value='All'>All Types</option>
-                <option value='Fresh License'>Fresh License</option>
-                <option value='Renewal Application'>Renewal Application</option>
+                <option value='Fresh'>Fresh</option>
+                <option value='Renewal'>Renewal</option>
               </select>
 
               <button

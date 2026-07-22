@@ -33,7 +33,9 @@ const fetchRenewalApplications = async (submittedOnly: boolean): Promise<Applica
         : [];
 
     return renewalApplications
-      .filter((application: any) => (submittedOnly ? application?.isSubmit === true : application?.isSubmit === false))
+      .filter((application: any) =>
+        submittedOnly ? application?.isSubmit === true : application?.isSubmit === false
+      )
       .map((application: any) => normalizeRenewalApplication(application, submittedOnly));
   } catch (error) {
     return [];
@@ -60,14 +62,16 @@ function InboxContent() {
 
   // Combine context and local applications based on query type
   // For 'all' and 'renewal', use context; for freshform/drafts use local
-  const applications = (queryType === 'renewal'
-    ? contextApplications
-    : (queryType === 'freshform' || queryType === 'drafts')
-      ? localApplications
-      : contextApplications) || [];
+  const applications =
+    (queryType === 'renewal'
+      ? contextApplications
+      : queryType === 'freshform' || queryType === 'drafts'
+        ? localApplications
+        : contextApplications) || [];
 
   // Determine loading state - use local loading for freshform/drafts, context loading otherwise
-  const isLoading = (queryType === 'freshform' || queryType === 'drafts') ? localLoading : isContextLoading;
+  const isLoading =
+    queryType === 'freshform' || queryType === 'drafts' ? localLoading : isContextLoading;
 
   // Handle refresh parameter - only refresh once per login
   useEffect(() => {
@@ -151,7 +155,9 @@ function InboxContent() {
       case 'closed':
         return 'Closed Applications';
       case 'freshform':
-        return selectedFormType === 'renewal' ? 'Renewal Form Applications' : 'Fresh Form Applications';
+        return selectedFormType === 'renewal'
+          ? 'Renewal Form Applications'
+          : 'Fresh Form Applications';
       case 'reenquiry':
         return 'Re-Enquiry Applications';
       case 'cancel':
@@ -181,9 +187,7 @@ function InboxContent() {
                   clipRule='evenodd'
                 />
               </svg>
-              <span className='text-blue-800 font-medium'>
-                Showing approved applications only
-              </span>
+              <span className='text-blue-800 font-medium'>Showing approved applications only</span>
             </div>
           </div>
         )}
@@ -201,7 +205,7 @@ function InboxContent() {
               }`}
               aria-pressed={selectedFormType === 'fresh'}
             >
-              Fresh License
+              Fresh
             </button>
             <button
               type='button'
@@ -213,7 +217,7 @@ function InboxContent() {
               }`}
               aria-pressed={selectedFormType === 'renewal'}
             >
-              Renewal Application
+              Renewal
             </button>
           </div>
         )}

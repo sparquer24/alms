@@ -132,7 +132,7 @@ export default function RenewalApplicationDetailsPage() {
     return (
       <div className='min-h-screen bg-slate-50 flex items-center justify-center px-4'>
         <div className='max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200 text-center'>
-          <h1 className='text-2xl font-bold text-slate-900'>Renewal Application Not Found</h1>
+          <h1 className='text-2xl font-bold text-slate-900'>Renewal Not Found</h1>
           <p className='mt-3 text-slate-600'>
             {error || 'The selected renewal application could not be loaded.'}
           </p>
@@ -168,10 +168,12 @@ export default function RenewalApplicationDetailsPage() {
     <div className='min-h-screen bg-slate-50 px-4 py-8'>
       <div className='mx-auto max-w-5xl 2xl:max-w-[1200px] space-y-6'>
         <RenewalApplicationDetailsHeader
-          licenseId={application.licenseNumber || application.licenseId || application.freshLicenseId}
+          licenseId={
+            application.licenseNumber || application.licenseId || application.freshLicenseId
+          }
           renewalId={renewalId}
           acknowledgementNo={acknowledgementNo}
-          activeTab='Renewal Application Details'
+          activeTab='Renewal Details'
           imageSrc='/file.svg'
         />
 

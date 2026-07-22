@@ -31,7 +31,9 @@ describe('LicensesService', () => {
       id: 42,
       licenseNumber: 'LIC-1001',
       almsLicenseId: 'ALMS-9001',
-      sourceApplicationId: 7,
+      freshApplicationId: 7,
+      renewalApplicationId: null,
+      cancelApplicationId: null,
       lastModifiedAppType: 'FRESH',
     };
 
@@ -62,7 +64,9 @@ describe('LicensesService', () => {
       licenseId: 42,
       licenseNumber: 'LIC-1001',
       almsLicenseId: 'ALMS-9001',
-      sourceApplicationId: 7,
+      freshApplicationId: 7,
+      renewalApplicationId: null,
+      cancelApplicationId: null,
       lastModifiedAppType: 'FRESH',
     }));
 
@@ -78,7 +82,9 @@ describe('LicensesService', () => {
           id: 42,
           licenseNumber: 'LIC-1001',
           almsLicenseId: 'ALMS-9001',
-          sourceApplicationId: 99,
+          freshApplicationId: null,
+          renewalApplicationId: 99,
+          cancelApplicationId: null,
           lastModifiedAppType: 'RENEWAL',
         }),
       },
@@ -131,9 +137,10 @@ describe('LicensesService', () => {
       licenseId: 42,
       licenseNumber: 'LIC-1001',
       almsLicenseId: 'ALMS-9001',
-      sourceApplicationId: 99,
+      freshApplicationId: null,
+      renewalApplicationId: 99,
+      cancelApplicationId: null,
       lastModifiedAppType: 'RENEWAL',
-      freshApplicationId: 7,
     }));
   });
 });

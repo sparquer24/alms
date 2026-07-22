@@ -60,7 +60,7 @@ export class LicenseService {
     status?: string;
     licenseNumber?: string;
     aadharNumber?: string;
-    sourceApplicationId?: number;
+    freshApplicationId?: number;
     expiringWithinDays?: number;
     createdFrom?: string;
     orderBy?: string;
@@ -76,7 +76,7 @@ export class LicenseService {
       if (filters?.status) params.status = filters.status;
       if (filters?.licenseNumber) params.licenseNumber = filters.licenseNumber;
       if (filters?.aadharNumber) params.aadharNumber = filters.aadharNumber;
-      if (filters?.sourceApplicationId) params.sourceApplicationId = filters.sourceApplicationId;
+      if (filters?.freshApplicationId) params.freshApplicationId = filters.freshApplicationId;
       if (filters?.expiringWithinDays) params.expiringWithinDays = filters.expiringWithinDays;
       if (filters?.createdFrom) params.createdFrom = filters.createdFrom;
       const orderBy = filters?.orderBy ?? filters?.sortBy;
@@ -210,12 +210,12 @@ export class LicenseService {
   }
 
   /**
-   * Generate a license PDF for a given source application
-   * POST /licenses/generate/:sourceApplicationId with { issuedBy } in the body
+   * Generate a license PDF for a given fresh application
+   * POST /licenses/generate/:freshApplicationId with { issuedBy } in the body
    */
-  static async generateLicensePdf(sourceApplicationId: number, issuedBy: number): Promise<any> {
+  static async generateLicensePdf(freshApplicationId: number, issuedBy: number): Promise<any> {
     try {
-      const response = await apiClient.post(`/licenses/generate/${sourceApplicationId}`, { issuedBy });
+      const response = await apiClient.post(`/licenses/generate/${freshApplicationId}`, { issuedBy });
       return unwrapEntityResponse<any>(response);
     } catch (error) {
       console.error('[LicenseService] generateLicensePdf error:', error);

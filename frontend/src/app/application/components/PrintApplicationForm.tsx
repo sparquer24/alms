@@ -255,12 +255,12 @@ export default function PrintApplicationForm({
 
   // Determine if this is a renewal application
   const isRenewal =
-    application?.applicationType === 'Renewal Application' ||
+    application?.applicationType === 'Renewal' ||
     application?.renewalId ||
     application?.isRenewal === true;
 
   // Dynamic header based on application type
-  const headerText = isRenewal ? 'Renewal Application Details' : 'Fresh License Details';
+  const headerText = isRenewal ? 'Renewal Details' : 'Fresh Details';
 
   return (
     <div className='print-form-container font-serif text-black p-4 w-[210mm] max-w-[210mm] mx-auto bg-white box-border'>
@@ -485,7 +485,7 @@ export default function PrintApplicationForm({
             <td className='value-cell'>{application.id || application.applicationId || ''}</td>
             <td className='label-cell'>Application Type</td>
             <td className='value-cell'>
-              {formatApplicationType(application.applicationType) || 'Fresh License'}
+              {formatApplicationType(application.applicationType) || 'Fresh'}
             </td>
             <td
               rowSpan={6}

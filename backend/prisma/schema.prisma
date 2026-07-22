@@ -287,6 +287,7 @@ model FreshLicenseApplicationPersonalDetails {
   licenseHistories           FLAFLicenseHistories[]                          @relation("LicenseHistories")
   currentUser                Users?                                          @relation("CurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
   license                    Licenses?                                       @relation(fields: [licenseId], references: [id])
+  licensesFromFresh          Licenses[]                                      @relation("LicenseToFreshApp")
   occupationAndBusiness      FLAFOccupationAndBusiness?                      @relation("occupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
   permanentAddress           FLAFAddressesAndContactDetails?                 @relation("PermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
   presentAddress             FLAFAddressesAndContactDetails?                 @relation("PresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
@@ -479,6 +480,7 @@ model RenewalFormPersonalDetails {
   fileUploads                RenewalFileUploads[]                       @relation("RenewalFileUploads")
   currentUser                Users?                                     @relation("RenewalCurrentApplicationOwner", fields: [currentUserId], references: [id], onDelete: Cascade)
   licenses                   Licenses?                                  @relation("LicensesRenewalLink", fields: [licenseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  licensesFromRenewal        Licenses[]                                 @relation("LicenseToRenewalApp")
   occupationAndBusiness      RenewalOccupationAndBusiness?              @relation("RenewalOccupationAndBusinessId", fields: [occupationAndBusinessId], references: [id], onDelete: Cascade)
   permanentAddress           RenewalAddressesAndContactDetails?         @relation("RenewalPermanentAddress", fields: [permanentAddressId], references: [id], onDelete: Cascade)
   presentAddress             RenewalAddressesAndContactDetails?         @relation("RenewalPresentAddress", fields: [presentAddressId], references: [id], onDelete: Cascade)
@@ -668,6 +670,7 @@ model CancelFormRequests {
   requester               Users                     @relation("CancelRequestRequester", fields: [requestedBy], references: [id])
   workflowStatus          Statuses?                 @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id])
   cancelWorkflowHistories CancelWorkflowHistories[] @relation("CancelWorkflowHistories")
+  licensesFromCancel      Licenses[]                @relation("LicenseToCancelApp")
 
   @@index([workFlowStatusId])
   @@index([currentUserId])
@@ -763,18 +766,22 @@ model Licenses {
   pdfUrl                     String?
   digitalSignature           String?
   issuedBy                   Int?
-  sourceApplicationId        Int?
-  lastModifiedByAppId        Int?
-  lastModifiedAppType        String?
-  renewalCount               Int                                      @default(0)
-  createdAt                  DateTime                                 @default(now())
-  updatedAt                  DateTime                                 @updatedAt
-  cancelFormRequests         CancelFormRequests[]                     @relation("LicensesCancelLog")
-  freshApplications          FreshLicenseApplicationPersonalDetails[]
-  workflowHistories          LicenseWorkflowHistory[]
-  issuedByUser               Users?                                   @relation("IssuedLicenses", fields: [issuedBy], references: [id])
-  renewalFormPersonalDetails RenewalFormPersonalDetails[]             @relation("LicensesRenewalLink")
-  endorsedWeapons            WeaponTypeMaster[]                       @relation("LicenseEndorsedWeapons")
+  freshApplicationId           Int?
+  freshApplication             FreshLicenseApplicationPersonalDetails? @relation("LicenseToFreshApp", fields: [freshApplicationId], references: [id])
+  renewalApplicationId         Int?
+  renewalApplication           RenewalFormPersonalDetails?             @relation("LicenseToRenewalApp", fields: [renewalApplicationId], references: [id])
+  cancelApplicationId          Int?
+  cancelApplication            CancelFormRequests?                     @relation("LicenseToCancelApp", fields: [cancelApplicationId], references: [id])
+  lastModifiedAppType          String?
+  renewalCount                 Int                                      @default(0)
+  createdAt                    DateTime                                 @default(now())
+  updatedAt                    DateTime                                 @updatedAt
+  cancelFormRequests           CancelFormRequests[]                     @relation("LicensesCancelLog")
+  freshApplications            FreshLicenseApplicationPersonalDetails[]
+  workflowHistories            LicenseWorkflowHistory[]
+  issuedByUser                 Users?                                   @relation("IssuedLicenses", fields: [issuedBy], references: [id])
+  renewalFormPersonalDetails   RenewalFormPersonalDetails[]             @relation("LicensesRenewalLink")
+  endorsedWeapons              WeaponTypeMaster[]                       @relation("LicenseEndorsedWeapons")
 
   @@index([aadharNumber])
   @@index([status])

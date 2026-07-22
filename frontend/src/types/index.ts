@@ -682,7 +682,9 @@ export interface LicenseData {
   issuedBy?: number | null;
 
   // Tracking
-  lastModifiedByAppId?: number | null;
+  freshApplicationId?: number | null;
+  renewalApplicationId?: number | null;
+  cancelApplicationId?: number | null;
   lastModifiedAppType?: string | null;
 
   // Timestamps

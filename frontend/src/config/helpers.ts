@@ -18,7 +18,7 @@ export const APPLICATION_TYPES = [
   },
   {
     key: 'renewal',
-    label: 'Renewal Application',
+    label: 'Renewal',
     enabled: true,
   },
   {

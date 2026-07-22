@@ -353,7 +353,6 @@ const getLicenseNumber = (data: any) =>
     data?.previousApplicationDetails?.previousLicenseNumber
   );
 
-
 /** Split combined applicantName when API omits firstName/middleName/lastName */
 const parseApplicantNameParts = (fullName: string) => {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -539,7 +538,10 @@ const mapPresentAddressFields = (data: any) => {
     ),
     presentStateName: getTextValue(presentAddress?.state?.name, presentAddress?.stateName),
     presentDistrictName: getTextValue(presentAddress?.district?.name, presentAddress?.districtName),
-    presentRangeOfficeName: getTextValue(presentAddress?.rangeOffice?.name, presentAddress?.rangeOfficeName),
+    presentRangeOfficeName: getTextValue(
+      presentAddress?.rangeOffice?.name,
+      presentAddress?.rangeOfficeName
+    ),
     presentZoneName: getTextValue(presentAddress?.zone?.name, presentAddress?.zoneName),
     presentDivisionName: getTextValue(presentAddress?.division?.name, presentAddress?.divisionName),
     presentPoliceStationName: getTextValue(
@@ -624,8 +626,14 @@ const mapPermanentAddressFields = (data: any) => {
       data?.permanentPincode
     ),
     permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
-    permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
-    permanentRangeOfficeName: getTextValue(permanentAddress?.rangeOffice?.name, permanentAddress?.rangeOfficeName),
+    permanentDistrictName: getTextValue(
+      permanentAddress?.district?.name,
+      permanentAddress?.districtName
+    ),
+    permanentRangeOfficeName: getTextValue(
+      permanentAddress?.rangeOffice?.name,
+      permanentAddress?.rangeOfficeName
+    ),
     permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
     permanentDivisionName: getTextValue(
       permanentAddress?.division?.name,
@@ -972,19 +980,15 @@ const getUploadedFiles = (data: any) => collectUploadedFilesFromApi(data);
 const hasSavedDocuments = (data: any) => getUploadedFiles(data).length > 0;
 
 const resolveLicenseId = (renewalData: any, urlLicenseId: string) =>
-  getTextValue(
-    urlLicenseId,
-    renewalData?.licenseId,
-    renewalData?.id
-  );
+  getTextValue(urlLicenseId, renewalData?.licenseId, renewalData?.id);
 
 const fetchFreshApplicationWithFiles = async (licenseId: string) => {
   if (!licenseId) return null;
 
   const freshResponse = await ApplicationService.getLicense(licenseId);
-  console.log(freshResponse)
+  console.log(freshResponse);
   let freshData = extractData(freshResponse);
-  
+
   return freshData;
 };
 
@@ -1465,10 +1469,7 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
   return hasAnyDocument ? mapped : {};
 };
 
-const buildFieldStateFromFreshApplication = (
-  licenseId: string,
-  data: any
-): RenewalFormState => {
+const buildFieldStateFromFreshApplication = (licenseId: string, data: any): RenewalFormState => {
   const firstName = getTextValue(
     data?.firstName,
     data?.personalDetails?.firstName,
@@ -1496,7 +1497,9 @@ const buildFieldStateFromFreshApplication = (
 
   return {
     ...initialFormState,
-    licenseId: data?.licenseId ? Number(data.licenseId) : (data?.id ? Number(data.id) : undefined) || licenseId,
+    licenseId: data?.licenseId
+      ? Number(data.licenseId)
+      : (data?.id ? Number(data.id) : undefined) || licenseId,
     licenseNumber: getLicenseNumber(data),
     acknowledgementNo: getTextValue(
       data?.acknowledgementNo,
@@ -1801,7 +1804,9 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     hasAppliedBefore: Boolean(formData.hasAppliedBefore),
     dateAppliedFor: formData.applicationDate || undefined,
     previousAuthorityName: formData.authorityAppliedTo || '',
-    previousResult: formData.applicationResult ? formData.applicationResult.toUpperCase() : undefined,
+    previousResult: formData.applicationResult
+      ? formData.applicationResult.toUpperCase()
+      : undefined,
     hasLicenceSuspended: Boolean(formData.licenseRevokedOrSuspended),
     suspensionAuthorityName: formData.revokedByAuthority || '',
     suspensionReason: formData.revokedReason || '',
@@ -2060,8 +2065,6 @@ const createDraftRenewalFromFreshApplication = async (
 
   const licenseNumber = prefilledForm.licenseNumber.trim();
 
-
-
   setFormData(prefilledForm);
 
   try {
@@ -2116,9 +2119,7 @@ function RenewalFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const licenseId = searchParams?.get('licenseId') || '';
-  const urlLicenseId =
-    licenseId ||
-    searchParams?.get('freshApplicationId') || '';
+  const urlLicenseId = licenseId || searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
   const createdRenewalIdRef = useRef<string | null>(null);
   const personalSectionRef = React.useRef<any>(null);
@@ -2317,9 +2318,7 @@ function RenewalFormPageContent() {
         throw new Error('No license data found for the provided License ID or License Number.');
       }
 
-      const numericLicenseId = String(
-        freshData.licenseId ||freshData.id || licenseIdentifier
-      );
+      const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
 
@@ -2685,7 +2684,7 @@ function RenewalFormPageContent() {
       const isSubmitted = Boolean(renewalData?.isSubmit);
       if (isSubmitted) {
         // Already submitted — do not show the editable renewal form. Redirect to
-        // the Renewal Application Details page (Information tab).
+        // the Renewal Details page (Information tab).
         const targetRenewalId = getTextValue(renewalData?.id, rId);
         router.replace(`/renewalApplication/${encodeURIComponent(targetRenewalId)}?tab=info`);
         return renewalData;
@@ -2716,7 +2715,7 @@ function RenewalFormPageContent() {
     const load = async () => {
       if (hasInitializedRef.current) return;
       hasInitializedRef.current = true;
-      
+
       try {
         setIsLoading(true);
         setError(null);
@@ -2763,8 +2762,7 @@ function RenewalFormPageContent() {
 
         // Validate that the license has been submitted/approved.
         const isSubmitted =
-          applicationCheckResponse?.isSubmit === true ||
-          freshData?.isSubmit === true;
+          applicationCheckResponse?.isSubmit === true || freshData?.isSubmit === true;
         if (!isSubmitted) {
           throw new Error('Your application has not been submitted.');
         }
@@ -3287,8 +3285,7 @@ function RenewalFormPageContent() {
 
   const validateDeclaration = (data: RenewalFormState) => {
     const errs: Record<string, string> = {};
-    if (!data.declaration?.agreeToTruth)
-      errs['agreeToTruth'] = 'Please accept this declaration.';
+    if (!data.declaration?.agreeToTruth) errs['agreeToTruth'] = 'Please accept this declaration.';
     if (!data.declaration?.understandLegalConsequences)
       errs['understandLegalConsequences'] = 'Please accept this declaration.';
     if (!data.declaration?.agreeToTerms)
@@ -3428,7 +3425,9 @@ function RenewalFormPageContent() {
       );
 
       // Auto-navigate to the next incomplete section
-      const startIdx = SECTION_FLOW_ORDER.indexOf(sectionKey as typeof SECTION_FLOW_ORDER[number]);
+      const startIdx = SECTION_FLOW_ORDER.indexOf(
+        sectionKey as (typeof SECTION_FLOW_ORDER)[number]
+      );
       const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(
         key => !sectionCompleted[key]
       );
@@ -3743,8 +3742,8 @@ function RenewalFormPageContent() {
                       License Renewal Verification
                     </h2>
                     <p className='mt-2 text-sm text-gray-600'>
-                      Please enter your License ID or License Number to verify your identity and start
-                      the renewal process.
+                      Please enter your License ID or License Number to verify your identity and
+                      start the renewal process.
                     </p>
                   </div>
 
@@ -3983,7 +3982,7 @@ function RenewalFormPageContent() {
                     }}
                     className='w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm'
                   >
-                     Change License ID / Number
+                    Change License ID / Number
                   </button>
                 </div>
               </div>
