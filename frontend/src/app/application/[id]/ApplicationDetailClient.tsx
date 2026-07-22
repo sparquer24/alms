@@ -25,6 +25,7 @@ import { LazySection } from '../../../components/LazySection';
 import { RichTextDisplay } from '../../../components/RichTextDisplay';
 import { getApplicationByApplicationId } from '../../../services/sidebarApiCalls';
 import { RenewalService } from '../../../api/renewalService';
+import { getDocuments } from '../../../services/documentService';
 import { truncateFilename } from '../../../utils/string';
 import { useSidebarCounts } from '../../../hooks/useSidebarCounts';
 
@@ -155,15 +156,18 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
-  const [originalApplication, setOriginalApplication] = useState<ApplicationData | null>(null);
-  const [activeTab, setActiveTab] = useState<'original' | 'license'>('original');
+  const [activeTab, setActiveTab] = useState<'info' | 'original'>('info');
   const [rawRenewalData, setRawRenewalData] = useState<any | null>(null);
-  const [freshApplicationForLicense, setFreshApplicationForLicense] =
-    useState<ApplicationData | null>(null);
-  const [freshLoading, setFreshLoading] = useState(false);
-  const [freshApplicationHistory, setFreshApplicationHistory] = useState<any[]>([]);
-  const [freshHistoryLoading, setFreshHistoryLoading] = useState(false);
-  const [expandedFreshHistory, setExpandedFreshHistory] = useState<Record<number, boolean>>({});
+  // Original License Details tab: loaded via the License GET API only (no fresh-app API).
+  const [originalLicenseData, setOriginalLicenseData] = useState<LicenseData | null>(null);
+  const [originalLicenseLoading, setOriginalLicenseLoading] = useState(false);
+  const originalLicenseLoadedIdRef = useRef<string | number | null>(null);
+  // Application History for the Original License tab, sourced from the Workflow History API.
+  const [originalLicenseHistory, setOriginalLicenseHistory] = useState<any[]>([]);
+  const originalLicenseHistoryLoadedIdRef = useRef<string | number | null>(null);
+  // Original License Documents: fetched from the Documents API when the Origin tab is active.
+  const [originDocuments, setOriginDocuments] = useState<any[]>([]);
+  const [originDocumentsLoading, setOriginDocumentsLoading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage (2 of 3 columns)
   const [isDragging, setIsDragging] = useState(false);
@@ -175,16 +179,26 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
-    setActiveTab(tab === 'original' ? 'license' : 'original');
+    setActiveTab(tab === 'original' ? 'original' : 'info');
   }, [searchParams]);
 
   const handleTabChange = (tab: string) => {
     const isOriginalTab = tab === 'Original License Details' || tab === 'original';
-    const nextTab = isOriginalTab ? 'license' : 'original';
+    const nextTab: 'info' | 'original' = isOriginalTab ? 'original' : 'info';
     setActiveTab(nextTab);
     const params = new URLSearchParams(searchParams?.toString() || '');
-    params.set('tab', isOriginalTab ? 'original' : 'info');
+    params.set('tab', nextTab);
     router.replace(`${pathname}?${params.toString()}`);
+
+    // Clear stale data when switching to the Origin tab to prevent showing old content while loading.
+    if (nextTab === 'original') {
+      setOriginalLicenseData(null);
+      setOriginalLicenseLoading(true);
+      originalLicenseLoadedIdRef.current = null;
+      originalLicenseHistoryLoadedIdRef.current = null;
+      setOriginalLicenseHistory([]);
+      setOriginDocuments([]);
+    }
   };
 
   // Use sidebar counts hook here so we can trigger an immediate refresh
@@ -193,14 +207,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const { refreshCounts } = useSidebarCounts(!loading);
   const { executeAction, setActiveNavigationPath } = useGlobalAction();
   const currentDisplayApp = useMemo(() => {
-    if (isRenewalView && activeTab === 'original' && originalApplication) {
-      return originalApplication;
-    }
-    if (isRenewalView && activeTab === 'license' && freshApplicationForLicense) {
-      return freshApplicationForLicense;
+    if (isRenewalView && activeTab === 'original' && originalLicenseData) {
+      return originalLicenseData as unknown as ApplicationData;
     }
     return application;
-  }, [isRenewalView, activeTab, originalApplication, application, freshApplicationForLicense]);
+  }, [isRenewalView, activeTab, originalLicenseData, application]);
 
   const licenseDetails = useMemo(() => {
     const rawDetails =
@@ -220,9 +231,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }, [currentDisplayApp]);
 
   const showFullApplicationDetails =
-    !isRenewalView ||
-    activeTab === 'original' ||
-    (isRenewalView && activeTab === 'license' && freshApplicationForLicense !== null);
+    !isRenewalView || activeTab === 'info' || activeTab === 'original';
 
   // Handle params Promise for React 18 compatibility
   useEffect(() => {
@@ -259,36 +268,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           if (renewalData) {
             setRawRenewalData(renewalData);
             setApplication(normalizeRenewalApplication(renewalData));
-
-            // Fetch original/linked application details (freshApplicationId fallback)
-            const linkedId =
-              renewalData.freshApplicationId ||
-              renewalData.applicationId ||
-              renewalData.sourceApplicationId;
-            if (linkedId) {
-              try {
-                const origResult = await getApplicationByApplicationId(String(linkedId));
-                if (origResult) {
-                  setOriginalApplication(origResult as ApplicationData);
-                }
-              } catch (err) {
-                console.error('Failed to fetch original application', err);
-              }
-            }
-
-            // Preload fresh license's application if freshLicenseId present
-            const freshLicenseId = renewalData.freshLicenseId || null;
-            if (freshLicenseId) {
-              try {
-                setFreshLoading(true);
-                const freshApp = await getApplicationByApplicationId(String(freshLicenseId));
-                if (freshApp) setFreshApplicationForLicense(freshApp as ApplicationData);
-              } catch (err) {
-                console.error('Failed to fetch fresh license application', err);
-              } finally {
-                setFreshLoading(false);
-              }
-            }
           } else {
             setApplication(null);
           }
@@ -320,9 +299,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                 limit: 10,
               });
               if (result?.data?.length) {
-                // Check if any license matches our sourceApplicationId
+                // Check if any license matches our freshApplicationId
                 const match = result.data.find(
-                  l => l.sourceApplicationId === Number(appIdForLicense)
+                  l => l.freshApplicationId === Number(appIdForLicense)
                 );
                 if (match) {
                   setLicenseData(match);
@@ -361,80 +340,106 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }
   }, [applicationId, isRenewalView]);
 
-  // When user switches to the license tab, fetch fresh license application if not preloaded
+  // When user opens the "Original License Details" tab:
+  // 1. Call the License GET API (using the licenseId from the Renewal) once.
+  // 2. From the License response, read `sourceApplicationId` and `lastModifiedAppType`
+  //    and call the Workflow History API with those values — this populates the
+  //    Application History section. No Fresh Application API is used.
+  // Both APIs run only once per license when the tab is opened (duplicate calls avoided).
   useEffect(() => {
-    const fetchFreshForLicense = async () => {
-      if (!isRenewalView || activeTab !== 'license') return;
-      // Prefer explicit freshLicenseId from renewal payload, fallback to freshApplicationId or linked ids
-      const freshLicenseId =
-        (rawRenewalData && (rawRenewalData.freshLicenseId || rawRenewalData.freshApplicationId)) ||
-        (rawRenewalData && rawRenewalData.applicationId) ||
-        (rawRenewalData && rawRenewalData.sourceApplicationId) ||
-        null;
-      if (!freshLicenseId) return;
+    const fetchOriginalLicense = async () => {
+      if (!isRenewalView || activeTab !== 'original') return;
 
-      // If already loaded, skip
-      if (
-        freshApplicationForLicense &&
-        String(freshApplicationForLicense.id) === String(freshLicenseId)
-      ) {
-        // But still try to fetch history if not already loaded
-        if (freshApplicationHistory.length === 0) {
-          try {
-            setFreshHistoryLoading(true);
-            const historyResponse = await apiClient.get<any>(
-              `/workflow/history/${freshLicenseId}?type=fresh`
-            );
-            if (historyResponse && historyResponse.success) {
-              setFreshApplicationHistory(historyResponse.data);
-            }
-          } catch (err) {
-            console.error('Failed to fetch fresh application workflow history', err);
-          } finally {
-            setFreshHistoryLoading(false);
-          }
-        }
-        return;
-      }
+      // Derive the license id from the renewal record.
+      const licenseId =
+        rawRenewalData?.licenseId ??
+        rawRenewalData?.renewalLicenseId ??
+        rawRenewalData?.almsLicenseId ??
+        null;
+      if (!licenseId) return;
+
+      // Avoid duplicate License GET API requests for the same license.
+      if (String(licenseId) === String(originalLicenseLoadedIdRef.current)) return;
+      originalLicenseLoadedIdRef.current = licenseId;
 
       try {
-        setFreshLoading(true);
-        const freshApp = await getApplicationByApplicationId(String(freshLicenseId));
-        if (freshApp) {
-          setFreshApplicationForLicense(freshApp as ApplicationData);
+        setOriginalLicenseLoading(true);
+        const license = await LicenseService.getLicenseById(Number(licenseId));
+        if (!license) {
+          setOriginalLicenseData(null);
+          setOriginalLicenseHistory([]);
+          return;
+        }
+        setOriginalLicenseData(license);
 
-          // Fetch workflow history for fresh application
-          try {
-            setFreshHistoryLoading(true);
-            const historyResponse = await apiClient.get<any>(
-              `/workflow/history/${freshLicenseId}?type=fresh`
-            );
-            if (historyResponse && historyResponse.success) {
-              setFreshApplicationHistory(historyResponse.data);
+        // Now call the Workflow History API using the License's sourceApplicationId
+        // and lastModifiedAppType. Avoid duplicate calls for the same license.
+        if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
+          originalLicenseHistoryLoadedIdRef.current = licenseId;
+          setOriginalLicenseHistory([]);
+          const lastModifiedAppType =
+            license.lastModifiedAppType ?? (license as any).lastModifiedAppTypeId ?? 'FRESH';
+          const historyAppId =
+            lastModifiedAppType === 'FRESH'
+              ? (license.freshApplicationId ?? (license as any).freshAppId ?? null)
+              : (license.renewalApplicationId ?? (license as any).renewalAppId ?? null);
+          if (historyAppId) {
+            try {
+              const historyResponse = await apiClient.get<any>(
+                `/workflow/history/${historyAppId}?type=${lastModifiedAppType}`
+              );
+              if (historyResponse && historyResponse.success) {
+                setOriginalLicenseHistory(historyResponse.data);
+              } else if (Array.isArray(historyResponse)) {
+                setOriginalLicenseHistory(historyResponse);
+              }
+            } catch (historyErr) {
+              console.error('Failed to fetch original license workflow history', historyErr);
+              setOriginalLicenseHistory([]);
             }
-          } catch (err) {
-            console.error('Failed to fetch fresh application workflow history', err);
-          } finally {
-            setFreshHistoryLoading(false);
           }
         }
       } catch (err) {
-        console.error('Failed to fetch fresh license application on tab change', err);
+        console.error('Failed to fetch original license on tab change', err);
       } finally {
-        setFreshLoading(false);
+        setOriginalLicenseLoading(false);
       }
     };
 
-    fetchFreshForLicense();
-  }, [
-    activeTab,
-    isRenewalView,
-    rawRenewalData,
-    freshApplicationForLicense,
-    freshApplicationHistory,
-  ]);
+    fetchOriginalLicense();
+  }, [activeTab, isRenewalView, rawRenewalData]);
 
-  // Clear success message after 5 seconds
+  // When the Origin tab is active and original license data is available,
+  // fetch the original application's documents via the Documents API.
+  useEffect(() => {
+    const fetchOriginDocuments = async () => {
+      if (activeTab !== 'original' || !originalLicenseData) return;
+
+      const lastAppType = (originalLicenseData as any).lastModifiedAppType;
+      const sourceId =
+        lastAppType === 'FRESH'
+          ? (originalLicenseData as any).freshApplicationId
+          : lastAppType === 'RENEWAL'
+            ? (originalLicenseData as any).renewalApplicationId
+            : (originalLicenseData as any).cancelApplicationId;
+      if (!sourceId || !lastAppType) return;
+
+      setOriginDocumentsLoading(true);
+      try {
+        const docs = await getDocuments(Number(sourceId), lastAppType);
+        setOriginDocuments(docs);
+      } catch (err) {
+        console.error('Failed to fetch origin documents:', err);
+        setOriginDocuments([]);
+      } finally {
+        setOriginDocumentsLoading(false);
+      }
+    };
+
+    fetchOriginDocuments();
+  }, [activeTab, originalLicenseData]);
+
+// Clear success message after 5 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -729,10 +734,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       <Header
         breadcrumbs={[
           { label: 'Home', onClick: () => router.push('/') },
-          { label: isRenewalView ? 'Renewal Application' : 'Fresh Application' },
+          { label: isRenewalView ? 'Renewal' : 'Fresh Application' },
           { label: applicationId ? `Application ID: ${applicationId}` : '...' },
         ]}
-        applicationTypeLabel={isRenewalView ? 'Renewal Application' : 'Fresh Application'}
+        applicationTypeLabel={isRenewalView ? 'Renewal' : 'Fresh Application'}
         statusBadge={
           application
             ? {
@@ -842,11 +847,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               applicationId={application.id}
               renewalId={application.id}
               acknowledgementNo={application.acknowledgementNo}
-              activeTab={
-                activeTab === 'original'
-                  ? 'Renewal Application Info'
-                  : 'Original License Details'
-              }
+              activeTab={activeTab === 'original' ? 'Original License Details' : 'Renewal Info'}
               onTabChange={handleTabChange}
             />
           </div>
@@ -861,600 +862,147 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             return application;
           })() ? (
             <>
-              {/* Redesigned Sections */}
-              {(() => {
-                const displayApp = currentDisplayApp;
-                if (!displayApp) return null;
-                const application = displayApp;
-                return (
-                  <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
-                    {/* Tab Selection for Renewal */}
-                    {isRenewalView && originalApplication && (
-                      <div className='flex border-b border-slate-200 mt-2 mb-6 print:hidden'>
-                        <button
-                          onClick={() => handleTabChange('info')}
-                          className={`py-3 px-6 font-semibold text-sm transition-all border-b-2 -mb-[2px] ${
-                            activeTab === 'original'
-                              ? 'border-blue-600 text-blue-600'
-                              : 'border-transparent text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Renewal Application Details
-                        </button>
-                        <button
-                          onClick={() => handleTabChange('original')}
-                          className={`py-3 px-6 font-semibold text-sm transition-all border-b-2 -mb-[2px] ${
-                            activeTab === 'license'
-                              ? 'border-blue-600 text-blue-600'
-                              : 'border-transparent text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          Original License Details
-                        </button>
+              {/* Tab Loading Skeleton — shown when the Origin tab data is being fetched */}
+              {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
+                <div className='p-6 lg:p-8 bg-slate-50/30 transition-opacity duration-300 animate-pulse'>
+                  {/* Application Information Section Skeleton */}
+                  <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8'>
+                    <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
+                      <div className='flex items-center gap-3'>
+                        <div className='h-10 w-10 rounded-lg bg-gray-200'></div>
+                        <div className='h-6 w-48 bg-gray-200 rounded'></div>
                       </div>
-                    )}
-                    {showFullApplicationDetails && (
-                      <>
-                        {/* 1. Application Information Section */}
-                        <div className='bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
-                          <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
-                            <div className='flex items-center gap-3'>
-                              <div className='p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600'>
-                                <UserRound className='w-5 h-5' />
-                              </div>
-                              <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
-                                Application Information
-                              </h3>
+                      <div className='flex gap-2'>
+                        <div className='h-10 w-32 bg-gray-200 rounded-xl'></div>
+                        <div className='h-10 w-32 bg-gray-200 rounded-xl hidden sm:block'></div>
+                      </div>
+                    </div>
+                    <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+                      <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6'>
+                        {[...Array(8)].map((_, i) => (
+                          <div key={i} className={`space-y-2 ${i === 0 ? 'md:col-span-2' : ''}`}>
+                            <div className='h-4 w-24 bg-gray-200 rounded'></div>
+                            <div className='h-5 w-48 max-w-full bg-gray-200 rounded'></div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className='space-y-6'>
+                        <div className='h-48 w-full bg-gray-200 rounded-2xl'></div>
+                        <div className='h-64 w-full bg-gray-200 rounded-2xl'></div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Three-Column Row Skeleton */}
+                  <div className='grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8'>
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className='bg-white rounded-xl border border-slate-200 shadow-sm p-5 h-[400px]'
+                      >
+                        <div className='flex items-center gap-3 mb-6'>
+                          <div className='h-10 w-10 rounded-lg bg-gray-200'></div>
+                          <div className='h-5 w-32 bg-gray-200 rounded'></div>
+                        </div>
+                        <div className='space-y-5'>
+                          {[...Array(5)].map((_, j) => (
+                            <div key={j} className='space-y-2'>
+                              <div className='h-3 w-20 bg-gray-200 rounded'></div>
+                              <div className='h-4 w-full bg-gray-200 rounded'></div>
                             </div>
-                            <div className='flex gap-2'>
-                              {userRole === 'ZS' && (
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Loading indicator */}
+                  <div className='flex flex-col items-center justify-center py-8 text-center'>
+                    <div className='w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4'></div>
+                    <p className='text-sm font-medium text-slate-500'>
+                      Loading original license details...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Redesigned Sections — normal content */
+                (() => {
+                  const displayApp = currentDisplayApp;
+                  if (!displayApp) return null;
+                  const application = displayApp;
+                  return (
+                    <div className='p-6 lg:p-8 space-y-8 bg-slate-50/30' ref={printRef}>
+                      {showFullApplicationDetails && (
+                        <>
+                          {/* 1. Application Information Section */}
+                          <div className='bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
+                            <div className='flex items-center justify-between border-b border-slate-100 pb-4 mb-6'>
+                              <div className='flex items-center gap-3'>
+                                <div className='p-2.5 rounded-lg border border-blue-100 bg-blue-50 text-blue-600'>
+                                  <UserRound className='w-5 h-5' />
+                                </div>
+                                <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
+                                  Application Information
+                                </h3>
+                              </div>
+                              <div className='flex gap-2'>
+                                {userRole === 'ZS' && (
+                                  <button
+                                    type='button'
+                                    onClick={handleGenerateLicense}
+                                    className='inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm text-sm font-semibold hover:bg-blue-700 transition-all duration-200 print:hidden'
+                                    title='Generate PDF License'
+                                  >
+                                    <FileCheck className='w-4.5 h-4.5' />
+                                    Generate License
+                                  </button>
+                                )}
                                 <button
                                   type='button'
-                                  onClick={handleGenerateLicense}
-                                  className='inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm text-sm font-semibold hover:bg-blue-700 transition-all duration-200 print:hidden'
-                                  title='Generate PDF License'
+                                  onClick={handleBrowserPrint}
+                                  className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden'
+                                  title='Print application details'
                                 >
-                                  <FileCheck className='w-4.5 h-4.5' />
-                                  Generate License
+                                  <Printer className='w-4.5 h-4.5 text-slate-500' />
+                                  Print Details
                                 </button>
-                              )}
-                              <button
-                                type='button'
-                                onClick={handleBrowserPrint}
-                                className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden'
-                                title='Print application details'
-                              >
-                                <Printer className='w-4.5 h-4.5 text-slate-500' />
-                                Print Details
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-                            {/* Left 2 columns: Applicant Details */}
-                            <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4'>
-                              <DetailItem
-                                label='Full Name'
-                                value={applicantName}
-                                icon={UserRound}
-                                className='md:col-span-2'
-                              />
-                              {application?.parentOrSpouseName && (
-                                <DetailItem
-                                  label='Parent / Spouse Name'
-                                  value={application.parentOrSpouseName}
-                                  icon={Users}
-                                />
-                              )}
-                              {application?.sex && (
-                                <DetailItem
-                                  label='Gender'
-                                  value={formatGender(application.sex)}
-                                  icon={UserCheck}
-                                />
-                              )}
-                              {application?.placeOfBirth && (
-                                <DetailItem
-                                  label='Place of Birth'
-                                  value={application.placeOfBirth}
-                                  icon={MapPin}
-                                />
-                              )}
-                              {(application?.dateOfBirth || application?.dob) && (
-                                <DetailItem
-                                  label='Date of Birth'
-                                  value={
-                                    application?.dateOfBirth
-                                      ? new Date(application.dateOfBirth).toLocaleDateString(
-                                          'en-IN',
-                                          {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric',
-                                          }
-                                        )
-                                      : application?.dob
-                                        ? new Date(application.dob).toLocaleDateString('en-IN', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric',
-                                          })
-                                        : null
-                                  }
-                                  icon={CalendarDays}
-                                />
-                              )}
-                              {application?.panNumber && (
-                                <DetailItem
-                                  label='PAN Number'
-                                  value={application.panNumber}
-                                  icon={CreditCard}
-                                  mono
-                                />
-                              )}
-                              {application?.aadharNumber && (
-                                <DetailItem
-                                  label='Aadhar Number'
-                                  value={application.aadharNumber}
-                                  icon={Fingerprint}
-                                  mono
-                                />
-                              )}
-                              {application?.acknowledgementNo && (
-                                <DetailItem
-                                  label='Acknowledgement Number'
-                                  value={application.acknowledgementNo}
-                                  icon={FileCheck}
-                                  mono
-                                />
-                              )}
-                              {application?.currentUser && (
-                                <DetailItem
-                                  label='Current User'
-                                  value={application.currentUser.username}
-                                  icon={UserCog}
-                                />
-                              )}
-                              {application?.workflowStatus && (
-                                <DetailItem
-                                  label='Workflow Status'
-                                  value={<StatusBadge status={application.workflowStatus} />}
-                                  icon={BadgeCheck}
-                                />
-                              )}
-                              <DetailItem
-                                label='Application Type'
-                                value={
-                                  <StatusBadge
-                                    status={application?.applicationType || 'N/A'}
-                                    label={formatApplicationType(application?.applicationType)}
-                                  />
-                                }
-                                icon={Clock3}
-                              />
-                              {application?.applicationDate && (
-                                <DetailItem
-                                  label='Date & Time of Submission'
-                                  value={new Date(application.applicationDate).toLocaleString(
-                                    'en-IN',
-                                    {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    }
-                                  )}
-                                  icon={CalendarDays}
-                                  className='md:col-span-2'
-                                />
-                              )}
-                            </div>
-
-                            {/* Right column: Photo & Quick Summary */}
-                            <div>
-                              <SummaryCard
-                                application={application}
-                                applicationId={applicationId}
-                                applicantName={applicantName}
-                              />
-                              <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden relative group'>
-                                <div className='absolute inset-0 bg-gradient-to-br from-blue-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none'></div>
-                                <div className='relative z-10'>
-                                  <LazySection minHeight='400px'>
-                                    <EnhancedApplicationTimeline
-                                      application={application!}
-                                      workflowHistory={
-                                        activeTab === 'original'
-                                          ? application.workflowHistories || []
-                                          : workflowHistory
-                                      }
-                                    />
-                                  </LazySection>
-                                </div>
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
 
-                    {showFullApplicationDetails && (
-                      <>
-                        {/* 2. Three-Column Row: License Details, License History, Criminal History */}
-                        <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-                          {/* License Details Card */}
-                          {(() => {
-                            const license = (licenseDetails[0] || {}) as any;
-                            const requestedWeapons = Array.isArray(license?.requestedWeapons)
-                              ? license.requestedWeapons
-                              : license?.requestedWeaponIds;
-                            const weaponsLabel = Array.isArray(requestedWeapons)
-                              ? requestedWeapons
-                                  .map((w: any) =>
-                                    typeof w === 'object' ? w?.name || w?.type || w?.id : w
-                                  )
-                                  .filter(Boolean)
-                                  .join(', ')
-                              : '';
-                            const evidenceFiles =
-                              license?.uploadedFiles || license?.specialClaimsEvidence || [];
-                            const normalizedEvidence = Array.isArray(evidenceFiles)
-                              ? evidenceFiles.filter(Boolean)
-                              : [];
-
-                            return (
-                              <SectionCard
-                                title='License Details'
-                                icon={Shield}
-                                iconColorClass='text-blue-600 bg-blue-50 border-blue-100'
-                              >
-                                <div className='space-y-4 flex-1'>
+                            <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+                              {/* Left 2 columns: Applicant Details */}
+                              <div className='lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4'>
+                                <DetailItem
+                                  label='Full Name'
+                                  value={applicantName}
+                                  icon={UserRound}
+                                  className='md:col-span-2'
+                                />
+                                {application?.parentOrSpouseName && (
                                   <DetailItem
-                                    label='Need for License'
-                                    value={license.needForLicense}
-                                    icon={Target}
-                                  />
-                                  <DetailItem
-                                    label='Arms Category'
-                                    value={license.armsCategory}
-                                    icon={ShieldCheck}
-                                  />
-                                  <DetailItem
-                                    label='Requested Weapons'
-                                    value={weaponsLabel}
-                                    icon={Crosshair}
-                                  />
-                                  <DetailItem
-                                    label='Area of Validity'
-                                    value={license.areaOfValidity}
-                                    icon={MapPin}
-                                  />
-                                  <DetailItem
-                                    label='Licence Place / Area'
-                                    value={license.licencePlaceArea}
-                                    icon={LocateFixed}
-                                  />
-                                  <DetailItem
-                                    label='Ammunition Description'
-                                    value={license.ammunitionDescription}
-                                    icon={Package}
-                                  />
-                                  <DetailItem
-                                    label='Special Consideration Reason'
-                                    value={license.specialConsiderationReason}
-                                    icon={FileText}
-                                  />
-                                  {license.wildBeastsSpecification && (
-                                    <DetailItem
-                                      label='Wild Beasts Specification'
-                                      value={license.wildBeastsSpecification}
-                                      icon={FileText}
-                                    />
-                                  )}
-
-                                  {normalizedEvidence.length > 0 && (
-                                    <div className='mt-4 pt-4 border-t border-slate-100'>
-                                      <p className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'>
-                                        Evidence / Attachments
-                                      </p>
-                                      <div className='flex flex-wrap gap-2'>
-                                        {normalizedEvidence.map((file: any, fileIdx: number) => {
-                                          const fileLabel = truncateFilename(
-                                            file?.name ||
-                                              file?.fileName ||
-                                              file?.originalName ||
-                                              'File',
-                                            10
-                                          );
-                                          return (
-                                            <button
-                                              key={fileIdx}
-                                              type='button'
-                                              onClick={() => openAttachment(file)}
-                                              className='inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-blue-600 font-semibold hover:bg-blue-50 transition-colors'
-                                              title={
-                                                file?.name || file?.fileName || file?.originalName
-                                              }
-                                            >
-                                              <FileText className='w-3.5 h-3.5 text-rose-500' />
-                                              <span className='truncate max-w-[120px]'>
-                                                {fileLabel}
-                                              </span>
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </SectionCard>
-                            );
-                          })()}
-
-                          {/* License History Card */}
-                          {(() => {
-                            const history = ((application?.licenseHistories &&
-                              application.licenseHistories[0]) ||
-                              {}) as any;
-                            return (
-                              <SectionCard
-                                title='License History'
-                                icon={History}
-                                iconColorClass='text-amber-600 bg-amber-50 border-amber-100'
-                              >
-                                <div className='space-y-4 flex-1'>
-                                  <DetailItem
-                                    label='Previously Applied'
-                                    value={
-                                      history.hasAppliedBefore !== undefined
-                                        ? history.hasAppliedBefore
-                                          ? 'Yes'
-                                          : 'No'
-                                        : null
-                                    }
-                                    icon={ClipboardCheck}
-                                  />
-                                  <DetailItem
-                                    label='Previous Result'
-                                    value={history.previousResult}
-                                    icon={BadgeCheck}
-                                  />
-                                  <DetailItem
-                                    label='Previous Authority'
-                                    value={history.previousAuthorityName}
-                                    icon={Building2}
-                                  />
-                                  <DetailItem
-                                    label='License Suspended'
-                                    value={
-                                      history.hasLicenceSuspended !== undefined
-                                        ? history.hasLicenceSuspended
-                                          ? 'Yes'
-                                          : 'No'
-                                        : null
-                                    }
-                                    icon={ShieldAlert}
-                                  />
-                                  <DetailItem
-                                    label='Suspension Reason'
-                                    value={history.suspensionReason}
-                                    icon={AlertTriangle}
-                                  />
-                                  <DetailItem
-                                    label='Family License'
-                                    value={
-                                      history.hasFamilyLicence !== undefined
-                                        ? history.hasFamilyLicence
-                                          ? 'Yes'
-                                          : 'No'
-                                        : null
-                                    }
+                                    label='Parent / Spouse Name'
+                                    value={application.parentOrSpouseName}
                                     icon={Users}
                                   />
+                                )}
+                                {application?.sex && (
                                   <DetailItem
-                                    label='Family Member Name'
-                                    value={history.familyMemberName}
-                                    icon={UserRound}
+                                    label='Gender'
+                                    value={formatGender(application.sex)}
+                                    icon={UserCheck}
                                   />
+                                )}
+                                {application?.placeOfBirth && (
                                   <DetailItem
-                                    label='Family License Number'
-                                    value={history.familyLicenceNumber}
-                                    icon={ShieldCheck}
-                                  />
-                                </div>
-                              </SectionCard>
-                            );
-                          })()}
-
-                          {/* Criminal History Card */}
-                          {(() => {
-                            const criminal = ((application?.criminalHistories &&
-                              application.criminalHistories[0]) ||
-                              {}) as any;
-                            return (
-                              <SectionCard
-                                title='Criminal History'
-                                icon={TriangleAlert}
-                                iconColorClass='text-red-600 bg-red-50 border-red-100'
-                              >
-                                <div className='space-y-4 flex-1'>
-                                  <DetailItem
-                                    label='Convicted'
-                                    value={
-                                      criminal.isConvicted !== undefined
-                                        ? criminal.isConvicted
-                                          ? 'Yes'
-                                          : 'No'
-                                        : null
-                                    }
-                                    icon={Ban}
-                                  />
-                                  <DetailItem
-                                    label='Bond Executed'
-                                    value={
-                                      criminal.isBondExecuted !== undefined
-                                        ? criminal.isBondExecuted
-                                          ? 'Yes'
-                                          : 'No'
-                                        : null
-                                    }
-                                    icon={FileWarning}
-                                  />
-                                  <DetailItem
-                                    label='Bond Date'
-                                    value={
-                                      criminal.bondDate
-                                        ? new Date(criminal.bondDate).toLocaleDateString('en-IN')
-                                        : null
-                                    }
-                                    icon={Calendar}
-                                  />
-                                  <DetailItem
-                                    label='Prohibited'
-                                    value={
-                                      criminal.isProhibited !== undefined
-                                        ? criminal.isProhibited
-                                          ? 'Yes'
-                                          : 'No'
-                                        : null
-                                    }
-                                    icon={Scale}
-                                  />
-
-                                  {criminal.firDetails && criminal.firDetails.length > 0 && (
-                                    <div className='mt-4 pt-4 border-t border-slate-100'>
-                                      <h4 className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5'>
-                                        <FileSearch className='w-3.5 h-3.5' />
-                                        FIR Details
-                                      </h4>
-                                      <div className='space-y-3'>
-                                        {criminal.firDetails.map((fir: any, firIdx: number) => (
-                                          <div
-                                            key={firIdx}
-                                            className='bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-2'
-                                          >
-                                            <div className='grid grid-cols-2 gap-2'>
-                                              <div>
-                                                <span className='text-slate-400 font-semibold uppercase block'>
-                                                  FIR Number
-                                                </span>
-                                                <span className='font-bold text-slate-700'>
-                                                  {fir.firNumber || '—'}
-                                                </span>
-                                              </div>
-                                              <div>
-                                                <span className='text-slate-400 font-semibold uppercase block'>
-                                                  District
-                                                </span>
-                                                <span className='font-bold text-slate-700'>
-                                                  {fir.District || '—'}
-                                                </span>
-                                              </div>
-                                              <div>
-                                                <span className='text-slate-400 font-semibold uppercase block'>
-                                                  Police Station
-                                                </span>
-                                                <span className='font-bold text-slate-700'>
-                                                  {fir.policeStation || '—'}
-                                                </span>
-                                              </div>
-                                              <div>
-                                                <span className='text-slate-400 font-semibold uppercase block'>
-                                                  Under Section
-                                                </span>
-                                                <span className='font-bold text-slate-700'>
-                                                  {fir.underSection || '—'}
-                                                </span>
-                                              </div>
-                                            </div>
-                                            {fir.offence && (
-                                              <div>
-                                                <span className='text-slate-400 font-semibold uppercase block'>
-                                                  Offence
-                                                </span>
-                                                <span className='font-medium text-slate-700'>
-                                                  {fir.offence}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {fir.DateOfSentence && (
-                                              <div>
-                                                <span className='text-slate-400 font-semibold uppercase block'>
-                                                  Sentence Date
-                                                </span>
-                                                <span className='font-medium text-slate-700'>
-                                                  {fir.DateOfSentence}
-                                                </span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </SectionCard>
-                            );
-                          })()}
-                        </div>
-                      </>
-                    )}
-
-                    {showFullApplicationDetails && (
-                      <>
-                        {/* 3. Three-Column Address Row: Present, Permanent, Occupation */}
-                        <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-                          {/* Present Address Details */}
-                          {(() => {
-                            const present = (application?.presentAddress || {}) as any;
-                            const presentState =
-                              typeof present.state === 'object'
-                                ? present.state?.name
-                                : present.state;
-                            const presentDistrict =
-                              typeof present.district === 'object'
-                                ? present.district?.name
-                                : present.district;
-
-                            return (
-                              <SectionCard
-                                title='Present Address Details'
-                                icon={MapPin}
-                                iconColorClass='text-purple-600 bg-purple-50 border-purple-100'
-                              >
-                                <div className='space-y-4 flex-1'>
-                                  <DetailItem
-                                    label='Address'
-                                    value={present.addressLine}
-                                    icon={Building}
-                                  />
-                                  <DetailItem label='State' value={presentState} icon={Landmark} />
-                                  <DetailItem
-                                    label='District'
-                                    value={presentDistrict}
-                                    icon={Building2}
-                                  />
-                                  <DetailItem
-                                    label='Zone'
-                                    value={present.zone?.name}
+                                    label='Place of Birth'
+                                    value={application.placeOfBirth}
                                     icon={MapPin}
                                   />
+                                )}
+                                {(application?.dateOfBirth || application?.dob) && (
                                   <DetailItem
-                                    label='Division'
-                                    value={present.division?.name}
-                                    icon={MapPin}
-                                  />
-                                  <DetailItem
-                                    label='Police Station'
-                                    value={present.policeStation?.name}
-                                    icon={Building2}
-                                  />
-                                  <DetailItem
-                                    label='Residing Since'
+                                    label='Date of Birth'
                                     value={
-                                      present.sinceResiding
-                                        ? new Date(present.sinceResiding).toLocaleDateString(
+                                      application?.dateOfBirth
+                                        ? new Date(application.dateOfBirth).toLocaleDateString(
                                             'en-IN',
                                             {
                                               year: 'numeric',
@@ -1462,429 +1010,942 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                               day: 'numeric',
                                             }
                                           )
-                                        : null
+                                        : application?.dob
+                                          ? new Date(application.dob).toLocaleDateString('en-IN', {
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric',
+                                            })
+                                          : null
                                     }
-                                    icon={Calendar}
+                                    icon={CalendarDays}
                                   />
-                                </div>
-                              </SectionCard>
-                            );
-                          })()}
-
-                          {/* Permanent Address Details */}
-                          {(() => {
-                            const permanent = (application?.permanentAddress || {}) as any;
-                            const permanentState =
-                              typeof permanent.state === 'object'
-                                ? permanent.state?.name
-                                : permanent.state;
-                            const permanentDistrict =
-                              typeof permanent.district === 'object'
-                                ? permanent.district?.name
-                                : permanent.district;
-
-                            return (
-                              <SectionCard
-                                title='Permanent Address Details'
-                                icon={MapPin}
-                                iconColorClass='text-indigo-600 bg-indigo-50 border-indigo-100'
-                              >
-                                <div className='space-y-4 flex-1'>
+                                )}
+                                {application?.panNumber && (
                                   <DetailItem
-                                    label='Address'
-                                    value={permanent.addressLine}
-                                    icon={Building}
+                                    label='PAN Number'
+                                    value={application.panNumber}
+                                    icon={CreditCard}
+                                    mono
                                   />
+                                )}
+                                {application?.aadharNumber && (
                                   <DetailItem
-                                    label='State'
-                                    value={permanentState}
-                                    icon={Landmark}
+                                    label='Aadhar Number'
+                                    value={application.aadharNumber}
+                                    icon={Fingerprint}
+                                    mono
                                   />
+                                )}
+                                {application?.acknowledgementNo && (
                                   <DetailItem
-                                    label='District'
-                                    value={permanentDistrict}
-                                    icon={Building2}
+                                    label='Acknowledgement Number'
+                                    value={application.acknowledgementNo}
+                                    icon={FileCheck}
+                                    mono
                                   />
+                                )}
+                                {application?.currentUser && (
                                   <DetailItem
-                                    label='Zone'
-                                    value={permanent.zone?.name}
-                                    icon={MapPin}
+                                    label='Current User'
+                                    value={application.currentUser.username}
+                                    icon={UserCog}
                                   />
+                                )}
+                                {application?.workflowStatus && (
                                   <DetailItem
-                                    label='Division'
-                                    value={permanent.division?.name}
-                                    icon={MapPin}
+                                    label='Workflow Status'
+                                    value={<StatusBadge status={application.workflowStatus} />}
+                                    icon={BadgeCheck}
                                   />
+                                )}
+                                <DetailItem
+                                  label='Application Type'
+                                  value={
+                                    <StatusBadge
+                                      status={application?.applicationType || 'N/A'}
+                                      label={formatApplicationType(application?.applicationType)}
+                                    />
+                                  }
+                                  icon={Clock3}
+                                />
+                                {application?.applicationDate && (
                                   <DetailItem
-                                    label='Police Station'
-                                    value={permanent.policeStation?.name}
-                                    icon={Building2}
-                                  />
-                                  <DetailItem
-                                    label='Residing Since'
-                                    value={
-                                      permanent.sinceResiding
-                                        ? new Date(permanent.sinceResiding).toLocaleDateString(
-                                            'en-IN',
-                                            { year: 'numeric', month: 'long', day: 'numeric' }
-                                          )
-                                        : null
-                                    }
-                                    icon={Calendar}
-                                  />
-                                </div>
-                              </SectionCard>
-                            );
-                          })()}
-
-                          {/* Occupation & Business Details */}
-                          {(() => {
-                            const occ = (application?.occupationAndBusiness || {}) as any;
-                            return (
-                              <SectionCard
-                                title='Occupation & Business Details'
-                                icon={BriefcaseBusiness}
-                                iconColorClass='text-teal-600 bg-teal-50 border-teal-100'
-                              >
-                                <div className='space-y-4 flex-1'>
-                                  <DetailItem
-                                    label='Occupation'
-                                    value={occ.occupation}
-                                    icon={BriefcaseBusiness}
-                                  />
-                                  <DetailItem
-                                    label='Office Address'
-                                    value={occ.officeAddress}
-                                    icon={Building}
-                                  />
-                                  <DetailItem
-                                    label='State'
-                                    value={occ.state?.name}
-                                    icon={Landmark}
-                                  />
-                                  <DetailItem
-                                    label='District'
-                                    value={occ.district?.name}
-                                    icon={Building2}
-                                  />
-                                  <DetailItem
-                                    label='Crop Location'
-                                    value={occ.cropLocation}
-                                    icon={MapPinned}
-                                  />
-                                  <DetailItem
-                                    label='Area Under Cultivation'
-                                    value={occ.areaUnderCultivation}
-                                    icon={Building}
-                                  />
-                                </div>
-                              </SectionCard>
-                            );
-                          })()}
-                        </div>
-                      </>
-                    )}
-
-                    {/* License Record Section — shown when license data exists */}
-                    {showFullApplicationDetails && licenseData && (
-                      <div className='bg-white rounded-xl border-2 border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
-                        <div className='flex items-center justify-between border-b border-emerald-100 pb-4 mb-6'>
-                          <div className='flex items-center gap-3'>
-                            <div className='p-2.5 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600'>
-                              <BadgeCheck className='w-5 h-5' />
-                            </div>
-                            <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
-                              License Record
-                            </h3>
-                          </div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                              licenseData.status === 'ACTIVE'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : licenseData.status === 'EXPIRED'
-                                  ? 'bg-red-100 text-red-700'
-                                  : licenseData.status === 'CANCELLED'
-                                    ? 'bg-slate-100 text-slate-700'
-                                    : licenseData.status === 'SUSPENDED'
-                                      ? 'bg-amber-100 text-amber-700'
-                                      : 'bg-rose-100 text-rose-700'
-                            }`}
-                          >
-                            {licenseData.status}
-                          </span>
-                        </div>
-                        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-                          <div className='space-y-4'>
-                            <DetailItem
-                              label='License Number'
-                              value={licenseData.licenseNumber}
-                              icon={FileCheck}
-                              mono
-                            />
-                            <DetailItem
-                              label='Arms Category'
-                              value={licenseData.armsCategory}
-                              icon={Shield}
-                            />
-                            <DetailItem
-                              label='Area of Validity'
-                              value={licenseData.areaOfValidity}
-                              icon={MapPin}
-                            />
-                            <DetailItem
-                              label='Valid From'
-                              value={
-                                licenseData.validFrom
-                                  ? new Date(licenseData.validFrom).toLocaleDateString('en-IN', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })
-                                  : null
-                              }
-                              icon={Calendar}
-                            />
-                            <DetailItem
-                              label='Valid Till'
-                              value={
-                                licenseData.validTill
-                                  ? new Date(licenseData.validTill).toLocaleDateString('en-IN', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })
-                                  : null
-                              }
-                              icon={Calendar}
-                            />
-                          </div>
-                          <div className='space-y-4'>
-                            <DetailItem
-                              label='Issue Date'
-                              value={
-                                licenseData.issueDate
-                                  ? new Date(licenseData.issueDate).toLocaleDateString('en-IN', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })
-                                  : null
-                              }
-                              icon={CalendarDays}
-                            />
-                            <DetailItem
-                              label='Last Renewed'
-                              value={
-                                licenseData.lastRenewedDate
-                                  ? new Date(licenseData.lastRenewedDate).toLocaleDateString(
+                                    label='Date & Time of Submission'
+                                    value={new Date(application.applicationDate).toLocaleString(
                                       'en-IN',
-                                      { year: 'numeric', month: 'short', day: 'numeric' }
-                                    )
-                                  : null
-                              }
-                              icon={History}
-                            />
-                            <DetailItem
-                              label='Renewal Count'
-                              value={licenseData.renewalCount?.toString() || '0'}
-                              icon={ClipboardCheck}
-                            />
-                            <DetailItem
-                              label='Ammunition Description'
-                              value={licenseData.ammunitionDescription}
-                              icon={Package}
-                            />
-                            {licenseData.cancellationReason && (
-                              <DetailItem
-                                label='Cancellation Reason'
-                                value={licenseData.cancellationReason}
-                                icon={Ban}
-                              />
-                            )}
-                          </div>
-                          <div className='space-y-4'>
-                            {licenseData.endorsedWeapons &&
-                              licenseData.endorsedWeapons.length > 0 && (
-                                <div>
-                                  <p className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'>
-                                    Endorsed Weapons
-                                  </p>
-                                  <div className='flex flex-wrap gap-2'>
-                                    {licenseData.endorsedWeapons.map((w: any, wi: number) => (
-                                      <span
-                                        key={wi}
-                                        className='inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700'
-                                      >
-                                        <Crosshair className='w-3 h-3 text-blue-500' />
-                                        {w.name}
-                                      </span>
-                                    ))}
+                                      {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      }
+                                    )}
+                                    icon={CalendarDays}
+                                    className='md:col-span-2'
+                                  />
+                                )}
+                              </div>
+
+                              {/* Right column: Photo & Quick Summary */}
+                              <div>
+                                <SummaryCard
+                                  application={
+                                    isRenewalView &&
+                                    activeTab === 'original' &&
+                                    originDocuments?.length
+                                      ? { ...application, documents: originDocuments }
+                                      : application
+                                  }
+                                  applicationId={applicationId}
+                                  applicantName={applicantName}
+                                />
+                                <div className='bg-slate-50/50 rounded-2xl border border-slate-100 p-6 overflow-hidden relative group'>
+                                  <div className='absolute inset-0 bg-gradient-to-br from-blue-50/50 to-emerald-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none'></div>
+                                  <div className='relative z-10'>
+                                    <LazySection minHeight='400px'>
+                                      <EnhancedApplicationTimeline
+                                        application={application!}
+                                        workflowHistory={
+                                          activeTab === 'original'
+                                            ? application.workflowHistories || []
+                                            : workflowHistory
+                                        }
+                                      />
+                                    </LazySection>
                                   </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {showFullApplicationDetails && (
+                        <>
+                          {/* 2. Three-Column Row: License Details, License History, Criminal History */}
+                          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+                            {/* License Details Card */}
+                            {(() => {
+                              const license = (licenseDetails[0] || {}) as any;
+                              const requestedWeapons = Array.isArray(license?.requestedWeapons)
+                                ? license.requestedWeapons
+                                : license?.requestedWeaponIds;
+                              const weaponsLabel = Array.isArray(requestedWeapons)
+                                ? requestedWeapons
+                                    .map((w: any) =>
+                                      typeof w === 'object' ? w?.name || w?.type || w?.id : w
+                                    )
+                                    .filter(Boolean)
+                                    .join(', ')
+                                : '';
+                              const evidenceFiles =
+                                license?.uploadedFiles || license?.specialClaimsEvidence || [];
+                              const normalizedEvidence = Array.isArray(evidenceFiles)
+                                ? evidenceFiles.filter(Boolean)
+                                : [];
+
+                              return (
+                                <SectionCard
+                                  title='License Details'
+                                  icon={Shield}
+                                  iconColorClass='text-blue-600 bg-blue-50 border-blue-100'
+                                >
+                                  <div className='space-y-4 flex-1'>
+                                    <DetailItem
+                                      label='Need for License'
+                                      value={license.needForLicense}
+                                      icon={Target}
+                                    />
+                                    <DetailItem
+                                      label='Arms Category'
+                                      value={license.armsCategory}
+                                      icon={ShieldCheck}
+                                    />
+                                    <DetailItem
+                                      label='Requested Weapons'
+                                      value={weaponsLabel}
+                                      icon={Crosshair}
+                                    />
+                                    <DetailItem
+                                      label='Area of Validity'
+                                      value={license.areaOfValidity}
+                                      icon={MapPin}
+                                    />
+                                    <DetailItem
+                                      label='Licence Place / Area'
+                                      value={license.licencePlaceArea}
+                                      icon={LocateFixed}
+                                    />
+                                    <DetailItem
+                                      label='Ammunition Description'
+                                      value={license.ammunitionDescription}
+                                      icon={Package}
+                                    />
+                                    <DetailItem
+                                      label='Special Consideration Reason'
+                                      value={license.specialConsiderationReason}
+                                      icon={FileText}
+                                    />
+                                    {license.wildBeastsSpecification && (
+                                      <DetailItem
+                                        label='Wild Beasts Specification'
+                                        value={license.wildBeastsSpecification}
+                                        icon={FileText}
+                                      />
+                                    )}
+
+                                    {normalizedEvidence.length > 0 && (
+                                      <div className='mt-4 pt-4 border-t border-slate-100'>
+                                        <p className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'>
+                                          Evidence / Attachments
+                                        </p>
+                                        <div className='flex flex-wrap gap-2'>
+                                          {normalizedEvidence.map((file: any, fileIdx: number) => {
+                                            const fileLabel = truncateFilename(
+                                              file?.name ||
+                                                file?.fileName ||
+                                                file?.originalName ||
+                                                'File',
+                                              10
+                                            );
+                                            return (
+                                              <button
+                                                key={fileIdx}
+                                                type='button'
+                                                onClick={() => openAttachment(file)}
+                                                className='inline-flex items-center gap-2 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-blue-600 font-semibold hover:bg-blue-50 transition-colors'
+                                                title={
+                                                  file?.name || file?.fileName || file?.originalName
+                                                }
+                                              >
+                                                <FileText className='w-3.5 h-3.5 text-rose-500' />
+                                                <span className='truncate max-w-[120px]'>
+                                                  {fileLabel}
+                                                </span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </SectionCard>
+                              );
+                            })()}
+
+                            {/* License History Card */}
+                            {(() => {
+                              const history = ((application?.licenseHistories &&
+                                application.licenseHistories[0]) ||
+                                {}) as any;
+                              return (
+                                <SectionCard
+                                  title='License History'
+                                  icon={History}
+                                  iconColorClass='text-amber-600 bg-amber-50 border-amber-100'
+                                >
+                                  <div className='space-y-4 flex-1'>
+                                    <DetailItem
+                                      label='Previously Applied'
+                                      value={
+                                        history.hasAppliedBefore !== undefined
+                                          ? history.hasAppliedBefore
+                                            ? 'Yes'
+                                            : 'No'
+                                          : null
+                                      }
+                                      icon={ClipboardCheck}
+                                    />
+                                    <DetailItem
+                                      label='Previous Result'
+                                      value={history.previousResult}
+                                      icon={BadgeCheck}
+                                    />
+                                    <DetailItem
+                                      label='Previous Authority'
+                                      value={history.previousAuthorityName}
+                                      icon={Building2}
+                                    />
+                                    <DetailItem
+                                      label='License Suspended'
+                                      value={
+                                        history.hasLicenceSuspended !== undefined
+                                          ? history.hasLicenceSuspended
+                                            ? 'Yes'
+                                            : 'No'
+                                          : null
+                                      }
+                                      icon={ShieldAlert}
+                                    />
+                                    <DetailItem
+                                      label='Suspension Reason'
+                                      value={history.suspensionReason}
+                                      icon={AlertTriangle}
+                                    />
+                                    <DetailItem
+                                      label='Family License'
+                                      value={
+                                        history.hasFamilyLicence !== undefined
+                                          ? history.hasFamilyLicence
+                                            ? 'Yes'
+                                            : 'No'
+                                          : null
+                                      }
+                                      icon={Users}
+                                    />
+                                    <DetailItem
+                                      label='Family Member Name'
+                                      value={history.familyMemberName}
+                                      icon={UserRound}
+                                    />
+                                    <DetailItem
+                                      label='Family License Number'
+                                      value={history.familyLicenceNumber}
+                                      icon={ShieldCheck}
+                                    />
+                                  </div>
+                                </SectionCard>
+                              );
+                            })()}
+
+                            {/* Criminal History Card */}
+                            {(() => {
+                              const criminal = ((application?.criminalHistories &&
+                                application.criminalHistories[0]) ||
+                                {}) as any;
+                              return (
+                                <SectionCard
+                                  title='Criminal History'
+                                  icon={TriangleAlert}
+                                  iconColorClass='text-red-600 bg-red-50 border-red-100'
+                                >
+                                  <div className='space-y-4 flex-1'>
+                                    <DetailItem
+                                      label='Convicted'
+                                      value={
+                                        criminal.isConvicted !== undefined
+                                          ? criminal.isConvicted
+                                            ? 'Yes'
+                                            : 'No'
+                                          : null
+                                      }
+                                      icon={Ban}
+                                    />
+                                    <DetailItem
+                                      label='Bond Executed'
+                                      value={
+                                        criminal.isBondExecuted !== undefined
+                                          ? criminal.isBondExecuted
+                                            ? 'Yes'
+                                            : 'No'
+                                          : null
+                                      }
+                                      icon={FileWarning}
+                                    />
+                                    <DetailItem
+                                      label='Bond Date'
+                                      value={
+                                        criminal.bondDate
+                                          ? new Date(criminal.bondDate).toLocaleDateString('en-IN')
+                                          : null
+                                      }
+                                      icon={Calendar}
+                                    />
+                                    <DetailItem
+                                      label='Prohibited'
+                                      value={
+                                        criminal.isProhibited !== undefined
+                                          ? criminal.isProhibited
+                                            ? 'Yes'
+                                            : 'No'
+                                          : null
+                                      }
+                                      icon={Scale}
+                                    />
+
+                                    {criminal.firDetails && criminal.firDetails.length > 0 && (
+                                      <div className='mt-4 pt-4 border-t border-slate-100'>
+                                        <h4 className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5'>
+                                          <FileSearch className='w-3.5 h-3.5' />
+                                          FIR Details
+                                        </h4>
+                                        <div className='space-y-3'>
+                                          {criminal.firDetails.map((fir: any, firIdx: number) => (
+                                            <div
+                                              key={firIdx}
+                                              className='bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-2'
+                                            >
+                                              <div className='grid grid-cols-2 gap-2'>
+                                                <div>
+                                                  <span className='text-slate-400 font-semibold uppercase block'>
+                                                    FIR Number
+                                                  </span>
+                                                  <span className='font-bold text-slate-700'>
+                                                    {fir.firNumber || '—'}
+                                                  </span>
+                                                </div>
+                                                <div>
+                                                  <span className='text-slate-400 font-semibold uppercase block'>
+                                                    District
+                                                  </span>
+                                                  <span className='font-bold text-slate-700'>
+                                                    {fir.District || '—'}
+                                                  </span>
+                                                </div>
+                                                <div>
+                                                  <span className='text-slate-400 font-semibold uppercase block'>
+                                                    Police Station
+                                                  </span>
+                                                  <span className='font-bold text-slate-700'>
+                                                    {fir.policeStation || '—'}
+                                                  </span>
+                                                </div>
+                                                <div>
+                                                  <span className='text-slate-400 font-semibold uppercase block'>
+                                                    Under Section
+                                                  </span>
+                                                  <span className='font-bold text-slate-700'>
+                                                    {fir.underSection || '—'}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                              {fir.offence && (
+                                                <div>
+                                                  <span className='text-slate-400 font-semibold uppercase block'>
+                                                    Offence
+                                                  </span>
+                                                  <span className='font-medium text-slate-700'>
+                                                    {fir.offence}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {fir.DateOfSentence && (
+                                                <div>
+                                                  <span className='text-slate-400 font-semibold uppercase block'>
+                                                    Sentence Date
+                                                  </span>
+                                                  <span className='font-medium text-slate-700'>
+                                                    {fir.DateOfSentence}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </SectionCard>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {showFullApplicationDetails && (
+                        <>
+                          {/* 3. Three-Column Address Row: Present, Permanent, Occupation */}
+                          <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+                            {/* Present Address Details */}
+                            {(() => {
+                              const present = (application?.presentAddress || {}) as any;
+                              const presentState =
+                                typeof present.state === 'object'
+                                  ? present.state?.name
+                                  : present.state;
+                              const presentDistrict =
+                                typeof present.district === 'object'
+                                  ? present.district?.name
+                                  : present.district;
+
+                              return (
+                                <SectionCard
+                                  title='Present Address Details'
+                                  icon={MapPin}
+                                  iconColorClass='text-purple-600 bg-purple-50 border-purple-100'
+                                >
+                                  <div className='space-y-4 flex-1'>
+                                    <DetailItem
+                                      label='Address'
+                                      value={present.addressLine}
+                                      icon={Building}
+                                    />
+                                    <DetailItem
+                                      label='State'
+                                      value={presentState}
+                                      icon={Landmark}
+                                    />
+                                    <DetailItem
+                                      label='District'
+                                      value={presentDistrict}
+                                      icon={Building2}
+                                    />
+                                    <DetailItem
+                                      label='Zone'
+                                      value={present.zone?.name}
+                                      icon={MapPin}
+                                    />
+                                    <DetailItem
+                                      label='Division'
+                                      value={present.division?.name}
+                                      icon={MapPin}
+                                    />
+                                    <DetailItem
+                                      label='Police Station'
+                                      value={present.policeStation?.name}
+                                      icon={Building2}
+                                    />
+                                    <DetailItem
+                                      label='Residing Since'
+                                      value={
+                                        present.sinceResiding
+                                          ? new Date(present.sinceResiding).toLocaleDateString(
+                                              'en-IN',
+                                              {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                              }
+                                            )
+                                          : null
+                                      }
+                                      icon={Calendar}
+                                    />
+                                  </div>
+                                </SectionCard>
+                              );
+                            })()}
+
+                            {/* Permanent Address Details */}
+                            {(() => {
+                              const permanent = (application?.permanentAddress || {}) as any;
+                              const permanentState =
+                                typeof permanent.state === 'object'
+                                  ? permanent.state?.name
+                                  : permanent.state;
+                              const permanentDistrict =
+                                typeof permanent.district === 'object'
+                                  ? permanent.district?.name
+                                  : permanent.district;
+
+                              return (
+                                <SectionCard
+                                  title='Permanent Address Details'
+                                  icon={MapPin}
+                                  iconColorClass='text-indigo-600 bg-indigo-50 border-indigo-100'
+                                >
+                                  <div className='space-y-4 flex-1'>
+                                    <DetailItem
+                                      label='Address'
+                                      value={permanent.addressLine}
+                                      icon={Building}
+                                    />
+                                    <DetailItem
+                                      label='State'
+                                      value={permanentState}
+                                      icon={Landmark}
+                                    />
+                                    <DetailItem
+                                      label='District'
+                                      value={permanentDistrict}
+                                      icon={Building2}
+                                    />
+                                    <DetailItem
+                                      label='Zone'
+                                      value={permanent.zone?.name}
+                                      icon={MapPin}
+                                    />
+                                    <DetailItem
+                                      label='Division'
+                                      value={permanent.division?.name}
+                                      icon={MapPin}
+                                    />
+                                    <DetailItem
+                                      label='Police Station'
+                                      value={permanent.policeStation?.name}
+                                      icon={Building2}
+                                    />
+                                    <DetailItem
+                                      label='Residing Since'
+                                      value={
+                                        permanent.sinceResiding
+                                          ? new Date(permanent.sinceResiding).toLocaleDateString(
+                                              'en-IN',
+                                              { year: 'numeric', month: 'long', day: 'numeric' }
+                                            )
+                                          : null
+                                      }
+                                      icon={Calendar}
+                                    />
+                                  </div>
+                                </SectionCard>
+                              );
+                            })()}
+
+                            {/* Occupation & Business Details */}
+                            {(() => {
+                              const occ = (application?.occupationAndBusiness || {}) as any;
+                              return (
+                                <SectionCard
+                                  title='Occupation & Business Details'
+                                  icon={BriefcaseBusiness}
+                                  iconColorClass='text-teal-600 bg-teal-50 border-teal-100'
+                                >
+                                  <div className='space-y-4 flex-1'>
+                                    <DetailItem
+                                      label='Occupation'
+                                      value={occ.occupation}
+                                      icon={BriefcaseBusiness}
+                                    />
+                                    <DetailItem
+                                      label='Office Address'
+                                      value={occ.officeAddress}
+                                      icon={Building}
+                                    />
+                                    <DetailItem
+                                      label='State'
+                                      value={occ.state?.name}
+                                      icon={Landmark}
+                                    />
+                                    <DetailItem
+                                      label='District'
+                                      value={occ.district?.name}
+                                      icon={Building2}
+                                    />
+                                    <DetailItem
+                                      label='Crop Location'
+                                      value={occ.cropLocation}
+                                      icon={MapPinned}
+                                    />
+                                    <DetailItem
+                                      label='Area Under Cultivation'
+                                      value={occ.areaUnderCultivation}
+                                      icon={Building}
+                                    />
+                                  </div>
+                                </SectionCard>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      )}
+
+                      {/* License Record Section — shown when license data exists */}
+                      {showFullApplicationDetails && licenseData && (
+                        <div className='bg-white rounded-xl border-2 border-emerald-200 shadow-sm hover:shadow-md transition-all duration-300 p-6'>
+                          <div className='flex items-center justify-between border-b border-emerald-100 pb-4 mb-6'>
+                            <div className='flex items-center gap-3'>
+                              <div className='p-2.5 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600'>
+                                <BadgeCheck className='w-5 h-5' />
+                              </div>
+                              <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
+                                License Record
+                              </h3>
+                            </div>
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                licenseData.status === 'ACTIVE'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : licenseData.status === 'EXPIRED'
+                                    ? 'bg-red-100 text-red-700'
+                                    : licenseData.status === 'CANCELLED'
+                                      ? 'bg-slate-100 text-slate-700'
+                                      : licenseData.status === 'SUSPENDED'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-rose-100 text-rose-700'
+                              }`}
+                            >
+                              {licenseData.status}
+                            </span>
+                          </div>
+                          <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+                            <div className='space-y-4'>
+                              <DetailItem
+                                label='License Number'
+                                value={licenseData.licenseNumber}
+                                icon={FileCheck}
+                                mono
+                              />
+                              <DetailItem
+                                label='Arms Category'
+                                value={licenseData.armsCategory}
+                                icon={Shield}
+                              />
+                              <DetailItem
+                                label='Area of Validity'
+                                value={licenseData.areaOfValidity}
+                                icon={MapPin}
+                              />
+                              <DetailItem
+                                label='Valid From'
+                                value={
+                                  licenseData.validFrom
+                                    ? new Date(licenseData.validFrom).toLocaleDateString('en-IN', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    : null
+                                }
+                                icon={Calendar}
+                              />
+                              <DetailItem
+                                label='Valid Till'
+                                value={
+                                  licenseData.validTill
+                                    ? new Date(licenseData.validTill).toLocaleDateString('en-IN', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    : null
+                                }
+                                icon={Calendar}
+                              />
+                            </div>
+                            <div className='space-y-4'>
+                              <DetailItem
+                                label='Issue Date'
+                                value={
+                                  licenseData.issueDate
+                                    ? new Date(licenseData.issueDate).toLocaleDateString('en-IN', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    : null
+                                }
+                                icon={CalendarDays}
+                              />
+                              <DetailItem
+                                label='Last Renewed'
+                                value={
+                                  licenseData.lastRenewedDate
+                                    ? new Date(licenseData.lastRenewedDate).toLocaleDateString(
+                                        'en-IN',
+                                        { year: 'numeric', month: 'short', day: 'numeric' }
+                                      )
+                                    : null
+                                }
+                                icon={History}
+                              />
+                              <DetailItem
+                                label='Renewal Count'
+                                value={licenseData.renewalCount?.toString() || '0'}
+                                icon={ClipboardCheck}
+                              />
+                              <DetailItem
+                                label='Ammunition Description'
+                                value={licenseData.ammunitionDescription}
+                                icon={Package}
+                              />
+                              {licenseData.cancellationReason && (
+                                <DetailItem
+                                  label='Cancellation Reason'
+                                  value={licenseData.cancellationReason}
+                                  icon={Ban}
+                                />
+                              )}
+                            </div>
+                            <div className='space-y-4'>
+                              {licenseData.endorsedWeapons &&
+                                licenseData.endorsedWeapons.length > 0 && (
+                                  <div>
+                                    <p className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-2'>
+                                      Endorsed Weapons
+                                    </p>
+                                    <div className='flex flex-wrap gap-2'>
+                                      {licenseData.endorsedWeapons.map((w: any, wi: number) => (
+                                        <span
+                                          key={wi}
+                                          className='inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700'
+                                        >
+                                          <Crosshair className='w-3 h-3 text-blue-500' />
+                                          {w.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              {licenseData.issuedByUser && (
+                                <DetailItem
+                                  label='Issued By'
+                                  value={licenseData.issuedByUser.username}
+                                  icon={UserCog}
+                                />
+                              )}
+                              {licenseData.qrCodeUrl && (
+                                <div className='mt-2'>
+                                  <button
+                                    type='button'
+                                    onClick={() => window.open(licenseData.qrCodeUrl!, '_blank')}
+                                    className='inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors'
+                                  >
+                                    <Eye className='w-3.5 h-3.5' />
+                                    View QR Code
+                                  </button>
                                 </div>
                               )}
-                            {licenseData.issuedByUser && (
-                              <DetailItem
-                                label='Issued By'
-                                value={licenseData.issuedByUser.username}
-                                icon={UserCog}
-                              />
-                            )}
-                            {licenseData.qrCodeUrl && (
-                              <div className='mt-2'>
-                                <button
-                                  type='button'
-                                  onClick={() => window.open(licenseData.qrCodeUrl!, '_blank')}
-                                  className='inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors'
-                                >
-                                  <Eye className='w-3.5 h-3.5' />
-                                  View QR Code
-                                </button>
+                              {licenseData.pdfUrl && (
+                                <div className='mt-2'>
+                                  <button
+                                    type='button'
+                                    onClick={() => window.open(licenseData.pdfUrl!, '_blank')}
+                                    className='inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors'
+                                  >
+                                    <Download className='w-3.5 h-3.5' />
+                                    Download License PDF
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* License Workflow History */}
+                          {licenseData.workflowHistories &&
+                            licenseData.workflowHistories.length > 0 && (
+                              <div className='mt-6 pt-4 border-t border-emerald-100'>
+                                <h4 className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5'>
+                                  <History className='w-3.5 h-3.5' />
+                                  License Workflow Timeline
+                                </h4>
+                                <div className='space-y-2'>
+                                  {licenseData.workflowHistories.map((wh: any, whIdx: number) => (
+                                    <div
+                                      key={whIdx}
+                                      className='flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-xs'
+                                    >
+                                      <div
+                                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                          wh.action === 'ISSUED'
+                                            ? 'bg-emerald-500'
+                                            : wh.action === 'RENEWED'
+                                              ? 'bg-blue-500'
+                                              : wh.action === 'CANCELLED'
+                                                ? 'bg-red-500'
+                                                : 'bg-slate-400'
+                                        }`}
+                                      />
+                                      <span className='font-bold text-slate-700 uppercase'>
+                                        {wh.action}
+                                      </span>
+                                      {wh.changedByUser && (
+                                        <span className='text-slate-500'>
+                                          by {wh.changedByUser.username}
+                                        </span>
+                                      )}
+                                      {wh.createdAt && (
+                                        <span className='text-slate-400 ml-auto'>
+                                          {new Date(wh.createdAt).toLocaleString('en-IN', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                          })}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             )}
-                            {licenseData.pdfUrl && (
-                              <div className='mt-2'>
-                                <button
-                                  type='button'
-                                  onClick={() => window.open(licenseData.pdfUrl!, '_blank')}
-                                  className='inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors'
-                                >
-                                  <Download className='w-3.5 h-3.5' />
-                                  Download License PDF
-                                </button>
-                              </div>
-                            )}
+                        </div>
+                      )}
+
+                      {/* Loading indicator for license data */}
+                      {licenseLoading && !licenseData && (
+                        <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
+                          <div className='flex items-center gap-3 text-slate-400'>
+                            <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500'></div>
+                            <span className='text-sm'>Checking license records...</span>
                           </div>
                         </div>
+                      )}
 
-                        {/* License Workflow History */}
-                        {licenseData.workflowHistories &&
-                          licenseData.workflowHistories.length > 0 && (
-                            <div className='mt-6 pt-4 border-t border-emerald-100'>
-                              <h4 className='text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5'>
-                                <History className='w-3.5 h-3.5' />
-                                License Workflow Timeline
+                      {/* Additional Status-Specific Information */}
+                      {(application?.returnReason ||
+                        application?.flagReason ||
+                        application?.disposalReason) && (
+                        <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4'>
+                          <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-2'>
+                            <div className='w-1 h-5 bg-orange-500 rounded-full'></div>
+                            Additional Information
+                          </h3>
+
+                          {application.returnReason && (
+                            <div className='p-4 bg-orange-50/50 border border-orange-200 rounded-xl'>
+                              <h4 className='font-bold text-orange-800 text-sm mb-1.5 flex items-center gap-2'>
+                                <AlertTriangle className='w-4 h-4 text-orange-600' />
+                                Return Reason
                               </h4>
-                              <div className='space-y-2'>
-                                {licenseData.workflowHistories.map((wh: any, whIdx: number) => (
-                                  <div
-                                    key={whIdx}
-                                    className='flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-xs'
-                                  >
-                                    <div
-                                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                        wh.action === 'ISSUED'
-                                          ? 'bg-emerald-500'
-                                          : wh.action === 'RENEWED'
-                                            ? 'bg-blue-500'
-                                            : wh.action === 'CANCELLED'
-                                              ? 'bg-red-500'
-                                              : 'bg-slate-400'
-                                      }`}
-                                    />
-                                    <span className='font-bold text-slate-700 uppercase'>
-                                      {wh.action}
-                                    </span>
-                                    {wh.changedByUser && (
-                                      <span className='text-slate-500'>
-                                        by {wh.changedByUser.username}
-                                      </span>
-                                    )}
-                                    {wh.createdAt && (
-                                      <span className='text-slate-400 ml-auto'>
-                                        {new Date(wh.createdAt).toLocaleString('en-IN', {
-                                          year: 'numeric',
-                                          month: 'short',
-                                          day: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })}
-                                      </span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
+                              <p className='text-slate-700 text-sm font-medium'>
+                                {application.returnReason}
+                              </p>
                             </div>
                           )}
-                      </div>
-                    )}
 
-                    {/* Loading indicator for license data */}
-                    {licenseLoading && !licenseData && (
-                      <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
-                        <div className='flex items-center gap-3 text-slate-400'>
-                          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500'></div>
-                          <span className='text-sm'>Checking license records...</span>
+                          {application.flagReason && (
+                            <div className='p-4 bg-rose-50/50 border border-rose-200 rounded-xl'>
+                              <h4 className='font-bold text-rose-800 text-sm mb-1.5 flex items-center gap-2'>
+                                <AlertTriangle className='w-4 h-4 text-rose-600' />
+                                Red Flag Reason
+                              </h4>
+                              <p className='text-slate-700 text-sm font-medium'>
+                                {application.flagReason}
+                              </p>
+                            </div>
+                          )}
+
+                          {application.disposalReason && (
+                            <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl'>
+                              <h4 className='font-bold text-slate-800 text-sm mb-1.5 flex items-center gap-2'>
+                                <AlertTriangle className='w-4 h-4 text-slate-600' />
+                                Disposal Reason
+                              </h4>
+                              <p className='text-slate-700 text-sm font-medium'>
+                                {application.disposalReason}
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Additional Status-Specific Information */}
-                    {(application?.returnReason ||
-                      application?.flagReason ||
-                      application?.disposalReason) && (
-                      <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4'>
-                        <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-2'>
-                          <div className='w-1 h-5 bg-orange-500 rounded-full'></div>
-                          Additional Information
-                        </h3>
-
-                        {application.returnReason && (
-                          <div className='p-4 bg-orange-50/50 border border-orange-200 rounded-xl'>
-                            <h4 className='font-bold text-orange-800 text-sm mb-1.5 flex items-center gap-2'>
-                              <AlertTriangle className='w-4 h-4 text-orange-600' />
-                              Return Reason
-                            </h4>
-                            <p className='text-slate-700 text-sm font-medium'>
-                              {application.returnReason}
-                            </p>
+                      {showFullApplicationDetails && (
+                        <>
+                          {/* 4. Uploaded Documents Section */}
+                          <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
+                            <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-6'>
+                              <div className='w-1 h-5 bg-emerald-500 rounded-full'></div>
+                              Uploaded Documents
+                            </h3>
+                            <LazySection minHeight='250px'>
+                              {isRenewalView && activeTab === 'original' ? (
+                                originDocumentsLoading ? (
+                                  <div className='flex flex-col items-center justify-center py-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200'>
+                                    <div className='w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-3'></div>
+                                    <p className='text-slate-500 text-sm font-semibold'>
+                                      Loading origin documents...
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <DocumentTable documents={originDocuments} />
+                                )
+                              ) : (
+                                <DocumentTable documents={application?.documents || []} />
+                              )}
+                            </LazySection>
                           </div>
-                        )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
 
-                        {application.flagReason && (
-                          <div className='p-4 bg-rose-50/50 border border-rose-200 rounded-xl'>
-                            <h4 className='font-bold text-rose-800 text-sm mb-1.5 flex items-center gap-2'>
-                              <AlertTriangle className='w-4 h-4 text-rose-600' />
-                              Red Flag Reason
-                            </h4>
-                            <p className='text-slate-700 text-sm font-medium'>
-                              {application.flagReason}
-                            </p>
-                          </div>
-                        )}
-
-                        {application.disposalReason && (
-                          <div className='p-4 bg-slate-50 border border-slate-200 rounded-xl'>
-                            <h4 className='font-bold text-slate-800 text-sm mb-1.5 flex items-center gap-2'>
-                              <AlertTriangle className='w-4 h-4 text-slate-600' />
-                              Disposal Reason
-                            </h4>
-                            <p className='text-slate-700 text-sm font-medium'>
-                              {application.disposalReason}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {showFullApplicationDetails && (
-                      <>
-                        {/* 4. Uploaded Documents Section */}
-                        <div className='bg-white rounded-xl border border-slate-200 shadow-sm p-6'>
-                          <h3 className='text-base font-bold text-slate-800 flex items-center gap-2 mb-6'>
-                            <div className='w-1 h-5 bg-emerald-500 rounded-full'></div>
-                            Uploaded Documents
-                          </h3>
-                          <LazySection minHeight='250px'>
-                            <DocumentTable documents={application?.documents || []} />
-                          </LazySection>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal Application */}
+              {/* Action Buttons and Timeline Section - Show if NOT Draft OR if Renewal */}
               {(application?.workflowStatus?.name?.toLowerCase() !== 'draft' || isRenewalView) && (
                 <div className='p-6 lg:p-8 border-t border-gray-100 bg-white overflow-hidden print:hidden'>
                   <div
@@ -1895,55 +1956,141 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                     }}
                   >
                     {/* Action Buttons - Full Width Editor (2 columns) - Hidden on License Tab */}
-                    {!(isRenewalView && activeTab === 'license') && (
-                    <div
-                      className='flex flex-col h-full overflow-hidden pr-4'
-                      style={{
-                        width: `${dividerPosition}%`,
-                        transition: isDragging ? 'none' : 'width 0.1s ease',
-                      }}
-                    >
-                      <div className='flex items-center justify-between mb-4'>
-                        <div>
-                          <h3 className='text-2xl font-bold text-gray-900 flex items-center'>
-                            <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
-                            Application Processing
-                          </h3>
+                    {!(isRenewalView && activeTab === 'original') && (
+                      <div
+                        className='flex flex-col h-full overflow-hidden pr-4'
+                        style={{
+                          width: `${dividerPosition}%`,
+                          transition: isDragging ? 'none' : 'width 0.1s ease',
+                        }}
+                      >
+                        <div className='flex items-center justify-between mb-4'>
+                          <div>
+                            <h3 className='text-2xl font-bold text-gray-900 flex items-center'>
+                              <div className='w-1 h-6 bg-blue-600 rounded-full mr-3'></div>
+                              Application Processing
+                            </h3>
+                          </div>
                         </div>
-                      </div>
-                      <div className='flex flex-col gap-4 flex-1 overflow-hidden'>
-                        {(() => {
-                          // Determine which application to use based on active tab
-                          const displayApp =
-                            isRenewalView && activeTab === 'license'
-                              ? freshApplicationForLicense
-                              : application;
-                          const displayAppId =
-                            isRenewalView && activeTab === 'license'
-                              ? freshApplicationForLicense?.id
-                              : applicationId;
-                          const isLoading =
-                            isRenewalView && activeTab === 'license' && freshLoading;
-                          const isNotAvailable =
-                            isRenewalView && activeTab === 'license' && !freshApplicationForLicense;
+                        <div className='flex flex-col gap-4 flex-1 overflow-hidden'>
+                          {(() => {
+                            // Determine which application to use based on active tab
+                            const displayApp: ApplicationData | null =
+                              isRenewalView && activeTab === 'original'
+                                ? (originalLicenseData as unknown as ApplicationData)
+                                : application;
+                            const displayAppId =
+                              isRenewalView && activeTab === 'original'
+                                ? originalLicenseData?.id
+                                : applicationId;
+                            const isLoading =
+                              isRenewalView && activeTab === 'original' && originalLicenseLoading;
+                            const isNotAvailable =
+                              isRenewalView &&
+                              activeTab === 'original' &&
+                              !originalLicenseLoading &&
+                              !originalLicenseData;
 
-                          // If on license tab and still loading, show loading state
-                          if (isLoading) {
-                            return (
-                              <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col items-center justify-center'>
-                                <div className='flex flex-col items-center gap-3'>
-                                  <div className='w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin'></div>
-                                  <p className='text-sm text-gray-600'>
-                                    Loading Fresh Application...
-                                  </p>
+                            // If on license tab and still loading, show loading state
+                            if (isLoading) {
+                              return (
+                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col items-center justify-center'>
+                                  <div className='flex flex-col items-center gap-3'>
+                                    <div className='w-8 h-8 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin'></div>
+                                    <p className='text-sm text-gray-600'>Loading License...</p>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          }
+                              );
+                            }
 
-                          // If on license tab and fresh app not available, show message
-                          if (isNotAvailable) {
-                            return (
+                            // If on license tab and license not available, show message
+                            if (isNotAvailable) {
+                              return (
+                                <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
+                                  <div className='flex items-start'>
+                                    <svg
+                                      className='w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5'
+                                      fill='none'
+                                      stroke='currentColor'
+                                      viewBox='0 0 24 24'
+                                    >
+                                      <path
+                                        strokeLinecap='round'
+                                        strokeLinejoin='round'
+                                        strokeWidth={2}
+                                        d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                                      />
+                                    </svg>
+                                    <div>
+                                      <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
+                                        License Details Not Available
+                                      </h4>
+                                      <p className='text-sm text-yellow-700'>
+                                        The fresh application details could not be loaded. Please
+                                        check if the application ID is correct.
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            // Read `user_data` from cookies
+                            let user_data: any = null;
+                            try {
+                              if (typeof document !== 'undefined' && document.cookie) {
+                                const cookie = document.cookie
+                                  .split(';')
+                                  .map(c => c.trim())
+                                  .find(c => c.startsWith('user='));
+                                if (cookie) {
+                                  const raw = cookie.split('=')[1] || '';
+                                  const decoded = decodeURIComponent(raw);
+                                  user_data = decoded ? JSON.parse(decoded) : null;
+                                }
+                              }
+                            } catch (e) {
+                              user_data = null;
+                            }
+
+                            const currentUserId = user_data?.id
+                              ? Number(user_data.id)
+                              : user?.id
+                                ? Number(user.id)
+                                : null;
+                            const applicationUserId = Number(displayApp?.currentUser?.id) || null;
+                            const statusName = (
+                              displayApp?.workflowStatus?.name || ''
+                            ).toLowerCase();
+                            const statusId = Number(
+                              displayApp?.status_id || displayApp?.workflowStatus?.id
+                            );
+                            const isClosed = statusName === 'closed' || statusId === 10;
+
+                            const canTakeAction =
+                              currentUserId &&
+                              applicationUserId &&
+                              currentUserId == applicationUserId &&
+                              !isClosed;
+
+                            return canTakeAction ? (
+                              <>
+                                {/* Proceedings Form - Always Open */}
+                                <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
+                                  <div className='p-2 bg-gray-50 flex-1 overflow-auto'>
+                                    <div className='p-2 h-full'>
+                                      <ProceedingsForm
+                                        applicationId={String(displayAppId)}
+                                        onSuccess={handleProceedingsSuccess}
+                                        userRole={userRole}
+                                        applicationData={displayApp || undefined}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              /* Show message if user is not authorized */
                               <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
                                 <div className='flex items-start'>
                                   <svg
@@ -1961,132 +2108,52 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   </svg>
                                   <div>
                                     <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
-                                      Fresh Application Not Available
+                                      {isClosed ? 'Application Closed' : 'Action Not Available'}
                                     </h4>
-                                    <p className='text-sm text-yellow-700'>
-                                      The fresh application details could not be loaded. Please
-                                      check if the application ID is correct.
+                                    <p className='text-sm text-yellow-700 leading-relaxed'>
+                                      {isClosed
+                                        ? 'This application has been closed. No further actions can be taken on it.'
+                                        : 'At this point, you cannot take action on this request. This application is currently assigned to another user.'}
                                     </p>
+                                    {!isClosed && displayApp?.currentUser && (
+                                      <p className='text-sm text-yellow-700 mt-2'>
+                                        <span className='font-medium'>Current handler:</span>{' '}
+                                        {displayApp.currentUser.username}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             );
-                          }
-
-                          // Read `user_data` from cookies
-                          let user_data: any = null;
-                          try {
-                            if (typeof document !== 'undefined' && document.cookie) {
-                              const cookie = document.cookie
-                                .split(';')
-                                .map(c => c.trim())
-                                .find(c => c.startsWith('user='));
-                              if (cookie) {
-                                const raw = cookie.split('=')[1] || '';
-                                const decoded = decodeURIComponent(raw);
-                                user_data = decoded ? JSON.parse(decoded) : null;
-                              }
-                            }
-                          } catch (e) {
-                            user_data = null;
-                          }
-
-                          const currentUserId = user_data?.id
-                            ? Number(user_data.id)
-                            : user?.id
-                              ? Number(user.id)
-                              : null;
-                          const applicationUserId = Number(displayApp?.currentUser?.id) || null;
-                          const statusName = (displayApp?.workflowStatus?.name || '').toLowerCase();
-                          const statusId = Number(
-                            displayApp?.status_id || displayApp?.workflowStatus?.id
-                          );
-                          const isClosed = statusName === 'closed' || statusId === 10;
-
-                          const canTakeAction =
-                            currentUserId &&
-                            applicationUserId &&
-                            currentUserId == applicationUserId &&
-                            !isClosed;
-
-                          return canTakeAction ? (
-                            <>
-                              {/* Proceedings Form - Always Open */}
-                              <div className='bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden flex flex-col'>
-                                <div className='p-2 bg-gray-50 flex-1 overflow-auto'>
-                                  <div className='p-2 h-full'>
-                                    <ProceedingsForm
-                                      applicationId={String(displayAppId)}
-                                      onSuccess={handleProceedingsSuccess}
-                                      userRole={userRole}
-                                      applicationData={displayApp || undefined}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            /* Show message if user is not authorized */
-                            <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
-                              <div className='flex items-start'>
-                                <svg
-                                  className='w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  viewBox='0 0 24 24'
-                                >
-                                  <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
-                                  />
-                                </svg>
-                                <div>
-                                  <h4 className='text-lg font-semibold text-yellow-800 mb-2'>
-                                    {isClosed ? 'Application Closed' : 'Action Not Available'}
-                                  </h4>
-                                  <p className='text-sm text-yellow-700 leading-relaxed'>
-                                    {isClosed
-                                      ? 'This application has been closed. No further actions can be taken on it.'
-                                      : 'At this point, you cannot take action on this request. This application is currently assigned to another user.'}
-                                  </p>
-                                  {!isClosed && displayApp?.currentUser && (
-                                    <p className='text-sm text-yellow-700 mt-2'>
-                                      <span className='font-medium'>Current handler:</span>{' '}
-                                      {displayApp.currentUser.username}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                          })()}
+                        </div>
                       </div>
-                    </div>
                     )}
 
                     {/* Resizable Divider - Hidden on License Tab */}
-                    {!(isRenewalView && activeTab === 'license') && (
-                    <div
-                      ref={dividerRef}
-                      onMouseDown={handleDividerMouseDown}
-                      className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
-                      style={{
-                        cursor: 'col-resize',
-                        userSelect: 'none',
-                      }}
-                    >
-                      {/* Hover indicator */}
-                      <div className='absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400/10 transition-colors duration-200'></div>
-                    </div>
+                    {!(isRenewalView && activeTab === 'original') && (
+                      <div
+                        ref={dividerRef}
+                        onMouseDown={handleDividerMouseDown}
+                        className='w-1 bg-gradient-to-b from-transparent via-gray-300 to-transparent hover:bg-gradient-to-b hover:from-transparent hover:via-blue-400 hover:to-transparent cursor-col-resize transition-all duration-200 group relative'
+                        style={{
+                          cursor: 'col-resize',
+                          userSelect: 'none',
+                        }}
+                      >
+                        {/* Hover indicator */}
+                        <div className='absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-400/10 transition-colors duration-200'></div>
+                      </div>
                     )}
 
                     {/* Application Timeline/History - Right Side with Scroll */}
                     <div
-                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'license' ? '' : 'pl-4'}`}
+                      className={`flex flex-col h-full overflow-hidden ${isRenewalView && activeTab === 'original' ? '' : 'pl-4'}`}
                       style={{
-                        width: isRenewalView && activeTab === 'license' ? '100%' : `${100 - dividerPosition}%`,
+                        width:
+                          isRenewalView && activeTab === 'original'
+                            ? '100%'
+                            : `${100 - dividerPosition}%`,
                         transition: isDragging ? 'none' : 'width 0.1s ease',
                       }}
                     >
@@ -2099,25 +2166,27 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                       <div className='flex-1 bg-white rounded-xl border border-gray-200 shadow-sm h-full overflow-hidden'>
                         <div className='overflow-y-auto p-6 custom-scrollbar h-full'>
-                          {isRenewalView && activeTab === 'license' && freshHistoryLoading ? (
+                          {isRenewalView && activeTab === 'original' && originalLicenseLoading ? (
                             <div className='flex flex-col items-center justify-center h-full'>
                               <div className='w-8 h-8 border-4 border-green-100 border-t-green-600 rounded-full animate-spin mb-3'></div>
-                              <p className='text-sm text-gray-600'>Loading history...</p>
+                              <p className='text-sm text-gray-600'>Loading license history...</p>
                             </div>
                           ) : null}
                           {(() => {
-                            // Use fresh app history when on license tab, otherwise use renewal app history
+                            // Use the Workflow History API response (from the Original License's
+                            // sourceApplicationId + lastModifiedAppType) when on the original tab,
+                            // otherwise use the renewal application's workflow history.
                             const historyToShow =
-                              isRenewalView && activeTab === 'license'
-                                ? freshApplicationHistory
+                              isRenewalView && activeTab === 'original'
+                                ? originalLicenseHistory
                                 : application?.workflowHistories;
                             const expandedHistoryMap =
-                              isRenewalView && activeTab === 'license'
-                                ? expandedFreshHistory
+                              isRenewalView && activeTab === 'original'
+                                ? expandedHistory
                                 : expandedHistory;
                             const setExpandedHistoryMap =
-                              isRenewalView && activeTab === 'license'
-                                ? setExpandedFreshHistory
+                              isRenewalView && activeTab === 'original'
+                                ? setExpandedHistory
                                 : setExpandedHistory;
 
                             return historyToShow && historyToShow.length > 0 ? (

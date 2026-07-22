@@ -29,9 +29,9 @@ export const formatStatusLabel = (statusOrObj?: any) => {
 };
 
 export const formatApplicationType = (t?: any) => {
-  if (!t) return 'Fresh License';
+  if (!t) return 'Fresh';
   const map: Record<string, string> = {
-    fresh: 'Fresh License',
+    fresh: 'Fresh',
     renewal: 'Renewal',
     duplicate: 'Duplicate',
   };

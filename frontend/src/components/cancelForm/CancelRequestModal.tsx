@@ -13,7 +13,7 @@ interface CancelRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  prefillApplicationId?: string;
+  prefillLicenseId?: string;
 }
 
 type VerificationStep = 'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED';
@@ -22,7 +22,7 @@ export default function CancelRequestModal({
   isOpen,
   onClose,
   onSuccess,
-  prefillApplicationId,
+  prefillLicenseId,
 }: CancelRequestModalProps) {
 
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function CancelRequestModal({
   const [applicantDetails, setApplicantDetails] = useState<{
     name: string;
     licenseNumber: string;
-    applicationId: string;
+    licenseId: string;
   } | null>(null);
   const [biometricTargetThumb, setBiometricTargetThumb] = useState<string | null>(null);
   const [enrolledTemplates, setEnrolledTemplates] = useState<any[]>([]);
@@ -53,7 +53,7 @@ export default function CancelRequestModal({
   const [checkingExisting, setCheckingExisting] = useState(false);
 
   const [formData, setFormData] = useState({
-    applicationId: prefillApplicationId || '',
+    licenseId: prefillLicenseId || '',
     applicationType: 'FreshApplication',
     cancellationReason: '',
     remarks: '',
@@ -63,7 +63,7 @@ export default function CancelRequestModal({
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        applicationId: prefillApplicationId || '',
+        licenseId: prefillLicenseId || '',
         applicationType: 'FreshApplication',
         cancellationReason: '',
         remarks: '',
@@ -84,13 +84,13 @@ export default function CancelRequestModal({
       setCapturingStep('');
       setVerificationStatus('ENTER_APP_ID');
     }
-  }, [isOpen, prefillApplicationId]);
+  }, [isOpen, prefillLicenseId]);
 
   useEffect(() => {
-    if (prefillApplicationId && isOpen) {
-      checkBiometricRequirement(prefillApplicationId);
+    if (prefillLicenseId && isOpen) {
+      checkBiometricRequirement(prefillLicenseId);
     }
-  }, [prefillApplicationId, isOpen]);
+  }, [prefillLicenseId, isOpen]);
 
   const checkDeviceConnection = async () => {
     try {
@@ -124,12 +124,12 @@ export default function CancelRequestModal({
     );
   };
 
-  const checkIfCancelExists = async (freshLicenseId: number): Promise<{ id: number; status: string } | null> => {
+  const checkIfCancelExists = async (licenseId: number): Promise<{ id: number; status: string } | null> => {
     try {
       setCheckingExisting(true);
       // First check for PENDING cancel request
       const pendingResponse = await CancelService.getCancelRequests({
-        freshLicenseId,
+        licenseId,
         status: 'PENDING',
       });
       const pendingData = pendingResponse?.data || [];
@@ -139,7 +139,7 @@ export default function CancelRequestModal({
 
       // Also check for APPROVED cancel request (application already cancelled)
       const approvedResponse = await CancelService.getCancelRequests({
-        freshLicenseId,
+        licenseId,
         status: 'APPROVED',
       });
       const approvedData = approvedResponse?.data || [];
@@ -155,32 +155,32 @@ export default function CancelRequestModal({
     }
   };
 
-  const checkBiometricRequirement = async (appId: string) => {
+  const checkBiometricRequirement = async (licenseIdentifier: string) => {
     try {
       setVerificationChecking(true);
       setVerificationError(null);
 
       // First check if a cancel request already exists (pending or approved)
-      const existing = await checkIfCancelExists(Number(appId));
+      const existing = await checkIfCancelExists(Number(licenseIdentifier));
       if (existing) {
         setExistingCancel(existing);
         setVerificationStatus('FAILED');
         if (existing.status === 'PENDING') {
-          setVerificationError('A pending cancel request already exists for this application.');
+          setVerificationError('A pending cancel request already exists for this license.');
         } else if (existing.status === 'APPROVED') {
-          setVerificationError('This application has already been cancelled.');
+          setVerificationError('This license has already been cancelled.');
         }
         setVerificationChecking(false);
         return;
       }
 
-      const response = await ApplicationService.getApplication(appId);
+      const response = await ApplicationService.getLicense(licenseIdentifier);
       const freshData = response?.data ?? response;
       if (!freshData) {
-        throw new Error('No application data found for the provided Application ID.');
+        throw new Error('No license data found for the provided License ID or License Number.');
       }
 
-      const numericAppId = String(freshData.id || freshData.applicationId || appId);
+      const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
 
@@ -189,7 +189,7 @@ export default function CancelRequestModal({
         .map((f: any) => ({
           template: f.template,
           fingerPosition: f.position,
-          applicationId: numericAppId,
+          licenseId: numericLicenseId,
         }));
 
       const name =
@@ -200,9 +200,10 @@ export default function CancelRequestModal({
       const details = {
         name,
         licenseNumber: getLicenseNumber(freshData),
-        applicationId: numericAppId,
+        licenseId: numericLicenseId,
       };
       setApplicantDetails(details);
+      setFormData(prev => ({ ...prev, licenseId: numericLicenseId }));
 
       if (userThumbprints.length > 0) {
         setEnrolledTemplates(userThumbprints);
@@ -323,16 +324,20 @@ export default function CancelRequestModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.applicationId || !formData.cancellationReason) {
-      toast.error('Please provide the application target ID and reason');
+    if (!formData.licenseId || !formData.cancellationReason) {
+      toast.error('Please provide the license target ID and reason');
       return;
     }
 
-    setLoading(true);
+    // Guard: prevent double-submission if user clicks Submit twice rapidly
+    if (loading) return;
+
     try {
+      setLoading(true);
       const payload = {
-        freshLicenseId: Number(formData.applicationId),
+        licenseId: Number(formData.licenseId),
         applicationType: 'Cancel Application',
+        applicantName: applicantDetails?.name || '',
         cancellationReason: formData.cancellationReason,
         remarks: formData.remarks,
       };
@@ -346,18 +351,18 @@ export default function CancelRequestModal({
       // Handle "pending cancel request already exists" error gracefully
       const message = error?.response?.data?.message || error?.message || 'Failed to submit cancellation request';
       if (message.includes('pending cancel request already exists')) {
-        toast.error('A cancellation request has already been submitted for this application. Please process the existing request first.');
+        toast.error('A cancellation request has already been submitted for this license. Please process the existing request first.');
         setVerificationStatus('FAILED');
         setVerificationError('A pending cancel request already exists. You cannot create a duplicate.');
         // Try to find the existing request ID for navigation
-        const existing = await checkIfCancelExists(Number(formData.applicationId));
+        const existing = await checkIfCancelExists(Number(formData.licenseId));
         if (existing) {
           setExistingCancel(existing);
         }
       } else if (message.includes('already cancelled') || message.includes('already been cancelled')) {
-        toast.error('This application has already been cancelled.');
+        toast.error('This license has already been cancelled.');
         setVerificationStatus('FAILED');
-        setVerificationError('This application has already been cancelled.');
+        setVerificationError('This license has already been cancelled.');
       } else {
         toast.error(message);
       }
@@ -393,8 +398,8 @@ export default function CancelRequestModal({
                   <div>
                     <h4 className="text-sm font-semibold text-red-800">Cancel Request Already Exists</h4>
                     <p className="text-sm text-red-700 mt-1">
-                      A pending cancellation request (ID: #{existingCancel.id}) already exists for application{' '}
-                      <strong>#{formData.applicationId}</strong>. You cannot create a duplicate request.
+                      A pending cancellation request (ID: #{existingCancel.id}) already exists for license{' '}
+                      <strong>#{formData.licenseId}</strong>. You cannot create a duplicate request.
                     </p>
                   </div>
                 </div>
@@ -414,10 +419,10 @@ export default function CancelRequestModal({
                   </svg>
                   <div>
                     <h4 className="text-sm font-semibold text-blue-800">Application Already Cancelled</h4>
-                    <p className="text-sm text-blue-700 mt-1">
-                      The application <strong>#{formData.applicationId}</strong> has already been cancelled.
-                      No further cancellation requests can be raised for this application.
-                    </p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        The license <strong>#{formData.licenseId}</strong> has already been cancelled.
+                        No further cancellation requests can be raised for this license.
+                      </p>
                   </div>
                 </div>
               </div>
@@ -445,7 +450,7 @@ export default function CancelRequestModal({
             )}
             {(isPending || isApproved) && (
               <a
-                href={`/application/${formData.applicationId}`}
+                href={`/licenses/${formData.licenseId}`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
               >
                 <ExternalLink className="w-4 h-4" />
@@ -492,20 +497,20 @@ export default function CancelRequestModal({
             <div>
               <p className="text-sm font-medium text-amber-800">Verification Required</p>
               <p className="text-xs text-amber-700 mt-1">
-                Enter the Application ID to look up the applicant and perform verification before creating a cancel request.
+                Enter the License ID or License Number to look up the applicant and perform verification before creating a cancel request.
               </p>
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Fresh Application ID
+              License ID / License Number
             </label>
             <input
-              type="number"
-              placeholder="Enter Fresh Application ID"
+              type="text"
+              placeholder="Enter License ID or License Number"
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alms-navy/20 focus:border-alms-navy outline-none transition-all text-sm"
-              value={formData.applicationId}
-              onChange={(e) => setFormData((prev) => ({ ...prev, applicationId: e.target.value }))}
+              value={formData.licenseId}
+              onChange={(e) => setFormData((prev) => ({ ...prev, licenseId: e.target.value }))}
             />
           </div>
           {verificationError && (
@@ -515,8 +520,8 @@ export default function CancelRequestModal({
             </div>
           )}
           <button
-            onClick={() => checkBiometricRequirement(formData.applicationId)}
-            disabled={!formData.applicationId}
+            onClick={() => checkBiometricRequirement(formData.licenseId)}
+            disabled={!formData.licenseId}
             className="w-full px-5 py-2.5 bg-alms-navy hover:bg-alms-navy-dark text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             Check Application
@@ -543,8 +548,8 @@ export default function CancelRequestModal({
                 <span className="text-gray-800 font-semibold">{applicantDetails.name}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">Application ID</span>
-                <span className="text-gray-800 font-semibold">{applicantDetails.applicationId}</span>
+                <span className="text-gray-500 font-medium">License ID</span>
+                <span className="text-gray-800 font-semibold">{applicantDetails.licenseId}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500 font-medium">License Number</span>
@@ -624,18 +629,18 @@ export default function CancelRequestModal({
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
-          <label htmlFor="modal-applicationId" className="block text-sm font-medium text-gray-700">
-            Target Application ID
+          <label htmlFor="modal-licenseId" className="block text-sm font-medium text-gray-700">
+            Target License ID
           </label>
           <input
-            type="number"
-            id="modal-applicationId"
-            name="applicationId"
-            value={formData.applicationId}
+            type="text"
+            id="modal-licenseId"
+            name="licenseId"
+            value={formData.licenseId}
             disabled
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed text-gray-700 font-medium text-sm"
           />
-          <p className="text-xs text-gray-400">Verified target ID of the application.</p>
+          <p className="text-xs text-gray-400">Verified target ID of the license.</p>
         </div>
 
         <div className="space-y-1.5">

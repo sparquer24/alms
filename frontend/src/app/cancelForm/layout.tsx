@@ -54,8 +54,8 @@ export default function CancelFormLayout({ children }: { children: React.ReactNo
       <Header hideCreateForm {...headerOptions} />
 
       {/* Main content area — full width when sidebar is removed */}
-      <div className='flex-1 overflow-y-auto ml-0 mt-[64px] md:mt-[70px] flex flex-col'>
-        <div className='flex-grow p-6 md:p-8 max-w-[1200px] mx-auto w-full'>
+      <div className='w-full mt-[64px]'>
+        <div className='w-full p-6'>
           <div className='w-full'>{children}</div>
         </div>
         <Footer />

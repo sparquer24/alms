@@ -13,6 +13,7 @@ The `/admin/roleMapping` page has been completely revamped with full backend int
 **New Endpoints:**
 
 #### GET `/roles`
+
 - Fetch all roles with advanced filtering
 - **Query Parameters:**
   - `id`: Filter by specific role ID
@@ -24,15 +25,17 @@ The `/admin/roleMapping` page has been completely revamped with full backend int
   - `sortOrder`: Sort direction (`asc`/`desc`)
 
 #### GET `/roles/:id`
+
 - Fetch a specific role by ID
 
 #### POST `/roles`
+
 - Create a new role
 - **Request Body:**
   ```json
   {
     "name": "Inspector",
-    "code": "inspector",  // auto-generated from name if not provided
+    "code": "inspector", // auto-generated from name if not provided
     "dashboard_title": "Inspector Dashboard",
     "description": "Role for inspectors",
     "permissions": {},
@@ -44,16 +47,20 @@ The `/admin/roleMapping` page has been completely revamped with full backend int
   ```
 
 #### PUT `/roles/:id`
+
 - Update an existing role
 - All fields are optional
 
 #### DELETE `/roles/:id`
+
 - Soft-delete a role (sets `is_active` to false)
 
 #### PATCH `/roles/:id/deactivate`
+
 - Deactivate a role
 
 #### PATCH `/roles/:id/activate`
+
 - Activate a role
 
 ### 2. Roles Service (`backend/src/modules/roles/roles.service.ts`)
@@ -105,6 +112,7 @@ activateRole(id: number): Promise<Roles>
 A reusable, sortable table component for displaying roles.
 
 **Features:**
+
 - ✅ Sortable columns (click headers to sort)
 - ✅ Pagination controls
 - ✅ Status badge (Active/Inactive)
@@ -114,12 +122,13 @@ A reusable, sortable table component for displaying roles.
 - ✅ Responsive design
 
 **Props:**
+
 ```typescript
 interface RoleTableProps {
   roles: Role[];
   isLoading?: boolean;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
   onSort?: (field: string) => void;
   onEdit?: (role: Role) => void;
   onDelete?: (role: Role) => void;
@@ -136,6 +145,7 @@ interface RoleTableProps {
 Modal for creating and editing roles.
 
 **Features:**
+
 - ✅ Form validation with error messages
 - ✅ Auto-generation of role code (slug) from name
 - ✅ Inline permission matrix
@@ -144,6 +154,7 @@ Modal for creating and editing roles.
 - ✅ Create and Edit modes
 
 **Fields:**
+
 - Role Name (required)
 - Role Code (auto-generated, unique)
 - Dashboard Title (required)
@@ -156,6 +167,7 @@ Modal for creating and editing roles.
 Comprehensive permission management component.
 
 **Features:**
+
 - ✅ Organized permission categories:
   - Capabilities (can_forward, can_FLAF, can_generate_ground_report, etc.)
   - View Permissions (view forms, applications, reports, etc.)
@@ -168,14 +180,16 @@ Comprehensive permission management component.
 **Permissions Included:**
 
 **Capabilities:**
+
 - can_forward: Forward applications
-- can_FLAF: Fresh License Application Form access
+- can_FLAF: Fresh Application Form access
 - can_generate_ground_report: Generate ground reports
 - can_re_enquiry: Conduct re-enquiries
 - can_create_freshLicence: Create fresh licenses
 - can_access_settings: Access system settings
 
 **View Permissions:**
+
 - canViewFreshForm: View fresh forms
 - canViewForwarded: View forwarded applications
 - canViewReturned: View returned applications
@@ -186,6 +200,7 @@ Comprehensive permission management component.
 - canViewReports: View reports
 
 **Action Permissions:**
+
 - canSubmitApplication: Submit applications
 - canCaptureUIN: Capture UIN
 - canCaptureBiometrics: Capture biometrics
@@ -204,6 +219,7 @@ Comprehensive permission management component.
 Modal confirmation dialogs for destructive actions.
 
 **Features:**
+
 - ✅ Multiple dialog types (delete, deactivate, warning, info)
 - ✅ Clear warning messages
 - ✅ Cannot-undo warning for delete/deactivate
@@ -211,17 +227,20 @@ Modal confirmation dialogs for destructive actions.
 - ✅ Customizable button text
 
 **Usage:**
+
 ```typescript
 setConfirmationDialog({
   isOpen: true,
   config: {
-    title: 'Delete Role',
-    message: 'Are you sure you want to delete this role?',
-    type: 'delete',
-    confirmText: 'Delete',
-    onConfirm: async () => { /* handle delete */ },
-  }
-})
+    title: "Delete Role",
+    message: "Are you sure you want to delete this role?",
+    type: "delete",
+    confirmText: "Delete",
+    onConfirm: async () => {
+      /* handle delete */
+    },
+  },
+});
 ```
 
 ---
@@ -231,47 +250,56 @@ setConfirmationDialog({
 ### Features Implemented
 
 #### 1. Full CRUD Operations
+
 - **Create**: Add new roles with auto-generated codes
 - **Read**: Fetch and display roles with advanced filtering
 - **Update**: Edit existing roles and their permissions
 - **Delete**: Soft-delete roles with confirmation
 
 #### 2. Search & Filtering
+
 - **Search**: Find roles by name or code
 - **Status Filter**: Filter by Active/Inactive status
 - **Dynamic Filtering**: Filters applied in real-time with pagination reset
 
 #### 3. Sorting
+
 - **Multi-column Sorting**: Sort by name, code, created_at, updated_at
 - **Sort Direction**: Toggle between ascending/descending
 - **Visual Indicators**: Arrow indicators show current sort field and direction
 
 #### 4. Pagination
+
 - **Page Navigation**: Previous/Next buttons
 - **Page Info**: Display current page and total pages
 - **Configurable Limit**: 10 items per page
 
 #### 5. Audit Information
+
 - **Created At**: Timestamp of role creation
 - **Updated At**: Timestamp of last modification
 - **Status**: Active/Inactive indicator with badge
 
 #### 6. Confirmation Dialogs
+
 - **Delete Confirmation**: Prevents accidental deletion
 - **Deactivate Confirmation**: Prevents accidental deactivation
 - **Cannot-Undo Warning**: Clear messaging about irreversible actions
 
 #### 7. Error Handling
+
 - **API Error Display**: Shows error alerts with retry option
 - **Form Validation**: Client-side validation with error messages
 - **Toast Notifications**: Success/error messages after actions
 
 #### 8. Loading States
+
 - **Table Loading**: Skeleton state while fetching data
 - **Button Loading**: Visual feedback during save/delete operations
 - **Mutation States**: Proper state management for all async operations
 
 #### 9. UI/UX Improvements
+
 - **Clean Card Layout**: Modern, organized interface
 - **Consistent Spacing**: Uses design system tokens
 - **Color-Coded Actions**: Different colors for different action types
@@ -285,6 +313,7 @@ setConfirmationDialog({
 ### State Management
 
 Uses React Query for server state management:
+
 - Query caching for improved performance
 - Automatic refetching after mutations
 - Error handling and retry logic
@@ -297,6 +326,7 @@ Uses React Query for server state management:
 ### 1. API Service (`frontend/src/services/admin/roles.ts`)
 
 Existing service methods used:
+
 - `getRoles(params)`: Fetch roles with filters
 - `createRole(data)`: Create new role
 - `updateRole(id, data)`: Update role
@@ -305,6 +335,7 @@ Existing service methods used:
 ### 2. Admin Components (`frontend/src/components/admin/index.ts`)
 
 All new components exported:
+
 - `RoleTable`
 - `RoleFormModal`
 - `PermissionMatrix`
@@ -313,6 +344,7 @@ All new components exported:
 ### 3. Styling System
 
 Uses design system tokens:
+
 - `AdminSpacing`: Consistent spacing values
 - `AdminBorderRadius`: Consistent border radius
 - `AdminLayout`: Layout constants
@@ -388,12 +420,14 @@ Table Update (RoleTable)
 ## Error Handling
 
 ### Backend
+
 - Validates required fields
 - Checks for unique role codes
 - Returns descriptive error messages
 - Returns appropriate HTTP status codes
 
 ### Frontend
+
 - Form validation with user-friendly messages
 - API error display with retry option
 - Toast notifications for all operations
@@ -415,6 +449,7 @@ Table Update (RoleTable)
 ## Future Enhancements
 
 Possible improvements:
+
 1. Bulk actions (delete/activate multiple roles)
 2. Role duplication/templates
 3. Permission dependency validation

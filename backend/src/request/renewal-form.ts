@@ -33,7 +33,7 @@ export class RenewalFormResponse {
   licenseNumber!: string;
 
   @ApiProperty()
-  freshLicenseId!: number;
+  licenseId!: number;
 
   @ApiProperty()
   applicantName!: string;

@@ -53,7 +53,7 @@ graph TB
     SVC --> DTO
     DTO --> DB_ACCESS
     BIO <-->|USB/Serial| MOD
-    
+
     API --> SWAGGER
 
     style API fill:#4CAF50,color:#fff
@@ -63,20 +63,20 @@ graph TB
 
 ### 1.2 Technology Stack
 
-| Layer | Technology | Version | Purpose |
-|-------|-----------|---------|---------|
-| **Runtime** | Node.js | 18+ | Server-side JavaScript runtime |
-| **Framework** | NestJS | 10.x | Progressive Node.js framework |
-| **Language** | TypeScript | 5.x | Type-safe development |
-| **ORM** | Prisma | 5.x | Database ORM with type safety |
-| **Database** | PostgreSQL | 14+ | Primary database |
-| **Auth** | JWT (jsonwebtoken) | 9.x | Token-based authentication |
-| **Password** | bcrypt | 5.x | Password hashing |
-| **Validation** | class-validator | 0.14.x | DTO validation |
-| **Swagger** | @nestjs/swagger | 7.x | API documentation |
-| **Encryption** | Node.js crypto | Built-in | AES-256-GCM biometric data |
-| **QR Code** | qrcode | 1.5.x | QR code generation |
-| **Container** | Docker | Latest | Containerization |
+| Layer          | Technology         | Version  | Purpose                        |
+| -------------- | ------------------ | -------- | ------------------------------ |
+| **Runtime**    | Node.js            | 18+      | Server-side JavaScript runtime |
+| **Framework**  | NestJS             | 10.x     | Progressive Node.js framework  |
+| **Language**   | TypeScript         | 5.x      | Type-safe development          |
+| **ORM**        | Prisma             | 5.x      | Database ORM with type safety  |
+| **Database**   | PostgreSQL         | 14+      | Primary database               |
+| **Auth**       | JWT (jsonwebtoken) | 9.x      | Token-based authentication     |
+| **Password**   | bcrypt             | 5.x      | Password hashing               |
+| **Validation** | class-validator    | 0.14.x   | DTO validation                 |
+| **Swagger**    | @nestjs/swagger    | 7.x      | API documentation              |
+| **Encryption** | Node.js crypto     | Built-in | AES-256-GCM biometric data     |
+| **QR Code**    | qrcode             | 1.5.x    | QR code generation             |
+| **Container**  | Docker             | Latest   | Containerization               |
 
 ### 1.3 Project Structure
 
@@ -208,24 +208,24 @@ graph TB
 
 ### 2.2 Module Registry
 
-| # | Module | Path | Features |
-|---|--------|------|----------|
-| 1 | **AuthModule** | `modules/auth/` | Login, profile, token verification, logout |
-| 2 | **UserModule** | `modules/user/` | CRUD users with role/location filtering |
-| 3 | **ApplicationFormModule** | `modules/FreshLicenseApplicationForm/` | Fresh license lifecycle, file uploads, hierarchy |
-| 4 | **RenewalFormModule** | `modules/renewal/` | Renewal lifecycle, license merging, audit |
-| 5 | **FLAWorkflowModule** | `modules/FLAWorkflow/` | Action processing, status transitions |
-| 6 | **LocationsModule** | `modules/locations/` | Geographic hierarchy CRUD |
-| 7 | **RolesModule** | `modules/roles/` | Role CRUD, activation, public lookup |
-| 8 | **ActionesModule** | `modules/actions/` | Role-action mapping management |
-| 9 | **StatusModule** | `modules/status/` | Status definition management |
-| 10 | **FlowMappingModule** | `modules/flowMapping/` | Role flow configuration, cycle detection |
-| 11 | **AnalyticsModule** | `modules/analytics/` | Reports, dashboards, activity feed |
-| 12 | **BiometricModule** | `modules/biometric/` | Fingerprint enrollment, verification, audit |
-| 13 | **WeaponsModule** | `modules/weapons/` | Weapon type master list |
-| 14 | **QRCodeModule** | `modules/qrcode/` | QR code generation for applications |
-| 15 | **PublicModule** | `modules/public/` | Public read-only application view (QR scans) |
-| 16 | **HealthModule** | `modules/health/` | Health check endpoint |
+| #   | Module                    | Path                                   | Features                                         |
+| --- | ------------------------- | -------------------------------------- | ------------------------------------------------ |
+| 1   | **AuthModule**            | `modules/auth/`                        | Login, profile, token verification, logout       |
+| 2   | **UserModule**            | `modules/user/`                        | CRUD users with role/location filtering          |
+| 3   | **ApplicationFormModule** | `modules/FreshLicenseApplicationForm/` | Fresh license lifecycle, file uploads, hierarchy |
+| 4   | **RenewalFormModule**     | `modules/renewal/`                     | Renewal lifecycle, license merging, audit        |
+| 5   | **FLAWorkflowModule**     | `modules/FLAWorkflow/`                 | Action processing, status transitions            |
+| 6   | **LocationsModule**       | `modules/locations/`                   | Geographic hierarchy CRUD                        |
+| 7   | **RolesModule**           | `modules/roles/`                       | Role CRUD, activation, public lookup             |
+| 8   | **ActionesModule**        | `modules/actions/`                     | Role-action mapping management                   |
+| 9   | **StatusModule**          | `modules/status/`                      | Status definition management                     |
+| 10  | **FlowMappingModule**     | `modules/flowMapping/`                 | Role flow configuration, cycle detection         |
+| 11  | **AnalyticsModule**       | `modules/analytics/`                   | Reports, dashboards, activity feed               |
+| 12  | **BiometricModule**       | `modules/biometric/`                   | Fingerprint enrollment, verification, audit      |
+| 13  | **WeaponsModule**         | `modules/weapons/`                     | Weapon type master list                          |
+| 14  | **QRCodeModule**          | `modules/qrcode/`                      | QR code generation for applications              |
+| 15  | **PublicModule**          | `modules/public/`                      | Public read-only application view (QR scans)     |
+| 16  | **HealthModule**          | `modules/health/`                      | Health check endpoint                            |
 
 ---
 
@@ -249,34 +249,34 @@ sequenceDiagram
 
     C->>N: HTTP Request
     N->>B: Port 3000 (or 80/443 via reverse proxy)
-    
+
     Note over B: Body size limit: 10MB<br/>CORS origins configured<br/>Global prefix: /api
-    
+
     B->>G: Transform + Validate
     G->>G: whitelist: true<br/>transform: true<br/>implicitConversion: true
-    
+
     B->>I1: LoggingInterceptor
     I1->>I1: Log: [timestamp] METHOD /api/route<br/>Query, Body (sanitized), Params
-    
+
     B->>I2: ErrorsInterceptor
     I2->>I2: Timeout: 60s
-    
+
     B->>F: AllExceptionsFilter
     Note over F: Catches ALL exceptions<br/>HTTP 4xx → warn log<br/>HTTP 5xx → error log
-    
+
     alt Requires Auth
         I2->>M: JwtAuthGuard or AuthGuard
         M->>M: Verify JWT token<br/>Extract user payload<br/>Check roles + permissions
     end
-    
+
     M->>CO: Route to Controller Method
     CO->>S: Delegate to Service
     S->>DB: Prisma Query
-    
+
     DB-->>S: Result
     S-->>CO: Transformed Response
     CO-->>I2: Response Data
-    I2-->>I1: 
+    I2-->>I1:
     I1-->>I1: Log: [timestamp] METHOD /api/route STATUS DURATIONms
     I1-->>C: JSON Response
 ```
@@ -297,15 +297,15 @@ sequenceDiagram
 
 ### 3.3 Guard Comparison
 
-| Feature | JwtAuthGuard | AuthGuard |
-|---------|-------------|-----------|
-| **Decorator** | `@UseGuards(JwtAuthGuard)` | `@UseGuards(AuthGuard)` |
-| **JWT Verify** | ✅ Yes | ✅ Yes |
-| **DB User Lookup** | ❌ No | ✅ Yes (prisma.users.findUnique) |
-| **Role Check** | ❌ No | ✅ Yes (via `@Roles()` decorator) |
-| **Permission Check** | ❌ No | ✅ Yes (via `@RequirePermissions()` decorator) |
-| **User on Request** | `request.user` with mapped fields | `request.user` with full role + location data |
-| **Best For** | Simple auth verification | Routes needing role/permission checks |
+| Feature              | JwtAuthGuard                      | AuthGuard                                      |
+| -------------------- | --------------------------------- | ---------------------------------------------- |
+| **Decorator**        | `@UseGuards(JwtAuthGuard)`        | `@UseGuards(AuthGuard)`                        |
+| **JWT Verify**       | ✅ Yes                            | ✅ Yes                                         |
+| **DB User Lookup**   | ❌ No                             | ✅ Yes (prisma.users.findUnique)               |
+| **Role Check**       | ❌ No                             | ✅ Yes (via `@Roles()` decorator)              |
+| **Permission Check** | ❌ No                             | ✅ Yes (via `@RequirePermissions()` decorator) |
+| **User on Request**  | `request.user` with mapped fields | `request.user` with full role + location data  |
+| **Best For**         | Simple auth verification          | Routes needing role/permission checks          |
 
 ---
 
@@ -323,10 +323,10 @@ sequenceDiagram
 
     U->>C: POST /api/auth/login<br/>{ username, password }
     C->>S: login(loginDto)
-    
+
     S->>DB: Find user by username
     DB-->>S: User + Role (includes role.is_active)
-    
+
     alt User Not Found
         S-->>U: 401 Invalid credentials
     else Role Inactive
@@ -365,23 +365,23 @@ sequenceDiagram
 
 ### 4.3 JWT Guard Mapping (JwtAuthGuard)
 
-| JWT Field | Mapped Field | Purpose |
-|-----------|-------------|---------|
-| `user_id` | `userId` | User identifier |
-| `role_id` | `roleId` | Role identifier |
-| `state_id` | `stateId` | User's state jurisdiction |
+| JWT Field     | Mapped Field | Purpose                      |
+| ------------- | ------------ | ---------------------------- |
+| `user_id`     | `userId`     | User identifier              |
+| `role_id`     | `roleId`     | Role identifier              |
+| `state_id`    | `stateId`    | User's state jurisdiction    |
 | `district_id` | `districtId` | User's district jurisdiction |
-| `zone_id` | `zoneId` | User's zone jurisdiction |
-| `role_code` | `roleCode` | Role code for filtering |
+| `zone_id`     | `zoneId`     | User's zone jurisdiction     |
+| `role_code`   | `roleCode`   | Role code for filtering      |
 
 ### 4.4 Auth Endpoints
 
-| Endpoint | Method | Auth | Purpose |
-|----------|--------|------|---------|
-| `/api/auth/login` | POST | None | Authenticate user, get JWT |
-| `/api/auth/getMe` | GET | JWT | Get current user profile + location |
-| `/api/auth/logout` | POST | None | Logout handler |
-| `/api/auth/verify` | GET | JWT | Verify token validity |
+| Endpoint           | Method | Auth | Purpose                             |
+| ------------------ | ------ | ---- | ----------------------------------- |
+| `/api/auth/login`  | POST   | None | Authenticate user, get JWT          |
+| `/api/auth/getMe`  | GET    | JWT  | Get current user profile + location |
+| `/api/auth/logout` | POST   | None | Logout handler                      |
+| `/api/auth/verify` | GET    | JWT  | Verify token validity               |
 
 ---
 
@@ -394,6 +394,7 @@ sequenceDiagram
 Authenticate user credentials and return JWT token.
 
 **Request Body:**
+
 ```json
 {
   "username": "dcp_user",
@@ -402,6 +403,7 @@ Authenticate user credentials and return JWT token.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -444,6 +446,7 @@ Get authenticated user's profile with role and location information.
 **Auth:** JWT Bearer Token
 
 **Response (200):**
+
 ```json
 {
   "id": "1",
@@ -485,6 +488,7 @@ Verify that the JWT token is valid.
 **Auth:** JWT Bearer Token
 
 **Response (200):**
+
 ```json
 {
   "valid": true,
@@ -499,6 +503,7 @@ Verify that the JWT token is valid.
 Handle logout (clears any server-side state if needed).
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -510,19 +515,20 @@ Handle logout (clears any server-side state if needed).
 
 ### 5.2 User Management
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/users` | JWT | Create new user |
-| GET | `/api/users` | JWT | List users (with role/location filtering) |
-| GET | `/api/users/:id` | JWT | Get user by ID |
-| PUT | `/api/users/:id` | JWT | Update user |
-| DELETE | `/api/users/:id` | JWT | Delete user |
+| Method | Endpoint         | Auth | Description                               |
+| ------ | ---------------- | ---- | ----------------------------------------- |
+| POST   | `/api/users`     | JWT  | Create new user                           |
+| GET    | `/api/users`     | JWT  | List users (with role/location filtering) |
+| GET    | `/api/users/:id` | JWT  | Get user by ID                            |
+| PUT    | `/api/users/:id` | JWT  | Update user                               |
+| DELETE | `/api/users/:id` | JWT  | Delete user                               |
 
 #### `POST /api/users`
 
 **Auth:** JWT Bearer Token (requires appropriate role)
 
 **Request Body:**
+
 ```json
 {
   "username": "new_user",
@@ -551,28 +557,29 @@ Handle logout (clears any server-side state if needed).
 
 ---
 
-### 5.3 Fresh License Application
+### 5.3 Fresh Application
 
 **Base URL:** `/api/application-form`
 **Auth:** JWT Bearer Token (all endpoints)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/application-form/personal-details` | Create new draft application (Step 1) |
-| PATCH | `/api/application-form?isSubmit=true` | Update sections + submit |
-| GET | `/api/application-form` | List applications (paginated, filterable) |
-| GET | `/api/application-form/:id` | Get application by ID |
-| GET | `/api/application-form/user/:id` | Get applications for user |
-| POST | `/api/application-form/:applicationId/upload-file` | Upload file metadata |
-| DELETE | `/api/application-form/:id` | Delete file record |
-| DELETE | `/api/application-form/application/:id` | Delete draft application |
-| GET | `/api/application-form/hierarchy/:applicationId` | Get hierarchy info |
+| Method | Endpoint                                           | Description                               |
+| ------ | -------------------------------------------------- | ----------------------------------------- |
+| POST   | `/api/application-form/personal-details`           | Create new draft application (Step 1)     |
+| PATCH  | `/api/application-form?isSubmit=true`              | Update sections + submit                  |
+| GET    | `/api/application-form`                            | List applications (paginated, filterable) |
+| GET    | `/api/application-form/:id`                        | Get application by ID                     |
+| GET    | `/api/application-form/user/:id`                   | Get applications for user                 |
+| POST   | `/api/application-form/:applicationId/upload-file` | Upload file metadata                      |
+| DELETE | `/api/application-form/:id`                        | Delete file record                        |
+| DELETE | `/api/application-form/application/:id`            | Delete draft application                  |
+| GET    | `/api/application-form/hierarchy/:applicationId`   | Get hierarchy info                        |
 
 #### `POST /api/application-form/personal-details`
 
 Create a new fresh license application draft.
 
 **Request Body:**
+
 ```json
 {
   "firstName": "John",
@@ -589,6 +596,7 @@ Create a new fresh license application draft.
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -612,6 +620,7 @@ Create a new fresh license application draft.
 Update application sections. When `isSubmit=true`, submits the application into the workflow.
 
 **Request Body (PatchApplicationDetailsDto):**
+
 ```json
 {
   "isDeclarationAccepted": true,
@@ -654,29 +663,30 @@ Update application sections. When `isSubmit=true`, submits the application into 
 
 ---
 
-### 5.4 Renewal Application
+### 5.4 Renewal
 
 **Base URL:** `/api/renewal`
 **Auth:** JWT Bearer Token (all endpoints)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/renewal` | Create renewal application |
-| PATCH | `/api/renewal?isSubmit=true` | Update + submit renewal |
-| GET | `/api/renewal` | List renewal applications |
-| GET | `/api/renewal/:applicationId` | Get specific renewal |
-| POST | `/api/renewal/:applicationId/upload-file` | Upload file metadata |
-| DELETE | `/api/renewal/file/:fileId` | Delete file record |
-| DELETE | `/api/renewal/application/:applicationId` | Delete draft renewal |
-| POST | `/api/renewal/approved/merge` | Merge renewal → fresh license |
-| GET | `/api/renewal/merge-audit-logs/all` | List merge audit logs |
-| GET | `/api/renewal/merge-audit-logs/:mergeId` | Get specific merge audit |
+| Method | Endpoint                                  | Description                   |
+| ------ | ----------------------------------------- | ----------------------------- |
+| POST   | `/api/renewal`                            | Create renewal application    |
+| PATCH  | `/api/renewal?isSubmit=true`              | Update + submit renewal       |
+| GET    | `/api/renewal`                            | List renewal applications     |
+| GET    | `/api/renewal/:applicationId`             | Get specific renewal          |
+| POST   | `/api/renewal/:applicationId/upload-file` | Upload file metadata          |
+| DELETE | `/api/renewal/file/:fileId`               | Delete file record            |
+| DELETE | `/api/renewal/application/:applicationId` | Delete draft renewal          |
+| POST   | `/api/renewal/approved/merge`             | Merge renewal → fresh license |
+| GET    | `/api/renewal/merge-audit-logs/all`       | List merge audit logs         |
+| GET    | `/api/renewal/merge-audit-logs/:mergeId`  | Get specific merge audit      |
 
 #### `POST /api/renewal`
 
 Create a new renewal application draft.
 
 **Request Body:**
+
 ```json
 {
   "licenseNumber": "WB-2020-001234",
@@ -698,6 +708,7 @@ Merge an approved renewal license into the fresh license record.
 **Auth:** Requires JTCP or CP role
 
 **Request Body:**
+
 ```json
 {
   "renewalApplicationId": 1,
@@ -706,6 +717,7 @@ Merge an approved renewal license into the fresh license record.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -723,14 +735,14 @@ Merge an approved renewal license into the fresh license record.
 
 **Base URL:** `/api/workflow`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/workflow/action` | JWT | Process workflow action |
-| GET | `/api/workflow/statuses-actions` | JWT | Get statuses & actions |
-| GET | `/api/workflow/applications` | JWT | List applications by type |
-| GET | `/api/workflow/applications/:id` | JWT | Get application by ID |
-| PATCH | `/api/workflow/applications/:id/status` | JWT | Update application status |
-| GET | `/api/workflow/users-in-hierarchy` | JWT | Get users in hierarchy |
+| Method | Endpoint                                | Auth | Description               |
+| ------ | --------------------------------------- | ---- | ------------------------- |
+| POST   | `/api/workflow/action`                  | JWT  | Process workflow action   |
+| GET    | `/api/workflow/statuses-actions`        | JWT  | Get statuses & actions    |
+| GET    | `/api/workflow/applications`            | JWT  | List applications by type |
+| GET    | `/api/workflow/applications/:id`        | JWT  | Get application by ID     |
+| PATCH  | `/api/workflow/applications/:id/status` | JWT  | Update application status |
+| GET    | `/api/workflow/users-in-hierarchy`      | JWT  | Get users in hierarchy    |
 
 #### `POST /api/workflow/action`
 
@@ -739,10 +751,11 @@ Process a workflow action (forward, approve, reject, etc.).
 **Auth:** JWT Bearer Token
 
 **Request Body:**
+
 ```json
 {
   "applicationId": 1,
-  "applicationType": "fresh",    // "fresh" | "renewal"
+  "applicationType": "fresh", // "fresh" | "renewal"
   "actionId": 3,
   "nextUserId": 5,
   "remarks": "Forwarding for senior review",
@@ -759,13 +772,14 @@ Process a workflow action (forward, approve, reject, etc.).
 
 **Workflow Action Categories:**
 
-| Category | Actions | Effect |
-|----------|---------|--------|
-| **Terminal** | REJECT, APPROVED, CLOSE, DISPOSE, CANCEL | Ends the workflow |
-| **Forward** | FORWARD | Transfers to next user |
+| Category     | Actions                                                  | Effect                  |
+| ------------ | -------------------------------------------------------- | ----------------------- |
+| **Terminal** | REJECT, APPROVED, CLOSE, DISPOSE, CANCEL                 | Ends the workflow       |
+| **Forward**  | FORWARD                                                  | Transfers to next user  |
 | **In-Place** | RE_ENQUIRY, GROUND_REPORT, RECOMMEND, INITIATE, RED_FLAG | Keeps with current user |
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -794,42 +808,42 @@ Process a workflow action (forward, approve, reject, etc.).
 
 **Base URL:** `/api/locations`
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/locations/states` | JWT | List all states |
-| GET | `/api/locations/states/:id` | JWT | Get state by ID |
-| POST | `/api/locations/states` | JWT | Create state |
-| PUT | `/api/locations/states/:id` | JWT | Update state |
-| GET | `/api/locations/districts` | JWT | List districts (filter by `stateId`) |
-| GET | `/api/locations/districts/:id` | JWT | Get district by ID |
-| POST | `/api/locations/districts` | JWT | Create district |
-| PUT | `/api/locations/districts/:id` | JWT | Update district |
-| GET | `/api/locations/zones` | JWT | List zones (filter by `districtId`) |
-| GET | `/api/locations/zones/:id` | JWT | Get zone by ID |
-| POST | `/api/locations/zones` | JWT | Create zone |
-| PUT | `/api/locations/zones/:id` | JWT | Update zone |
-| GET | `/api/locations/divisions` | JWT | List divisions (filter by `zoneId`) |
-| GET | `/api/locations/divisions/:id` | JWT | Get division by ID |
-| POST | `/api/locations/divisions` | JWT | Create division |
-| PUT | `/api/locations/divisions/:id` | JWT | Update division |
-| GET | `/api/locations/police-stations` | JWT | List police stations (filter by `divisionId`) |
-| GET | `/api/locations/police-stations/:id` | JWT | Get police station by ID |
-| POST | `/api/locations/police-stations` | JWT | Create police station |
-| PUT | `/api/locations/police-stations/:id` | JWT | Update police station |
-| GET | `/api/locations/hierarchy` | JWT | Get full location path for a location ID |
+| Method | Endpoint                             | Auth | Description                                   |
+| ------ | ------------------------------------ | ---- | --------------------------------------------- |
+| GET    | `/api/locations/states`              | JWT  | List all states                               |
+| GET    | `/api/locations/states/:id`          | JWT  | Get state by ID                               |
+| POST   | `/api/locations/states`              | JWT  | Create state                                  |
+| PUT    | `/api/locations/states/:id`          | JWT  | Update state                                  |
+| GET    | `/api/locations/districts`           | JWT  | List districts (filter by `stateId`)          |
+| GET    | `/api/locations/districts/:id`       | JWT  | Get district by ID                            |
+| POST   | `/api/locations/districts`           | JWT  | Create district                               |
+| PUT    | `/api/locations/districts/:id`       | JWT  | Update district                               |
+| GET    | `/api/locations/zones`               | JWT  | List zones (filter by `districtId`)           |
+| GET    | `/api/locations/zones/:id`           | JWT  | Get zone by ID                                |
+| POST   | `/api/locations/zones`               | JWT  | Create zone                                   |
+| PUT    | `/api/locations/zones/:id`           | JWT  | Update zone                                   |
+| GET    | `/api/locations/divisions`           | JWT  | List divisions (filter by `zoneId`)           |
+| GET    | `/api/locations/divisions/:id`       | JWT  | Get division by ID                            |
+| POST   | `/api/locations/divisions`           | JWT  | Create division                               |
+| PUT    | `/api/locations/divisions/:id`       | JWT  | Update division                               |
+| GET    | `/api/locations/police-stations`     | JWT  | List police stations (filter by `divisionId`) |
+| GET    | `/api/locations/police-stations/:id` | JWT  | Get police station by ID                      |
+| POST   | `/api/locations/police-stations`     | JWT  | Create police station                         |
+| PUT    | `/api/locations/police-stations/:id` | JWT  | Update police station                         |
+| GET    | `/api/locations/hierarchy`           | JWT  | Get full location path for a location ID      |
 
 ### 5.7 Analytics & Reports
 
 **Base URL:** `/api/admin/analytics`
 **Auth:** JWT Bearer Token (all endpoints)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/admin/analytics/applications` | Application counts by ISO week |
-| GET | `/api/admin/analytics/role-load` | Application load by role |
-| GET | `/api/admin/analytics/states` | Application distribution by status |
-| GET | `/api/admin/analytics/admin-activities` | Recent admin workflow activities |
-| GET | `/api/admin/analytics/applications/details` | Detailed application list with summary counts |
+| Method | Endpoint                                    | Description                                   |
+| ------ | ------------------------------------------- | --------------------------------------------- |
+| GET    | `/api/admin/analytics/applications`         | Application counts by ISO week                |
+| GET    | `/api/admin/analytics/role-load`            | Application load by role                      |
+| GET    | `/api/admin/analytics/states`               | Application distribution by status            |
+| GET    | `/api/admin/analytics/admin-activities`     | Recent admin workflow activities              |
+| GET    | `/api/admin/analytics/applications/details` | Detailed application list with summary counts |
 
 **Common Query Parameters:**
 | Param | Type | Description |
@@ -847,70 +861,70 @@ Process a workflow action (forward, approve, reject, etc.).
 
 ### 5.8 Roles & Permissions
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/roles` | JWT | List all roles |
-| GET | `/api/roles/:id` | JWT | Get role by ID |
-| POST | `/api/roles` | JWT | Create role |
-| PUT | `/api/roles/:id` | JWT | Update role |
-| DELETE | `/api/roles/:id` | JWT | Delete role |
-| PATCH | `/api/roles/:id/activate` | JWT | Activate role |
-| PATCH | `/api/roles/:id/deactivate` | JWT | Deactivate role |
-| GET | `/api/public-roles` | JWT | Public role lookup |
+| Method | Endpoint                    | Auth | Description        |
+| ------ | --------------------------- | ---- | ------------------ |
+| GET    | `/api/roles`                | JWT  | List all roles     |
+| GET    | `/api/roles/:id`            | JWT  | Get role by ID     |
+| POST   | `/api/roles`                | JWT  | Create role        |
+| PUT    | `/api/roles/:id`            | JWT  | Update role        |
+| DELETE | `/api/roles/:id`            | JWT  | Delete role        |
+| PATCH  | `/api/roles/:id/activate`   | JWT  | Activate role      |
+| PATCH  | `/api/roles/:id/deactivate` | JWT  | Deactivate role    |
+| GET    | `/api/public-roles`         | JWT  | Public role lookup |
 
 ### 5.9 Action-Role Mappings
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/actiones` | JWT | Get actions for user (filter by `applicationId`) |
-| POST | `/api/actiones/RolesActionsMapping` | JWT | Create action mapping |
-| PATCH | `/api/actiones/RolesActionsMapping/:id` | JWT | Update action mapping |
-| DELETE | `/api/actiones/RolesActionsMapping/:id` | JWT | Soft delete action mapping |
+| Method | Endpoint                                | Auth | Description                                      |
+| ------ | --------------------------------------- | ---- | ------------------------------------------------ |
+| GET    | `/api/actiones`                         | JWT  | Get actions for user (filter by `applicationId`) |
+| POST   | `/api/actiones/RolesActionsMapping`     | JWT  | Create action mapping                            |
+| PATCH  | `/api/actiones/RolesActionsMapping/:id` | JWT  | Update action mapping                            |
+| DELETE | `/api/actiones/RolesActionsMapping/:id` | JWT  | Soft delete action mapping                       |
 
 ### 5.10 Status Definitions
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/status` | JWT | List statuses (filter by `code`) |
-| POST | `/api/status` | JWT | Create status |
-| PUT | `/api/status/:id` | JWT | Update status |
+| Method | Endpoint          | Auth | Description                      |
+| ------ | ----------------- | ---- | -------------------------------- |
+| GET    | `/api/status`     | JWT  | List statuses (filter by `code`) |
+| POST   | `/api/status`     | JWT  | Create status                    |
+| PUT    | `/api/status/:id` | JWT  | Update status                    |
 
 ### 5.11 Flow Mapping
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/flow-mapping` | JWT | Create flow mapping |
-| GET | `/api/flow-mapping` | JWT | List flow mappings |
-| PUT | `/api/flow-mapping/:id` | JWT | Update flow mapping |
-| POST | `/api/flow-mapping/validate` | JWT | Validate flow (cycle detection) |
-| DELETE | `/api/flow-mapping/:id` | JWT | Delete flow mapping |
+| Method | Endpoint                     | Auth | Description                     |
+| ------ | ---------------------------- | ---- | ------------------------------- |
+| POST   | `/api/flow-mapping`          | JWT  | Create flow mapping             |
+| GET    | `/api/flow-mapping`          | JWT  | List flow mappings              |
+| PUT    | `/api/flow-mapping/:id`      | JWT  | Update flow mapping             |
+| POST   | `/api/flow-mapping/validate` | JWT  | Validate flow (cycle detection) |
+| DELETE | `/api/flow-mapping/:id`      | JWT  | Delete flow mapping             |
 
 ### 5.12 Biometric
 
 **Base URL:** `/api/biometric`
 **Auth:** AuthGuard (all endpoints)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/biometric/device/status` | Check device readiness |
-| GET | `/api/biometric/templates/for-matching` | Get stored templates |
-| POST | `/api/biometric/enroll/:applicantId` | Enroll fingerprint |
-| POST | `/api/biometric/store/:applicantId` | Store verified fingerprint |
-| POST | `/api/biometric/verify/:applicantId` | Verify fingerprint |
-| GET | `/api/biometric/enrolled/:applicantId` | List enrolled fingerprints |
-| DELETE | `/api/biometric/:applicantId/:fingerprintId` | Delete fingerprint |
-| GET | `/api/biometric/audit-logs/:applicantId` | Get audit logs |
+| Method | Endpoint                                     | Description                |
+| ------ | -------------------------------------------- | -------------------------- |
+| POST   | `/api/biometric/device/status`               | Check device readiness     |
+| GET    | `/api/biometric/templates/for-matching`      | Get stored templates       |
+| POST   | `/api/biometric/enroll/:applicantId`         | Enroll fingerprint         |
+| POST   | `/api/biometric/store/:applicantId`          | Store verified fingerprint |
+| POST   | `/api/biometric/verify/:applicantId`         | Verify fingerprint         |
+| GET    | `/api/biometric/enrolled/:applicantId`       | List enrolled fingerprints |
+| DELETE | `/api/biometric/:applicantId/:fingerprintId` | Delete fingerprint         |
+| GET    | `/api/biometric/audit-logs/:applicantId`     | Get audit logs             |
 
 ### 5.13 Other Endpoints
 
-| Method | Endpoint | Module | Auth | Description |
-|--------|----------|--------|------|-------------|
-| GET | `/api/weapons` | Weapons | JWT | List weapon types |
-| GET | `/api/health` | Health | None | Health check |
-| POST | `/api/qrcode/generate/:applicationId` | QRCode | JWT | Generate QR code for application |
-| GET | `/api/qrcode/check-permission` | QRCode | JWT | Check QR generation permission |
-| GET | `/api/public/application/:id` | Public | None | Public application view (QR scans) |
-| GET | `/api/public/check-renewal-duplicate?licenseNumber=...` | Public | None | Check renewal duplicate |
+| Method | Endpoint                                                | Module  | Auth | Description                        |
+| ------ | ------------------------------------------------------- | ------- | ---- | ---------------------------------- |
+| GET    | `/api/weapons`                                          | Weapons | JWT  | List weapon types                  |
+| GET    | `/api/health`                                           | Health  | None | Health check                       |
+| POST   | `/api/qrcode/generate/:applicationId`                   | QRCode  | JWT  | Generate QR code for application   |
+| GET    | `/api/qrcode/check-permission`                          | QRCode  | JWT  | Check QR generation permission     |
+| GET    | `/api/public/application/:id`                           | Public  | None | Public application view (QR scans) |
+| GET    | `/api/public/check-renewal-duplicate?licenseNumber=...` | Public  | None | Check renewal duplicate            |
 
 ---
 
@@ -955,11 +969,11 @@ sequenceDiagram
 
     U->>C: POST /api/workflow/action<br/>{ applicationId, actionId, nextUserId, remarks }
     C->>S: processWorkflowAction(dto)
-    
+
     S->>DB: Get application (fresh/renewal)
     S->>DB: Get action details
     S->>A: Check role-action permission
-    
+
     alt Permission Denied
         A-->>S: Error
         S-->>C: 403 Forbidden
@@ -989,49 +1003,49 @@ sequenceDiagram
 ```typescript
 // ROLE CODES
 const ROLE_CODES = {
-  ZS: 'ZS',                    // Zonal Superintendent
-  SHO: 'SHO',                  // Station House Officer
-  ACP: 'ACP',                  // Assistant Commissioner of Police
-  DCP: 'DCP',                  // Deputy Commissioner of Police
-  AS: 'AS',                    // Arms Superintendent
-  ADO: 'ADO',                  // Administrative Officer
-  CADO: 'CADO',                // Chief Administrative Officer
-  JTCP: 'JTCP',                // Joint Commissioner of Police
-  CP: 'CP',                    // Commissioner of Police
-  APPLICANT: 'APPLICANT',      // Citizen Applicant
-  ADMIN: 'ADMIN',              // System Administrator
-  SUPER_ADMIN: 'SUPER_ADMIN'   // Super Administrator
+  ZS: "ZS", // Zonal Superintendent
+  SHO: "SHO", // Station House Officer
+  ACP: "ACP", // Assistant Commissioner of Police
+  DCP: "DCP", // Deputy Commissioner of Police
+  AS: "AS", // Arms Superintendent
+  ADO: "ADO", // Administrative Officer
+  CADO: "CADO", // Chief Administrative Officer
+  JTCP: "JTCP", // Joint Commissioner of Police
+  CP: "CP", // Commissioner of Police
+  APPLICANT: "APPLICANT", // Citizen Applicant
+  ADMIN: "ADMIN", // System Administrator
+  SUPER_ADMIN: "SUPER_ADMIN", // Super Administrator
 };
 
 // STATUS CODES
 const STATUS_CODES = {
-  DRAFT: 'DRAFT',
-  INITIATE: 'INITIATE',
-  FORWARD: 'FORWARD',
-  UNDER_REVIEW: 'UNDER_REVIEW',
-  RE_ENQUIRY: 'RE_ENQUIRY',
-  GROUND_REPORT: 'GROUND_REPORT',
-  APPROVED: 'APPROVED',
-  REJECT: 'REJECT',
-  CLOSE: 'CLOSE',
-  DISPOSE: 'DISPOSE',
-  CANCEL: 'CANCEL'
+  DRAFT: "DRAFT",
+  INITIATE: "INITIATE",
+  FORWARD: "FORWARD",
+  UNDER_REVIEW: "UNDER_REVIEW",
+  RE_ENQUIRY: "RE_ENQUIRY",
+  GROUND_REPORT: "GROUND_REPORT",
+  APPROVED: "APPROVED",
+  REJECT: "REJECT",
+  CLOSE: "CLOSE",
+  DISPOSE: "DISPOSE",
+  CANCEL: "CANCEL",
 };
 
 // ACTION CODES
 const ACTION_CODES = {
-  INITIATE: 'INITIATE',
-  FORWARD: 'FORWARD',
-  RE_ENQUIRY: 'RE_ENQUIRY',
-  GROUND_REPORT: 'GROUND_REPORT',
-  RECOMMEND: 'RECOMMEND',
-  NOT_RECOMMEND: 'NOT_RECOMMEND',
-  APPROVED: 'APPROVED',
-  REJECT: 'REJECT',
-  CLOSE: 'CLOSE',
-  DISPOSE: 'DISPOSE',
-  CANCEL: 'CANCEL',
-  RED_FLAG: 'RED_FLAG'
+  INITIATE: "INITIATE",
+  FORWARD: "FORWARD",
+  RE_ENQUIRY: "RE_ENQUIRY",
+  GROUND_REPORT: "GROUND_REPORT",
+  RECOMMEND: "RECOMMEND",
+  NOT_RECOMMEND: "NOT_RECOMMEND",
+  APPROVED: "APPROVED",
+  REJECT: "REJECT",
+  CLOSE: "CLOSE",
+  DISPOSE: "DISPOSE",
+  CANCEL: "CANCEL",
+  RED_FLAG: "RED_FLAG",
 };
 ```
 
@@ -1073,6 +1087,7 @@ graph TB
 ### 6.5 Role-Action Validator
 
 The `ActionesService` dynamically filters available actions based on:
+
 1. **User's role** — matched against `RolesActionsMapping`
 2. **Current application status** — hides terminal actions if already taken
 3. **Application type** — fresh vs renewal specific actions
@@ -1095,18 +1110,19 @@ flowchart LR
     H --> I[Biometric<br/>Enrollment]
     I --> J[Submit Application]
     J --> K[Enter Workflow]
-    
+
     style K fill:#2196F3,color:#fff
     style J fill:#4CAF50,color:#fff
 ```
 
 **Business Rules:**
+
 - Draft status allows partial saves at any step
 - Submission transitions status from `DRAFT` → `INITIATE`
 - Workflow begins after submission
 - Applicant can be contacted via `RE_ENQUIRY` for additional info
 
-### 7.2 Renewal Application Lifecycle
+### 7.2 Renewal Lifecycle
 
 ```mermaid
 flowchart LR
@@ -1116,14 +1132,15 @@ flowchart LR
     D --> E[Submit Renewal]
     E --> F[Workflow Review]
     F --> G{Merge Decision}
-    G -->|Approve| H[Merge into<br/>Fresh License]
+    G -->|Approve| H[Merge into<br/>Fresh]
     G -->|Reject| I[Rejected]
-    
+
     style H fill:#4CAF50,color:#fff
     style I fill:#f44336,color:#fff
 ```
 
 **Key Business Rules:**
+
 - Requires valid existing `licenseNumber`
 - Can copy data from existing fresh license via `copyFromFreshLicense()`
 - Merge operation transfers renewal data into fresh license record
@@ -1133,6 +1150,7 @@ flowchart LR
 ### 7.3 License Merge Logic
 
 The `mergeLicenses()` method performs:
+
 1. **Transaction-based** — all updates in a single Prisma transaction
 2. **Data migration** — copies renewal fields → fresh license record
 3. **Address handling** — updates both present and permanent addresses
@@ -1176,7 +1194,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     subgraph "Data Sources"
-        FLA[(Fresh License<br/>Applications)]
+        FLA[(Fresh<br/>Applications)]
         REN[(Renewal<br/>Applications)]
         HIST[(Workflow<br/>Histories)]
     end
@@ -1223,7 +1241,7 @@ flowchart TB
 
 ### 8.1 Prerequisites
 
-- **Node.js** 18+ 
+- **Node.js** 18+
 - **PostgreSQL** 14+
 - **npm** or **yarn**
 - **Docker** (optional, for containerized setup)
@@ -1294,15 +1312,15 @@ docker compose -f docker-compose.yml up
 
 ### 8.5 Available Scripts
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| `npm run start:dev` | `nest start --watch` | Dev with hot reload |
-| `npm run build` | `nest build` | Compile TypeScript |
-| `npm run start:prod` | `node dist/main` | Production start |
-| `npm run lint` | `eslint` | Lint TypeScript files |
-| `npx prisma studio` | Prisma Studio | Database GUI |
-| `npx prisma migrate dev` | Prisma Migrate | Run migrations |
-| `npm run seed` | `ts-node prisma/seed.ts` | Seed database |
+| Script                   | Command                  | Description           |
+| ------------------------ | ------------------------ | --------------------- |
+| `npm run start:dev`      | `nest start --watch`     | Dev with hot reload   |
+| `npm run build`          | `nest build`             | Compile TypeScript    |
+| `npm run start:prod`     | `node dist/main`         | Production start      |
+| `npm run lint`           | `eslint`                 | Lint TypeScript files |
+| `npx prisma studio`      | Prisma Studio            | Database GUI          |
+| `npx prisma migrate dev` | Prisma Migrate           | Run migrations        |
+| `npm run seed`           | `ts-node prisma/seed.ts` | Seed database         |
 
 ---
 
@@ -1312,28 +1330,28 @@ docker compose -f docker-compose.yml up
 
 ```typescript
 const ERROR_MESSAGES = {
-  CREDENTIALS_REQUIRED: 'Username and password are required',
-  INVALID_CREDENTIALS: 'Invalid username or password',
-  ROLE_INACTIVE: 'Login failed - role inactive',
-  USER_NOT_FOUND: 'User not found',
-  INTERNAL_SERVER_ERROR: 'Internal server error',
-  UNAUTHORIZED: 'Unauthorized access',
-  TOKEN_EXPIRED: 'Token has expired',
-  INVALID_TOKEN: 'Invalid token provided'
+  CREDENTIALS_REQUIRED: "Username and password are required",
+  INVALID_CREDENTIALS: "Invalid username or password",
+  ROLE_INACTIVE: "Login failed - role inactive",
+  USER_NOT_FOUND: "User not found",
+  INTERNAL_SERVER_ERROR: "Internal server error",
+  UNAUTHORIZED: "Unauthorized access",
+  TOKEN_EXPIRED: "Token has expired",
+  INVALID_TOKEN: "Invalid token provided",
 };
 ```
 
 ### 9.2 Helper Functions (workflow-actions.ts)
 
 ```typescript
-isTerminalAction(code)    // REJECT, APPROVED, CLOSE, DISPOSE, CANCEL
-isForwardAction(code)     // FORWARD
-isInPlaceAction(code)     // RE_ENQUIRY, GROUND_REPORT, RECOMMEND, INITIATE, RED_FLAG
-isApprovalAction(code)    // APPROVED
-isRejectionAction(code)   // REJECT
-isReEnquiryAction(code)   // RE_ENQUIRY
-isRecommendAction(code)   // RECOMMEND
-isNotRecommendAction(code)// NOT_RECOMMEND
+isTerminalAction(code); // REJECT, APPROVED, CLOSE, DISPOSE, CANCEL
+isForwardAction(code); // FORWARD
+isInPlaceAction(code); // RE_ENQUIRY, GROUND_REPORT, RECOMMEND, INITIATE, RED_FLAG
+isApprovalAction(code); // APPROVED
+isRejectionAction(code); // REJECT
+isReEnquiryAction(code); // RE_ENQUIRY
+isRecommendAction(code); // RECOMMEND
+isNotRecommendAction(code); // NOT_RECOMMEND
 ```
 
 ### 9.3 File Type Enums
@@ -1370,6 +1388,7 @@ enum LicenseResult { APPROVED, REJECTED, PENDING }
 ### 9.5 API Response Standard
 
 **Success Response:**
+
 ```json
 {
   "success": true,
@@ -1380,6 +1399,7 @@ enum LicenseResult { APPROVED, REJECTED, PENDING }
 ```
 
 **Error Response:**
+
 ```json
 {
   "success": false,
@@ -1389,6 +1409,7 @@ enum LicenseResult { APPROVED, REJECTED, PENDING }
 ```
 
 **Global Exception Response:**
+
 ```json
 {
   "statusCode": 400,

@@ -24,6 +24,8 @@ interface RenewalApplicationDetails {
   freshApplicationId?: string | number;
   sourceApplicationId?: string | number;
   renewalLicenseId?: string | number;
+  licenseId?: string | number;
+  freshLicenseId?: string | number;
   createdAt?: string;
   updatedAt?: string;
   isSubmit?: boolean;
@@ -130,7 +132,7 @@ export default function RenewalApplicationDetailsPage() {
     return (
       <div className='min-h-screen bg-slate-50 flex items-center justify-center px-4'>
         <div className='max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200 text-center'>
-          <h1 className='text-2xl font-bold text-slate-900'>Renewal Application Not Found</h1>
+          <h1 className='text-2xl font-bold text-slate-900'>Renewal Not Found</h1>
           <p className='mt-3 text-slate-600'>
             {error || 'The selected renewal application could not be loaded.'}
           </p>
@@ -166,10 +168,12 @@ export default function RenewalApplicationDetailsPage() {
     <div className='min-h-screen bg-slate-50 px-4 py-8'>
       <div className='mx-auto max-w-5xl 2xl:max-w-[1200px] space-y-6'>
         <RenewalApplicationDetailsHeader
-          applicationId={application.id}
+          licenseId={
+            application.licenseNumber || application.licenseId || application.freshLicenseId
+          }
           renewalId={renewalId}
           acknowledgementNo={acknowledgementNo}
-          activeTab='Renewal Application Details'
+          activeTab='Renewal Details'
           imageSrc='/file.svg'
         />
 
@@ -195,15 +199,17 @@ export default function RenewalApplicationDetailsPage() {
             <button
               type='button'
               onClick={() => {
-                const linkedApplicationId = String(
-                  application?.applicationId ||
+                const linkedLicenseId = String(
+                  application?.licenseId ||
+                    application?.freshLicenseId ||
+                    application?.licenseNumber ||
+                    application?.applicationId ||
                     application?.freshApplicationId ||
                     application?.sourceApplicationId ||
-                    application?.renewalLicenseId ||
                     ''
                 );
-                const url = linkedApplicationId
-                  ? `/forms/renewal?applicationId=${encodeURIComponent(linkedApplicationId)}&renewalId=${encodeURIComponent(String(id))}`
+                const url = linkedLicenseId
+                  ? `/forms/renewal?licenseId=${encodeURIComponent(linkedLicenseId)}&renewalId=${encodeURIComponent(String(id))}`
                   : `/forms/renewal?renewalId=${encodeURIComponent(String(id))}`;
                 router.push(url);
               }}

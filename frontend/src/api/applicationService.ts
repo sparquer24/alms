@@ -183,6 +183,18 @@ export class ApplicationService {
     return await fetchData(url);
   }
 
+  static async getLicense(input: string) {
+    const trimmed = input?.trim();
+    if (!trimmed) {
+      throw new Error('License ID or License Number is required.');
+    }
+
+    // The backend /licenses/:id endpoint now handles both:
+    // - Numeric input (e.g., "4") -> queries by licenseId
+    // - LUAN-prefixed input (e.g., "LUAN20260703132128000625") -> queries by licenseNumber
+    return await fetchData(`/licenses/${encodeURIComponent(trimmed)}`);
+  }
+
   /**
    * Extract section-specific data from complete application response
    * @param applicationData - Complete application data from GET API

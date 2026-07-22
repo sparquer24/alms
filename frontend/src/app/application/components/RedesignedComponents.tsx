@@ -216,6 +216,7 @@ export function DocumentTable({ documents }: { documents: any[] }) {
             <tr>
               <th className='px-6 py-4'>Document Type</th>
               <th className='px-6 py-4'>File Name</th>
+              <th className='px-6 py-4'>Uploaded On</th>
               <th className='px-6 py-4 text-right print:hidden'>Actions</th>
             </tr>
           </thead>
@@ -231,6 +232,8 @@ export function DocumentTable({ documents }: { documents: any[] }) {
                 String(doc.type || '')
                   .toLowerCase()
                   .includes('image') || /\.(png|jpe?g|gif|svg|webp)$/.test(docName.toLowerCase());
+              const uploadDate = doc.uploadedAt || doc.createdAt || doc.date;
+              const dateStr = uploadDate ? new Date(uploadDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
 
               return (
                 <tr key={idx} className='hover:bg-slate-50/80 transition-colors'>
@@ -250,6 +253,7 @@ export function DocumentTable({ documents }: { documents: any[] }) {
                   >
                     {docName}
                   </td>
+                  <td className='px-6 py-4 text-slate-500 font-medium whitespace-nowrap'>{dateStr}</td>
                   <td className='px-6 py-4 text-right whitespace-nowrap print:hidden'>
                     <div className='inline-flex gap-2'>
                       <button

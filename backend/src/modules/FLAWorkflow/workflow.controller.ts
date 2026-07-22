@@ -205,10 +205,15 @@ export class WorkflowController {
       };
     } catch (error) {
       console.error('Workflow Action Error:', error);
+      // Re-throw known HTTP exceptions with their original status & message
       if (error instanceof ForbiddenException) throw error;
       if (error instanceof NotFoundException) throw error;
       if (error instanceof BadRequestException) throw error;
-      throw new InternalServerErrorException('Unexpected error occurred.');
+      if (error instanceof InternalServerErrorException) throw error;
+      // For unexpected errors (Prisma, runtime, etc.), surface the real message
+      throw new InternalServerErrorException(
+        error instanceof Error ? error.message : 'Unexpected error occurred.'
+      );
     }
   }
 }

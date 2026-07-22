@@ -367,7 +367,7 @@ export class ApplicationFormService {
       // Transaction: create only the personal-details row (no application)
       const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Generate acknowledgementNo once
-        const finalAcknowledgementNo = acknowledgementNo ?? `ALMS${Date.now()}`;
+        const finalAcknowledgementNo = acknowledgementNo ?? `FALS${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
         // Find DRAFT status ID by code (more reliable than assuming ID)
         const draftStatus = await prisma.statuses.findFirst({
@@ -752,24 +752,24 @@ export class ApplicationFormService {
           updatedSections.push('biometricData');
         }
 
-      // Handle workflow status updates - only when isSubmit is true
-      if (isSubmit === true) {
-        // Audit: Log application submission
-        try {
-          await prisma.auditLogs.create({
-            data: {
-              userId: currentUserId || 0,
-              applicationId: applicationId,
-              entity: 'FreshLicenseApplicationPersonalDetails',
-              entityId: String(applicationId),
-              action: 'SUBMIT',
-              newValue: { isSubmit: true },
-            },
-          });
-        } catch (auditError) {
-          // Audit failures should not block submission
-          console.error('Audit log failed for application submission:', auditError);
-        }
+        // Handle workflow status updates - only when isSubmit is true
+        if (isSubmit === true) {
+          // Audit: Log application submission
+          try {
+            await prisma.auditLogs.create({
+              data: {
+                userId: currentUserId || 0,
+                applicationId: applicationId,
+                entity: 'FreshLicenseApplicationPersonalDetails',
+                entityId: String(applicationId),
+                action: 'SUBMIT',
+                newValue: { isSubmit: true },
+              },
+            });
+          } catch (auditError) {
+            // Audit failures should not block submission
+            console.error('Audit log failed for application submission:', auditError);
+          }
           // Get the status where isStarted is true
           const initiatedStatus = await tx.statuses.findFirst({
             where: { isStarted: true, isActive: true } as any
@@ -1229,7 +1229,7 @@ export class ApplicationFormService {
               application: {
                 select: {
                   id: true,
-                  freshLicenseId: true,
+                  licenseId: true,
                   cancellationReason: true,
                   createdAt: true,
                 }
@@ -1241,8 +1241,7 @@ export class ApplicationFormService {
           });
 
           // Resolve original application details for cancel requests
-          const freshLicenseIds = historyData
-            .map((h: any) => h.application?.freshLicenseId)
+          const freshLicenseIds = historyData.map((h: any) => h.application?.licenseId)
             .filter((id: any): id is number => id != null);
           const uniqueFreshLicenseIds = [...new Set(freshLicenseIds)];
 
@@ -1264,12 +1263,12 @@ export class ApplicationFormService {
             });
           }
 
-          // "applicationType": "Renewal License",   "applicationType": "Fresh License",
+          // "applicationType": "Renewal License",   "applicationType": "Fresh",
           const allworkflowHistories = [
-            ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh License' })),
+            ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh' })),
             ...renewalWorkflowHistories.map(h => ({ ...h, applicationType: 'Renewal License' })),
             ...historyData.map((h: any) => {
-              const freshLicenseId = h.application?.freshLicenseId;
+              const freshLicenseId = h.application?.licenseId;
               const originalApp = freshLicenseId ? originalAppsMap.get(freshLicenseId) : null;
               return {
                 id: h.id,
@@ -1494,7 +1493,7 @@ export class ApplicationFormService {
       let renewalByStatusId: Map<number, any[]> = new Map();
       let cancelFormResult: { total: number; data: any[] } = { total: 0, data: [] };
 
-      // Fetch Fresh License Applications
+      // Fetch Fresh Applications
       if (fetchFresh) {
         const rawData = await prisma.freshLicenseApplicationPersonalDetails.findMany({
           where,
@@ -1511,7 +1510,7 @@ export class ApplicationFormService {
             almsLicenseId: rest.almsLicenseId,
             acknowledgementNo: rest.acknowledgementNo,
             applicantName: parts.join(' '),
-            applicationType: 'Fresh License',
+            applicationType: 'Fresh',
             createdAt: rest.createdAt,
             workflowStatusId: rest.workflowStatusId,
             workflowStatus: rest.workflowStatus,
@@ -1736,7 +1735,7 @@ export class ApplicationFormService {
       where: { id: applicationId },
       select: {
         id: true,
-        freshLicenseId: true,
+        licenseId: true,
         currentUserId: true,
         currentUser: {
           select: { roleId: true }
@@ -1754,17 +1753,17 @@ export class ApplicationFormService {
     const effectiveUser = cancelRequest.currentUser
       ? cancelRequest.currentUser
       : await prisma.users.findUnique({
-          where: { id: effectiveUserId },
-          select: { roleId: true }
-        });
+        where: { id: effectiveUserId },
+        select: { roleId: true }
+      });
 
     if (!effectiveUser?.roleId) return null;
 
-    if (!cancelRequest.freshLicenseId) return null;
+    if (!cancelRequest.licenseId) return null;
 
     // Now fetch the original application's address - try fresh then renewal
     let originalApp: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-      where: { id: cancelRequest.freshLicenseId },
+      where: { id: cancelRequest.licenseId },
       select: {
         id: true,
         presentAddress: {
@@ -1774,7 +1773,7 @@ export class ApplicationFormService {
             zoneId: true,
             divisionId: true,
             policeStationId: true,
-            rangeOfficeId:true
+            rangeOfficeId: true
           }
         }
       }
@@ -1782,7 +1781,7 @@ export class ApplicationFormService {
 
     if (!originalApp) {
       originalApp = await prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: cancelRequest.freshLicenseId },
+        where: { id: cancelRequest.licenseId },
         select: {
           id: true,
           presentAddress: {
@@ -1791,7 +1790,7 @@ export class ApplicationFormService {
               districtId: true,
               zoneId: true,
               divisionId: true,
-              rangeOfficeId:true,
+              rangeOfficeId: true,
               policeStationId: true
             }
           }
@@ -1936,7 +1935,7 @@ export class ApplicationFormService {
                 zoneId: true,
                 divisionId: true,
                 policeStationId: true,
-                rangeOfficeId:true
+                rangeOfficeId: true
               }
             }
           }
@@ -1989,7 +1988,7 @@ export class ApplicationFormService {
       });
 
       if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
-         return [null, []];
+        return [null, []];
       }
 
       // Build location hierarchy conditions - using OR for all levels in a single query
@@ -2293,155 +2292,75 @@ export class ApplicationFormService {
         const idVal = Number(filter.search);
         if (!isNaN(idVal)) cancelFormWhere.id = idVal;
       } else if (['firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
-        cancelFormWhere.freshLicense = {
+        cancelFormWhere.Licenses = {
           [filter.searchField]: { contains: String(filter.search), mode: 'insensitive' }
         };
       }
     }
 
     // Ordering
-    const allowedOrderFields = ['id', 'createdAt'];
+    const allowedOrderFields = ['id', 'createdAt', 'acknowledgementNo'];
     const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'createdAt';
     const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
     const orderByObj: any = { [orderByField]: orderDirection };
 
-    const [cancelFormTotal, cancelFormRawData] = await Promise.all([
-      prisma.cancelFormRequests.count({ where: cancelFormWhere }),
-      prisma.cancelFormRequests.findMany({
-        where: cancelFormWhere,
-        orderBy: orderByObj,
-        include: {
-          workflowStatus: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
+    let cancelFormRawData: any[] = [];
+    let cancelFormTotal = 0;
+
+    // --- Fetch from CancelFormRequests (pending/active requests) ONLY if isSent is false ---
+    if (!filter.isSent) {
+      const [total, data] = await Promise.all([
+        prisma.cancelFormRequests.count({ where: cancelFormWhere }),
+        prisma.cancelFormRequests.findMany({
+          where: cancelFormWhere,
+          orderBy: orderByObj,
+          select: {
+            id: true,
+            licenseId: true,
+            acknowledgementNo: true,
+            cancellationReason: true,
+            createdAt: true,
+            workFlowStatusId: true,
+            workflowStatus: {
+              select: { id: true, code: true, name: true },
             },
-          },
-          currentUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  code: true,
-                },
+            currentUser: {
+              select: { id: true, username: true, email: true, role: { select: { code: true } } },
+            },
+            requester: {
+              select: { id: true, username: true, email: true, role: { select: { code: true } } },
+            },
+            Licenses: {
+              select: {
+                licenseNumber: true,
+                firstName: true,
+                middleName: true,
+                lastName: true,
               },
             },
           },
-          requester: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  code: true,
-                },
-              },
-            },
-          },
-        },
-      }),
-    ]);
-
-    // Fetch the CANCEL status details from DB to get the correct status ID
-    const cancelStatus = await prisma.statuses.findFirst({
-      where: { code: 'CANCEL' }
-    });
-    const cancelStatusId = cancelStatus?.id || 8;
-
-    const hasCancelStatus = filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.map(Number).includes(Number(cancelStatusId));
-
-    // --- Fetch from CancelLicenseHistory (approved/completed cancellations) ---
-    // Only fetch history records when NOT filtering by statusIds (since history records have no workflowStatusId)
-    // OR when the status filter includes the CANCEL status (since history records are implicitly CANCEL status)
-    // OR when isSent flag is set (which targets cancelledBy)
-    const shouldFetchHistory = !filter.statusIds || filter.statusIds.length === 0 || hasCancelStatus;
-    let cancelHistoryRawData: any[] = [];
-
-    if (shouldFetchHistory) {
-      const cancelHistoryWhere: any = {};
-
-      // For cancel history, map currentUserId to previousUserId
-      if (filter.currentUserId) {
-        const parsedUserId = Number(filter.currentUserId);
-        if (!isNaN(parsedUserId)) {
-          cancelHistoryWhere.previousUserId = parsedUserId;
-        }
-      }
-
-      // Search filter (only id and firstName/lastName supported for cancel history)
-      if (filter.searchField && filter.search) {
-        if (filter.searchField === 'id') {
-          const idVal = Number(filter.search);
-          if (!isNaN(idVal)) cancelHistoryWhere.id = idVal;
-        } else if (['firstName', 'lastName'].includes(filter.searchField)) {
-          cancelHistoryWhere[filter.searchField] = { contains: String(filter.search), mode: 'insensitive' };
-        }
-      }
-
-      cancelHistoryRawData = await prisma.cancelWorkflowHistories.findMany({
-        where: cancelHistoryWhere,
-        include: {
-          previousUser: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              role: {
-                select: {
-                  code: true,
-                },
-              },
-            },
-          },
-        },
-      });
+        }),
+      ]);
+      cancelFormTotal = total;
+      cancelFormRawData = data;
     }
 
-    const cancelHistoryTotal = cancelHistoryRawData.length;
 
     // Transform CancelFormRequests: look up original application for applicant name & acknowledgementNo
     const transformedCancelRequests = await Promise.all((cancelFormRawData || []).map(async (row: any) => {
-      // Try to look up the original application to get applicant name and acknowledgementNo
-      let applicantName = row.requester?.username || `Cancel Request #${row.id}`;
-      let acknowledgementNo: string | null = null;
-
-      try {
-        // Try fresh license table first using freshLicenseId
-        if (row.freshLicenseId) {
-          const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
-            where: { id: row.freshLicenseId },
-            select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
-          });
-          if (freshApp) {
-            const nameParts = [freshApp.firstName, freshApp.middleName, freshApp.lastName].filter(Boolean);
-            applicantName = nameParts.join(' ');
-            acknowledgementNo = freshApp.acknowledgementNo;
-          } else {
-            // Try renewal table if not found in fresh
-            const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
-              where: { id: row.freshLicenseId },
-              select: { firstName: true, middleName: true, lastName: true, acknowledgementNo: true },
-            });
-            if (renewalApp) {
-              const nameParts = [renewalApp.firstName, renewalApp.middleName, renewalApp.lastName].filter(Boolean);
-              applicantName = nameParts.join(' ');
-              acknowledgementNo = renewalApp.acknowledgementNo;
-            }
-          }
-        }
-      } catch {
-        // Fallback to requester name if lookup fails
-      }
+      const freshApplicantName = row.Licenses
+        ? [row.Licenses.firstName, row.Licenses.middleName, row.Licenses.lastName]
+          .filter((part: any) => part && String(part).trim())
+          .join(' ')
+        : '';
+      const applicantName = freshApplicantName || row.requester?.username || `Cancel Request #${row.id}`;
+      const acknowledgementNo: string | null = row.acknowledgementNo || row.Licenses?.licenseNumber || null;
 
       return {
         id: row.id,
-        freshLicenseId: row.freshLicenseId,
+        freshLicenseId: row.licenseId,
         cancellationReason: row.cancellationReason,
-        status: row.status,
+        status: row.workflowStatus?.code || 'PENDING',
         acknowledgementNo,
         applicantName,
         applicationType: 'Cancel Request',
@@ -2458,45 +2377,7 @@ export class ApplicationFormService {
       };
     }));
 
-    // Transform CancelLicenseHistory records
-    const transformedCancelHistory = (cancelHistoryRawData || []).map((row: any) => {
-      const nameParts = [row.firstName, row.middleName, row.lastName].filter(Boolean);
-      return {
-        id: row.id,
-        cancelRequestId: row.cancelRequestId,
-        applicationId: row.applicationId,
-        cancellationReason: row.cancellationReason,
-        status: 'APPROVED',
-        isSent: row.isSent,
-        acknowledgementNo: row.acknowledgementNo,
-        applicantName: nameParts.join(' '),
-        applicationType: 'Cancel Request',
-        createdAt: row.cancelledAt,
-        workflowStatusId: cancelStatusId,
-        workflowStatus: cancelStatus ? {
-          id: cancelStatus.id,
-          code: cancelStatus.code,
-          name: cancelStatus.name,
-        } : {
-          id: 8,
-          code: 'CANCEL',
-          name: 'Cancel',
-        },
-        currentUser: row.previousUser ? {
-          id: row.previousUser.id,
-          username: row.previousUser.username,
-          email: row.previousUser.email,
-          role: row.previousUser.role,
-        } : null,
-        previousUser: null,
-      };
-    });
-
-    // Combine both result sets
-    const combinedData = [...transformedCancelRequests, ...transformedCancelHistory];
-    const total = cancelFormTotal + cancelHistoryTotal;
-
-    return { total, data: combinedData };
+    return { total: cancelFormTotal, data: transformedCancelRequests };
   }
 
   /**
