@@ -322,6 +322,44 @@ Regards,`;
     return dataUrl.split(',')[1] || '';
   };
 
+  const generatePdfBase64Async = async (content: string): Promise<string> => {
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const container = document.createElement('div');
+      container.style.width = '800px';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.backgroundColor = 'white';
+      container.style.padding = '40px';
+      container.style.color = 'black';
+      container.style.fontFamily = 'Arial, sans-serif';
+      
+      container.innerHTML = content;
+      document.body.appendChild(container);
+
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+      document.body.removeChild(container);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const dataUrl = pdf.output('datauristring');
+      return dataUrl.split(',')[1] || '';
+    } catch (error) {
+      console.error('Error generating PDF with formatting:', error);
+      return generatePdfBase64(content);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -360,11 +398,15 @@ Regards,`;
       payload.nextUserId = Number(nextUser.value);
     }
 
-    // Include ground report as PDF for SHO
+    // Include ground report as PDF for SHO to preserve formatting
     if (roleFromCookie === 'SHO' && draftLetter.trim()) {
       try {
-        const cleanedContent = htmlToPlainText(draftLetter.trim());
-        const base64Pdf = generatePdfBase64(cleanedContent);
+        const content = draftLetter.trim();
+        const simpleHtmlContent = `
+<div style="font-family: 'Times New Roman', serif; font-size: 16px; line-height: 1.6; padding: 20px;">
+  ${content}
+</div>`;
+        const base64Pdf = await generatePdfBase64Async(simpleHtmlContent);
         const today = new Date().toISOString().split('T')[0];
         payload.attachments.push({
           name: `renewal_ground_report_${applicationId}_${today}.pdf`,
@@ -374,12 +416,13 @@ Regards,`;
         });
         payload.isGroundReportGenerated = true;
       } catch (err) {
-        const cleanedContent = htmlToPlainText(draftLetter.trim());
+        // Fallback: send as HTML if DOC generation fails
+        const base64Html = btoa(unescape(encodeURIComponent(draftLetter.trim())));
         payload.attachments.push({
-          name: `renewal_ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.txt`,
+          name: `renewal_ground_report_${applicationId}_${new Date().toISOString().split('T')[0]}.html`,
           type: 'GROUND_REPORT',
-          contentType: 'text/plain',
-          url: `data:text/plain;base64,${btoa(unescape(encodeURIComponent(cleanedContent)))}`,
+          contentType: 'text/html',
+          url: `data:text/html;base64,${base64Html}`,
         });
         payload.isGroundReportGenerated = true;
       }

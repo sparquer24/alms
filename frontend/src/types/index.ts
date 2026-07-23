@@ -600,6 +600,126 @@ export interface Theme {
   };
 }
 
+// ============================================================
+// License Types (mirrors backend Prisma Licenses model)
+// ============================================================
+
+export type LicenseStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED' | 'REVOKED';
+
+export interface LicenseWorkflowHistoryEntry {
+  id: number;
+  licenseId: number;
+  action: string;
+  applicationId?: number | null;
+  applicationType?: string | null;
+  previousStatus?: string | null;
+  newStatus?: string | null;
+  changedBy?: number | null;
+  changedByUser?: { id: number; username: string } | null;
+  remarks?: string | null;
+  createdAt: string;
+}
+
+export interface LicenseData {
+  id: number;
+  licenseNumber: string;
+  almsLicenseId?: string | null;
+  sourceApplicationId?: number | null;
+  issueDate?: string | null;
+  validFrom?: string | null;
+  validTill?: string | null;
+  status: LicenseStatus;
+
+  // Personal details (denormalized)
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  parentOrSpouseName?: string | null;
+  sex?: string | null;
+  dateOfBirth?: string | null;
+  placeOfBirth?: string | null;
+  aadharNumber?: string | null;
+  panNumber?: string | null;
+
+  // License details
+  armsCategory?: string | null;
+  areaOfValidity?: string | null;
+  ammunitionDescription?: string | null;
+  licencePlaceArea?: string | null;
+  specialConsiderationReason?: string | null;
+  needForLicense?: string | null;
+
+  // Address (denormalized)
+  presentAddressLine?: string | null;
+  presentState?: string | null;
+  presentDistrict?: string | null;
+  presentPoliceStation?: string | null;
+  presentZone?: string | null;
+  presentDivision?: string | null;
+  permanentAddressLine?: string | null;
+  permanentState?: string | null;
+  permanentDistrict?: string | null;
+  permanentPoliceStation?: string | null;
+  permanentZone?: string | null;
+  permanentDivision?: string | null;
+
+  // Occupation
+  occupation?: string | null;
+  officeAddress?: string | null;
+
+  // Status & lifecycle
+  cancellationReason?: string | null;
+  cancellationDate?: string | null;
+  suspendedReason?: string | null;
+  suspendedDate?: string | null;
+  lastRenewedDate?: string | null;
+  renewalCount?: number;
+
+  // Documents
+  qrCodeUrl?: string | null;
+  pdfUrl?: string | null;
+  digitalSignature?: string | null;
+  issuedBy?: number | null;
+
+  // Tracking
+  freshApplicationId?: number | null;
+  renewalApplicationId?: number | null;
+  cancelApplicationId?: number | null;
+  lastModifiedAppType?: string | null;
+  lastModifiedRenewalId?: number | null;
+  renewalIds?: number[];
+
+  // Timestamps
+  createdAt: string;
+  updatedAt: string;
+
+  // Relations
+  sourceApplication?: any | null;
+  issuedByUser?: { id: number; username: string } | null;
+  endorsedWeapons?: Array<{ id: number; name: string; description?: string | null }>;
+  workflowHistories?: LicenseWorkflowHistoryEntry[];
+}
+
+export interface LicenseListResponse {
+  data: LicenseData[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface LicenseStatistics {
+  active: number;
+  expired: number;
+  cancelled: number;
+  suspended: number;
+  revoked: number;
+  total: number;
+  expiringWithin30Days: number;
+  expiringWithin60Days?: number;
+  expiringWithin90Days?: number;
+  renewed?: number;
+}
+
 // Export commonly used types
 export type { User as CurrentUser };
 export type { ApplicationData as Application };

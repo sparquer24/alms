@@ -37,7 +37,7 @@ export class RolesService {
             search,
             status,
             page = 1,
-            limit = 10,
+            limit = 50,
             sortBy = 'created_at',
             sortOrder = 'desc',
             requestingRoleCode,
@@ -117,9 +117,11 @@ export class RolesService {
      */
     async createRole(roleData: any): Promise<Roles> {
         try {
-            const { name, code, dashboard_title, description, ...rest } = roleData;
+            const { name, code, dashboard_title, displayName, description, isActive, is_active, ...rest } = roleData;
 
-            if (!name || !dashboard_title) {
+            const finalDashboardTitle = dashboard_title || displayName;
+
+            if (!name || !finalDashboardTitle) {
                 throw new BadRequestException('Name and dashboard_title are required');
             }
 
@@ -135,12 +137,14 @@ export class RolesService {
                 throw new BadRequestException(`Role with code "${roleCode}" already exists`);
             }
 
+            const finalIsActive = is_active !== undefined ? is_active : isActive;
+
             return await prisma.roles.create({
                 data: {
                     name,
                     code: roleCode,
-                    dashboard_title,
-                    description: description || null,
+                    dashboard_title: finalDashboardTitle,
+                    ...(finalIsActive !== undefined && { is_active: finalIsActive }),
                     ...rest,
                 },
             });
@@ -162,7 +166,7 @@ export class RolesService {
                 throw new BadRequestException('Role not found');
             }
 
-            const { code, name, dashboard_title, ...rest } = roleData;
+            const { code, name, dashboard_title, displayName, description, isActive, is_active, ...rest } = roleData;
 
             // If code is being changed, check for uniqueness
             if (code && code !== existing.code) {
@@ -186,12 +190,16 @@ export class RolesService {
                 }
             }
 
+            const finalDashboardTitle = dashboard_title || displayName;
+            const finalIsActive = is_active !== undefined ? is_active : isActive;
+
             return await prisma.roles.update({
                 where: { id },
                 data: {
                     ...(name && { name }),
                     ...(finalCode && { code: finalCode }),
-                    ...(dashboard_title && { dashboard_title }),
+                    ...(finalDashboardTitle && { dashboard_title: finalDashboardTitle }),
+                    ...(finalIsActive !== undefined && { is_active: finalIsActive }),
                     ...rest,
                 },
             });

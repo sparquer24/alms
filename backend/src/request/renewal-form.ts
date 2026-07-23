@@ -33,6 +33,9 @@ export class RenewalFormResponse {
   licenseNumber!: string;
 
   @ApiProperty()
+  licenseId!: number;
+
+  @ApiProperty()
   applicantName!: string;
 
   @ApiProperty()

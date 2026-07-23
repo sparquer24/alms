@@ -1,13 +1,17 @@
 import React from 'react';
 import RenewalSummary from './RenewalSummary';
 
-const RenewalHeader: React.FC<{ applicationId?: string; renewalId?: string; summaryData?: any }> = ({ applicationId, renewalId, summaryData }) => {
+const RenewalHeader: React.FC<{ licenseId?: string; renewalId?: string; summaryData?: any }> = ({
+  licenseId,
+  renewalId,
+  summaryData,
+}) => {
   return (
     <header className='mb-6'>
       <div className='flex items-center justify-between rounded-2xl bg-[#001F54] px-6 py-4 text-white shadow-lg'>
         <div>
           <p className='text-xs uppercase tracking-[0.24em] text-blue-100'>Renewal Form</p>
-          <h1 className='mt-1 text-2xl font-semibold'>Renewal Application</h1>
+          <h1 className='mt-1 text-2xl font-semibold'>Renewal</h1>
         </div>
         <div className='flex items-center gap-3'>
           <button
@@ -21,7 +25,7 @@ const RenewalHeader: React.FC<{ applicationId?: string; renewalId?: string; summ
       </div>
 
       <div className='mt-4'>
-        <RenewalSummary applicationId={applicationId} renewalId={renewalId} data={summaryData} />
+        <RenewalSummary licenseId={licenseId} renewalId={renewalId} data={summaryData} />
       </div>
     </header>
   );

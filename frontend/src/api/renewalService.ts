@@ -11,7 +11,7 @@ export interface RenewalFileUploadRequest {
 
 export interface RenewalFileUploadResponse {
   id: number;
-  applicationId: number;
+  renewalApplicationId: number;
   fileType: string;
   fileName: string;
   fileUrl: string;
@@ -69,15 +69,15 @@ export class RenewalService {
 
   static async findRenewalByLicenseNumber(
     licenseNumber: string,
-  ): Promise<{ licenseNumber?: string; [key: string]: unknown } | null> {
+  ): Promise<{ licenseNumber?: string;[key: string]: unknown } | null> {
     if (!licenseNumber?.trim()) return null;
 
-    const response = await apiClient.get<{ data?: Array<{ licenseNumber?: string; [key: string]: unknown }> }>(
+    const response = await apiClient.get<{ data?: Array<{ licenseNumber?: string;[key: string]: unknown }> }>(
       '/renewal-forms',
       {
-      search: licenseNumber.trim(),
-      limit: 25,
-      page: 1,
+        search: licenseNumber.trim(),
+        limit: 25,
+        page: 1,
       },
     );
 
@@ -93,20 +93,35 @@ export class RenewalService {
   }
 
   static async createRenewalForm(payload: Record<string, any>): Promise<any> {
-    return apiClient.post('/renewal-forms', payload);
+    try {
+      return await apiClient.post('/renewal-forms', payload);
+    } catch (error: any) {
+      // Catch HTTP 409 Conflict — "A Renewal application is already in progress."
+      // Re-throw with a user-friendly message so the caller can display it.
+      if (error?.status === 409 || error?.response?.status === 409) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'A Renewal application is already in progress.';
+        const enhancedError = new Error(message);
+        (enhancedError as any).status = 409;
+        throw enhancedError;
+      }
+      throw error;
+    }
   }
 
-  static async getRenewalForm(applicationId: string | number): Promise<any> {
-    return apiClient.get(`/renewal-forms/${applicationId}`);
+  static async getRenewalForm(renewalId: string | number): Promise<any> {
+    return apiClient.get(`/renewal-forms/${renewalId}`);
   }
 
   static async updateRenewalForm(
-    applicationId: string | number,
+    renewalApplicationId: string | number,
     payload: Record<string, any>,
     options?: { isSubmit?: boolean },
   ): Promise<any> {
     const params = new URLSearchParams();
-    params.append('applicationId', String(applicationId));
+    params.append('applicationId', String(renewalApplicationId));
     if (typeof options?.isSubmit === 'boolean') {
       params.append('isSubmit', String(options.isSubmit));
     }
@@ -114,12 +129,12 @@ export class RenewalService {
   }
 
   static async uploadDocument(
-    applicationId: string | number,
+    renewalApplicationId: string | number,
     fileType: string,
     file: File,
   ): Promise<RenewalFileUploadResponse> {
     const fileUrl = await this.fileToBase64(file);
-    return this.uploadDocumentPayload(applicationId, fileType, {
+    return this.uploadDocumentPayload(renewalApplicationId, fileType, {
       fileUrl,
       fileName: file.name,
       fileSize: file.size,
@@ -127,13 +142,13 @@ export class RenewalService {
   }
 
   static async uploadDocumentPayload(
-    applicationId: string | number,
+    renewalApplicationId: string | number,
     fileType: string,
     payload: Omit<RenewalFileUploadRequest, 'fileType'> | RenewalFileUploadRequest,
   ): Promise<RenewalFileUploadResponse> {
     const payloadFileType = 'fileType' in payload && payload.fileType ? payload.fileType : fileType;
 
-    return apiClient.post(`/renewal-forms/${applicationId}/upload-file`, {
+    return apiClient.post(`/renewal-forms/${renewalApplicationId}/upload-file`, {
       ...payload,
       fileType: this.normalizeFileType(payloadFileType),
     });
@@ -164,13 +179,13 @@ export class RenewalService {
       ...(filters?.limit && { limit: String(filters.limit) }),
       ...(filters?.status && { status: filters.status }),
     });
-    
+
     return apiClient.get(`/workflow/applications?${params.toString()}`);
   }
 
   /**
    * Handle workflow action (forward, approve, reject, etc.) on renewal application
-   * @param applicationId - Application ID to perform action on
+   * @param applicationId - Renewal ID to perform action on
    * @param actionId - Action ID from Actiones table
    * @param nextUserId - User ID to forward/assign to (required for forward action)
    * @param remarks - Remarks/comments for the action

@@ -1,10 +1,34 @@
+import { Transform } from 'class-transformer';
 import { IsOptional, IsEnum, IsString, IsArray, IsNumber } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { LicensePurpose, ArmsCategory } from '@prisma/client';
 
+const normalizeLicensePurpose = (value: any) => {
+  if (typeof value !== 'string') return value;
+  const normalized = value.trim().toUpperCase().replace(/\s+/g, '_');
+
+  switch (normalized) {
+    case 'SELF_PROTECTION':
+    case 'SELF_DEFENSE':
+    case 'SELF-DEFENSE':
+      return 'SELF_PROTECTION';
+    case 'SPORTS':
+      return 'SPORTS';
+    case 'CROP_PROTECTION':
+      return 'CROP_PROTECTION';
+    case 'HEIRLOOM_POLICY':
+    case 'BUSINESS_SECURITY':
+    case 'BUSINESS-SECURITY':
+      return 'HEIRLOOM_POLICY';
+    default:
+      return normalized;
+  }
+};
+
 export class PatchLicenseDetailsDto {
   @ApiPropertyOptional({ enum: LicensePurpose, example: LicensePurpose.SELF_PROTECTION, description: 'Need for license' })
   @IsOptional()
+  @Transform(({ value }) => normalizeLicensePurpose(value))
   @IsEnum(LicensePurpose)
   needForLicense?: LicensePurpose;
 

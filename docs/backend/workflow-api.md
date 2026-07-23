@@ -1,11 +1,13 @@
 # FLA Workflow Service Documentation
 
 ## Overview
-This document describes the current implementation of the workflow logic for the Fresh License Application (FLA) process in the backend service. It covers the main workflow API, its purpose, usage, requirements, and details on how users can interact with it.
+
+This document describes the current implementation of the workflow logic for the Fresh Application (FLA) process in the backend service. It covers the main workflow API, its purpose, usage, requirements, and details on how users can interact with it.
 
 ---
 
 ## What Has Been Done So Far
+
 - Implemented a `WorkflowService` in the backend (`workflow.service.ts`) to handle workflow actions for license applications.
 - The main method, `handleUserAction`, processes workflow actions such as forwarding, rejecting, or requesting a ground report for an application.
 - The service updates application status, tracks user/role transitions, and logs workflow history for auditability.
@@ -13,13 +15,16 @@ This document describes the current implementation of the workflow logic for the
 ---
 
 ## APIs Available
+
 Currently, there is **one main API** for workflow actions:
 
 ### 1. `POST /workflow/action`
+
 - **Purpose:** Allows authorized users to perform workflow actions (forward, reject, ground report) on a license application.
 - **Service Method:** `handleUserAction`
 
 #### What This API Does
+
 - Fetches the application by ID.
 - Validates the action type and user permissions.
 - Updates the application's status, current/previous user and role, and remarks.
@@ -30,11 +35,13 @@ Currently, there is **one main API** for workflow actions:
 ## How to Call the API
 
 ### Endpoint
+
 ```
 POST /workflow/action
 ```
 
 ### Request Body
+
 ```
 {
   "applicationId": "string",         // Required: ID of the application
@@ -55,6 +62,7 @@ POST /workflow/action
 ```
 
 ### Example Request
+
 ```
 POST /workflow/action
 Content-Type: application/json
@@ -71,12 +79,14 @@ Authorization: Bearer <JWT_TOKEN>
 ```
 
 ### Response
+
 - Returns the updated application object on success.
 - Throws appropriate errors for invalid actions, missing permissions, or not found.
 
 ---
 
 ## Requirements
+
 - **Authentication:** JWT-based authentication is required. The user must be logged in and provide a valid token.
 - **Authorization:** Only users with appropriate roles and permissions can perform certain actions. (Permission logic should be implemented as per business rules.)
 - **Inputs:**
@@ -93,6 +103,7 @@ Authorization: Bearer <JWT_TOKEN>
 ## API Explanation
 
 ### `handleUserAction`
+
 - **Purpose:** Handles workflow transitions for a license application.
 - **Parameters:**
   - `applicationId`: The ID of the application to act on.
@@ -122,6 +133,7 @@ Authorization: Bearer <JWT_TOKEN>
 ---
 
 ## Notes
+
 - The permission logic for who can perform which action is currently a placeholder and should be implemented as per business requirements.
 - The workflow history is maintained for audit and traceability.
 - The API is designed to be extensible for additional workflow actions in the future.

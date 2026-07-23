@@ -8,15 +8,16 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 // Load root .env first
 config({ path: path.resolve(__dirname, '../.env') });
 
+const { execSync } = require('child_process');
+
 const nextConfig = {
-  output: 'export',
+  output: 'standalone',
   reactStrictMode: true,
   // Tell Next.js the tracing root is this frontend directory, not the monorepo root.
   // This prevents it from misreading the root package-lock.json and confusing App Router with Pages Router.
   outputFileTracingRoot: path.resolve(__dirname),
-  // Image optimization enabled
+  // Image optimization (standalone/server mode supports Next.js image optimization)
   images: {
-    unoptimized: true,
     formats: ['image/webp', 'image/avif'],
   },
   // Skip trailing slash redirect
@@ -39,35 +40,25 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Custom webpack config for bundle optimization
+  // NOTE: Do NOT override splitChunks here — Next.js manages chunk splitting internally.
+  // Overriding it breaks webpack-runtime chunk references (e.g., "Cannot find module './XXXX.js'").
   webpack: (config, { isServer, dev }) => {
-    if (!dev && !isServer) {
-      // Split chunks for better caching
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-          mantine: {
-            test: /[\\/]node_modules[\\/]@mantine[\\/]/,
-            name: 'mantine',
-            chunks: 'all',
-          },
-          charts: {
-            test: /[\\/]node_modules[\\/](chart\.js|recharts|react-chartjs-2)[\\/]/,
-            name: 'charts',
-            chunks: 'all',
-          },
-        },
-      };
+    if (isServer) {
+      config.output.chunkFilename = 'chunks/[id].js';
     }
     return config;
   },
-  // Disable static generation for specific pages
-  async generateBuildId() {
-    return 'build-' + Date.now();
+  // Stable build ID derived from git commit to avoid cache mismatches on redeploy.
+  // Falls back to BUILD_ID env var or a static string when git is unavailable.
+  generateBuildId() {
+    try {
+      return execSync('git rev-parse --short HEAD', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      return process.env.BUILD_ID || 'build';
+    }
   },
   // Proxy /api/* requests to the backend server
   // Set BACKEND_URL env var at runtime (e.g., http://host.docker.internal:3001)

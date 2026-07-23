@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Delete, Query } from "@nestjs/common";
+import { Controller, Get, Post, Request, UseGuards, Body, Param, Patch, Put, Delete, Query } from "@nestjs/common";
 import { ApiOperation, ApiTags, ApiQuery, ApiBody, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { ActionesService } from "./actiones.service";
 import { RolesActionsMapping } from "@prisma/client";
@@ -10,7 +10,7 @@ import { create } from "domain";
 @ApiBearerAuth('JWT-auth')
 @Controller("actiones")
 export class ActionesController {
-  constructor(private readonly actionesService: ActionesService) {}
+  constructor(private readonly actionesService: ActionesService) { }
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -18,33 +18,89 @@ export class ActionesController {
     summary: "Get actions",
     description: "Retrieve actions for the authenticated user (based on token). Optionally filter based on application status.",
   })
-  @ApiQuery({ 
-    name: 'applicationId', 
-    required: false, 
-    type: Number, 
-    description: 'Optional applicationId to filter actions based on application status (excludes APPROVED action if already approved, REJECT action if already rejected)' 
+  @ApiQuery({
+    name: 'applicationId',
+    required: false,
+    type: Number,
+    description: 'Optional applicationId to filter actions based on application status (excludes APPROVED action if already approved, REJECT action if already rejected)'
   })
   @ApiQuery({
     name: 'applicationType',
     required: false,
     type: String,
-    description: 'Optional application type to filter actions (e.g., "Fresh License" or "Renewal Application)'
+    description: 'Optional application type to filter actions (e.g., "Fresh" or "Renewal)'
   })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 200, description: "Actions retrieved successfully" })
   async getActiones(
     @Request() req: any,
-    @Query('applicationId') applicationId?: string, 
+    @Query('applicationId') applicationId?: string,
     @Query('applicationType') applicationType?: string
   ): Promise<Actiones[]> {
     // JwtAuthGuard guarantees request.user is set to decoded token if valid
     const tokenUserId = req.user && (req.user as any).sub ? Number((req.user as any).sub) : undefined;
 
-     return this.actionesService.getActiones(
+    return this.actionesService.getActiones(
       tokenUserId,
       applicationId ? Number(applicationId) : undefined, applicationType ? String(applicationType) : undefined
     );
+  }
+
+  @Get("all")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "Get all actions",
+    description: "Retrieve all available actions in the system for admin usage",
+  })
+  @ApiResponse({ status: 200, description: "All actions retrieved successfully" })
+  async getAllActions(): Promise<Actiones[]> {
+    return this.actionesService.getAllActions();
+  }
+
+  @Get("RolesActionsMapping")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "Get all action mappings",
+    description: "Retrieve all roles to actions mappings, optionally filtered by roleId",
+  })
+  @ApiQuery({
+    name: 'roleId',
+    required: false,
+    type: Number,
+    description: 'Filter mappings by role ID'
+  })
+  @ApiResponse({ status: 200, description: "Action mappings retrieved successfully" })
+  async getAllActionMappings(@Query('roleId') roleId?: string) {
+    return this.actionesService.getAllActionMappings(roleId ? Number(roleId) : undefined);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "Create a new Action",
+    description: "Create a new action in the Actiones table",
+  })
+  @ApiBody({
+    description: "Action creation data",
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', example: 'NEW_ACTION' },
+        name: { type: 'string', example: 'New Action' },
+        description: { type: 'string', example: 'A newly created action' },
+        isActive: { type: 'boolean', example: true },
+      },
+      required: ['code', 'name'],
+    }
+  })
+  @ApiResponse({ status: 201, description: "Action created successfully" })
+  async createNewAction(@Body() actionData: { code: string; name: string; description?: string; isActive?: boolean }) {
+    try {
+      return await this.actionesService.createNewAction(actionData);
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Post("RolesActionsMapping")
@@ -70,16 +126,16 @@ export class ActionesController {
     status: 200,
     description: "Action created successfully",
   })
-  async createAction(@Body() mappingData: RolesActionsMapping ) {
-    try{
+  async createAction(@Body() mappingData: RolesActionsMapping) {
+    try {
       return this.actionesService.createAction(mappingData);
     }
-    catch(error){
+    catch (error) {
       throw error;
-    } 
+    }
   }
 
-  @Patch("RolesActionsMapping/:id")
+  @Put("RolesActionsMapping/:id")
   @ApiOperation({
     summary: "Update action",
     description: "Update an existing action entry",
@@ -103,16 +159,16 @@ export class ActionesController {
     status: 200,
     description: "Action updated successfully",
   })
-  async updateAction(@Param('id') id : number, @Body() mappingData: RolesActionsMapping ) {
-   try {
+  async updateAction(@Param('id') id: number, @Body() mappingData: RolesActionsMapping) {
+    try {
       return this.actionesService.updateAction(Number(id), mappingData);
     } catch (error) {
       throw error;
     }
- }
+  }
   @Delete("RolesActionsMapping/:id")
   @ApiOperation({
-    summary: "Delete action mapping", 
+    summary: "Delete action mapping",
     description: "Delete an existing action mapping entry",
   })
   @ApiBody({

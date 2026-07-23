@@ -62,7 +62,7 @@ export const Input: React.FC<InputProps> = ({
         suppressHydrationWarning
         className={`
           block w-full px-0 pb-1 border-0 border-b-2 focus:outline-none focus:ring-0 focus:border-[#6366F1]
-          ${error ? 'border-b-red-500' : 'border-b-gray-300'}
+          border-b-gray-300
           ${disabled ? 'bg-transparent cursor-not-allowed' : fieldBg}
           ${readOnly ? 'bg-gray-50 cursor-default text-gray-500' : ''}
           ${className}
@@ -131,7 +131,7 @@ export const TextArea: React.FC<TextAreaProps> = ({
         maxLength={maxLength}
         className={`
           block w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6366F1]
-          ${error ? 'border-red-500' : 'border-gray-300'}
+          border-gray-300
           ${disabled ? 'bg-gray-100 cursor-not-allowed' : fieldBg}
           ${readOnly ? 'bg-gray-50 cursor-default text-gray-500' : ''}
           ${className}

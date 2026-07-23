@@ -198,7 +198,7 @@ export class UserService {
     // Hash the password before storing
     const hashedPassword = await this.hashPassword(data.password);
     
-    return await prisma.users.create({
+    const user = await prisma.users.create({
       data: {
         username: data.username,
         email: data.email,
@@ -213,6 +213,24 @@ export class UserService {
         divisionId: data.divisionId,
       },
     });
+
+    // Audit: Log user creation
+    try {
+      await prisma.auditLogs.create({
+        data: {
+          userId: user.id,
+          entity: 'Users',
+          entityId: String(user.id),
+          action: 'CREATE',
+          newValue: { username: user.username, roleId: data.roleId },
+        },
+      });
+    } catch (auditError) {
+      // Audit logging failures should not block user creation
+      console.error('Audit log failed for user creation:', auditError);
+    }
+
+    return user;
   }
 
   /**
@@ -295,7 +313,31 @@ export class UserService {
    * Delete a user by id
    */
   async deleteUser(userId: string | number) {
-    await prisma.users.delete({ where: { id: Number(userId) } });
+    const id = Number(userId);
+    
+    // Fetch the user before deletion for audit trail
+    const userToDelete = await prisma.users.findUnique({
+      where: { id },
+      select: { id: true, username: true, roleId: true },
+    });
+
+    await prisma.users.delete({ where: { id } });
+
+    // Audit: Log user deletion
+    try {
+      await prisma.auditLogs.create({
+        data: {
+          userId: id,
+          entity: 'Users',
+          entityId: String(id),
+          action: 'DELETE',
+          oldValue: userToDelete ? { username: userToDelete.username, roleId: userToDelete.roleId } : undefined,
+        },
+      });
+    } catch (auditError) {
+      console.error('Audit log failed for user deletion:', auditError);
+    }
+
     return { success: true };
   }
 }

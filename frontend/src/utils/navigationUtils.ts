@@ -54,21 +54,10 @@ export function navigateToDefaultMenu(
                 targetPath = '/admin/userManagement';
             }
         }
-        // Inbox types (SHO, DCP, ACP, AS, ADO, CADO, JTCP, CP, ARMS_SUPDT, ARMS_SEAT, ACO)
-        else if (menuItemName === 'inbox') {
-            // Build inbox URL with appropriate type
-            // Determine type based on role and available menu items
-            let inboxType = 'forwarded';
-
-            // If freshform is in the menu, use it as default inbox type for some roles
-            if (role.toUpperCase() === 'ZS') {
-                // ZS has freshform as first menu item, not inbox
-                inboxType = 'freshform';
-            } else {
-                // For most roles, inbox is first and default type is forwarded
-                inboxType = 'forwarded';
-            }
-
+        // Inbox types (SHO, DCP, ACP, AS, ADO, CADO, JTCP, CP, ARMS_SUPDT, ARMS_SEAT, ZS, ACO)
+        else if (menuItemName === 'inbox' || menuItemName === 'freshform') {
+            // Build inbox URL with appropriate type - default to 'all' as requested
+            let inboxType = 'all';
             targetPath = `/inbox?type=${inboxType}`;
         }
         // Fresh form

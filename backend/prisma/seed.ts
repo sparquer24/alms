@@ -66,23 +66,24 @@ async function main() {
 
   console.log('Seeding roles...');
   const roles = [
-    { code: 'SUPER_ADMIN', name: 'Super Administrator', dashboardTitle: 'Super Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping', 'locationsManagement'], permissions: ['read', 'write', 'admin', 'super_admin'], canAccessSettings: true },
-    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true },
-    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'RANGE', name: 'Range Officer', dashboardTitle: 'Range Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
-    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true },
-    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false },
-    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: true },
-    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true },
-    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: [], permissions: [], canAccessSettings: false },
+    { code: 'SUPER_ADMIN', name: 'Super Administrator', dashboardTitle: 'Super Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping', 'locationsManagement'], permissions: ['read', 'write', 'admin', 'super_admin'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ADMIN', name: 'System Administrator', dashboardTitle: 'Admin Dashboard', menuItems: ['userManagement', 'roleMapping', 'analytics', 'flowMapping'], permissions: ['read', 'write', 'admin'], canAccessSettings: true, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ZS', name: 'Zonal Superintendent', dashboardTitle: 'ZS Dashboard', menuItems: ['inbox', 'freshform', 'sent', 'closed', 'drafts', 'finaldisposal'], permissions: ['read', 'write', 'canViewFreshForm'], canAccessSettings: false, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'SHO', name: 'Station House Officer', dashboardTitle: 'SHO Dashboard', menuItems: ['inbox', 'sent', 'logout'], permissions: ['read'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ACP', name: 'Assistant Commissioner of Police', dashboardTitle: 'ACP Dashboard', menuItems: ['inbox', 'sent', 'logout'], permissions: ['read', 'write'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'DCP', name: 'Deputy Commissioner of Police', dashboardTitle: 'DCP Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write', 'approve'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'RANGE', name: 'Range Officer', dashboardTitle: 'Range Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read', 'write'], canAccessSettings: true, canForward: true, canReEnquiry: true, canGenerateGroundReport: true, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'AS', name: 'Arms Superintendent', dashboardTitle: 'AS Dashboard', menuItems: ['inbox', 'sent', 'closed', 'finaldisposal', 'reports'], permissions: ['read', 'write', 'canViewReports'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ARMS_SUPDT', name: 'Arms Superintendent', dashboardTitle: 'ARMS_SUPDT Dashboard', menuItems: ['inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ARMS_SEAT', name: 'Arms Seat', dashboardTitle: 'ARMS_SEAT Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'ADO', name: 'Administrative Officer', dashboardTitle: 'ADO Dashboard', menuItems: ['inbox', 'sent'], permissions: ['read'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'CADO', name: 'Chief Administrative Officer', dashboardTitle: 'CADO Dashboard', menuItems: ['inbox', 'sent', 'logout'], permissions: ['read', 'write'], canAccessSettings: true, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'JTCP', name: 'Joint Commissioner of Police', dashboardTitle: 'JTCP Dashboard', menuItems: ['inbox', 'sent', 'closed'], permissions: ['read', 'write', 'approve'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
+    { code: 'CP', name: 'Commissioner of Police', dashboardTitle: 'CP Dashboard', menuItems: ['inbox', 'sent', 'closed', 'finaldisposal'], permissions: ['read', 'write', 'approve', 'finalize'], canAccessSettings: false, canForward: true, canReEnquiry: false, canGenerateGroundReport: false, canFLAF: true, canCreateFreshLicence: true },
   ];
   for (const role of roles) {
     // Check if role already exists
     const existingRole = await prisma.roles.findUnique({ where: { code: role.code } });
-    if (existingRole) continue;
 
     const roleData: any = {
       code: role.code,
@@ -92,13 +93,21 @@ async function main() {
       menu_items: role.menuItems ? JSON.stringify(role.menuItems) : null,
       permissions: role.permissions ? JSON.stringify(role.permissions) : null,
       can_access_settings: role.canAccessSettings || false,
-      can_forward: false,
-      can_re_enquiry: false,
-      can_generate_ground_report: false,
-      can_FLAF: false,
+      can_forward: role.canForward || false,
+      can_re_enquiry: role.canReEnquiry || false,
+      can_generate_ground_report: role.canGenerateGroundReport || false,
+      can_FLAF: role.canFLAF || false,
+      can_create_freshLicence: role.canCreateFreshLicence || false,
     };
 
-    await prisma.roles.create({ data: roleData as any });
+    if (existingRole) {
+      await prisma.roles.update({
+        where: { id: existingRole.id },
+        data: roleData,
+      });
+    } else {
+      await prisma.roles.create({ data: roleData as any });
+    }
   }
 
   const roleMap: Record<string, number> = {};
@@ -852,6 +861,15 @@ async function main() {
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
+    {
+      username: 'SUPER_ADMIN_USER',
+      email: 'superadmin@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660001',
+      role: 'SUPER_ADMIN',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
     // Add all state-level ADMIN users
     ...stateAdminUsers,
     // ZS - Zonal Superintendents for each zone
@@ -940,7 +958,7 @@ async function main() {
       email: 'arms-superintendent@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660301',
-      role: 'AS',
+      role: 'ARMS_SUPDT',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -949,7 +967,7 @@ async function main() {
       email: 'arms-seat-a1@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660302',
-      role: 'AS',
+      role: 'ARMS_SEAT',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -958,7 +976,7 @@ async function main() {
       email: 'arms-seat-a2@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660303',
-      role: 'AS',
+      role: 'ARMS_SEAT',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -967,7 +985,7 @@ async function main() {
       email: 'arms-seat-a3@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660304',
-      role: 'AS',
+      role: 'ARMS_SEAT',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -976,7 +994,16 @@ async function main() {
       email: 'arms-seat-a4@tspolice.gov.in',
       password: 'password',
       phoneNo: '8712660305',
-      role: 'AS',
+      role: 'ARMS_SEAT',
+      stateId: state ? state.id : undefined,
+      districtId: district ? district.id : undefined
+    },
+    {
+      username: 'ACO_HYD',
+      email: 'aco-hyderabad@tspolice.gov.in',
+      password: 'password',
+      phoneNo: '8712660004',
+      role: 'ACO',
       stateId: state ? state.id : undefined,
       districtId: district ? district.id : undefined
     },
@@ -1191,6 +1218,15 @@ async function main() {
     // AS - Arms Superintendent
     { roleCode: 'AS', actionCodes: ['FORWARD', 'RETURN'] },
 
+    // ARMS_SUPDT - Arms Superintendent
+    { roleCode: 'ARMS_SUPDT', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // ARMS_SEAT - Arms Seat
+    { roleCode: 'ARMS_SEAT', actionCodes: ['FORWARD', 'RETURN'] },
+
+    // ACO - Assistant Compliance Officer
+    { roleCode: 'ACO', actionCodes: ['FORWARD', 'RETURN'] },
+
     // ADO - Administrative Officer
     { roleCode: 'ADO', actionCodes: ['FORWARD', 'RETURN'] },
 
@@ -1255,6 +1291,66 @@ async function main() {
   }
 
   console.log('Role-action mappings seeding completed!');
+
+  // --- Role Flow Mappings Seeding ---
+  console.log('Seeding role flow mappings...');
+
+  const roleFlowMappings = [
+    { currentRole: 'SHO', nextRoles: ['ZS', 'ACP'] },
+    { currentRole: 'ZS', nextRoles: ['ACP', 'DCP'] },
+    { currentRole: 'ACP', nextRoles: ['DCP', 'JTCP'] },
+    { currentRole: 'DCP', nextRoles: ['JTCP', 'CP'] },
+    { currentRole: 'JTCP', nextRoles: ['CP'] },
+    { currentRole: 'ARMS_SEAT', nextRoles: ['AS', 'ARMS_SUPDT'] },
+    { currentRole: 'AS', nextRoles: ['ADO', 'CADO'] },
+    { currentRole: 'ARMS_SUPDT', nextRoles: ['ADO', 'CADO'] },
+    { currentRole: 'ACO', nextRoles: ['CADO'] },
+    { currentRole: 'ADO', nextRoles: ['CADO', 'JTCP'] },
+    { currentRole: 'CADO', nextRoles: ['JTCP', 'CP'] },
+    { currentRole: 'RANGE', nextRoles: ['DCP', 'JTCP'] }
+  ];
+
+  for (const flow of roleFlowMappings) {
+    const currentRoleId = roleMap[flow.currentRole];
+    if (!currentRoleId) {
+      console.warn(`Current role '${flow.currentRole}' not found in roleMap. Skipping flow mapping.`);
+      continue;
+    }
+
+    const nextRoleIds = flow.nextRoles
+      .map(code => roleMap[code])
+      .filter((id): id is number => !!id);
+
+    if (nextRoleIds.length === 0) {
+      console.warn(`No valid next roles found for '${flow.currentRole}'. Skipping flow mapping.`);
+      continue;
+    }
+
+    // Check if mapping already exists
+    const existingMapping = await prisma.roleFlowMapping.findUnique({
+      where: { currentRoleId },
+    });
+
+    if (existingMapping) {
+      // Update nextRoleIds if existing
+      await prisma.roleFlowMapping.update({
+        where: { currentRoleId },
+        data: { nextRoleIds },
+      });
+      console.log(`Updated role flow mapping for ${flow.currentRole} -> [${flow.nextRoles.join(', ')}]`);
+    } else {
+      // Create new mapping
+      await prisma.roleFlowMapping.create({
+        data: {
+          currentRoleId,
+          nextRoleIds,
+        },
+      });
+      console.log(`Created role flow mapping for ${flow.currentRole} -> [${flow.nextRoles.join(', ')}]`);
+    }
+  }
+
+  console.log('Role flow mappings seeding completed!');
   console.log('Seeding completed successfully!');
 }
 

@@ -9,6 +9,7 @@ import { FileUploadService } from '../../../api/fileUploadService';
 import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
+import LicenseService from '../../../services/licenseService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
 import {
   applyPrefilledDocumentUploads,
@@ -30,7 +31,7 @@ import BiometricAPIService from '../../../services/biometricAPIService';
 
 type RenewalFormState = {
   renewalApplicationId: string;
-  applicationId: string;
+  licenseId: string | number;
   licenseNumber: string;
   acknowledgementNo: string;
   applicantName: string;
@@ -169,7 +170,7 @@ type RenewalFormState = {
 
 const initialFormState: RenewalFormState = {
   renewalApplicationId: '',
-  applicationId: '',
+  licenseId: '',
   licenseNumber: '',
   acknowledgementNo: '',
   applicantName: '',
@@ -457,6 +458,8 @@ const mapLicensePurposeToUiValue = (value?: string) => {
       return 'self_defense';
     case 'SPORTS':
       return 'sports';
+    case 'CROP_PROTECTION':
+      return 'crop_protection';
     case 'HEIRLOOM_POLICY':
       return 'business_security';
     default:
@@ -471,13 +474,19 @@ const mapUiValueToLicensePurpose = (value?: string) => {
 
   switch (normalized) {
     case 'self_defense':
+    case 'self-defense':
+    case 'self protection':
       return 'SELF_PROTECTION';
     case 'sports':
       return 'SPORTS';
+    case 'crop_protection':
+    case 'crop protection':
+      return 'CROP_PROTECTION';
     case 'business_security':
+    case 'business-security':
       return 'HEIRLOOM_POLICY';
     default:
-      return value;
+      return String(value).toUpperCase().replace(/\s+/g, '_');
   }
 };
 
@@ -529,7 +538,10 @@ const mapPresentAddressFields = (data: any) => {
     ),
     presentStateName: getTextValue(presentAddress?.state?.name, presentAddress?.stateName),
     presentDistrictName: getTextValue(presentAddress?.district?.name, presentAddress?.districtName),
-    presentRangeOfficeName: getTextValue(presentAddress?.rangeOffice?.name, presentAddress?.rangeOfficeName),
+    presentRangeOfficeName: getTextValue(
+      presentAddress?.rangeOffice?.name,
+      presentAddress?.rangeOfficeName
+    ),
     presentZoneName: getTextValue(presentAddress?.zone?.name, presentAddress?.zoneName),
     presentDivisionName: getTextValue(presentAddress?.division?.name, presentAddress?.divisionName),
     presentPoliceStationName: getTextValue(
@@ -614,8 +626,14 @@ const mapPermanentAddressFields = (data: any) => {
       data?.permanentPincode
     ),
     permanentStateName: getTextValue(permanentAddress?.state?.name, permanentAddress?.stateName),
-    permanentDistrictName: getTextValue(permanentAddress?.district?.name, permanentAddress?.districtName),
-    permanentRangeOfficeName: getTextValue(permanentAddress?.rangeOffice?.name, permanentAddress?.rangeOfficeName),
+    permanentDistrictName: getTextValue(
+      permanentAddress?.district?.name,
+      permanentAddress?.districtName
+    ),
+    permanentRangeOfficeName: getTextValue(
+      permanentAddress?.rangeOffice?.name,
+      permanentAddress?.rangeOfficeName
+    ),
     permanentZoneName: getTextValue(permanentAddress?.zone?.name, permanentAddress?.zoneName),
     permanentDivisionName: getTextValue(
       permanentAddress?.division?.name,
@@ -961,31 +979,15 @@ const getUploadedFiles = (data: any) => collectUploadedFilesFromApi(data);
 
 const hasSavedDocuments = (data: any) => getUploadedFiles(data).length > 0;
 
-const resolveFreshApplicationId = (renewalData: any, urlApplicationId: string) =>
-  getTextValue(
-    urlApplicationId,
-    renewalData?.applicationId,
-    renewalData?.freshApplicationId,
-    renewalData?.sourceApplicationId
-  );
+const resolveLicenseId = (renewalData: any, urlLicenseId: string) =>
+  getTextValue(urlLicenseId, renewalData?.licenseId, renewalData?.id);
 
-const fetchFreshApplicationWithFiles = async (applicationId: string) => {
-  if (!applicationId) return null;
+const fetchFreshApplicationWithFiles = async (licenseId: string) => {
+  if (!licenseId) return null;
 
-  const freshResponse = await ApplicationService.getApplication(applicationId);
+  const freshResponse = await ApplicationService.getLicense(licenseId);
+  console.log(freshResponse);
   let freshData = extractData(freshResponse);
-  if (!freshData) return null;
-
-  if (!collectUploadedFilesFromApi(freshData).length) {
-    try {
-      const files = await FileUploadService.getFiles(applicationId);
-      if (Array.isArray(files) && files.length) {
-        freshData = { ...freshData, fileUploads: files };
-      }
-    } catch (fileErr) {
-      console.warn('Unable to load fresh application file uploads', fileErr);
-    }
-  }
 
   return freshData;
 };
@@ -1028,7 +1030,7 @@ const mergeRenewalStateOverFresh = (
   const merged: RenewalFormState = { ...fresh, ...renewal };
 
   merged.renewalApplicationId = renewal.renewalApplicationId || fresh.renewalApplicationId;
-  merged.applicationId = renewal.applicationId || fresh.applicationId;
+  merged.licenseId = renewal.licenseId || fresh.licenseId;
   merged.licenseNumber = renewal.licenseNumber || fresh.licenseNumber;
   merged.acknowledgementNo = renewal.acknowledgementNo || fresh.acknowledgementNo;
 
@@ -1467,10 +1469,7 @@ const mapDocumentUploadFields = (data: any, renewalFileIds?: ReadonlySet<number>
   return hasAnyDocument ? mapped : {};
 };
 
-const buildFieldStateFromFreshApplication = (
-  applicationId: string,
-  data: any
-): RenewalFormState => {
+const buildFieldStateFromFreshApplication = (licenseId: string, data: any): RenewalFormState => {
   const firstName = getTextValue(
     data?.firstName,
     data?.personalDetails?.firstName,
@@ -1498,7 +1497,9 @@ const buildFieldStateFromFreshApplication = (
 
   return {
     ...initialFormState,
-    applicationId,
+    licenseId: data?.licenseId
+      ? Number(data.licenseId)
+      : (data?.id ? Number(data.id) : undefined) || licenseId,
     licenseNumber: getLicenseNumber(data),
     acknowledgementNo: getTextValue(
       data?.acknowledgementNo,
@@ -1617,6 +1618,7 @@ const buildFieldStateFromFreshApplication = (
 };
 
 const buildRenewalPayload = (formData: RenewalFormState) => ({
+  ...(formData.licenseId && { licenseId: Number(formData.licenseId) }),
   licenseNumber: formData.licenseNumber,
   acknowledgementNo: formData.acknowledgementNo,
   firstName: formData.applicantName,
@@ -1802,7 +1804,9 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     hasAppliedBefore: Boolean(formData.hasAppliedBefore),
     dateAppliedFor: formData.applicationDate || undefined,
     previousAuthorityName: formData.authorityAppliedTo || '',
-    previousResult: formData.applicationResult ? formData.applicationResult.toUpperCase() : '',
+    previousResult: formData.applicationResult
+      ? formData.applicationResult.toUpperCase()
+      : undefined,
     hasLicenceSuspended: Boolean(formData.licenseRevokedOrSuspended),
     suspensionAuthorityName: formData.revokedByAuthority || '',
     suspensionReason: formData.revokedReason || '',
@@ -1938,6 +1942,14 @@ const buildRenewalPatchPayload = (formData: RenewalFormState) => {
     isTermsAccepted: Boolean(formData.declaration?.agreeToTerms),
   };
 
+  // Include licenseId/licenseNumber on the parent record if available
+  if (formData.licenseId) {
+    payload.licenseId = formData.licenseId;
+  }
+  if (formData.licenseNumber) {
+    payload.licenseNumber = formData.licenseNumber;
+  }
+
   return payload;
 };
 
@@ -1948,11 +1960,7 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
   return {
     ...initialFormState,
     renewalApplicationId: getTextValue(data?.id, data?.renewalApplicationId),
-    applicationId: getTextValue(
-      data?.applicationId,
-      data?.freshApplicationId,
-      data?.sourceApplicationId
-    ),
+    licenseId: data?.licenseId ? Number(data.licenseId) : '',
     licenseNumber: getTextValue(data?.licenseNumber),
     acknowledgementNo: getTextValue(data?.acknowledgementNo, personalDetails?.acknowledgementNo),
     ...nameFields,
@@ -1996,14 +2004,14 @@ const buildRootDataFromRenewal = (data: any): RenewalFormState => {
   };
 };
 
-const buildFormDataFromRenewalRecord = async (renewalData: any, _applicationId: string) => {
+const buildFormDataFromRenewalRecord = async (renewalData: any, _licenseId: string) => {
   // When a renewal record exists, use it as the sole source of truth.
   // Do NOT fetch fresh application data — renewal data takes full precedence.
   return buildRootDataFromRenewal(renewalData);
 };
 
 const loadExistingRenewalByLicenseNumber = async (
-  applicationId: string,
+  licenseId: string,
   licenseNumber: string,
   setRenewalRecord: React.Dispatch<React.SetStateAction<any>>,
   setFormData: React.Dispatch<React.SetStateAction<RenewalFormState>>,
@@ -2013,6 +2021,11 @@ const loadExistingRenewalByLicenseNumber = async (
 ): Promise<boolean> => {
   const existing = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
   if (!existing) return false;
+
+  // If the existing renewal is approved, allow creating a new one
+  if (existing.isApproved) {
+    return false;
+  }
 
   const existingRenewalId = getTextValue(existing?.id, existing?.renewalApplicationId);
   if (!existingRenewalId) {
@@ -2027,7 +2040,7 @@ const loadExistingRenewalByLicenseNumber = async (
 
   createdRenewalIdRef.current = existingRenewalId;
   setRenewalRecord(renewalData);
-  const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, applicationId);
+  const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, licenseId);
   const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
     existingRenewalId,
     mergedFormData
@@ -2039,13 +2052,13 @@ const loadExistingRenewalByLicenseNumber = async (
       : `Loaded existing renewal application ${getTextValue(renewalData?.acknowledgementNo, existingRenewalId)} for license ${licenseNumber}.`
   );
   router.replace(
-    `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+    `/forms/renewal?licenseId=${encodeURIComponent(licenseId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
   );
   return true;
 };
 
 const createDraftRenewalFromFreshApplication = async (
-  applicationId: string,
+  licenseId: string,
   prefilledForm: RenewalFormState,
   setRenewalRecord: React.Dispatch<React.SetStateAction<any>>,
   setFormData: React.Dispatch<React.SetStateAction<RenewalFormState>>,
@@ -2056,18 +2069,6 @@ const createDraftRenewalFromFreshApplication = async (
   if (createdRenewalIdRef.current) return;
 
   const licenseNumber = prefilledForm.licenseNumber.trim();
-  if (licenseNumber) {
-    const loadedExisting = await loadExistingRenewalByLicenseNumber(
-      applicationId,
-      licenseNumber,
-      setRenewalRecord,
-      setFormData,
-      setStatusMessage,
-      router,
-      createdRenewalIdRef
-    );
-    if (loadedExisting) return;
-  }
 
   setFormData(prefilledForm);
 
@@ -2094,7 +2095,7 @@ const createDraftRenewalFromFreshApplication = async (
         : `Created renewal application ${getTextValue(created?.acknowledgementNo, newRenewalId)}.`
     );
     router.replace(
-      `/forms/renewal?applicationId=${encodeURIComponent(applicationId)}&renewalId=${encodeURIComponent(newRenewalId)}`
+      `/forms/renewal?licenseId=${encodeURIComponent(licenseId)}&renewalId=${encodeURIComponent(newRenewalId)}`
     );
   } catch (createError: any) {
     const message = String(createError?.message || '');
@@ -2104,7 +2105,7 @@ const createDraftRenewalFromFreshApplication = async (
 
     if (renewalAlreadyExists && licenseNumber) {
       const loadedExisting = await loadExistingRenewalByLicenseNumber(
-        applicationId,
+        licenseId,
         licenseNumber,
         setRenewalRecord,
         setFormData,
@@ -2122,8 +2123,8 @@ const createDraftRenewalFromFreshApplication = async (
 function RenewalFormPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlApplicationId =
-    searchParams?.get('applicationId') || searchParams?.get('freshApplicationId') || '';
+  const licenseId = searchParams?.get('licenseId') || '';
+  const urlLicenseId = licenseId || searchParams?.get('freshApplicationId') || '';
   const renewalId = searchParams?.get('renewalId') || searchParams?.get('id') || '';
   const createdRenewalIdRef = useRef<string | null>(null);
   const personalSectionRef = React.useRef<any>(null);
@@ -2134,6 +2135,13 @@ function RenewalFormPageContent() {
   const licenseDetailsSectionRef = React.useRef<any>(null);
   const documentsSectionRef = React.useRef<any>(null);
   const declarationSectionRef = React.useRef<any>(null);
+  // Tracks whether the user has actively edited the form, so auto-navigation
+  // between sections only triggers after real interaction (not on initial load).
+  const hasUserInteractedRef = React.useRef(false);
+  const hasInitializedRef = React.useRef(false);
+  // Tracks the previous per-section validity so we can detect when a section
+  // newly becomes complete and auto-scroll to the next incomplete section.
+  const sectionValidityRef = React.useRef<Record<string, boolean> | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -2144,19 +2152,19 @@ function RenewalFormPageContent() {
   const activeRenewalId = renewalId || createdRenewalIdRef.current || '';
 
   // Biometric verification states
-  const [enteredAppId, setEnteredAppId] = useState(urlApplicationId || '');
-  const resolvedApplicationId = urlApplicationId || enteredAppId;
+  const [enteredLicenseId, setEnteredLicenseId] = useState(urlLicenseId || '');
+  const resolvedLicenseId = urlLicenseId || enteredLicenseId;
   const [isVerified, setIsVerified] = useState(false);
   const [verificationChecking, setVerificationChecking] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<
-    'ENTER_APP_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'
-  >('ENTER_APP_ID');
+    'ENTER_LICENSE_ID' | 'VERIFYING_BIOMETRICS' | 'VERIFIED' | 'FAILED'
+  >('ENTER_LICENSE_ID');
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [biometricTargetThumb, setBiometricTargetThumb] = useState<string | null>(null);
   const [applicantDetails, setApplicantDetails] = useState<{
     name: string;
     licenseNumber: string;
-    applicationId: string;
+    licenseId: string;
   } | null>(null);
   const [deviceConnected, setDeviceConnected] = useState(false);
   const [deviceChecking, setDeviceChecking] = useState(false);
@@ -2302,20 +2310,20 @@ function RenewalFormPageContent() {
     }
   };
 
-  const checkBiometricRequirement = async (appId: string) => {
+  const checkBiometricRequirement = async (licenseIdentifier: string) => {
     try {
       setVerificationChecking(true);
       setVerificationError(null);
 
-      // Fetch fresh application to confirm existence and get details
-      const freshResponse = await ApplicationService.getApplication(appId);
+      // Fetch the license record by License ID or License Number to confirm
+      // existence and load its enrolled biometrics for verification.
+      const freshResponse = await ApplicationService.getLicense(licenseIdentifier);
       const freshData = extractData(freshResponse);
       if (!freshData) {
-        throw new Error('No application data found for the provided Application ID.');
+        throw new Error('No license data found for the provided License ID or License Number.');
       }
 
-      // Check if fresh application has enrolled fingerprints directly in biometricData
-      const numericAppId = String(freshData.id || freshData.applicationId || appId);
+      const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
 
@@ -2324,7 +2332,7 @@ function RenewalFormPageContent() {
         .map((f: any) => ({
           template: f.template,
           fingerPosition: f.position,
-          applicationId: numericAppId,
+          licenseId: numericLicenseId,
         }));
 
       const name =
@@ -2335,7 +2343,7 @@ function RenewalFormPageContent() {
       const details = {
         name,
         licenseNumber: getLicenseNumber(freshData) || 'Pending',
-        applicationId: numericAppId,
+        licenseId: numericLicenseId,
       };
       setApplicantDetails(details);
 
@@ -2352,28 +2360,80 @@ function RenewalFormPageContent() {
         setVerificationStatus('VERIFIED');
       }
     } catch (err: any) {
-      setVerificationError(err?.message || 'Failed to fetch application details.');
-      setVerificationStatus('ENTER_APP_ID');
+      setVerificationError(err?.message || 'Failed to fetch license details.');
+      setVerificationStatus('ENTER_LICENSE_ID');
     } finally {
       setVerificationChecking(false);
     }
   };
 
-  const resolveAppIdAndCheck = async (rId: string) => {
+  const resolveRenewalLicenseAndCheck = async (rId: string) => {
     try {
       setVerificationChecking(true);
       setVerificationError(null);
       const renewalResponse = await RenewalService.getRenewalForm(rId);
       const renewalData = extractData(renewalResponse);
-      const appId = resolveFreshApplicationId(renewalData, '');
-      if (!appId) {
-        throw new Error('Could not resolve original Application ID from renewal.');
+
+      // If the renewal application has already been submitted, skip the
+      // verification page entirely and take the user straight to the Renewal
+      // Application Details page (Information tab).
+      if (renewalData?.isSubmit) {
+        const targetRenewalId = getTextValue(renewalData?.id, rId);
+        router.replace(`/renewalApplication/${encodeURIComponent(targetRenewalId)}?tab=info`);
+        return;
       }
-      setEnteredAppId(appId);
-      await checkBiometricRequirement(appId);
+
+      const resolvedLicense = getTextValue(
+        renewalData?.licenseId,
+        renewalData?.freshLicenseId,
+        renewalData?.licenseNumber,
+        renewalData?.licenseId,
+        renewalData?.freshApplicationId,
+        renewalData?.sourceApplicationId
+      );
+      if (!resolvedLicense) {
+        throw new Error('Could not resolve License ID or License Number from the renewal.');
+      }
+      setEnteredLicenseId(resolvedLicense);
+      await checkBiometricRequirement(resolvedLicense);
     } catch (err: any) {
-      setVerificationError(err?.message || 'Failed to resolve application details.');
-      setVerificationStatus('ENTER_APP_ID');
+      setVerificationError(err?.message || 'Failed to resolve license details.');
+      setVerificationStatus('ENTER_LICENSE_ID');
+      setVerificationChecking(false);
+    }
+  };
+
+  const handleLicenseVerification = async (lid: string) => {
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+      await checkBiometricRequirement(lid);
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to resolve license details.');
+      setVerificationStatus('ENTER_LICENSE_ID');
+    } finally {
+      setVerificationChecking(false);
+    }
+  };
+
+  const handleLicenseLookup = async () => {
+    const value = enteredLicenseId.trim();
+    if (!value) {
+      setVerificationError('Enter a License ID or License Number.');
+      return;
+    }
+    try {
+      setVerificationChecking(true);
+      setVerificationError(null);
+      const licenseResponse = await ApplicationService.getLicense(value);
+      const licenseData = extractData(licenseResponse);
+      if (!licenseData) {
+        throw new Error('No license data found for the provided License ID or License Number.');
+      }
+      router.push(`/forms/renewal?licenseId=${encodeURIComponent(value)}`);
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to verify License ID or License Number.');
+    } finally {
       setVerificationChecking(false);
     }
   };
@@ -2489,17 +2549,18 @@ function RenewalFormPageContent() {
 
   useEffect(() => {
     if (renewalId) {
-      resolveAppIdAndCheck(renewalId);
-    } else if (urlApplicationId) {
-      setEnteredAppId(urlApplicationId);
-      checkBiometricRequirement(urlApplicationId);
+      resolveRenewalLicenseAndCheck(renewalId);
+    } else if (urlLicenseId) {
+      setEnteredLicenseId(urlLicenseId);
+      handleLicenseVerification(urlLicenseId);
     } else {
-      setVerificationStatus('ENTER_APP_ID');
+      setVerificationStatus('ENTER_LICENSE_ID');
       setIsLoading(false);
     }
-  }, [urlApplicationId, renewalId]);
+  }, [urlLicenseId, renewalId]);
 
   const handleFormPatch = (patch: Record<string, unknown>) => {
+    hasUserInteractedRef.current = true;
     setFormData(prev => ({ ...prev, ...patch }));
     const documentKeys = Object.keys(patch).filter(key =>
       (DOCUMENT_FORM_KEYS as readonly string[]).includes(key)
@@ -2537,6 +2598,16 @@ function RenewalFormPageContent() {
     }, 0);
   };
 
+  // Smoothly scroll the top of a given accordion section into view.
+  const scrollToSectionTop = (sectionKey: string) => {
+    setTimeout(() => {
+      const el = document.getElementById(`renewal-section-${sectionKey}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 120);
+  };
+
   const { isSyncingPrefilled: isSyncingEvidence } = usePrefilledDocumentSync(
     isLoading ? '' : activeRenewalId,
     formData,
@@ -2568,7 +2639,6 @@ function RenewalFormPageContent() {
     licenseDetails: false,
     licenseHistory: false,
     biometric: false,
-    documents: false,
   });
 
   const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
@@ -2598,8 +2668,8 @@ function RenewalFormPageContent() {
 
   useEffect(() => {
     if (!isVerified) return;
-    const resolvedApplicationId = urlApplicationId || enteredAppId;
-    if (!resolvedApplicationId && !renewalId) {
+    const resolvedLicenseId = urlLicenseId || enteredLicenseId;
+    if (!resolvedLicenseId && !renewalId) {
       setError('No application context was provided.');
       setIsLoading(false);
       return;
@@ -2616,29 +2686,22 @@ function RenewalFormPageContent() {
         renewalData?.workflowStatus?.code || renewalData?.workflowStatus?.name || ''
       ).toUpperCase();
       const isSubmitted = Boolean(renewalData?.isSubmit);
-      if (workflowCode === 'APPROVED' || isSubmitted) {
+      if (isSubmitted) {
+        // Already submitted — do not show the editable renewal form. Redirect to
+        // the Renewal Details page (Information tab).
+        const targetRenewalId = getTextValue(renewalData?.id, rId);
+        router.replace(`/renewalApplication/${encodeURIComponent(targetRenewalId)}?tab=info`);
+        return renewalData;
+      }
+      if (workflowCode === 'APPROVED') {
         setIsReadOnly(true);
         setShowReadOnlyModal(true);
       }
 
       setRenewalRecord(renewalData);
 
-      // Fetch fresh application data to display and pre-fill renewal form
-      const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
-      let mergedFormData: RenewalFormState;
-      if (freshData) {
-        const freshFormState = buildFieldStateFromFreshApplication(
-          resolvedApplicationId,
-          freshData
-        );
-        const renewalFormData = await buildFormDataFromRenewalRecord(
-          renewalData,
-          resolvedApplicationId
-        );
-        mergedFormData = mergeRenewalStateOverFresh(freshFormState, renewalFormData, renewalData);
-      } else {
-        mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedApplicationId);
-      }
+      // Do NOT fetch fresh data if we already have the renewal record.
+      const mergedFormData = await buildFormDataFromRenewalRecord(renewalData, resolvedLicenseId);
 
       const { formData: syncedForm, synced } = await applyPrefilledDocumentUploads(
         rId,
@@ -2654,6 +2717,9 @@ function RenewalFormPageContent() {
     };
 
     const load = async () => {
+      if (hasInitializedRef.current) return;
+      hasInitializedRef.current = true;
+
       try {
         setIsLoading(true);
         setError(null);
@@ -2665,12 +2731,13 @@ function RenewalFormPageContent() {
           return;
         }
 
-        // Path B: Only applicationId — fetch fresh app, check for existing renewal.
-        // Step 1: Fetch fresh application data to extract licenseNumber.
-        const freshData = await fetchFreshApplicationWithFiles(resolvedApplicationId);
+        // Path B: Only licenseId — fetch license, check for existing renewal.
+        // Step 1: Fetch license data exactly ONCE.
+        const applicationCheckResponse = await ApplicationService.getLicense(resolvedLicenseId);
+        const freshData = extractData(applicationCheckResponse);
 
         if (!freshData) {
-          throw new Error('No fresh application data found for the provided ID.');
+          throw new Error('No license data found for the provided ID.');
         }
 
         const licenseNumber = getLicenseNumber(freshData);
@@ -2679,8 +2746,9 @@ function RenewalFormPageContent() {
         if (licenseNumber) {
           const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
 
-          if (existingRenewal) {
-            // Existing renewal found — load renewal data as sole source of truth.
+          if (existingRenewal && !existingRenewal.isApproved) {
+            // Existing renewal found but NOT approved (Pending/In Progress/Rejected) —
+            // load renewal data as sole source of truth so the user can continue editing.
             const existingRenewalId = getTextValue(
               existingRenewal?.id,
               existingRenewal?.renewalApplicationId
@@ -2690,27 +2758,24 @@ function RenewalFormPageContent() {
               await loadRenewalById(existingRenewalId);
               // Update URL to include renewalId.
               router.replace(
-                `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
+                `/forms/renewal?licenseId=${encodeURIComponent(resolvedLicenseId)}&renewalId=${encodeURIComponent(existingRenewalId)}`
               );
               return;
             }
           }
         }
 
-        const prefilledForm = buildFieldStateFromFreshApplication(resolvedApplicationId, freshData);
-
-        // Validate that the fresh application has been submitted.
-        const applicationCheckResponse =
-          await ApplicationService.getApplication(resolvedApplicationId);
+        // Validate that the license has been submitted/approved.
         const isSubmitted =
-          applicationCheckResponse?.isSubmit === true ||
-          applicationCheckResponse?.data?.isSubmit === true;
+          applicationCheckResponse?.isSubmit === true || freshData?.isSubmit === true;
         if (!isSubmitted) {
           throw new Error('Your application has not been submitted.');
         }
 
+        const prefilledForm = buildFieldStateFromFreshApplication(resolvedLicenseId, freshData);
+
         await createDraftRenewalFromFreshApplication(
-          resolvedApplicationId,
+          resolvedLicenseId,
           prefilledForm,
           setRenewalRecord,
           setFormData,
@@ -2720,13 +2785,14 @@ function RenewalFormPageContent() {
         );
       } catch (loadError: any) {
         setError(loadError?.message || 'Failed to load the renewal form.');
+        hasInitializedRef.current = false; // allow retry on error
       } finally {
         setIsLoading(false);
       }
     };
 
     load();
-  }, [isVerified, urlApplicationId, enteredAppId, renewalId, router]);
+  }, [isVerified, urlLicenseId, enteredLicenseId, renewalId, router]);
 
   function handleChange(
     event:
@@ -2737,6 +2803,9 @@ function RenewalFormPageContent() {
       setShowReadOnlyModal(true);
       return;
     }
+    // Mark that the user has actively edited the form so section auto-navigation
+    // is only triggered by genuine user input.
+    hasUserInteractedRef.current = true;
     const { name, type, value, checked } = event.target as {
       name: string;
       value?: unknown;
@@ -2970,6 +3039,7 @@ function RenewalFormPageContent() {
   }
 
   function handleFileChange(name: string, file: File | null) {
+    hasUserInteractedRef.current = true;
     if (!file) {
       setFormData(prev => ({ ...prev, [name]: null }));
       return;
@@ -3069,6 +3139,7 @@ function RenewalFormPageContent() {
       requireField('permanentState', 'Permanent state');
       requireField('permanentDistrict', 'Permanent district');
     }
+    requireField('residencePhone', 'Residence Phone');
     return errs;
   };
 
@@ -3092,18 +3163,16 @@ function RenewalFormPageContent() {
     const requireField = (key: string, label: string) => {
       const v = (data as any)[key];
       if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-    };
-    requireField('weaponReason', 'Need for license (15)');
+    };      requireField('weaponReason', 'Need for license (15)');
     requireField('ammunitionDescription', 'Ammunition Description');
-    if (!data.specialEvidenceUploaded) {
-      errs['specialEvidenceUploaded'] = 'Documentary evidence is required.';
-    }
     if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
       errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
     }
     if (!data.armsOptionType) {
       errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
     }
+    requireField('formIVPlaceArea', 'Place or area for which the licence is sought (18a)');
+    requireField('formIVWildBeastsSpec', 'Specification of wild beasts permitted to be destroyed (18b)');
     const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
       ? data.requestedWeaponIds
       : data.weaponId
@@ -3127,25 +3196,40 @@ function RenewalFormPageContent() {
       if (firList.length === 0) {
         errs['firDetailsList'] = 'At least one FIR detail is required';
       } else {
-        firList.forEach((item: any, idx: number) => {
-          const missing = [
-            { key: 'firNumber', label: 'FIR Number' },
-            { key: 'underSection', label: 'Under Section' },
-            { key: 'policeStation', label: 'Police Station' },
-            { key: 'unit', label: 'Unit' },
-            { key: 'district', label: 'District' },
-            { key: 'state', label: 'State' },
-            { key: 'offence', label: 'Offence' },
-            { key: 'sentence', label: 'Sentence' },
-            { key: 'sentenceDate', label: 'Date of Sentence' },
-          ];
-          missing.forEach(field => {
-            const value = item?.[field.key];
+        // Map FIR detail field keys to the error keys expected by CriminalHistory component
+        const firFieldMap: { key: string; errorKey: string; label: string }[] = [
+          { key: 'firNumber', errorKey: 'firNumber', label: 'FIR Number' },
+          { key: 'underSection', errorKey: 'underSection', label: 'Under Section' },
+          { key: 'policeStation', errorKey: 'policeStationCriminal', label: 'Police Station' },
+          { key: 'unit', errorKey: 'criminalUnit', label: 'Unit' },
+          { key: 'district', errorKey: 'criminalDistrict', label: 'District' },
+          { key: 'state', errorKey: 'criminalState', label: 'State' },
+          { key: 'offence', errorKey: 'offence', label: 'Offence' },
+          { key: 'sentence', errorKey: 'sentence', label: 'Sentence' },
+          { key: 'sentenceDate', errorKey: 'sentenceDate', label: 'Date of Sentence' },
+        ];
+        // Only validate the first FIR detail for field-level errors (index 0)
+        const firstItem = firList[0];
+        if (firstItem) {
+          firFieldMap.forEach(field => {
+            const value = firstItem?.[field.key];
             if (!value || String(value).trim() === '') {
-              errs['firDetailsList'] = 'Complete all FIR details';
+              errs[field.errorKey] = `${field.label} is required`;
             }
           });
-        });
+        }
+        // For additional FIR details, validate all required fields are filled (only on first missing)
+        for (let i = 1; i < firList.length; i++) {
+          const item = firList[i];
+          const hasMissing = firFieldMap.some(field => {
+            const value = item?.[field.key];
+            return !value || String(value).trim() === '';
+          });
+          if (hasMissing) {
+            errs['firDetailsList'] = 'Complete all FIR details';
+            break;
+          }
+        }
       }
     }
 
@@ -3173,6 +3257,15 @@ function RenewalFormPageContent() {
       requireField('applicationDate', 'Date of Application');
       requireField('authorityAppliedTo', 'Authority Applied To');
       requireField('applicationResult', 'Result');
+
+      // When Result is Rejected, require the rejection document upload
+      const appResult = String(data.applicationResult || '').toLowerCase();
+      if (appResult === 'rejected') {
+        const rejectionMeta = getDocumentUploadMeta((data as any).rejectionDocUploaded);
+        if (!rejectionMeta.uploaded && !rejectionMeta.id) {
+          errs['rejectionDocUploaded'] = 'Rejection document is required when the result is Rejected.';
+        }
+      }
     }
 
     if (data.licenseRevokedOrSuspended) {
@@ -3217,6 +3310,41 @@ function RenewalFormPageContent() {
       errs['medicalCertificateUploaded'] = 'Medical Certificate document is required.';
     return errs;
   };
+
+  const validateDeclaration = (data: RenewalFormState) => {
+    const errs: Record<string, string> = {};
+    if (!data.declaration?.agreeToTruth) errs['agreeToTruth'] = 'Please accept this declaration.';
+    if (!data.declaration?.understandLegalConsequences)
+      errs['understandLegalConsequences'] = 'Please accept this declaration.';
+    if (!data.declaration?.agreeToTerms)
+      errs['agreeToTerms'] = 'Please accept the terms and conditions.';
+    return errs;
+  };
+
+  // Ordered list of sections used for real-time progress, auto-navigation, and
+  // submit-time validation. `biometric` has no required fields, so it is always
+  // considered complete for progress/navigation purposes.
+  const SECTION_FLOW_ORDER = [
+    'personal',
+    'address',
+    'occupation',
+    'criminal',
+    'licenseDetails',
+    'licenseHistory',
+    'biometric',
+    'documents',
+  ] as const;
+
+  const computeSectionValidity = (data: RenewalFormState): Record<string, boolean> => ({
+    personal: Object.keys(validatePersonalDetails(data)).length === 0,
+    address: Object.keys(validateAddressDetails(data)).length === 0,
+    occupation: Object.keys(validateOccupationDetails(data)).length === 0,
+    criminal: Object.keys(validateCriminalHistory(data)).length === 0,
+    licenseDetails: Object.keys(validateLicenseDetails(data)).length === 0,
+    licenseHistory: Object.keys(validateLicenseHistory(data)).length === 0,
+    biometric: true,
+    documents: Object.keys(validateDocumentsUpload(data)).length === 0,
+  });
 
   const buildSectionSpecificPayload = (
     sectionKey: string,
@@ -3278,10 +3406,8 @@ function RenewalFormPageContent() {
     } else if (sectionKey === 'criminal') {
       sectionErrors = validateCriminalHistory(formData);
       if (Object.keys(sectionErrors).length > 0) {
-        // We don't have a specific state for criminalErrors in page.tsx right now,
-        // but returning them stops completion. We can add setCriminalErrors if needed,
-        // or just rely on toast.
-        // For now, this effectively stops it from saving and shows the generic "Failed to save" or "Fix validation errors" via toast.
+        setCriminalErrors(sectionErrors);
+        scheduleSectionFocus(criminalSectionRef, 'criminal');
       }
     } else if (sectionKey === 'licenseDetails') {
       sectionErrors = validateLicenseDetails(formData);
@@ -3292,7 +3418,8 @@ function RenewalFormPageContent() {
     } else if (sectionKey === 'licenseHistory') {
       sectionErrors = validateLicenseHistory(formData);
       if (Object.keys(sectionErrors).length > 0) {
-        // Also missing setLicenseHistoryErrors state, but returning errors prevents completion
+        setLicenseHistoryErrors(sectionErrors);
+        scheduleSectionFocus(licenseHistorySectionRef, 'licenseHistory');
       }
     } else if (sectionKey === 'documents') {
       sectionErrors = validateDocumentsUpload(formData);
@@ -3323,6 +3450,18 @@ function RenewalFormPageContent() {
       toast.success(
         `${sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)} section saved successfully.`
       );
+
+      // Auto-navigate to the next incomplete section
+      const startIdx = SECTION_FLOW_ORDER.indexOf(
+        sectionKey as (typeof SECTION_FLOW_ORDER)[number]
+      );
+      const nextIncomplete = SECTION_FLOW_ORDER.slice(startIdx + 1).find(
+        key => !sectionCompleted[key]
+      );
+      const target = nextIncomplete ?? 'declaration';
+
+      setExpandedSections(prev => ({ ...prev, [target]: true }));
+      scrollToSectionTop(target);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save section. Please try again.');
       setSectionCompleted(prev => ({ ...prev, [sectionKey]: false }));
@@ -3331,45 +3470,6 @@ function RenewalFormPageContent() {
       setSavingSection(null);
     }
   };
-
-  useEffect(() => {
-    // Dynamically uncheck sections if required fields become missing/invalid
-    setSectionCompleted(prev => {
-      const next = { ...prev };
-      let changed = false;
-
-      if (prev.personal && Object.keys(validatePersonalDetails(formData)).length > 0) {
-        next.personal = false;
-        changed = true;
-      }
-      if (prev.address && Object.keys(validateAddressDetails(formData)).length > 0) {
-        next.address = false;
-        changed = true;
-      }
-      if (prev.occupation && Object.keys(validateOccupationDetails(formData)).length > 0) {
-        next.occupation = false;
-        changed = true;
-      }
-      if (prev.criminal && Object.keys(validateCriminalHistory(formData)).length > 0) {
-        next.criminal = false;
-        changed = true;
-      }
-      if (prev.licenseDetails && Object.keys(validateLicenseDetails(formData)).length > 0) {
-        next.licenseDetails = false;
-        changed = true;
-      }
-      if (prev.licenseHistory && Object.keys(validateLicenseHistory(formData)).length > 0) {
-        next.licenseHistory = false;
-        changed = true;
-      }
-      if (prev.documents && Object.keys(validateDocumentsUpload(formData)).length > 0) {
-        next.documents = false;
-        changed = true;
-      }
-
-      return changed ? next : prev;
-    });
-  }, [formData]);
 
   const persistRenewalForm = async (isSubmit: boolean) => {
     const activeRenewalId = renewalId || createdRenewalIdRef.current;
@@ -3455,7 +3555,7 @@ function RenewalFormPageContent() {
       if (saved) {
         const mergedFormData = await buildFormDataFromRenewalRecord(
           saved,
-          resolveFreshApplicationId(saved, resolvedApplicationId)
+          resolveLicenseId(saved, resolvedLicenseId)
         );
         const { formData: syncedForm } = await applyPrefilledDocumentUploads(
           activeRenewalId,
@@ -3492,50 +3592,123 @@ function RenewalFormPageContent() {
     persistRenewalForm(false);
   };
 
-  const saveAndContinue = async () => {
+  /**
+   * Validate every section of the renewal form for submission.
+   * Publishes all validation errors so invalid fields are highlighted with their
+   * messages, then scrolls to and focuses the first section containing errors.
+   * Returns true when the whole form is valid.
+   */
+  const runSubmitValidation = (): boolean => {
+    const checks: Array<{
+      key: string;
+      errors: Record<string, string>;
+      set: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+      ref: React.RefObject<any>;
+    }> = [
+      {
+        key: 'personal',
+        errors: validatePersonalDetails(formData),
+        set: setPersonalErrors,
+        ref: personalSectionRef,
+      },
+      {
+        key: 'address',
+        errors: validateAddressDetails(formData),
+        set: setAddressErrors,
+        ref: addressSectionRef,
+      },
+      {
+        key: 'occupation',
+        errors: validateOccupationDetails(formData),
+        set: setOccupationErrors,
+        ref: occupationSectionRef,
+      },
+      {
+        key: 'criminal',
+        errors: validateCriminalHistory(formData),
+        set: setCriminalErrors,
+        ref: criminalSectionRef,
+      },
+      {
+        key: 'licenseDetails',
+        errors: validateLicenseDetails(formData),
+        set: setLicenseDetailsErrors,
+        ref: licenseDetailsSectionRef,
+      },
+      {
+        key: 'licenseHistory',
+        errors: validateLicenseHistory(formData),
+        set: setLicenseHistoryErrors,
+        ref: licenseHistorySectionRef,
+      },
+      {
+        key: 'documents',
+        errors: validateDocumentsUpload(formData),
+        set: setDocumentsErrors,
+        ref: documentsSectionRef,
+      },
+      {
+        key: 'declaration',
+        errors: validateDeclaration(formData),
+        set: setDeclarationErrors,
+        ref: declarationSectionRef,
+      },
+    ];
+
+    // Publish every section's validation result at once so all invalid fields are
+    // highlighted with their messages, not just the first failing section.
+    checks.forEach(check => check.set(check.errors));
+
+    const firstInvalid = checks.find(check => Object.keys(check.errors).length > 0);
+    if (!firstInvalid) {
+      setError(null);
+      return true;
+    }
+
+    // Reveal, scroll to, and focus the first section that has validation errors.
+    setExpandedSections(prev => ({ ...prev, [firstInvalid.key]: true }));
+    scrollToSectionTop(firstInvalid.key);
+    setTimeout(() => {
+      try {
+        firstInvalid.ref.current?.focusFirstInvalid();
+      } catch {
+        /* ignore if the section is not mounted yet */
+      }
+    }, 300);
+
+    setError('Please complete all required fields highlighted below before submitting.');
+    toast.error('Please complete all required fields before submitting.');
+    return false;
+  };
+
+  const handleRenewalSubmit = async () => {
     if (isReadOnly) {
       setShowReadOnlyModal(true);
-      return false;
-    }
-    const declarationErrors: Record<string, string> = {};
-    if (!formData.declaration?.agreeToTruth)
-      declarationErrors['agreeToTruth'] = 'Please accept this declaration.';
-    if (!formData.declaration?.understandLegalConsequences)
-      declarationErrors['understandLegalConsequences'] = 'Please accept this declaration.';
-    if (!formData.declaration?.agreeToTerms)
-      declarationErrors['agreeToTerms'] = 'Please accept the terms and conditions.';
-
-    if (Object.keys(declarationErrors).length > 0) {
-      setDeclarationErrors(declarationErrors);
-      scheduleSectionFocus(declarationSectionRef, 'declaration');
-      setError('Please accept all declarations before submitting the application.');
-      return false;
+      return;
     }
 
-    const activeRenewalId = renewalId || createdRenewalIdRef.current;
-    if (!activeRenewalId) {
-      setError('Renewal ID not available yet.');
-      return false;
+    // Ensure all sections have been marked complete before submission
+    if (!allSectionsCompleted) {
+      const firstIncomplete = SECTION_FLOW_ORDER.find(
+        key => !sectionCompleted[key]
+      );
+      if (firstIncomplete) {
+        setExpandedSections(prev => ({ ...prev, [firstIncomplete]: true }));
+        scrollToSectionTop(firstIncomplete);
+      }
+      setError?.('Please complete all sections before submitting the application.');
+      return;
     }
 
-    try {
-      setIsSaving(true);
-      setError(null);
-      const submitPayload = {
-        isDeclarationAccepted: true,
-        isAwareOfLegalConsequences: true,
-        isTermsAccepted: true,
-        isSubmit: true,
-      };
-      await RenewalService.updateRenewalForm(activeRenewalId, submitPayload, { isSubmit: true });
+    // The Submit button always stays enabled; validation is enforced here.
+    if (!runSubmitValidation()) return;
+
+    // Persist the full form (declaration flags and isSubmit are part of the payload),
+    // then show the success confirmation.
+    const persisted = await persistRenewalForm(true);
+    if (persisted) {
       setSuccessMessage('Renewal application is submitted');
       setShowSuccessModal(true);
-      return true;
-    } catch (err: any) {
-      setError(err?.message || 'Failed to submit renewal application.');
-      return false;
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -3558,7 +3731,7 @@ function RenewalFormPageContent() {
       setRenewalRecord(renewalData);
       const merged = await buildFormDataFromRenewalRecord(
         renewalData,
-        resolveFreshApplicationId(renewalData, resolvedApplicationId)
+        resolveLicenseId(renewalData, resolvedLicenseId)
       );
       const { formData: syncedForm } = await applyPrefilledDocumentUploads(activeRenewalId, merged);
       setFormData(syncedForm as RenewalFormState);
@@ -3584,7 +3757,7 @@ function RenewalFormPageContent() {
         />
         <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
           <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300'>
-            {verificationChecking && verificationStatus === 'ENTER_APP_ID' ? (
+            {verificationChecking && verificationStatus === 'ENTER_LICENSE_ID' ? (
               <div className='space-y-6 py-8 text-center'>
                 <div className='mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center'>
                   <span className='text-xl'>🪪</span>
@@ -3593,7 +3766,7 @@ function RenewalFormPageContent() {
                 <p className='text-sm text-gray-500'>Checking biometric requirements</p>
               </div>
             ) : (
-              verificationStatus === 'ENTER_APP_ID' && (
+              verificationStatus === 'ENTER_LICENSE_ID' && (
                 <div className='space-y-6'>
                   <div className='text-center'>
                     <div className='mb-6 flex justify-center'>
@@ -3609,8 +3782,8 @@ function RenewalFormPageContent() {
                       License Renewal Verification
                     </h2>
                     <p className='mt-2 text-sm text-gray-600'>
-                      Please enter your Fresh Application ID to verify your identity and start the
-                      renewal process.
+                      Please enter your License ID or License Number to verify your identity and
+                      start the renewal process.
                     </p>
                   </div>
 
@@ -3623,27 +3796,27 @@ function RenewalFormPageContent() {
                   <div className='space-y-4'>
                     <div>
                       <label
-                        htmlFor='app-id'
+                        htmlFor='license-id'
                         className='block text-sm font-semibold text-gray-700 mb-1'
                       >
-                        Fresh Application ID
+                        License ID or License Number
                       </label>
                       <input
-                        id='app-id'
+                        id='license-id'
                         type='text'
-                        value={enteredAppId}
-                        onChange={e => setEnteredAppId(e.target.value)}
-                        placeholder='e.g. 12345'
+                        value={enteredLicenseId}
+                        onChange={e => setEnteredLicenseId(e.target.value)}
+                        placeholder='e.g. 12 or LUAN20260703132128000625'
                         className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold'
                       />
                     </div>
 
                     <button
-                      onClick={() => checkBiometricRequirement(enteredAppId)}
-                      disabled={verificationChecking || !enteredAppId.trim()}
+                      onClick={handleLicenseLookup}
+                      disabled={verificationChecking || !enteredLicenseId.trim()}
                       className='w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]'
                     >
-                      {verificationChecking ? 'Checking...' : 'Verify Application'}
+                      {verificationChecking ? 'Checking...' : 'Verify / Continue'}
                     </button>
                   </div>
                 </div>
@@ -3676,9 +3849,9 @@ function RenewalFormPageContent() {
                     <span className='text-gray-800 font-semibold'>{applicantDetails.name}</span>
                   </div>
                   <div className='flex justify-between text-sm'>
-                    <span className='text-gray-500 font-medium'>Application ID</span>
+                    <span className='text-gray-500 font-medium'>License ID</span>
                     <span className='text-gray-800 font-semibold'>
-                      {applicantDetails.applicationId}
+                      {applicantDetails.licenseId}
                     </span>
                   </div>
                   <div className='flex justify-between text-sm'>
@@ -3844,12 +4017,12 @@ function RenewalFormPageContent() {
                 <div className='space-y-3'>
                   <button
                     onClick={() => {
-                      setVerificationStatus('ENTER_APP_ID');
+                      setVerificationStatus('ENTER_LICENSE_ID');
                       setVerificationError(null);
                     }}
                     className='w-full flex justify-center py-2.5 px-4 border border-gray-300 rounded-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm'
                   >
-                    Change Application ID
+                    Change License ID / Number
                   </button>
                 </div>
               </div>
@@ -4320,7 +4493,7 @@ function RenewalFormPageContent() {
       <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[1600px] flex-col px-4 py-8 sm:px-6 lg:px-8'>
         <div className='grid gap-6 grid-cols-1'>
           <RenewalHeader
-            applicationId={urlApplicationId || enteredAppId}
+            licenseId={urlLicenseId || enteredLicenseId}
             renewalId={renewalId || createdRenewalIdRef.current || ''}
             summaryData={formData || renewalRecord}
           />
@@ -4332,14 +4505,14 @@ function RenewalFormPageContent() {
                 setShowReadOnlyModal(true);
                 return;
               }
-              saveAndContinue();
+              handleRenewalSubmit();
             }}
             className='space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-gray-100'
           >
             <div className='rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900'>
               <div className='flex flex-wrap items-center gap-3'>
-                <span className='font-semibold'>Fresh Application ID:</span>
-                <span>{urlApplicationId || enteredAppId || 'Not provided'}</span>
+                <span className='font-semibold'>License ID:</span>
+                <span>{urlLicenseId || enteredLicenseId || 'Not provided'}</span>
                 <span className='font-semibold'>Renewal ID:</span>
                 <span>{renewalId || createdRenewalIdRef.current || 'Pending'}</span>
                 {statusMessage && (
@@ -4359,6 +4532,7 @@ function RenewalFormPageContent() {
               <>
                 <AccordionSection
                   title='Personal Information'
+                  id='renewal-section-personal'
                   isOpen={expandedSections.personal}
                   onToggle={() => toggleSection('personal')}
                   showCompletionCheckbox
@@ -4380,6 +4554,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Address Details'
+                  id='renewal-section-address'
                   isOpen={expandedSections.address}
                   onToggle={() => toggleSection('address')}
                   showCompletionCheckbox
@@ -4401,6 +4576,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Occupation/Business'
+                  id='renewal-section-occupation'
                   isOpen={expandedSections.occupation}
                   onToggle={() => toggleSection('occupation')}
                   showCompletionCheckbox
@@ -4422,6 +4598,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Criminal History'
+                  id='renewal-section-criminal'
                   isOpen={expandedSections.criminal}
                   onToggle={() => toggleSection('criminal')}
                   showCompletionCheckbox
@@ -4443,6 +4620,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='License Details'
+                  id='renewal-section-licenseDetails'
                   isOpen={expandedSections.licenseDetails}
                   onToggle={() => toggleSection('licenseDetails')}
                   showCompletionCheckbox
@@ -4463,12 +4641,14 @@ function RenewalFormPageContent() {
                     onError={setError}
                     onStatus={setStatusMessage}
                     errors={licenseDetailsErrors}
+                    isReadOnly={isReadOnly}
                     ref={licenseDetailsSectionRef}
                   />
                 </AccordionSection>
 
                 <AccordionSection
                   title='License History'
+                  id='renewal-section-licenseHistory'
                   isOpen={expandedSections.licenseHistory}
                   onToggle={() => toggleSection('licenseHistory')}
                   showCompletionCheckbox
@@ -4480,16 +4660,22 @@ function RenewalFormPageContent() {
                   isSavingSection={savingSection === 'licenseHistory'}
                   isReadOnly={isReadOnly}
                 >
-                  <LicenseHistory
-                    ref={licenseHistorySectionRef}
-                    formData={formData}
-                    onChange={handleChange}
-                    errors={licenseHistoryErrors}
-                  />
+              <LicenseHistory
+                ref={licenseHistorySectionRef}
+                formData={formData}
+                onChange={handleChange}
+                errors={licenseHistoryErrors}
+                renewalId={activeRenewalId}
+                onPatch={handleFormPatch}
+                onError={setError}
+                onStatus={setStatusMessage}
+                isReadOnly={isReadOnly}
+              />
                 </AccordionSection>
 
                 <AccordionSection
                   title='Biometric Information'
+                  id='renewal-section-biometric'
                   isOpen={expandedSections.biometric}
                   onToggle={() => toggleSection('biometric')}
                   showCompletionCheckbox
@@ -4511,33 +4697,28 @@ function RenewalFormPageContent() {
                     onPrevious={() => {
                       if (renewalId)
                         router.push(
-                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
+                          `/forms/renewal?licenseId=${encodeURIComponent(resolvedLicenseId)}&renewalId=${encodeURIComponent(renewalId)}#license-details`
                         );
                       else router.back();
                     }}
                     onNext={() => {
                       if (activeRenewalId)
                         router.push(
-                          `/forms/renewal?applicationId=${encodeURIComponent(resolvedApplicationId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
+                          `/forms/renewal?licenseId=${encodeURIComponent(resolvedLicenseId)}&renewalId=${encodeURIComponent(activeRenewalId)}#documents`
                         );
                     }}
                     onSaveToDraft={saveRenewalDraft}
                   />
                 </AccordionSection>
 
-                <AccordionSection
-                  title='Upload Documents'
-                  isOpen={expandedSections.documents}
-                  onToggle={() => toggleSection('documents')}
-                  showCompletionCheckbox
-                  isCompleted={sectionCompleted.documents}
-                  onCompletionChange={checked => {
-                    if (checked) handleSectionComplete('documents');
-                    else setSectionCompleted(prev => ({ ...prev, documents: false }));
-                  }}
-                  isSavingSection={savingSection === 'documents'}
-                  isReadOnly={isReadOnly}
-                >
+              <AccordionSection
+                title='Upload Documents'
+                id='renewal-section-documents'
+                isOpen={expandedSections.documents}
+                onToggle={() => toggleSection('documents')}
+                isSavingSection={savingSection === 'documents'}
+                isReadOnly={isReadOnly}
+              >
                   <DocumentsSection
                     ref={documentsSectionRef}
                     formData={formData}
@@ -4553,6 +4734,7 @@ function RenewalFormPageContent() {
 
                 <AccordionSection
                   title='Declaration'
+                  id='renewal-section-declaration'
                   isOpen={expandedSections.declaration}
                   onToggle={() => toggleSection('declaration')}
                 >
@@ -4584,6 +4766,11 @@ function RenewalFormPageContent() {
                       />
                     ))}
                   </div>
+                  {allSectionsCompleted && (
+                    <span className='ml-1 text-xs font-semibold text-green-600'>
+                      ✓ All sections completed
+                    </span>
+                  )}
                 </div>
 
                 <div className='flex flex-wrap items-center gap-3'>
@@ -4601,13 +4788,10 @@ function RenewalFormPageContent() {
                   </button>
                   <button
                     type='button'
-                    onClick={saveAndContinue}
-                    disabled={isSaving || !allSectionsCompleted || isReadOnly}
-                    title={
-                      !allSectionsCompleted ? 'Please complete all sections before submitting' : ''
-                    }
+                    onClick={handleRenewalSubmit}
+                    disabled={isSaving}
                     className={`rounded-md px-5 py-2 text-sm font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                      isReadOnly || !allSectionsCompleted
+                      isReadOnly
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-[#001F54] hover:bg-[#012a73] shadow-sm hover:shadow-md'
                     }`}
@@ -4638,6 +4822,7 @@ function AccordionSection(
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
+    id?: string;
     showCompletionCheckbox?: boolean;
     isCompleted?: boolean;
     onCompletionChange?: (checked: boolean) => void;
@@ -4650,6 +4835,7 @@ function AccordionSection(
     isOpen,
     onToggle,
     children,
+    id,
     showCompletionCheckbox,
     isCompleted,
     onCompletionChange,
@@ -4659,7 +4845,8 @@ function AccordionSection(
 
   return (
     <section
-      className={`rounded-2xl border bg-white shadow-sm transition-colors duration-200 ${
+      id={id}
+      className={`scroll-mt-24 rounded-2xl border bg-white shadow-sm transition-colors duration-200 ${
         showCompletionCheckbox && isCompleted
           ? 'border-green-300 ring-1 ring-green-200'
           : 'border-gray-100'

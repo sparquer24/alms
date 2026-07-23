@@ -31,19 +31,19 @@ const setCachedData = (key: string, data: any, ttl: number = 30000): void => {
 export const STATUS_MAP = {
   forward: statusIdMap.forwarded || [1],     // FORWARDED status only 
   forwarded: statusIdMap.forwarded || [1],   // Alias for forward
-  pending: statusIdMap.pending || [1, 9],       // Same as forward for now
-  sent: statusIdMap.sent || [11, 1, 9],         // RECOMMEND
-  returned: statusIdMap.returned || [2],        // REJECT (treated as returned)
-  flagged: statusIdMap.redflagged || [8],       // RED_FLAG
-  redflagged: statusIdMap.redflagged || [8],    // Alias for flagged
-  approved: statusIdMap.approved || [11, 3],    // RECOMMEND + APPROVED
-  freshform: statusIdMap.freshform || [9],      // INITIATE (fresh form applications)
-  closed: statusIdMap.closed || [10],           // CLOSE
+  pending: statusIdMap.pending || [1, 8],       // Same as forward for now
+  sent: statusIdMap.sent || [10, 1, 8],         // RECOMMEND
+  returned: statusIdMap.returned || [2, 13],        // REJECT + RETURN
+  flagged: statusIdMap.redflagged || [7],       // RED_FLAG
+  redflagged: statusIdMap.redflagged || [7],    // Alias for flagged
+  approved: statusIdMap.approved || [3],        // APPROVED
+  freshform: statusIdMap.freshform || [8],      // INITIATED (fresh form applications)
+  closed: statusIdMap.closed || [9],           // CLOSE
   cancelled: statusIdMap.cancelled || [4],      // CANCEL
   reEnquiry: statusIdMap.reEnquiry || [5],      // RE_ENQUIRY
   groundReport: statusIdMap.groundReport || [6], // GROUND_REPORT
-  drafts: statusIdMap.drafts || [13],            // DRAFTS (alias for draft)
-  applications: statusIdMap.applications || [10, 11, 3]
+  drafts: statusIdMap.drafts || [12],            // DRAFTS (alias for draft)
+  applications: statusIdMap.applications || [9, 3]
 };
 
 /**
@@ -100,7 +100,7 @@ const transformDetailedToApplicationData = (detailedApp: any): ApplicationData =
     address: detailedApp.presentAddress?.addressLine || detailedApp.address || undefined,
     presentAddress: detailedApp.presentAddress || undefined,
     permanentAddress: detailedApp.permanentAddress || undefined,
-    applicationType: detailedApp.applicationType || detailedApp.formType || 'Fresh License',
+    applicationType: detailedApp.applicationType || detailedApp.formType || 'Fresh',
     applicationDate: detailedApp.createdAt || new Date().toISOString(),
     applicationTime: detailedApp.createdAt ? new Date(detailedApp.createdAt).toTimeString() : undefined,
     status: statusName || detailedApp.status || undefined,
@@ -378,35 +378,31 @@ export interface DetailedApplicationData {
 /**
  * Converts status name strings to their corresponding numeric IDs
  */
-export const convertStatusNamesToIds = (statusIds: string | string[] | number | number[]): string => {
+export const convertStatusNamesToIds = (statusIds: string | string[] | number | number[] | (string | number)[]): string => {
   if (!statusIds) return '';
 
   const statusArray = Array.isArray(statusIds) ? statusIds : [statusIds];
-  const numericIds: number[] = [];
+  const resultIds: (string | number)[] = [];
 
   statusArray.forEach(status => {
-    // If already numeric, keep it
+    // If it's a number or numeric string, push as number
     if (typeof status === 'number' || !isNaN(Number(status))) {
-      numericIds.push(Number(status));
+      resultIds.push(Number(status));
     } else {
-      // Map status name to numeric IDs (case-insensitive lookup)
-      const lookup = String(status).toLowerCase();
-      const foundKey = Object.keys(STATUS_MAP).find(k => k.toLowerCase() === lookup) as keyof typeof STATUS_MAP | undefined;
-      const mappedIds = foundKey ? STATUS_MAP[foundKey] : undefined;
-      if (mappedIds) {
-        numericIds.push(...mappedIds);
-      }
+      // It's a textual code/identifier (like 'RED_FLAG', 'INITIATED')
+      // Pass it directly as is so the backend resolveStatusIdentifiers handles it
+      resultIds.push(String(status).trim().toUpperCase());
     }
   });
 
-  return numericIds.join(',');
+  return resultIds.join(',');
 };
 
 /**
  * Utility function to get status IDs from statusIdMap by key
  * Provides a consistent interface for all pages to fetch applications by status
  */
-export const getStatusIdsForKey = (statusKey: string): number[] => {
+export const getStatusIdsForKey = (statusKey: string): (string | number)[] => {
   if (!statusKey) return [];
   // Do a case-insensitive lookup because callers may use lowercase/uppercase variations
   const lookup = String(statusKey).toLowerCase();
@@ -451,25 +447,42 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
     }
   }
 
-  // Special handling for 'all' - fetch only approved applications
+  // For 'all' - send statusIds for all active/meaningful statuses
+  // (excludes drafts=12, cancelled=4 server-side instead of filtering client-side)
   if (key === 'all') {
     try {
-      // Fetch only approved applications (exclude drafts, cancellations, etc.)
-      const freshApps = await fetchAllApplications({ limit: 1000 });
-      const approvedApps = freshApps.filter((app) => {
-        const statusName = (
-          app.workflowStatus?.name ||
-          (typeof app.status === 'string' ? app.status : (app.status as any)?.name) ||
-          ''
-        ).toLowerCase();
-        const statusId = app.status_id;
-        // Only include approved applications (exclude drafts, cancelled, and status IDs 12, 13)
-        return statusId !== 12 && statusId !== 13 && !statusName.includes('draft') && !statusName.includes('cancel');
-      });
+      // Status IDs for active applications: forwarded(1), returned(2), re-enquiry(5),
+      // ground-report(6), dispose(7), red-flag(8), freshform(9), closed(10), approved(11)
+      const activeStatusIds = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11];
+      const statusIdsParam = activeStatusIds.join(',');
+      const response = await ApplicationApi.getAll({ statusIds: statusIdsParam, limit: 1000 } as any);
 
-      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all): Filtered to', approvedApps.length, 'approved applications');
-      return approvedApps;
+      if (!response?.success || !response?.data || !Array.isArray(response.data)) {
+        return [];
+      }
+
+      const applications = response.data.map(transformApiApplicationToApplicationData);
+      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (all):', applications.length, 'applications');
+      return applications;
     } catch (error) {
+      return [];
+    }
+  }
+
+  // Special handling for 'cancel' or 'cancelform' - fetch cancel requests via standard API
+  if (key === 'cancel' || key === 'cancelform') {
+    try {
+      const response = await ApplicationApi.getAll({ applicationType: 'CancelFormRequest', limit: 1000 } as any);
+
+      if (!response?.success || !response?.data || !Array.isArray(response.data)) {
+        return [];
+      }
+
+      const applications = response.data.map(transformApiApplicationToApplicationData);
+      console.debug('[sidebarApiCalls] fetchApplicationsByStatusKey (cancel):', applications.length, 'requests');
+      return applications;
+    } catch (error) {
+      console.error('❌ fetchApplicationsByStatusKey (cancel) error:', error);
       return [];
     }
   }
@@ -556,20 +569,29 @@ export const fetchAllApplications = async (params: Record<string, any> = {}): Pr
 /**
  * Fetch applications by status from the API
  */
-export const fetchApplicationsByStatus = async (status: number[] | string[]): Promise<ApplicationData[]> => {
+export const fetchApplicationsByStatus = async (status: number[] | string[] | (string | number)[]): Promise<ApplicationData[]> => {
   try {
-    const cacheKey = `fetchApplicationsByStatus_${status}`;
+    const cacheKey = `fetchApplicationsByStatus_${JSON.stringify(status)}`;
 
     // Check cache first
     const cachedData = getCachedData(cacheKey, 30000); // 30 second cache
     if (cachedData) {
       return cachedData;
     }
-    // Convert status names to numeric IDs if needed
+    // Convert status names to numeric IDs if needed, then send as comma-separated string
     const convertedStatusIds = convertStatusNamesToIds(status);
-    const params = { statusIds: convertedStatusIds };
+    if (!convertedStatusIds) {
+      // No valid status IDs — skip API call
+      console.debug('[fetchApplicationsByStatus] Empty statusIds after conversion, skipping API call', status);
+      return [];
+    }
+    // Pass statusIds explicitly so the query string reads: ?statusIds=1,8&limit=1000
+    const params: Record<string, any> = {
+      statusIds: convertedStatusIds,
+      limit: 1000,
+    };
 
-    const response = await ApplicationApi.getAll(params);
+    const response = await ApplicationApi.getAll(params as any);
     if (!response?.success || !response?.data || !Array.isArray(response.data)) {
       return [];
     }
@@ -599,22 +621,28 @@ export const fetchApplicationCounts = async (): Promise<{
   closedCount: number;
   cancelledCount: number;
   groundReportCount: number;
+  allCount: number;
 }> => {
   try {
     const cacheKey = 'fetchApplicationCounts';
 
-    // Check cache first - increased cache time to 5 minutes
-    const cachedData = getCachedData(cacheKey, 300000); // 5 minute cache
+    // Check cache first - 2 minute cache keeps counts reasonably fresh
+    const cachedData = getCachedData(cacheKey, 120000); // 2 minute cache
     if (cachedData) {
       return cachedData;
     }
-    // Only fetch counts for the essential inbox items to reduce API load
-    const [forwarded, returned, redFlagged, reEnquiry, draft] = await Promise.all([
+    const allActiveStatusIds = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11].join(',');
+    // Fetch counts for essential inbox items and total (All Applications)
+    const [forwarded, returned, redFlagged, reEnquiry, draft, allApps] = await Promise.all([
       fetchApplicationsByStatus(STATUS_MAP.forward),
       fetchApplicationsByStatus(STATUS_MAP.returned),
       fetchApplicationsByStatus(STATUS_MAP.flagged),
       fetchApplicationsByStatus(STATUS_MAP.reEnquiry),
       fetchApplicationsByStatus(STATUS_MAP.drafts),
+      // All Applications: fetch using statusIds to let backend filter (no client-side filtering)
+      ApplicationApi.getAll({ statusIds: allActiveStatusIds, limit: 1000 } as any)
+        .then(r => (Array.isArray(r?.data) ? r.data.map(transformApiApplicationToApplicationData) : []))
+        .catch(() => [] as import('../types').ApplicationData[]),
     ]);
 
     const counts = {
@@ -623,6 +651,7 @@ export const fetchApplicationCounts = async (): Promise<{
       redFlaggedCount: redFlagged.length,
       reEnquiryCount: reEnquiry.length,
       draftCount: draft.length,
+      allCount: allApps.length,
       // Set other counts to 0 for now - can be loaded on-demand
       pendingCount: 0,
       approvedCount: 0,
@@ -630,8 +659,8 @@ export const fetchApplicationCounts = async (): Promise<{
       cancelledCount: 0,
       groundReportCount: 0,
     };
-    // Cache the results for longer
-    setCachedData(cacheKey, counts, 300000);
+    // Cache the results for 2 minutes (matches getCachedData TTL above)
+    setCachedData(cacheKey, counts, 120000);
 
     return counts;
   } catch (error) {
@@ -646,6 +675,7 @@ export const fetchApplicationCounts = async (): Promise<{
       closedCount: 0,
       cancelledCount: 0,
       groundReportCount: 0,
+      allCount: 0,
     };
   }
 };
@@ -665,6 +695,17 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     (apiApp?.applicationType && /renewal/i.test(String(apiApp.applicationType)))
   );
 
+  const isCancel = Boolean(
+    apiApp?.cancelRequestId ||
+    (apiApp?.applicationType && /cancel/i.test(String(apiApp.applicationType)))
+  );
+
+  const applicationTypeLabel = isCancel
+    ? 'Cancel Request'
+    : isRenewal
+      ? 'Renewal'
+      : 'Fresh';
+
   return {
     id: String(apiApp.id || ''),
     acknowledgementNo: apiApp.acknowledgementNo || undefined,
@@ -675,7 +716,7 @@ const transformApiApplicationToApplicationData = (apiApp: any): ApplicationData 
     gender: apiApp.gender || undefined, // This might need to be fetched from detailed API
     dob: apiApp.dateOfBirth || undefined, // This might need to be fetched from detailed API
     address: apiApp.address || undefined, // This might need to be fetched from detailed API
-    applicationType: isRenewal ? 'Renewal Application' : 'Fresh License',
+    applicationType: applicationTypeLabel,
     applicationDate: apiApp.createdAt || new Date().toISOString(),
     applicationTime: apiApp.createdAt ? new Date(apiApp.createdAt).toTimeString() : undefined,
     status: apiApp.status,

@@ -1,0 +1,82 @@
+
+model Licenses {
+  id               Int      @id @default(autoincrement())
+  licenseNumber    String   @unique
+  applicationId    Int?
+  renewalId        Int?
+  issueDate        DateTime
+  validFrom        DateTime
+  validTill        DateTime
+  status           String   @default("ACTIVE")
+  qrCodeUrl        String?
+  pdfUrl           String?
+  digitalSignature String?
+  issuedBy         Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  freshApplication FreshLicenseApplicationPersonalDetails? @relation("FreshLicenseCreated", fields: [applicationId], references: [id])
+  renewalApplication RenewalFormPersonalDetails? @relation("RenewalLicenseCreated", fields: [renewalId], references: [id])
+  issuedByUser     Users? @relation("IssuedLicenses", fields: [issuedBy], references: [id])
+}
+
+model AuditLogs {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  applicationId Int?
+  entity        String
+  entityId      String?
+  action        String
+  oldValue      Json?
+  newValue      Json?
+  ip            String?
+  browser       String?
+  createdAt     DateTime @default(now())
+
+  user          Users    @relation("UserAuditLogs", fields: [userId], references: [id])
+}
+
+model PoliceEnquiryReports {
+  id                      Int      @id @default(autoincrement())
+  applicationId           Int?
+  renewalId               Int?
+  officerId               Int
+  addressVerification     String?
+  characterVerification   String?
+  occupationVerification  String?
+  criminalVerification    String?
+  threatAssessment        String?
+  storageInspection       String?
+  neighbourVerification   String?
+  remarks                 String
+  recommendation          String
+  attachments             Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  freshApplication FreshLicenseApplicationPersonalDetails? @relation("FreshPoliceReports", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication RenewalFormPersonalDetails? @relation("RenewalPoliceReports", fields: [renewalId], references: [id], onDelete: Cascade)
+  officer          Users   @relation("OfficerPoliceReports", fields: [officerId], references: [id])
+}
+
+model Hearings {
+  id               Int      @id @default(autoincrement())
+  applicationId    Int?
+  renewalId        Int?
+  scheduledBy      Int
+  hearingType      String
+  location         String
+  noticeNumber     String?
+  hearingDate      DateTime
+  decision         String?
+  attendanceStatus String?
+  remarks          String?
+  documents        Json?
+  status           String   @default("SCHEDULED")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  freshApplication FreshLicenseApplicationPersonalDetails? @relation("FreshHearings", fields: [applicationId], references: [id], onDelete: Cascade)
+  renewalApplication RenewalFormPersonalDetails? @relation("RenewalHearings", fields: [renewalId], references: [id], onDelete: Cascade)
+  scheduler        Users    @relation("ScheduledHearings", fields: [scheduledBy], references: [id])
+}

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { RenewalService } from '../../api/renewalService';
 import { getStatusStyle } from '../../utils/statusColors';
+import RenewalApplicationDetailsHeader from './renewalapplicationdetailsheader';
 
 interface RenewalApplicationDetails {
   id: number | string;
@@ -23,6 +24,8 @@ interface RenewalApplicationDetails {
   freshApplicationId?: string | number;
   sourceApplicationId?: string | number;
   renewalLicenseId?: string | number;
+  licenseId?: string | number;
+  freshLicenseId?: string | number;
   createdAt?: string;
   updatedAt?: string;
   isSubmit?: boolean;
@@ -106,6 +109,13 @@ export default function RenewalApplicationDetailsPage() {
 
   const statusLabel = getStatusLabel(application);
   const statusStyle = getStatusStyle(statusLabel);
+  const renewalId = application?.id;
+  const acknowledgementNo = application?.acknowledgementNo;
+  const applicationId =
+    application?.applicationId ||
+    application?.freshApplicationId ||
+    application?.sourceApplicationId ||
+    application?.renewalLicenseId;
 
   if (loading) {
     return (
@@ -122,7 +132,7 @@ export default function RenewalApplicationDetailsPage() {
     return (
       <div className='min-h-screen bg-slate-50 flex items-center justify-center px-4'>
         <div className='max-w-md rounded-2xl bg-white p-8 shadow-lg border border-slate-200 text-center'>
-          <h1 className='text-2xl font-bold text-slate-900'>Renewal Application Not Found</h1>
+          <h1 className='text-2xl font-bold text-slate-900'>Renewal Not Found</h1>
           <p className='mt-3 text-slate-600'>
             {error || 'The selected renewal application could not be loaded.'}
           </p>
@@ -155,26 +165,19 @@ export default function RenewalApplicationDetailsPage() {
     'N/A';
 
   return (
-    <div className='min-h-screen bg-slate-50 px-4 py-8'>
-      <div className='mx-auto max-w-5xl 2xl:max-w-[1200px]'>
-        <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
-          <div className='bg-gradient-to-r from-[#001F54] to-[#0d2f6b] px-6 py-5 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-            <div>
-              <p className='text-sm text-blue-100'>Renewal Application</p>
-              <h1 className='text-2xl font-semibold'>Application #{application.id}</h1>
-            </div>
-            <span
-              className='inline-flex w-fit rounded-full px-4 py-2 text-sm font-semibold border'
-              style={{
-                backgroundColor: statusStyle.bg,
-                color: statusStyle.text,
-                borderColor: statusStyle.border,
-              }}
-            >
-              {statusLabel}
-            </span>
-          </div>
+    <div className='min-h-screen bg-slate-50 px-4 py-8 mt-0'>
+      <div className='mx-auto max-w-5xl 2xl:max-w-[1200px] space-y-6'>
+        <RenewalApplicationDetailsHeader
+          licenseId={
+            application.licenseNumber || application.licenseId || application.freshLicenseId
+          }
+          renewalId={renewalId}
+          acknowledgementNo={acknowledgementNo}
+          activeTab='Renewal Details'
+          imageSrc='/file.svg'
+        />
 
+        <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
           <div className='grid gap-6 p-6 md:grid-cols-2'>
             <InfoCard label='Applicant Name' value={applicantName} />
             <InfoCard label='Licence Number' value={application.licenseNumber || 'N/A'} />
@@ -196,15 +199,17 @@ export default function RenewalApplicationDetailsPage() {
             <button
               type='button'
               onClick={() => {
-                const linkedApplicationId = String(
-                  application?.applicationId ||
+                const linkedLicenseId = String(
+                  application?.licenseId ||
+                    application?.freshLicenseId ||
+                    application?.licenseNumber ||
+                    application?.applicationId ||
                     application?.freshApplicationId ||
                     application?.sourceApplicationId ||
-                    application?.renewalLicenseId ||
                     ''
                 );
-                const url = linkedApplicationId
-                  ? `/forms/renewal?applicationId=${encodeURIComponent(linkedApplicationId)}&renewalId=${encodeURIComponent(String(id))}`
+                const url = linkedLicenseId
+                  ? `/forms/renewal?licenseId=${encodeURIComponent(linkedLicenseId)}&renewalId=${encodeURIComponent(String(id))}`
                   : `/forms/renewal?renewalId=${encodeURIComponent(String(id))}`;
                 router.push(url);
               }}

@@ -4,6 +4,12 @@ import { format } from 'date-fns';
 import { AdminBorderRadius } from '@/styles/admin-design-system';
 import { ApplicationRecord } from '@/services/analyticsService';
 
+const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  FRESH: { bg: '#EFF6FF', text: '#2563EB' },
+  RENEWAL: { bg: '#ECFDF5', text: '#059669' },
+  CANCEL: { bg: '#FEF3C7', text: '#D97706' },
+};
+
 export const ApplicationsTable: React.FC<{
   applications: ApplicationRecord[];
   loading: boolean;
@@ -11,7 +17,7 @@ export const ApplicationsTable: React.FC<{
   total: number;
   colors: any;
 }> = ({ applications, loading, start, colors }) => {
-  if (loading) return <AdminTableSkeleton rows={6} columns={6} />;
+  if (loading) return <AdminTableSkeleton rows={6} columns={7} />;
 
   return (
     <>
@@ -33,6 +39,30 @@ export const ApplicationsTable: React.FC<{
             },
             { key: 'licenseId', header: 'License ID', render: v => v || '--' },
             { key: 'applicantName', header: 'Application Name', render: v => v || '--' },
+            {
+              key: 'applicationType',
+              header: 'Type',
+              width: '100px',
+              render: (v: any) => {
+                const type = String(v || '').toUpperCase();
+                const palette = TYPE_COLORS[type] || { bg: '#F3F4F6', text: '#6B7280' };
+                const label = type ? `${type.charAt(0)}${type.slice(1).toLowerCase()}` : '--';
+                return (
+                  <span
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: AdminBorderRadius.full,
+                      backgroundColor: palette.bg,
+                      color: palette.text,
+                      fontWeight: 600,
+                      fontSize: '12px',
+                    }}
+                  >
+                    {label}
+                  </span>
+                );
+              },
+            },
             {
               key: 'status',
               header: 'Status',

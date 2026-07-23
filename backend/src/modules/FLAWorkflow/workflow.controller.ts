@@ -1,8 +1,9 @@
-import { Controller, Post, Body, UseGuards, Req, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Controller, Post, Get, Param, Query, Body, UseGuards, Req, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../middleware/jwt-auth.guard';
 import { ForwardDto } from './dto/forward.dto';
 import { WorkflowService } from './workflow.service';
+import prisma from '../../db/prismaClient';
 import { Request } from 'express';
 
 @ApiTags('Workflow')
@@ -10,6 +11,22 @@ import { Request } from 'express';
 export class WorkflowController {
   constructor(private readonly workflowService: WorkflowService) {}
   
+  @UseGuards(JwtAuthGuard)
+  @Get('history/:applicationId')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get Workflow History', description: 'Fetch timeline of workflow actions for an application' })
+  async getHistory(
+    @Param('applicationId') applicationId: string,
+    @Query('type') applicationType?: string
+  ) {
+    const id = Number(applicationId);
+    if (isNaN(id)) {
+      throw new BadRequestException('Invalid applicationId');
+    }
+    const history = await this.workflowService.getWorkflowHistory(id, applicationType || 'fresh');
+    return { success: true, data: history };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('action')
   @ApiBearerAuth('JWT-auth')
@@ -156,8 +173,7 @@ export class WorkflowController {
     }
 
     // Dynamically validate actionId against Actiones table
-    const actionRepo = this.workflowService['prisma'].actiones;
-    const action = await actionRepo.findFirst({
+    const action = await prisma.actiones.findFirst({
       where: { id: Number(body.actionId), isActive: true }
     });
     if (!action) {
@@ -189,10 +205,15 @@ export class WorkflowController {
       };
     } catch (error) {
       console.error('Workflow Action Error:', error);
+      // Re-throw known HTTP exceptions with their original status & message
       if (error instanceof ForbiddenException) throw error;
       if (error instanceof NotFoundException) throw error;
       if (error instanceof BadRequestException) throw error;
-      throw new InternalServerErrorException('Unexpected error occurred.');
+      if (error instanceof InternalServerErrorException) throw error;
+      // For unexpected errors (Prisma, runtime, etc.), surface the real message
+      throw new InternalServerErrorException(
+        error instanceof Error ? error.message : 'Unexpected error occurred.'
+      );
     }
   }
 }

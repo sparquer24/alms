@@ -16,8 +16,16 @@ import { BiometricModule } from './biometric/biometric.module';
 import { PublicModule } from './public/public.module';
 import { RenewalFormModule } from './renewal/renewal-form.module';
 import { CancelFormModule } from './CancelForm/cancel-form.module';
+import { VerificationModule } from './verification/verification.module';
+import { LicensesModule } from './licenses/licenses.module';
+import { HearingsModule } from './hearings/hearings.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
+import { AuditModule } from './audit/audit.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
-  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule],
+  imports: [HealthModule, UserModule, WeaponsModule, RolesModule, StatusModule, ActionesModule, AuthModule, ApplicationFormModule, LocationsModule, WorkflowModule, AnalyticsModule, FlowMappingModule, BiometricModule, PublicModule, RenewalFormModule, CancelFormModule, VerificationModule, LicensesModule, HearingsModule, NotificationsModule, SchedulerModule, AuditModule, DocumentsModule],
+
 })
 export class AppModule { }

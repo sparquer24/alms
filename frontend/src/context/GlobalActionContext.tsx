@@ -203,10 +203,7 @@ export const useSidebarAction = () => {
         console.error(`[SidebarAction] Navigation to ${targetPath} failed:`, error);
         return false;
       } finally {
-        // Small delay before ending action to prevent rapid re-clicks
-        setTimeout(() => {
-          endAction(actionId);
-        }, 300);
+        endAction(actionId);
       }
     },
     [isActionInProgress, startAction, endAction, canNavigateTo, setActiveNavigationPath]

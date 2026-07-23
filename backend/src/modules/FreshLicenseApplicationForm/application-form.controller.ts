@@ -471,12 +471,20 @@ export class ApplicationFormController {
   @ApiResponse({ status: 400, description: 'Bad request - Invalid data or application ID' })
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  @ApiResponse({ status: 500, description: 'Internal server error' })
-  async uploadFile(
+  @ApiResponse({ status: 500, description: 'Internal server error' })    async uploadFile(
     @Param('applicationId') applicationId: string,
     @Body() dto: UploadFileDto,
     @Request() req: any
   ) {
+    // Validate MIME type based on file extension
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'doc', 'docx', 'xls', 'xlsx'];
+    const fileExt = dto.fileName?.split('.').pop()?.toLowerCase();
+    if (!fileExt || !allowedExtensions.includes(fileExt)) {
+      throw new HttpException(
+        { success: false, error: `File type '.${fileExt || 'unknown'}' is not allowed. Allowed types: ${allowedExtensions.join(', ')}` },
+        HttpStatus.BAD_REQUEST
+      );
+    }
     try {
       const applicationIdNum = parseInt(applicationId, 10);
       if (isNaN(applicationIdNum)) {
@@ -581,7 +589,7 @@ export class ApplicationFormController {
           HttpStatus.BAD_REQUEST
         );
       }
-      const [error, result] = await this.applicationFormService.deleteApplicationId(fileIdNum);
+      const [error, result] = await this.applicationFormService.deleteFileRecordById(fileIdNum);
       if (error) {
         const errorMessage = typeof error === 'object' && error.message ? error.message : error;
         const errorDetails = typeof error === 'object' ? error : {};
@@ -726,9 +734,7 @@ export class ApplicationFormController {
         order: parsedOrder as 'asc' | 'desc',
         currentUserId: req.user?.sub, // If you need user context
         // Resolve textual identifiers to numeric IDs if provided
-        statusIds: parsedStatusIdentifiers && parsedStatusIdentifiers.length > 0
-          ? await this.applicationFormService.resolveStatusIdentifiers(parsedStatusIdentifiers)
-          : undefined,
+        statusIds: parsedStatusIdentifiers,
         // applicationId: parsedApplicationId,
         isOwned: isOwned === true,
         isSent: isSent === true,

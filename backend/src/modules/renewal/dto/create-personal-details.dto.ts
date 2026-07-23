@@ -8,6 +8,13 @@ export class CreateRenewalPersonalDetailsDto {
   @IsString()
   licenseNumber!: string;
 
+
+  @ApiPropertyOptional({ example: 123, description: 'ID of the license record this renewal is linked to' })
+  @IsOptional()
+  @IsNumber()
+  licenseId?: number;
+
+
   @ApiPropertyOptional({ example: 'RENEWAL-2024-001', description: 'Acknowledgement number (optional, unique)' })
   @IsOptional()
   @IsString()
@@ -57,6 +64,11 @@ export class CreateRenewalPersonalDetailsDto {
   @IsOptional()
   @IsString()
   aadharNumber?: string;
+
+  @ApiPropertyOptional({ example: 'Mumbai', description: 'Place of birth' })
+  @IsOptional()
+  @IsString()
+  placeOfBirth?: string;
 
   @ApiPropertyOptional({ description: 'User ID who is filling the form' })
   @IsOptional()

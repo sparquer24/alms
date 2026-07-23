@@ -122,6 +122,20 @@ export default function CascadingLocationSelect({
     })();
   }, [sel.district?.id]);
 
+  // Auto-select first Range Office when loaded and not set
+  React.useEffect(() => {
+    if (rangeOffices.length > 0 && !sel.rangeOffice?.id) {
+      const firstRO = rangeOffices[0];
+      setSel(prev => ({
+        ...prev,
+        rangeOffice: firstRO,
+        zone: null,
+        division: null,
+        station: null
+      }));
+    }
+  }, [rangeOffices, sel.rangeOffice?.id]);
+
   // load zones when range office changes
   React.useEffect(() => {
     (async () => {
@@ -130,6 +144,19 @@ export default function CascadingLocationSelect({
       setZones(z);
     })();
   }, [sel.rangeOffice?.id]);
+
+  // Auto-select first Zone when loaded and not set
+  React.useEffect(() => {
+    if (zones.length > 0 && !sel.zone?.id) {
+      const firstZone = zones[0];
+      setSel(prev => ({
+        ...prev,
+        zone: firstZone,
+        division: null,
+        station: null
+      }));
+    }
+  }, [zones, sel.zone?.id]);
 
   // load divisions when zone changes
   React.useEffect(() => {

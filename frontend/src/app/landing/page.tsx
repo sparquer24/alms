@@ -6,11 +6,11 @@ import type { LandingPageData } from "@/types/landing";
 import LandingHeader from "./components/Header";
 import HeroSection from "./components/HeroSection";
 import ServicesSection from "./components/ServicesSection";
-import WorkflowSection from "./components/WorkflowSection";
+
 import EcosystemSection from "./components/EcosystemSection";
 import AdminCenter from "./components/AdminCenter";
 import ComplianceSection from "./components/ComplianceSection";
-import LifecycleSection from "./components/LifecycleSection";
+
 import SecuritySection from "./components/SecuritySection";
 import LandingFooter from "./components/Footer";
 
@@ -28,8 +28,7 @@ export default function LandingPage() {
       {/* Core Service Modules */}
       <ServicesSection services={data.serviceModules} />
 
-      {/* Workflow Governance */}
-      <WorkflowSection workflow={data.workflowGovernance} />
+
 
       {/* ALMS Ecosystem */}
       <EcosystemSection groups={data.ecosystem} />
@@ -49,12 +48,7 @@ export default function LandingPage() {
         items={data.compliance.items}
       />
 
-      {/* Complete License Lifecycle */}
-      <LifecycleSection
-        title={data.lifecycle.title}
-        description={data.lifecycle.description}
-        stages={data.lifecycle.stages}
-      />
+
 
       {/* Security & Governance */}
       <SecuritySection
