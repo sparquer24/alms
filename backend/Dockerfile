@@ -1,34 +1,36 @@
-# Use official Node.js image
-FROM node:22.19.0-alpine
+# Development Dockerfile — optimized for Docker layer caching
+#
+# Layer invalidation order (least → most frequently changing):
+#   1. System packages (apk)
+#   2. package.json / lockfile
+#   3. Prisma schema
+#   4. Entrypoint script
+#   5. Source code
 
-# Set working directory
+FROM node:22.19.0-alpine
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
-# Install build dependencies required for compiling native modules (bcrypt, etc.),
-# run npm install, then remove build deps to keep the image small.
+# Layer 1: Install all system build deps in one layer (rarely changes)
 RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
-	&& npm install \
-	&& apk del .build-deps || true
+    && apk add --no-cache dos2unix netcat-openbsd
 
-# Copy the rest of the application code
+# Layer 2: Install Node dependencies (cached until package.json / lockfile changes)
+COPY package*.json ./
+RUN npm install && apk del .build-deps
+
+# Layer 3: Copy Prisma schema and generate client (cached unless schema changes)
+COPY prisma/ ./prisma/
+RUN npx prisma generate
+
+# Layer 4: Copy entrypoint (rarely changes after setup)
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN dos2unix /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Layer 5: Copy application source (changes most frequently)
 COPY . .
 
-# Generate Prisma client so @prisma/client is available at runtime
-RUN npx prisma generate || true
-
-# Expose the port your NestJS app runs on
 EXPOSE 3000
-# Copy entrypoint and make executable
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-# Install dos2unix and netcat, normalize line endings to LF to avoid
-# /usr/local/bin/docker-entrypoint.sh: no such file or directory and
-# allow the entrypoint to probe the DB port before starting the app
-RUN apk add --no-cache dos2unix netcat-openbsd || true \
-	&& dos2unix /usr/local/bin/docker-entrypoint.sh || true \
-	&& chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Start the application; entrypoint will ensure prisma client generation at container start
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["npm", "run", "start:dev"]

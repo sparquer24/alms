@@ -1,29 +1,55 @@
+# Production Dockerfile for Next.js frontend
+# Optimized for Docker layer caching
+#
+# Layer invalidation order (least → most frequently changing):
+#   1. System packages (apk)
+#   2. package.json / lockfile
+#   3. Config files (next.config.js, tsconfig.json, etc.)
+#   4. Public assets (favicon, images, etc.)
+#   5. Source code (most frequent)
+
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Install build dependencies for native modules
-COPY package*.json ./
-RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
-    && npm install \
-    && apk del .build-deps || true
+# Layer 1: Install system build deps (rarely changes)
+RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git
 
-# Copy source and build
-COPY . .
+# Layer 2: Install Node dependencies (cached until package.json / lockfile changes)
+COPY package*.json ./
+RUN npm ci && apk del .build-deps
+
+# Layer 3: Copy config files (cached unless config changes)
+COPY next.config.js tsconfig.json postcss.config.js tailwind.config.js ./
+
+# Layer 4: Copy middleware (root-level, required by Next.js for auth/redirects)
+COPY middleware.ts ./
+
+# Layer 5: Copy public assets (rarely changes)
+COPY public/ ./public/
+
+# Layer 6: Copy application source (changes most frequently)
+COPY src/ ./src/
+
+# Layer 7: Build the app
 RUN NODE_OPTIONS=--max-old-space-size=8192 npx next build
 
-# ─── Runner stage ─────────────────────────────────────────────────────────────
+# ── Stage 2: Runner ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=5001
 
-# Copy only what's needed to run the standalone server
+# Layer 1: Copy standalone server (framework + compiled code)
 COPY --from=builder /app/.next/standalone ./
+
+# Layer 2: Copy static assets (JS, CSS chunks for client)
 COPY --from=builder /app/.next/static ./.next/static
+
+# Layer 3: Copy public assets
 COPY --from=builder /app/public ./public
 
 EXPOSE 5001
 
-# Run the Next.js standalone server (handles all routes including dynamic ones)
 CMD ["sh", "-c", "PORT=5001 node server.js"]

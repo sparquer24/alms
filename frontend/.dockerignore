@@ -1,9 +1,42 @@
+# --- Dependencies ---
 node_modules
+
+# --- Build output ---
 .next
 dist
-.env.local
+out
+coverage
+
+# --- Environment & secrets ---
 .env
-npm-debug.log
+.env.local
+.env.*
+!.env.example
+
+# --- Version control ---
+.git
+.gitignore
+.gitattributes
+
+# --- IDE & editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS files ---
+Thumbs.db
+.DS_Store
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Docker ---
 Dockerfile
-Dockerfile.*
-/.git
+Dockerfile*
+docker-compose*
+
+# --- Temp ---
+tmp/

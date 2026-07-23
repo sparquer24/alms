@@ -1,14 +1,59 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
 **/node_modules
+
+# ── Build output ──────────────────────────────────────────────────────────────
 **/dist
+**/.next
+**/out
+
+# ── Environment & secrets ────────────────────────────────────────────────────
 .env
 .env.*
-npm-debug.log
-Dockerfile
-Dockerfile.*
+!.env.example
+
+# ── Version control ───────────────────────────────────────────────────────────
 .git
-uploads/
+.gitignore
+.gitattributes
+
+# ── IDE & editor ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+
+# ── OS files ──────────────────────────────────────────────────────────────────
 Thumbs.db
 .DS_Store
+.DS_Store?
+
+# ── Logs & debug ─────────────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+Dockerfile
+Dockerfile.*
+docker-compose*
+
+# ── Uploads / temp (backend) ─────────────────────────────────────────────────
+uploads/
+scratch/
+tmp/
+temp/
+
+# ── Documentation & config (not needed at runtime) ────────────────────────────
+*.md
+!docs/
+*.yml
+*.yaml
+!docker-compose.yml
+!docker-compose.prod.yml
+
+# ── Test & CI ─────────────────────────────────────────────────────────────────
+coverage/
+__tests__/
+__mocks__/
+jest.config.*
