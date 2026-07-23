@@ -370,35 +370,42 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           setOriginalLicenseHistory([]);
           return;
         }
-        setOriginalLicenseData(license);
+        setOriginalLicenseData(license);          // Now call the Workflow History API using the source application data
+          // from the License API response, matching the Documents API logic:
+          //   - id: the source application's primary key (license.id from the License API)
+          //   - type: derived from the first character of the acknowledgement number:
+          //       'F' → FRESH | 'R' → RENEWAL | 'C' → CANCELLATION
+          if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
+            originalLicenseHistoryLoadedIdRef.current = licenseId;
+            setOriginalLicenseHistory([]);
 
-        // Now call the Workflow History API using the License's sourceApplicationId
-        // and lastModifiedAppType. Avoid duplicate calls for the same license.
-        if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
-          originalLicenseHistoryLoadedIdRef.current = licenseId;
-          setOriginalLicenseHistory([]);
-          const lastModifiedAppType =
-            license.lastModifiedAppType ?? (license as any).lastModifiedAppTypeId ?? 'FRESH';
-          const historyAppId =
-            lastModifiedAppType === 'FRESH'
-              ? (license.freshApplicationId ?? (license as any).freshAppId ?? null)
-              : (license.renewalApplicationId ?? (license as any).renewalAppId ?? null);
-          if (historyAppId) {
-            try {
-              const historyResponse = await apiClient.get<any>(
-                `/workflow/history/${historyAppId}?type=${lastModifiedAppType}`
-              );
-              if (historyResponse && historyResponse.success) {
-                setOriginalLicenseHistory(historyResponse.data);
-              } else if (Array.isArray(historyResponse)) {
-                setOriginalLicenseHistory(historyResponse);
+            // Source application ID from the License API response
+            const srcAppId = (license as any).id;
+            const ackNo = (license as any).acknowledgementNo;
+
+            if (srcAppId && ackNo) {
+              // Derive the type from the first character of the acknowledgement number
+              const firstChar = String(ackNo).charAt(0).toUpperCase();
+              let derivedType: string;
+              if (firstChar === 'R') derivedType = 'RENEWAL';
+              else if (firstChar === 'C') derivedType = 'CANCELLATION';
+              else derivedType = 'FRESH';
+
+              try {
+                const historyResponse = await apiClient.get<any>(
+                  `/workflow/history/${srcAppId}?type=${derivedType}`
+                );
+                if (historyResponse && historyResponse.success) {
+                  setOriginalLicenseHistory(historyResponse.data);
+                } else if (Array.isArray(historyResponse)) {
+                  setOriginalLicenseHistory(historyResponse);
+                }
+              } catch (historyErr) {
+                console.error('Failed to fetch original license workflow history', historyErr);
+                setOriginalLicenseHistory([]);
               }
-            } catch (historyErr) {
-              console.error('Failed to fetch original license workflow history', historyErr);
-              setOriginalLicenseHistory([]);
             }
           }
-        }
       } catch (err) {
         console.error('Failed to fetch original license on tab change', err);
       } finally {
@@ -411,22 +418,37 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   // When the Origin tab is active and original license data is available,
   // fetch the original application's documents via the Documents API.
+  //
+  // Instead of passing the current renewal application ID and type directly,
+  // use the source application data from the License API response:
+  //   - id: the source application's primary key (data.id from the License API)
+  //   - type: derived from the first character of the acknowledgement number:
+  //       'F' → Fresh | 'R' → Renewal | 'C' → Cancellation
   useEffect(() => {
     const fetchOriginDocuments = async () => {
       if (activeTab !== 'original' || !originalLicenseData) return;
 
-      const lastAppType = (originalLicenseData as any).lastModifiedAppType;
-      const sourceId =
-        lastAppType === 'FRESH'
-          ? (originalLicenseData as any).freshApplicationId
-          : lastAppType === 'RENEWAL'
-            ? (originalLicenseData as any).renewalApplicationId
-            : (originalLicenseData as any).cancelApplicationId;
-      if (!sourceId || !lastAppType) return;
+      // Source application ID: the License API response merges source application
+      // fields at the top level (via buildLicenseDetailResponse), so originalLicenseData.id
+      // is the source application's primary key, NOT the license PK.
+      const srcAppId = (originalLicenseData as any).id;
+      const ackNo = (originalLicenseData as any).acknowledgementNo;
+
+      if (!srcAppId || !ackNo) {
+        setOriginDocuments([]);
+        return;
+      }
+
+      // Derive the type from the first character of the acknowledgement number.
+      const firstChar = String(ackNo).charAt(0).toUpperCase();
+      let derivedType: string;
+      if (firstChar === 'R') derivedType = 'Renewal';
+      else if (firstChar === 'C') derivedType = 'Cancellation';
+      else derivedType = 'Fresh';
 
       setOriginDocumentsLoading(true);
       try {
-        const docs = await getDocuments(Number(sourceId), lastAppType);
+        const docs = await getDocuments(Number(srcAppId), derivedType);
         setOriginDocuments(docs);
       } catch (err) {
         console.error('Failed to fetch origin documents:', err);
@@ -847,6 +869,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               applicationId={application.id}
               renewalId={application.id}
               acknowledgementNo={application.acknowledgementNo}
+              licenseId={originalLicenseData?.id ?? rawRenewalData?.licenseId}
+              licenseNumber={originalLicenseData?.licenseNumber}
               activeTab={activeTab === 'original' ? 'Original License Details' : 'Renewal Info'}
               onTabChange={handleTabChange}
             />

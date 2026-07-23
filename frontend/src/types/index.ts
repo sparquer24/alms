@@ -686,6 +686,8 @@ export interface LicenseData {
   renewalApplicationId?: number | null;
   cancelApplicationId?: number | null;
   lastModifiedAppType?: string | null;
+  lastModifiedRenewalId?: number | null;
+  renewalIds?: number[];
 
   // Timestamps
   createdAt: string;

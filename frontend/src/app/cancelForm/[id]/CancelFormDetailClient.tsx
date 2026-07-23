@@ -142,7 +142,7 @@ export default function CancelFormDetailClient() {
   }, [searchParams]);
 
   const handleTabChange = (tab: string) => {
-    const nextTab = tab === 'License Details' ? 'original' : 'info';
+    const nextTab = tab === 'Original License Details' ? 'original' : 'info';
     setActiveTab(nextTab);
     const params = new URLSearchParams(searchParams?.toString() || '');
     params.set('tab', nextTab);
@@ -246,6 +246,7 @@ export default function CancelFormDetailClient() {
               loadOriginal={originalLoaded}
             />
 
+            {activeTab === 'info' && (
             <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden print:hidden'>
               <div className='p-4 lg:p-4 border-t border-gray-100'>
                 <div
@@ -498,6 +499,7 @@ export default function CancelFormDetailClient() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       </main>

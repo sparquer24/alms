@@ -1730,7 +1730,7 @@ export class ApplicationFormService {
       rangeOfficeId: number;
     };
   } | null> {
-    // Fetch the cancel request to get the original application ID and current assignee
+    // Fetch the cancel request to get the license link and current assignee
     const cancelRequest = await prisma.cancelFormRequests.findUnique({
       where: { id: applicationId },
       select: {
@@ -1761,50 +1761,101 @@ export class ApplicationFormService {
 
     if (!cancelRequest.licenseId) return null;
 
-    // Now fetch the original application's address - try fresh then renewal
-    let originalApp: any = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+    // ----------------------------------------------------------------
+    // FIX: cancelRequest.licenseId is the ID in the `licenses` table,
+    // NOT a direct FK into the application personal details tables.
+    // We must first look up the license record to get the source
+    // application IDs (freshApplicationId / renewalApplicationId).
+    // ----------------------------------------------------------------
+    const license = await prisma.licenses.findUnique({
       where: { id: cancelRequest.licenseId },
       select: {
         id: true,
-        presentAddress: {
-          select: {
-            stateId: true,
-            districtId: true,
-            zoneId: true,
-            divisionId: true,
-            policeStationId: true,
-            rangeOfficeId: true
-          }
-        }
+        freshApplicationId: true,
+        renewalApplicationId: true,
+        // License also has flattened address fields as a fallback
+        presentStateId: true,
+        presentDistrictId: true,
+        presentZoneId: true,
+        presentDivisionId: true,
+        presentPoliceStationId: true,
+        presentRangeOfficeId: true,
       }
     });
 
-    if (!originalApp) {
-      originalApp = await prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: cancelRequest.licenseId },
+    if (!license) return null;
+
+    const addressSelect = {
+      select: {
+        stateId: true,
+        districtId: true,
+        zoneId: true,
+        divisionId: true,
+        policeStationId: true,
+        rangeOfficeId: true
+      }
+    };
+
+    let sourceAppId: number | null = null;
+    let presentAddress: {
+      stateId: number;
+      districtId: number;
+      zoneId: number;
+      divisionId: number;
+      policeStationId: number;
+      rangeOfficeId: number;
+    } | null = null;
+
+    // 1) Try fresh application link
+    if (license.freshApplicationId) {
+      const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: license.freshApplicationId },
         select: {
           id: true,
-          presentAddress: {
-            select: {
-              stateId: true,
-              districtId: true,
-              zoneId: true,
-              divisionId: true,
-              rangeOfficeId: true,
-              policeStationId: true
-            }
-          }
+          presentAddress: addressSelect
         }
       });
+      if (freshApp?.presentAddress) {
+        sourceAppId = freshApp.id;
+        presentAddress = freshApp.presentAddress as any;
+      }
     }
 
-    if (!originalApp?.presentAddress) return null;
+    // 2) Try renewal application link (if fresh didn't yield an address)
+    if (!presentAddress && license.renewalApplicationId) {
+      const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: license.renewalApplicationId },
+        select: {
+          id: true,
+          presentAddress: addressSelect
+        }
+      });
+      if (renewalApp?.presentAddress) {
+        sourceAppId = renewalApp.id;
+        presentAddress = renewalApp.presentAddress as any;
+      }
+    }
+
+    // 3) Fallback: use the license's own flattened address fields
+    if (!presentAddress && license.presentStateId && license.presentDistrictId) {
+      sourceAppId = cancelRequest.licenseId;
+      presentAddress = {
+        stateId: license.presentStateId,
+        districtId: license.presentDistrictId,
+        zoneId: license.presentZoneId ?? 0,
+        divisionId: license.presentDivisionId ?? 0,
+        policeStationId: license.presentPoliceStationId ?? 0,
+        rangeOfficeId: license.presentRangeOfficeId ?? 0,
+      };
+    }
+
+    if (!presentAddress || sourceAppId === null) return null;
 
     return {
-      originalAppId: originalApp.id,
+      originalAppId: sourceAppId,
       currentUserId: effectiveUserId,
       roleId: effectiveUser.roleId,
-      presentAddress: originalApp.presentAddress
+      presentAddress
     };
   }
 
