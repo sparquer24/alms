@@ -10,6 +10,7 @@ import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
 import LicenseService from '../../../services/licenseService';
+import CancelService from '../../../api/cancelService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
 import {
   applyPrefilledDocumentUploads,
@@ -2323,6 +2324,32 @@ function RenewalFormPageContent() {
         throw new Error('No license data found for the provided License ID or License Number.');
       }
 
+      // Check if the license has been CANCELLED
+      if (freshData.status === 'CANCELLED') {
+        throw new Error('This license has been cancelled.');
+      }
+
+      // Check if a PENDING cancellation request already exists for this license
+      try {
+        const existingCancelResponse = await CancelService.getCancelRequests({
+          licenseId: Number(freshData.licenseId || freshData.id),
+          status: 'PENDING',
+        });
+        const existingCancelData = existingCancelResponse?.data || [];
+        if (Array.isArray(existingCancelData) && existingCancelData.length > 0) {
+          throw new Error('This license is already in the cancellation process.');
+        }
+      } catch (err: any) {
+        // Re-throw if it's our specific validation error
+        if (
+          err?.message === 'This license is already in the cancellation process.' ||
+          err?.message === 'This license has been cancelled.'
+        ) {
+          throw err;
+        }
+        // Otherwise, if the check fails (network error), allow proceeding (backend will validate)
+      }
+
       const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
@@ -2430,6 +2457,33 @@ function RenewalFormPageContent() {
       if (!licenseData) {
         throw new Error('No license data found for the provided License ID or License Number.');
       }
+
+      // Check if the license has been CANCELLED
+      if (licenseData.status === 'CANCELLED') {
+        throw new Error('This license has been cancelled.');
+      }
+
+      // Check if a PENDING cancellation request already exists for this license
+      try {
+        const existingCancelResponse = await CancelService.getCancelRequests({
+          licenseId: Number(licenseData.licenseId || licenseData.id),
+          status: 'PENDING',
+        });
+        const existingCancelData = existingCancelResponse?.data || [];
+        if (Array.isArray(existingCancelData) && existingCancelData.length > 0) {
+          throw new Error('This license is already in the cancellation process.');
+        }
+      } catch (err: any) {
+        // Re-throw if it's our specific validation error
+        if (
+          err?.message === 'This license is already in the cancellation process.' ||
+          err?.message === 'This license has been cancelled.'
+        ) {
+          throw err;
+        }
+        // Otherwise, if the check fails (network error), allow proceeding (backend will validate)
+      }
+
       router.push(`/forms/renewal?licenseId=${encodeURIComponent(value)}`);
     } catch (err: any) {
       setVerificationError(err?.message || 'Failed to verify License ID or License Number.');
@@ -2735,6 +2789,13 @@ function RenewalFormPageContent() {
         // Step 1: Fetch license data exactly ONCE.
         const applicationCheckResponse = await ApplicationService.getLicense(resolvedLicenseId);
         const freshData = extractData(applicationCheckResponse);
+
+        // Check if the license has been CANCELLED
+        if (freshData?.status === 'CANCELLED') {
+          toast.error('Cannot create a renewal application for a cancelled license. This license has been permanently cancelled and no further actions are allowed.');
+          setIsLoading(false);
+          return;
+        }
 
         if (!freshData) {
           throw new Error('No license data found for the provided ID.');

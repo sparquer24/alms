@@ -733,7 +733,7 @@ model Licenses {
   aadharNumber               String?
   panNumber                  String?
   validFrom                  DateTime
-  validTill                  DateTime
+  validTill                  DateTime?
   armsCategory               ArmsCategory?
   areaOfValidity             String?
   ammunitionDescription      String?

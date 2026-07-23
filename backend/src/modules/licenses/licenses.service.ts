@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
-import { LicenseStatus } from '@prisma/client';
+import { LicenseStatus, Prisma } from '@prisma/client';
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -700,7 +700,7 @@ export class LicensesService {
                 </tr>
                 <tr>
                   <th>Valid Till</th>
-                  <td style="color: #c0392b; font-weight: 600;">${validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
+                  <td style="color: #c0392b; font-weight: 600;">${validTill ? validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}</td>
                 </tr>
                 <tr>
                   <th>Area of Validity</th>
@@ -1355,5 +1355,38 @@ export class LicensesService {
     }
 
     return null;
+  }
+
+  async cancelLicense(
+    licenseId: number,
+    reason: string,
+    applicationId: number,
+    currentUserId: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.licenses.update({
+      where: { id: licenseId },
+      data: {
+        status: LicenseStatus.CANCELLED,
+        validTill: null,
+        cancellationReason: reason,
+        cancellationDate: new Date(),
+        cancelApplicationId: applicationId,
+        lastModifiedAppType: 'CANCELLATION',
+      },
+    });
+
+    await tx.licenseWorkflowHistory.create({
+      data: {
+        licenseId,
+        action: 'CANCELLED',
+        applicationId,
+        applicationType: 'CANCELLATION',
+        previousStatus: LicenseStatus.ACTIVE,
+        newStatus: LicenseStatus.CANCELLED,
+        changedBy: currentUserId,
+        remarks: `License cancelled. Reason: ${reason}`,
+      },
+    });
   }
 }

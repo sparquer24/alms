@@ -1,11 +1,15 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { LicenseStatus } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 
 @Injectable()
 export class WorkflowService {
+  constructor(
+    private readonly cancelWorkflowHandler: CancelWorkflowHandler,
+  ) {}
 
   async getStatusesAndActions(id?: number) {
     if (id) {
@@ -938,33 +942,12 @@ export class WorkflowService {
           }
         }
 
-        // === LICENSE HOOK: Cancel the license record itself ===
+        // === LICENSE HOOK: Delegate to handler ===
         try {
-          await tx.licenses.update({
-            where: { id: cancelRequest.licenseId },
-            data: {
-              status: LicenseStatus.CANCELLED,
-              cancellationReason: cancelRequest.cancellationReason,
-              cancellationDate: new Date(),
-              cancelApplicationId: payload.applicationId,
-              lastModifiedAppType: 'CANCELLATION',
-            },
-          });
-
-          await tx.licenseWorkflowHistory.create({
-            data: {
-              licenseId: cancelRequest.licenseId,
-              action: 'CANCELLED',
-              applicationId: payload.applicationId,
-              applicationType: 'CANCELLATION',
-              previousStatus: LicenseStatus.ACTIVE,
-              newStatus: LicenseStatus.CANCELLED,
-              changedBy: payload.currentUserId,
-              remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
-            },
-          });
+          await this.cancelWorkflowHandler.onFinalApproval(payload.applicationId, payload.currentUserId, tx);
         } catch (err) {
           console.error('[LicenseHook] Failed to cancel license:', err);
+          throw new InternalServerErrorException('Failed to update license record');
         }
       } else if (isRejectedAction) {
         actionTaken = ACTION_CODES.REJECT;

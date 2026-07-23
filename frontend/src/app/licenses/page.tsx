@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Ban,
   Download,
   Eye,
   FileDown,
@@ -85,7 +86,7 @@ const getFullName = (license: LicenseData | null | undefined) =>
   [license?.firstName, license?.middleName, license?.lastName].filter(Boolean).join(' ') || '-';
 
 const getExpiryState = (license: LicenseData) => {
-  if (!license.validTill) return { label: 'Unknown', color: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' };
+  if (!license.validTill) return { };
   const today = new Date();
   const expiry = new Date(license.validTill);
   const days = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -305,58 +306,67 @@ function LicenseManagementContent() {
       <Header showCreateForm showBackButton />
 
       <main className='mt-[64px] md:mt-[70px] p-4 sm:p-6 print:mt-0 print:p-0'>
-        <section className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden'>
+        <section className='grid grid-cols-8 gap-1 print:hidden'>
           {[
             {
               label: 'Total Licenses',
               value: stats?.total ?? 0,
               icon: ShieldCheck,
               tab: 'all' as LicenseTab,
+              color: 'text-[#001F54]',
             },
             {
               label: 'Active Licenses',
               value: stats?.active ?? 0,
               icon: CheckCircle2,
               status: 'ACTIVE',
+              color: 'text-green-600',
             },
             {
               label: 'Expiring in 90 Days',
               value: stats?.expiringWithin90Days ?? 0,
               icon: Clock,
               tab: 'expiring' as LicenseTab,
+              color: 'text-orange-500',
             },
             {
               label: 'Expiring in 60 Days',
               value: stats?.expiringWithin60Days ?? 0,
               icon: Clock,
               tab: 'expiring' as LicenseTab,
+              color: 'text-amber-500',
             },
             {
               label: 'Expiring in 30 Days',
               value: stats?.expiringWithin30Days ?? 0,
               icon: AlertTriangle,
               tab: 'expiring' as LicenseTab,
+              color: 'text-red-500',
             },
             {
               label: 'Expired Licenses',
               value: stats?.expired ?? 0,
               icon: XCircle,
               tab: 'expired' as LicenseTab,
+              color: 'text-gray-500',
             },
             {
               label: 'Renewed Licenses',
               value: stats?.renewed ?? 0,
               icon: History,
               tab: 'audit' as LicenseTab,
+              color: 'text-indigo-600',
             },
             {
               label: 'Cancelled Licenses',
               value: stats?.cancelled ?? 0,
               icon: XCircle,
               status: 'CANCELLED',
+              color: 'text-rose-600',
             },
           ].map(card => {
             const Icon = card.icon;
+
             return (
               <button
                 key={card.label}
@@ -366,18 +376,22 @@ function LicenseManagementContent() {
                   setStatusFilter(card.status || '');
                   setPage(1);
                 }}
-                className='rounded-md border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-[#001F54]/40'
+                className='group rounded-lg border border-gray-200 border-t-4 border-t-[#001F54] bg-white p-1 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md'
               >
-                <div className='flex items-center justify-between'>
-                  <span className='text-sm font-semibold text-gray-600'>{card.label}</span>
-                  <Icon className='h-5 w-5 text-[#001F54]' />
+                {/* Icon + Label */}
+                <div className='flex items-center gap-2'>
+                  <Icon className={`h-5 w-5 ${card.color}`} />
+                  <span className='text-sm font-medium text-gray-600'>{card.label}</span>
                 </div>
-                <div className='mt-2 text-2xl font-bold text-[#001F54]'>{card.value}</div>
+
+                {/* Centered Value */}
+                <div className='mt-2 flex justify-center'>
+                  <span className='text-3xl font-bold text-[#001F54]'>{card.value}</span>
+                </div>
               </button>
             );
           })}
         </section>
-
         <section className='mt-5 rounded-md border border-gray-200 bg-white shadow-sm'>
           <div className='flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 print:hidden'>
             {[
@@ -602,24 +616,56 @@ function LicenseManagementContent() {
                                 >
                                   <Eye className='h-4 w-4' />
                                 </button>
-                                <button
-                                  type='button'
-                                  onClick={() =>
-                                    router.push(`/forms/renewal?licenseId=${license.id}`)
-                                  }
-                                  className='rounded-md bg-[#001F54] px-3 py-2 text-xs font-medium text-white hover:bg-[#012a73]'
-                                >
-                                  Renewal
-                                </button>
-                                <button
-                                  type='button'
-                                  onClick={() =>
-                                    router.push(`/cancelForm/new?licenseId=${license.id}`)
-                                  }
-                                  className='rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700'
-                                >
-                                  Cancel
-                                </button>
+                                <div className='relative group'>
+                                  <button
+                                    type='button'
+                                    disabled={license.status === 'CANCELLED'}
+                                    onClick={() =>
+                                      router.push(`/forms/renewal?licenseId=${license.id}`)
+                                    }
+                                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                                      license.status === 'CANCELLED'
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-[#001F54] text-white hover:bg-[#012a73]'
+                                    }`}
+                                  >
+                                    Renewal
+                                  </button>
+                                  {license.status === 'CANCELLED' && (
+                                    <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
+                                      <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
+                                        This license has been cancelled. No further actions are
+                                        allowed.
+                                        <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className='relative group'>
+                                  <button
+                                    type='button'
+                                    disabled={license.status === 'CANCELLED'}
+                                    onClick={() =>
+                                      router.push(`/cancelForm/new?licenseId=${license.id}`)
+                                    }
+                                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                                      license.status === 'CANCELLED'
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-red-600 text-white hover:bg-red-700'
+                                    }`}
+                                  >
+                                    Cancel
+                                  </button>
+                                  {license.status === 'CANCELLED' && (
+                                    <div className='absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50'>
+                                      <div className='bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap'>
+                                        This license has been cancelled. No further actions are
+                                        allowed.
+                                        <div className='absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900' />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                           </tr>

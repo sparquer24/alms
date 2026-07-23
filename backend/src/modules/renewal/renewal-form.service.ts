@@ -30,6 +30,13 @@ export class RenewalFormService {
         throw new NotFoundException('License not found. Cannot create renewal without a valid license.');
       }
 
+      // 1a. Check if the license has been CANCELLED
+      if (licenseRecord.status === 'CANCELLED') {
+        throw new BadRequestException(
+          'Cannot create a renewal application for a cancelled license. This license has been permanently cancelled and no further actions are allowed.',
+        );
+      }
+
       const resolvedLicenseId = licenseRecord.id;
       const resolvedLicenseNumber = licenseRecord.licenseNumber;
 

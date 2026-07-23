@@ -130,6 +130,7 @@ export class CancelFormController {
         limit: limit ? Number(limit) : undefined,
         requestedBy: requestedBy ? Number(requestedBy) : undefined,
         licenseId: licenseId ? Number(licenseId) : undefined,
+        status: status || undefined,
       });
 
       return {

@@ -32,9 +32,36 @@ export class CancelFormService {
       });
       
       console.log('currentUserId:', currentUserId);
+
       // Wrap creation and workflow history in a transaction for atomicity.
-      // The duplicate check runs INSIDE the transaction so it is atomic with the INSERT.
+      // The CANCELLED status check runs INSIDE the transaction so it is atomic with the INSERT.
       const cancelRequest = await prisma.$transaction(async (tx: any) => {
+        // Check if the license has been CANCELLED (inside transaction for atomicity)
+        const targetLicense = await tx.licenses.findUnique({
+          where: { id: dto.licenseId },
+          select: { status: true },
+        });
+
+        if (targetLicense && targetLicense.status === 'CANCELLED') {
+          throw new BadRequestException(
+            'Cannot create a cancellation request for a cancelled license. This license has been permanently cancelled and no further actions are allowed.',
+          );
+        }
+
+        // Check if a PENDING cancellation request already exists for this license
+        const existingPending = await tx.cancelFormRequests.findFirst({
+          where: {
+            licenseId: dto.licenseId,
+            actionedDate: null,
+          },
+          select: { id: true },
+        });
+
+        if (existingPending) {
+          throw new BadRequestException(
+            'A cancellation request for this license already exists and is pending approval.',
+          );
+        }
 
         // generate a unique acknowledgement number for the cancel request
         const acknowledgementNo = `CAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -278,6 +305,7 @@ export class CancelFormService {
     limit?: number;
     requestedBy?: number;
     licenseId?: number;
+    status?: string;
   }): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
       const page = Math.max(Number(filters.page ?? 1), 1);
@@ -291,6 +319,13 @@ export class CancelFormService {
       }
       if (filters.licenseId) {
         where.licenseId = filters.licenseId;
+      }
+      if (filters.status) {
+        if (filters.status === 'PENDING') {
+          where.actionedDate = null;
+        } else if (filters.status === 'APPROVED') {
+          where.actionedDate = { not: null };
+        }
       }
 
       const [cancelRequests, total] = await Promise.all([
