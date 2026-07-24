@@ -1,11 +1,15 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 import { LicenseStatus } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 
 @Injectable()
 export class WorkflowService {
+  constructor(
+    private readonly cancelWorkflowHandler: CancelWorkflowHandler,
+  ) {}
 
   async getStatusesAndActions(id?: number) {
     if (id) {
@@ -435,6 +439,7 @@ export class WorkflowService {
           renewalCount: 0,
           issuedBy,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: appData.id,
           endorsedWeapons: licDetail?.requestedWeapons?.length
             ? { connect: licDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
             : undefined,
@@ -693,7 +698,15 @@ export class WorkflowService {
         renewalIds: {
           push: renewalApplicationId,
         },
+        // Shift current → previous tracking before updating
+        previousModifiedAppType: existingLicense.lastModifiedAppType,
+        previousModifiedAppId: existingLicense.lastModifiedAppId ?? (
+          (existingLicense.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? existingLicense.freshApplicationId
+            : existingLicense.lastModifiedRenewalId ?? existingLicense.renewalApplicationId
+        ),
         lastModifiedAppType: 'RENEWAL',
+        lastModifiedAppId: renewalApplicationId,
         status: LicenseStatus.ACTIVE,
 
         // Update endorsed weapons
@@ -938,33 +951,12 @@ export class WorkflowService {
           }
         }
 
-        // === LICENSE HOOK: Cancel the license record itself ===
+        // === LICENSE HOOK: Delegate to handler ===
         try {
-          await tx.licenses.update({
-            where: { id: cancelRequest.licenseId },
-            data: {
-              status: LicenseStatus.CANCELLED,
-              cancellationReason: cancelRequest.cancellationReason,
-              cancellationDate: new Date(),
-              cancelApplicationId: payload.applicationId,
-              lastModifiedAppType: 'CANCELLATION',
-            },
-          });
-
-          await tx.licenseWorkflowHistory.create({
-            data: {
-              licenseId: cancelRequest.licenseId,
-              action: 'CANCELLED',
-              applicationId: payload.applicationId,
-              applicationType: 'CANCELLATION',
-              previousStatus: LicenseStatus.ACTIVE,
-              newStatus: LicenseStatus.CANCELLED,
-              changedBy: payload.currentUserId,
-              remarks: `License cancelled. Reason: ${cancelRequest.cancellationReason}`,
-            },
-          });
+          await this.cancelWorkflowHandler.onFinalApproval(payload.applicationId, payload.currentUserId, tx);
         } catch (err) {
           console.error('[LicenseHook] Failed to cancel license:', err);
+          throw new InternalServerErrorException('Failed to update license record');
         }
       } else if (isRejectedAction) {
         actionTaken = ACTION_CODES.REJECT;

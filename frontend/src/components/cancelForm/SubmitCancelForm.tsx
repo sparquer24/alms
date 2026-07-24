@@ -95,6 +95,35 @@ export default function SubmitCancelForm() {
         throw new Error('No license data found for the provided License ID or License Number.');
       }
 
+      // Check if the license has been CANCELLED
+      if (freshData.status === 'CANCELLED') {
+        setVerificationError(
+          'This license has already been cancelled.',
+        );
+        setVerificationStatus('FAILED');
+        setVerificationChecking(false);
+        return;
+      }
+
+      // Check if a cancellation request already exists in PENDING state
+      try {
+        const pendingResponse = await CancelService.getCancelRequests({
+          licenseId: Number(freshData.licenseId || freshData.id || licenseIdentifier),
+          status: 'PENDING',
+        });
+        const pendingData = pendingResponse?.data || [];
+        if (Array.isArray(pendingData) && pendingData.length > 0) {
+          setVerificationError(
+            'A cancellation request for this license already exists and is pending approval.',
+          );
+          setVerificationStatus('FAILED');
+          setVerificationChecking(false);
+          return;
+        }
+      } catch {
+        // If the check fails, continue anyway (backend will validate)
+      }
+
       const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
@@ -411,6 +440,33 @@ export default function SubmitCancelForm() {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (verificationStatus === 'FAILED') {
+    return (
+      <div className='max-w-2xl mx-auto w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
+        <div className='text-center'>
+          <div className='inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4'>
+            <svg className='w-8 h-8 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+            </svg>
+          </div>
+          <h2 className='text-xl font-bold text-gray-900 mb-2'>Cancellation Not Allowed</h2>
+          <p className='text-red-600 font-medium'>{verificationError || 'This license has already been cancelled.'}</p>
+          <button
+            type='button'
+            onClick={() => {
+              setVerificationStatus('ENTER_APP_ID');
+              setVerificationError(null);
+              setFormData(prev => ({ ...prev, licenseId: '' }));
+            }}
+            className='mt-6 px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors'
+          >
+            Try Another License
+          </button>
+        </div>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
-import { LicenseStatus } from '@prisma/client';
+import { LicenseStatus, Prisma } from '@prisma/client';
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -377,6 +377,9 @@ export class LicensesService {
       renewalApplicationId: license.renewalApplicationId,
       cancelApplicationId: license.cancelApplicationId,
       lastModifiedAppType: license.lastModifiedAppType,
+      lastModifiedAppId: license.lastModifiedAppId ?? null,
+      previousModifiedAppType: license.previousModifiedAppType ?? null,
+      previousModifiedAppId: license.previousModifiedAppId ?? null,
       lastModifiedRenewalId: license.lastModifiedRenewalId ?? null,
       renewalIds: license.renewalIds ?? [],
     };
@@ -700,7 +703,7 @@ export class LicensesService {
                 </tr>
                 <tr>
                   <th>Valid Till</th>
-                  <td style="color: #c0392b; font-weight: 600;">${validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
+                  <td style="color: #c0392b; font-weight: 600;">${validTill ? validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}</td>
                 </tr>
                 <tr>
                   <th>Area of Validity</th>
@@ -871,6 +874,7 @@ export class LicensesService {
           // === TRACKING ===
           renewalCount: 0,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: freshApplicationId,
         }
       });
 
@@ -939,6 +943,9 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
         lastModifiedRenewalId: true,
         renewalIds: true,
       },
@@ -1259,6 +1266,9 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
         lastModifiedRenewalId: true,
         renewalIds: true,
         licenseNumber: true,
@@ -1355,5 +1365,60 @@ export class LicensesService {
     }
 
     return null;
+  }
+
+  async cancelLicense(
+    licenseId: number,
+    reason: string,
+    applicationId: number,
+    currentUserId: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    // Capture the license's current status and tracking fields BEFORE the update
+    // so the workflow history and previous-modified tracking are accurate.
+    const currentLicense = await tx.licenses.findUnique({
+      where: { id: licenseId },
+      select: {
+        status: true,
+        lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        lastModifiedRenewalId: true,
+        renewalApplicationId: true,
+        freshApplicationId: true,
+      },
+    });
+
+    await tx.licenses.update({
+      where: { id: licenseId },
+      data: {
+        status: LicenseStatus.CANCELLED,
+        validTill: null,
+        cancellationReason: reason,
+        cancellationDate: new Date(),
+        cancelApplicationId: applicationId,
+        // Shift current → previous tracking
+        previousModifiedAppType: currentLicense?.lastModifiedAppType,
+        previousModifiedAppId: currentLicense?.lastModifiedAppId ?? (
+          (currentLicense?.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? currentLicense?.freshApplicationId
+            : currentLicense?.lastModifiedRenewalId ?? currentLicense?.renewalApplicationId
+        ),
+        lastModifiedAppType: 'CANCELLATION',
+        lastModifiedAppId: applicationId,
+      },
+    });
+
+    await tx.licenseWorkflowHistory.create({
+      data: {
+        licenseId,
+        action: 'CANCELLED',
+        applicationId,
+        applicationType: 'CANCELLATION',
+        previousStatus: currentLicense?.status ?? LicenseStatus.ACTIVE,
+        newStatus: LicenseStatus.CANCELLED,
+        changedBy: currentUserId,
+        remarks: `License cancelled. Reason: ${reason}`,
+      },
+    });
   }
 }
