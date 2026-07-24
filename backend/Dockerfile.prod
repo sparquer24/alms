@@ -24,7 +24,7 @@ COPY prisma/ ./prisma/
 RUN npx prisma generate
 
 # Layer 4: Copy config files that affect the build (cached unless changed)
-COPY tsconfig*.json nest-cli.json ./
+COPY tsconfig*.json ./
 
 # Layer 5: Copy application source (changes most frequently — latest layer)
 COPY src/ ./src/
