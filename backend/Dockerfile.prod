@@ -17,7 +17,7 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 
 # Layer 2: Install Node dependencies (cached until package.json or lockfile changes)
 COPY package*.json ./
-RUN npm ci --include=dev && npm install typescript --no-save && apk del .build-deps
+RUN npm install && apk del .build-deps
 
 # Layer 3: Copy Prisma schema and generate client (cached unless schema changes)
 COPY prisma/ ./prisma/
