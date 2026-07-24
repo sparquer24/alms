@@ -774,7 +774,10 @@ model Licenses {
   renewalApplication           RenewalFormPersonalDetails?             @relation("LicenseToRenewalApp", fields: [renewalApplicationId], references: [id])
   cancelApplicationId          Int?
   cancelApplication            CancelFormRequests?                     @relation("LicenseToCancelApp", fields: [cancelApplicationId], references: [id])
+  lastModifiedAppId          Int?
   lastModifiedAppType          String?
+  previousModifiedAppType      String?
+  previousModifiedAppId        Int?
   renewalCount                 Int                                      @default(0)
   createdAt                    DateTime                                 @default(now())
   updatedAt                    DateTime                                 @updatedAt

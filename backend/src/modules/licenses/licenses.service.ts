@@ -377,6 +377,9 @@ export class LicensesService {
       renewalApplicationId: license.renewalApplicationId,
       cancelApplicationId: license.cancelApplicationId,
       lastModifiedAppType: license.lastModifiedAppType,
+      lastModifiedAppId: license.lastModifiedAppId ?? null,
+      previousModifiedAppType: license.previousModifiedAppType ?? null,
+      previousModifiedAppId: license.previousModifiedAppId ?? null,
       lastModifiedRenewalId: license.lastModifiedRenewalId ?? null,
       renewalIds: license.renewalIds ?? [],
     };
@@ -871,6 +874,7 @@ export class LicensesService {
           // === TRACKING ===
           renewalCount: 0,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: freshApplicationId,
         }
       });
 
@@ -939,6 +943,9 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
         lastModifiedRenewalId: true,
         renewalIds: true,
       },
@@ -1259,6 +1266,9 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
         lastModifiedRenewalId: true,
         renewalIds: true,
         licenseNumber: true,
@@ -1364,11 +1374,18 @@ export class LicensesService {
     currentUserId: number,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
-    // Capture the license's current status BEFORE the update so the workflow
-    // history accurately reflects the previous state (fixes hardcoded ACTIVE bug).
+    // Capture the license's current status and tracking fields BEFORE the update
+    // so the workflow history and previous-modified tracking are accurate.
     const currentLicense = await tx.licenses.findUnique({
       where: { id: licenseId },
-      select: { status: true },
+      select: {
+        status: true,
+        lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        lastModifiedRenewalId: true,
+        renewalApplicationId: true,
+        freshApplicationId: true,
+      },
     });
 
     await tx.licenses.update({
@@ -1379,7 +1396,15 @@ export class LicensesService {
         cancellationReason: reason,
         cancellationDate: new Date(),
         cancelApplicationId: applicationId,
+        // Shift current → previous tracking
+        previousModifiedAppType: currentLicense?.lastModifiedAppType,
+        previousModifiedAppId: currentLicense?.lastModifiedAppId ?? (
+          (currentLicense?.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? currentLicense?.freshApplicationId
+            : currentLicense?.lastModifiedRenewalId ?? currentLicense?.renewalApplicationId
+        ),
         lastModifiedAppType: 'CANCELLATION',
+        lastModifiedAppId: applicationId,
       },
     });
 

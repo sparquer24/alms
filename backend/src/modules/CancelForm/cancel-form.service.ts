@@ -619,12 +619,18 @@ export class CancelFormService {
             data: cancelUpdateData,
           });
 
-          // Capture the license's current status BEFORE the update so the workflow
-          // history accurately reflects the previous state (prevents reading back
-          // the already-updated CANCELLED status within the same transaction).
+          // Capture the license's current status and tracking fields BEFORE the update
+          // so the workflow history and previous-modified tracking are accurate.
           const licenseBeforeCancel = await tx.licenses.findUnique({
             where: { id: cancelRequest.licenseId },
-            select: { status: true },
+            select: {
+              status: true,
+              lastModifiedAppType: true,
+              lastModifiedAppId: true,
+              lastModifiedRenewalId: true,
+              renewalApplicationId: true,
+              freshApplicationId: true,
+            },
           });
 
           // 2. Update the license with cancellation metadata
@@ -639,7 +645,15 @@ export class CancelFormService {
               cancellationReason: cancelRequest.cancellationReason,
               cancellationDate: new Date(),
               cancelApplicationId: cancelRequest.id,
+              // Shift current → previous tracking
+              previousModifiedAppType: licenseBeforeCancel?.lastModifiedAppType,
+              previousModifiedAppId: licenseBeforeCancel?.lastModifiedAppId ?? (
+                (licenseBeforeCancel?.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+                  ? licenseBeforeCancel?.freshApplicationId
+                  : licenseBeforeCancel?.lastModifiedRenewalId ?? licenseBeforeCancel?.renewalApplicationId
+              ),
               lastModifiedAppType: 'CANCELLATION',
+              lastModifiedAppId: cancelRequest.id,
             },
           });
 

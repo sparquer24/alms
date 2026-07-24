@@ -439,6 +439,7 @@ export class WorkflowService {
           renewalCount: 0,
           issuedBy,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: appData.id,
           endorsedWeapons: licDetail?.requestedWeapons?.length
             ? { connect: licDetail.requestedWeapons.map((w: any) => ({ id: w.id })) }
             : undefined,
@@ -697,7 +698,15 @@ export class WorkflowService {
         renewalIds: {
           push: renewalApplicationId,
         },
+        // Shift current → previous tracking before updating
+        previousModifiedAppType: existingLicense.lastModifiedAppType,
+        previousModifiedAppId: existingLicense.lastModifiedAppId ?? (
+          (existingLicense.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? existingLicense.freshApplicationId
+            : existingLicense.lastModifiedRenewalId ?? existingLicense.renewalApplicationId
+        ),
         lastModifiedAppType: 'RENEWAL',
+        lastModifiedAppId: renewalApplicationId,
         status: LicenseStatus.ACTIVE,
 
         // Update endorsed weapons

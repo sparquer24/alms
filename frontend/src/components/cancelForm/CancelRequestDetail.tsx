@@ -113,37 +113,43 @@ export default function CancelRequestDetail({
   //  - it has not already been fetched (prevents duplicate calls on re-renders).
   const licenseFetchedFor = React.useRef<string | null>(null);
 
-  // Source application data: after fetching the license, read `lastModifiedAppType`
-  // and fetch either the renewal application (GET /api/renewal-forms/:id) or the
-  // fresh application (GET /api/application-form?applicationId=:id) accordingly.
+  // Source application data: after fetching the license, read `previousModifiedAppType`
+  // and fetch the corresponding application via its GET API.
+  //
+  // For the Cancellation Original tab, we use `previousModifiedAppType`/`previousModifiedAppId`
+  // (not `lastModifiedAppType`) because:
+  //   - When a cancellation is approved, `lastModifiedAppType` is set to 'CANCELLATION'
+  //     and the source app ID becomes the cancel request ID.
+  //   - The Original tab should show the application that was active BEFORE the cancellation,
+  //     which is stored in `previousModifiedAppType` + `previousModifiedAppId`.
+  //
+  // Supported previous types:
+  //   - previousModifiedAppType === 'RENEWAL' → GET /api/renewal-forms/:previousModifiedAppId
+  //   - previousModifiedAppType === 'FRESH'   → GET /api/application-form?applicationId=:previousModifiedAppId
+  //
+  // The Fresh/Renewal GET API response already includes uploaded documents and
+  // workflow history — no separate API calls are made for those.
   const [sourceAppData, setSourceAppData] = useState<any>(null);
   const [sourceAppLoading, setSourceAppLoading] = useState(false);
   const sourceAppFetchedRef = useRef<string | null>(null);
 
-  // After license data is loaded, use `lastModifiedAppType` from the license
-  // response to fetch the source application:
-  //   - lastModifiedAppType === 'RENEWAL' → GET /api/renewal-forms/:renewalApplicationId
-  //   - lastModifiedAppType === 'FRESH'   → GET /api/application-form?applicationId=:freshApplicationId
-  //
-  // The Fresh/Renewal GET API response already includes uploaded documents and
-  // workflow history — no separate API calls are made for those.
   useEffect(() => {
     if (activeTab !== 'original' || !licenseData) return;
 
-    const lastModifiedAppType = (licenseData as any).lastModifiedAppType;
-    const renewalAppId = (licenseData as any).renewalApplicationId;
-    const freshAppId = (licenseData as any).freshApplicationId;
+    const prevAppType = (licenseData as any).previousModifiedAppType;
+    const prevAppId = (licenseData as any).previousModifiedAppId;
 
-    if (!lastModifiedAppType) return;
+    if (!prevAppType || !prevAppId) return;
 
-    // Determine source app ID and fetch it if not already fetched
-    if (lastModifiedAppType === 'RENEWAL' && renewalAppId) {
-      const key = `renewal-${renewalAppId}`;
+    const normalizedType = String(prevAppType).trim().toUpperCase();
+
+    if (normalizedType === 'RENEWAL') {
+      const key = `renewal-${prevAppId}`;
       if (sourceAppFetchedRef.current !== key) {
         sourceAppFetchedRef.current = key;
-        setSourceAppData(null); // Clear any stale data
+        setSourceAppData(null);
         setSourceAppLoading(true);
-        apiClient.get<any>(`/renewal-forms/${renewalAppId}`)
+        apiClient.get<any>(`/renewal-forms/${prevAppId}`)
           .then((res: any) => {
             const data = res?.data ?? res;
             if (data) setSourceAppData(data);
@@ -151,13 +157,13 @@ export default function CancelRequestDetail({
           .catch((err: any) => console.error('Failed to fetch renewal application:', err))
           .finally(() => setSourceAppLoading(false));
       }
-    } else if (lastModifiedAppType === 'FRESH' && freshAppId) {
-      const key = `fresh-${freshAppId}`;
+    } else if (normalizedType === 'FRESH') {
+      const key = `fresh-${prevAppId}`;
       if (sourceAppFetchedRef.current !== key) {
         sourceAppFetchedRef.current = key;
-        setSourceAppData(null); // Clear any stale data
+        setSourceAppData(null);
         setSourceAppLoading(true);
-        apiClient.get<any>(`/application-form?applicationId=${freshAppId}`)
+        apiClient.get<any>(`/application-form?applicationId=${prevAppId}`)
           .then((res: any) => {
             const data = res?.data ?? res;
             if (data) setSourceAppData(data);
@@ -382,7 +388,7 @@ export default function CancelRequestDetail({
           <>
             <OriginalLicenseDetails
               sourceAppData={sourceAppData}
-              sourceAppType={licenseData?.lastModifiedAppType}
+              sourceAppType={licenseData?.previousModifiedAppType}
               licenseData={licenseData}
               licenseId={request.licenseId}
               licenseNumber={request.Licenses?.licenseNumber || request.licenseNumber}
@@ -398,8 +404,8 @@ export default function CancelRequestDetail({
  * Mirrors the Renewal Application Details page Original tab layout exactly.
  *
  * Uses the source application data (renewal or fresh application fetched based on
- * lastModifiedAppType from the License GET API response) to display the latest
- * approved application details.
+ * previousModifiedAppType from the License GET API response) to display the
+ * application that existed before the cancellation was approved.
  *
  * The licenseData is still used for license-specific info (number, status).
  */
