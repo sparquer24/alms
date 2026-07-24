@@ -113,20 +113,16 @@ export class ApiClient {
     // If endpoint is absolute, use it directly
     if (endpoint.startsWith('http')) return endpoint;
 
-    // Normalize base and endpoint to avoid double slashes or duplicated '/api'
-    const base = this.baseUrl.replace(/\/$/, '');
-
-    // If both base and endpoint include the '/api' prefix (e.g. base endsWith '/api' and endpoint startsWith '/api')
-    // then strip the leading '/api' from the endpoint so we don't end up with '/api/api/...'
-    if (base.endsWith('/api') && endpoint.startsWith('/api')) {
-      return `${base}${endpoint.slice(4)}`; // remove the leading '/api' from endpoint
+    // axiosInstance already has baseURL set to NEXT_PUBLIC_API_URL or '/api'.
+    // We just return the endpoint, stripping a leading '/api' if a caller included it
+    // so we don't accidentally send a request to '/api/api/...'.
+    if (endpoint.startsWith('/api/')) {
+      return endpoint.slice(4); // '/api/foo' -> '/foo'
+    } else if (endpoint === '/api') {
+      return '/';
     }
 
-    // If endpoint begins with a '/', just concatenate (base already has no trailing slash)
-    if (endpoint.startsWith('/')) return `${base}${endpoint}`;
-
-    // Otherwise insert a slash between base and endpoint
-    return `${base}/${endpoint}`;
+    return endpoint;
   }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {

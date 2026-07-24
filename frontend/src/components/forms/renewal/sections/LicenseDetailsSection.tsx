@@ -11,6 +11,14 @@ import {
   uploadRenewalDocument,
 } from '../../../../utils/renewalFileUpload';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 type ErrorsMap = Record<string, string | undefined>;
 
 const weaponNameToSelectValue = (name?: string) => {
@@ -32,6 +40,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onError?: (message: string) => void;
     onStatus?: (message: string | null) => void;
     errors?: ErrorsMap;
+    isReadOnly?: boolean;
   },
   ref: any
 ) {
@@ -44,6 +53,7 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
     onError,
     onStatus,
     errors = {},
+    isReadOnly = false,
   } = props;
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [loadingWeapons, setLoadingWeapons] = useState(false);
@@ -138,8 +148,15 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
   };
 
   const handleEvidenceUpload = async (file: File) => {
+    if (isReadOnly) return;
     if (!renewalId) {
       onError?.('Save the renewal draft first so a renewal ID is available for uploads.');
+      return;
+    }
+
+    // --- File size validation ---
+    if (file.size > MAX_FILE_SIZE) {
+      onError?.(`File size (${formatFileSize(file.size)}) exceeds the maximum allowed size of 10 MB.`);
       return;
     }
 
@@ -257,33 +274,35 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
           <p className='text-sm mb-1'>
             (a) Select any of the options <span className='text-red-500 ml-1'>*</span>
           </p>
-          <div className='flex items-center gap-4 mb-2'>
-            <label className='inline-flex items-center gap-2'>
-              <input
-                type='radio'
-                name='armsOptionType'
-                value='RESTRICTED'
-                checked={String(formData.armsOptionType || '').toUpperCase() === 'RESTRICTED'}
-                onChange={onChange}
-              />
-              <span className='text-sm'>Restricted</span>
-            </label>
-            <label className='inline-flex items-center gap-2'>
-              <input
-                type='radio'
-                name='armsOptionType'
-                value='PERMISSIBLE'
-                checked={String(formData.armsOptionType || '').toUpperCase() === 'PERMISSIBLE'}
-                onChange={onChange}
-              />
-              <span className='text-sm'>Permissible</span>
-            </label>
+          <div>
+            <div className='flex items-center gap-4 mb-2'>
+              <label className='inline-flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='armsOptionType'
+                  value='RESTRICTED'
+                  checked={String(formData.armsOptionType || '').toUpperCase() === 'RESTRICTED'}
+                  onChange={onChange}
+                />
+                <span className='text-sm'>Restricted</span>
+              </label>
+              <label className='inline-flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='armsOptionType'
+                  value='PERMISSIBLE'
+                  checked={String(formData.armsOptionType || '').toUpperCase() === 'PERMISSIBLE'}
+                  onChange={onChange}
+                />
+                <span className='text-sm'>Permissible</span>
+              </label>
+            </div>
+            {errors['armsOptionType'] && (
+              <p id='armsOptionType' className='text-red-500 text-xs'>
+                {errors['armsOptionType']}
+              </p>
+            )}
           </div>
-          {errors['armsOptionType'] && (
-            <p id='armsOptionType' className='text-red-500 text-xs mb-2'>
-              {errors['armsOptionType']}
-            </p>
-          )}
           <Select
             label='(b) Select weapon types (multiple allowed)'
             name='weaponType'
@@ -360,8 +379,9 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
             error={errors['specialEvidenceUploaded']}
             variant='browseCard'
             hintText='PDF, DOC, DOCX, JPG, PNG up to 10 MB each'
-            onFileSelect={handleEvidenceUpload}
+            onFileSelect={isReadOnly ? () => {} : handleEvidenceUpload}
             uploaded={specialEvidenceFiles.length > 0}
+            disabled={!renewalId || uploadingEvidence || isReadOnly}
             fileName={
               uploadingEvidence
                 ? 'Uploading...'
@@ -400,14 +420,16 @@ const LicenseDetailsSection = forwardRef(function LicenseDetailsSection(
                       View
                     </button>
                   )}
-                  <button
-                    type='button'
-                    className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
-                    onClick={handleEvidenceDelete(meta.id, index)}
-                    disabled={isDeleting || uploadingEvidence || !renewalId}
-                  >
-                    {isDeleting ? 'Removing...' : 'Remove'}
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      type='button'
+                      className='text-red-600 underline hover:text-red-800 disabled:opacity-50'
+                      onClick={handleEvidenceDelete(meta.id, index)}
+                      disabled={isDeleting || uploadingEvidence || !renewalId}
+                    >
+                      {isDeleting ? 'Removing...' : 'Remove'}
+                    </button>
+                  )}
                 </div>
               </div>
             );

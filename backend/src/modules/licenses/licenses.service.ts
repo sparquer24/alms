@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
-import { LicenseStatus } from '@prisma/client';
+import { LicenseStatus, Prisma } from '@prisma/client';
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -225,61 +225,110 @@ export class LicensesService {
   private async loadApplicationForLicense(licenseRecord: any) {
     const applicationType = this.normalizeApplicationType(licenseRecord?.lastModifiedAppType);
 
-    if (!applicationType) {
-      throw new BadRequestException(`Unsupported lastModifiedAppType: ${licenseRecord?.lastModifiedAppType}`);
-    }
-
+    // Attempt type-specific lookup first
     if (applicationType === 'FRESH') {
       const appId = licenseRecord?.freshApplicationId;
-      if (!appId) return null;
-
-      const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: appId },
-        include: this.buildFreshApplicationInclude(),
-      });
-
-      if (!application) {
-        throw new Error('Fresh Application not found');
+      if (appId) {
+        const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: appId },
+          include: this.buildFreshApplicationInclude(),
+        });
+        if (application) return application;
       }
-      return application;
     }
 
     if (applicationType === 'RENEWAL') {
-      const appId = licenseRecord?.renewalApplicationId;
-      if (!appId) return null;
+      // Determine which renewal application ID to use.
+      // If lastModifiedRenewalId is set, prefer it (it points to the most recently
+      // approved renewal that modified the license).
+      // Otherwise fall back to the standard renewalApplicationId.
+      let appId = licenseRecord?.lastModifiedRenewalId ?? licenseRecord?.renewalApplicationId;
+
+      if (!appId) {
+        // If lastModifiedRenewalId is set but the linked renewal no longer exists,
+        // fall back to renewalApplicationId as a safety net.
+        appId = licenseRecord?.renewalApplicationId;
+        if (appId) {
+          const fallbackApp = await this.prisma.renewalFormPersonalDetails.findUnique({
+            where: { id: appId },
+            include: this.buildRenewalApplicationInclude(),
+          });
+          if (fallbackApp) {
+            const freshAppId = await this.resolveFreshIdFromRenewal(fallbackApp.licenseNumber);
+            return { ...fallbackApp, freshApplicationId: freshAppId };
+          }
+        }
+        return null;
+      }
 
       const application = await this.prisma.renewalFormPersonalDetails.findUnique({
         where: { id: appId },
         include: this.buildRenewalApplicationInclude(),
       });
 
-      if (!application) {
-        throw new Error('Renewal License Application not found');
-      }
-
-      let freshApplicationId: number | null = null;
-      if (application.licenseNumber) {
-        const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
-          where: { acknowledgementNo: application.licenseNumber },
-          select: { id: true },
-        });
-
-        if (freshApp) {
-          freshApplicationId = freshApp.id;
+      // If the preferred appId (lastModifiedRenewalId) doesn't exist, fall back
+      if (!application && licenseRecord?.lastModifiedRenewalId) {
+        const fallbackId = licenseRecord?.renewalApplicationId;
+        if (fallbackId) {
+          const fallbackApp = await this.prisma.renewalFormPersonalDetails.findUnique({
+            where: { id: fallbackId },
+            include: this.buildRenewalApplicationInclude(),
+          });
+          if (fallbackApp) {
+            const freshAppId = await this.resolveFreshIdFromRenewal(fallbackApp.licenseNumber);
+            return { ...fallbackApp, freshApplicationId: freshAppId };
+          }
         }
       }
 
-      return {
-        ...application,
-        freshApplicationId,
-      };
+      if (application) {
+        const freshAppId = await this.resolveFreshIdFromRenewal(application.licenseNumber);
+        return {
+          ...application,
+          freshApplicationId: freshAppId,
+        };
+      }
     }
 
-    // For CANCELLATION type, look up by cancelApplicationId
-    const cancelAppId = licenseRecord?.cancelApplicationId;
-    if (cancelAppId) {
+    if (applicationType === 'CANCELLATION') {
+      const cancelAppId = licenseRecord?.cancelApplicationId;
+      if (cancelAppId) {
+        const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
+          where: { id: cancelAppId },
+          include: {
+            workflowStatus: true,
+            requester: { select: { id: true, username: true } },
+            actioner: { select: { id: true, username: true } },
+            Licenses: { select: { id: true, licenseNumber: true } },
+          }
+        });
+        if (cancelRequest) return cancelRequest;
+      }
+    }
+
+    // Universal fallback: try all available application IDs regardless of type
+    if (licenseRecord?.freshApplicationId) {
+      const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: licenseRecord.freshApplicationId },
+        include: this.buildFreshApplicationInclude(),
+      });
+      if (application) return application;
+    }
+
+    if (licenseRecord?.renewalApplicationId) {
+      const application = await this.prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: licenseRecord.renewalApplicationId },
+        include: this.buildRenewalApplicationInclude(),
+      });
+      if (application) {
+        const freshAppId = await this.resolveFreshIdFromRenewal(application.licenseNumber);
+        return { ...application, freshApplicationId: freshAppId };
+      }
+    }
+
+    if (licenseRecord?.cancelApplicationId) {
       const cancelRequest = await this.prisma.cancelFormRequests.findUnique({
-        where: { id: cancelAppId },
+        where: { id: licenseRecord.cancelApplicationId },
         include: {
           workflowStatus: true,
           requester: { select: { id: true, username: true } },
@@ -290,31 +339,57 @@ export class LicensesService {
       if (cancelRequest) return cancelRequest;
     }
 
-    // Fallback: try fresh first, then renewal
-    let appId = licenseRecord?.freshApplicationId;
-    if (appId) {
-      const application = await this.prisma.freshLicenseApplicationPersonalDetails.findUnique({
-        where: { id: appId },
-        include: this.buildFreshApplicationInclude(),
-      });
-      if (application) return application;
-    }
-
-    appId = licenseRecord?.renewalApplicationId;
-    if (appId) {
-      const application = await this.prisma.renewalFormPersonalDetails.findUnique({
-        where: { id: appId },
-        include: this.buildRenewalApplicationInclude(),
-      });
-      if (application) return application;
+    // If we get here, the license exists but none of its related applications were found
+    if (licenseRecord?.id) {
+      this.logger.warn(
+        `Orphaned license detected: ID ${licenseRecord.id}, number ${licenseRecord.licenseNumber ?? 'N/A'}. ` +
+        `No related application found for type: ${licenseRecord.lastModifiedAppType ?? 'null'}.`
+      );
     }
 
     return null;
   }
 
+  /**
+   * Resolve the fresh application ID from a renewal's license number.
+   * The renewal's licenseNumber matches the fresh application's acknowledgementNo.
+   */
+  private async resolveFreshIdFromRenewal(licenseNumber?: string | null): Promise<number | null> {
+    if (!licenseNumber) return null;
+    const freshApp = await this.prisma.freshLicenseApplicationPersonalDetails.findFirst({
+      where: { acknowledgementNo: licenseNumber },
+      select: { id: true },
+    });
+    return freshApp?.id ?? null;
+  }
+
   buildLicenseDetailResponse(license: any, sourceApplication: any) {
-    if (!license || !sourceApplication) {
+    if (!license) {
       return null;
+    }
+
+    // Build base license metadata that is always present
+    const baseMetadata: Record<string, any> = {
+      licenseId: license.id,
+      licenseNumber: license.licenseNumber,
+      almsLicenseId: license.almsLicenseId,
+      freshApplicationId: license.freshApplicationId,
+      renewalApplicationId: license.renewalApplicationId,
+      cancelApplicationId: license.cancelApplicationId,
+      lastModifiedAppType: license.lastModifiedAppType,
+      lastModifiedAppId: license.lastModifiedAppId ?? null,
+      previousModifiedAppType: license.previousModifiedAppType ?? null,
+      previousModifiedAppId: license.previousModifiedAppId ?? null,
+      lastModifiedRenewalId: license.lastModifiedRenewalId ?? null,
+      renewalIds: license.renewalIds ?? [],
+    };
+
+    // If no source application found, return just the license metadata
+    if (!sourceApplication) {
+      return {
+        ...baseMetadata,
+        applicantName: null,
+      };
     }
 
     const excludedKeys = [
@@ -335,15 +410,7 @@ export class LicensesService {
 
     const transformed: Record<string, any> = {
       ...sourceApplication,
-      ...{
-        licenseId: license.id,
-        licenseNumber: license.licenseNumber,
-        almsLicenseId: license.almsLicenseId,
-        freshApplicationId: license.freshApplicationId,
-        renewalApplicationId: license.renewalApplicationId,
-        cancelApplicationId: license.cancelApplicationId,
-        lastModifiedAppType: license.lastModifiedAppType,
-      },
+      ...baseMetadata,
       applicantName: [sourceApplication.firstName, sourceApplication.middleName, sourceApplication.lastName].filter(Boolean).join(' '),
     };
 
@@ -636,7 +703,7 @@ export class LicensesService {
                 </tr>
                 <tr>
                   <th>Valid Till</th>
-                  <td style="color: #c0392b; font-weight: 600;">${validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
+                  <td style="color: #c0392b; font-weight: 600;">${validTill ? validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}</td>
                 </tr>
                 <tr>
                   <th>Area of Validity</th>
@@ -807,6 +874,7 @@ export class LicensesService {
           // === TRACKING ===
           renewalCount: 0,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: freshApplicationId,
         }
       });
 
@@ -842,6 +910,8 @@ export class LicensesService {
     const isLicenseNumber = id.toUpperCase().startsWith('LUAN');
 
     // First check: is there an existing draft renewal for this license?
+    // With multi-renewal support, multiple renewals can share the same licenseNumber.
+    // We order by createdAt descending to get the most recent draft.
     const draftRenewal = await this.prisma.renewalFormPersonalDetails.findFirst({
       where: isLicenseNumber
         ? { licenseNumber: id, isSubmit: false }
@@ -852,6 +922,7 @@ export class LicensesService {
           ],
           isSubmit: false,
         },
+      orderBy: { createdAt: 'desc' },
       include: this.buildRenewalApplicationInclude(),
     });
     console.log('Draft Renewal Check:', draftRenewal);
@@ -872,11 +943,16 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
+        lastModifiedRenewalId: true,
+        renewalIds: true,
       },
     })
     console.log('License Record:', licenseRecord);
     if (!licenseRecord) {
-      throw new Error('License not found');
+      return null;
     }
 
     const sourceApplication = await this.loadApplicationForLicense(licenseRecord as any);
@@ -1190,6 +1266,11 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
+        lastModifiedRenewalId: true,
+        renewalIds: true,
         licenseNumber: true,
       }
     });
@@ -1284,5 +1365,60 @@ export class LicensesService {
     }
 
     return null;
+  }
+
+  async cancelLicense(
+    licenseId: number,
+    reason: string,
+    applicationId: number,
+    currentUserId: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    // Capture the license's current status and tracking fields BEFORE the update
+    // so the workflow history and previous-modified tracking are accurate.
+    const currentLicense = await tx.licenses.findUnique({
+      where: { id: licenseId },
+      select: {
+        status: true,
+        lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        lastModifiedRenewalId: true,
+        renewalApplicationId: true,
+        freshApplicationId: true,
+      },
+    });
+
+    await tx.licenses.update({
+      where: { id: licenseId },
+      data: {
+        status: LicenseStatus.CANCELLED,
+        validTill: null,
+        cancellationReason: reason,
+        cancellationDate: new Date(),
+        cancelApplicationId: applicationId,
+        // Shift current → previous tracking
+        previousModifiedAppType: currentLicense?.lastModifiedAppType,
+        previousModifiedAppId: currentLicense?.lastModifiedAppId ?? (
+          (currentLicense?.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? currentLicense?.freshApplicationId
+            : currentLicense?.lastModifiedRenewalId ?? currentLicense?.renewalApplicationId
+        ),
+        lastModifiedAppType: 'CANCELLATION',
+        lastModifiedAppId: applicationId,
+      },
+    });
+
+    await tx.licenseWorkflowHistory.create({
+      data: {
+        licenseId,
+        action: 'CANCELLED',
+        applicationId,
+        applicationType: 'CANCELLATION',
+        previousStatus: currentLicense?.status ?? LicenseStatus.ACTIVE,
+        newStatus: LicenseStatus.CANCELLED,
+        changedBy: currentUserId,
+        remarks: `License cancelled. Reason: ${reason}`,
+      },
+    });
   }
 }

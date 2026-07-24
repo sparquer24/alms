@@ -10,6 +10,7 @@ import { getDocumentUploadMeta } from '../../../services/fileHandler';
 import { locationAPI } from '../../../api/locationApi';
 import { RenewalService } from '../../../api/renewalService';
 import LicenseService from '../../../services/licenseService';
+import CancelService from '../../../api/cancelService';
 import RenewalHeader from '../../../components/forms/renewal/RenewalHeader';
 import {
   applyPrefilledDocumentUploads,
@@ -2022,6 +2023,11 @@ const loadExistingRenewalByLicenseNumber = async (
   const existing = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
   if (!existing) return false;
 
+  // If the existing renewal is approved, allow creating a new one
+  if (existing.isApproved) {
+    return false;
+  }
+
   const existingRenewalId = getTextValue(existing?.id, existing?.renewalApplicationId);
   if (!existingRenewalId) {
     throw new Error('A matching renewal license was found but no renewal ID was returned.');
@@ -2318,6 +2324,32 @@ function RenewalFormPageContent() {
         throw new Error('No license data found for the provided License ID or License Number.');
       }
 
+      // Check if the license has been CANCELLED
+      if (freshData.status === 'CANCELLED') {
+        throw new Error('This license has been cancelled.');
+      }
+
+      // Check if a PENDING cancellation request already exists for this license
+      try {
+        const existingCancelResponse = await CancelService.getCancelRequests({
+          licenseId: Number(freshData.licenseId || freshData.id),
+          status: 'PENDING',
+        });
+        const existingCancelData = existingCancelResponse?.data || [];
+        if (Array.isArray(existingCancelData) && existingCancelData.length > 0) {
+          throw new Error('This license is already in the cancellation process.');
+        }
+      } catch (err: any) {
+        // Re-throw if it's our specific validation error
+        if (
+          err?.message === 'This license is already in the cancellation process.' ||
+          err?.message === 'This license has been cancelled.'
+        ) {
+          throw err;
+        }
+        // Otherwise, if the check fails (network error), allow proceeding (backend will validate)
+      }
+
       const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];
@@ -2425,6 +2457,33 @@ function RenewalFormPageContent() {
       if (!licenseData) {
         throw new Error('No license data found for the provided License ID or License Number.');
       }
+
+      // Check if the license has been CANCELLED
+      if (licenseData.status === 'CANCELLED') {
+        throw new Error('This license has been cancelled.');
+      }
+
+      // Check if a PENDING cancellation request already exists for this license
+      try {
+        const existingCancelResponse = await CancelService.getCancelRequests({
+          licenseId: Number(licenseData.licenseId || licenseData.id),
+          status: 'PENDING',
+        });
+        const existingCancelData = existingCancelResponse?.data || [];
+        if (Array.isArray(existingCancelData) && existingCancelData.length > 0) {
+          throw new Error('This license is already in the cancellation process.');
+        }
+      } catch (err: any) {
+        // Re-throw if it's our specific validation error
+        if (
+          err?.message === 'This license is already in the cancellation process.' ||
+          err?.message === 'This license has been cancelled.'
+        ) {
+          throw err;
+        }
+        // Otherwise, if the check fails (network error), allow proceeding (backend will validate)
+      }
+
       router.push(`/forms/renewal?licenseId=${encodeURIComponent(value)}`);
     } catch (err: any) {
       setVerificationError(err?.message || 'Failed to verify License ID or License Number.');
@@ -2634,7 +2693,6 @@ function RenewalFormPageContent() {
     licenseDetails: false,
     licenseHistory: false,
     biometric: false,
-    documents: false,
   });
 
   const allSectionsCompleted = Object.values(sectionCompleted).every(Boolean);
@@ -2732,6 +2790,13 @@ function RenewalFormPageContent() {
         const applicationCheckResponse = await ApplicationService.getLicense(resolvedLicenseId);
         const freshData = extractData(applicationCheckResponse);
 
+        // Check if the license has been CANCELLED
+        if (freshData?.status === 'CANCELLED') {
+          toast.error('Cannot create a renewal application for a cancelled license. This license has been permanently cancelled and no further actions are allowed.');
+          setIsLoading(false);
+          return;
+        }
+
         if (!freshData) {
           throw new Error('No license data found for the provided ID.');
         }
@@ -2742,8 +2807,9 @@ function RenewalFormPageContent() {
         if (licenseNumber) {
           const existingRenewal = await RenewalService.findRenewalByLicenseNumber(licenseNumber);
 
-          if (existingRenewal) {
-            // Existing renewal found — load renewal data as sole source of truth.
+          if (existingRenewal && !existingRenewal.isApproved) {
+            // Existing renewal found but NOT approved (Pending/In Progress/Rejected) —
+            // load renewal data as sole source of truth so the user can continue editing.
             const existingRenewalId = getTextValue(
               existingRenewal?.id,
               existingRenewal?.renewalApplicationId
@@ -3134,6 +3200,7 @@ function RenewalFormPageContent() {
       requireField('permanentState', 'Permanent state');
       requireField('permanentDistrict', 'Permanent district');
     }
+    requireField('residencePhone', 'Residence Phone');
     return errs;
   };
 
@@ -3157,18 +3224,16 @@ function RenewalFormPageContent() {
     const requireField = (key: string, label: string) => {
       const v = (data as any)[key];
       if (!v || String(v).trim() === '') errs[key] = `${label} is required`;
-    };
-    requireField('weaponReason', 'Need for license (15)');
+    };      requireField('weaponReason', 'Need for license (15)');
     requireField('ammunitionDescription', 'Ammunition Description');
-    if (!data.specialEvidenceUploaded) {
-      errs['specialEvidenceUploaded'] = 'Documentary evidence is required.';
-    }
     if (!data.carryAreaDistrict && !data.carryAreaState && !data.carryAreaIndia) {
       errs['carryAreaDistrict'] = 'Select at least one area for carrying arms (17)';
     }
     if (!data.armsOptionType) {
       errs['armsOptionType'] = 'Select Restricted or Permissible (16a)';
     }
+    requireField('formIVPlaceArea', 'Place or area for which the licence is sought (18a)');
+    requireField('formIVWildBeastsSpec', 'Specification of wild beasts permitted to be destroyed (18b)');
     const selectedWeaponIds: number[] = Array.isArray(data.requestedWeaponIds)
       ? data.requestedWeaponIds
       : data.weaponId
@@ -3192,25 +3257,40 @@ function RenewalFormPageContent() {
       if (firList.length === 0) {
         errs['firDetailsList'] = 'At least one FIR detail is required';
       } else {
-        firList.forEach((item: any, idx: number) => {
-          const missing = [
-            { key: 'firNumber', label: 'FIR Number' },
-            { key: 'underSection', label: 'Under Section' },
-            { key: 'policeStation', label: 'Police Station' },
-            { key: 'unit', label: 'Unit' },
-            { key: 'district', label: 'District' },
-            { key: 'state', label: 'State' },
-            { key: 'offence', label: 'Offence' },
-            { key: 'sentence', label: 'Sentence' },
-            { key: 'sentenceDate', label: 'Date of Sentence' },
-          ];
-          missing.forEach(field => {
-            const value = item?.[field.key];
+        // Map FIR detail field keys to the error keys expected by CriminalHistory component
+        const firFieldMap: { key: string; errorKey: string; label: string }[] = [
+          { key: 'firNumber', errorKey: 'firNumber', label: 'FIR Number' },
+          { key: 'underSection', errorKey: 'underSection', label: 'Under Section' },
+          { key: 'policeStation', errorKey: 'policeStationCriminal', label: 'Police Station' },
+          { key: 'unit', errorKey: 'criminalUnit', label: 'Unit' },
+          { key: 'district', errorKey: 'criminalDistrict', label: 'District' },
+          { key: 'state', errorKey: 'criminalState', label: 'State' },
+          { key: 'offence', errorKey: 'offence', label: 'Offence' },
+          { key: 'sentence', errorKey: 'sentence', label: 'Sentence' },
+          { key: 'sentenceDate', errorKey: 'sentenceDate', label: 'Date of Sentence' },
+        ];
+        // Only validate the first FIR detail for field-level errors (index 0)
+        const firstItem = firList[0];
+        if (firstItem) {
+          firFieldMap.forEach(field => {
+            const value = firstItem?.[field.key];
             if (!value || String(value).trim() === '') {
-              errs['firDetailsList'] = 'Complete all FIR details';
+              errs[field.errorKey] = `${field.label} is required`;
             }
           });
-        });
+        }
+        // For additional FIR details, validate all required fields are filled (only on first missing)
+        for (let i = 1; i < firList.length; i++) {
+          const item = firList[i];
+          const hasMissing = firFieldMap.some(field => {
+            const value = item?.[field.key];
+            return !value || String(value).trim() === '';
+          });
+          if (hasMissing) {
+            errs['firDetailsList'] = 'Complete all FIR details';
+            break;
+          }
+        }
       }
     }
 
@@ -3238,6 +3318,15 @@ function RenewalFormPageContent() {
       requireField('applicationDate', 'Date of Application');
       requireField('authorityAppliedTo', 'Authority Applied To');
       requireField('applicationResult', 'Result');
+
+      // When Result is Rejected, require the rejection document upload
+      const appResult = String(data.applicationResult || '').toLowerCase();
+      if (appResult === 'rejected') {
+        const rejectionMeta = getDocumentUploadMeta((data as any).rejectionDocUploaded);
+        if (!rejectionMeta.uploaded && !rejectionMeta.id) {
+          errs['rejectionDocUploaded'] = 'Rejection document is required when the result is Rejected.';
+        }
+      }
     }
 
     if (data.licenseRevokedOrSuspended) {
@@ -3378,10 +3467,8 @@ function RenewalFormPageContent() {
     } else if (sectionKey === 'criminal') {
       sectionErrors = validateCriminalHistory(formData);
       if (Object.keys(sectionErrors).length > 0) {
-        // We don't have a specific state for criminalErrors in page.tsx right now,
-        // but returning them stops completion. We can add setCriminalErrors if needed,
-        // or just rely on toast.
-        // For now, this effectively stops it from saving and shows the generic "Failed to save" or "Fix validation errors" via toast.
+        setCriminalErrors(sectionErrors);
+        scheduleSectionFocus(criminalSectionRef, 'criminal');
       }
     } else if (sectionKey === 'licenseDetails') {
       sectionErrors = validateLicenseDetails(formData);
@@ -3392,7 +3479,8 @@ function RenewalFormPageContent() {
     } else if (sectionKey === 'licenseHistory') {
       sectionErrors = validateLicenseHistory(formData);
       if (Object.keys(sectionErrors).length > 0) {
-        // Also missing setLicenseHistoryErrors state, but returning errors prevents completion
+        setLicenseHistoryErrors(sectionErrors);
+        scheduleSectionFocus(licenseHistorySectionRef, 'licenseHistory');
       }
     } else if (sectionKey === 'documents') {
       sectionErrors = validateDocumentsUpload(formData);
@@ -3657,6 +3745,19 @@ function RenewalFormPageContent() {
   const handleRenewalSubmit = async () => {
     if (isReadOnly) {
       setShowReadOnlyModal(true);
+      return;
+    }
+
+    // Ensure all sections have been marked complete before submission
+    if (!allSectionsCompleted) {
+      const firstIncomplete = SECTION_FLOW_ORDER.find(
+        key => !sectionCompleted[key]
+      );
+      if (firstIncomplete) {
+        setExpandedSections(prev => ({ ...prev, [firstIncomplete]: true }));
+        scrollToSectionTop(firstIncomplete);
+      }
+      setError?.('Please complete all sections before submitting the application.');
       return;
     }
 
@@ -4601,6 +4702,7 @@ function RenewalFormPageContent() {
                     onError={setError}
                     onStatus={setStatusMessage}
                     errors={licenseDetailsErrors}
+                    isReadOnly={isReadOnly}
                     ref={licenseDetailsSectionRef}
                   />
                 </AccordionSection>
@@ -4619,12 +4721,17 @@ function RenewalFormPageContent() {
                   isSavingSection={savingSection === 'licenseHistory'}
                   isReadOnly={isReadOnly}
                 >
-                  <LicenseHistory
-                    ref={licenseHistorySectionRef}
-                    formData={formData}
-                    onChange={handleChange}
-                    errors={licenseHistoryErrors}
-                  />
+              <LicenseHistory
+                ref={licenseHistorySectionRef}
+                formData={formData}
+                onChange={handleChange}
+                errors={licenseHistoryErrors}
+                renewalId={activeRenewalId}
+                onPatch={handleFormPatch}
+                onError={setError}
+                onStatus={setStatusMessage}
+                isReadOnly={isReadOnly}
+              />
                 </AccordionSection>
 
                 <AccordionSection
@@ -4665,20 +4772,14 @@ function RenewalFormPageContent() {
                   />
                 </AccordionSection>
 
-                <AccordionSection
-                  title='Upload Documents'
-                  id='renewal-section-documents'
-                  isOpen={expandedSections.documents}
-                  onToggle={() => toggleSection('documents')}
-                  showCompletionCheckbox
-                  isCompleted={sectionCompleted.documents}
-                  onCompletionChange={checked => {
-                    if (checked) handleSectionComplete('documents');
-                    else setSectionCompleted(prev => ({ ...prev, documents: false }));
-                  }}
-                  isSavingSection={savingSection === 'documents'}
-                  isReadOnly={isReadOnly}
-                >
+              <AccordionSection
+                title='Upload Documents'
+                id='renewal-section-documents'
+                isOpen={expandedSections.documents}
+                onToggle={() => toggleSection('documents')}
+                isSavingSection={savingSection === 'documents'}
+                isReadOnly={isReadOnly}
+              >
                   <DocumentsSection
                     ref={documentsSectionRef}
                     formData={formData}

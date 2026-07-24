@@ -437,7 +437,7 @@ model FreshLicenseApplicationsFormWorkflowHistories {
 model RenewalFormPersonalDetails {
   id                         Int                                        @id @default(autoincrement())
   acknowledgementNo          String?
-  licenseNumber              String                                     @unique
+  licenseNumber              String
   firstName                  String
   middleName                 String?
   lastName                   String
@@ -733,7 +733,7 @@ model Licenses {
   aadharNumber               String?
   panNumber                  String?
   validFrom                  DateTime
-  validTill                  DateTime
+  validTill                  DateTime?
   armsCategory               ArmsCategory?
   areaOfValidity             String?
   ammunitionDescription      String?
@@ -762,6 +762,8 @@ model Licenses {
   suspendedReason            String?
   suspendedDate              DateTime?
   lastRenewedDate            DateTime?
+  lastModifiedRenewalId      Int?
+  renewalIds                 Int[]
   qrCodeUrl                  String?
   pdfUrl                     String?
   digitalSignature           String?
@@ -772,7 +774,10 @@ model Licenses {
   renewalApplication           RenewalFormPersonalDetails?             @relation("LicenseToRenewalApp", fields: [renewalApplicationId], references: [id])
   cancelApplicationId          Int?
   cancelApplication            CancelFormRequests?                     @relation("LicenseToCancelApp", fields: [cancelApplicationId], references: [id])
+  lastModifiedAppId          Int?
   lastModifiedAppType          String?
+  previousModifiedAppType      String?
+  previousModifiedAppId        Int?
   renewalCount                 Int                                      @default(0)
   createdAt                    DateTime                                 @default(now())
   updatedAt                    DateTime                                 @updatedAt

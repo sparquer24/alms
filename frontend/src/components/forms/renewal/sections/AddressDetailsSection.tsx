@@ -225,30 +225,43 @@ const AddressDetailsSection = forwardRef(function AddressDetailsSection(
             </>
         )}
 
-        {/* Contact Numbers (optional) */}
-        <div>
-          <label htmlFor='officePhone' className='block text-sm font-medium text-gray-700'>Office Phone</label>
-          <input id='officePhone' name='officePhone' value={formData.officePhone || ''} onChange={onChange} className={`mt-1 block w-full p-2 border ${errors['officePhone'] ? 'border-red-500' : 'border-gray-300'} rounded-md`} />
-          {errors['officePhone'] && <p className='text-red-500 text-xs mt-1'>{errors['officePhone']}</p>}
-        </div>
+        {/* Contact Numbers */}
+        <Input
+          label='Office Phone'
+          name='officePhone'
+          value={formData.officePhone || ''}
+          onChange={onChange}
+          placeholder='Enter office phone'
+          error={errors['officePhone']}
+        />
 
-        <div>
-          <label htmlFor='residencePhone' className='block text-sm font-medium text-gray-700'>Residence Phone</label>
-          <input id='residencePhone' name='residencePhone' value={formData.residencePhone || ''} onChange={onChange} className={`mt-1 block w-full p-2 border ${errors['residencePhone'] ? 'border-red-500' : 'border-gray-300'} rounded-md`} />
-          {errors['residencePhone'] && <p className='text-red-500 text-xs mt-1'>{errors['residencePhone']}</p>}
-        </div>
+        <Input
+          label='Residence Phone'
+          name='residencePhone'
+          value={formData.residencePhone || ''}
+          onChange={onChange}
+          placeholder='Enter residence phone'
+          required
+          error={errors['residencePhone']}
+        />
 
-        <div>
-          <label htmlFor='officeMobile' className='block text-sm font-medium text-gray-700'>Office Mobile</label>
-          <input id='officeMobile' name='officeMobile' value={formData.officeMobile || ''} onChange={onChange} className={`mt-1 block w-full p-2 border ${errors['officeMobile'] ? 'border-red-500' : 'border-gray-300'} rounded-md`} />
-          {errors['officeMobile'] && <p className='text-red-500 text-xs mt-1'>{errors['officeMobile']}</p>}
-        </div>
+        <Input
+          label='Office Mobile'
+          name='officeMobile'
+          value={formData.officeMobile || ''}
+          onChange={onChange}
+          placeholder='Enter office mobile'
+          error={errors['officeMobile']}
+        />
 
-        <div>
-          <label htmlFor='alternativeMobile' className='block text-sm font-medium text-gray-700'>Alternative Mobile</label>
-          <input id='alternativeMobile' name='alternativeMobile' value={formData.alternativeMobile || ''} onChange={onChange} className={`mt-1 block w-full p-2 border ${errors['alternativeMobile'] ? 'border-red-500' : 'border-gray-300'} rounded-md`} />
-          {errors['alternativeMobile'] && <p className='text-red-500 text-xs mt-1'>{errors['alternativeMobile']}</p>}
-        </div>
+        <Input
+          label='Alternative Mobile'
+          name='alternativeMobile'
+          value={formData.alternativeMobile || ''}
+          onChange={onChange}
+          placeholder='Enter alternative mobile'
+          error={errors['alternativeMobile']}
+        />
       </div>
     </div>
   );

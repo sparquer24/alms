@@ -9,6 +9,7 @@ interface Props {
   renewalId?: string | number;
   applicationId?: string | number;
   licenseId?: string | number;
+  licenseNumber?: string;
   tabs?: string[];
   activeTab?: string;
   onTabChange?: (tab: string) => void;
@@ -24,6 +25,7 @@ export default function RenewalApplicationDetailsHeader({
   renewalId,
   applicationId,
   licenseId,
+  licenseNumber,
   tabs = ['Renewal Info', 'Original License Details'],
   activeTab,
   onTabChange,
@@ -31,83 +33,98 @@ export default function RenewalApplicationDetailsHeader({
   accentColorClass = 'bg-gradient-to-b from-indigo-500 to-indigo-400',
   imageSrc,
 }: Props) {
+  const isOriginTab = activeTab === 'Original License Details';
+
   const subtitleParts: string[] = [];
-  if (renewalId !== undefined && renewalId !== null)
-    subtitleParts.push(`For Renewal ID: #${renewalId}`);
-  if (acknowledgementNo) subtitleParts.push(`Ack No: ${acknowledgementNo}`);
-  if (licenseId) subtitleParts.push(`License ID: ${licenseId}`);
-  else if (applicationId) subtitleParts.push(`App ID: ${applicationId}`);
+  if (isOriginTab) {
+    // Original License Details tab — show license info
+    if (licenseId) subtitleParts.push(`License ID: ${licenseId}`);
+    if (licenseNumber) subtitleParts.push(`License Number: ${licenseNumber}`);
+  } else {
+    // Non-origin tab (Renewal Info / Cancellation Info) — show request ID and acknowledgement
+    if (applicationId) subtitleParts.push(`Request ID: ${applicationId}`);
+    if (acknowledgementNo) subtitleParts.push(`Ack No: ${acknowledgementNo}`);
+  }
 
   return (
     <div className='relative'>
-      <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden'>
+      <div className='overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md'>
         <div className='flex'>
-          <div className={`w-2 ${accentColorClass}`} />
+          {/* Left Accent */}
+          <div className={`w-1 ${accentColorClass}`} />
 
           <div className='flex-1 px-6 py-4'>
-            <div className='flex items-start justify-between gap-4'>
-              <div className='min-w-0 flex items-start gap-4'>
-                <div className='flex-shrink-0 mt-1'>
-                  <div className='h-10 w-10 rounded-lg bg-white border border-slate-100 flex items-center justify-center'>
-                    {imageSrc ? (
-                      <img src={imageSrc} alt='' className='h-5 w-5' />
-                    ) : (
-                      <svg
-                        xmlns='http://www.w3.org/2000/svg'
-                        className='h-5 w-5 text-slate-500'
-                        viewBox='0 0 24 24'
-                        fill='none'
-                        stroke='currentColor'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={1.5}
-                          d='M9 12h6M9 16h6M12 8h.01M4 6h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z'
-                        />
-                      </svg>
-                    )}
-                  </div>
+            <div className='grid grid-cols-[1fr_auto_240px] items-center gap-8'>
+              {/* ================= Left ================= */}
+              <div className='flex items-center gap-5 min-w-0'>
+                {/* Icon */}
+                <div className='flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 shadow-sm'>
+                  {imageSrc ? (
+                    <img src={imageSrc} alt='' className='h-6 w-6 object-contain' />
+                  ) : (
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      className='h-6 w-6 text-slate-500'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={1.7}
+                        d='M9 12h6M9 16h6M12 8h.01M4 6h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z'
+                      />
+                    </svg>
+                  )}
                 </div>
 
-                <div>
-                  <div className='text-xs uppercase tracking-wider text-slate-400 font-semibold'>
-                    {smallLabel}
-                  </div>
-                  <h2 className='mt-1 text-2xl font-bold text-slate-900 truncate'>
-                    {title || (renewalId ? `Renewal Request #${renewalId}` : 'Renewal Request')}
+                {/* Title */}
+                <div className='min-w-0'>
+                  <h2 className='truncate text-[20px] font-bold text-slate-900'>
+                    {title || (renewalId ? `Renewal Request ID:${renewalId}` : 'Renewal Request')}
                   </h2>
                   {subtitleParts.length > 0 && (
-                    <p className='mt-1 text-sm text-slate-500'>{subtitleParts.join(' · ')}</p>
-                  )}
-
-                  {tabs && tabs.length > 0 && (
-                    <div className='mt-4 flex flex-wrap gap-3'>
-                      {tabs.map(t => {
-                        const isActive = t === activeTab;
-                        return (
-                          <button
-                            key={t}
-                            type='button'
-                            onClick={() => onTabChange?.(t)}
-                            className={`${isActive ? 'bg-[#071933] text-white shadow' : 'bg-white text-slate-700 border border-slate-200'} px-4 py-2 rounded-md text-sm font-semibold`}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <p className='mt-1 truncate text-[15px] text-slate-500'>
+                      {subtitleParts.join(' · ')}
+                    </p>
                   )}
                 </div>
               </div>
 
-              <div className='flex-shrink-0 text-right pr-4'>
-                <div className='text-xs text-slate-400 uppercase tracking-wider font-semibold'>
+              {/* ================= Center Tabs ================= */}
+              {tabs && tabs.length > 0 && (
+                <div className='flex items-center justify-center gap-4'>
+                  {tabs.map(t => {
+                    const active = t === activeTab;
+
+                    return (
+                      <button
+                        key={t}
+                        type='button'
+                        onClick={() => onTabChange?.(t)}
+                        className={`h-12 rounded-xl px-8 text-[15px] font-semibold transition-all duration-200 ${
+                          active
+                            ? 'bg-[#071933] text-white shadow-md'
+                            : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ================= Right ================= */}
+              <div className='border-l border-slate-200 pl-8 text-right'>
+                <p className='text-[11px] font-bold uppercase tracking-widest text-blue-600'>
                   Current Section
-                </div>
-                <div className='mt-1 text-sm font-bold text-slate-800'>
+                </p>
+
+                <h3 className='mt-2 text-[18px] font-semibold text-slate-900'>
                   {currentSection || activeTab}
-                </div>
+                </h3>
               </div>
             </div>
           </div>

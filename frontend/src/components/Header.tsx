@@ -9,8 +9,6 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
-import { ApplicationService } from '../api/applicationService';
-import { CancelService } from '../api/cancelService';
 import { isLicenseManagementRole } from '@/utils/roleUtils';
 
 interface BreadcrumbItem {
@@ -62,10 +60,6 @@ const Header = (props: HeaderProps) => {
   const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelLicenseId, setCancelLicenseId] = useState('');
-  const [cancelLookupError, setCancelLookupError] = useState<string | null>(null);
-  const [isCancelLookupLoading, setIsCancelLookupLoading] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -87,73 +81,12 @@ const Header = (props: HeaderProps) => {
       } else if (type.key === 'renewal') {
         router.push('/forms/renewal');
       } else if (type.key === 'cancel') {
-        setCancelLicenseId('');
-        setCancelLookupError(null);
-        setShowCancelModal(true);
+        router.push('/cancelForm/new');
       } else {
         router.push(`/inbox?type=all?type=${encodeURIComponent(type.key)}`);
       }
     } else if (onShowMessage) {
       onShowMessage('This feature will come soon', 'info');
-    }
-  };
-
-  const handleCancelSubmit = async () => {
-    const id = cancelLicenseId.trim();
-
-    if (!id) {
-      setCancelLookupError('Enter a License ID or License Number.');
-      return;
-    }
-
-    try {
-      setIsCancelLookupLoading(true);
-      setCancelLookupError(null);
-
-      const response = await ApplicationService.getLicense(id);
-      const freshApplication = response?.data ?? response;
-
-      if (!freshApplication) {
-        throw new Error('No license data returned for that ID or number.');
-      }
-
-      const workflowStatusCode = freshApplication?.workflowStatus?.code?.toString().toUpperCase();
-      const hasApprovedHistory =
-        Array.isArray(freshApplication?.workflowHistories) &&
-        freshApplication.workflowHistories.some(
-          (history: any) => history?.actionTaken?.toString().toUpperCase() === 'APPROVED'
-        );
-
-      if (workflowStatusCode !== 'APPROVED' && !hasApprovedHistory) {
-        throw new Error('Only approved licenses can create a cancellation form.');
-      }
-
-      // Check if a cancellation request already exists for this license
-      try {
-        const resolvedLicenseId = Number(freshApplication.licenseId || freshApplication.id);
-        const existingCancelResponse = await CancelService.getCancelRequests({ licenseId: resolvedLicenseId });
-        const existingCancel = existingCancelResponse?.data || existingCancelResponse;
-        if (Array.isArray(existingCancel) && existingCancel.length > 0) {
-          throw new Error('A cancellation request already exists for this license.');
-        }
-      } catch (err: any) {
-        if (!err.message.includes('already exists')) {
-          // If it's a general network error/not found, ignore it and let user proceed, but if it has matching message, throw.
-        } else {
-          throw err;
-        }
-      }
-
-      setShowCancelModal(false);
-      router.push(
-        `/cancelForm/new?licenseId=${encodeURIComponent(String(freshApplication.licenseId || freshApplication.id))}`
-      );
-    } catch (error: any) {
-      const message = error?.message || 'Unable to fetch fresh application data.';
-      setCancelLookupError(message);
-      onShowMessage?.(message, 'error');
-    } finally {
-      setIsCancelLookupLoading(false);
     }
   };
 
@@ -420,57 +353,6 @@ const Header = (props: HeaderProps) => {
 
 
 
-      {showCancelModal && (
-        <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
-          <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
-            <h2 className='text-lg font-semibold text-gray-900'>Cancel Application</h2>
-            <p className='mt-2 text-sm text-gray-600'>
-              Enter the approved License ID or License Number to initiate the cancellation request.
-            </p>
-
-            <div className='mt-4'>
-              <label
-                htmlFor='cancel-license-id'
-                className='block text-sm font-medium text-gray-700'
-              >
-                License ID / License Number
-              </label>
-              <input
-                id='cancel-license-id'
-                value={cancelLicenseId}
-                onChange={e => {
-                  setCancelLicenseId(e.target.value);
-                  if (cancelLookupError) setCancelLookupError(null);
-                }}
-                placeholder='Enter License ID or License Number (e.g., LUAN...)'
-                className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
-                autoFocus
-              />
-              {cancelLookupError && (
-                <p className='mt-2 text-sm text-red-600'>{cancelLookupError}</p>
-              )}
-            </div>
-
-            <div className='mt-6 flex justify-end gap-3'>
-              <button
-                type='button'
-                onClick={() => setShowCancelModal(false)}
-                className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
-              >
-                Cancel
-              </button>
-              <button
-                type='button'
-                onClick={handleCancelSubmit}
-                disabled={isCancelLookupLoading}
-                className='rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70'
-              >
-                {isCancelLookupLoading ? 'Loading…' : 'Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

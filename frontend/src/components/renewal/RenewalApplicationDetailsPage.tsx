@@ -165,7 +165,7 @@ export default function RenewalApplicationDetailsPage() {
     'N/A';
 
   return (
-    <div className='min-h-screen bg-slate-50 px-4 py-8'>
+    <div className='min-h-screen bg-slate-50 px-4 py-8 mt-0'>
       <div className='mx-auto max-w-5xl 2xl:max-w-[1200px] space-y-6'>
         <RenewalApplicationDetailsHeader
           licenseId={

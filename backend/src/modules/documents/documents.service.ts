@@ -81,15 +81,16 @@ export class DocumentsService {
     applicationId: number,
     type: ApplicationType,
   ): Promise<DocumentResponse[]> {
-    // Validate application exists before fetching documents
-    await this.validateApplicationExists(applicationId, type);
+    // Validate application exists before fetching documents.
+    // This also resolves license IDs to application IDs if needed.
+    const resolvedId = await this.validateAndResolveApplicationId(applicationId, type);
 
-    // Fetch documents from the appropriate table
+    // Fetch documents from the appropriate table using the resolved ID
     switch (type) {
       case ApplicationType.Fresh:
-        return this.getFreshDocuments(applicationId);
+        return this.getFreshDocuments(resolvedId);
       case ApplicationType.Renewal:
-        return this.getRenewalDocuments(applicationId);
+        return this.getRenewalDocuments(resolvedId);
       case ApplicationType.Cancellation:
         // Cancellation requests have no dedicated file upload table.
         // Return empty array; could be extended to read attachments
@@ -103,49 +104,78 @@ export class DocumentsService {
   }
 
   /**
-   * Validate that the application exists in the corresponding table.
+   * Validate that the application exists in the corresponding table,
+   * and resolve the ID if it turns out to be a license ID instead of an application ID.
+   * Returns the resolved application ID.
    */
-  private async validateApplicationExists(
+  private async validateAndResolveApplicationId(
     applicationId: number,
     type: ApplicationType,
-  ): Promise<void> {
+  ): Promise<number> {
+    // First try direct lookup in the expected application table
     switch (type) {
       case ApplicationType.Fresh: {
         const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
           where: { id: applicationId },
           select: { id: true },
         });
-        if (!app) {
-          throw new NotFoundException(
-            `Application with ID ${applicationId} not found in Fresh applications`,
-          );
+        if (app) return app.id;
+
+        // Not found as a fresh app — try resolving as a license ID
+        const license = await prisma.licenses.findUnique({
+          where: { id: applicationId },
+          select: { freshApplicationId: true },
+        });
+        if (license?.freshApplicationId && license.freshApplicationId !== applicationId) {
+          return this.validateAndResolveApplicationId(license.freshApplicationId, type);
         }
-        break;
+
+        throw new NotFoundException(
+          `Application with ID ${applicationId} not found in Fresh applications`,
+        );
       }
       case ApplicationType.Renewal: {
         const app = await prisma.renewalFormPersonalDetails.findUnique({
           where: { id: applicationId },
           select: { id: true },
         });
-        if (!app) {
-          throw new NotFoundException(
-            `Application with ID ${applicationId} not found in Renewal applications`,
-          );
+        if (app) return app.id;
+
+        // Not found as a renewal app — try resolving as a license ID
+        const license = await prisma.licenses.findUnique({
+          where: { id: applicationId },
+          select: { renewalApplicationId: true },
+        });
+        if (license?.renewalApplicationId && license.renewalApplicationId !== applicationId) {
+          return this.validateAndResolveApplicationId(license.renewalApplicationId, type);
         }
-        break;
+
+        throw new NotFoundException(
+          `Application with ID ${applicationId} not found in Renewal applications`,
+        );
       }
       case ApplicationType.Cancellation: {
         const app = await prisma.cancelFormRequests.findUnique({
           where: { id: applicationId },
           select: { id: true },
         });
-        if (!app) {
-          throw new NotFoundException(
-            `Application with ID ${applicationId} not found in Cancellation requests`,
-          );
+        if (app) return app.id;
+
+        // Not found as a cancel app — try resolving as a license ID
+        const license = await prisma.licenses.findUnique({
+          where: { id: applicationId },
+          select: { cancelApplicationId: true },
+        });
+        if (license?.cancelApplicationId && license.cancelApplicationId !== applicationId) {
+          return this.validateAndResolveApplicationId(license.cancelApplicationId, type);
         }
-        break;
+
+        throw new NotFoundException(
+          `Application with ID ${applicationId} not found in Cancellation requests`,
+        );
       }
+      default:
+        throw new BadRequestException(`Unsupported application type: ${type}`);
     }
   }
 
