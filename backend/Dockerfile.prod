@@ -17,7 +17,7 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 
 # Layer 2: Install Node dependencies (cached until package.json or lockfile changes)
 COPY package*.json ./
-RUN npm install && apk del .build-deps
+RUN PUPPETEER_SKIP_DOWNLOAD=true npm install && apk del .build-deps
 
 # Layer 3: Copy Prisma schema and generate client (cached unless schema changes)
 COPY prisma/ ./prisma/
@@ -36,6 +36,7 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Layer 1: Install runtime utilities (rarely changes)
 RUN apk add --no-cache wget
