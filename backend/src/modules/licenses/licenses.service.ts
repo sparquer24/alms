@@ -1364,6 +1364,13 @@ export class LicensesService {
     currentUserId: number,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
+    // Capture the license's current status BEFORE the update so the workflow
+    // history accurately reflects the previous state (fixes hardcoded ACTIVE bug).
+    const currentLicense = await tx.licenses.findUnique({
+      where: { id: licenseId },
+      select: { status: true },
+    });
+
     await tx.licenses.update({
       where: { id: licenseId },
       data: {
@@ -1382,7 +1389,7 @@ export class LicensesService {
         action: 'CANCELLED',
         applicationId,
         applicationType: 'CANCELLATION',
-        previousStatus: LicenseStatus.ACTIVE,
+        previousStatus: currentLicense?.status ?? LicenseStatus.ACTIVE,
         newStatus: LicenseStatus.CANCELLED,
         changedBy: currentUserId,
         remarks: `License cancelled. Reason: ${reason}`,

@@ -619,11 +619,27 @@ export class CancelFormService {
             data: cancelUpdateData,
           });
 
-          // 2. Update the original license to CANCELLED status
+          // Capture the license's current status BEFORE the update so the workflow
+          // history accurately reflects the previous state (prevents reading back
+          // the already-updated CANCELLED status within the same transaction).
+          const licenseBeforeCancel = await tx.licenses.findUnique({
+            where: { id: cancelRequest.licenseId },
+            select: { status: true },
+          });
+
+          // 2. Update the license with cancellation metadata
+          // Only cancellation-relevant fields are updated — personal details,
+          // addresses, occupation, criminal history, documents, weapons,
+          // and other applicant data are preserved intact for audit/historical purposes.
           await tx.licenses.update({
             where: { id: cancelRequest.licenseId },
             data: {
               status: LicenseStatus.CANCELLED,
+              validTill: null,
+              cancellationReason: cancelRequest.cancellationReason,
+              cancellationDate: new Date(),
+              cancelApplicationId: cancelRequest.id,
+              lastModifiedAppType: 'CANCELLATION',
             },
           });
 
@@ -635,7 +651,7 @@ export class CancelFormService {
                 action: ACTION_CODES.CANCEL,
                 applicationId: cancelRequest.id,
                 applicationType: cancelRequest.applicationType,
-                previousStatus: application.status as any,
+                previousStatus: licenseBeforeCancel?.status ?? application.status,
                 newStatus: LicenseStatus.CANCELLED,
                 changedBy: currentUserId,
                 remarks: `Application cancelled. Reason: ${cancelRequest.cancellationReason}`,

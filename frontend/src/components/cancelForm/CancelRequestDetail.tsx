@@ -52,7 +52,6 @@ import { ApplicationService } from '@/api/applicationService';
 import RenewalApplicationDetailsHeader from '@/components/renewal/renewalapplicationdetailsheader';
 import { getStatusStyle } from '@/utils/statusColors';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
-import { getDocuments } from '@/services/documentService';
 import { apiClient } from '@/config/authenticatedApiClient';
 import { LazySection } from '@/components/LazySection';
 import { formatGender } from '@/utils/formatters';
@@ -104,77 +103,68 @@ export default function CancelRequestDetail({
   const [licenseLoading, setLicenseLoading] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
 
-  // Original License Documents & Workflow History — same pattern as Renewal.
-  const [originDocuments, setOriginDocuments] = useState<any[]>([]);
-  const [originDocumentsLoading, setOriginDocumentsLoading] = useState(false);
-  const [originalLicenseHistory, setOriginalLicenseHistory] = useState<any[]>([]);
-  const [originalLicenseHistoryLoading, setOriginalLicenseHistoryLoading] = useState(false);
-  const originalDocumentsFetchedRef = useRef<string | number | null>(null);
-  const originalHistoryFetchedRef = useRef<string | number | null>(null);
+  // Original License Documents & Workflow History — derived from sourceAppData.
+  // The Fresh/Renewal GET APIs already return uploaded documents and workflow history,
+  // so no separate /documents or /workflow/history API calls are made.
 
   // Lazily fetch the License GET API (GET /api/licenses/:licenseId) ONLY when:
   //  - the Original License Details tab is opened (loadOriginal), and
   //  - we have a licenseId from the Cancellation GET API response, and
   //  - it has not already been fetched (prevents duplicate calls on re-renders).
-  // No Fresh Application API is used here.
   const licenseFetchedFor = React.useRef<string | null>(null);
 
-  // After license data is loaded, fetch the workflow history and documents
-  // for the original source application — matching the Renewal pattern:
-  //   - Use licenseData.id as the source application ID
-  //   - Derive the application type from licenseData.acknowledgementNo first char:
-  //       'F' → FRESH / Fresh  |  'R' → RENEWAL / Renewal  |  'C' → CANCELLATION / Cancellation
+  // Source application data: after fetching the license, read `lastModifiedAppType`
+  // and fetch either the renewal application (GET /api/renewal-forms/:id) or the
+  // fresh application (GET /api/application-form?applicationId=:id) accordingly.
+  const [sourceAppData, setSourceAppData] = useState<any>(null);
+  const [sourceAppLoading, setSourceAppLoading] = useState(false);
+  const sourceAppFetchedRef = useRef<string | null>(null);
+
+  // After license data is loaded, use `lastModifiedAppType` from the license
+  // response to fetch the source application:
+  //   - lastModifiedAppType === 'RENEWAL' → GET /api/renewal-forms/:renewalApplicationId
+  //   - lastModifiedAppType === 'FRESH'   → GET /api/application-form?applicationId=:freshApplicationId
+  //
+  // The Fresh/Renewal GET API response already includes uploaded documents and
+  // workflow history — no separate API calls are made for those.
   useEffect(() => {
     if (activeTab !== 'original' || !licenseData) return;
 
-    const srcAppId = (licenseData as any).id;
-    const ackNo = (licenseData as any).acknowledgementNo;
-    if (!srcAppId || !ackNo) return;
+    const lastModifiedAppType = (licenseData as any).lastModifiedAppType;
+    const renewalAppId = (licenseData as any).renewalApplicationId;
+    const freshAppId = (licenseData as any).freshApplicationId;
 
-    // Derive type from the first character of acknowledgement number.
-    const firstChar = String(ackNo).charAt(0).toUpperCase();
-    let derivedType: string;
-    if (firstChar === 'R') derivedType = 'RENEWAL';
-    else if (firstChar === 'C') derivedType = 'CANCELLATION';
-    else derivedType = 'FRESH';
+    if (!lastModifiedAppType) return;
 
-    let docDerivedType: string;
-    if (firstChar === 'R') docDerivedType = 'Renewal';
-    else if (firstChar === 'C') docDerivedType = 'Cancellation';
-    else docDerivedType = 'Fresh';
-
-    // --- Fetch Workflow History (once per source app) ---
-    if (String(srcAppId) !== String(originalHistoryFetchedRef.current)) {
-      originalHistoryFetchedRef.current = srcAppId;
-      setOriginalLicenseHistoryLoading(true);
-
-      apiClient.get<any>(`/workflow/history/${srcAppId}?type=${derivedType}`)
-        .then((historyResponse: any) => {
-          if (historyResponse && historyResponse.success) {
-            setOriginalLicenseHistory(historyResponse.data);
-          } else if (Array.isArray(historyResponse)) {
-            setOriginalLicenseHistory(historyResponse);
-          }
-        })
-        .catch((historyErr: any) => {
-          console.error('Failed to fetch original license workflow history', historyErr);
-          setOriginalLicenseHistory([]);
-        })
-        .finally(() => setOriginalLicenseHistoryLoading(false));
-    }
-
-    // --- Fetch Documents (once per source app) ---
-    if (String(srcAppId) !== String(originalDocumentsFetchedRef.current)) {
-      originalDocumentsFetchedRef.current = srcAppId;
-      setOriginDocumentsLoading(true);
-
-      getDocuments(Number(srcAppId), docDerivedType)
-        .then((docs: any[]) => setOriginDocuments(docs))
-        .catch((docsErr: any) => {
-          console.error('Failed to fetch origin documents:', docsErr);
-          setOriginDocuments([]);
-        })
-        .finally(() => setOriginDocumentsLoading(false));
+    // Determine source app ID and fetch it if not already fetched
+    if (lastModifiedAppType === 'RENEWAL' && renewalAppId) {
+      const key = `renewal-${renewalAppId}`;
+      if (sourceAppFetchedRef.current !== key) {
+        sourceAppFetchedRef.current = key;
+        setSourceAppData(null); // Clear any stale data
+        setSourceAppLoading(true);
+        apiClient.get<any>(`/renewal-forms/${renewalAppId}`)
+          .then((res: any) => {
+            const data = res?.data ?? res;
+            if (data) setSourceAppData(data);
+          })
+          .catch((err: any) => console.error('Failed to fetch renewal application:', err))
+          .finally(() => setSourceAppLoading(false));
+      }
+    } else if (lastModifiedAppType === 'FRESH' && freshAppId) {
+      const key = `fresh-${freshAppId}`;
+      if (sourceAppFetchedRef.current !== key) {
+        sourceAppFetchedRef.current = key;
+        setSourceAppData(null); // Clear any stale data
+        setSourceAppLoading(true);
+        apiClient.get<any>(`/application-form?applicationId=${freshAppId}`)
+          .then((res: any) => {
+            const data = res?.data ?? res;
+            if (data) setSourceAppData(data);
+          })
+          .catch((err: any) => console.error('Failed to fetch fresh application:', err))
+          .finally(() => setSourceAppLoading(false));
+      }
     }
   }, [activeTab, licenseData]);
   useEffect(() => {
@@ -213,7 +203,7 @@ export default function CancelRequestDetail({
     .filter(Boolean)
     .join(' ') || request.applicantName || 'N/A';
 
-  if (licenseLoading) {
+  if (licenseLoading || sourceAppLoading) {
     return (
       <div className='p-6 lg:p-8 bg-slate-50/30 transition-opacity duration-300 animate-pulse rounded-3xl bg-white border border-slate-200'>
         {/* Application Information Section Skeleton */}
@@ -269,7 +259,7 @@ export default function CancelRequestDetail({
         <div className='flex flex-col items-center justify-center py-8 text-center'>
           <div className='w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4'></div>
           <p className='text-sm font-medium text-slate-500'>
-            Loading original license details...
+            Loading original application details...
           </p>
         </div>
       </div>
@@ -391,13 +381,11 @@ export default function CancelRequestDetail({
         {activeTab === 'original' && (
           <>
             <OriginalLicenseDetails
+              sourceAppData={sourceAppData}
+              sourceAppType={licenseData?.lastModifiedAppType}
               licenseData={licenseData}
               licenseId={request.licenseId}
               licenseNumber={request.Licenses?.licenseNumber || request.licenseNumber}
-              originDocuments={originDocuments}
-              originDocumentsLoading={originDocumentsLoading}
-              originalLicenseHistory={originalLicenseHistory}
-              originalLicenseHistoryLoading={originalLicenseHistoryLoading}
             />
           </>
         )}
@@ -408,43 +396,61 @@ export default function CancelRequestDetail({
 /**
  * Original License Details tab content.
  * Mirrors the Renewal Application Details page Original tab layout exactly.
- * Uses data from the License GET API (GET /api/licenses/:licenseId) and
- * fetches documents + workflow history via separate APIs.
+ *
+ * Uses the source application data (renewal or fresh application fetched based on
+ * lastModifiedAppType from the License GET API response) to display the latest
+ * approved application details.
+ *
+ * The licenseData is still used for license-specific info (number, status).
  */
 function OriginalLicenseDetails({
+  sourceAppData,
+  sourceAppType,
   licenseData,
   licenseId,
   licenseNumber,
-  originDocuments,
-  originDocumentsLoading,
-  originalLicenseHistory,
-  originalLicenseHistoryLoading,
 }: {
+  sourceAppData: any;
+  sourceAppType?: string;
   licenseData: any;
   licenseId?: number | string | null;
   licenseNumber?: string | null;
-  originDocuments?: any[];
-  originDocumentsLoading?: boolean;
-  originalLicenseHistory?: any[];
-  originalLicenseHistoryLoading?: boolean;
 }) {
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
 
-  const license = licenseData || {};
-  const applicantName = [license.firstName, license.middleName, license.lastName]
+  // Use source application data (renewal or fresh application) as the primary data source.
+  // Fall back to licenseData for backward compatibility.
+  const app = sourceAppData || licenseData || {};
+
+  // Documents and workflow history are derived directly from the Fresh/Renewal GET API
+  // response — no separate API calls are needed.
+  // The Fresh API returns fileUploads[] and workflowHistories[];
+  // the Renewal API returns similar document/workflow fields at the top level.
+  const originDocuments: any[] = app.fileUploads || app.documents || [];
+  const originDocumentsLoading = false;
+  const originalLicenseHistory: any[] = app.workflowHistories || app.FreshLicenseApplicationsFormWorkflowHistories || [];
+  const originalLicenseHistoryLoading = false;
+  const applicantName = [app.firstName, app.middleName, app.lastName]
     .filter(Boolean)
     .join(' ') || 'N/A';
 
-  // Extract nested data from the License API response to match the Renewal page pattern.
-  // The License API returns licenseDetails, licenseHistories, and criminalHistories as
-  // nested arrays at the top level of the response object (via buildLicenseDetailResponse).
-  const licenseDetail = license.licenseDetails?.[0] || {};
-  const licenseHistory = license.licenseHistories?.[0] || {};
-  const criminalHistory = license.criminalHistories?.[0] || {};
+  // Extract nested data from the source application response.
+  // Both fresh and renewal application APIs return data in the same nested structure
+  // (personal details at top level, addresses, licenseDetails[], licenseHistories[], etc.)
+  const licenseDetail = app.licenseDetails?.[0] || {};
+  const licenseHistory = app.licenseHistories?.[0] || {};
+  const criminalHistory = app.criminalHistories?.[0] || {};
 
   const weapons = Array.isArray(licenseDetail.requestedWeapons)
     ? licenseDetail.requestedWeapons.map((w: any) => w.name || w).join(', ')
     : '';
+
+  // Application type label
+  const appTypeLabel = sourceAppType
+    ? String(sourceAppType).charAt(0).toUpperCase() + String(sourceAppType).slice(1).toLowerCase()
+    : app?.applicationType
+      ? String(app.applicationType).charAt(0).toUpperCase() + String(app.applicationType).slice(1).toLowerCase()
+      : 'Original';
 
   return (
     <div className='space-y-8 bg-slate-50/30 rounded-3xl'>
@@ -456,7 +462,7 @@ function OriginalLicenseDetails({
               <UserRound className='w-5 h-5' />
             </div>
             <h3 className='font-bold text-slate-800 text-lg tracking-tight'>
-              Application Information
+              Application Information — {appTypeLabel}
             </h3>
           </div>
         </div>
@@ -470,31 +476,31 @@ function OriginalLicenseDetails({
               icon={UserRound}
               className='md:col-span-2'
             />
-            {license?.parentOrSpouseName && (
+            {app?.parentOrSpouseName && (
               <DetailItem
                 label='Parent / Spouse Name'
-                value={license.parentOrSpouseName}
+                value={app.parentOrSpouseName}
                 icon={Users}
               />
             )}
-            {license?.sex && (
-              <DetailItem label='Gender' value={formatGender(license.sex)} icon={UserCheck} />
+            {app?.sex && (
+              <DetailItem label='Gender' value={formatGender(app.sex)} icon={UserCheck} />
             )}
-            {license?.placeOfBirth && (
-              <DetailItem label='Place of Birth' value={license.placeOfBirth} icon={MapPin} />
+            {app?.placeOfBirth && (
+              <DetailItem label='Place of Birth' value={app.placeOfBirth} icon={MapPin} />
             )}
-            {(license?.dateOfBirth || license?.dob) && (
+            {(app?.dateOfBirth || app?.dob) && (
               <DetailItem
                 label='Date of Birth'
                 value={
-                  license?.dateOfBirth
-                    ? new Date(license.dateOfBirth).toLocaleDateString('en-IN', {
+                  app?.dateOfBirth
+                    ? new Date(app.dateOfBirth).toLocaleDateString('en-IN', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
                       })
-                    : license?.dob
-                      ? new Date(license.dob).toLocaleDateString('en-IN', {
+                    : app?.dob
+                      ? new Date(app.dob).toLocaleDateString('en-IN', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -504,36 +510,36 @@ function OriginalLicenseDetails({
                 icon={CalendarDays}
               />
             )}
-            {license?.panNumber && (
-              <DetailItem label='PAN Number' value={license.panNumber} icon={CreditCard} mono />
+            {app?.panNumber && (
+              <DetailItem label='PAN Number' value={app.panNumber} icon={CreditCard} mono />
             )}
-            {license?.aadharNumber && (
+            {app?.aadharNumber && (
               <DetailItem
                 label='Aadhar Number'
-                value={license.aadharNumber}
+                value={app.aadharNumber}
                 icon={Fingerprint}
                 mono
               />
             )}
-            {license?.acknowledgementNo && (
+            {app?.acknowledgementNo && (
               <DetailItem
                 label='Acknowledgement Number'
-                value={license.acknowledgementNo}
+                value={app.acknowledgementNo}
                 icon={FileCheck}
                 mono
               />
             )}
-            {license?.currentUser && (
+            {app?.currentUser && (
               <DetailItem
                 label='Current User'
-                value={license.currentUser.username}
+                value={app.currentUser.username}
                 icon={UserCog}
               />
             )}
-            {license?.workflowStatus && (
+            {app?.workflowStatus && (
               <DetailItem
                 label='Workflow Status'
-                value={<StatusBadge status={license.workflowStatus} />}
+                value={<StatusBadge status={app.workflowStatus} />}
                 icon={BadgeCheck}
               />
             )}
@@ -541,21 +547,16 @@ function OriginalLicenseDetails({
               label='Application Type'
               value={
                 <StatusBadge
-                  status={license?.applicationType || 'N/A'}
-                  label={
-                    license?.applicationType
-                      ? String(license.applicationType).charAt(0).toUpperCase() +
-                        String(license.applicationType).slice(1).toLowerCase()
-                      : 'N/A'
-                  }
+                  status={app?.applicationType || appTypeLabel}
+                  label={appTypeLabel}
                 />
               }
               icon={Clock3}
             />
-            {license?.applicationDate && (
+            {app?.applicationDate && (
               <DetailItem
                 label='Date & Time of Submission'
-                value={new Date(license.applicationDate).toLocaleString('en-IN', {
+                value={new Date(app.applicationDate).toLocaleString('en-IN', {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -572,7 +573,7 @@ function OriginalLicenseDetails({
           <div>
             <SummaryCard
               application={
-                originDocuments?.length ? { ...license, documents: originDocuments } : license
+                originDocuments?.length ? { ...app, documents: originDocuments } : app
               }
               applicationId={String(licenseId ?? '')}
               applicantName={applicantName}
@@ -582,7 +583,7 @@ function OriginalLicenseDetails({
               <div className='relative z-10'>
                 <LazySection minHeight='400px'>
                   <EnhancedApplicationTimeline
-                    application={license}
+                    application={app}
                     workflowHistory={originalLicenseHistory || []}
                   />
                 </LazySection>
@@ -788,7 +789,7 @@ function OriginalLicenseDetails({
       {/* ================= 3. Three-Column Address Row ================= */}
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
         {(() => {
-          const present = license.presentAddress || {};
+          const present = app.presentAddress || {};
           const presentState =
             typeof present.state === 'object' ? present.state?.name : present.state;
           const presentDistrict =
@@ -820,7 +821,7 @@ function OriginalLicenseDetails({
           );
         })()}
         {(() => {
-          const permanent = license.permanentAddress || {};
+          const permanent = app.permanentAddress || {};
           const permanentState =
             typeof permanent.state === 'object' ? permanent.state?.name : permanent.state;
           const permanentDistrict =
@@ -852,7 +853,7 @@ function OriginalLicenseDetails({
           );
         })()}
         {(() => {
-          const occ = license.occupationAndBusiness || {};
+          const occ = app.occupationAndBusiness || {};
           return (
             <SectionCard
               title='Occupation & Business Details'
@@ -906,7 +907,7 @@ function OriginalLicenseDetails({
         </div>
 
         {(() => {
-          const historyToShow = originalLicenseHistory || license.workflowHistories || [];
+          const historyToShow = originalLicenseHistory || app.workflowHistories || [];
           if (!historyToShow || historyToShow.length === 0) {
             if (originalLicenseHistoryLoading) {
               return (
