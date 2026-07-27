@@ -348,14 +348,21 @@ export default function CancelRequestDetail({
                           icon={Target}
                         />
                       </div>
-                      {request.remarks && (
-                        <div className='px-6 pb-6'>
-                          <div className='pt-4 border-t border-slate-100'>
-                            <p className='text-xs font-bold uppercase tracking-wide text-slate-400 mb-2'>Remarks</p>
-                            <p className='text-sm text-slate-700 whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100'>{request.remarks}</p>
+                      {(() => {
+                        // Extract only the Application Remarks (before any "[Action:" marker)
+                        const rawRemarks = request.remarks || '';
+                        if (!rawRemarks.trim()) return null;
+                        const appRemarks = rawRemarks.split('\n[Action:')[0].trim();
+                        if (!appRemarks) return null;
+                        return (
+                          <div className='px-6 pb-6'>
+                            <div className='pt-4 border-t border-slate-100'>
+                              <p className='text-xs font-bold uppercase tracking-wide text-slate-400 mb-2'>Remarks</p>
+                              <p className='text-sm text-slate-700 whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100'>{appRemarks}</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   </div>
 

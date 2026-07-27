@@ -103,7 +103,8 @@ function FreshApplicationLayoutContent({
         || data.biometricData?.fingerprints?.length > 0
         || data.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
       if (hasBiometric) unlocked.add(7);
-      if (data.fileUploads?.length >= 3) unlocked.add(8);
+      // Preview step (index 8) is always unlocked so users can preview their application at any time
+      unlocked.add(8);
     } else if (hasAppId) {
       unlocked.add(1);
     }
