@@ -155,16 +155,25 @@ export default function CancelFormDetailClient() {
     setHeaderOptions({
       breadcrumbs: [
         { label: 'Home', onClick: () => router.push('/') },
-        { label: 'Cancellation Requests', href: '/cancelForm' },
         { label: `Cancellation Request #${id}` },
       ],
       applicationTypeLabel: 'Cancellation Request',
       statusBadge: request
         ? {
             label: formatStatusLabel(request.status || request.workflowStatus || request.status_id),
-            style: getStatusStyle(
-              request.status || request.workflowStatus?.name || request.status_id
-            ),
+            style: (() => {
+              const style = getStatusStyle(
+                request.workflowStatus?.name ||
+                  request.workflowStatus?.code ||
+                  request.status ||
+                  request.status_id
+              );
+              return {
+                backgroundColor: style.bg,
+                color: style.text,
+                borderColor: style.border,
+              };
+            })(),
           }
         : undefined,
       hidePrint: true,
@@ -265,14 +274,39 @@ export default function CancelFormDetailClient() {
                           transition: isDragging ? 'none' : 'width 0.1s ease',
                         }}
                       >
-                        {canTakeAction ? (
-                          <div className='flex flex-col h-full overflow-hidden'>
-                            <div className='pb-4 border-b border-gray-100 mb-4'>
-                              <h3 className='text-xl font-bold text-gray-900 flex items-center'>
-                                <div className='w-1 h-6 bg-red-600 rounded-full mr-3'></div>
-                                Workflow & Actions
-                              </h3>
-                            </div>
+                          <div className='pb-4 border-b border-gray-100 mb-4'>
+                            <h3 className='text-xl font-bold text-gray-900 flex items-center'>
+                              <div className='w-1 h-6 bg-red-600 rounded-full mr-3'></div>
+                              Application Processing
+                            </h3>
+                          </div>
+                          {(() => {
+                          // Check for final/closed status first — if final, show only a status message
+                          const finalStatuses = ['APPROVED', 'REJECTED', 'CANCELLED', 'DISPOSED'];
+                          const rawStatusCode = request?.workflowStatus?.code || request?.status || '';
+                          const rawStatusName = request?.workflowStatus?.name || rawStatusCode;
+                          const isFinalStatus = finalStatuses.some(s => 
+                            String(rawStatusCode).toUpperCase() === s || 
+                            String(rawStatusName).toUpperCase() === s
+                          );
+                          if (isFinalStatus) {
+                            const displayStatus = String(rawStatusName).charAt(0).toUpperCase() + String(rawStatusName).slice(1).toLowerCase();
+                            return (
+                              <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
+                                <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
+                                  <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <p className='text-sm font-semibold text-amber-900'>
+                                    Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return canTakeAction ? (
                             <div className='flex-1 bg-white overflow-y-auto'>
                               <ProceedingsForm
                                 applicationId={String(id)}
@@ -281,9 +315,8 @@ export default function CancelFormDetailClient() {
                                 applicationData={request}
                               />
                             </div>
-                          </div>
-                        ) : (
-                          <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
+                          ) : (
+                            <div className='bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg shadow-sm'>
                             <div className='flex items-start'>
                               <svg
                                 className='w-6 h-6 text-yellow-600 mr-3 flex-shrink-0 mt-0.5'
@@ -315,7 +348,7 @@ export default function CancelFormDetailClient() {
                               </div>
                             </div>
                           </div>
-                        )}
+                        );})()}
                       </div>
 
                       <div

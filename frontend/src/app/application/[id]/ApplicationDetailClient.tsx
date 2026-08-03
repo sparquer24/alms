@@ -704,43 +704,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     }, 2000);
   };
 
-  const handleGenerateLicense = async () => {
-    if (!applicationId) return;
-    try {
-      setSuccessMessage('Generating License PDF...');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/licenses/generate/${applicationId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issuedBy: user?.id || 1 }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSuccessMessage('License generated successfully!');
-        if (data.pdfUrl) {
-          if (data.pdfUrl.startsWith('data:')) {
-            // It's a base64 data URI, convert to Blob to preview in a new tab
-            fetch(data.pdfUrl)
-              .then(res => res.blob())
-              .then(blob => {
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-              });
-          } else {
-            // It's a relative path from the backend
-            const baseUrl =
-              process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3001';
-            window.open(`${baseUrl}${data.pdfUrl}`, '_blank');
-          }
-        }
-      } else {
-        setErrorMessage(data.message || 'Failed to generate license');
-      }
-    } catch (error) {
-      setErrorMessage('Failed to generate license');
-    }
-  };
-
   // Show skeleton loading while authenticating or loading data
   if (!initialized || authLoading || loading) {
     return <ApplicationDetailSkeleton />;
@@ -968,17 +931,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 </h3>
                               </div>
                               <div className='flex gap-2'>
-                                {userRole === 'ZS' && (
-                                  <button
-                                    type='button'
-                                    onClick={handleGenerateLicense}
-                                    className='inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm text-sm font-semibold hover:bg-blue-700 transition-all duration-200 print:hidden'
-                                    title='Generate PDF License'
-                                  >
-                                    <FileCheck className='w-4.5 h-4.5' />
-                                    Generate License
-                                  </button>
-                                )}
                                 <button
                                   type='button'
                                   onClick={handleBrowserPrint}
@@ -2083,6 +2035,32 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 ? Number(user.id)
                                 : null;
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
+                            // Check for final/closed status first — if final, show only a status message
+                            const finalStatuses = ['APPROVED', 'REJECTED', 'CANCELLED', 'DISPOSED', 'EXPIRED'];
+                            const rawStatusCode = displayApp?.workflowStatus?.code || displayApp?.status || '';
+                            const rawStatusName = displayApp?.workflowStatus?.name || rawStatusCode;
+                            const isFinalStatus = finalStatuses.some(s => 
+                              String(rawStatusCode).toUpperCase() === s || 
+                              String(rawStatusName).toUpperCase() === s
+                            );
+                            if (isFinalStatus) {
+                              const displayStatus = String(rawStatusName).charAt(0).toUpperCase() + String(rawStatusName).slice(1).toLowerCase();
+                              return (
+                                <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
+                                  <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
+                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
+                                    </svg>
+                                  </div>
+                                  <div>
+                                    <p className='text-sm font-semibold text-amber-900'>
+                                      Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             const statusName = (
                               displayApp?.workflowStatus?.name || ''
                             ).toLowerCase();
