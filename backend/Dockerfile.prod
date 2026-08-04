@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux-headers git \
     && (npm ci --include=dev || npm ci --production=false || npm install) \
     && npm install typescript --no-save \
-    && apk del .build-deps || true
+    && (apk del .build-deps || true)
 
 # Copy application source after dependencies to maximize cache hits
 COPY . .
