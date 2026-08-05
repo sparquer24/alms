@@ -63,6 +63,8 @@ export class LicenseService {
     freshApplicationId?: number;
     expiringWithinDays?: number;
     createdFrom?: string;
+    purpose?: string;
+    renewedOnly?: boolean;
     orderBy?: string;
     order?: 'asc' | 'desc';
     sortBy?: string;
@@ -79,6 +81,8 @@ export class LicenseService {
       if (filters?.freshApplicationId) params.freshApplicationId = filters.freshApplicationId;
       if (filters?.expiringWithinDays) params.expiringWithinDays = filters.expiringWithinDays;
       if (filters?.createdFrom) params.createdFrom = filters.createdFrom;
+      if (filters?.purpose) params.purpose = filters.purpose;
+      if (filters?.renewedOnly) params.renewedOnly = true;
       const orderBy = filters?.orderBy ?? filters?.sortBy;
       const order = filters?.order ?? filters?.sortOrder;
       if (orderBy) params.orderBy = orderBy;
@@ -169,13 +173,15 @@ export class LicenseService {
     }
   }
 
-  static async getExpiringLicenses(days = 90, filters?: { page?: number; limit?: number; search?: string }): Promise<LicenseListResponse | null> {
+  static async getExpiringLicenses(days = 90, filters?: { page?: number; limit?: number; search?: string; purpose?: string; renewedOnly?: boolean }): Promise<LicenseListResponse | null> {
     try {
       const response = await apiClient.get<LicenseListResponse>('/licenses/expiring', {
         days,
         page: filters?.page ?? 1,
         limit: filters?.limit ?? 10,
         ...(filters?.search ? { search: filters.search } : {}),
+        ...(filters?.purpose ? { purpose: filters.purpose } : {}),
+        ...(filters?.renewedOnly ? { renewedOnly: true } : {}),
       });
       return normalizeLicenseListResponse(response);
     } catch (error) {
@@ -184,12 +190,14 @@ export class LicenseService {
     }
   }
 
-  static async getExpiredLicenses(filters?: { page?: number; limit?: number; search?: string }): Promise<LicenseListResponse | null> {
+  static async getExpiredLicenses(filters?: { page?: number; limit?: number; search?: string; purpose?: string; renewedOnly?: boolean }): Promise<LicenseListResponse | null> {
     try {
       const response = await apiClient.get<LicenseListResponse>('/licenses/expired', {
         page: filters?.page ?? 1,
         limit: filters?.limit ?? 10,
         ...(filters?.search ? { search: filters.search } : {}),
+        ...(filters?.purpose ? { purpose: filters.purpose } : {}),
+        ...(filters?.renewedOnly ? { renewedOnly: true } : {}),
       });
       return normalizeLicenseListResponse(response);
     } catch (error) {
@@ -206,6 +214,34 @@ export class LicenseService {
     } catch (error) {
       console.error('[LicenseService] getLicenseAudit error:', error);
       return [];
+    }
+  }
+
+  /**
+   * List/search workflow audit logs across all licenses (dashboard Audit & Activity Logs tab).
+   */
+  static async getLicenseAuditLogs(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    action?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<LicenseListResponse | null> {
+    try {
+      const params: Record<string, any> = {};
+      if (filters?.page) params.page = filters.page;
+      if (filters?.limit) params.limit = filters.limit;
+      if (filters?.search) params.search = filters.search;
+      if (filters?.action) params.action = filters.action;
+      if (filters?.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters?.dateTo) params.dateTo = filters.dateTo;
+
+      const response = await apiClient.get<any>('/licenses/audit/logs', params);
+      return normalizeLicenseListResponse(response);
+    } catch (error) {
+      console.error('[LicenseService] getLicenseAuditLogs error:', error);
+      return null;
     }
   }
 

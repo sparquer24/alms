@@ -173,16 +173,6 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       return base;
     }, [isSentPage, isRenewalPage, showActionColumn]);
 
-    // Prevent outer page scrollbar while this table is rendered so only the
-    // inner table wrapper scrolls. We restore the previous overflow value on unmount.
-    React.useEffect(() => {
-      if (typeof document === 'undefined') return;
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = prev || '';
-      };
-    }, []);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [exportingExcel, setExportingExcel] = useState<boolean>(false);
@@ -391,14 +381,14 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
     }
 
     return (
-      <div className={`${styles.tableContainer} min-w-full overflow-hidden rounded-lg shadow`}>
+      <div className={`${styles.tableContainer} min-w-full flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg shadow`}>
         {/* Display messages */}
         {successMessage && <Message type='success' message={successMessage} />}
 
         {errorMessage && <Message type='error' message={errorMessage} />}
 
-        {/* Controls (search + export) stay above the scrollable table */}
-        <div className='px-4 pt-4 pb-2 bg-white'>
+        {/* Controls (search + export) stay above the scrollable table, never scroll away */}
+        <div className='flex-none px-4 pt-4 pb-2 bg-white'>
           <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
             <div className='relative w-full sm:w-72'>
               <input
@@ -499,8 +489,8 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
           </div>
         </div>
 
-        <div className={`${styles.tableWrapper} w-full min-w-0`}>
-          <table className='w-full table-fixed border-collapse'>
+        <div className={`${styles.tableWrapper} w-full min-w-0 flex-1 min-h-0 overflow-y-auto`}>
+          <table className='w-full table-fixed border-separate border-spacing-0'>
             <colgroup>
               {(() => {
                 const cols = isSentPage

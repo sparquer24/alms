@@ -30,6 +30,8 @@ export class LicensesController {
   @ApiQuery({ name: 'freshApplicationId', required: false, type: Number, description: 'Filter by fresh application ID' })
   @ApiQuery({ name: 'expiringWithinDays', required: false, type: Number, description: 'Filter active licenses expiring within N days' })
   @ApiQuery({ name: 'createdFrom', required: false, description: 'Filter by source marker, e.g. Fresh or Imported' })
+  @ApiQuery({ name: 'purpose', required: false, enum: ['SELF_PROTECTION', 'SPORTS', 'HEIRLOOM_POLICY', 'CROP_PROTECTION'], description: 'Filter by license purpose' })
+  @ApiQuery({ name: 'renewedOnly', required: false, type: Boolean, description: 'Only licenses with at least one renewal' })
   @ApiQuery({ name: 'orderBy', required: false, example: 'createdAt', enum: ['id', 'licenseNumber', 'firstName', 'lastName', 'createdAt', 'validTill', 'status'] })
   @ApiQuery({ name: 'order', required: false, enum: ['asc', 'desc'], example: 'desc' })
   async getAllLicenses(
@@ -42,6 +44,8 @@ export class LicensesController {
     @Query('freshApplicationId') freshApplicationId?: string,
     @Query('expiringWithinDays') expiringWithinDays?: string,
     @Query('createdFrom') createdFrom?: string,
+    @Query('purpose') purpose?: string,
+    @Query('renewedOnly') renewedOnly?: string,
     @Query('orderBy') orderBy?: string,
     @Query('order') order?: 'asc' | 'desc',
   ) {
@@ -55,6 +59,8 @@ export class LicensesController {
       freshApplicationId: freshApplicationId ? Number(freshApplicationId) : undefined,
       expiringWithinDays: expiringWithinDays ? Number(expiringWithinDays) : undefined,
       createdFrom,
+      purpose,
+      renewedOnly: renewedOnly === 'true',
       orderBy,
       order,
     });
@@ -74,6 +80,8 @@ export class LicensesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('purpose') purpose?: string,
+    @Query('renewedOnly') renewedOnly?: string,
   ) {
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
@@ -81,6 +89,8 @@ export class LicensesController {
       search,
       status: 'ACTIVE',
       expiringWithinDays: days ? Number(days) : 90,
+      purpose,
+      renewedOnly: renewedOnly === 'true',
       orderBy: 'validTill',
       order: 'asc',
     });
@@ -92,12 +102,16 @@ export class LicensesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('purpose') purpose?: string,
+    @Query('renewedOnly') renewedOnly?: string,
   ) {
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
       search,
       status: 'EXPIRED',
+      purpose,
+      renewedOnly: renewedOnly === 'true',
       orderBy: 'validTill',
       order: 'desc',
     });
@@ -107,6 +121,32 @@ export class LicensesController {
   @ApiOperation({ summary: 'Get license statistics (counts by status)' })
   async getLicenseStatistics() {
     return this.licensesService.getLicenseStatistics();
+  }
+
+  @Get('audit/logs')
+  @ApiOperation({ summary: 'List license workflow audit/activity logs across all licenses, with filtering and pagination' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by license number, holder name, officer, action, remarks' })
+  @ApiQuery({ name: 'action', required: false, description: 'Filter by exact action, e.g. ISSUED, RENEWED, CANCELLED' })
+  @ApiQuery({ name: 'dateFrom', required: false, description: 'ISO date, inclusive start' })
+  @ApiQuery({ name: 'dateTo', required: false, description: 'ISO date, inclusive end' })
+  async getLicenseAuditLogs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('action') action?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.licensesService.getLicenseAuditLogs({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+      search,
+      action,
+      dateFrom,
+      dateTo,
+    });
   }
 
   @Get('by-number/:licenseNumber')

@@ -288,7 +288,7 @@ export default function PermissionsPage() {
       <Sidebar />
       <Header />
 
-  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px]">
         {/* Header Section with Gradient Background */}
         <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6'>
           <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>

@@ -171,16 +171,16 @@ export const ApplicationDetailSkeleton: React.FC = () => (
 
 // Sidebar Skeleton
 export const SidebarSkeleton: React.FC = () => (
-  <div className="fixed left-0 top-0 h-full w-[80vw] max-w-xs md:w-[18%] bg-white shadow-lg border-r border-gray-200 z-40">
+  <div className="fixed left-0 top-0 h-full md:h-auto w-[80vw] max-w-xs md:w-60 md:left-4 md:top-4 md:bottom-4 bg-white shadow-lg border border-gray-200 md:rounded-2xl overflow-hidden z-40">
     {/* Logo & Brand Area */}
-    <div className="p-4 flex items-center border-b border-gray-100">
-      <Skeleton className="h-[52px] w-[52px] rounded mr-2" />
-      <Skeleton className="h-5 w-24" />
+    <div className="p-3 flex items-center gap-2 border-b border-gray-100">
+      <Skeleton className="h-9 w-9 rounded" />
+      <Skeleton className="h-4 w-24" />
     </div>
-    
+
     {/* Role Badge */}
-    <div className="bg-gray-100 p-4">
-      <Skeleton className="h-5 w-5 inline-block mr-3" />
+    <div className="bg-gray-100 px-3 py-2.5">
+      <Skeleton className="h-4 w-4 inline-block mr-3" />
       <Skeleton className="h-4 w-28" />
     </div>
     
@@ -206,7 +206,7 @@ export const SidebarSkeleton: React.FC = () => (
 
 // Header Skeleton
 export const HeaderSkeleton: React.FC = () => (
-  <div className="fixed top-0 left-[80px] md:left-[18%] right-0 h-[64px] md:h-[70px] bg-white shadow-sm border-b border-gray-200 z-30">
+  <div className="fixed top-0 md:top-4 left-0 md:left-72 right-0 md:right-4 h-[64px] md:h-[70px] bg-white shadow-sm border border-gray-200 md:rounded-2xl z-30">
     <div className="flex items-center justify-between h-full px-4 md:px-6">
       {/* Search Area */}
       <div className="flex items-center space-x-4 flex-1">
@@ -229,7 +229,7 @@ export const PageLayoutSkeleton: React.FC<{ children?: React.ReactNode }> = ({ c
   <div className="flex h-screen w-full bg-gray-50">
     <SidebarSkeleton />
     <HeaderSkeleton />
-  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px]">
       {children || (
         <div className="bg-white rounded-lg shadow p-6">
           <Skeleton className="h-8 w-48 mb-6" />

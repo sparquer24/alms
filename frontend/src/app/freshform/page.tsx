@@ -142,7 +142,7 @@ function FreshFormContent() {
 
       {/* Main Content */}
 
-  <main className="flex-1 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px] flex flex-col">          
+  <main className="flex-1 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px] flex flex-col">          
 
     <div className="flex-grow p-8">
 

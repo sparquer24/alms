@@ -978,6 +978,8 @@ export class LicensesService {
     freshApplicationId?: number;
     expiringWithinDays?: number;
     createdFrom?: string;
+    purpose?: string;
+    renewedOnly?: boolean;
     orderBy?: string;
     order?: 'asc' | 'desc';
   }) {
@@ -1028,6 +1030,14 @@ export class LicensesService {
 
     if (filters.aadharNumber) {
       where.aadharNumber = { contains: filters.aadharNumber };
+    }
+
+    if (filters.purpose) {
+      where.needForLicense = filters.purpose as any;
+    }
+
+    if (filters.renewedOnly) {
+      where.renewalCount = { gt: 0 };
     }
 
     const allowedOrderFields = ['id', 'licenseNumber', 'firstName', 'lastName', 'createdAt', 'validTill', 'status'];
@@ -1236,6 +1246,87 @@ export class LicensesService {
       expiringWithin90Days,
       renewed: renewedCount,
     };
+  }
+
+  /**
+   * List/search workflow audit history across ALL licenses, with pagination.
+   * Backs the dashboard's global "Audit & Activity Logs" tab.
+   */
+  async getLicenseAuditLogs(filters: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    action?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const page = Math.max(Number(filters.page ?? 1), 1);
+    const limit = Math.max(Number(filters.limit ?? 10), 1);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        const start = new Date(filters.dateFrom);
+        if (!Number.isNaN(start.getTime())) where.createdAt.gte = start;
+      }
+      if (filters.dateTo) {
+        const end = new Date(filters.dateTo);
+        if (!Number.isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          where.createdAt.lte = end;
+        }
+      }
+    }
+
+    if (filters.action) {
+      where.action = filters.action;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { action: { contains: filters.search, mode: 'insensitive' } },
+        { remarks: { contains: filters.search, mode: 'insensitive' } },
+        { license: { licenseNumber: { contains: filters.search, mode: 'insensitive' } } },
+        { license: { firstName: { contains: filters.search, mode: 'insensitive' } } },
+        { license: { lastName: { contains: filters.search, mode: 'insensitive' } } },
+        { changedByUser: { username: { contains: filters.search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.licenseWorkflowHistory.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          license: { select: { id: true, licenseNumber: true, firstName: true, lastName: true } },
+          changedByUser: { select: { id: true, username: true } },
+        },
+      }),
+      this.prisma.licenseWorkflowHistory.count({ where }),
+    ]);
+
+    const data = rows.map((entry) => ({
+      id: entry.id,
+      licenseId: entry.licenseId,
+      licenseNumber: entry.license?.licenseNumber ?? null,
+      licenseHolderName:
+        [entry.license?.firstName, entry.license?.lastName].filter(Boolean).join(' ') || null,
+      event: entry.action,
+      previousStatus: entry.previousStatus,
+      newStatus: entry.newStatus,
+      officer: entry.changedByUser?.username || (entry.changedBy != null ? String(entry.changedBy) : '-'),
+      remarks: entry.remarks,
+      applicationId: entry.applicationId,
+      applicationType: entry.applicationType,
+      createdAt: entry.createdAt,
+    }));
+
+    return { data, total, page, limit };
   }
 
   async getLicenseAudit(licenseId: number) {
