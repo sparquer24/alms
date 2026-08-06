@@ -260,7 +260,12 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   // the same origin-tab override used by the on-screen Documents table.
   const printApplication = useMemo(() => {
     if (!currentDisplayApp) return null;
-    if (isRenewalView && activeTab === 'original' && originDocuments && originDocuments.length > 0) {
+    if (
+      isRenewalView &&
+      activeTab === 'original' &&
+      originDocuments &&
+      originDocuments.length > 0
+    ) {
       return { ...currentDisplayApp, documents: originDocuments };
     }
     return currentDisplayApp;
@@ -403,42 +408,42 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           setOriginalLicenseHistory([]);
           return;
         }
-        setOriginalLicenseData(license);          // Now call the Workflow History API using the source application data
-          // from the License API response, matching the Documents API logic:
-          //   - id: the source application's primary key (license.id from the License API)
-          //   - type: derived from the first character of the acknowledgement number:
-          //       'F' → FRESH | 'R' → RENEWAL | 'C' → CANCELLATION
-          if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
-            originalLicenseHistoryLoadedIdRef.current = licenseId;
-            setOriginalLicenseHistory([]);
+        setOriginalLicenseData(license); // Now call the Workflow History API using the source application data
+        // from the License API response, matching the Documents API logic:
+        //   - id: the source application's primary key (license.id from the License API)
+        //   - type: derived from the first character of the acknowledgement number:
+        //       'F' → FRESH | 'R' → RENEWAL | 'C' → CANCELLATION
+        if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
+          originalLicenseHistoryLoadedIdRef.current = licenseId;
+          setOriginalLicenseHistory([]);
 
-            // Source application ID from the License API response
-            const srcAppId = (license as any).id;
-            const ackNo = (license as any).acknowledgementNo;
+          // Source application ID from the License API response
+          const srcAppId = (license as any).id;
+          const ackNo = (license as any).acknowledgementNo;
 
-            if (srcAppId && ackNo) {
-              // Derive the type from the first character of the acknowledgement number
-              const firstChar = String(ackNo).charAt(0).toUpperCase();
-              let derivedType: string;
-              if (firstChar === 'R') derivedType = 'RENEWAL';
-              else if (firstChar === 'C') derivedType = 'CANCELLATION';
-              else derivedType = 'FRESH';
+          if (srcAppId && ackNo) {
+            // Derive the type from the first character of the acknowledgement number
+            const firstChar = String(ackNo).charAt(0).toUpperCase();
+            let derivedType: string;
+            if (firstChar === 'R') derivedType = 'RENEWAL';
+            else if (firstChar === 'C') derivedType = 'CANCELLATION';
+            else derivedType = 'FRESH';
 
-              try {
-                const historyResponse = await apiClient.get<any>(
-                  `/workflow/history/${srcAppId}?type=${derivedType}`
-                );
-                if (historyResponse && historyResponse.success) {
-                  setOriginalLicenseHistory(historyResponse.data);
-                } else if (Array.isArray(historyResponse)) {
-                  setOriginalLicenseHistory(historyResponse);
-                }
-              } catch (historyErr) {
-                console.error('Failed to fetch original license workflow history', historyErr);
-                setOriginalLicenseHistory([]);
+            try {
+              const historyResponse = await apiClient.get<any>(
+                `/workflow/history/${srcAppId}?type=${derivedType}`
+              );
+              if (historyResponse && historyResponse.success) {
+                setOriginalLicenseHistory(historyResponse.data);
+              } else if (Array.isArray(historyResponse)) {
+                setOriginalLicenseHistory(historyResponse);
               }
+            } catch (historyErr) {
+              console.error('Failed to fetch original license workflow history', historyErr);
+              setOriginalLicenseHistory([]);
             }
           }
+        }
       } catch (err) {
         console.error('Failed to fetch original license on tab change', err);
       } finally {
@@ -494,7 +499,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     fetchOriginDocuments();
   }, [activeTab, originalLicenseData]);
 
-// Clear success message after 5 seconds
+  // Clear success message after 5 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -2078,25 +2083,47 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 : null;
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
                             // Check for final/closed status first — if final, show only a status message
-                            const finalStatuses = ['APPROVED', 'REJECTED', 'CANCELLED', 'DISPOSED', 'EXPIRED'];
-                            const rawStatusCode = displayApp?.workflowStatus?.code || displayApp?.status || '';
+                            const finalStatuses = [
+                              'APPROVED',
+                              'REJECTED',
+                              'CANCELLED',
+                              'DISPOSED',
+                              'EXPIRED',
+                            ];
+                            const rawStatusCode =
+                              displayApp?.workflowStatus?.code || displayApp?.status || '';
                             const rawStatusName = displayApp?.workflowStatus?.name || rawStatusCode;
-                            const isFinalStatus = finalStatuses.some(s => 
-                              String(rawStatusCode).toUpperCase() === s || 
-                              String(rawStatusName).toUpperCase() === s
+                            const isFinalStatus = finalStatuses.some(
+                              s =>
+                                String(rawStatusCode).toUpperCase() === s ||
+                                String(rawStatusName).toUpperCase() === s
                             );
                             if (isFinalStatus) {
-                              const displayStatus = String(rawStatusName).charAt(0).toUpperCase() + String(rawStatusName).slice(1).toLowerCase();
+                              const displayStatus =
+                                String(rawStatusName).charAt(0).toUpperCase() +
+                                String(rawStatusName).slice(1).toLowerCase();
                               return (
                                 <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
                                   <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
-                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
+                                    <svg
+                                      className='w-5 h-5'
+                                      fill='none'
+                                      stroke='currentColor'
+                                      viewBox='0 0 24 24'
+                                    >
+                                      <path
+                                        strokeLinecap='round'
+                                        strokeLinejoin='round'
+                                        strokeWidth={2}
+                                        d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                                      />
                                     </svg>
                                   </div>
                                   <div>
                                     <p className='text-sm font-semibold text-amber-900'>
-                                      Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.
+                                      Your application has been{' '}
+                                      <span className='uppercase font-bold'>{displayStatus}</span>.
+                                      No further processing is allowed.
                                     </p>
                                   </div>
                                 </div>

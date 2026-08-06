@@ -334,7 +334,8 @@ export default function PrintApplicationForm({
             ? application.history
             : [];
     return [...source].sort(
-      (a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+      (a: any, b: any) =>
+        new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
     );
   }, [workflowHistory, application]);
 
