@@ -3816,6 +3816,16 @@ function RenewalFormPageContent() {
           className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
           aria-hidden='true'
         />
+        <button
+          type='button'
+          onClick={() => window.history.back()}
+          className='absolute top-6 left-6 z-20 inline-flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white bg-black/20 hover:bg-black/30 backdrop-blur-sm px-4 py-2 rounded-md transition-colors'
+        >
+          <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M10 19l-7-7m0 0l7-7m0 7h18' />
+          </svg>
+          Go Back
+        </button>
         <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
           <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300'>
             {verificationChecking && verificationStatus === 'ENTER_LICENSE_ID' ? (

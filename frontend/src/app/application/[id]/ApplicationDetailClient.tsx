@@ -169,6 +169,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [originDocuments, setOriginDocuments] = useState<any[]>([]);
   const [originDocumentsLoading, setOriginDocumentsLoading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  // Becomes false while the hidden print layout's document/PDF previews are still
+  // rendering, so the Print buttons don't fire window.print() on blank thumbnails.
+  const [printReady, setPrintReady] = useState(true);
   const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage (2 of 3 columns)
   const [isDragging, setIsDragging] = useState(false);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -232,6 +235,36 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   const showFullApplicationDetails =
     !isRenewalView || activeTab === 'info' || activeTab === 'original';
+
+  // Workflow history for the printout: use the same source the on-screen
+  // timeline uses (the separately-fetched `workflowHistory` state / the Origin
+  // tab's `originalLicenseHistory`) rather than application.workflowHistories,
+  // which is often empty for renewals and caused "Application History" to be
+  // missing from the print output.
+  const printWorkflowHistory = useMemo(() => {
+    if (isRenewalView && activeTab === 'original') {
+      return originalLicenseHistory && originalLicenseHistory.length > 0
+        ? originalLicenseHistory
+        : (currentDisplayApp as any)?.workflowHistories || [];
+    }
+    return workflowHistory && workflowHistory.length > 0
+      ? workflowHistory
+      : (currentDisplayApp as any)?.workflowHistories || [];
+  }, [isRenewalView, activeTab, originalLicenseHistory, workflowHistory, currentDisplayApp]);
+
+  // Base the printout on currentDisplayApp — the same source the on-screen
+  // details panel renders from — so printing the Original License Details
+  // tab prints the license's original data (currentDisplayApp swaps to
+  // originalLicenseData there) instead of always printing the renewal
+  // application's own data regardless of which tab is active. Documents get
+  // the same origin-tab override used by the on-screen Documents table.
+  const printApplication = useMemo(() => {
+    if (!currentDisplayApp) return null;
+    if (isRenewalView && activeTab === 'original' && originDocuments && originDocuments.length > 0) {
+      return { ...currentDisplayApp, documents: originDocuments };
+    }
+    return currentDisplayApp;
+  }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
 
   // Handle params Promise for React 18 compatibility
   useEffect(() => {
@@ -638,6 +671,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   // Print the redesigned dashboard layout directly
   const handleBrowserPrint = () => {
+    // Guard against firing window.print() while the hidden print layout's
+    // document/PDF previews are still rendering asynchronously — otherwise the
+    // printout can show blank thumbnails for Uploaded Documents/attachments.
+    if (!printReady) return;
     window.print();
   };
 
@@ -934,11 +971,16 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 <button
                                   type='button'
                                   onClick={handleBrowserPrint}
-                                  className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden'
-                                  title='Print application details'
+                                  disabled={!printReady}
+                                  className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden disabled:opacity-60 disabled:cursor-not-allowed'
+                                  title={
+                                    printReady
+                                      ? 'Print application details'
+                                      : 'Preparing document previews for printing…'
+                                  }
                                 >
                                   <Printer className='w-4.5 h-4.5 text-slate-500' />
-                                  Print Details
+                                  {printReady ? 'Print Details' : 'Preparing…'}
                                 </button>
                               </div>
                             </div>
@@ -2505,8 +2547,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                         <div className='space-y-4'>
                           <div
-                            className='p-4 border border-gray-200 rounded-xl hover:bg-gray-50 hover:shadow-sm cursor-pointer transition-all duration-200'
+                            className={`p-4 border border-gray-200 rounded-xl transition-all duration-200 ${
+                              printReady
+                                ? 'hover:bg-gray-50 hover:shadow-sm cursor-pointer'
+                                : 'opacity-60 cursor-not-allowed'
+                            }`}
                             onClick={handleBrowserPrint}
+                            title={
+                              printReady ? undefined : 'Preparing document previews for printing…'
+                            }
                           >
                             <div className='flex items-center'>
                               <div className='bg-blue-100 p-3 rounded-xl mr-4'>
@@ -2528,7 +2577,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               <div>
                                 <h4 className='font-semibold text-gray-900'>Print using browser</h4>
                                 <p className='text-sm text-gray-600 mt-1'>
-                                  Opens a printable view in a new window
+                                  {printReady
+                                    ? 'Opens a printable view in a new window'
+                                    : 'Preparing document previews…'}
                                 </p>
                               </div>
                             </div>
@@ -2687,9 +2738,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       )}
 
       {/* Print-Only Layout Component */}
-      {application && (
+      {printApplication && (
         <div className='hidden print:block print:w-full print:bg-white print:text-black'>
-          <PrintApplicationForm application={application} applicantName={applicantName} />
+          <PrintApplicationForm
+            application={printApplication}
+            applicantName={applicantName}
+            workflowHistory={printWorkflowHistory}
+            onReadyChange={setPrintReady}
+          />
         </div>
       )}
 
@@ -2704,7 +2760,17 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             background: #fff !important;
             color: #000 !important;
             width: 210mm;
-            height: 297mm;
+            /* Not a fixed height: the app shell normally sets html/body to
+               overflow: hidden/auto for its fixed-viewport layout. Combining
+               that with a fixed height: 297mm (exactly one page) turns the
+               body into a single-page scroll box in Chromium's print engine,
+               which silently swallows every page-break rule below and
+               clips/overlaps anything past page 1. height: auto plus
+               overflow: visible lets the printout paginate across as many
+               pages as the content actually needs. */
+            height: auto !important;
+            min-height: 297mm;
+            overflow: visible !important;
           }
           header,
           footer,

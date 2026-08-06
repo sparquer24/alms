@@ -6,6 +6,52 @@ import CancelService from '@/api/cancelService';
 import { ApplicationService } from '@/api/applicationService';
 import MantraSDKService from '@/services/mantraSDKService';
 import toast from 'react-hot-toast';
+import { useLayout } from '../../config/layoutContext';
+
+// Full-screen background + centered card shell used by every pre-verification
+// gate screen, matching the License Renewal Verification page's design
+// exactly (same background image, gradient overlay, card sizing/shadow).
+function VerificationShell({
+  children,
+  showBackButton,
+}: {
+  children: React.ReactNode;
+  showBackButton?: boolean;
+}) {
+  return (
+    // Fixed, not just min-h-screen: this renders inside /cancelForm/new's
+    // padded page shell (with its own "Back to Listings" bar), which isn't
+    // present on the Renewal page. Pinning to the viewport lets the card sit
+    // centered in the true viewport — matching Renewal exactly — regardless
+    // of the parent page's layout.
+    <div
+      className="fixed inset-0 z-40 flex flex-col bg-cover bg-center bg-fixed overflow-auto bg-[url('/backgroundIMGALMS.jpeg')]"
+      role='main'
+    >
+      <div
+        className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
+        aria-hidden='true'
+      />
+      {showBackButton && (
+        <button
+          type='button'
+          onClick={() => window.history.back()}
+          className='absolute top-6 left-6 z-20 inline-flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white bg-black/20 hover:bg-black/30 backdrop-blur-sm px-4 py-2 rounded-md transition-colors'
+        >
+          <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M10 19l-7-7m0 0l7-7m0 7h18' />
+          </svg>
+          Go Back
+        </button>
+      )}
+      <div className='relative flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 z-10'>
+        <div className='max-w-md w-full space-y-6 bg-white/90 p-10 rounded-lg shadow-xl backdrop-blur-sm border border-white/40 transition-all duration-300'>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SubmitCancelForm() {
   const router = useRouter();
@@ -42,6 +88,16 @@ export default function SubmitCancelForm() {
     cancellationReason: '',
     remarks: ''
   });
+
+  // Hide the persistent app header for the entire cancellation flow — every
+  // screen here (License ID entry, biometric step, "not allowed", and the
+  // actual cancellation form) uses its own full-width background takeover
+  // with no navbar, matching the Renewal flow.
+  const { setShowHeader } = useLayout();
+  useEffect(() => {
+    setShowHeader(false);
+    return () => setShowHeader(true);
+  }, [setShowHeader]);
 
   useEffect(() => {
     if (urlLicenseId) {
@@ -298,37 +354,77 @@ export default function SubmitCancelForm() {
     }
   };
 
-  if (verificationChecking) {
+  if (verificationChecking && verificationStatus === 'ENTER_APP_ID') {
     return (
-      <div className='max-w-2xl mx-auto w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center min-h-[300px]'>
-        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4'></div>
-        <p className='text-gray-600 font-medium'>Fetching application details...</p>
-      </div>
+      <VerificationShell>
+        <div className='space-y-6 py-8 text-center'>
+          <div className='mx-auto w-12 h-12 border-4 border-[#001F54] border-t-transparent rounded-full animate-spin flex items-center justify-center'>
+            <span className='text-xl'>🪪</span>
+          </div>
+          <h3 className='text-lg font-bold text-gray-900'>Loading License Details...</h3>
+          <p className='text-sm text-gray-500'>Fetching application details</p>
+        </div>
+      </VerificationShell>
     );
   }
 
   if (verificationStatus === 'ENTER_APP_ID') {
     return (
-      <div className='max-w-2xl mx-auto w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
-        <h2 className='text-2xl font-bold text-gray-900 mb-4'>Verification Required</h2>
-        <p className='text-sm text-gray-500 mb-6'>Please load the target License ID through the header menu or enter it here to perform verification.</p>
-        <div className='space-y-4'>
-          <input
-            type='text'
-            placeholder='Enter License ID or License Number'
-            className='w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500'
-            value={formData.licenseId}
-            onChange={(e) => setFormData(prev => ({ ...prev, licenseId: e.target.value }))}
-          />
-          <button
-            onClick={() => checkBiometricRequirement(formData.licenseId)}
-            className='px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium'
-          >
-            Check License
-          </button>
-          {verificationError && <p className='text-sm text-red-600 mt-2'>{verificationError}</p>}
+      <VerificationShell showBackButton>
+        <div className='space-y-6'>
+          <div className='text-center'>
+            <div className='mb-6 flex justify-center'>
+              <img
+                src='/icon-alms.svg'
+                alt='ALMS Logo'
+                width={100}
+                height={100}
+                className='drop-shadow-md h-auto'
+              />
+            </div>
+            <h2 className='text-2xl font-bold tracking-tight text-gray-900'>
+              License Cancellation Verification
+            </h2>
+            <p className='mt-2 text-sm text-gray-600'>
+              Please enter your License ID or License Number to verify your identity and start
+              the cancellation process.
+            </p>
+          </div>
+
+          {verificationError && (
+            <div className='rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
+              {verificationError}
+            </div>
+          )}
+
+          <div className='space-y-4'>
+            <div>
+              <label
+                htmlFor='cancel-license-id'
+                className='block text-sm font-semibold text-gray-700 mb-1'
+              >
+                License ID or License Number
+              </label>
+              <input
+                id='cancel-license-id'
+                type='text'
+                value={formData.licenseId}
+                onChange={e => setFormData(prev => ({ ...prev, licenseId: e.target.value }))}
+                placeholder='e.g. 12 or LUAN20260703132128000625'
+                className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-[#D4AF37] bg-white text-gray-900 font-semibold'
+              />
+            </div>
+
+            <button
+              onClick={() => checkBiometricRequirement(formData.licenseId)}
+              disabled={verificationChecking || !formData.licenseId.trim()}
+              className='w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] disabled:opacity-60 disabled:cursor-not-allowed transition-all hover:scale-[1.01]'
+            >
+              {verificationChecking ? 'Checking...' : 'Verify / Continue'}
+            </button>
+          </div>
         </div>
-      </div>
+      </VerificationShell>
     );
   }
 
@@ -446,15 +542,28 @@ export default function SubmitCancelForm() {
 
   if (verificationStatus === 'FAILED') {
     return (
-      <div className='max-w-2xl mx-auto w-full bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
-        <div className='text-center'>
-          <div className='inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4'>
-            <svg className='w-8 h-8 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-            </svg>
+      <VerificationShell>
+        <div className='text-center space-y-5'>
+          <div className='relative mx-auto w-20 h-20'>
+            <div className='absolute inset-0 rounded-full bg-red-400 animate-ping opacity-20' aria-hidden='true' />
+            <div className='relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 ring-8 ring-red-50'>
+              <svg className='w-9 h-9 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+              </svg>
+            </div>
           </div>
-          <h2 className='text-xl font-bold text-gray-900 mb-2'>Cancellation Not Allowed</h2>
-          <p className='text-red-600 font-medium'>{verificationError || 'This license has already been cancelled.'}</p>
+
+          <div>
+            <h2 className='text-2xl font-bold tracking-tight text-gray-900'>Cancellation Not Allowed</h2>
+            <p className='mt-1.5 text-sm text-gray-500'>
+              We couldn&apos;t start a new cancellation request for this license.
+            </p>
+          </div>
+
+          <div className='rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 text-left'>
+            {verificationError || 'This license has already been cancelled.'}
+          </div>
+
           <button
             type='button'
             onClick={() => {
@@ -462,27 +571,47 @@ export default function SubmitCancelForm() {
               setVerificationError(null);
               setFormData(prev => ({ ...prev, licenseId: '' }));
             }}
-            className='mt-6 px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors'
+            className='w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-md text-sm font-semibold text-gray-900 bg-[#D4AF37] hover:bg-[#C4A02F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#D4AF37] transition-all hover:scale-[1.01]'
           >
+            <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M10 19l-7-7m0 0l7-7m0 7h18' />
+            </svg>
             Try Another License
           </button>
         </div>
-      </div>
+      </VerificationShell>
     );
   }
 
-  // VERIFIED: Render SubmitCancelForm
+  // VERIFIED: Render SubmitCancelForm — same full-viewport background
+  // takeover as the verification gate screens (fixed, not just min-h-screen,
+  // so it spans the true viewport edge-to-edge regardless of this page's
+  // padded parent container).
   return (
-    <div className='max-w-2xl mx-auto w-full'>
-      <div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
-        <div className='mb-6 border-b border-gray-200 pb-4'>
-          <h2 className='text-2xl font-bold text-gray-900'>Initiate License Cancellation</h2>
-          <p className='text-sm text-gray-500 mt-2'>Submit a request to permanently cancel an existing approved license application.</p>
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center bg-cover bg-center bg-fixed overflow-auto bg-[url('/backgroundIMGALMS.jpeg')] py-10 px-4"
+    >
+      <div
+        className='absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/50 backdrop-blur-[2px]'
+        aria-hidden='true'
+      />
+      <div className='relative z-10 max-w-2xl w-full my-auto'>
+      <div className='bg-white/90 backdrop-blur-sm rounded-lg shadow-xl border border-white/40 p-8'>
+        <div className='mb-6 pb-5 border-b border-gray-200 flex items-start gap-4'>
+          <div className='flex-shrink-0 w-11 h-11 rounded-full bg-red-50 ring-4 ring-red-50/60 flex items-center justify-center'>
+            <svg className='w-5 h-5 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 3v2m6-2v2M4 7h16M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 12h6' />
+            </svg>
+          </div>
+          <div>
+            <h2 className='text-2xl font-bold tracking-tight text-gray-900'>Initiate License Cancellation</h2>
+            <p className='text-sm text-gray-500 mt-1'>Submit a request to permanently cancel an existing approved license application.</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className='space-y-6'>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-            <div className='space-y-2'>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200'>
+            <div className='space-y-1.5'>
                <label htmlFor='licenseId' className='block text-sm font-semibold text-gray-700'>
                  Target License ID
                </label>
@@ -492,12 +621,17 @@ export default function SubmitCancelForm() {
                  name='licenseId'
                  value={formData.licenseId}
                  disabled
-                 className='w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-not-allowed text-gray-700 font-medium'
+                 className='w-full px-4 py-2.5 border border-gray-200 rounded-md bg-white cursor-not-allowed text-gray-800 font-semibold shadow-sm'
                />
-               <p className='text-xs text-gray-500'>Verified target ID of the license.</p>
+               <p className='text-xs text-gray-500 flex items-center gap-1'>
+                 <svg className='w-3.5 h-3.5 text-emerald-500 flex-shrink-0' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+                 </svg>
+                 Verified target ID of the license.
+               </p>
             </div>
 
-            <div className='space-y-2'>
+            <div className='space-y-1.5'>
                <label htmlFor='applicationType' className='block text-sm font-semibold text-gray-700'>
                  Application Type
                </label>
@@ -507,12 +641,12 @@ export default function SubmitCancelForm() {
                  name='applicationType'
                  value="Cancel Application"
                  disabled
-                 className='w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 cursor-not-allowed text-gray-700 font-medium'
+                 className='w-full px-4 py-2.5 border border-gray-200 rounded-md bg-white cursor-not-allowed text-gray-800 font-semibold shadow-sm'
                />
             </div>
           </div>
 
-          <div className='space-y-2'>
+          <div className='space-y-1.5'>
             <label htmlFor='cancellationReason' className='block text-sm font-semibold text-gray-700'>
               Reason for Cancellation <span className='text-red-500'>*</span>
             </label>
@@ -523,12 +657,12 @@ export default function SubmitCancelForm() {
               value={formData.cancellationReason}
               onChange={handleChange}
               required
-              className='w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500'
+              className='w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 transition-colors'
               placeholder='E.g., Voluntary surrender by applicant'
             />
           </div>
 
-          <div className='space-y-2'>
+          <div className='space-y-1.5'>
             <label htmlFor='remarks' className='block text-sm font-semibold text-gray-700'>
               Additional Remarks
             </label>
@@ -538,23 +672,23 @@ export default function SubmitCancelForm() {
               value={formData.remarks}
               onChange={handleChange}
               rows={4}
-              className='w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 resize-none'
+              className='w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 resize-none transition-colors'
               placeholder='Provide any additional context or details for this request (optional)'
             />
           </div>
 
-          <div className='pt-4 flex justify-end gap-4 border-t border-gray-100'>
+          <div className='pt-5 flex justify-end gap-3 border-t border-gray-100'>
             <button
               type='button'
               onClick={() => router.back()}
-              className='px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-medium transition-colors'
+              className='px-6 py-2.5 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 font-semibold transition-colors'
             >
               Cancel
             </button>
             <button
               type='submit'
               disabled={loading}
-              className='px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium shadow-sm flex items-center transition-colors disabled:opacity-70 disabled:cursor-not-allowed'
+              className='px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-md font-semibold shadow-md flex items-center transition-all hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100'
             >
               {loading ? (
                 <>
@@ -564,10 +698,18 @@ export default function SubmitCancelForm() {
                   </svg>
                   Submitting
                 </>
-              ) : 'Submit Request'}
+              ) : (
+                <>
+                  <svg className='w-4 h-4 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+                  </svg>
+                  Submit Request
+                </>
+              )}
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );
