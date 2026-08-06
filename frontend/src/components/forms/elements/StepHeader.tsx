@@ -32,9 +32,11 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
         </div>
       </div>
         <div
-          className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
-          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
-            {onGoHome && (
+          className='relative max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
+
+          {/* Home button — pinned to the left edge of the bar */}
+          {onGoHome && (
+            <div className='absolute left-3 top-1/2 -translate-y-1/2 z-10'>
               <button
                 type='button'
                 onClick={onGoHome}
@@ -43,7 +45,11 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
               >
                 <IoMdHome className='text-2xl text-[#0d2977]' />
               </button>
-            )}
+            </div>
+          )}
+
+          {/* Step tabs — centred independently of the home button */}
+          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const locked = lockedSteps.has(idx);
@@ -87,7 +93,6 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
               );
             })}
           </div>
-
 
         </div>
     </header>
