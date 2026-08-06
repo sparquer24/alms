@@ -194,7 +194,7 @@ function LicenseManagementContent() {
   const [checked, setChecked] = useState(false);
 
   const initialTab = (() => {
-    const value = searchParams.get('tab') as LicenseTab | null;
+    const value = searchParams?.get('tab') as LicenseTab | null;
     return value && VALID_TABS.includes(value) ? value : 'all';
   })();
 
@@ -205,22 +205,22 @@ function LicenseManagementContent() {
   const [auditRows, setAuditRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
-  const [purposeFilter, setPurposeFilter] = useState(searchParams.get('purpose') || '');
-  const [expiringDays, setExpiringDays] = useState(Number(searchParams.get('days')) || 90);
-  const [renewedOnly, setRenewedOnly] = useState(searchParams.get('renewed') === 'true');
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [search, setSearch] = useState(searchParams?.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState(searchParams?.get('status') || '');
+  const [purposeFilter, setPurposeFilter] = useState(searchParams?.get('purpose') || '');
+  const [expiringDays, setExpiringDays] = useState(Number(searchParams?.get('days')) || 90);
+  const [renewedOnly, setRenewedOnly] = useState(searchParams?.get('renewed') === 'true');
+  const [page, setPage] = useState(Number(searchParams?.get('page')) || 1);
   const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState('validTill');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const limit = 10;
 
-  const [auditSearch, setAuditSearch] = useState(searchParams.get('auditSearch') || '');
-  const [auditAction, setAuditAction] = useState(searchParams.get('auditAction') || '');
-  const [auditDateFrom, setAuditDateFrom] = useState(searchParams.get('dateFrom') || '');
-  const [auditDateTo, setAuditDateTo] = useState(searchParams.get('dateTo') || '');
-  const [auditPage, setAuditPage] = useState(Number(searchParams.get('auditPage')) || 1);
+  const [auditSearch, setAuditSearch] = useState(searchParams?.get('auditSearch') || '');
+  const [auditAction, setAuditAction] = useState(searchParams?.get('auditAction') || '');
+  const [auditDateFrom, setAuditDateFrom] = useState(searchParams?.get('dateFrom') || '');
+  const [auditDateTo, setAuditDateTo] = useState(searchParams?.get('dateTo') || '');
+  const [auditPage, setAuditPage] = useState(Number(searchParams?.get('auditPage')) || 1);
   const [auditLogRows, setAuditLogRows] = useState<any[]>([]);
   const [auditLogTotal, setAuditLogTotal] = useState(0);
   const [auditLogLoading, setAuditLogLoading] = useState(false);
@@ -417,19 +417,19 @@ function LicenseManagementContent() {
 
   // Restore state when the user navigates via browser Back/Forward.
   useEffect(() => {
-    const nextTab = (searchParams.get('tab') as LicenseTab | null) || 'all';
+    const nextTab = (searchParams?.get('tab') as LicenseTab | null) || 'all';
     if (VALID_TABS.includes(nextTab)) setTab(nextTab);
-    setStatusFilter(searchParams.get('status') || '');
-    setPurposeFilter(searchParams.get('purpose') || '');
-    setRenewedOnly(searchParams.get('renewed') === 'true');
-    setExpiringDays(Number(searchParams.get('days')) || 90);
-    setSearch(searchParams.get('search') || '');
-    setPage(Number(searchParams.get('page')) || 1);
-    setAuditSearch(searchParams.get('auditSearch') || '');
-    setAuditAction(searchParams.get('auditAction') || '');
-    setAuditDateFrom(searchParams.get('dateFrom') || '');
-    setAuditDateTo(searchParams.get('dateTo') || '');
-    setAuditPage(Number(searchParams.get('auditPage')) || 1);
+    setStatusFilter(searchParams?.get('status') || '');
+    setPurposeFilter(searchParams?.get('purpose') || '');
+    setRenewedOnly(searchParams?.get('renewed') === 'true');
+    setExpiringDays(Number(searchParams?.get('days')) || 90);
+    setSearch(searchParams?.get('search') || '');
+    setPage(Number(searchParams?.get('page')) || 1);
+    setAuditSearch(searchParams?.get('auditSearch') || '');
+    setAuditAction(searchParams?.get('auditAction') || '');
+    setAuditDateFrom(searchParams?.get('dateFrom') || '');
+    setAuditDateTo(searchParams?.get('dateTo') || '');
+    setAuditPage(Number(searchParams?.get('auditPage')) || 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
