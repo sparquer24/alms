@@ -13,7 +13,7 @@
 # in deploy.ps1, then run .\deploy.ps1 to upload the site and it will start serving.
 # =========================================================================================
 
-$S3BucketName = "alms-frontend-prod-bucket"
+$S3BucketName = "alms-frontend-static-651200558244"
 $AWSRegion    = "ap-south-1"
 $FunctionName = "alms-frontend-url-rewrite"
 
