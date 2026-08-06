@@ -13,12 +13,11 @@
 }
 
 .tableWrapper {
-  overflow-x: auto; /* Enable horizontal scrolling for responsiveness */
-  overflow-y: auto; /* Enable vertical scrolling */
-  /* Full height for single scrollbar - parent controls the viewport height */
-  height: calc(100vh - 240px);
-  min-height: 300px;
-  max-height: calc(100vh - 240px);
+  /* This is the single scroll region for the table: horizontal scroll for
+     wide tables, vertical scroll for rows (added via Tailwind's flex-1
+     min-h-0 overflow-y-auto in the markup so it fills exactly the space
+     left over after the title/search/controls above it). */
+  overflow-x: auto;
 }
 
 @media (min-width: 1024px) {

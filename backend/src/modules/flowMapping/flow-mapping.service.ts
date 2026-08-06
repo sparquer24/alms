@@ -21,7 +21,13 @@ export class FlowMappingService {
 
         // Get or create flow mapping
         let flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: roleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
             include: {
                 currentRole: true,
                 updatedByUser: {
@@ -89,7 +95,13 @@ export class FlowMappingService {
 
         // Create or update mapping
         const flowMapping = await this.prisma.roleFlowMapping.upsert({
-            where: { currentRoleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
             create: {
                 currentRoleId,
                 nextRoleIds: data.nextRoleIds,
@@ -147,7 +159,13 @@ export class FlowMappingService {
         }
 
         const savedMapping = await this.prisma.roleFlowMapping.upsert({
-            where: { currentRoleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
             update: {
                 nextRoleIds,
                 updatedBy: null,
@@ -263,7 +281,13 @@ export class FlowMappingService {
      */
     async deleteFlowMapping(roleId: number) {
         const flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: roleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
         });
 
         if (!flowMapping) {
@@ -271,7 +295,13 @@ export class FlowMappingService {
         }
 
         return this.prisma.roleFlowMapping.delete({
-            where: { currentRoleId: roleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: roleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
         });
     }
 
@@ -281,7 +311,13 @@ export class FlowMappingService {
      */
     async getNextRoles(roleId: number) {
         const flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: roleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
             include: {
                 currentRole: true,
             },
@@ -313,7 +349,13 @@ export class FlowMappingService {
     async duplicateFlowMapping(sourceRoleId: number, targetRoleId: number, updatedBy?: number) {
         // Get source mapping
         const sourceMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: sourceRoleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: sourceRoleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
         });
 
         if (!sourceMapping) {
@@ -342,7 +384,13 @@ export class FlowMappingService {
 
         // Create or update mapping for target role
         return this.prisma.roleFlowMapping.upsert({
-            where: { currentRoleId: targetRoleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: targetRoleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
             create: {
                 currentRoleId: targetRoleId,
                 nextRoleIds: sourceMapping.nextRoleIds,
@@ -367,7 +415,13 @@ export class FlowMappingService {
      */
     async resetFlowMapping(roleId: number) {
         const flowMapping = await this.prisma.roleFlowMapping.findUnique({
-            where: { currentRoleId: roleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: roleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
         });
 
         if (!flowMapping) {
@@ -375,7 +429,13 @@ export class FlowMappingService {
         }
 
         return this.prisma.roleFlowMapping.update({
-            where: { currentRoleId: roleId },
+            where: {
+                currentRoleId_applicationType_purpose: {
+                    currentRoleId: roleId,
+                    applicationType: 'ALL',
+                    purpose: 'ALL',
+                },
+            },
             data: {
                 nextRoleIds: [],
                 updatedAt: new Date(),

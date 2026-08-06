@@ -173,7 +173,7 @@ export default function NotificationsPage() {
       <Sidebar />
       <Header />
       
-  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
+  <main className="flex-1 p-8 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px]">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>

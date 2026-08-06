@@ -1,7 +1,7 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -32,6 +32,34 @@ import Header from '@/components/Header';
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
 const LICENSE_ROLES = new Set(['ZS', 'DCP', 'CP', 'JTCP', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO']);
+
+const VALID_TABS: LicenseTab[] = ['all', 'expiring', 'expired', 'import', 'audit'];
+
+const PURPOSE_OPTIONS = [
+  { value: '', label: 'All Purposes' },
+  { value: 'SELF_PROTECTION', label: 'Self Protection' },
+  { value: 'SPORTS', label: 'Sports' },
+  { value: 'HEIRLOOM_POLICY', label: 'Heirloom Policy' },
+  { value: 'CROP_PROTECTION', label: 'Crop Protection' },
+];
+
+const AUDIT_ACTION_OPTIONS = [
+  { value: '', label: 'All Actions' },
+  { value: 'ISSUED', label: 'Issued' },
+  { value: 'RENEWED', label: 'Renewed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const auditColumns = [
+  'Date & Time',
+  'License Number',
+  'License Holder',
+  'Action',
+  'Previous Status',
+  'New Status',
+  'Officer',
+  'Remarks',
+];
 
 const columns = [
   'License ID',
@@ -82,6 +110,19 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const getFullName = (license: LicenseData | null | undefined) =>
   [license?.firstName, license?.middleName, license?.lastName].filter(Boolean).join(' ') || '-';
 
@@ -110,7 +151,11 @@ const mapLicenseToRow = (license: LicenseData) => ({
   'Father/Guardian Name': license.parentOrSpouseName || '-',
   'Mobile Number': (license as any).mobileNumber || (license as any).applicantMobile || '-',
   Email: (license as any).email || (license as any).applicantEmail || '-',
-  District: (license as any).presentDistrict?.name || (license as any).presentDistrictName || (license as any).presentDistrict || '-',
+  District:
+    (license as any).presentDistrict?.name ||
+    (license as any).presentDistrictName ||
+    (typeof (license as any).presentDistrict === 'string' ? (license as any).presentDistrict : undefined) ||
+    ((license as any).presentDistrictId != null ? `District #${(license as any).presentDistrictId}` : '-'),
   Address: license.presentAddressLine || '-',
   'Weapon Type': license.armsCategory || '-',
   'Weapon Details': license.endorsedWeapons?.map(weapon => weapon.name).join(', ') || license.ammunitionDescription || '-',
@@ -143,24 +188,44 @@ const coerceLicenseList = (value: any): { data: LicenseData[]; total: number } =
 
 function LicenseManagementContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userRole, isAuthenticated, isLoading, initialized } = useAuth();
   const { setShowSidebar } = useLayout();
   const [checked, setChecked] = useState(false);
-  const [tab, setTab] = useState<LicenseTab>('all');
+
+  const initialTab = (() => {
+    const value = searchParams?.get('tab') as LicenseTab | null;
+    return value && VALID_TABS.includes(value) ? value : 'all';
+  })();
+
+  const [tab, setTab] = useState<LicenseTab>(initialTab);
   const [licenses, setLicenses] = useState<LicenseData[]>([]);
   const [stats, setStats] = useState<LicenseStatistics | null>(null);
   const [selectedLicense, setSelectedLicense] = useState<LicenseData | null>(null);
   const [auditRows, setAuditRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [purposeFilter, setPurposeFilter] = useState('');
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(searchParams?.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState(searchParams?.get('status') || '');
+  const [purposeFilter, setPurposeFilter] = useState(searchParams?.get('purpose') || '');
+  const [expiringDays, setExpiringDays] = useState(Number(searchParams?.get('days')) || 90);
+  const [renewedOnly, setRenewedOnly] = useState(searchParams?.get('renewed') === 'true');
+  const [page, setPage] = useState(Number(searchParams?.get('page')) || 1);
   const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState('validTill');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const limit = 10;
+
+  const [auditSearch, setAuditSearch] = useState(searchParams?.get('auditSearch') || '');
+  const [auditAction, setAuditAction] = useState(searchParams?.get('auditAction') || '');
+  const [auditDateFrom, setAuditDateFrom] = useState(searchParams?.get('dateFrom') || '');
+  const [auditDateTo, setAuditDateTo] = useState(searchParams?.get('dateTo') || '');
+  const [auditPage, setAuditPage] = useState(Number(searchParams?.get('auditPage')) || 1);
+  const [auditLogRows, setAuditLogRows] = useState<any[]>([]);
+  const [auditLogTotal, setAuditLogTotal] = useState(0);
+  const [auditLogLoading, setAuditLogLoading] = useState(false);
+  const [auditLogError, setAuditLogError] = useState<string | null>(null);
+  const auditLimit = 10;
 
   const role = useMemo(() => normalizeRole(userRole), [userRole]);
   const canAccess = role ? LICENSE_ROLES.has(role) : false;
@@ -185,33 +250,52 @@ function LicenseManagementContent() {
 
   const loadLicenses = useCallback(async () => {
     if (!checked) return;
+    if (tab === 'import' || tab === 'audit') {
+      // These tabs don't render the license table, so skip the list fetch — the
+      // dashboard stat cards (fetched below) still need to stay current though.
+      LicenseService.getLicenseDashboard()
+        .then(dashboard => {
+          if (dashboard) setStats(dashboard);
+        })
+        .catch(() => {
+          setStats(prev => prev);
+        });
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
 
       const list =
         tab === 'expiring'
-          ? await LicenseService.getExpiringLicenses(90, { page, limit, search })
+          ? await LicenseService.getExpiringLicenses(expiringDays, {
+            page,
+            limit,
+            search,
+            purpose: purposeFilter || undefined,
+            renewedOnly,
+          })
           : tab === 'expired'
-            ? await LicenseService.getExpiredLicenses({ page, limit, search })
+            ? await LicenseService.getExpiredLicenses({
+              page,
+              limit,
+              search,
+              purpose: purposeFilter || undefined,
+              renewedOnly,
+            })
             : await LicenseService.getAllLicenses({
               page,
               limit,
               search,
               status: statusFilter || undefined,
+              purpose: purposeFilter || undefined,
+              renewedOnly,
               orderBy: sortBy,
               order: sortOrder,
             });
 
       const normalizedList = coerceLicenseList(list);
-      const data = normalizedList.data;
-      setLicenses(
-        purposeFilter
-          ? data.filter(license =>
-              String(license.needForLicense || '').toLowerCase().includes(purposeFilter.toLowerCase())
-            )
-          : data
-      );
+      setLicenses(normalizedList.data);
       setTotal(normalizedList.total);
 
       LicenseService.getLicenseDashboard()
@@ -227,19 +311,135 @@ function LicenseManagementContent() {
     } finally {
       setLoading(false);
     }
-  }, [checked, limit, page, purposeFilter, search, sortBy, sortOrder, statusFilter, tab]);
+  }, [checked, expiringDays, limit, page, purposeFilter, renewedOnly, search, sortBy, sortOrder, statusFilter, tab]);
 
   useEffect(() => {
     loadLicenses();
   }, [loadLicenses]);
 
+  const loadAuditLogs = useCallback(async () => {
+    if (!checked || tab !== 'audit') return;
+    try {
+      setAuditLogLoading(true);
+      setAuditLogError(null);
+      const list = await LicenseService.getLicenseAuditLogs({
+        page: auditPage,
+        limit: auditLimit,
+        search: auditSearch,
+        action: auditAction || undefined,
+        dateFrom: auditDateFrom || undefined,
+        dateTo: auditDateTo || undefined,
+      });
+      const normalized = coerceLicenseList(list);
+      setAuditLogRows(normalized.data);
+      setAuditLogTotal(normalized.total);
+    } catch (loadError: any) {
+      setAuditLogError(loadError?.message || 'Failed to load audit logs.');
+      setAuditLogRows([]);
+    } finally {
+      setAuditLogLoading(false);
+    }
+  }, [checked, tab, auditPage, auditLimit, auditSearch, auditAction, auditDateFrom, auditDateTo]);
+
+  useEffect(() => {
+    loadAuditLogs();
+  }, [loadAuditLogs]);
+
+  const buildLicensesUrl = (state: {
+    tab: LicenseTab;
+    status?: string;
+    purpose?: string;
+    renewed?: boolean;
+    days?: number;
+    search?: string;
+    page?: number;
+    auditSearch?: string;
+    auditAction?: string;
+    auditDateFrom?: string;
+    auditDateTo?: string;
+    auditPage?: number;
+  }) => {
+    const params = new URLSearchParams();
+    params.set('tab', state.tab);
+    if (state.tab === 'audit') {
+      if (state.auditSearch) params.set('auditSearch', state.auditSearch);
+      if (state.auditAction) params.set('auditAction', state.auditAction);
+      if (state.auditDateFrom) params.set('dateFrom', state.auditDateFrom);
+      if (state.auditDateTo) params.set('dateTo', state.auditDateTo);
+      if (state.auditPage && state.auditPage > 1) params.set('auditPage', String(state.auditPage));
+    } else {
+      if (state.status) params.set('status', state.status);
+      if (state.purpose) params.set('purpose', state.purpose);
+      if (state.renewed) params.set('renewed', 'true');
+      if (state.tab === 'expiring' && state.days && state.days !== 90) params.set('days', String(state.days));
+      if (state.search) params.set('search', state.search);
+      if (state.page && state.page > 1) params.set('page', String(state.page));
+    }
+    const query = params.toString();
+    return query ? `/licenses?${query}` : '/licenses';
+  };
+
+  // Keep the URL mirroring in-tab filter tweaks (search keystrokes, pagination,
+  // status/purpose changes) without spamming browser history — tab/card clicks push
+  // their own history entry explicitly (see onClick handlers below) so Back/Forward
+  // can still step between tabs.
+  useEffect(() => {
+    const url = buildLicensesUrl({
+      tab,
+      status: statusFilter,
+      purpose: purposeFilter,
+      renewed: renewedOnly,
+      days: expiringDays,
+      search,
+      page,
+      auditSearch,
+      auditAction,
+      auditDateFrom,
+      auditDateTo,
+      auditPage,
+    });
+    router.replace(url, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    tab,
+    statusFilter,
+    purposeFilter,
+    renewedOnly,
+    expiringDays,
+    search,
+    page,
+    auditSearch,
+    auditAction,
+    auditDateFrom,
+    auditDateTo,
+    auditPage,
+  ]);
+
+  // Restore state when the user navigates via browser Back/Forward.
+  useEffect(() => {
+    const nextTab = (searchParams?.get('tab') as LicenseTab | null) || 'all';
+    if (VALID_TABS.includes(nextTab)) setTab(nextTab);
+    setStatusFilter(searchParams?.get('status') || '');
+    setPurposeFilter(searchParams?.get('purpose') || '');
+    setRenewedOnly(searchParams?.get('renewed') === 'true');
+    setExpiringDays(Number(searchParams?.get('days')) || 90);
+    setSearch(searchParams?.get('search') || '');
+    setPage(Number(searchParams?.get('page')) || 1);
+    setAuditSearch(searchParams?.get('auditSearch') || '');
+    setAuditAction(searchParams?.get('auditAction') || '');
+    setAuditDateFrom(searchParams?.get('dateFrom') || '');
+    setAuditDateTo(searchParams?.get('dateTo') || '');
+    setAuditPage(Number(searchParams?.get('auditPage')) || 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const openDetails = async (license: LicenseData) => {
+    // Use the row data from the /licenses list response as-is — it already has
+    // every field the drawer needs. (The /licenses/:id detail endpoint returns a
+    // differently-shaped "source application" record that leaves most license
+    // fields blank, so we deliberately don't fetch or merge it here.)
     setSelectedLicense(license);
-    const [full, audit] = await Promise.all([
-      LicenseService.getLicenseById(license.id),
-      LicenseService.getLicenseAudit(license.id),
-    ]);
-    setSelectedLicense(full || license);
+    const audit = await LicenseService.getLicenseAudit(license.id);
     setAuditRows(audit);
   };
 
@@ -262,6 +462,33 @@ function LicenseManagementContent() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Licenses');
     XLSX.writeFile(workbook, 'licenses.xlsx');
+  };
+
+  const mapAuditLogToRow = (entry: any) => ({
+    'Date & Time': formatDateTime(entry.createdAt),
+    'License Number': entry.licenseNumber || '-',
+    'License Holder': entry.licenseHolderName || '-',
+    Action: entry.event || '-',
+    'Previous Status': entry.previousStatus || '-',
+    'New Status': entry.newStatus || '-',
+    Officer: entry.officer || '-',
+    Remarks: entry.remarks || '-',
+  });
+
+  const visibleAuditRows = useMemo(() => auditLogRows.map(mapAuditLogToRow), [auditLogRows]);
+
+  const exportAuditCsv = () => {
+    const rows = visibleAuditRows.map(row =>
+      auditColumns.map(col => `"${String((row as any)[col] ?? '').replace(/"/g, '""')}"`).join(',')
+    );
+    const csv = [auditColumns.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'license-audit-logs.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const downloadTemplate = () => {
@@ -302,23 +529,25 @@ function LicenseManagementContent() {
   }
 
   return (
-    <div className='min-h-screen w-full bg-[#F5F7FB] font-[family-name:var(--font-geist-sans)]'>
+    <div className='h-screen w-full overflow-hidden bg-[#F5F7FB] font-[family-name:var(--font-geist-sans)] print:h-auto print:overflow-visible'>
       <Header showCreateForm showBackButton />
 
-      <main className='mt-[64px] md:mt-[70px] p-4 sm:p-6 print:mt-0 print:p-0'>
-        <section className='grid grid-cols-8 gap-1 print:hidden'>
+      <main className='flex h-[calc(100vh-64px)] md:h-[calc(100vh-102px)] flex-col overflow-hidden mt-[64px] md:mt-[102px] p-4 sm:p-6 md:px-4 print:mt-0 print:h-auto print:overflow-visible print:p-0'>
+        <section className='flex-none grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 print:hidden'>
           {[
             {
               label: 'Total Licenses',
               value: stats?.total ?? 0,
               icon: ShieldCheck,
               tab: 'all' as LicenseTab,
+              status: '',
               color: 'text-[#001F54]',
             },
             {
               label: 'Active Licenses',
               value: stats?.active ?? 0,
               icon: CheckCircle2,
+              tab: 'all' as LicenseTab,
               status: 'ACTIVE',
               color: 'text-green-600',
             },
@@ -327,6 +556,7 @@ function LicenseManagementContent() {
               value: stats?.expiringWithin90Days ?? 0,
               icon: Clock,
               tab: 'expiring' as LicenseTab,
+              days: 90,
               color: 'text-orange-500',
             },
             {
@@ -334,6 +564,7 @@ function LicenseManagementContent() {
               value: stats?.expiringWithin60Days ?? 0,
               icon: Clock,
               tab: 'expiring' as LicenseTab,
+              days: 60,
               color: 'text-amber-500',
             },
             {
@@ -341,6 +572,7 @@ function LicenseManagementContent() {
               value: stats?.expiringWithin30Days ?? 0,
               icon: AlertTriangle,
               tab: 'expiring' as LicenseTab,
+              days: 30,
               color: 'text-red-500',
             },
             {
@@ -354,29 +586,55 @@ function LicenseManagementContent() {
               label: 'Renewed Licenses',
               value: stats?.renewed ?? 0,
               icon: History,
-              tab: 'audit' as LicenseTab,
+              tab: 'all' as LicenseTab,
+              status: '',
+              renewedOnly: true,
               color: 'text-indigo-600',
             },
             {
               label: 'Cancelled Licenses',
               value: stats?.cancelled ?? 0,
               icon: XCircle,
+              tab: 'all' as LicenseTab,
               status: 'CANCELLED',
               color: 'text-rose-600',
             },
           ].map(card => {
             const Icon = card.icon;
+            const isActiveCard =
+              tab === card.tab &&
+              (card.status === undefined || statusFilter === card.status) &&
+              (card.days === undefined || expiringDays === card.days) &&
+              renewedOnly === !!card.renewedOnly;
 
             return (
               <button
                 key={card.label}
                 type='button'
                 onClick={() => {
-                  if (card.tab) setTab(card.tab);
-                  setStatusFilter(card.status || '');
+                  setTab(card.tab);
+                  setStatusFilter(card.status ?? '');
+                  setExpiringDays(card.days ?? 90);
+                  setRenewedOnly(!!card.renewedOnly);
+                  setPurposeFilter('');
+                  setSearch('');
                   setPage(1);
+                  router.push(
+                    buildLicensesUrl({
+                      tab: card.tab,
+                      status: card.status ?? '',
+                      days: card.days ?? 90,
+                      renewed: !!card.renewedOnly,
+                    }),
+                    { scroll: false }
+                  );
                 }}
-                className='group rounded-lg border border-gray-200 border-t-4 border-t-[#001F54] bg-white p-1 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md'
+                aria-pressed={isActiveCard}
+                className={`group rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${
+                  isActiveCard
+                    ? 'border-[#001F54] border-t-4 ring-1 ring-[#001F54]'
+                    : 'border-gray-200 border-t-4 border-t-[#001F54]'
+                }`}
               >
                 {/* Icon + Label */}
                 <div className='flex items-center gap-2'>
@@ -392,8 +650,8 @@ function LicenseManagementContent() {
             );
           })}
         </section>
-        <section className='mt-5 rounded-md border border-gray-200 bg-white shadow-sm'>
-          <div className='flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 print:hidden'>
+        <section className='mt-6 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden print:flex-none'>
+          <div className='flex-none flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 print:hidden'>
             {[
               ['all', 'All Licenses'],
               ['expiring', 'Expiring Licenses'],
@@ -405,8 +663,23 @@ function LicenseManagementContent() {
                 key={key}
                 type='button'
                 onClick={() => {
-                  setTab(key as LicenseTab);
+                  const nextTab = key as LicenseTab;
+                  setTab(nextTab);
+                  // Switching tabs directly (not via a stat card) starts from a clean
+                  // slate so a stale status/purpose/expiry/renewed filter from a previous
+                  // card click can't silently keep narrowing results on the new tab.
+                  // Search is preserved since it's a cross-cutting filter valid on every tab.
+                  setStatusFilter('');
+                  setPurposeFilter('');
+                  setExpiringDays(90);
+                  setRenewedOnly(false);
                   setPage(1);
+                  setAuditSearch('');
+                  setAuditAction('');
+                  setAuditDateFrom('');
+                  setAuditDateTo('');
+                  setAuditPage(1);
+                  router.push(buildLicensesUrl({ tab: nextTab, search }), { scroll: false });
                 }}
                 className={`rounded-md px-3 py-2 text-sm font-medium ${
                   tab === key ? 'bg-[#001F54] text-white' : 'text-gray-700 hover:bg-white'
@@ -418,7 +691,7 @@ function LicenseManagementContent() {
           </div>
 
           {tab === 'import' ? (
-            <div className='p-6'>
+            <div className='flex-1 min-h-0 overflow-auto p-6'>
               <div className='rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center'>
                 <Upload className='mx-auto h-10 w-10 text-gray-400' />
                 <h2 className='mt-3 text-lg font-semibold text-gray-900'>Bulk License Import</h2>
@@ -437,9 +710,165 @@ function LicenseManagementContent() {
                 </button>
               </div>
             </div>
+          ) : tab === 'audit' ? (
+            <>
+              <div className='flex-none grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_160px_160px_auto] print:hidden'>
+                <div className='relative'>
+                  <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400' />
+                  <input
+                    value={auditSearch}
+                    onChange={event => {
+                      setAuditSearch(event.target.value);
+                      setAuditPage(1);
+                    }}
+                    placeholder='Search by license number, holder name, officer...'
+                    className='w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
+                  />
+                </div>
+                <select
+                  value={auditAction}
+                  onChange={event => {
+                    setAuditAction(event.target.value);
+                    setAuditPage(1);
+                  }}
+                  className='rounded-md border border-gray-300 px-3 py-2 text-sm'
+                >
+                  {AUDIT_ACTION_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type='date'
+                  value={auditDateFrom}
+                  onChange={event => {
+                    setAuditDateFrom(event.target.value);
+                    setAuditPage(1);
+                  }}
+                  max={auditDateTo || undefined}
+                  className='rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700'
+                  aria-label='From date'
+                />
+                <input
+                  type='date'
+                  value={auditDateTo}
+                  onChange={event => {
+                    setAuditDateTo(event.target.value);
+                    setAuditPage(1);
+                  }}
+                  min={auditDateFrom || undefined}
+                  className='rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700'
+                  aria-label='To date'
+                />
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    onClick={exportAuditCsv}
+                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                    title='Export CSV'
+                  >
+                    <FileDown className='h-4 w-4' />
+                  </button>
+                  <button
+                    type='button'
+                    onClick={printTable}
+                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                    title='Print'
+                  >
+                    <Printer className='h-4 w-4' />
+                  </button>
+                </div>
+              </div>
+
+              {auditLogError && (
+                <div className='flex-none m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
+                  {auditLogError}
+                </div>
+              )}
+
+              <div className='flex-1 min-h-0 overflow-auto'>
+                <table className='min-w-[1200px] w-full border-separate border-spacing-0 text-sm'>
+                  <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
+                    <tr>
+                      {auditColumns.map(col => (
+                        <th key={col} className='border-b border-[#001F54] px-3 py-3 font-semibold whitespace-nowrap'>
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogLoading ? (
+                      Array.from({ length: 6 }).map((_, idx) => (
+                        <tr key={idx} className='animate-pulse'>
+                          {auditColumns.map(col => (
+                            <td key={col} className='border-b px-3 py-3'>
+                              <div className='h-4 rounded bg-gray-200' />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : auditLogRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={auditColumns.length} className='px-3 py-12 text-center text-gray-500'>
+                          No activity found for the selected filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      auditLogRows.map(entry => {
+                        const row = mapAuditLogToRow(entry);
+                        return (
+                          <tr key={entry.id} className='odd:bg-white even:bg-gray-50 hover:bg-blue-50/70'>
+                            {auditColumns.map(col => (
+                              <td
+                                key={col}
+                                className='border-b border-gray-100 px-3 py-3 align-top text-gray-700 whitespace-nowrap'
+                              >
+                                {col === 'Action' ? (
+                                  <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700'>
+                                    {row[col as keyof typeof row]}
+                                  </span>
+                                ) : (
+                                  String(row[col as keyof typeof row] ?? '-')
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
+                <span>
+                  Showing page {auditPage} of {Math.max(Math.ceil(auditLogTotal / auditLimit), 1)} ({auditLogTotal} records)
+                </span>
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    disabled={auditPage <= 1}
+                    onClick={() => setAuditPage(prev => Math.max(prev - 1, 1))}
+                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                  >
+                    <ChevronLeft className='h-4 w-4' />
+                  </button>
+                  <button
+                    type='button'
+                    disabled={auditPage >= Math.ceil(auditLogTotal / auditLimit)}
+                    onClick={() => setAuditPage(prev => prev + 1)}
+                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                  >
+                    <ChevronRight className='h-4 w-4' />
+                  </button>
+                </div>
+              </div>
+            </>
           ) : (
             <>
-              <div className='grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
+              <div className='flex-none grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
                 <div className='relative'>
                   <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400' />
                   <input
@@ -467,15 +896,20 @@ function LicenseManagementContent() {
                   <option value='SUSPENDED'>Suspended</option>
                   <option value='REVOKED'>Revoked</option>
                 </select>
-                <input
+                <select
                   value={purposeFilter}
                   onChange={event => {
                     setPurposeFilter(event.target.value);
                     setPage(1);
                   }}
-                  placeholder='Purpose filter'
                   className='rounded-md border border-gray-300 px-3 py-2 text-sm'
-                />
+                >
+                  {PURPOSE_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <div className='flex items-center gap-2'>
                   <button
                     type='button'
@@ -502,12 +936,12 @@ function LicenseManagementContent() {
               </div>
 
               {error && (
-                <div className='m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
+                <div className='flex-none m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
                   {error}
                 </div>
               )}
 
-              <div className='max-h-[620px] overflow-auto'>
+              <div className='flex-1 min-h-0 overflow-auto'>
                 <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
@@ -676,7 +1110,7 @@ function LicenseManagementContent() {
                 </table>
               </div>
 
-              <div className='flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
+              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
                 <span>
                   Showing page {page} of {Math.max(Math.ceil(total / limit), 1)} ({total} records)
                 </span>
@@ -710,7 +1144,7 @@ function LicenseManagementContent() {
           onClick={() => setSelectedLicense(null)}
         >
           <aside
-            className='h-full w-full max-w-3xl overflow-y-auto bg-white shadow-2xl'
+            className='h-full w-full max-w-3xl overflow-y-auto bg-white shadow-2xl md:rounded-l-2xl'
             onClick={event => event.stopPropagation()}
           >
             <div className='sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4'>
@@ -751,7 +1185,12 @@ function LicenseManagementContent() {
                       'District',
                       (selectedLicense as any).presentDistrict?.name ||
                         (selectedLicense as any).presentDistrictName ||
-                        (selectedLicense as any).presentDistrict,
+                        (typeof (selectedLicense as any).presentDistrict === 'string'
+                          ? (selectedLicense as any).presentDistrict
+                          : undefined) ||
+                        ((selectedLicense as any).presentDistrictId != null
+                          ? `District #${(selectedLicense as any).presentDistrictId}`
+                          : undefined),
                     ],
                   ],
                 ],

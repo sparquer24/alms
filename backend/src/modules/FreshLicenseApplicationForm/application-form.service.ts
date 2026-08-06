@@ -1948,7 +1948,7 @@ export class ApplicationFormService {
         }
 
         // Fetch role flow mapping using the current assignee's role
-        const roleMapping = await prisma.roleFlowMapping.findUnique({
+        const roleMapping = await prisma.roleFlowMapping.findFirst({
           where: { currentRoleId: cancelHierarchy.roleId },
           select: { nextRoleIds: true }
         });
@@ -2031,7 +2031,7 @@ export class ApplicationFormService {
       }
 
       // Fetch role flow mapping
-      const roleMapping = await prisma.roleFlowMapping.findUnique({
+      const roleMapping = await prisma.roleFlowMapping.findFirst({
         where: { currentRoleId: application.currentUser.roleId },
         select: {
           nextRoleIds: true

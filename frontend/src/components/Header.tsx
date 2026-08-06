@@ -95,14 +95,14 @@ const Header = (props: HeaderProps) => {
   const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
 
   // Adjust header position based on sidebar visibility
-  const headerLeftClass = showSidebar ? 'left-[80px] md:left-[18%]' : 'left-0';
+  const headerLeftClass = showSidebar ? 'left-0 md:left-72' : 'left-0 md:left-4';
 
   // Determine if header needs extra height for breadcrumbs
   const hasBreadcrumbs = breadcrumbs && breadcrumbs.length > 0;
 
   return (
     <header
-      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg z-40 transition-all duration-300`}
+      className={`fixed top-0 md:top-4 right-0 md:right-4 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg md:rounded-2xl z-40 transition-all duration-300`}
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
         {/* Left section: breadcrumbs / create form */}

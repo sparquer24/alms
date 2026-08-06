@@ -123,7 +123,7 @@ model Roles {
   workflowHistoryPrevious        FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   renewalWorkflowHistoryNext     RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalWorkflowNextRole")
   renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalWorkflowPreviousRole")
-  currentRoleFlowMappings        RoleFlowMapping?                                @relation("CurrentRole")
+  currentRoleFlowMappings        RoleFlowMapping[]                               @relation("CurrentRole")
   rolesActionsMapping            RolesActionsMapping[]
   users                          Users[]
 }
@@ -142,14 +142,33 @@ model RolesActionsMapping {
 }
 
 model RoleFlowMapping {
-  id            Int      @id @default(autoincrement())
-  currentRoleId Int      @unique
-  nextRoleIds   Int[]
-  updatedBy     Int?
-  updatedAt     DateTime @default(now()) @updatedAt
-  createdAt     DateTime @default(now())
-  currentRole   Roles    @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
-  updatedByUser Users?   @relation(fields: [updatedBy], references: [id])
+  id              Int                       @id @default(autoincrement())
+  currentRoleId   Int
+  nextRoleIds     Int[]
+  updatedBy       Int?
+  updatedAt       DateTime                  @default(now()) @updatedAt
+  createdAt       DateTime                  @default(now())
+  applicationType RoleFlowApplicationType   @default(ALL)
+  purpose         RoleFlowPurpose           @default(ALL)
+  currentRole     Roles                     @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
+  updatedByUser   Users?                    @relation(fields: [updatedBy], references: [id])
+
+  @@unique([currentRoleId, applicationType, purpose])
+}
+
+enum RoleFlowApplicationType {
+  ALL
+  FRESH
+  RENEWAL
+  CANCEL
+}
+
+enum RoleFlowPurpose {
+  ALL
+  SELF_PROTECTION
+  SPORTS
+  HEIRLOOM_POLICY
+  CROP_PROTECTION
 }
 
 model WeaponTypeMaster {

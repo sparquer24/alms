@@ -168,9 +168,9 @@ function InboxContent() {
   };
 
   return (
-    <div className='max-w-8xl w-full mx-auto'>
-      <div className='bg-white rounded-lg shadow p-4 sm:p-5'>
-        <h1 className='text-2xl font-bold mb-3'>{getPageTitle()}</h1>
+    <div className='max-w-8xl w-full mx-auto flex-1 min-h-0 flex flex-col'>
+      <div className='bg-white rounded-lg shadow p-4 sm:p-5 flex-1 flex flex-col min-h-0'>
+        <h1 className='flex-none text-2xl font-bold mb-3'>{getPageTitle()}</h1>
 
         {queryType === 'all' && (
           <div className='mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
@@ -222,14 +222,16 @@ function InboxContent() {
           </div>
         )}
 
-        <ApplicationTable
-          applications={applications}
-          isLoading={isLoading}
-          pageType={queryType}
-          selectedFormType={selectedFormType}
-          onSelectedFormTypeChange={setSelectedFormType}
-          showActionColumn={true}
-        />
+        <div className='flex-1 min-h-0 flex flex-col'>
+          <ApplicationTable
+            applications={applications}
+            isLoading={isLoading}
+            pageType={queryType}
+            selectedFormType={selectedFormType}
+            onSelectedFormTypeChange={setSelectedFormType}
+            showActionColumn={true}
+          />
+        </div>
       </div>
     </div>
   );

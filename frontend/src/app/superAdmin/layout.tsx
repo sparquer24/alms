@@ -67,7 +67,7 @@ export default function SuperAdminLayout({ children }: { children: any }) {
     <LayoutProvider>
       <div className='flex h-screen bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
         <Sidebar />
-        <main className='flex-1 ml-[80px] md:ml-[18%] min-w-0 overflow-auto flex flex-col'>
+        <main className='flex-1 ml-0 md:ml-72 min-w-0 overflow-auto flex flex-col'>
           <div className="flex-grow">
             {children}
           </div>
