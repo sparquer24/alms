@@ -47,6 +47,7 @@ import {
   MapPinned,
   Eye,
   FolderOpen,
+  Printer,
 } from 'lucide-react';
 import { ApplicationService } from '@/api/applicationService';
 import RenewalApplicationDetailsHeader from '@/components/renewal/renewalapplicationdetailsheader';
@@ -478,6 +479,15 @@ function OriginalLicenseDetails({
               Application Information — {appTypeLabel}
             </h3>
           </div>
+          <button
+            type='button'
+            onClick={() => window.print()}
+            className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden'
+            title='Print application details'
+          >
+            <Printer className='w-4.5 h-4.5 text-slate-500' />
+            Print Details
+          </button>
         </div>
 
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
