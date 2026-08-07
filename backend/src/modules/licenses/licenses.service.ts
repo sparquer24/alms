@@ -102,7 +102,7 @@ export class LicensesService {
           district: true,
         },
       },
-      //   biometricData: true,
+      biometricData: true,
       criminalHistories: true,
       licenseHistories: true,
       licenseDetails: {
@@ -110,7 +110,7 @@ export class LicensesService {
           requestedWeapons: true,
         },
       },
-      //   fileUploads: true,
+      fileUploads: true,
     };
   }
 
