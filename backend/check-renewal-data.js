@@ -52,12 +52,12 @@ const prisma = new PrismaClient();
     
     console.log('\n✅ Database connection successful!');
     console.log('\n📍 Database Details:');
-    console.log('   Host: almsdev.cta888eqmcrq.ap-south-1.rds.amazonaws.com');
+    console.log('   Host: localhost');
     console.log('   Port: 5432');
     console.log('   Database: alms');
     console.log('   Schema: public');
     console.log('   Region: ap-south-1 (Asia Pacific - Mumbai)');
-    console.log('   Type: AWS RDS PostgreSQL (Cloud)');
+    console.log('   Type: Docker PostgreSQL (postgres:17-alpine)');
     
   } catch (error) {
     console.error('❌ Error:', error.message);

@@ -206,7 +206,7 @@ export const SidebarSkeleton: React.FC = () => (
 
 // Header Skeleton
 export const HeaderSkeleton: React.FC = () => (
-  <div className="fixed top-0 md:top-4 left-0 md:left-72 right-0 md:right-4 h-[64px] md:h-[70px] bg-white shadow-sm border border-gray-200 md:rounded-2xl z-30">
+  <div className="fixed top-0 md:top-4 left-0 md:left-66 right-0 md:right-4 h-[64px] md:h-[70px] bg-white shadow-sm border border-gray-200 md:rounded-2xl z-30">
     <div className="flex items-center justify-between h-full px-4 md:px-6">
       {/* Search Area */}
       <div className="flex items-center space-x-4 flex-1">
@@ -229,7 +229,7 @@ export const PageLayoutSkeleton: React.FC<{ children?: React.ReactNode }> = ({ c
   <div className="flex h-screen w-full bg-gray-50">
     <SidebarSkeleton />
     <HeaderSkeleton />
-  <main className="flex-1 p-8 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px]">
+  <main className="flex-1 p-2 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]">
       {children || (
         <div className="bg-white rounded-lg shadow p-6">
           <Skeleton className="h-8 w-48 mb-6" />

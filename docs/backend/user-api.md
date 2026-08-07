@@ -5,7 +5,7 @@ The User API provides endpoints to create and retrieve users. All endpoints requ
 
 ## Base URL
 ```
-http://localhost:3000/api/users
+http://localhost:3001/api/users
 ```
 
 ## Endpoints

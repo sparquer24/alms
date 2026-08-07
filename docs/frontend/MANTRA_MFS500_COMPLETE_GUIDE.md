@@ -234,7 +234,7 @@ cat > .env.local << EOF
 NEXT_PUBLIC_MANTRA_SDK_URL=https://localhost:8030
 
 # API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:3000/api
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
 
 # Biometric Settings
 NEXT_PUBLIC_BIOMETRIC_QUALITY_THRESHOLD=60
@@ -462,7 +462,7 @@ cat > .env.local << EOF
 NEXT_PUBLIC_MANTRA_SDK_URL=https://localhost:8030
 
 # Backend API URL (match your backend port)
-NEXT_PUBLIC_API_URL=http://localhost:3000/api
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
 
 # Biometric Settings (should match backend)
 NEXT_PUBLIC_BIOMETRIC_QUALITY_THRESHOLD=60
@@ -735,7 +735,7 @@ Each developer's machine is independent with its own encryption key. The main sh
 | Variable | Default | Purpose | Example |
 |----------|---------|---------|---------|
 | `NEXT_PUBLIC_MANTRA_SDK_URL` | `https://localhost:8030` | SDK service URL | `https://localhost:8030` |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:3000/api` | Backend API URL | `http://localhost:3000/api` |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:3001/api` | Backend API URL | `http://localhost:3001/api` |
 | `NEXT_PUBLIC_BIOMETRIC_QUALITY_THRESHOLD` | `60` | Min quality % | `60` |
 | `NEXT_PUBLIC_BIOMETRIC_MATCH_THRESHOLD` | `65` | Min match score | `65` |
 
@@ -965,7 +965,7 @@ const [diagnosticLoading, setDiagnosticLoading] = useState<string | null>(null);
 
 ### Base URL
 ```
-POST http://localhost:3000/api/biometric/
+POST http://localhost:3001/api/biometric/
 ```
 
 ### Authentication
@@ -1575,10 +1575,10 @@ const runDiagnostic = async (testName: string, testFn: () => Promise<any>) => {
 2. **Verify API Configuration**
    ```bash
    # Check .env.local
-   NEXT_PUBLIC_API_URL=http://localhost:3000/api
+   NEXT_PUBLIC_API_URL=http://localhost:3001/api
    
    # Test API
-   curl -X GET http://localhost:3000/api/biometric/enrolled/test-id \
+   curl -X GET http://localhost:3001/api/biometric/enrolled/test-id \
      -H "Authorization: Bearer YOUR_TOKEN"
    ```
 

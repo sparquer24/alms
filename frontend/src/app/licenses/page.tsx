@@ -532,7 +532,7 @@ function LicenseManagementContent() {
     <div className='h-screen w-full overflow-hidden bg-[#F5F7FB] font-[family-name:var(--font-geist-sans)] print:h-auto print:overflow-visible'>
       <Header showCreateForm showBackButton />
 
-      <main className='flex h-[calc(100vh-64px)] md:h-[calc(100vh-102px)] flex-col overflow-hidden mt-[64px] md:mt-[102px] p-4 sm:p-6 md:px-4 print:mt-0 print:h-auto print:overflow-visible print:p-0'>
+      <main className='flex h-[calc(100vh-64px)] md:h-[calc(100vh-90px)] flex-col overflow-hidden mt-[64px] md:mt-[90px] p-4 sm:p-6 md:px-4 print:mt-0 print:h-auto print:overflow-visible print:p-0'>
         <section className='flex-none grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 print:hidden'>
           {[
             {

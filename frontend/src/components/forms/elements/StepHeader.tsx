@@ -48,8 +48,10 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
             </div>
           )}
 
-          {/* Step tabs — centred independently of the home button */}
-          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
+          {/* Step tabs — centred independently of the home button; wrap on narrow screens */}
+          <div
+            className={`flex flex-wrap justify-center items-center gap-1 xl:gap-2 2xl:gap-3 py-1 ${onGoHome ? 'px-12' : 'px-2'}`}
+          >
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const locked = lockedSteps.has(idx);
@@ -87,7 +89,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                     </span>
                   </button>
                   {active && (
-                    <div className='w-0 h-0 border-l-6 border-r-6 border-t-6 border-transparent border-t-white mt-[-2px]' />
+                    <div className='w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-white mt-[-2px]' />
                   )}
                 </div>
               );

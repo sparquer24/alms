@@ -62,10 +62,10 @@ echo ""
 
 echo "### HEALTH CHECK ###"
 echo "Testing health endpoint..."
-HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health 2>/dev/null || echo "000")
+HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health 2>/dev/null || echo "000")
 if [ "$HEALTH_RESPONSE" = "200" ]; then
     echo "✅ Health check PASSED (HTTP $HEALTH_RESPONSE)"
-    curl -s http://localhost:3000/api/health | jq . 2>/dev/null || curl -s http://localhost:3000/api/health
+    curl -s http://localhost:3001/api/health | jq . 2>/dev/null || curl -s http://localhost:3001/api/health
 else
     echo "❌ Health check FAILED (HTTP $HEALTH_RESPONSE)"
 fi
@@ -121,11 +121,11 @@ echo ""
 
 echo "### DOCKER COMPOSE STATUS ###"
 cd ~/alms 2>/dev/null || cd /home/ubuntu/alms 2>/dev/null || echo "Cannot find alms directory"
-if [ -f "docker-compose.yml" ]; then
+if [ -f "docker-compose.unified.yml" ]; then
     echo "Docker Compose configuration found"
-    docker compose ps
+    docker compose -f docker-compose.unified.yml ps
 else
-    echo "docker-compose.yml not found"
+    echo "docker-compose.unified.yml not found"
 fi
 echo ""
 

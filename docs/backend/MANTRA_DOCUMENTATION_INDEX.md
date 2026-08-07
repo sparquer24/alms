@@ -216,7 +216,7 @@ https://localhost:8030
 
 ### Backend API URL
 ```
-http://localhost:3000/api
+http://localhost:3001/api
 ```
 
 ### Frontend URL

@@ -55,9 +55,9 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 
         <Header />
 
-        <div className='flex-1 flex flex-col overflow-hidden ml-0 md:ml-72 mt-[64px] md:mt-[102px] h-[calc(100vh-64px)] md:h-[calc(100vh-102px)]'>
+        <div className='flex-1 flex flex-col overflow-hidden ml-0 md:ml-66 mt-[64px] md:mt-[90px] h-[calc(100vh-64px)] md:h-[calc(100vh-90px)]'>
           {/* This region is the only scrollable area — header/footer stay put, only its content (e.g. table rows) scrolls */}
-          <div className='flex-1 min-h-0 overflow-y-auto p-8 flex flex-col'>
+          <div className='flex-1 min-h-0 overflow-y-auto p-2 flex flex-col'>
             <div className="w-full flex-1 min-h-0 flex flex-col">
               {children}
             </div>

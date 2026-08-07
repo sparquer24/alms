@@ -598,7 +598,7 @@ export default function UserManagementContent() {
   return (
     <div className='flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
       <Sidebar />
-      <div className='flex-1 p-4 md:p-8'>
+      <div className='flex-1 p-4'>
         <div className='mx-auto w-full max-w-7xl 2xl:max-w-[1600px] flex flex-col gap-6'>
           {/* Header Section */}
           <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
