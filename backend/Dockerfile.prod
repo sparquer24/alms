@@ -44,8 +44,16 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 
-# Use PORT from environment (defaults to 3000 if not set)  
+# Copy entrypoint: applies pending prisma migrations before the app starts.
+# Normalize line endings (repo is edited on Windows) so the shebang resolves.
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN apk add --no-cache dos2unix \
+    && dos2unix /usr/local/bin/docker-entrypoint.sh \
+    && apk del dos2unix \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Use PORT from environment (defaults to 3000 if not set)
 EXPOSE 3001
 
-# Run with Node.js directly - exception handlers prevent crashes
-CMD ["sh", "-c", "node dist/main.js"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["node", "dist/main.js"]

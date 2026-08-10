@@ -11,9 +11,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://alms:rI1VQZgWmRN6msBORF8f@db:5432/alms?connection_limit=20&pool_timeout=20&connect_timeout=10&socket_timeout=30
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "3001:3001"  # Expose for system nginx access
     healthcheck:
@@ -50,9 +50,6 @@ services:
       BACKEND_URL: http://backend-prod:3001
       HOSTNAME: 0.0.0.0
       PORT: 5001
-      JWT_SECRET: 3097adb9893605ecbca993d05142aef1d4a92cd44f6ece72f32750f6697b82555d2634fa846a2ae78c2465d637b04568244fefaaf5e5f3514b92f357e43111d7
-      DATABASE_URL: postgresql://alms:rI1VQZgWmRN6msBORF8f@db:5432/alms?connection_limit=20&pool_timeout=20&connect_timeout=10&socket_timeout=30
-
     ports:
       - "5001:5001"  # Expose for system nginx access
     depends_on:
@@ -76,14 +73,40 @@ services:
     image: postgres:17-alpine
     container_name: alms-db
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: alms
-      POSTGRES_PASSWORD: rI1VQZgWmRN6msBORF8f
-      POSTGRES_DB: alms
+    env_file:
+      - ./.env.prod
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - alms_pgdata:/var/lib/postgresql/data
+    networks:
+      - alms-unified-net
+    healthcheck:
+      # $$ escapes compose interpolation - resolved by the shell inside the
+      # container, where env_file has already set POSTGRES_USER/POSTGRES_DB
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─── AUTOMATED BACKUPS ──────────────────────────────────────────────────────
+  # Nightly pg_dump of the `db` service, retained locally per BACKUP_KEEP_* below.
+  # Restores: docker exec alms-db-backup /backup.sh (or see docs/backend/DOCKER_DATABASE_RESTORE_GUIDE.md)
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:17-alpine
+    container_name: alms-db-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./.env.prod
+    environment:
+      POSTGRES_HOST: db
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - alms_db_backups:/backups
     networks:
       - alms-unified-net
 
@@ -99,3 +122,5 @@ networks:
 volumes:
   alms_pgdata:
     name: alms_pgdata
+  alms_db_backups:
+    name: alms_db_backups
