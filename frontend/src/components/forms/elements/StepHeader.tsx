@@ -8,6 +8,7 @@ interface StepHeaderProps {
   onStepClick?: (step: number) => void;
   lockedSteps?: Set<number>;
   onGoHome?: () => void;
+  title?: string;
 }
 
 export const StepHeader: React.FC<StepHeaderProps> = ({
@@ -16,6 +17,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
   onStepClick = () => {},
   lockedSteps = new Set(),
   onGoHome,
+  title = 'FRESH APPLICATION FORM',
 }) => {
   const handleClick = (idx: number) => {
     if (lockedSteps.has(idx)) return;
@@ -27,7 +29,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
       <div className='w-full'>
         <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
           <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>
-            FRESH APPLICATION FORM
+            {title}
           </h1>
         </div>
       </div>
@@ -48,8 +50,12 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
             </div>
           )}
 
-          {/* Step tabs — centred independently of the home button */}
-          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
+          {/* Step tabs — reserve space on the left so they never sit under the home button */}
+          <div
+            className={`flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1 ${
+              onGoHome ? 'pl-12 sm:pl-14' : ''
+            }`}
+          >
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const locked = lockedSteps.has(idx);

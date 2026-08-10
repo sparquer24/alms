@@ -265,7 +265,7 @@ function FreshApplicationLayoutContent({
       />
 
       <div
-        className='flex max-w-8xl px-4 justify-center sm:px-8'
+        className='flex max-w-8xl px-4 justify-center items-start sm:px-8'
         style={{
           paddingTop: 24,
           minHeight: '100vh',
