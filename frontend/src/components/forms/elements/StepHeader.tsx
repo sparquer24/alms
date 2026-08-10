@@ -27,14 +27,14 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
   return (
     <header className='w-full z-40 relative' aria-hidden={false}>
       <div className='w-full'>
-        <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
+        <div className='max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] w-full mx-auto py-2 px-4 sm:px-8'>
           <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>
             {title}
           </h1>
         </div>
       </div>
         <div
-          className='relative max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
+          className='relative max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
 
           {/* Home button — pinned to the left edge of the bar */}
           {onGoHome && (
@@ -50,20 +50,15 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
             </div>
           )}
 
-          {/* Step tabs — reserve space on the left so they never sit under the home button */}
+          {/* Step tabs — single row always, no scrollbar */}
           <div
-            className={`flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1 ${
-              onGoHome ? 'pl-12 sm:pl-14' : ''
-            }`}
-          {/* Step tabs — centred independently of the home button; wrap on narrow screens */}
-          <div
-            className={`flex flex-wrap justify-center items-center gap-1 xl:gap-2 2xl:gap-3 py-1 ${onGoHome ? 'px-12' : 'px-2'}`}
+            className={`flex flex-nowrap items-center justify-center gap-0.5 py-1 sm:gap-1 xl:gap-1.5 ${onGoHome ? 'px-12' : 'px-2'}`}
           >
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const locked = lockedSteps.has(idx);
               return (
-                <div key={idx} className='flex flex-col items-center'>
+                <div key={idx} className='flex min-w-0 flex-col items-center'>
                   <button
                     type='button'
                     onClick={() => handleClick(idx)}
@@ -71,7 +66,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                     disabled={locked}
                     title={locked ? 'Complete the previous step first' : stepName}
                     aria-current={active ? 'step' : undefined}
-                    className={`px-3 py-2 text-sm font-medium transition-all duration-150 transform-gpu focus:outline-none flex flex-col items-center select-none
+                    className={`px-2 py-2 text-sm font-medium transition-all duration-150 transform-gpu focus:outline-none flex flex-col items-center select-none whitespace-nowrap
                       ${
                         active
                           ? 'bg-white text-[#0d2977]'
@@ -83,7 +78,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                     style={{
                       borderTopLeftRadius: '10px',
                       borderTopRightRadius: '10px',
-                      minWidth: 88,
+                      minWidth: 64,
                     }}
                   >
                     {locked && (
