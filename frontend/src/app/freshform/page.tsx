@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
+import { canCreateApplications } from '../../utils/roleUtils';
 import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
 import Footer from '../../components/Footer';
 
@@ -30,6 +31,7 @@ function FreshFormContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { isAuthenticated, userRole, isLoading: authLoading, initialized } = useAuth();
+  const canCreate = canCreateApplications(userRole);
   const { setShowHeader, setShowSidebar } = useLayout();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -76,7 +78,7 @@ function FreshFormContent() {
   useEffect(() => {
     const type = searchParams?.get('type');
     if (type === 'fresh') {
-      router.push('/create-fresh-application');
+      router.push('/forms/createFreshApplication/personal-information');
     }
   }, [searchParams, router]);
 
@@ -111,7 +113,7 @@ function FreshFormContent() {
   // Handler for create application dropdown
   const handleCreateApplication = (typeKey: string) => {
     if (typeKey === 'fresh') {
-      router.push('/create-fresh-application');
+      router.push('/forms/createFreshApplication/personal-information');
     }
   };
 
@@ -142,9 +144,9 @@ function FreshFormContent() {
 
       {/* Main Content */}
 
-  <main className="flex-1 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px] flex flex-col">          
+  <main className="flex-1 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px] flex flex-col">          
 
-    <div className="flex-grow p-8">
+    <div className="flex-grow p-4 sm:p-6">
 
 
 
@@ -175,8 +177,34 @@ function FreshFormContent() {
 
           {/* Display the regular list view with white background container */}
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold">Fresh Form Applications</h1>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Fresh Application Forms</h1>
+                  <p className="mt-1 text-sm text-gray-500">Initiated fresh license applications</p>
+                </div>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => router.push('/forms/createFreshApplication/personal-information')}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#001F54] hover:bg-[#0d2a70] text-white text-sm font-medium rounded-md shadow-sm transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    New Fresh Application
+                  </button>
+                )}
               </div>
 
               {/* Display search and filter information if applied */}

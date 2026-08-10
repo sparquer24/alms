@@ -75,7 +75,7 @@ Complete implementation including:
 5. **Status Management**: Loading, saving, error states
 
 #### API Integration:
-- Base URL: `NEXT_PUBLIC_API_URL/api`
+- Base URL: `NEXT_PUBLIC_API_URL` (already includes the `/api` prefix, e.g. `http://localhost:3001/api`)
 - Endpoints:
   - `GET /locations/states` - Fetch all states
   - `GET /locations/districts?stateId={id}` - Fetch districts for state

@@ -18,6 +18,12 @@ Thumbs.db
 dist/
 build/
 
+# Data exports
+data-exports/
+dumps/
+backups/
+backup-db.cmd
+
 # Prisma
 prisma/dev.db
 prisma/dev.db-journal

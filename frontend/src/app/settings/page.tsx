@@ -121,7 +121,7 @@ export default function SettingsPage() {
       <Sidebar />
       <Header />
 
-      <main className='flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto ml-0 md:ml-72 mt-[64px] md:mt-[102px]'>
+      <main className='flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]'>
         <div className='bg-white rounded-lg shadow p-4 sm:p-6 max-w-6xl mx-auto'>
           <h1 className='text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800'>User Information</h1>
 
