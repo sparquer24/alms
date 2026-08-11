@@ -576,6 +576,7 @@ export default function SubmitCancelForm() {
   }
 
   if (verificationStatus === 'VERIFYING_BIOMETRICS') {
+    const deviceReady = mantraSDKReady && deviceConnected;
     return (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-cover bg-center bg-fixed overflow-auto bg-[url('/backgroundIMGALMS.jpeg')] py-10 px-4">
         <div
@@ -583,94 +584,117 @@ export default function SubmitCancelForm() {
           aria-hidden='true'
         />
         <div className='relative z-10 max-w-2xl w-full bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/50 overflow-hidden'>
-          <div className='h-1.5 bg-[#0F2D52]' />
-          <div className='p-8 space-y-6'>
-            <div className='text-center pb-5 border-b border-gray-200'>
-              <div className='mx-auto mb-3 w-12 h-12 rounded-full bg-[#0F2D52]/5 ring-4 ring-[#0F2D52]/10 shadow-sm flex items-center justify-center'>
-                <Fingerprint className='w-6 h-6 text-[#0F2D52]' />
+          <div className='h-1.5 bg-gradient-to-r from-[#0F2D52] via-[#1B4C8C] to-[#0F2D52]' />
+          <div className='p-8 sm:p-10 space-y-7'>
+            <div className='text-center pb-6 border-b border-gray-100'>
+              <div className='relative mx-auto mb-4 w-16 h-16'>
+                <div className='absolute inset-0 rounded-full bg-[#0F2D52]/10 animate-ping opacity-40' aria-hidden='true' />
+                <div className='relative w-16 h-16 rounded-full bg-gradient-to-br from-[#0F2D52] to-[#1B4C8C] shadow-lg shadow-[#0F2D52]/30 flex items-center justify-center'>
+                  <Fingerprint className='w-8 h-8 text-white' />
+                </div>
               </div>
               <h2 className='text-2xl font-bold tracking-tight text-gray-900'>Biometric Verification Required</h2>
-              <p className='text-sm text-gray-500 mt-1'>Verify that you are the original applicant.</p>
+              <p className='text-sm text-gray-500 mt-1.5'>Verify that you are the original applicant.</p>
             </div>
 
             {applicantDetails && (
-              <div className='grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200'>
-                <div className='flex items-start gap-1.5'>
-                  <User className='w-3.5 h-3.5 text-[#0F2D52] mt-0.5 flex-shrink-0' />
-                  <div>
+              <div className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
+                <div className='min-w-0 flex items-start gap-2.5 bg-slate-50 rounded-xl p-3.5 border border-slate-200'>
+                  <div className='flex-shrink-0 w-8 h-8 rounded-lg bg-[#0F2D52]/10 flex items-center justify-center'>
+                    <User className='w-4 h-4 text-[#0F2D52]' />
+                  </div>
+                  <div className='min-w-0'>
                     <p className='text-[10px] font-semibold text-gray-500 uppercase tracking-wide'>Applicant Name</p>
-                    <p className='text-sm font-semibold text-gray-900'>{applicantDetails.name}</p>
+                    <p className='text-sm font-semibold text-gray-900 truncate' title={applicantDetails.name}>{applicantDetails.name}</p>
                   </div>
                 </div>
-                <div className='flex items-start gap-1.5'>
-                  <Hash className='w-3.5 h-3.5 text-[#0F2D52] mt-0.5 flex-shrink-0' />
-                  <div>
+                <div className='min-w-0 flex items-start gap-2.5 bg-slate-50 rounded-xl p-3.5 border border-slate-200'>
+                  <div className='flex-shrink-0 w-8 h-8 rounded-lg bg-[#0F2D52]/10 flex items-center justify-center'>
+                    <Hash className='w-4 h-4 text-[#0F2D52]' />
+                  </div>
+                  <div className='min-w-0'>
                     <p className='text-[10px] font-semibold text-gray-500 uppercase tracking-wide'>License ID</p>
-                    <p className='text-sm font-semibold text-gray-900'>{applicantDetails.licenseId}</p>
+                    <p className='text-sm font-semibold text-gray-900 truncate' title={String(applicantDetails.licenseId)}>{applicantDetails.licenseId}</p>
                   </div>
                 </div>
-                <div className='flex items-start gap-1.5'>
-                  <ShieldCheck className='w-3.5 h-3.5 text-[#0F2D52] mt-0.5 flex-shrink-0' />
-                  <div>
+                <div className='min-w-0 flex items-start gap-2.5 bg-slate-50 rounded-xl p-3.5 border border-slate-200'>
+                  <div className='flex-shrink-0 w-8 h-8 rounded-lg bg-[#0F2D52]/10 flex items-center justify-center'>
+                    <ShieldCheck className='w-4 h-4 text-[#0F2D52]' />
+                  </div>
+                  <div className='min-w-0'>
                     <p className='text-[10px] font-semibold text-gray-500 uppercase tracking-wide'>License Number</p>
-                    <p className='text-sm font-semibold text-gray-900'>{applicantDetails.licenseNumber}</p>
+                    <p className='text-sm font-semibold text-gray-900 break-all' title={applicantDetails.licenseNumber}>{applicantDetails.licenseNumber}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {verificationError && (
-              <div className='rounded-md border border-[#0F2D52]/20 bg-[#0F2D52]/5 p-4 text-sm text-[#0F2D52]'>
-                {verificationError}
+              <div className='flex items-start gap-2.5 rounded-xl border border-[#0F2D52]/20 bg-[#0F2D52]/5 p-4 text-sm text-[#0F2D52]'>
+                <Info className='w-4 h-4 flex-shrink-0 mt-0.5' />
+                <span>{verificationError}</span>
               </div>
             )}
 
-            <div className='p-6 rounded-xl border border-gray-200 bg-slate-50 space-y-4'>
-              <div>
-                <label className='block text-sm font-semibold text-gray-700 mb-1'>Required Hand & Finger</label>
-                <select
-                  value={biometricTargetThumb || 'RIGHT_THUMB'}
-                  disabled
-                  className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-white cursor-not-allowed text-gray-700 font-semibold'
-                >
-                  <option value="RIGHT_THUMB">Right Hand Thumb</option>
-                  <option value="LEFT_THUMB">Left Hand Thumb</option>
-                </select>
-                <p className="text-sm text-[#0F2D52] mt-1 font-medium">
-                  Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'} from the fresh application.
-                </p>
+            <div className='rounded-xl border border-gray-200 bg-slate-50 overflow-hidden'>
+              <div className='px-6 py-4 border-b border-gray-200 bg-white flex items-center gap-2.5'>
+                <div className='w-7 h-7 rounded-lg bg-[#0F2D52]/10 flex items-center justify-center flex-shrink-0'>
+                  <Fingerprint className='w-4 h-4 text-[#0F2D52]' />
+                </div>
+                <h3 className='text-sm font-semibold text-gray-800'>Fingerprint Capture</h3>
               </div>
 
-              {mantraSDKReady && deviceConnected ? (
-                <div className='flex items-center space-x-3'>
-                  <button
-                    type='button'
-                    onClick={handleVerifyBiometrics}
-                    disabled={fingerprintCapturing}
-                    className='px-5 py-2.5 bg-[#0F2D52] hover:bg-[#0B2340] text-white rounded-md font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md hover:scale-[1.02]'
+              <div className='p-6 space-y-5'>
+                <div>
+                  <label className='block text-sm font-semibold text-gray-700 mb-1.5'>Required Hand & Finger</label>
+                  <select
+                    value={biometricTargetThumb || 'RIGHT_THUMB'}
+                    disabled
+                    className='w-full p-2.5 border border-gray-300 rounded-md shadow-sm bg-white cursor-not-allowed text-gray-700 font-semibold'
                   >
-                    <Fingerprint className='w-5 h-5' />
-                    {fingerprintCapturing ? 'Scanning...' : 'Scan Fingerprint'}
-                  </button>
-                  <span className='text-sm text-emerald-600 font-medium flex items-center gap-1.5'>
-                    <span className='w-2 h-2 rounded-full bg-emerald-500' />
-                    Device Ready
-                  </span>
+                    <option value="RIGHT_THUMB">Right Hand Thumb</option>
+                    <option value="LEFT_THUMB">Left Hand Thumb</option>
+                  </select>
+                  <p className='text-sm text-[#0F2D52] mt-2 font-medium flex items-start gap-1.5'>
+                    <Info className='w-4 h-4 flex-shrink-0 mt-0.5' />
+                    <span>Please scan your enrolled {biometricTargetThumb === 'LEFT_THUMB' ? 'Left hand thumb print' : 'Right hand thumb print'} from the fresh application.</span>
+                  </p>
                 </div>
-              ) : (
-                <div className='flex items-center space-x-3'>
-                  <button
-                    type='button'
-                    onClick={() => checkDeviceConnection()}
-                    className='px-5 py-2.5 bg-gray-200 text-gray-600 hover:bg-gray-300 rounded-md font-semibold flex items-center gap-2 transition-colors'
-                  >
-                    Retry Device Check
-                  </button>
-                  <span className='text-sm text-gray-500 font-medium'>
-                    {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
-                  </span>
+
+                <div className='flex flex-wrap items-center gap-3 pt-1'>
+                  {deviceReady ? (
+                    <>
+                      <button
+                        type='button'
+                        onClick={handleVerifyBiometrics}
+                        disabled={fingerprintCapturing}
+                        className='px-5 py-2.5 bg-[#0F2D52] hover:bg-[#0B2340] text-white rounded-md font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md hover:scale-[1.02]'
+                      >
+                        <Fingerprint className='w-5 h-5' />
+                        {fingerprintCapturing ? 'Scanning...' : 'Scan Fingerprint'}
+                      </button>
+                      <span className='inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5'>
+                        <span className='w-2 h-2 rounded-full bg-emerald-500' />
+                        Device Ready
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type='button'
+                        onClick={() => checkDeviceConnection()}
+                        className='px-5 py-2.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-md font-semibold flex items-center gap-2 transition-colors shadow-sm'
+                      >
+                        Retry Device Check
+                      </button>
+                      <span className='inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5'>
+                        <span className='w-2 h-2 rounded-full bg-amber-500' />
+                        {!mantraSDKReady ? 'Mantra SDK not initialized' : 'Device not connected'}
+                      </span>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -752,7 +776,7 @@ export default function SubmitCancelForm() {
   // Cancellation Request — a floating License Details sidebar (left) and
   // the cancellation form (right) on a flat light-gray dashboard canvas.
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-auto bg-[#F6F8FC] py-10 px-4">
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-cover bg-center bg-fixed overflow-auto bg-[url('/backgroundIMGALMS.jpeg')] py-10 px-4">
       <div className='relative z-10 w-full max-w-7xl my-auto flex flex-col lg:flex-row gap-6'>
 
         {/* LEFT SIDEBAR (320px) — stretches to match the height of the right content card */}

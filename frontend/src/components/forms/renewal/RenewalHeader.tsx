@@ -35,8 +35,10 @@ const RenewalHeader: React.FC<{
         onGoHome={onGoHome}
       />
 
-      <div className='mt-2'>
-        <RenewalSummary licenseId={licenseId} renewalId={renewalId} data={summaryData} />
+      <div className='mt-2 w-full px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] w-full mx-auto'>
+          <RenewalSummary licenseId={licenseId} renewalId={renewalId} data={summaryData} />
+        </div>
       </div>
     </header>
   );
