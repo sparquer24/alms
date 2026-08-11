@@ -1,11 +1,9 @@
 'use client';
-import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { IoMdHome } from 'react-icons/io';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ApplicationService } from '../../../api/applicationService';
-import { StepHeader } from '../../../components/forms/elements/StepHeader';
 
-const IoMdHomeFixed = IoMdHome as any;
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { StepHeader } from '../../../components/forms/elements/StepHeader';
+import { RenewalService } from '../../../api/renewalService';
 
 const steps = [
   'Personal Information',
@@ -30,7 +28,6 @@ const stepToSlug = (name: string) =>
 function LayoutSkeleton() {
   return (
     <div className='relative min-h-screen flex flex-col overflow-x-hidden bg-[#eef2f9]'>
-      {/* Background image with soft opacity veil so the form card stays readable on any screen/zoom */}
       <div className='fixed inset-0 z-0' aria-hidden='true'>
         <div
           className='absolute inset-0 bg-cover bg-center'
@@ -57,7 +54,7 @@ function LayoutSkeleton() {
   );
 }
 
-function FreshApplicationLayoutContent({
+function RenewalApplicationLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -67,28 +64,26 @@ function FreshApplicationLayoutContent({
   const searchParams = useSearchParams();
 
   const [allowedToEdit, setAllowedToEdit] = useState<boolean | null>(null);
-  const [applicationData, setApplicationData] = useState<any>(null);
+  const [renewalData, setRenewalData] = useState<any>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [lockedSteps, setLockedSteps] = useState<Set<number>>(new Set());
   const isNavigatingRef = useRef(false);
 
-  // Get active step name from URL
   const activeStepSlug = (pathname || '').split('/').pop() || '';
   const currentStep = React.useMemo(() => {
-    if (!activeStepSlug) return 0;
+    if (!activeStepSlug || activeStepSlug === 'renewal') return 0;
     if (activeStepSlug === 'preview') return 8;
     if (activeStepSlug === 'declaration') return 9;
-    const idx = steps.findIndex(s => stepToSlug(s) === activeStepSlug);
+    const idx = steps.findIndex((s) => stepToSlug(s) === activeStepSlug);
     return idx >= 0 ? idx : 0;
   }, [activeStepSlug]);
 
-  const applicantId =
+  const renewalId =
+    searchParams?.get('renewalId') ||
     searchParams?.get('id') ||
     searchParams?.get('applicationId') ||
-    searchParams?.get('applicantId') ||
     null;
 
-  // Reset isNavigatingRef when path changes
   useEffect(() => {
     isNavigatingRef.current = false;
   }, [pathname]);
@@ -98,18 +93,14 @@ function FreshApplicationLayoutContent({
     unlocked.add(0);
 
     if (data) {
-      if (data.firstName) unlocked.add(1);
-      if (data.presentAddress || data.addresses?.length > 0) unlocked.add(2);
-      if (data.occupationAndBusiness) unlocked.add(3);
-      if (data.criminalHistories?.length > 0) unlocked.add(4);
-      if (data.licenseHistories?.length > 0) unlocked.add(5);
-      if (data.licenseDetails?.length > 0) unlocked.add(6);
-      const hasBiometric = data.biometricData?.biometricData?.fingerprints?.length > 0
-        || data.biometricData?.fingerprints?.length > 0
-        || data.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
-      if (hasBiometric) unlocked.add(7);
-      // Preview step (index 8) is always unlocked so users can preview their application at any time
-      unlocked.add(8);
+      if (data.applicantName || data.firstName) unlocked.add(1);
+      if (data.presentAddress) unlocked.add(2);
+      if (data.occupation || data.officeBusinessAddress) unlocked.add(3);
+      if (data.firDetailsList || data.convictedStatus !== undefined) unlocked.add(4);
+      if (data.weaponEndorsedList || data.hasAppliedBefore !== undefined) unlocked.add(5);
+      if (data.licenseValidity || data.licenseType) unlocked.add(6);
+      unlocked.add(7); // Biometrics
+      unlocked.add(8); // Preview
     } else if (hasAppId) {
       unlocked.add(1);
     }
@@ -125,39 +116,39 @@ function FreshApplicationLayoutContent({
 
   useEffect(() => {
     const checkEditable = async () => {
-      if (!applicantId) {
+      if (!renewalId) {
         setAllowedToEdit(true);
         return;
       }
       try {
-        const resp = await ApplicationService.getApplication(applicantId as string);
-        const data = resp?.data || null;
-        setApplicationData(data);
+        const resp = await RenewalService.getRenewalForm(renewalId as string);
+        const data = resp?.data || resp || null;
+        setRenewalData(data);
         const code = data?.workflowStatus?.code || data?.status?.code || null;
-        if (String(code).toUpperCase() === 'DRAFT') {
+        if (!code || String(code).toUpperCase() === 'DRAFT') {
           setAllowedToEdit(true);
         } else {
           setAllowedToEdit(false);
-          router.push('/');
+          router.push('/inbox?type=all');
         }
       } catch (err) {
         setAllowedToEdit(true);
       }
     };
     checkEditable();
-  }, [applicantId, router, pathname]);
+  }, [renewalId, router, pathname]);
 
   useEffect(() => {
     if (allowedToEdit) {
-      setLockedSteps(getLockedSteps(applicationData, currentStep, !!applicantId));
+      setLockedSteps(getLockedSteps(renewalData, currentStep, !!renewalId));
     }
-  }, [applicationData, allowedToEdit, currentStep, applicantId]);
+  }, [renewalData, allowedToEdit, currentStep, renewalId]);
 
   const handleStepClick = async (idx: number) => {
     if (isNavigatingRef.current) return;
 
-    const previewIndex = steps.findIndex(s => s.toLowerCase().includes('preview'));
-    const declarationIndex = steps.findIndex(s => s.toLowerCase().includes('declaration'));
+    const previewIndex = steps.findIndex((s) => s.toLowerCase().includes('preview'));
+    const declarationIndex = steps.findIndex((s) => s.toLowerCase().includes('declaration'));
 
     isNavigatingRef.current = true;
 
@@ -169,35 +160,21 @@ function FreshApplicationLayoutContent({
     };
 
     if (idx === declarationIndex) {
-      if (applicantId) {
+      if (renewalId) {
         try {
-          const resp = await ApplicationService.getApplication(applicantId as string);
-          const latestData = resp?.data || null;
-          setApplicationData(latestData);
+          const resp = await RenewalService.getRenewalForm(renewalId as string);
+          const latestData = resp?.data || resp || null;
+          setRenewalData(latestData);
 
           const missingFields: string[] = [];
           if (!latestData) {
-            setValidationError('Application data not loaded. Please complete all steps first.');
+            setValidationError('Renewal application data not loaded. Please complete all steps first.');
             isNavigatingRef.current = false;
             return;
           }
 
           if (!latestData.presentAddress) missingFields.push('Present Address');
           if (!latestData.permanentAddress) missingFields.push('Permanent Address');
-          if (!latestData.occupationAndBusiness) missingFields.push('Occupation/Business Information');
-
-          const biometricData = latestData.biometricData?.biometricData || latestData.biometricData;
-          const hasFingerprints = biometricData?.fingerprints && Array.isArray(biometricData.fingerprints) && biometricData.fingerprints.length > 0;
-          const hasPhoto = latestData.fileUploads?.some((f: any) => f.fileType === 'PHOTOGRAPH');
-          if (!hasFingerprints && !hasPhoto) {
-            missingFields.push('Biometric Information (Photograph or Fingerprint)');
-          }
-
-          const uploadedFilesCount = latestData.fileUploads?.length || 0;
-          if (!latestData.fileUploads || !Array.isArray(latestData.fileUploads) || uploadedFilesCount < 3) {
-            const remaining = 3 - uploadedFilesCount;
-            missingFields.push(`Document Uploads (Need ${remaining} more document${remaining > 1 ? 's' : ''}, minimum 3 required)`);
-          }
 
           if (missingFields.length > 0) {
             setValidationError(`Please complete the following before submitting:\n• ${missingFields.join('\n• ')}`);
@@ -205,12 +182,12 @@ function FreshApplicationLayoutContent({
             return;
           }
         } catch (err) {
-          setValidationError('Failed to validate application data. Please try again.');
+          setValidationError('Failed to validate renewal data. Please try again.');
           isNavigatingRef.current = false;
           return;
         }
       } else {
-        setValidationError('Please create and save an application first.');
+        setValidationError('Please initialize a renewal application first.');
         isNavigatingRef.current = false;
         return;
       }
@@ -218,11 +195,11 @@ function FreshApplicationLayoutContent({
     }
 
     if (idx === previewIndex) {
-      pushWithParams('/forms/createFreshApplication/preview');
+      pushWithParams('/forms/renewal/preview');
     } else if (idx === declarationIndex) {
-      pushWithParams('/forms/createFreshApplication/declaration');
+      pushWithParams('/forms/renewal/declaration');
     } else {
-      pushWithParams(`/forms/createFreshApplication/${stepToSlug(steps[idx])}`);
+      pushWithParams(`/forms/renewal/${stepToSlug(steps[idx])}`);
     }
   };
 
@@ -236,7 +213,6 @@ function FreshApplicationLayoutContent({
 
   return (
     <div className='relative min-h-screen flex flex-col overflow-x-hidden bg-[#eef2f9]'>
-      {/* Background image with soft opacity veil so the form card stays readable on any screen/zoom */}
       <div className='fixed inset-0 z-0' aria-hidden='true'>
         <div
           className='absolute inset-0 bg-cover bg-center'
@@ -265,6 +241,7 @@ function FreshApplicationLayoutContent({
       `}</style>
 
       <StepHeader
+        title='RENEWAL APPLICATION FORM'
         steps={steps}
         currentStep={currentStep}
         onStepClick={handleStepClick}
@@ -287,7 +264,6 @@ function FreshApplicationLayoutContent({
         </div>
       </div>
 
-      {/* Validation Error Modal */}
       {validationError && (
         <div
           className='fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4'
@@ -295,7 +271,7 @@ function FreshApplicationLayoutContent({
         >
           <div
             className='bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden'
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className='bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5'>
               <div className='flex items-center gap-4'>
@@ -334,14 +310,14 @@ function FreshApplicationLayoutContent({
   );
 }
 
-export default function FreshApplicationLayout({
+export default function RenewalApplicationLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
     <Suspense fallback={<LayoutSkeleton />}>
-      <FreshApplicationLayoutContent>{children}</FreshApplicationLayoutContent>
+      <RenewalApplicationLayoutContent>{children}</RenewalApplicationLayoutContent>
     </Suspense>
   );
 }

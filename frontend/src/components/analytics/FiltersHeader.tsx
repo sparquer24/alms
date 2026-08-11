@@ -9,13 +9,25 @@ export const FiltersHeader: React.FC<{
   onReset: () => void;
   onRefresh: () => void;
   isLoading?: boolean;
-}> = ({ fromDate, toDate, setFromDate, setToDate, onReset, onRefresh, isLoading }) => {
+  title?: string;
+  subtitle?: string;
+}> = ({
+  fromDate,
+  toDate,
+  setFromDate,
+  setToDate,
+  onReset,
+  onRefresh,
+  isLoading,
+  title = 'Analytics Dashboard',
+  subtitle = 'Track applications and system performance',
+}) => {
   return (
     <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
       <div className='bg-[#001F54] text-white px-6 py-8'>
         <div className='text-white'>
-          <h1 className='text-3xl font-bold mb-2'>Analytics Dashboard</h1>
-          <p className='text-blue-100 text-lg'>Track applications and system performance</p>
+          <h1 className='text-3xl font-bold mb-2'>{title}</h1>
+          <p className='text-blue-100 text-lg'>{subtitle}</p>
         </div>
       </div>
       <div className='p-6 bg-white'>

@@ -3,6 +3,7 @@ import React from 'react';
 import { IoMdHome } from 'react-icons/io';
 
 interface StepHeaderProps {
+  title?: string;
   steps: string[];
   currentStep: number;
   onStepClick?: (step: number) => void;
@@ -11,6 +12,7 @@ interface StepHeaderProps {
 }
 
 export const StepHeader: React.FC<StepHeaderProps> = ({
+  title = 'FRESH APPLICATION FORM',
   steps,
   currentStep,
   onStepClick = () => {},
@@ -27,7 +29,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
       <div className='w-full'>
         <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
           <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>
-            FRESH APPLICATION FORM
+            {title}
           </h1>
         </div>
       </div>

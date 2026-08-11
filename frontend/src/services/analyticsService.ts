@@ -80,6 +80,8 @@ export interface ApplicationDetailsOptions {
     sort?: string;
     fromDate?: string;
     toDate?: string;
+    /** Restrict to a single application family: fresh | renewal | cancel. Omit for all. */
+    type?: string;
 }
 
 export interface AnalyticsResponse<T> {
@@ -183,6 +185,7 @@ class AnalyticsService {
             if (options?.sort) params.append('sort', options.sort);
             if (options?.fromDate) params.append('fromDate', options.fromDate);
             if (options?.toDate) params.append('toDate', options.toDate);
+            if (options?.type) params.append('type', options.type);
 
             const queryString = params.toString();
             const endpoint = `/admin/analytics/applications/details${queryString ? `?${queryString}` : ''}`;
