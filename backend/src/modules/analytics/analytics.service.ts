@@ -591,7 +591,7 @@ export class AnalyticsService {
      * Includes Fresh, Renewal, and Cancel applications
      * Filters by state for ADMIN users, SUPER_ADMIN sees all states
      */
-    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
+    async getApplicationsDetails(status?: string, page?: number, limit?: number, q?: string, sort?: string, fromDate?: string, toDate?: string, stateId?: number, roleCode?: string, zoneId?: number, type?: string): Promise<{data: ApplicationRecordDto[]; total: number; page?: number; limit?: number}> {
         try {
             const where: any = {};
 
@@ -607,12 +607,18 @@ export class AnalyticsService {
                 const s = String(status).toUpperCase();
                 if (s === 'APPROVED') {
                     where.isApproved = true;
-                } else if (s === 'REJECTED') {
+                } else if (s === 'REJECTED' || s === 'RETURNED') {
                     where.isRejected = true;
                 } else if (s === 'PENDING') {
                     where.isPending = true;
                 }
             }
+
+            // Restrict to a single application family (fresh/renewal/cancel) when requested.
+            const normalizedType = type ? String(type).toLowerCase() : undefined;
+            const wantFresh = !normalizedType || normalizedType === 'fresh';
+            const wantRenewal = !normalizedType || normalizedType === 'renewal';
+            const wantCancel = !normalizedType || normalizedType === 'cancel';
 
             // Apply text search if provided (search almsLicenseId or currentUser.username)
             if (q) {
@@ -643,7 +649,7 @@ export class AnalyticsService {
                 const s = String(status).toUpperCase();
                 if (s === 'APPROVED') {
                     renewalWhere.isApproved = true;
-                } else if (s === 'REJECTED') {
+                } else if (s === 'REJECTED' || s === 'RETURNED') {
                     renewalWhere.isRejected = true;
                 } else if (s === 'PENDING') {
                     renewalWhere.isPending = true;
@@ -668,11 +674,11 @@ export class AnalyticsService {
                 cancelWhere.createdAt = { ...where.createdAt };
             }
 
-            // Count total matching records from all three sources
+            // Count total matching records from the requested source(s)
             const [freshCount, renewalCount, cancelCount] = await Promise.all([
-                prisma.freshLicenseApplicationPersonalDetails.count({ where }),
-                prisma.renewalFormPersonalDetails.count({ where: renewalWhere }),
-                prisma.cancelFormRequests.count({ where: cancelWhere }),
+                wantFresh ? prisma.freshLicenseApplicationPersonalDetails.count({ where }) : Promise.resolve(0),
+                wantRenewal ? prisma.renewalFormPersonalDetails.count({ where: renewalWhere }) : Promise.resolve(0),
+                wantCancel ? prisma.cancelFormRequests.count({ where: cancelWhere }) : Promise.resolve(0),
             ]);
 
             const total = freshCount + renewalCount + cancelCount;
@@ -710,7 +716,7 @@ export class AnalyticsService {
 
             // Fetch matching applications with related personal fields and workflow
             const [freshApplications, renewalApplications, cancelApplications] = await Promise.all([
-                prisma.freshLicenseApplicationPersonalDetails.findMany({
+                !wantFresh ? Promise.resolve([]) : prisma.freshLicenseApplicationPersonalDetails.findMany({
                     where,
                     select: {
                         id: true,
@@ -742,7 +748,7 @@ export class AnalyticsService {
                     skip,
                     take: take ?? 200,
                 }),
-                prisma.renewalFormPersonalDetails.findMany({
+                !wantRenewal ? Promise.resolve([]) : prisma.renewalFormPersonalDetails.findMany({
                     where: renewalWhere,
                     select: {
                         id: true,
@@ -774,7 +780,7 @@ export class AnalyticsService {
                     skip,
                     take: take ?? 200,
                 }),
-                prisma.cancelFormRequests.findMany({
+                !wantCancel ? Promise.resolve([]) : prisma.cancelFormRequests.findMany({
                     where: cancelWhere,
                     select: {
                         id: true,

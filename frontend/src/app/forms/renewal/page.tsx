@@ -4720,7 +4720,7 @@ function RenewalFormPageContent() {
         </div>
       )}
 
-      <div className='mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[2000px] flex-col px-4 py-5 sm:px-6 lg:px-8'>
+      <div className='flex min-h-screen w-full flex-col py-5'>
         <div className='grid gap-2 grid-cols-1'>
           <RenewalHeader
             licenseId={urlLicenseId || enteredLicenseId}
@@ -4732,6 +4732,7 @@ function RenewalFormPageContent() {
             onGoHome={handleGoHome}
           />
 
+          <div className='flex w-full justify-center px-4 sm:px-6 lg:px-8'>
           <form
             onSubmit={e => {
               e.preventDefault();
@@ -4742,7 +4743,7 @@ function RenewalFormPageContent() {
               handleRenewalSubmit();
             }}
             onBlur={handleFieldBlur}
-            className='space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-gray-100'
+            className='w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] space-y-6 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-gray-100'
           >
             {error && (
               <div className='rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700'>
@@ -4887,6 +4888,7 @@ function RenewalFormPageContent() {
               disableActions={!(sectionValidity[STEP_KEYS[currentStepIndex]] ?? true)}
             />
           </form>
+          </div>
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { AdminErrorBoundary } from '@/components/admin';
 export default function AnalyticsPage() {
   return (
     <AdminErrorBoundary>
-      <AnalyticsDashboard />
+      <AnalyticsDashboard analyticsBasePath='/superAdmin/analytics' />
     </AdminErrorBoundary>
   );
 }

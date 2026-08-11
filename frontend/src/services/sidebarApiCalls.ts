@@ -525,6 +525,17 @@ export const fetchApplicationsByStatusKey = async (statusKey: string, customStat
     }
   }
 
+  // Special handling for 'pending' - not a real backend status code, so it isn't
+  // in statusIdMap/getStatusIdsForKey. Mirrors the legacy STATUS_MAP.pending
+  // numeric fallback (forwarded + freshform/initiated applications in-flight).
+  if (key === 'pending' && (!customStatusIds || customStatusIds.length === 0)) {
+    try {
+      return await fetchApplicationsByStatus(STATUS_MAP.pending);
+    } catch (error) {
+      return [];
+    }
+  }
+
   // Original logic for other status keys
   // Use custom statusIds if provided, otherwise use default mapping
   let statusIds = customStatusIds && customStatusIds.length > 0 ? customStatusIds : getStatusIdsForKey(key);
