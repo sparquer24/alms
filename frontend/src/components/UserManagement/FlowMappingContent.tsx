@@ -15,6 +15,8 @@ import {
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
 import { apiClient } from '@/config/authenticatedApiClient';
+import { useAuth } from '@/hooks/useAuth';
+import { getUserFromCookie } from '@/utils/authCookies';
 
 interface Role {
   id: number;
@@ -49,6 +51,21 @@ const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$/, 
 export default function FlowMappingContent() {
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
+
+  // Logged-in user's location (auto-populated, read-only)
+  const { user: authUser } = useAuth();
+  const cookieUser = useMemo(() => getUserFromCookie(), []);
+  const loggedInUser = authUser ?? cookieUser;
+  const userLocation = useMemo(
+    () => (loggedInUser as any)?.location ?? (loggedInUser as any)?.state ?? {},
+    [loggedInUser]
+  );
+  const userState = userLocation?.state ?? (loggedInUser as any)?.state ?? null;
+  const userDistrict = userLocation?.district ?? (loggedInUser as any)?.district ?? null;
+  const userStateId = userState?.id ?? (loggedInUser as any)?.stateId ?? null;
+  const userDistrictId = userDistrict?.id ?? (loggedInUser as any)?.districtId ?? null;
+  const userStateName = userState?.name ?? '—';
+  const userDistrictName = userDistrict?.name ?? '—';
 
   // State management
   const [currentRole, setCurrentRole] = useState<SelectOption | null>(null);
@@ -150,7 +167,12 @@ export default function FlowMappingContent() {
 
   // Save flow mapping mutation
   const saveFlowMappingMutation = useMutation({
-    mutationFn: async (data: { nextRoleIds: number[]; updatedBy?: number }) => {
+    mutationFn: async (data: {
+      nextRoleIds: number[];
+      updatedBy?: number;
+      stateId?: number | null;
+      districtId?: number | null;
+    }) => {
       const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole!.value}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -244,6 +266,8 @@ export default function FlowMappingContent() {
       // If validation passes, save the mapping
       await saveFlowMappingMutation.mutateAsync({
         nextRoleIds: nextRoles.map(r => r.value),
+        stateId: userStateId,
+        districtId: userDistrictId,
       });
     } catch (error: any) {
       console.error('Error submitting flow mapping:', error);
@@ -411,6 +435,66 @@ export default function FlowMappingContent() {
                 gap: AdminSpacing.xl,
               }}
             >
+              {/* State & District (auto-populated from logged-in user's location) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: AdminSpacing.md,
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text.primary,
+                      marginBottom: AdminSpacing.sm,
+                      display: 'block',
+                    }}
+                  >
+                    State
+                  </label>
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: AdminBorderRadius.md,
+                      border: `1px solid ${colors.border}`,
+                      backgroundColor: colors.background,
+                      color: colors.text.primary,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {userStateName}
+                  </div>
+                </div>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text.primary,
+                      marginBottom: AdminSpacing.sm,
+                      display: 'block',
+                    }}
+                  >
+                    District
+                  </label>
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: AdminBorderRadius.md,
+                      border: `1px solid ${colors.border}`,
+                      backgroundColor: colors.background,
+                      color: colors.text.primary,
+                      fontSize: '14px',
+                    }}
+                  >
+                    {userDistrictName}
+                  </div>
+                </div>
+              </div>
+
               {/* Current Role Selection */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
                 <div>
