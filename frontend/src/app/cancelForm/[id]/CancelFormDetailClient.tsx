@@ -246,7 +246,7 @@ export default function CancelFormDetailClient() {
   const showApplicationProcessingSection = activeTab === 'info';
 
   return (
-    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)]'>
+    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)] print:min-h-0 print:bg-white'>
       <main className='w-full'>
         <div className='w-full'>
           <div className='space-y-6'>
