@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { StepHeader } from '../../../components/forms/elements/StepHeader';
-import { RenewalService } from '../../../api/renewalService';
+import { StepHeader } from '../../../../components/forms/elements/StepHeader';
+import { RenewalService } from '../../../../api/renewalService';
 
 const steps = [
   'Personal Information',

@@ -105,11 +105,11 @@ const CriminalHistory = () => {
 		validationRules: validateCriminalHistory,
 	});
 
-	const [convicted, setConvicted] = useState('no');
+	const [convicted, setConvicted] = useState('yes');
 	const [provisions, setProvisions] = useState([{ ...initialProvision }]);
-	const [bond, setBond] = useState('no');
+	const [bond, setBond] = useState('yes');
 	const [bondDetails, setBondDetails] = useState({ dateOfSentence: '', period: '' });
-	const [prohibited, setProhibited] = useState('no');
+	const [prohibited, setProhibited] = useState('yes');
 	const [prohibitedDetails, setProhibitedDetails] = useState({ dateOfSentence: '', period: '' });
 	
 	// Add flag to prevent backend data from overwriting fresh form data

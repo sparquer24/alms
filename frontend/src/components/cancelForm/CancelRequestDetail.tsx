@@ -47,6 +47,7 @@ import {
   MapPinned,
   Eye,
   FolderOpen,
+  Printer,
 } from 'lucide-react';
 import { ApplicationService } from '@/api/applicationService';
 import RenewalApplicationDetailsHeader from '@/components/renewal/renewalapplicationdetailsheader';
@@ -56,6 +57,7 @@ import { apiClient } from '@/config/authenticatedApiClient';
 import { LazySection } from '@/components/LazySection';
 import { formatGender } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
+import PrintApplicationForm from '@/app/application/components/PrintApplicationForm';
 
 const fmtDate = (value?: string) => {
   if (!value) return null;
@@ -102,6 +104,10 @@ export default function CancelRequestDetail({
   const [licenseData, setLicenseData] = useState<any>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
   const [licenseError, setLicenseError] = useState<string | null>(null);
+  // Guards against firing window.print() while the hidden print layout's
+  // document/PDF previews are still rendering asynchronously (same pattern as
+  // the Fresh/Renewal Application Detail print button).
+  const [printReady, setPrintReady] = useState(true);
 
   // Original License Documents & Workflow History — derived from sourceAppData.
   // The Fresh/Renewal GET APIs already return uploaded documents and workflow history,
@@ -281,7 +287,8 @@ export default function CancelRequestDetail({
   }
 
   return (
-    <div data-printable='application-card' className='space-y-6 '>
+    <>
+    <div data-printable='application-card' className='space-y-6 print:hidden'>
       <RenewalApplicationDetailsHeader
         applicationId={request.id}
         licenseId={request.licenseId}
@@ -399,9 +406,122 @@ export default function CancelRequestDetail({
               licenseData={licenseData}
               licenseId={request.licenseId}
               licenseNumber={request.Licenses?.licenseNumber || request.licenseNumber}
+              printReady={printReady}
+              onPrintClick={() => {
+                if (!printReady) return;
+                window.print();
+              }}
             />
           </>
         )}
+    </div>
+
+    {/* Print-only layout for the Original License Details tab: mirrors the
+        Fresh/Renewal Application Detail print form instead of printing the
+        on-screen card layout (which produced a messy, unstructured printout).
+        Rendered as a sibling of the (print:hidden) on-screen card above so it
+        isn't hidden along with it. */}
+    {activeTab === 'original' && (sourceAppData || licenseData) && (
+      <OriginalLicenseDetailsPrint
+        sourceAppData={sourceAppData}
+        sourceAppType={licenseData?.previousModifiedAppType}
+        licenseData={licenseData}
+        onReadyChange={setPrintReady}
+      />
+    )}
+    </>
+  );
+}
+
+/**
+ * Derives the display-ready fields shared by the on-screen "Original License
+ * Details" tab and its print-only counterpart from the same source data, so
+ * both stay in sync without duplicating the extraction logic.
+ */
+function deriveOriginalAppData(sourceAppData: any, sourceAppType: string | undefined, licenseData: any) {
+  // Use source application data (renewal or fresh application) as the primary data source.
+  // Fall back to licenseData for backward compatibility.
+  const app = sourceAppData || licenseData || {};
+
+  // Documents and workflow history are derived directly from the Fresh/Renewal GET API
+  // response — no separate API calls are needed.
+  // The Fresh API returns fileUploads[] and workflowHistories[];
+  // the Renewal API returns similar document/workflow fields at the top level.
+  const originDocuments: any[] = app.fileUploads || app.documents || [];
+  const originalLicenseHistory: any[] =
+    app.workflowHistories || app.FreshLicenseApplicationsFormWorkflowHistories || [];
+  const applicantName =
+    [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ') || 'N/A';
+
+  // Application type label
+  const appTypeLabel = sourceAppType
+    ? String(sourceAppType).charAt(0).toUpperCase() + String(sourceAppType).slice(1).toLowerCase()
+    : app?.applicationType
+      ? String(app.applicationType).charAt(0).toUpperCase() + String(app.applicationType).slice(1).toLowerCase()
+      : 'Original';
+
+  return { app, originDocuments, originalLicenseHistory, applicantName, appTypeLabel };
+}
+
+/**
+ * Print-only rendering of the Original License Details tab, using the same
+ * structured table layout as the Fresh/Renewal Application Detail printout
+ * (PrintApplicationForm) instead of the on-screen card layout — the on-screen
+ * cards don't translate well to print (see CancelRequestDetail's print:hidden
+ * wrapper). Hidden on screen; shown only when printing.
+ */
+function OriginalLicenseDetailsPrint({
+  sourceAppData,
+  sourceAppType,
+  licenseData,
+  onReadyChange,
+}: {
+  sourceAppData: any;
+  sourceAppType?: string;
+  licenseData: any;
+  onReadyChange: (ready: boolean) => void;
+}) {
+  const { app, originDocuments, originalLicenseHistory, applicantName, appTypeLabel } =
+    deriveOriginalAppData(sourceAppData, sourceAppType, licenseData);
+
+  return (
+    <div className='hidden print:block print:w-full print:bg-white print:text-black'>
+      <PrintApplicationForm
+        application={{
+          ...app,
+          applicationType: appTypeLabel,
+          documents: originDocuments,
+        }}
+        applicantName={applicantName}
+        workflowHistory={originalLicenseHistory}
+        onReadyChange={onReadyChange}
+        titleOverride='License Details'
+      />
+      {/*
+        Supplemental overrides on top of PrintApplicationForm's own built-in
+        @media print block. Note: unlike the Fresh/Renewal Application Detail
+        page (where the print-only block is a sibling AFTER that page's
+        <main>), this print-only block is rendered INSIDE the cancelForm
+        page's <main> — so `main` must stay visible here, not be hidden.
+      */}
+      <style jsx global>{`
+        @media print {
+          html,
+          body {
+            width: 210mm;
+            min-height: 297mm;
+          }
+          .hidden.print\:block {
+            display: block !important;
+            position: relative !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -422,30 +542,23 @@ function OriginalLicenseDetails({
   licenseData,
   licenseId,
   licenseNumber,
+  printReady,
+  onPrintClick,
 }: {
   sourceAppData: any;
   sourceAppType?: string;
   licenseData: any;
   licenseId?: number | string | null;
   licenseNumber?: string | null;
+  printReady: boolean;
+  onPrintClick: () => void;
 }) {
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
 
-  // Use source application data (renewal or fresh application) as the primary data source.
-  // Fall back to licenseData for backward compatibility.
-  const app = sourceAppData || licenseData || {};
-
-  // Documents and workflow history are derived directly from the Fresh/Renewal GET API
-  // response — no separate API calls are needed.
-  // The Fresh API returns fileUploads[] and workflowHistories[];
-  // the Renewal API returns similar document/workflow fields at the top level.
-  const originDocuments: any[] = app.fileUploads || app.documents || [];
+  const { app, originDocuments, originalLicenseHistory, applicantName, appTypeLabel } =
+    deriveOriginalAppData(sourceAppData, sourceAppType, licenseData);
   const originDocumentsLoading = false;
-  const originalLicenseHistory: any[] = app.workflowHistories || app.FreshLicenseApplicationsFormWorkflowHistories || [];
   const originalLicenseHistoryLoading = false;
-  const applicantName = [app.firstName, app.middleName, app.lastName]
-    .filter(Boolean)
-    .join(' ') || 'N/A';
 
   // Extract nested data from the source application response.
   // Both fresh and renewal application APIs return data in the same nested structure
@@ -457,13 +570,6 @@ function OriginalLicenseDetails({
   const weapons = Array.isArray(licenseDetail.requestedWeapons)
     ? licenseDetail.requestedWeapons.map((w: any) => w.name || w).join(', ')
     : '';
-
-  // Application type label
-  const appTypeLabel = sourceAppType
-    ? String(sourceAppType).charAt(0).toUpperCase() + String(sourceAppType).slice(1).toLowerCase()
-    : app?.applicationType
-      ? String(app.applicationType).charAt(0).toUpperCase() + String(app.applicationType).slice(1).toLowerCase()
-      : 'Original';
 
   return (
     <div className='space-y-8 bg-slate-50/30 rounded-3xl'>
@@ -478,6 +584,16 @@ function OriginalLicenseDetails({
               Application Information — {appTypeLabel}
             </h3>
           </div>
+          <button
+            type='button'
+            onClick={onPrintClick}
+            className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden disabled:opacity-60 disabled:cursor-not-allowed'
+            title='Print application details'
+            disabled={!printReady}
+          >
+            <Printer className='w-4.5 h-4.5 text-slate-500' />
+            {printReady ? 'Print Details' : 'Preparing…'}
+          </button>
         </div>
 
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>

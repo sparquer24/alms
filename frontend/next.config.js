@@ -46,6 +46,11 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react', '@heroicons/react'],
+    // Server minification has been observed to occasionally drop/rename the
+    // internal _document/_error chunk during "Collecting page data", causing
+    // "PageNotFoundError: Cannot find module for page: /_document" at build
+    // time even in App-Router-only projects. Disabling it avoids that failure.
+    serverMinification: false,
   },
   // Compiler optimizations
   compiler: {

@@ -532,8 +532,8 @@ function LicenseManagementContent() {
     <div className='h-screen w-full overflow-hidden bg-[#F5F7FB] font-[family-name:var(--font-geist-sans)] print:h-auto print:overflow-visible'>
       <Header showCreateForm showBackButton />
 
-      <main className='flex h-[calc(100vh-64px)] md:h-[calc(100vh-90px)] flex-col overflow-hidden mt-[64px] md:mt-[90px] p-4 sm:p-6 md:px-4 print:mt-0 print:h-auto print:overflow-visible print:p-0'>
-        <section className='flex-none grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 print:hidden'>
+      <main className='flex h-[calc(100vh-64px)] md:h-[calc(100vh-90px)] flex-col overflow-hidden mt-[64px] md:mt-[90px] p-2 sm:p-3 md:px-3 print:mt-0 print:h-auto print:overflow-visible print:p-0'>
+        <section className='flex-none grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 print:hidden'>
           {[
             {
               label: 'Total Licenses',
@@ -630,28 +630,28 @@ function LicenseManagementContent() {
                   );
                 }}
                 aria-pressed={isActiveCard}
-                className={`group rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${
+                className={`group rounded-lg border bg-white p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                   isActiveCard
                     ? 'border-[#001F54] border-t-4 ring-1 ring-[#001F54]'
                     : 'border-gray-200 border-t-4 border-t-[#001F54]'
                 }`}
               >
                 {/* Icon + Label */}
-                <div className='flex items-center gap-2'>
-                  <Icon className={`h-5 w-5 ${card.color}`} />
-                  <span className='text-sm font-medium text-gray-600'>{card.label}</span>
+                <div className='flex items-center gap-1.5'>
+                  <Icon className={`h-3.5 w-3.5 ${card.color}`} />
+                  <span className='text-xs font-medium text-gray-600'>{card.label}</span>
                 </div>
 
                 {/* Centered Value */}
-                <div className='mt-2 flex justify-center'>
-                  <span className='text-3xl font-bold text-[#001F54]'>{card.value}</span>
+                <div className='mt-0.5 flex justify-center'>
+                  <span className='text-xl font-bold text-[#001F54]'>{card.value}</span>
                 </div>
               </button>
             );
           })}
         </section>
-        <section className='mt-6 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden print:flex-none'>
-          <div className='flex-none flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 print:hidden'>
+        <section className='mt-2 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden print:flex-none'>
+          <div className='flex-none flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-1.5 print:hidden'>
             {[
               ['all', 'All Licenses'],
               ['expiring', 'Expiring Licenses'],
@@ -681,7 +681,7 @@ function LicenseManagementContent() {
                   setAuditPage(1);
                   router.push(buildLicensesUrl({ tab: nextTab, search }), { scroll: false });
                 }}
-                className={`rounded-md px-3 py-2 text-sm font-medium ${
+                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
                   tab === key ? 'bg-[#001F54] text-white' : 'text-gray-700 hover:bg-white'
                 }`}
               >
@@ -868,9 +868,9 @@ function LicenseManagementContent() {
             </>
           ) : (
             <>
-              <div className='flex-none grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
+              <div className='flex-none grid gap-3 border-b border-gray-200 px-4 py-1.5 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
                 <div className='relative'>
-                  <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400' />
+                  <Search className='pointer-events-none absolute left-3 top-2 h-4 w-4 text-gray-400' />
                   <input
                     value={search}
                     onChange={event => {
@@ -878,7 +878,7 @@ function LicenseManagementContent() {
                       setPage(1);
                     }}
                     placeholder='Global search by name, license number, aadhar...'
-                    className='w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
+                    className='w-full rounded-md border border-gray-300 py-1.5 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
                   />
                 </div>
                 <select
@@ -887,7 +887,7 @@ function LicenseManagementContent() {
                     setStatusFilter(event.target.value);
                     setPage(1);
                   }}
-                  className='rounded-md border border-gray-300 px-3 py-2 text-sm'
+                  className='rounded-md border border-gray-300 px-3 py-1.5 text-sm'
                 >
                   <option value=''>All Status</option>
                   <option value='ACTIVE'>Active</option>
@@ -902,7 +902,7 @@ function LicenseManagementContent() {
                     setPurposeFilter(event.target.value);
                     setPage(1);
                   }}
-                  className='rounded-md border border-gray-300 px-3 py-2 text-sm'
+                  className='rounded-md border border-gray-300 px-3 py-1.5 text-sm'
                 >
                   {PURPOSE_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>
@@ -914,21 +914,21 @@ function LicenseManagementContent() {
                   <button
                     type='button'
                     onClick={exportCsv}
-                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                    className='rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50'
                   >
                     <FileDown className='h-4 w-4' />
                   </button>
                   <button
                     type='button'
                     onClick={exportExcel}
-                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                    className='rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50'
                   >
                     <Download className='h-4 w-4' />
                   </button>
                   <button
                     type='button'
                     onClick={printTable}
-                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                    className='rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50'
                   >
                     <Printer className='h-4 w-4' />
                   </button>
@@ -941,14 +941,14 @@ function LicenseManagementContent() {
                 </div>
               )}
 
-              <div className='flex-1 min-h-0 overflow-auto'>
+              <div className='flex-1 min-h-0 overflow-x-auto overflow-y-hidden'>
                 <table className='min-w-[1900px] w-full border-separate border-spacing-0 text-sm'>
                   <thead className='sticky top-0 z-10 bg-[#001F54] text-left text-xs uppercase tracking-wide text-white'>
                     <tr>
                       {columns.map(col => (
                         <th
                           key={col}
-                          className={`border-b border-[#001F54] px-3 py-3 font-semibold ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                          className={`border-b border-[#001F54] px-3 py-1.5 font-semibold ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                         >
                           <button
                             type='button'
@@ -974,24 +974,24 @@ function LicenseManagementContent() {
                           </button>
                         </th>
                       ))}
-                      <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-3 font-semibold'>
+                      <th className='sticky right-0 border-b border-[#001F54] bg-[#001F54] px-3 py-2 font-semibold'>
                         Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      Array.from({ length: 6 }).map((_, idx) => (
+                      Array.from({ length: 10 }).map((_, idx) => (
                         <tr key={idx} className='animate-pulse'>
                           {columns.slice(0, 8).map(col => (
                             <td
                               key={col}
-                              className={`border-b px-3 py-3 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                              className={`border-b px-3 py-1.5 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                             >
                               <div className='h-4 rounded bg-gray-200' />
                             </td>
                           ))}
-                          <td className='sticky right-0 border-b bg-white px-3 py-3'>
+                          <td className='sticky right-0 border-b bg-white px-3 py-1.5'>
                             <div className='h-4 rounded bg-gray-200' />
                           </td>
                         </tr>
@@ -1017,35 +1017,40 @@ function LicenseManagementContent() {
                             {columns.map(col => (
                               <td
                                 key={col}
-                                className={`border-b border-gray-100 px-3 py-3 align-top text-gray-700 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
+                                className={`border-b border-gray-100 px-3 py-1.5 align-middle text-gray-700 ${columnWidths[col] || 'w-[160px] min-w-[160px]'}`}
                               >
                                 {col === 'License Status' ? (
                                   <span
-                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${expiry.color}`}
+                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${expiry.color}`}
                                   >
                                     <span className={`h-2 w-2 rounded-full ${expiry.dot}`} />
                                     {row[col as keyof typeof row]}
                                   </span>
                                 ) : col === 'Expiry Date' ? (
-                                  <div>
-                                    <div>{row[col as keyof typeof row]}</div>
+                                  <div className='flex items-center gap-1.5 whitespace-nowrap'>
+                                    <span>{row[col as keyof typeof row]}</span>
                                     <span
-                                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs ${expiry.color}`}
+                                      className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${expiry.color}`}
                                     >
                                       {expiry.label}
                                     </span>
                                   </div>
                                 ) : (
-                                  String(row[col as keyof typeof row] ?? '-')
+                                  <span
+                                    className='block truncate'
+                                    title={String(row[col as keyof typeof row] ?? '-')}
+                                  >
+                                    {String(row[col as keyof typeof row] ?? '-')}
+                                  </span>
                                 )}
                               </td>
                             ))}
-                            <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-3'>
+                            <td className='sticky right-0 border-b border-gray-100 bg-inherit px-3 py-1.5'>
                               <div className='flex items-center gap-2'>
                                 <button
                                   type='button'
                                   onClick={() => openDetails(license)}
-                                  className='rounded-md border p-2 text-gray-700 hover:bg-white'
+                                  className='rounded-md border p-1.5 text-gray-700 hover:bg-white'
                                   title='View details'
                                 >
                                   <Eye className='h-4 w-4' />
@@ -1057,7 +1062,7 @@ function LicenseManagementContent() {
                                     onClick={() =>
                                       router.push(`/forms/renewal?licenseId=${license.id}`)
                                     }
-                                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                                       license.status === 'CANCELLED'
                                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         : 'bg-[#001F54] text-white hover:bg-[#012a73]'
@@ -1082,7 +1087,7 @@ function LicenseManagementContent() {
                                     onClick={() =>
                                       router.push(`/cancelForm/new?licenseId=${license.id}`)
                                     }
-                                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                                       license.status === 'CANCELLED'
                                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         : 'bg-red-600 text-white hover:bg-red-700'
@@ -1110,7 +1115,7 @@ function LicenseManagementContent() {
                 </table>
               </div>
 
-              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm text-gray-600 print:hidden'>
+              <div className='flex-none flex items-center justify-between border-t border-gray-200 px-4 py-1 text-sm text-gray-600 print:hidden'>
                 <span>
                   Showing page {page} of {Math.max(Math.ceil(total / limit), 1)} ({total} records)
                 </span>
@@ -1119,7 +1124,7 @@ function LicenseManagementContent() {
                     type='button'
                     disabled={page <= 1}
                     onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                    className='rounded-md border px-3 py-1.5 disabled:opacity-50'
                   >
                     <ChevronLeft className='h-4 w-4' />
                   </button>
@@ -1127,7 +1132,7 @@ function LicenseManagementContent() {
                     type='button'
                     disabled={page >= Math.ceil(total / limit)}
                     onClick={() => setPage(prev => prev + 1)}
-                    className='rounded-md border px-3 py-2 disabled:opacity-50'
+                    className='rounded-md border px-3 py-1.5 disabled:opacity-50'
                   >
                     <ChevronRight className='h-4 w-4' />
                   </button>

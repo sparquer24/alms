@@ -112,7 +112,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
       if (applicationTypeFilter !== 'All') {
         filtered = filtered.filter(app => {
           const appType = (app.applicationType || '').toLowerCase();
-          return appType === applicationTypeFilter.toLowerCase();
+          return appType.includes(applicationTypeFilter.toLowerCase());
         });
       }
 
@@ -426,6 +426,7 @@ const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
                 <option value='All'>All Types</option>
                 <option value='Fresh'>Fresh</option>
                 <option value='Renewal'>Renewal</option>
+                <option value='Cancel'>Cancel</option>
               </select>
 
               <button

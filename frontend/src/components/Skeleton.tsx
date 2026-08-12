@@ -287,6 +287,61 @@ export const MessageSkeleton: React.FC = () => (
   </div>
 );
 
+// Renewal Application wizard skeleton — mirrors the step-header + card layout
+export const RenewalFormSkeleton: React.FC = () => (
+  <div
+    className="relative min-h-screen"
+    style={{
+      backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+    }}
+  >
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[2000px] flex-col px-4 py-5 sm:px-6 lg:px-8">
+      {/* Title */}
+      <div className="mx-auto mb-2 h-7 w-72 animate-pulse rounded bg-blue-900/20" />
+
+      {/* Gradient nav bar */}
+      <div className="mb-2 flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#0d2977] to-[#23408e] px-4 py-3">
+        <div className="h-8 w-8 flex-shrink-0 animate-pulse rounded-full bg-white/70" />
+        <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="h-8 w-20 animate-pulse rounded bg-white/25" />
+          ))}
+        </div>
+      </div>
+
+      {/* Summary strip */}
+      <div className="mb-2 flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-4 w-20" />
+        ))}
+      </div>
+
+      {/* Step card */}
+      <div className="rounded-lg bg-white p-6 shadow-lg">
+        <Skeleton className="mb-6 h-7 w-56" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer actions */}
+      <div className="mt-4 flex justify-end gap-3">
+        <Skeleton className="h-10 w-32 rounded-md" />
+        <Skeleton className="h-10 w-28 rounded-md" />
+      </div>
+    </div>
+  </div>
+);
+
 // Application Form Skeleton
 export const ApplicationFormSkeleton: React.FC = () => (
   <div className="fixed inset-0 bg-gray-50 z-[9999] overflow-y-auto">

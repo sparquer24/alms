@@ -12,7 +12,7 @@ import { formatStatusLabel } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
 import { openAttachment } from '@/utils/attachmentViewer';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
-import { History, Clock, ChevronDown, FileText, Shield } from 'lucide-react';
+import { History, Clock, ChevronDown, FileText, Shield, Home } from 'lucide-react';
 
 const ClockIcon = Clock as any;
 const ChevronDownIcon = ChevronDown as any;
@@ -187,6 +187,10 @@ export default function CancelFormDetailClient() {
 
   const handleProceedingsSuccess = (message?: string) => {
     fetchCancelInfo({ replaceRequestOnly: true }); // Reload details
+    // Give the user a moment to see the success confirmation before returning Home
+    setTimeout(() => {
+      router.push('/');
+    }, 1500);
   };
 
   if (loading) {
@@ -212,8 +216,9 @@ export default function CancelFormDetailClient() {
             <button
               type='button'
               onClick={() => router.back()}
-              className='rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50'
+              className='flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-blue-800'
             >
+              <Home size={16} />
               Go Back
             </button>
             <button
@@ -241,7 +246,7 @@ export default function CancelFormDetailClient() {
   const showApplicationProcessingSection = activeTab === 'info';
 
   return (
-    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)]'>
+    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)] print:min-h-0 print:bg-white'>
       <main className='w-full'>
         <div className='w-full'>
           <div className='space-y-6'>

@@ -25,9 +25,7 @@ const PersonalDetailsSection = forwardRef(function PersonalDetailsSection(
   }));
 
   return (
-    <section className='p-6 rounded-2xl border border-gray-100 bg-white shadow-sm'>
-      <h2 className='text-xl font-bold mb-4'>Personal Information</h2>
-
+    <section className=''>
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10 mb-4'>
         <Input
           label='Applicant First Name'
