@@ -6,17 +6,31 @@ import {
     Delete,
     Body,
     Param,
+    Query,
     ParseIntPipe,
-    HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { FlowMappingService } from './flow-mapping.service';
 import { CreateFlowMappingDto, UpdateFlowMappingDto, ValidateFlowMappingDto } from './dto/flow-mapping.dto';
+import { FlowMappingContext } from '../../constants/flow-mapping';
 
 @ApiTags('Flow Mapping')
 @Controller('flow-mapping')
 export class FlowMappingController {
     constructor(private readonly flowMappingService: FlowMappingService) { }
+
+    /** Parse optional query params into a flow-mapping lookup context. */
+    private flowMappingContext(
+        applicationType?: string,
+        stateId?: string,
+        districtId?: string,
+    ): FlowMappingContext {
+        return {
+            applicationType,
+            stateId: stateId ? parseInt(stateId, 10) : null,
+            districtId: districtId ? parseInt(districtId, 10) : null,
+        };
+    }
 
     /**
      * Get flow mapping for a specific role
@@ -42,16 +56,20 @@ export class FlowMappingController {
     })
     @ApiResponse({ status: 404, description: 'Role not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async getFlowMapping(@Param('roleId', ParseIntPipe) roleId: number) {
-        try {
-            const result = await this.flowMappingService.getFlowMapping(roleId);
-            return {
-                success: true,
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+    async getFlowMapping(
+        @Param('roleId', ParseIntPipe) roleId: number,
+        @Query('applicationType') applicationType?: string,
+        @Query('stateId') stateId?: string,
+        @Query('districtId') districtId?: string,
+    ) {
+        const result = await this.flowMappingService.getFlowMapping(
+            roleId,
+            this.flowMappingContext(applicationType, stateId, districtId),
+        );
+        return {
+            success: true,
+            data: result,
+        };
     }
 
     /**
@@ -75,16 +93,18 @@ export class FlowMappingController {
         ],
     })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async getAllFlowMappings() {
-        try {
-            const result = await this.flowMappingService.getAllFlowMappings();
-            return {
-                success: true,
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+    async getAllFlowMappings(
+        @Query('applicationType') applicationType?: string,
+        @Query('stateId') stateId?: string,
+        @Query('districtId') districtId?: string,
+    ) {
+        const result = await this.flowMappingService.getAllFlowMappings(
+            this.flowMappingContext(applicationType, stateId, districtId),
+        );
+        return {
+            success: true,
+            data: result,
+        };
     }
 
     /**
@@ -113,20 +133,16 @@ export class FlowMappingController {
         @Param('roleId', ParseIntPipe) roleId: number,
         @Body() updateDto: UpdateFlowMappingDto,
     ) {
-        try {
-            const result = await this.flowMappingService.createOrUpdateFlowMapping(
-                roleId,
-                updateDto,
-                updateDto.updatedBy,
-            );
-            return {
-                success: true,
-                message: 'Flow mapping updated successfully',
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+        const result = await this.flowMappingService.createOrUpdateFlowMapping(
+            roleId,
+            updateDto,
+            updateDto.updatedBy,
+        );
+        return {
+            success: true,
+            message: 'Flow mapping updated successfully',
+            data: result,
+        };
     }
 
     /**
@@ -152,19 +168,15 @@ export class FlowMappingController {
     @ApiResponse({ status: 404, description: 'Role not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
     async createFlowMapping(@Body() createDto: CreateFlowMappingDto) {
-        try {
-            const result = await this.flowMappingService.createOrUpdateFlowMapping(
-                createDto.currentRoleId,
-                createDto,
-            );
-            return {
-                success: true,
-                message: 'Flow mapping created successfully',
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+        const result = await this.flowMappingService.createOrUpdateFlowMapping(
+            createDto.currentRoleId,
+            createDto,
+        );
+        return {
+            success: true,
+            message: 'Flow mapping created successfully',
+            data: result,
+        };
     }
 
     /**
@@ -190,15 +202,11 @@ export class FlowMappingController {
     @ApiResponse({ status: 404, description: 'Role not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
     async validateFlowMapping(@Body() validateDto: ValidateFlowMappingDto) {
-        try {
-            const result = await this.flowMappingService.validateFlowMapping(validateDto);
-            return {
-                success: true,
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+        const result = await this.flowMappingService.validateFlowMapping(validateDto);
+        return {
+            success: true,
+            data: result,
+        };
     }
 
     /**
@@ -215,16 +223,20 @@ export class FlowMappingController {
     })
     @ApiResponse({ status: 404, description: 'Flow mapping not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async deleteFlowMapping(@Param('roleId', ParseIntPipe) roleId: number) {
-        try {
-            await this.flowMappingService.deleteFlowMapping(roleId);
-            return {
-                success: true,
-                message: 'Flow mapping deleted successfully',
-            };
-        } catch (error: any) {
-            throw error;
-        }
+    async deleteFlowMapping(
+        @Param('roleId', ParseIntPipe) roleId: number,
+        @Query('applicationType') applicationType?: string,
+        @Query('stateId') stateId?: string,
+        @Query('districtId') districtId?: string,
+    ) {
+        await this.flowMappingService.deleteFlowMapping(
+            roleId,
+            this.flowMappingContext(applicationType, stateId, districtId),
+        );
+        return {
+            success: true,
+            message: 'Flow mapping deleted successfully',
+        };
     }
 
     /**
@@ -249,16 +261,20 @@ export class FlowMappingController {
     })
     @ApiResponse({ status: 404, description: 'Role not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async getNextRoles(@Param('roleId', ParseIntPipe) roleId: number) {
-        try {
-            const result = await this.flowMappingService.getNextRoles(roleId);
-            return {
-                success: true,
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+    async getNextRoles(
+        @Param('roleId', ParseIntPipe) roleId: number,
+        @Query('applicationType') applicationType?: string,
+        @Query('stateId') stateId?: string,
+        @Query('districtId') districtId?: string,
+    ) {
+        const result = await this.flowMappingService.getNextRoles(
+            roleId,
+            this.flowMappingContext(applicationType, stateId, districtId),
+        );
+        return {
+            success: true,
+            data: result,
+        };
     }
 
     /**
@@ -279,20 +295,20 @@ export class FlowMappingController {
     async duplicateFlowMapping(
         @Param('sourceRoleId', ParseIntPipe) sourceRoleId: number,
         @Param('targetRoleId', ParseIntPipe) targetRoleId: number,
+        @Query('applicationType') applicationType?: string,
+        @Query('stateId') stateId?: string,
+        @Query('districtId') districtId?: string,
     ) {
-        try {
-            const result = await this.flowMappingService.duplicateFlowMapping(
-                sourceRoleId,
-                targetRoleId,
-            );
-            return {
-                success: true,
-                message: 'Flow mapping duplicated successfully',
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+        const result = await this.flowMappingService.duplicateFlowMapping(
+            sourceRoleId,
+            targetRoleId,
+            this.flowMappingContext(applicationType, stateId, districtId),
+        );
+        return {
+            success: true,
+            message: 'Flow mapping duplicated successfully',
+            data: result,
+        };
     }
 
     /**
@@ -309,16 +325,20 @@ export class FlowMappingController {
     })
     @ApiResponse({ status: 404, description: 'Flow mapping not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async resetFlowMapping(@Param('roleId', ParseIntPipe) roleId: number) {
-        try {
-            const result = await this.flowMappingService.resetFlowMapping(roleId);
-            return {
-                success: true,
-                message: 'Flow mapping reset successfully',
-                data: result,
-            };
-        } catch (error: any) {
-            throw error;
-        }
+    async resetFlowMapping(
+        @Param('roleId', ParseIntPipe) roleId: number,
+        @Query('applicationType') applicationType?: string,
+        @Query('stateId') stateId?: string,
+        @Query('districtId') districtId?: string,
+    ) {
+        const result = await this.flowMappingService.resetFlowMapping(
+            roleId,
+            this.flowMappingContext(applicationType, stateId, districtId),
+        );
+        return {
+            success: true,
+            message: 'Flow mapping reset successfully',
+            data: result,
+        };
     }
 }

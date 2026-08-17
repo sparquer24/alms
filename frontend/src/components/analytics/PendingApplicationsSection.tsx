@@ -68,23 +68,34 @@ export const PendingApplicationsSection: React.FC<{
                 </tr>
               </thead>
               <tbody>
-                {applications.map(app => (
-                  <tr key={app.applicationId} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                    <td style={{ padding: '10px 12px', color: colors.text.primary }}>{app.applicationId}</td>
-                    <td style={{ padding: '10px 12px', color: colors.text.primary }}>{app.applicantName || '--'}</td>
-                    <td style={{ padding: '10px 12px', color: colors.text.secondary }}>{app.applicationType || '--'}</td>
-                    <td style={{ padding: '10px 12px', color: colors.text.secondary }}>{formatDate(app.actionTakenAt)}</td>
-                    <td style={{ padding: '10px 12px', color: colors.status.warning, fontWeight: 600 }}>{app.status}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <button
-                        onClick={() => router.push(`/application/${app.applicationId}`)}
-                        style={{ color: colors.status.info, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {applications.map(app => {
+                  // applicationId comes from separate fresh/renewal/cancel tables, so it can
+                  // collide across types. Key on type + id, and route to the type-specific page.
+                  const key = `${app.applicationType || 'FRESH'}-${app.applicationId}`;
+                  const detailPath =
+                    app.applicationType === 'CANCEL'
+                      ? `/cancelForm/${app.applicationId}`
+                      : app.applicationType === 'RENEWAL'
+                        ? `/renewalApplication/${app.applicationId}`
+                        : `/application/${app.applicationId}`;
+                  return (
+                    <tr key={key} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                      <td style={{ padding: '10px 12px', color: colors.text.primary }}>{app.applicationId}</td>
+                      <td style={{ padding: '10px 12px', color: colors.text.primary }}>{app.applicantName || '--'}</td>
+                      <td style={{ padding: '10px 12px', color: colors.text.secondary }}>{app.applicationType || '--'}</td>
+                      <td style={{ padding: '10px 12px', color: colors.text.secondary }}>{formatDate(app.actionTakenAt)}</td>
+                      <td style={{ padding: '10px 12px', color: colors.status.warning, fontWeight: 600 }}>{app.status}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <button
+                          onClick={() => router.push(detailPath)}
+                          style={{ color: colors.status.info, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

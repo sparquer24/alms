@@ -13,6 +13,8 @@ import {
   AdminSectionSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
+import { useAuth } from '@/hooks/useAuth';
+import { getUserFromCookie } from '@/utils/authCookies';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
 import { apiClient } from '@/config/authenticatedApiClient';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,6 +31,11 @@ interface SelectOption {
   value: number;
   label: string;
   role?: Role;
+}
+
+interface AppTypeOption {
+  value: string;
+  label: string;
 }
 
 interface FlowMapping {
@@ -68,11 +75,22 @@ export default function FlowMappingContent() {
   const userDistrictName = userDistrict?.name ?? '—';
 
   // State management
+  const [applicationType, setApplicationType] = useState<AppTypeOption>(applicationTypeOptions[1]); // Default to FRESH
   const [currentRole, setCurrentRole] = useState<SelectOption | null>(null);
   const [nextRoles, setNextRoles] = useState<SelectOption[]>([]);
   const [duplicateSource, setDuplicateSource] = useState<SelectOption | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Build the query string that scopes flow-mapping requests to the current
+  // application type + the logged-in user's state/district.
+  const flowMappingQueryParams = useCallback(() => {
+    const queryParams = new URLSearchParams();
+    if (applicationType.value) queryParams.append('applicationType', applicationType.value.toString());
+    if (userStateId) queryParams.append('stateId', userStateId.toString());
+    if (userDistrictId) queryParams.append('districtId', userDistrictId.toString());
+    return queryParams.toString();
+  }, [applicationType, userStateId, userDistrictId]);
 
   // Fetch all roles
   const { data: allRoles = [], isLoading: rolesLoading } = useQuery({
@@ -88,16 +106,30 @@ export default function FlowMappingContent() {
     },
   });
 
-  // Fetch current flow mapping when role changes
-  const { data: currentFlowMapping, isLoading: mappingLoading } = useQuery({
-    queryKey: ['flow-mapping', currentRole?.value],
+  // Fetch all mappings for current context to compute previous paths
+  const { data: allContextMappings = [], isLoading: allMappingsLoading } = useQuery({
+    queryKey: ['all-flow-mappings', applicationType?.value, userStateId, userDistrictId],
     queryFn: async () => {
-      if (!currentRole) return null;
+      if (!applicationType) return [];
       try {
-        const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole.value}`);
-        if (!response.ok) throw new Error('Failed to fetch flow mapping');
-        const data = await response.json();
-        return data.data as FlowMapping;
+        const response = await apiClient.get<{ data: any[] }>(`/flow-mapping?${flowMappingQueryParams()}`);
+        return Array.isArray(response.data) ? response.data : [];
+      } catch (error) {
+        console.error('Error fetching all flow mappings:', error);
+        return [];
+      }
+    },
+    enabled: !!applicationType,
+  });
+
+  // Fetch current flow mapping when role or application type changes
+  const { data: currentFlowMapping, isLoading: mappingLoading } = useQuery({
+    queryKey: ['flow-mapping', currentRole?.value, applicationType?.value, userStateId, userDistrictId],
+    queryFn: async () => {
+      if (!currentRole || !applicationType) return null;
+      try {
+        const response = await apiClient.get<{ data: FlowMapping }>(`/flow-mapping/${currentRole.value}?${flowMappingQueryParams()}`);
+        return response.data;
       } catch (error) {
         console.error('Error fetching flow mapping:', error);
         return null;
@@ -153,15 +185,18 @@ export default function FlowMappingContent() {
 
   // Validate flow mapping (check for circular dependencies)
   const validateFlowMutation = useMutation({
-    mutationFn: async (data: { currentRoleId: number; nextRoleIds: number[] }) => {
-      const response = await fetch(`${API_BASE_URL}/flow-mapping/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) throw new Error('Validation failed');
-      return response.json();
+    mutationFn: async (data: {
+      currentRoleId: number;
+      nextRoleIds: number[];
+      applicationType?: string;
+      stateId?: number | null;
+      districtId?: number | null;
+    }) => {
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { isValid: boolean; message?: string };
+      }>('/flow-mapping/validate', data);
+      return response;
     },
   });
 
@@ -189,6 +224,7 @@ export default function FlowMappingContent() {
     onSuccess: () => {
       toast.success('Flow mapping saved successfully');
       queryClient.invalidateQueries({ queryKey: ['flow-mapping'] });
+      queryClient.invalidateQueries({ queryKey: ['all-flow-mappings'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to save flow mapping');
@@ -198,13 +234,8 @@ export default function FlowMappingContent() {
   // Reset mapping mutation
   const resetMappingMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole!.value}/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) throw new Error('Failed to reset mapping');
-      return response.json();
+      const response = await apiClient.delete(`/flow-mapping/${currentRole!.value}/reset?${flowMappingQueryParams()}`);
+      return response;
     },
     onSuccess: () => {
       setNextRoles([]);
@@ -218,21 +249,14 @@ export default function FlowMappingContent() {
 
   // Duplicate mapping mutation
   const duplicateMappingMutation = useMutation({
-    mutationFn: async (targetRoleId: number) => {
-      const response = await fetch(
-        `${API_BASE_URL}/flow-mapping/${duplicateSource!.value}/duplicate/${targetRoleId}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }
+    mutationFn: async () => {
+      if (!duplicateSource || !currentRole) throw new Error('Source and target roles required');
+      
+      const response = await apiClient.post(
+        `/flow-mapping/${duplicateSource.value}/duplicate/${currentRole.value}?${flowMappingQueryParams()}`
       );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to duplicate mapping');
-      }
-
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast.success('Flow mapping duplicated successfully');
@@ -256,6 +280,9 @@ export default function FlowMappingContent() {
       const validationResult = await validateFlowMutation.mutateAsync({
         currentRoleId: currentRole!.value,
         nextRoleIds: nextRoles.map(r => r.value),
+        applicationType: applicationType?.value,
+        stateId: userStateId,
+        districtId: userDistrictId,
       });
 
       if (!validationResult.data.isValid) {
@@ -263,7 +290,9 @@ export default function FlowMappingContent() {
         return;
       }
 
-      // If validation passes, save the mapping
+      // If validation passes, save the mapping scoped to the same state/district
+      // as the GET/validate calls, so the exact (state+district) mapping is updated
+      // instead of silently writing to the global (null/null) mapping.
       await saveFlowMappingMutation.mutateAsync({
         nextRoleIds: nextRoles.map(r => r.value),
         stateId: userStateId,
@@ -285,7 +314,7 @@ export default function FlowMappingContent() {
       return;
     }
 
-    await duplicateMappingMutation.mutateAsync(currentRole.value);
+    await duplicateMappingMutation.mutateAsync();
   };
 
   // Transform roles to select options
@@ -594,6 +623,8 @@ export default function FlowMappingContent() {
                       code: currentRole.role?.code || '',
                     }}
                     nextRoles={nextRoleDetails}
+                    allContextMappings={allContextMappings}
+                    allRoles={allRoles}
                   />
                 </div>
               )}

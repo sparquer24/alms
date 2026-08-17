@@ -36,15 +36,26 @@ export const RecentActivitySection: React.FC<{
   const router = useRouter();
 
   const rows = useMemo<ActivityRow[]>(() => {
-    const fromApplications: ActivityRow[] = applications.map(app => ({
-      id: `app-${app.applicationId}`,
-      number: String(app.applicationId),
-      name: app.applicantName || '--',
-      type: app.applicationType || '--',
-      status: app.status,
-      date: app.actionTakenAt ?? null,
-      href: `/application/${app.applicationId}`,
-    }));
+    const fromApplications: ActivityRow[] = applications.map(app => {
+      // applicationId comes from separate fresh/renewal/cancel tables, so it can
+      // collide across types. Key on type + id, and route to the type-specific page.
+      const appId = app.applicationId;
+      const href =
+        app.applicationType === 'CANCEL'
+          ? `/cancelForm/${appId}`
+          : app.applicationType === 'RENEWAL'
+            ? `/renewalApplication/${appId}`
+            : `/application/${appId}`;
+      return {
+        id: `app-${app.applicationType || 'FRESH'}-${appId}`,
+        number: String(appId),
+        name: app.applicantName || '--',
+        type: app.applicationType || '--',
+        status: app.status,
+        date: app.actionTakenAt ?? null,
+        href,
+      };
+    });
     const fromLicenses: ActivityRow[] = licenses.map(license => ({
       id: `lic-${license.id}`,
       number: license.licenseNumber,
