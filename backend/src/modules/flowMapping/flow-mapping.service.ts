@@ -127,7 +127,8 @@ export class FlowMappingService {
     }
 
     /**
-     * Create or update flow mapping with circular dependency validation
+     * Create or update flow mapping.
+     * Circular dependencies are allowed and do not block saving.
      */
     async createOrUpdateFlowMapping(
         currentRoleId: number,
@@ -158,13 +159,18 @@ export class FlowMappingService {
             throw new BadRequestException(`Invalid role IDs: ${invalidIds.join(', ')}`);
         }
 
-        // Validate for circular dependencies
-        const circularity = await this.detectCircularDependency(currentRoleId, data.nextRoleIds, appType, stateId, districtId);
-        if (circularity.hasCircle) {
+        // Reject direct self-reference (e.g. DCP → DCP). This is a plain
+        // membership check — NOT detectCircularDependency() — so circular
+        // paths between DIFFERENT roles remain allowed.
+        if (data.nextRoleIds.includes(currentRoleId)) {
             throw new BadRequestException(
-                `Circular workflow detected: ${circularity.circlePath}. Cannot create mapping that causes circular workflow.`,
+                `A role cannot map to itself as a next role (roleId ${currentRoleId}). Direct self-reference is not allowed.`,
             );
         }
+
+        // NOTE: Circular workflows are intentionally ALLOWED to save.
+        // detectCircularDependency() is still available via validateFlowMapping()
+        // as an advisory check; it no longer blocks the upsert here.
 
         return this.upsertFlowMapping(currentRoleId, appType, stateId, districtId, data.nextRoleIds, updatedBy);
     }
@@ -398,19 +404,19 @@ export class FlowMappingService {
             throw new NotFoundException(`Target role with ID ${targetRoleId} not found`);
         }
 
-        // Check for circular dependencies with new mapping
-        const circularity = await this.detectCircularDependency(
-            targetRoleId,
-            sourceMapping.nextRoleIds,
-            appType,
-            stateId,
-            districtId,
-        );
-        if (circularity.hasCircle) {
+        // Reject direct self-reference (duplicating a mapping onto itself,
+        // e.g. the source already maps to the target role → target → target).
+        // Plain membership check — NOT detectCircularDependency() — so circular
+        // paths between DIFFERENT roles remain allowed through duplication.
+        if (sourceMapping.nextRoleIds.includes(targetRoleId)) {
             throw new BadRequestException(
-                `Cannot duplicate mapping: circular workflow detected - ${circularity.circlePath}`,
+                `Cannot duplicate mapping: target role ${targetRoleId} cannot be a next role of itself. Direct self-reference is not allowed.`,
             );
         }
+
+        // NOTE: Circular workflows are intentionally ALLOWED through duplication.
+        // detectCircularDependency() is still available via validateFlowMapping()
+        // as an advisory check; it no longer blocks the upsert here.
 
         return this.upsertFlowMapping(targetRoleId, appType, stateId, districtId, sourceMapping.nextRoleIds, updatedBy);
     }

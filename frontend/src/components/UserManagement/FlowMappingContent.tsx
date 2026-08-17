@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
@@ -13,12 +13,24 @@ import {
   AdminSectionSkeleton,
 } from '@/components/admin';
 import { useAdminTheme } from '@/context/AdminThemeContext';
+import {
+  Layers,
+  MapPin,
+  UserCog,
+  GitBranch,
+  Workflow,
+  History,
+  Clock,
+  User,
+  Save,
+  Copy,
+  Eraser,
+  Loader2,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getUserFromCookie } from '@/utils/authCookies';
 import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
 import { apiClient } from '@/config/authenticatedApiClient';
-import { useAuth } from '@/hooks/useAuth';
-import { getUserFromCookie } from '@/utils/authCookies';
 
 interface Role {
   id: number;
@@ -52,6 +64,87 @@ interface FlowMapping {
   updatedAt: string | null;
   createdAt: string | null;
 }
+
+// Reusable sub-section wrapper that turns each form group into a polished card
+const MappingSection = ({
+  step,
+  icon,
+  title,
+  description,
+  required,
+  children,
+}: {
+  step?: number;
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  required?: boolean;
+  children: ReactNode;
+}) => {
+  const { colors } = useAdminTheme();
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: AdminSpacing.md,
+        padding: AdminSpacing.lg,
+        backgroundColor: colors.background,
+        border: `1px solid ${colors.border}`,
+        borderRadius: AdminBorderRadius.lg,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: AdminSpacing.md }}>
+        <div
+          style={{
+            width: '36px',
+            height: '36px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: `${colors.status.info}18`,
+            color: colors.status.info,
+            borderRadius: AdminBorderRadius.md,
+          }}
+        >
+          {icon}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: colors.text.primary }}>
+            {title}
+            {required && (
+              <span style={{ color: colors.status.error, marginLeft: '4px' }}>*</span>
+            )}
+          </div>
+          {description && (
+            <div style={{ fontSize: '12px', color: colors.text.secondary }}>{description}</div>
+          )}
+        </div>
+        {typeof step === 'number' && (
+          <span
+            style={{
+              marginLeft: 'auto',
+              fontSize: '10px',
+              fontWeight: 700,
+              color: colors.text.tertiary,
+              backgroundColor: colors.surface,
+              border: `1px solid ${colors.border}`,
+              borderRadius: AdminBorderRadius.full,
+              padding: '3px 10px',
+              letterSpacing: '0.8px',
+              flexShrink: 0,
+            }}
+          >
+            STEP {step}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+};
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api').replace(/\/$/, '')
 
@@ -291,14 +384,16 @@ export default function FlowMappingContent() {
         districtId: userDistrictId,
       });
 
+      // Circular workflow is allowed: only warn, do not block saving.
       if (!validationResult.data.isValid) {
-        toast.error(validationResult.data.message || 'Invalid flow mapping');
-        return;
+        toast(validationResult.data.message || 'Circular workflow detected — mapping will still be saved', {
+          icon: '⚠️',
+        });
       }
 
-      // If validation passes, save the mapping scoped to the same state/district
-      // as the GET/validate calls, so the exact (state+district) mapping is updated
-      // instead of silently writing to the global (null/null) mapping.
+      // Save the mapping scoped to the same state/district as the GET/validate
+      // calls, so the exact (state+district) mapping is updated instead of
+      // silently writing to the global (null/null) mapping.
       await saveFlowMappingMutation.mutateAsync({
         nextRoleIds: nextRoles.map(r => r.value),
         stateId: userStateId,
@@ -470,26 +565,14 @@ export default function FlowMappingContent() {
                 gap: AdminSpacing.xl,
               }}
             >
-              {/* Application Type Selection */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
-                <div>
-                  <label
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
-                      marginBottom: AdminSpacing.sm,
-                      display: 'block',
-                    }}
-                  >
-                    Application Type
-                  </label>
-                  <p
-                    style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}
-                  >
-                    Configure mapping specific to an application type
-                  </p>
-                </div>
+              {/* Step 1: Application Type */}
+              <MappingSection
+                step={1}
+                icon={<Layers size={18} />}
+                title='Application Type'
+                description='Choose which workflow this mapping applies to'
+                required
+              >
                 <ReactSelectFixed
                   options={applicationTypeOptions}
                   value={applicationType}
@@ -500,88 +583,81 @@ export default function FlowMappingContent() {
                   isDisabled={isLoading}
                   styles={selectStyles}
                 />
-              </div>
+              </MappingSection>
 
-              {/* State & District (auto-populated from logged-in user's location) */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: AdminSpacing.md,
-                }}
+              {/* Step 2: Location Context (auto-populated from logged-in user) */}
+              <MappingSection
+                step={2}
+                icon={<MapPin size={18} />}
+                title='Location Context'
+                description='Automatically scoped to your state & district'
               >
-                <div>
-                  <label
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
-                      marginBottom: AdminSpacing.sm,
-                      display: 'block',
-                    }}
-                  >
-                    State
-                  </label>
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: AdminBorderRadius.md,
-                      border: `1px solid ${colors.border}`,
-                      backgroundColor: colors.background,
-                      color: colors.text.primary,
-                      fontSize: '14px',
-                    }}
-                  >
-                    {userStateName}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: AdminSpacing.md,
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span
+                      style={{ fontSize: '13px', fontWeight: 600, color: colors.text.secondary }}
+                    >
+                      State
+                    </span>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: AdminSpacing.sm,
+                        padding: '10px 12px',
+                        borderRadius: AdminBorderRadius.md,
+                        border: `1px solid ${colors.border}`,
+                        backgroundColor: colors.surface,
+                        color: colors.text.primary,
+                        fontSize: '14px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      <MapPin size={16} style={{ color: colors.status.info, flexShrink: 0 }} />
+                      {userStateName}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span
+                      style={{ fontSize: '13px', fontWeight: 600, color: colors.text.secondary }}
+                    >
+                      District
+                    </span>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: AdminSpacing.sm,
+                        padding: '10px 12px',
+                        borderRadius: AdminBorderRadius.md,
+                        border: `1px solid ${colors.border}`,
+                        backgroundColor: colors.surface,
+                        color: colors.text.primary,
+                        fontSize: '14px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      <MapPin size={16} style={{ color: colors.status.info, flexShrink: 0 }} />
+                      {userDistrictName}
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
-                      marginBottom: AdminSpacing.sm,
-                      display: 'block',
-                    }}
-                  >
-                    District
-                  </label>
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: AdminBorderRadius.md,
-                      border: `1px solid ${colors.border}`,
-                      backgroundColor: colors.background,
-                      color: colors.text.primary,
-                      fontSize: '14px',
-                    }}
-                  >
-                    {userDistrictName}
-                  </div>
-                </div>
-              </div>
+              </MappingSection>
 
-              {/* Current Role Selection */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
-                <div>
-                  <label
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
-                      marginBottom: AdminSpacing.sm,
-                      display: 'block',
-                    }}
-                  >
-                    Select Current Role
-                  </label>
-                  <p
-                    style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}
-                  >
-                    Choose the role that will be forwarding applications
-                  </p>
-                </div>
+              {/* Step 3: Current Role */}
+              <MappingSection
+                step={3}
+                icon={<UserCog size={18} />}
+                title='Current Role'
+                description='Choose the role that will forward applications'
+                required
+              >
                 <ReactSelectFixed
                   options={roleOptions}
                   value={currentRole}
@@ -596,28 +672,16 @@ export default function FlowMappingContent() {
                     {formErrors.currentRole}
                   </p>
                 )}
-              </div>
+              </MappingSection>
 
-              {/* Next Roles Selection */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
-                <div>
-                  <label
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
-                      marginBottom: AdminSpacing.sm,
-                      display: 'block',
-                    }}
-                  >
-                    Select Next Roles (Can Forward To)
-                  </label>
-                  <p
-                    style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}
-                  >
-                    Choose multiple roles that can receive applications from the current role
-                  </p>
-                </div>
+              {/* Step 4: Next Roles */}
+              <MappingSection
+                step={4}
+                icon={<GitBranch size={18} />}
+                title='Next Roles'
+                description='Roles that can receive applications from the current role'
+                required
+              >
                 <ReactSelectFixed
                   isMulti
                   options={availableNextRoleOptions}
@@ -637,23 +701,94 @@ export default function FlowMappingContent() {
                     {formErrors.selfReference}
                   </p>
                 )}
-              </div>
+              </MappingSection>
 
               {/* Workflow Graph Preview */}
               {currentRole && (
                 <div
                   style={{ borderTop: `1px solid ${colors.border}`, paddingTop: AdminSpacing.lg }}
                 >
-                  <h3
+                  <div
                     style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: colors.text.primary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: AdminSpacing.sm,
+                      margin: `0 0 ${AdminSpacing.sm}px 0`,
+                    }}
+                  >
+                    <Workflow size={18} style={{ color: colors.status.info, flexShrink: 0 }} />
+                    <h3
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        color: colors.text.primary,
+                        margin: 0,
+                      }}
+                    >
+                      Workflow Diagram Preview
+                    </h3>
+                  </div>
+                  {/* Context chips: show exactly which mapping is being previewed */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: AdminSpacing.sm,
                       margin: `0 0 ${AdminSpacing.md}px 0`,
                     }}
                   >
-                    Workflow Diagram Preview
-                  </h3>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 12px',
+                        borderRadius: AdminBorderRadius.full,
+                        backgroundColor: `${colors.status.info}14`,
+                        color: colors.status.info,
+                        border: `1px solid ${colors.status.info}35`,
+                        fontSize: '12px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Layers size={13} />
+                      {applicationType.label}
+                    </span>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 12px',
+                        borderRadius: AdminBorderRadius.full,
+                        backgroundColor: `${colors.status.success}14`,
+                        color: colors.status.success,
+                        border: `1px solid ${colors.status.success}35`,
+                        fontSize: '12px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <MapPin size={13} />
+                      {userStateName}
+                    </span>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 12px',
+                        borderRadius: AdminBorderRadius.full,
+                        backgroundColor: `${colors.status.warning}14`,
+                        color: colors.status.warning,
+                        border: `1px solid ${colors.status.warning}35`,
+                        fontSize: '12px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <MapPin size={13} />
+                      {userDistrictName}
+                    </span>
+                  </div>
                   <WorkflowGraphPreview
                     currentRole={{
                       id: currentRole.value,
@@ -669,56 +804,94 @@ export default function FlowMappingContent() {
 
               {/* Audit Information */}
               {currentFlowMapping && currentFlowMapping.id && (
-                <div
-                  style={{
-                    backgroundColor: colors.background,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: AdminBorderRadius.md,
-                    padding: AdminSpacing.md,
-                  }}
+                <MappingSection
+                  icon={<History size={18} />}
+                  title='Audit Information'
+                  description='Recent changes to this workflow mapping'
                 >
-                  <h4
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: colors.text.secondary,
-                      margin: `0 0 ${AdminSpacing.sm}px 0`,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    Audit Information
-                  </h4>
                   <div
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                       gap: AdminSpacing.md,
-                      fontSize: '12px',
                     }}
                   >
                     {currentFlowMapping.updatedAt && (
-                      <div>
-                        <p style={{ color: colors.text.secondary, margin: '0 0 4px 0' }}>
-                          Last Updated
-                        </p>
-                        <p style={{ color: colors.text.primary, fontWeight: 500, margin: 0 }}>
-                          {new Date(currentFlowMapping.updatedAt).toLocaleString()}
-                        </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: AdminSpacing.sm }}>
+                        <div
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: `${colors.status.warning}18`,
+                            color: colors.status.warning,
+                            borderRadius: AdminBorderRadius.md,
+                          }}
+                        >
+                          <Clock size={16} />
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: colors.text.secondary,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            Last Updated
+                          </div>
+                          <div
+                            style={{ fontSize: '13px', fontWeight: 500, color: colors.text.primary }}
+                          >
+                            {new Date(currentFlowMapping.updatedAt).toLocaleString()}
+                          </div>
+                        </div>
                       </div>
                     )}
                     {currentFlowMapping.updatedByUser && (
-                      <div>
-                        <p style={{ color: colors.text.secondary, margin: '0 0 4px 0' }}>
-                          Updated By
-                        </p>
-                        <p style={{ color: colors.text.primary, fontWeight: 500, margin: 0 }}>
-                          {currentFlowMapping.updatedByUser.username}
-                        </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: AdminSpacing.sm }}>
+                        <div
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: `${colors.status.info}18`,
+                            color: colors.status.info,
+                            borderRadius: AdminBorderRadius.md,
+                          }}
+                        >
+                          <User size={16} />
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: colors.text.secondary,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                            }}
+                          >
+                            Updated By
+                          </div>
+                          <div
+                            style={{ fontSize: '13px', fontWeight: 500, color: colors.text.primary }}
+                          >
+                            {currentFlowMapping.updatedByUser.username}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
+                </MappingSection>
               )}
 
               {/* Action Buttons */}
@@ -735,6 +908,10 @@ export default function FlowMappingContent() {
                   onClick={handleSubmit}
                   disabled={!currentRole || nextRoles.length === 0 || isSaving || isLoading}
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
                     padding: '10px 20px',
                     backgroundColor:
                       !currentRole || nextRoles.length === 0 || isSaving || isLoading
@@ -757,6 +934,13 @@ export default function FlowMappingContent() {
                   className="btn-success-animated"
                 >
                   <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes mapping-spin {
+                      from { transform: rotate(0deg); }
+                      to { transform: rotate(360deg); }
+                    }
+                    .mapping-spin {
+                      animation: mapping-spin 1s linear infinite;
+                    }
                     .btn-success-animated:hover:not(:disabled) {
                       transform: translateY(-1px);
                       box-shadow: 0 6px 16px ${colors.status.success}50 !important;
@@ -766,9 +950,17 @@ export default function FlowMappingContent() {
                       transform: translateY(0);
                     }
                   `}} />
-                  {saveFlowMappingMutation.isPending || validateFlowMutation.isPending
-                    ? 'Saving...'
-                    : 'Save Mapping'}
+                  {saveFlowMappingMutation.isPending || validateFlowMutation.isPending ? (
+                    <>
+                      <Loader2 size={16} className="mapping-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      Save Mapping
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -778,6 +970,10 @@ export default function FlowMappingContent() {
                   }}
                   disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
                     padding: '10px 20px',
                     backgroundColor: 'transparent',
                     color:
@@ -803,6 +999,7 @@ export default function FlowMappingContent() {
                       transform: translateY(0);
                     }
                   `}} />
+                  <Copy size={16} />
                   Duplicate Mapping
                 </button>
 
@@ -815,6 +1012,10 @@ export default function FlowMappingContent() {
                   disabled={isSaving || isLoading}
                   style={{
                     marginLeft: 'auto',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
                     padding: '10px 20px',
                     backgroundColor: 'transparent',
                     color: colors.text.secondary,
@@ -837,6 +1038,7 @@ export default function FlowMappingContent() {
                       transform: translateY(0);
                     }
                   `}} />
+                  <Eraser size={16} />
                   Clear All
                 </button>
               </div>
