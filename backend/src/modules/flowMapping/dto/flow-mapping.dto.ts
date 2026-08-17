@@ -1,5 +1,6 @@
-import { IsInt, IsArray, IsOptional, ArrayMinSize } from 'class-validator';
+import { IsInt, IsArray, IsOptional, ArrayMinSize, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { RoleFlowApplicationType } from '@prisma/client';
 
 export class CreateFlowMappingDto {
     @ApiProperty({
@@ -18,6 +19,18 @@ export class CreateFlowMappingDto {
     @ArrayMinSize(1)
     @IsInt({ each: true })
     nextRoleIds!: number[];
+
+    @IsOptional()
+    @IsString()
+    applicationType?: RoleFlowApplicationType;
+
+    @IsOptional()
+    @IsInt()
+    stateId?: number | null;
+
+    @IsOptional()
+    @IsInt()
+    districtId?: number | null;
 }
 
 export class UpdateFlowMappingDto {
@@ -39,6 +52,18 @@ export class UpdateFlowMappingDto {
     @IsOptional()
     @IsInt()
     updatedBy?: number;
+
+    @IsOptional()
+    @IsString()
+    applicationType?: RoleFlowApplicationType;
+
+    @IsOptional()
+    @IsInt()
+    stateId?: number | null;
+
+    @IsOptional()
+    @IsInt()
+    districtId?: number | null;
 }
 
 export class ValidateFlowMappingDto {
@@ -58,4 +83,16 @@ export class ValidateFlowMappingDto {
     @ArrayMinSize(1)
     @IsInt({ each: true })
     nextRoleIds!: number[];
+
+    @IsOptional()
+    @IsString()
+    applicationType?: RoleFlowApplicationType;
+
+    @IsOptional()
+    @IsInt()
+    stateId?: number | null;
+
+    @IsOptional()
+    @IsInt()
+    districtId?: number | null;
 }
