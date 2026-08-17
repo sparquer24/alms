@@ -69,10 +69,22 @@ export default function FlowMappingContent() {
   );
   const userState = userLocation?.state ?? (loggedInUser as any)?.state ?? null;
   const userDistrict = userLocation?.district ?? (loggedInUser as any)?.district ?? null;
-  const userStateId = userState?.id ?? (loggedInUser as any)?.stateId ?? null;
-  const userDistrictId = userDistrict?.id ?? (loggedInUser as any)?.districtId ?? null;
+  // Coerce IDs to numbers: user location IDs (e.g. from the auth cookie) can arrive as strings,
+  // but the flow-mapping API expects integer stateId/districtId.
+  const toNumberOrNull = (value: any): number | null =>
+    value === null || value === undefined || value === '' ? null : Number(value);
+  const userStateId = toNumberOrNull(userState?.id ?? (loggedInUser as any)?.stateId ?? null);
+  const userDistrictId = toNumberOrNull(userDistrict?.id ?? (loggedInUser as any)?.districtId ?? null);
   const userStateName = userState?.name ?? '—';
   const userDistrictName = userDistrict?.name ?? '—';
+
+  // Application Types
+  const applicationTypeOptions = useMemo(() => [
+    { value: 'ALL', label: 'All Application Types' },
+    { value: 'FRESH', label: 'Fresh Application' },
+    { value: 'RENEWAL', label: 'Renewal Application' },
+    { value: 'CANCEL', label: 'Cancellation Application' }
+  ], []);
 
   // State management
   const [applicationType, setApplicationType] = useState<AppTypeOption>(applicationTypeOptions[1]); // Default to FRESH
@@ -204,22 +216,16 @@ export default function FlowMappingContent() {
   const saveFlowMappingMutation = useMutation({
     mutationFn: async (data: {
       nextRoleIds: number[];
+      applicationType?: string;
       updatedBy?: number;
       stateId?: number | null;
       districtId?: number | null;
     }) => {
-      const response = await fetch(`${API_BASE_URL}/flow-mapping/${currentRole!.value}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+      const response = await apiClient.put(`/flow-mapping/${currentRole!.value}`, {
+        ...data,
+        applicationType: applicationType?.value,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save flow mapping');
-      }
-
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast.success('Flow mapping saved successfully');
@@ -464,6 +470,38 @@ export default function FlowMappingContent() {
                 gap: AdminSpacing.xl,
               }}
             >
+              {/* Application Type Selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: AdminSpacing.md }}>
+                <div>
+                  <label
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text.primary,
+                      marginBottom: AdminSpacing.sm,
+                      display: 'block',
+                    }}
+                  >
+                    Application Type
+                  </label>
+                  <p
+                    style={{ color: colors.text.secondary, fontSize: '12px', margin: '4px 0 0 0' }}
+                  >
+                    Configure mapping specific to an application type
+                  </p>
+                </div>
+                <ReactSelectFixed
+                  options={applicationTypeOptions}
+                  value={applicationType}
+                  onChange={(val: AppTypeOption) => {
+                    setApplicationType(val);
+                  }}
+                  placeholder='Select Application Type...'
+                  isDisabled={isLoading}
+                  styles={selectStyles}
+                />
+              </div>
+
               {/* State & District (auto-populated from logged-in user's location) */}
               <div
                 style={{
