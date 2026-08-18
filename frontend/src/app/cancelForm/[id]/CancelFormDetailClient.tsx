@@ -237,7 +237,7 @@ export default function CancelFormDetailClient() {
   // Authorization check matching ApplicationDetailClient.tsx
   const currentUserId = user?.id ? Number(user.id) : null;
   const requestUserId = request?.currentUserId ? Number(request.currentUserId) : null;
-  const isClosed = request?.status === 'APPROVED' || request?.status === 'REJECTED';
+  const isClosed = request?.status === 'CLOSE' || request?.workflowStatus?.code === 'CLOSE';
   const canTakeAction =
     currentUserId !== null &&
     requestUserId !== null &&
@@ -287,7 +287,7 @@ export default function CancelFormDetailClient() {
                           </div>
                           {(() => {
                           // Check for final/closed status first — if final, show only a status message
-                          const finalStatuses = ['APPROVED', 'REJECTED', 'CANCELLED', 'DISPOSED'];
+                          const finalStatuses = ['REJECTED', 'CANCELLED', 'DISPOSED', 'CLOSE'];
                           const rawStatusCode = request?.workflowStatus?.code || request?.status || '';
                           const rawStatusName = request?.workflowStatus?.name || rawStatusCode;
                           const isFinalStatus = finalStatuses.some(s => 
@@ -296,6 +296,7 @@ export default function CancelFormDetailClient() {
                           );
                           if (isFinalStatus) {
                             const displayStatus = String(rawStatusName).charAt(0).toUpperCase() + String(rawStatusName).slice(1).toLowerCase();
+                            const isClosedStatus = String(rawStatusCode).toUpperCase() === 'CLOSE' || String(rawStatusName).toUpperCase() === 'CLOSE';
                             return (
                               <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
                                 <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
@@ -305,7 +306,11 @@ export default function CancelFormDetailClient() {
                                 </div>
                                 <div>
                                   <p className='text-sm font-semibold text-amber-900'>
-                                    Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.
+                                    {isClosedStatus ? (
+                                      <>Your application has been <span className='uppercase font-bold'>Closed</span>. No further processing is allowed.</>
+                                    ) : (
+                                      <>Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.</>
+                                    )}
                                   </p>
                                 </div>
                               </div>
