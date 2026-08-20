@@ -90,26 +90,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # ─── AUTOMATED BACKUPS ──────────────────────────────────────────────────────
-  # Nightly pg_dump of the `db` service, retained locally per BACKUP_KEEP_* below.
-  # Restores: docker exec alms-db-backup /backup.sh (or see docs/backend/DOCKER_DATABASE_RESTORE_GUIDE.md)
-  db-backup:
-    image: prodrigestivill/postgres-backup-local:17-alpine
-    container_name: alms-db-backup
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file:
-      - ./.env.prod
-    environment:
-      POSTGRES_HOST: db
-      HEALTHCHECK_PORT: 8080
-    volumes:
-      - alms_db_backups:/backups
-    networks:
-      - alms-unified-net
-
 # ─── UNIFIED NETWORK ──────────────────────────────────────────────────────────
 networks:
   alms-unified-net:
@@ -122,5 +102,3 @@ networks:
 volumes:
   alms_pgdata:
     name: alms_pgdata
-  alms_db_backups:
-    name: alms_db_backups
