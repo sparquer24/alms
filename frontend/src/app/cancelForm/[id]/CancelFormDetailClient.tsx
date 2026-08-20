@@ -12,7 +12,7 @@ import { formatStatusLabel } from '@/utils/formatters';
 import { truncateFilename } from '@/utils/string';
 import { openAttachment } from '@/utils/attachmentViewer';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
-import { History, Clock, ChevronDown, FileText, Shield } from 'lucide-react';
+import { History, Clock, ChevronDown, FileText, Shield, Home } from 'lucide-react';
 
 const ClockIcon = Clock as any;
 const ChevronDownIcon = ChevronDown as any;
@@ -187,6 +187,10 @@ export default function CancelFormDetailClient() {
 
   const handleProceedingsSuccess = (message?: string) => {
     fetchCancelInfo({ replaceRequestOnly: true }); // Reload details
+    // Give the user a moment to see the success confirmation before returning Home
+    setTimeout(() => {
+      router.push('/');
+    }, 1500);
   };
 
   if (loading) {
@@ -212,8 +216,9 @@ export default function CancelFormDetailClient() {
             <button
               type='button'
               onClick={() => router.back()}
-              className='rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50'
+              className='flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:bg-blue-800'
             >
+              <Home size={16} />
               Go Back
             </button>
             <button
@@ -232,7 +237,7 @@ export default function CancelFormDetailClient() {
   // Authorization check matching ApplicationDetailClient.tsx
   const currentUserId = user?.id ? Number(user.id) : null;
   const requestUserId = request?.currentUserId ? Number(request.currentUserId) : null;
-  const isClosed = request?.status === 'APPROVED' || request?.status === 'REJECTED';
+  const isClosed = request?.status === 'CLOSE' || request?.workflowStatus?.code === 'CLOSE';
   const canTakeAction =
     currentUserId !== null &&
     requestUserId !== null &&
@@ -241,7 +246,7 @@ export default function CancelFormDetailClient() {
   const showApplicationProcessingSection = activeTab === 'info';
 
   return (
-    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)]'>
+    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)] print:min-h-0 print:bg-white'>
       <main className='w-full'>
         <div className='w-full'>
           <div className='space-y-6'>
@@ -282,7 +287,7 @@ export default function CancelFormDetailClient() {
                           </div>
                           {(() => {
                           // Check for final/closed status first — if final, show only a status message
-                          const finalStatuses = ['APPROVED', 'REJECTED', 'CANCELLED', 'DISPOSED'];
+                          const finalStatuses = ['REJECTED', 'CANCELLED', 'DISPOSED', 'CLOSE'];
                           const rawStatusCode = request?.workflowStatus?.code || request?.status || '';
                           const rawStatusName = request?.workflowStatus?.name || rawStatusCode;
                           const isFinalStatus = finalStatuses.some(s => 
@@ -291,6 +296,7 @@ export default function CancelFormDetailClient() {
                           );
                           if (isFinalStatus) {
                             const displayStatus = String(rawStatusName).charAt(0).toUpperCase() + String(rawStatusName).slice(1).toLowerCase();
+                            const isClosedStatus = String(rawStatusCode).toUpperCase() === 'CLOSE' || String(rawStatusName).toUpperCase() === 'CLOSE';
                             return (
                               <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
                                 <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
@@ -300,7 +306,11 @@ export default function CancelFormDetailClient() {
                                 </div>
                                 <div>
                                   <p className='text-sm font-semibold text-amber-900'>
-                                    Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.
+                                    {isClosedStatus ? (
+                                      <>Your application has been <span className='uppercase font-bold'>Closed</span>. No further processing is allowed.</>
+                                    ) : (
+                                      <>Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.</>
+                                    )}
                                   </p>
                                 </div>
                               </div>

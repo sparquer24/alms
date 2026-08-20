@@ -1,10 +1,10 @@
 import React from 'react';
 
-const Card: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-  <div className='bg-white rounded-lg p-4 shadow-sm border border-gray-100 min-w-[160px]'>
-    <div className='text-xs text-gray-500'>{label}</div>
-    <div className='mt-2 font-medium text-gray-900'>{value}</div>
-  </div>
+const Item: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+  <span className='whitespace-nowrap'>
+    <span className='text-xs font-semibold uppercase tracking-wide text-gray-500'>{label}:</span>{' '}
+    <span className='text-sm font-semibold text-gray-900'>{value}</span>
+  </span>
 );
 
 const getStatusLabel = (data?: any) => {
@@ -26,13 +26,18 @@ const RenewalSummary: React.FC<{ licenseId?: string; renewalId?: string; data?: 
   const displayId = data?.acknowledgementNo || renewalId || '—';
 
   return (
-    <div className='flex gap-4 overflow-x-auto py-2'>
-      <Card label='License ID' value={licenseId || data?.licenseId || '—'} />
-      <Card label='Fresh Acknowledgement No' value={displayId} />
-      <Card label='Applicant' value={applicantName} />
-      <Card label='License No' value={data?.licenseNumber || '—'} />
-      <Card label='Status' value={getStatusLabel(data)} />
-      <Card label='Date' value={getDateDisplay(data)} />
+    <div className='flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-1.5 overflow-x-auto'>
+      <Item label='License ID' value={licenseId || data?.licenseId || '—'} />
+      <span className='text-gray-300'>|</span>
+      <Item label='Fresh Acknowledgement No' value={displayId} />
+      <span className='text-gray-300'>|</span>
+      <Item label='Applicant' value={applicantName} />
+      <span className='text-gray-300'>|</span>
+      <Item label='License No' value={data?.licenseNumber || '—'} />
+      <span className='text-gray-300'>|</span>
+      <Item label='Status' value={getStatusLabel(data)} />
+      <span className='text-gray-300'>|</span>
+      <Item label='Date' value={getDateDisplay(data)} />
     </div>
   );
 };

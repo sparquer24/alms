@@ -2084,11 +2084,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
                             // Check for final/closed status first — if final, show only a status message
                             const finalStatuses = [
-                              'APPROVED',
                               'REJECTED',
                               'CANCELLED',
                               'DISPOSED',
                               'EXPIRED',
+                              'CLOSE',
                             ];
                             const rawStatusCode =
                               displayApp?.workflowStatus?.code || displayApp?.status || '';
@@ -2102,6 +2102,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               const displayStatus =
                                 String(rawStatusName).charAt(0).toUpperCase() +
                                 String(rawStatusName).slice(1).toLowerCase();
+                              const isClosedStatus = String(rawStatusCode).toUpperCase() === 'CLOSE' || String(rawStatusName).toUpperCase() === 'CLOSE';
                               return (
                                 <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
                                   <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
@@ -2121,9 +2122,11 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                   </div>
                                   <div>
                                     <p className='text-sm font-semibold text-amber-900'>
-                                      Your application has been{' '}
-                                      <span className='uppercase font-bold'>{displayStatus}</span>.
-                                      No further processing is allowed.
+                                      {isClosedStatus ? (
+                                        <>Your application has been <span className='uppercase font-bold'>Closed</span>. No further processing is allowed.</>
+                                      ) : (
+                                        <>Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.</>
+                                      )}
                                     </p>
                                   </div>
                                 </div>
@@ -2133,10 +2136,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                             const statusName = (
                               displayApp?.workflowStatus?.name || ''
                             ).toLowerCase();
-                            const statusId = Number(
-                              displayApp?.status_id || displayApp?.workflowStatus?.id
-                            );
-                            const isClosed = statusName === 'closed' || statusId === 10;
+                            const statusCode = (
+                              displayApp?.workflowStatus?.code || ''
+                            ).toUpperCase();
+                            const isClosed = statusCode === 'CLOSE' || statusName === 'close';
 
                             const canTakeAction =
                               currentUserId &&

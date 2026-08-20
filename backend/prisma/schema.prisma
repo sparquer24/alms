@@ -46,6 +46,7 @@ model States {
   renewalAddresses   RenewalAddressesAndContactDetails[]
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("StateUsers")
+  roleFlowMappings   RoleFlowMapping[]
 }
 
 model Districts {
@@ -58,6 +59,7 @@ model Districts {
   addresses          FLAFAddressesAndContactDetails[]
   occupations        FLAFOccupationAndBusiness[]
   RangeOffices       RangeOffices[]
+  roleFlowMappings   RoleFlowMapping[]
   renewalAddresses   RenewalAddressesAndContactDetails[]
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("DistrictUsers")
@@ -150,10 +152,14 @@ model RoleFlowMapping {
   createdAt       DateTime                  @default(now())
   applicationType RoleFlowApplicationType   @default(ALL)
   purpose         RoleFlowPurpose           @default(ALL)
+  stateId         Int?
+  districtId      Int?
   currentRole     Roles                     @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
   updatedByUser   Users?                    @relation(fields: [updatedBy], references: [id])
+  state           States?                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district        Districts?                @relation(fields: [districtId], references: [id], onDelete: Cascade)
 
-  @@unique([currentRoleId, applicationType, purpose])
+  @@unique([currentRoleId, applicationType, purpose, stateId, districtId], name: "RoleFlowMapping_currentRoleId_applicationType_purpose_state_key")
 }
 
 enum RoleFlowApplicationType {

@@ -27,10 +27,6 @@ const DeclarationSection = forwardRef(function DeclarationSection(
 
   return (
     <section className={`rounded-2xl border p-6 shadow-sm ${hasErrors ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-white'}`}>
-      <h2 className='text-xl font-bold mb-4'>
-        Declaration
-        {hasErrors && <span className='text-red-500 ml-1'>*</span>}
-      </h2>
       <div className='space-y-3'>
         <Checkbox
           label='I declare that the information provided is true'
