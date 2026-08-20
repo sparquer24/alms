@@ -11,6 +11,30 @@ import { PublicService } from './public.service';
 export class PublicController {
     constructor(private readonly publicService: PublicService) { }
 
+    @Get('dashboard/overview')
+    @ApiOperation({
+        summary: 'Get Universal Public Dashboard Overview',
+        description: 'Retrieve aggregated, anonymized statistics, volume trends, status distributions, weapon categories, zonal loads, and recent public activity for the universal dashboard. No authentication required.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Public dashboard statistics retrieved successfully',
+    })
+    async getPublicDashboardOverview(
+        @Query('timeRange') timeRange?: string,
+        @Query('type') type?: string,
+    ) {
+        try {
+            const data = await this.publicService.getPublicDashboardOverview(timeRange, type);
+            return data;
+        } catch (err: any) {
+            throw new HttpException(
+                { success: false, error: err?.message || 'Failed to fetch public dashboard data' },
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
     @Get('application/:applicationId')
     @ApiOperation({
         summary: 'Get Public Application Details',

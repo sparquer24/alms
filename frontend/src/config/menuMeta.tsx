@@ -15,6 +15,7 @@ import {
   FileText,
   List,
   XCircle,
+  LayoutDashboard,
 } from 'lucide-react';
 
 // Type assertions for lucide-react icons to fix React 18 compatibility
@@ -34,9 +35,11 @@ const MapPinFixed = MapPin as any;
 const FileTextFixed = FileText as any;
 const ListFixed = List as any;
 const XCircleFixed = XCircle as any;
+const LayoutDashboardFixed = LayoutDashboard as any;
 
 // Fix: Add a type-safe mapping for menuMeta keys
 export type MenuMetaKey =
+  | 'dashboard'
   | 'freshform'
   | 'inbox'
   | 'sent'
@@ -58,6 +61,10 @@ export type MenuMetaKey =
 
 export const menuMeta: Record<MenuMetaKey, { label: string; icon: () => React.ReactNode }> = {
   // use the `*Fixed` any-casted aliases above to avoid React type mismatch errors
+  dashboard: {
+    label: 'Dashboard',
+    icon: () => <LayoutDashboardFixed className='w-5 h-5' aria-label='Dashboard' />,
+  },
   freshform: {
     label: 'New Forms',
     icon: () => <FilePlusFixed className='w-5 h-5' aria-label='New Forms' />,

@@ -46,7 +46,7 @@ const Header = (props: HeaderProps) => {
   const {
     onShowMessage,
     breadcrumbs,
-    pageTitle: _pageTitle,
+    pageTitle,
     statusBadge,
     hidePrint,
     hideCreateForm,
@@ -105,7 +105,7 @@ const Header = (props: HeaderProps) => {
       className={`fixed top-0 md:top-4 right-0 md:right-4 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg md:rounded-2xl z-40 transition-all duration-300`}
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
-        {/* Left section: breadcrumbs / create form */}
+        {/* Left section: breadcrumbs / page title / create form */}
         <div className='flex items-center gap-4 min-w-0'>
           {/* Back button */}
           {showBackButton && (
@@ -173,33 +173,39 @@ const Header = (props: HeaderProps) => {
             </div>
           )}
 
-          {/* Breadcrumbs */}
-          {hasBreadcrumbs && (
+          {/* Breadcrumbs or Page Title */}
+          {(hasBreadcrumbs || pageTitle) && (
             <nav className='min-w-0 flex-1' aria-label='Breadcrumb'>
-              <ol className='flex items-center space-x-2 text-sm truncate'>
-                {breadcrumbs.map((crumb, idx) => (
-                  <li key={idx} className='flex items-center space-x-2 min-w-0'>
-                    {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
-                    {crumb.onClick ? (
-                      <button
-                        onClick={crumb.onClick}
-                        className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
-                      >
-                        {crumb.label}
-                      </button>
-                    ) : crumb.href ? (
-                      <Link
-                        href={crumb.href}
-                        className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className='text-white font-medium truncate'>{crumb.label}</span>
-                    )}
-                  </li>
-                ))}
-              </ol>
+              {hasBreadcrumbs ? (
+                <ol className='flex items-center space-x-2 text-sm truncate'>
+                  {breadcrumbs.map((crumb, idx) => (
+                    <li key={idx} className='flex items-center space-x-2 min-w-0'>
+                      {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
+                      {crumb.onClick ? (
+                        <button
+                          onClick={crumb.onClick}
+                          className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
+                        >
+                          {crumb.label}
+                        </button>
+                      ) : crumb.href ? (
+                        <Link
+                          href={crumb.href}
+                          className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
+                        >
+                          {crumb.label}
+                        </Link>
+                      ) : (
+                        <span className='text-white font-medium truncate'>{crumb.label}</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className='flex items-center gap-2 text-white font-semibold text-base truncate'>
+                  <span>{pageTitle}</span>
+                </div>
+              )}
             </nav>
           )}
         </div>

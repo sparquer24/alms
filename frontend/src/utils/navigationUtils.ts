@@ -50,8 +50,8 @@ export function navigateToDefaultMenu(
             if (adminMenuPath) {
                 targetPath = adminMenuPath;
             } else {
-                // Fallback to first admin page
-                targetPath = '/admin/userManagement';
+                // Fallback to dashboard
+                targetPath = '/dashboard';
             }
         }
         // Inbox types (SHO, DCP, ACP, AS, ADO, CADO, JTCP, CP, ARMS_SUPDT, ARMS_SEAT, ZS, ACO)

@@ -9,6 +9,7 @@
 import { MenuItem } from './roles';
 
 export type SuperAdminMenuItemKey =
+    | 'dashboard'
     | 'userManagement'
     | 'roleMapping'
     | 'analytics'
@@ -28,47 +29,54 @@ export interface SuperAdminMenuItem extends MenuItem {
  * Ordered for consistent display in sidebar
  */
 export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMenuItem> = {
+    dashboard: {
+        name: 'dashboard',
+        key: 'dashboard',
+        label: 'Dashboard',
+        path: '/dashboard',
+        order: 1,
+    },
     userManagement: {
         name: 'userManagement',
         key: 'userManagement',
         label: 'User Management',
         path: '/superAdmin/userManagement',
-        order: 1,
+        order: 2,
     },
     roleMapping: {
         name: 'roleMapping',
         key: 'roleMapping',
         label: 'Role Management',
         path: '/superAdmin/roleMapping',
-        order: 2,
+        order: 3,
     },
     analytics: {
         name: 'analytics',
         key: 'analytics',
         label: 'Global Analytics',
         path: '/superAdmin/analytics',
-        order: 3,
+        order: 4,
     },
     flowMapping: {
         name: 'flowMapping',
         key: 'flowMapping',
         label: 'Flow Mapping',
         path: '/superAdmin/flowMapping',
-        order: 4,
+        order: 5,
     },
     locationsManagement: {
         name: 'locationsManagement',
         key: 'locationsManagement',
         label: 'Locations Management',
         path: '/superAdmin/locationsManagement',
-        order: 5,
+        order: 6,
     },
     actionMapping: {
         name: 'actionMapping',
         key: 'actionMapping',
         label: 'Action Mapping',
         path: '/admin/actionMapping', // Uses the same UI under admin
-        order: 6,
+        order: 7,
     }
 };
 
@@ -117,6 +125,9 @@ export function getSuperAdminMenuKeyFromPath(pathname: string): SuperAdminMenuIt
 export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey | null {
     const normalized = name.toLowerCase().replace(/\s+/g, '');
     const candidates: Record<string, SuperAdminMenuItemKey> = {
+        'dashboard': 'dashboard',
+        'admindashboard': 'dashboard',
+        'superadmindashboard': 'dashboard',
         'usermanagement': 'userManagement',
         'user_management': 'userManagement',
         'user-management': 'userManagement',

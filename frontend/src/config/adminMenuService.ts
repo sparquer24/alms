@@ -6,6 +6,7 @@
 import { MenuItem } from './roles';
 
 export type AdminMenuItemKey =
+    | 'dashboard'
     | 'userManagement'
     | 'roleMapping'
     | 'analytics'
@@ -21,51 +22,58 @@ export interface AdminMenuItem extends MenuItem {
 }
 
 /**
- * Core admin menu items - These are the 5 required admin pages
+ * Core admin menu items - These are the required admin pages
  * Ordered for consistent display in sidebar
  */
 export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
+    dashboard: {
+        name: 'dashboard',
+        key: 'dashboard',
+        label: 'Dashboard',
+        path: '/dashboard',
+        order: 1,
+    },
     userManagement: {
         name: 'userManagement',
         key: 'userManagement',
         label: 'User Management',
         path: '/admin/userManagement',
-        order: 1,
+        order: 2,
     },
     roleMapping: {
         name: 'roleMapping',
         key: 'roleMapping',
         label: 'Role Management',
         path: '/admin/roleMapping',
-        order: 2,
+        order: 3,
     },
     analytics: {
         name: 'analytics',
         key: 'analytics',
         label: 'Analytics',
         path: '/admin/analytics',
-        order: 3,
+        order: 4,
     },
     flowMapping: {
         name: 'flowMapping',
         key: 'flowMapping',
         label: 'Flow Mapping',
         path: '/admin/flowMapping',
-        order: 4,
+        order: 5,
     },
     locationsManagement: {
         name: 'locationsManagement',
         key: 'locationsManagement',
         label: 'Locations Management',
         path: '/admin/locationsManagement',
-        order: 5,
+        order: 6,
     },
     actionMapping: {
         name: 'actionMapping',
         key: 'actionMapping',
         label: 'Action Mapping',
         path: '/admin/actionMapping',
-        order: 6,
+        order: 7,
     },
 };
 
@@ -113,6 +121,9 @@ export function getAdminMenuKeyFromPath(pathname: string): AdminMenuItemKey | nu
 export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
     const normalized = name.toLowerCase().replace(/\s+/g, '');
     const candidates: Record<string, AdminMenuItemKey> = {
+        'dashboard': 'dashboard',
+        'admindashboard': 'dashboard',
+        'superadmindashboard': 'dashboard',
         'usermanagement': 'userManagement',
         'user_management': 'userManagement',
         'user-management': 'userManagement',
