@@ -12,6 +12,10 @@ interface PrintApplicationFormProps {
   // Called whenever the "is every async preview finished rendering" state changes,
   // so the caller can hold off calling window.print() until content is actually painted.
   onReadyChange?: (ready: boolean) => void;
+  // Overrides the auto-detected "Fresh Details" / "Renewal Details" main title
+  // (e.g. the Cancellation Original License Details tab prints "License Details"
+  // instead, since it's neither a fresh nor a renewal application being printed).
+  titleOverride?: string;
 }
 
 const isImageFile = (name: string, contentType?: string) =>
@@ -210,6 +214,7 @@ export default function PrintApplicationForm({
   applicantName,
   workflowHistory,
   onReadyChange,
+  titleOverride,
 }: PrintApplicationFormProps) {
   // Formatting dates helper
   const formatDate = (dateStr: any) => {
@@ -318,7 +323,7 @@ export default function PrintApplicationForm({
     application?.isRenewal === true;
 
   // Dynamic header based on application type
-  const headerText = isRenewal ? 'Renewal Details' : 'Fresh Details';
+  const headerText = titleOverride || (isRenewal ? 'Renewal Details' : 'Fresh Details');
 
   // Prefer the explicitly supplied workflow history (the same data source the
   // on-screen timeline uses). application.workflowHistories / application.history

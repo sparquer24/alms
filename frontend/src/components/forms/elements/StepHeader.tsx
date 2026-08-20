@@ -8,6 +8,7 @@ interface StepHeaderProps {
   onStepClick?: (step: number) => void;
   lockedSteps?: Set<number>;
   onGoHome?: () => void;
+  title?: string;
 }
 
 export const StepHeader: React.FC<StepHeaderProps> = ({
@@ -16,6 +17,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
   onStepClick = () => {},
   lockedSteps = new Set(),
   onGoHome,
+  title = 'FRESH APPLICATION FORM',
 }) => {
   const handleClick = (idx: number) => {
     if (lockedSteps.has(idx)) return;
@@ -24,15 +26,16 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
 
   return (
     <header className='w-full z-40 relative' aria-hidden={false}>
-      <div className='w-full'>
-        <div className='max-w-7xl 2xl:max-w-[1600px] w-full mx-auto py-2 px-4 sm:px-8'>
+      <div className='w-full px-4 sm:px-6 lg:px-8 mt-4'>
+        <div className='max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] w-full mx-auto py-2'>
           <h1 className='text-lg sm:text-2xl font-bold text-blue-900 tracking-wide uppercase text-center'>
-            FRESH APPLICATION FORM
+            {title}
           </h1>
         </div>
       </div>
+      <div className='w-full px-4 sm:px-6 lg:px-8'>
         <div
-          className='relative max-w-7xl 2xl:max-w-[1600px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
+          className='relative max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] w-full mx-auto rounded-lg shadow px-2 py-1 mt-0 bg-gradient-to-r from-[#0d2977] to-[#23408e]'>
 
           {/* Home button — pinned to the left edge of the bar */}
           {onGoHome && (
@@ -48,13 +51,15 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
             </div>
           )}
 
-          {/* Step tabs — centred independently of the home button */}
-          <div className='flex justify-center items-center gap-1 xl:gap-2 2xl:gap-3 px-2 py-1'>
+          {/* Step tabs — single row always, no scrollbar, evenly spaced */}
+          <div
+            className={`flex flex-nowrap items-center py-1 ${onGoHome ? 'px-12' : 'px-2'}`}
+          >
             {steps.map((stepName, idx) => {
               const active = currentStep === idx;
               const locked = lockedSteps.has(idx);
               return (
-                <div key={idx} className='flex flex-col items-center'>
+                <div key={idx} className='flex flex-1 min-w-0 flex-col items-center'>
                   <button
                     type='button'
                     onClick={() => handleClick(idx)}
@@ -62,7 +67,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                     disabled={locked}
                     title={locked ? 'Complete the previous step first' : stepName}
                     aria-current={active ? 'step' : undefined}
-                    className={`px-3 py-2 text-sm font-medium transition-all duration-150 transform-gpu focus:outline-none flex flex-col items-center select-none
+                    className={`px-2 py-2 text-sm font-medium transition-all duration-150 transform-gpu focus:outline-none flex flex-col items-center select-none whitespace-nowrap
                       ${
                         active
                           ? 'bg-white text-[#0d2977]'
@@ -74,7 +79,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                     style={{
                       borderTopLeftRadius: '10px',
                       borderTopRightRadius: '10px',
-                      minWidth: 88,
+                      minWidth: 64,
                     }}
                   >
                     {locked && (
@@ -87,7 +92,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
                     </span>
                   </button>
                   {active && (
-                    <div className='w-0 h-0 border-l-6 border-r-6 border-t-6 border-transparent border-t-white mt-[-2px]' />
+                    <div className='w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-white mt-[-2px]' />
                   )}
                 </div>
               );
@@ -95,6 +100,7 @@ export const StepHeader: React.FC<StepHeaderProps> = ({
           </div>
 
         </div>
+      </div>
     </header>
   );
 };

@@ -8,6 +8,27 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 // Load root .env first
 config({ path: path.resolve(__dirname, '../.env') });
 
+// ── Build-time guard rails ──────────────────────────────────────────────────
+// NEXT_PUBLIC_API_URL must end with "/api" (the backend's global prefix).
+// A missing suffix silently breaks every API call (404s), so fail the build loudly.
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+if (apiUrl && !/\/api$/.test(String(apiUrl).replace(/\/+$/, ''))) {
+  throw new Error(
+    `[next.config.js] NEXT_PUBLIC_API_URL="${apiUrl}" must end with "/api" ` +
+      `(e.g. "http://localhost:3001/api" or "/api"). Fix your .env / build args and rebuild.`
+  );
+}
+
+// BACKEND_URL is the bare origin (no "/api") - the rewrite appends /api/:path* itself.
+// A trailing "/api" would cause a double prefix (e.g. .../api/api/health).
+const backendUrl = process.env.BACKEND_URL;
+if (backendUrl && /\/api$/.test(String(backendUrl).replace(/\/+$/, ''))) {
+  throw new Error(
+    `[next.config.js] BACKEND_URL="${backendUrl}" must NOT end with "/api" ` +
+      `(use the bare origin, e.g. "http://backend-prod:3001"). The Next.js rewrite appends /api/:path* itself.`
+  );
+}
+
 const { execSync } = require('child_process');
 
 const nextConfig = {
@@ -25,6 +46,11 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', 'lucide-react', '@heroicons/react'],
+    // Server minification has been observed to occasionally drop/rename the
+    // internal _document/_error chunk during "Collecting page data", causing
+    // "PageNotFoundError: Cannot find module for page: /_document" at build
+    // time even in App-Router-only projects. Disabling it avoids that failure.
+    serverMinification: false,
   },
   // Compiler optimizations
   compiler: {
@@ -69,7 +95,7 @@ const nextConfig = {
       fallback: [
         {
           source: '/api/:path*',
-          destination: `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/:path*`,
+          destination: `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/:path*`,
         },
       ],
     };

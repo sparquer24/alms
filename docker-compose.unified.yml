@@ -1,56 +1,4 @@
-version: '3.8'
-
 services:
-  # ─── DEVELOPMENT SERVICES ────────────────────────────────────────────────────
-  backend-dev:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: alms-backend-dev
-    restart: unless-stopped
-    env_file:
-      - ./.env.dev
-    environment:
-      NODE_ENV: development
-      PORT: 3000
-    ports:
-      - "3000:3000"  # Expose for system nginx access
-    volumes:
-      - ./backend/src:/app/src  # Hot reload for development
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - alms-unified-net
-
-  frontend-dev:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:3000/api
-    container_name: alms-frontend-dev
-    restart: unless-stopped
-    env_file:
-      - ./.env.dev
-    environment:
-      NEXT_PUBLIC_API_URL: https://dev.alms.sparquer.com/api
-      NODE_ENV: development
-      PORT: 5000
-    ports:
-      - "5000:5000"  # Expose for system nginx access
-    volumes:
-      - ./frontend/src:/app/src  # Hot reload for development
-      - ./frontend/pages:/app/pages
-    depends_on:
-      backend-dev:
-        condition: service_healthy
-    networks:
-      - alms-unified-net
-
   # ─── PRODUCTION SERVICES ─────────────────────────────────────────────────────
   backend-prod:
     build:
@@ -63,6 +11,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "3001:3001"  # Expose for system nginx access
     healthcheck:
@@ -85,19 +36,20 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
+        # BACKEND_URL must be the bare origin - the Next.js rewrite appends /api/:path* itself
         BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3001}
+        # /api = same-origin: the browser calls the frontend, which proxies to the backend
+        NEXT_PUBLIC_API_URL: /api
         NODE_ENV: production
     container_name: alms-frontend-prod
     restart: unless-stopped
     env_file:
       - ./.env.prod
     environment:
-      NEXT_PUBLIC_API_URL: https://prod.alms.sparquer.com/api
+      NEXT_PUBLIC_API_URL: /api
       BACKEND_URL: http://backend-prod:3001
+      HOSTNAME: 0.0.0.0
       PORT: 5001
-      JWT_SECRET: 3097adb9893605ecbca993d05142aef1d4a92cd44f6ece72f32750f6697b82555d2634fa846a2ae78c2465d637b04568244fefaaf5e5f3514b92f357e43111d7
-      DATABASE_URL: postgresql://alms:rI1VQZgWmRN6msBORF8f@almsdev.cta888eqmcrq.ap-south-1.rds.amazonaws.com:5432/alms_prod?connection_limit=20&pool_timeout=20&connect_timeout=10&socket_timeout=30
-
     ports:
       - "5001:5001"  # Expose for system nginx access
     depends_on:
@@ -106,16 +58,58 @@ services:
     networks:
       - alms-unified-net
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://localhost:5001/"]
+      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://backend-prod:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 20s
     deploy:
       resources:
         limits:
           memory: 1G
         reservations:
           memory: 512M
+  db:
+    image: postgres:17-alpine
+    container_name: alms-db
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - alms_pgdata:/var/lib/postgresql/data
+    networks:
+      - alms-unified-net
+    healthcheck:
+      # $$ escapes compose interpolation - resolved by the shell inside the
+      # container, where env_file has already set POSTGRES_USER/POSTGRES_DB
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─── AUTOMATED BACKUPS ──────────────────────────────────────────────────────
+  # Nightly pg_dump of the `db` service, retained locally per BACKUP_KEEP_* below.
+  # Restores: docker exec alms-db-backup /backup.sh (or see docs/backend/DOCKER_DATABASE_RESTORE_GUIDE.md)
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:17-alpine
+    container_name: alms-db-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./.env.prod
+    environment:
+      POSTGRES_HOST: db
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - alms_db_backups:/backups
+    networks:
+      - alms-unified-net
+
 # ─── UNIFIED NETWORK ──────────────────────────────────────────────────────────
 networks:
   alms-unified-net:
@@ -124,3 +118,9 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
+
+volumes:
+  alms_pgdata:
+    name: alms_pgdata
+  alms_db_backups:
+    name: alms_db_backups

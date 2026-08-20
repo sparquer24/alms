@@ -29,18 +29,23 @@ const stepToSlug = (name: string) =>
 
 function LayoutSkeleton() {
   return (
-    <div
-      className='relative min-h-screen'
-      style={{
-        backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      }}
-    >
-      <div className='flex justify-center' style={{ paddingTop: 100, minHeight: '100vh' }}>
-        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full p-6 animate-pulse'>
+    <div className='relative min-h-screen flex flex-col overflow-x-hidden bg-[#eef2f9]'>
+      {/* Background image with soft opacity veil so the form card stays readable on any screen/zoom */}
+      <div className='fixed inset-0 z-0' aria-hidden='true'>
+        <div
+          className='absolute inset-0 bg-cover bg-center'
+          style={{
+            backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+        <div className='absolute inset-0 bg-white/70' />
+      </div>
+      <div
+        className='relative z-10 flex-1 flex justify-center w-full px-4 sm:px-6 lg:px-8'
+        style={{ paddingTop: 100, paddingBottom: 48 }}
+      >
+        <div className='rounded-2xl bg-white border border-blue-100 shadow-xl w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] p-6 animate-pulse'>
           <div className='h-3 w-40 bg-gray-200 rounded mx-auto mb-8'></div>
           <div className='space-y-4'>
             <div className='h-8 bg-gray-200 rounded w-full'></div>
@@ -230,16 +235,19 @@ function FreshApplicationLayoutContent({
   }
 
   return (
-    <div
-      className='relative min-h-screen'
-      style={{
-        backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      }}
-    >
+    <div className='relative min-h-screen flex flex-col overflow-x-hidden bg-[#eef2f9]'>
+      {/* Background image with soft opacity veil so the form card stays readable on any screen/zoom */}
+      <div className='fixed inset-0 z-0' aria-hidden='true'>
+        <div
+          className='absolute inset-0 bg-cover bg-center'
+          style={{
+            backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+            backgroundRepeat: 'no-repeat',
+          }}
+        />
+        <div className='absolute inset-0 bg-white/70' />
+      </div>
+
       <style>{`
         @keyframes fadeInSlide {
           from {
@@ -265,14 +273,14 @@ function FreshApplicationLayoutContent({
       />
 
       <div
-        className='flex max-w-8xl px-4 justify-center sm:px-8'
+        className='relative z-10 flex-1 flex w-full justify-center px-4 sm:px-6 lg:px-8'
         style={{
           paddingTop: 24,
-          minHeight: '100vh',
+          paddingBottom: 48,
         }}
       >
         <div
-          className='rounded-2xl bg-white border border-blue-100 shadow-xl max-w-7xl 2xl:max-w-[1600px] w-full flex flex-col p-0 animate-step-transition'
+          className='rounded-2xl bg-white border border-blue-100 shadow-xl w-full max-w-7xl xl:max-w-[1700px] 2xl:max-w-[1900px] flex flex-col p-0 animate-step-transition'
           key={pathname || ''}
         >
           {children}

@@ -76,7 +76,7 @@ export default function AdminLayout({ children }: { children: any }) {
 
         <Sidebar />
 
-        <main className='flex-1 ml-0 md:ml-72 min-w-0 overflow-auto flex flex-col'>
+        <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col'>
 
           <div className="flex-grow">
 

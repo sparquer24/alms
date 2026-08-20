@@ -9,7 +9,7 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
-import { isLicenseManagementRole } from '@/utils/roleUtils';
+import { canCreateApplications, isLicenseManagementRole } from '@/utils/roleUtils';
 
 interface BreadcrumbItem {
   label: string;
@@ -92,10 +92,10 @@ const Header = (props: HeaderProps) => {
 
   if (!showHeader) return null;
 
-  const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
+  const canCreateApplication = canCreateApplications(hookUserRole);
 
   // Adjust header position based on sidebar visibility
-  const headerLeftClass = showSidebar ? 'left-0 md:left-72' : 'left-0 md:left-4';
+  const headerLeftClass = showSidebar ? 'left-0 md:left-66' : 'left-0 md:left-4';
 
   // Determine if header needs extra height for breadcrumbs
   const hasBreadcrumbs = breadcrumbs && breadcrumbs.length > 0;
@@ -123,7 +123,7 @@ const Header = (props: HeaderProps) => {
               or when explicitly forced via the showCreateForm prop */}
           {(showSidebar || showCreateForm) && !hideCreateForm && (
             <div className='relative flex-shrink-0'>
-              {isZSUser && (
+              {canCreateApplication && (
                 <>
                   <button
                     className='px-4 py-2 bg-white text-[#001F54] rounded-md hover:bg-gray-100 flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap shadow-sm'

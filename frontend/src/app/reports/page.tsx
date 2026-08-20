@@ -125,7 +125,7 @@ export default function ReportsPage() {
       <Sidebar onStatusSelect={setSelectedStatusKey} />
       <Header />
 
-  <main className="flex-1 p-8 overflow-y-auto ml-0 md:ml-72">
+  <main className="flex-1 p-2 overflow-y-auto ml-0 md:ml-66">
         <div className="bg-white rounded-lg shadow p-6">
           <h1 className="text-2xl font-bold mb-6">My Reports</h1>
 

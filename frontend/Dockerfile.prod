@@ -9,6 +9,16 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ gcc libc-dev linux
 
 # Copy source and build
 COPY . .
+
+# Next.js bakes these in at build time:
+#  - BACKEND_URL         -> backend ORIGIN only (no /api). The Next.js rewrite appends /api/:path* itself,
+#                           so it must be the bare origin to avoid a double /api (e.g. .../api/api/health).
+#  - NEXT_PUBLIC_API_URL -> client-side API base (default: same-origin /api, proxied by Next rewrites)
+ARG BACKEND_URL=http://backend-prod:3001
+ARG NEXT_PUBLIC_API_URL=/api
+ENV BACKEND_URL=$BACKEND_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN NODE_OPTIONS=--max-old-space-size=3072 npx next build
 
 # ─── Runner stage ─────────────────────────────────────────────────────────────

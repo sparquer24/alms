@@ -3,6 +3,7 @@ import prisma from '../../db/prismaClient';
 import { LicenseStatus } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
+import { normalizeApplicationType } from '../../constants/flow-mapping';
 import { CancelWorkflowHandler } from './handlers/cancel-workflow.handler';
 
 @Injectable()
@@ -221,6 +222,104 @@ export class WorkflowService {
     });
     return mapping !== null && mapping.isActive === true;
   }
+
+  /**
+   * Resolve the location (stateId, districtId) used to scope the role-mapping
+   * lookup for an application. Mirrors getUsersInHierarchy(): FRESH/RENEWAL use
+   * the application's present address; CANCEL resolves through the cancel
+   * request → license → source application, with the license's flattened
+   * address as a fallback.
+   */
+  private async resolveApplicationLocation(applicationType: string, applicationId: number): Promise<{ stateId: number | null; districtId: number | null }> {
+    const t = applicationType.toLowerCase();
+
+    if (t.includes('renew')) {
+      const app = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { presentAddress: { select: { stateId: true, districtId: true } } },
+      });
+      return { stateId: app?.presentAddress?.stateId ?? null, districtId: app?.presentAddress?.districtId ?? null };
+    }
+
+    if (t.includes('cancel')) {
+      const cancelRequest = await prisma.cancelFormRequests.findUnique({
+        where: { id: applicationId },
+        select: { licenseId: true },
+      });
+      if (!cancelRequest?.licenseId) return { stateId: null, districtId: null };
+
+      const license = await prisma.licenses.findUnique({
+        where: { id: cancelRequest.licenseId },
+        select: { freshApplicationId: true, renewalApplicationId: true, presentStateId: true, presentDistrictId: true },
+      });
+      if (!license) return { stateId: null, districtId: null };
+
+      if (license.freshApplicationId) {
+        const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: license.freshApplicationId },
+          select: { presentAddress: { select: { stateId: true, districtId: true } } },
+        });
+        if (app?.presentAddress) return { stateId: app.presentAddress.stateId, districtId: app.presentAddress.districtId };
+      }
+      if (license.renewalApplicationId) {
+        const app = await prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: license.renewalApplicationId },
+          select: { presentAddress: { select: { stateId: true, districtId: true } } },
+        });
+        if (app?.presentAddress) return { stateId: app.presentAddress.stateId, districtId: app.presentAddress.districtId };
+      }
+      if (license.presentStateId) return { stateId: license.presentStateId, districtId: license.presentDistrictId ?? null };
+      return { stateId: null, districtId: null };
+    }
+
+    // FRESH
+    const app = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: applicationId },
+      select: { presentAddress: { select: { stateId: true, districtId: true } } },
+    });
+    return { stateId: app?.presentAddress?.stateId ?? null, districtId: app?.presentAddress?.districtId ?? null };
+  }
+
+  /**
+   * Resolve the role IDs the current role is allowed to forward to, scoped by
+   * application type + location. Resolution order mirrors the forward-list
+   * endpoint: exact (stateId, districtId) → state-level → global mapping.
+   */
+  private async resolveAllowedNextRoleIds(
+    currentRoleId: number,
+    applicationType: string,
+    stateId: number | null,
+    districtId: number | null,
+  ): Promise<number[]> {
+    let appType: any = 'FRESH';
+    try {
+      appType = normalizeApplicationType(applicationType);
+    } catch {
+      // Unrecognized application type — fall back to fresh, matching the
+      // dispatch default in handleUserAction().
+    }
+
+    const mapping = await prisma.roleFlowMapping.findFirst({
+      where: {
+        currentRoleId,
+        applicationType: appType,
+        purpose: 'ALL',
+        OR: [
+          { stateId, districtId },
+          { stateId, districtId: null },
+          { stateId: null, districtId: null },
+        ],
+      },
+      orderBy: [
+        { stateId: { sort: 'desc', nulls: 'last' } },
+        { districtId: { sort: 'desc', nulls: 'last' } },
+      ],
+      select: { nextRoleIds: true },
+    });
+
+    return mapping?.nextRoleIds ?? [];
+  }
+
  async freshapplication(payload: {
     isApproved?: boolean;
     isFLAFGenerated?: boolean;
@@ -786,6 +885,23 @@ export class WorkflowService {
     });
 
     const actionCode = payload.action.code.toUpperCase();
+
+    // ---- Role-mapping enforcement (FORWARD actions only) ----
+    // The target role must be permitted by the configured role mapping (scoped
+    // by application type + state/district) — a client cannot bypass Role
+    // Mapping by sending an arbitrary nextUserId. Re-visiting a role that
+    // already processed the application is intentionally ALLOWED, matching the
+    // admin-configured flow; workflow history still records the full trail.
+    if (isForwardAction(actionCode) && nextUserRoleId?.roleId) {
+      const { stateId, districtId } = await this.resolveApplicationLocation(applicationType, payload.applicationId);
+      const allowedRoleIds = await this.resolveAllowedNextRoleIds(currentRoleId, applicationType, stateId, districtId);
+
+      if (!allowedRoleIds.includes(nextUserRoleId.roleId)) {
+        throw new ForbiddenException(
+          `Target user (id ${payload.nextUserId}) has role ${nextUserRoleId.roleId}, which is not permitted by the configured role mapping for this application.`,
+        );
+      }
+    }
 
     if(payload.nextUserId !== undefined && payload.nextUserId !== null) {
       nextUserId = payload.nextUserId;
