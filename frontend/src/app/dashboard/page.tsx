@@ -30,6 +30,7 @@ import {
   Lock,
   ArrowRight,
   Radio,
+  MousePointerClick,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -108,6 +109,11 @@ export default function UniversalDashboard() {
   const effectiveRole = useMemo(() => {
     return normalizeRole(userRole);
   }, [userRole]);
+
+  // Helper to determine analytics path based on role
+  const getAnalyticsPath = useCallback(() => {
+    return effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics';
+  }, [effectiveRole]);
 
   useEffect(() => {
     setMounted(true);
@@ -197,6 +203,15 @@ export default function UniversalDashboard() {
       window.print();
     }
   };
+
+  const trendDiff = useMemo(() => {
+    if (!data?.trend || data.trend.length < 2) return null;
+    const current = data.trend[data.trend.length - 1]?.total || 0;
+    const previous = data.trend[data.trend.length - 2]?.total || 0;
+    if (previous === 0) return current > 0 ? '+100%' : '0%';
+    const pct = (((current - previous) / previous) * 100).toFixed(1);
+    return `${Number(pct) >= 0 ? '+' : ''}${pct}% vs last month`;
+  }, [data?.trend]);
 
   // Show loading while checking authentication and role authorization
   if (authLoading || !authChecked || !authInitialized) {
@@ -383,43 +398,6 @@ export default function UniversalDashboard() {
 
           {/* Main Dashboard Content Area */}
           <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
-        {/* Banner: Public & Open Governance Statement */}
-        <section className="bg-gradient-to-r from-[#0F2D52] via-[#1A365D] to-[#0A1C33] rounded-2xl p-6 sm:p-8 text-white shadow-xl border border-white/10 relative overflow-hidden">
-          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-[#B8860B]/10 to-transparent pointer-events-none"></div>
-          <div className="relative z-10 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-[#D4AF37] mb-3">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Executive Governance &amp; Administration</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              {effectiveRole === 'SUPER_ADMIN' ? 'Super Admin Overview & Global Analytics Dashboard' : 'Admin Overview & System Statistics Dashboard'}
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-300 leading-relaxed">
-              Executive-level management overview into firearm licensing applications, statutory verification
-              milestones, active license registers, and jurisdictional workloads governed under the
-              Arms Act and Arms Rules, 2016.
-            </p>
-
-            <div className="mt-5 flex flex-wrap items-center gap-4 text-xs text-gray-300">
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Authorized {effectiveRole === 'SUPER_ADMIN' ? 'Super Administrator' : 'Administrator'}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Shield className="w-4 h-4 text-[#D4AF37]" />
-                <span>Statutory Compliance Checked</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Activity className="w-4 h-4 text-blue-400" />
-                <span>Live System Availability: <strong className="text-white">{summary?.portalUptime || '99.98%'}</strong></span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─────────────────────────────────────────────────────────────
-            3. EXECUTIVE KPI METRIC CARDS GRID
-        ────────────────────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -435,7 +413,7 @@ export default function UniversalDashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {/* Card 1: Total Applications */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md transition-all hover:border-[#0F2D52]/30 flex flex-col justify-between group">
+            <Link href="/inbox?type=all" className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#0F2D52]/30 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -450,17 +428,18 @@ export default function UniversalDashboard() {
                 </div>
                 <div className="mt-1 flex items-center text-xs text-emerald-600 font-medium">
                   <TrendingUp className="w-3.5 h-3.5 mr-1" />
-                  <span>+12.4% vs last period</span>
+                  <span>{trendDiff || 'Live Database Inflow'}</span>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
+              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between items-center">
                 <span>Fresh: <strong>{summary?.freshApplications.toLocaleString()}</strong></span>
                 <span>Renewal: <strong>{summary?.renewalApplications.toLocaleString()}</strong></span>
+                <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-[#0F2D52] transition-colors" />
               </div>
-            </div>
+            </Link>
 
             {/* Card 2: Active Arms Licenses */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md transition-all hover:border-emerald-300 flex flex-col justify-between group">
+            <Link href="/licenses?tab=all&status=ACTIVE" className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -477,14 +456,15 @@ export default function UniversalDashboard() {
                   Across all jurisdictional districts
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-emerald-700 font-medium flex justify-between">
+              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-emerald-700 font-medium flex justify-between items-center">
                 <span>Total Registered:</span>
                 <strong>{summary?.totalLicenses.toLocaleString()}</strong>
+                <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-emerald-600 transition-colors" />
               </div>
-            </div>
+            </Link>
 
             {/* Card 3: Approved & Issued */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md transition-all hover:border-blue-300 flex flex-col justify-between group">
+            <Link href="/inbox?type=approved" className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-blue-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -501,14 +481,15 @@ export default function UniversalDashboard() {
                   {summary ? `${summary.approvedApplications.toLocaleString()} approved` : ''}
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
+              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between items-center">
                 <span>Disallowed:</span>
                 <strong className="text-rose-600">{summary?.rejectedApplications.toLocaleString()}</strong>
+                <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-blue-500 transition-colors" />
               </div>
-            </div>
+            </Link>
 
             {/* Card 4: In-Review / Pending */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md transition-all hover:border-amber-300 flex flex-col justify-between group">
+            <Link href="/inbox?type=pending" className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-amber-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -525,14 +506,15 @@ export default function UniversalDashboard() {
                   Under multi-level review
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
-                <span>Police / DM review:</span>
-                <strong>In Progress</strong>
+              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between items-center">
+                <span>Under Review:</span>
+                <strong className="text-amber-700">{summary?.pendingApplications || 0} In Progress</strong>
+                <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-amber-600 transition-colors" />
               </div>
-            </div>
+            </Link>
 
             {/* Card 5: Turnaround Time */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md transition-all hover:border-purple-300 flex flex-col justify-between group">
+            <Link href={getAnalyticsPath()} className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-purple-300 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -546,17 +528,18 @@ export default function UniversalDashboard() {
                   {summary ? `${summary.avgProcessingDays} Days` : '...'}
                 </div>
                 <div className="mt-1 text-xs text-emerald-600 font-medium">
-                  18% faster than SLA target
+                  {summary?.approvedApplications ? `Based on ${summary.approvedApplications} approved` : 'Live Application SLA'}
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
+              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between items-center">
                 <span>Disposal Rate:</span>
                 <strong className="text-purple-700">{summary?.disposalRate}%</strong>
+                <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-purple-500 transition-colors" />
               </div>
-            </div>
+            </Link>
 
             {/* Card 6: Biometric Compliance */}
-            <div className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md transition-all hover:border-[#B8860B]/40 flex flex-col justify-between group">
+            <Link href={getAnalyticsPath()} className="bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-200 hover:border-[#B8860B]/40 hover:scale-[1.02] active:scale-[0.98] flex flex-col justify-between group cursor-pointer">
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -570,14 +553,15 @@ export default function UniversalDashboard() {
                   {summary ? `${summary.biometricComplianceRate}%` : '...'}
                 </div>
                 <div className="mt-1 text-xs text-emerald-600 font-medium">
-                  Full UIDAI verification
+                  UIDAI Aadhaar biometric sync
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between">
+              <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex justify-between items-center">
                 <span>Expiring &lt;30d:</span>
                 <strong className="text-amber-600">{summary?.expiringWithin30Days}</strong>
+                <MousePointerClick className="w-3 h-3 text-gray-300 group-hover:text-[#B8860B] transition-colors" />
               </div>
-            </div>
+            </Link>
           </div>
         </section>
 
@@ -881,7 +865,7 @@ export default function UniversalDashboard() {
               </p>
             </div>
             <span className="text-xs font-semibold text-[#0F2D52] bg-blue-50 px-3 py-1 rounded-full self-start sm:self-auto">
-              5 Administrative Zones Active
+              {data?.zoneLoads?.length || 0} Administrative Zones Active
             </span>
           </div>
 
@@ -1017,10 +1001,10 @@ export default function UniversalDashboard() {
 
             <div className="mt-4 pt-3 border-t border-gray-100 text-center">
               <Link
-                href="/login"
+                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics'}
                 className="text-xs font-semibold text-[#0F2D52] hover:text-[#B8860B] transition-colors flex items-center justify-center gap-1"
               >
-                <span>Department Officers: Access Management Console</span>
+                <span>View System Diagnostics &amp; Audit Logs</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -1028,81 +1012,78 @@ export default function UniversalDashboard() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            8. CITIZEN GUIDANCE & STATUTORY RESOURCES
+            8. ADMINISTRATIVE QUICK ACTIONS & MANAGEMENT CONSOLE
         ────────────────────────────────────────────────────────────── */}
         <section className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200/80 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-2">
             <div>
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-[#0F2D52]" />
-                Citizen Licensing Information &amp; Official Procedures
+                <Shield className="w-5 h-5 text-[#0F2D52]" />
+                Administrative Quick Actions &amp; Management Console
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Official statutory procedures and guidelines under the Arms Rules, 2016
+                Direct statutory controls and configurations for authorized {effectiveRole === 'SUPER_ADMIN' ? 'Super Administrators' : 'Administrators'}
               </p>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Guide 1: Fresh Application */}
+            {/* Action 1: User & Hierarchy Management */}
             <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-blue-50/40 to-white hover:border-[#0F2D52]/30 transition-all flex flex-col justify-between">
               <div>
                 <div className="w-10 h-10 rounded-lg bg-[#0F2D52] text-white flex items-center justify-center mb-3">
-                  <FileText className="w-5 h-5" />
+                  <Users className="w-5 h-5" />
                 </div>
-                <h4 className="text-sm font-bold text-gray-900">Fresh License Application</h4>
+                <h4 className="text-sm font-bold text-gray-900">User &amp; Hierarchy Management</h4>
                 <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Submit digital Form A-1 with Aadhaar e-KYC, address proof, medical fitness certificate,
-                  and training completion endorsement.
+                  Manage officer accounts, role assignments, zonal jurisdiction mapping, and permission access across all police divisions.
                 </p>
               </div>
               <Link
-                href="/login"
+                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/userManagement' : '/admin/userManagement'}
                 className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#0F2D52] hover:text-[#B8860B] transition-colors"
               >
-                <span>Apply via Citizen Portal</span>
+                <span>Open User Console</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            {/* Guide 2: License Renewal */}
+            {/* Action 2: Workflow Configuration */}
             <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-amber-50/40 to-white hover:border-[#B8860B]/30 transition-all flex flex-col justify-between">
               <div>
                 <div className="w-10 h-10 rounded-lg bg-[#B8860B] text-white flex items-center justify-center mb-3">
-                  <RefreshCw className="w-5 h-5" />
+                  <Activity className="w-5 h-5" />
                 </div>
-                <h4 className="text-sm font-bold text-gray-900">License Renewal (Form A-2)</h4>
+                <h4 className="text-sm font-bold text-gray-900">Workflow &amp; Stage Mapping</h4>
                 <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Renew existing licenses within 90 days before expiry. Automated record merging,
-                  NDAL-ALIS UID verification, and ground enquiry.
+                  Configure multi-level approval hierarchies, statutory enquiry workflows, and action transition rules for licensing applications.
                 </p>
               </div>
               <Link
-                href="/login"
+                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/flowMapping' : '/admin/workflows'}
                 className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#B8860B] hover:text-[#A0750A] transition-colors"
               >
-                <span>Initiate Renewal</span>
+                <span>Configure Workflows</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            {/* Guide 3: Family Heirloom & Transfers */}
+            {/* Action 3: Analytics & Detailed Reports */}
             <div className="p-5 rounded-xl border border-gray-100 bg-gradient-to-br from-purple-50/40 to-white hover:border-purple-300 transition-all flex flex-col justify-between">
               <div>
                 <div className="w-10 h-10 rounded-lg bg-purple-700 text-white flex items-center justify-center mb-3">
-                  <Award className="w-5 h-5" />
+                  <TrendingUp className="w-5 h-5" />
                 </div>
-                <h4 className="text-sm font-bold text-gray-900">Heirloom &amp; Policy Transfers</h4>
+                <h4 className="text-sm font-bold text-gray-900">Advanced Analytics &amp; Reports</h4>
                 <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
-                  Transfer of heirloom firearms to legal heirs as per Ministry guidelines with NOC
-                  from other legal successors.
+                  Generate comprehensive audit reports, SLA compliance matrices, and jurisdictional workload exports across all districts.
                 </p>
               </div>
               <Link
-                href="/login"
+                href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/analytics' : '/admin/analytics'}
                 className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-900 transition-colors"
               >
-                <span>View Guidelines</span>
+                <span>View Analytics Portal</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -1139,7 +1120,7 @@ export default function UniversalDashboard() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
-              <form onSubmit={handleSearchSubmit} className="space-y-3">
+              <form onSubmit={handleLookupSubmit} className="space-y-3">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Acknowledgement No. / ALMS Ref ID
                 </label>

@@ -136,10 +136,10 @@ const FALLBACK_PUBLIC_DATA: PublicDashboardData = {
   zoneLoads: [],
   recentActivities: [],
   systemServices: [
-    { name: 'Core Licensing Gateway', status: 'OPERATIONAL', latency: '28ms', uptime: '99.99%' },
-    { name: 'Biometric Matcher Service', status: 'OPERATIONAL', latency: '42ms', uptime: '99.95%' },
-    { name: 'Police Verification Sync', status: 'OPERATIONAL', latency: '65ms', uptime: '99.90%' },
-    { name: 'UIDAI Aadhaar Verification Bridge', status: 'OPERATIONAL', latency: '110ms', uptime: '99.88%' },
+    { name: 'Core API Gateway', status: 'OPERATIONAL', latency: '<10ms', uptime: '100%' },
+    { name: 'PostgreSQL Database Engine', status: 'OPERATIONAL', latency: '<5ms', uptime: '100%' },
+    { name: 'Node.js Memory Pool', status: 'OPERATIONAL', latency: 'Active', uptime: '100%' },
+    { name: 'Biometric Enrolment Service', status: 'OPERATIONAL', latency: 'Connected', uptime: '100%' },
   ],
 };
 
