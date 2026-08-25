@@ -75,7 +75,7 @@ export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMen
         name: 'actionMapping',
         key: 'actionMapping',
         label: 'Action Mapping',
-        path: '/admin/actionMapping', // Uses the same UI under admin
+        path: '/superAdmin/actionMapping',
         order: 7,
     }
 };

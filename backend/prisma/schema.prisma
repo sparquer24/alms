@@ -131,16 +131,19 @@ model Roles {
 }
 
 model RolesActionsMapping {
-  id        Int      @id @default(autoincrement())
-  roleId    Int
-  actionId  Int
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  action    Actiones @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id              Int                      @id @default(autoincrement())
+  roleId          Int
+  actionId        Int
+  applicationType RoleFlowApplicationType  @default(ALL)
+  isActive        Boolean                  @default(true)
+  allowedById     Int?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  action          Actiones                 @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role            Roles                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  allowedBy       Users?                   @relation(fields: [allowedById], references: [id])
 
-  @@unique([roleId, actionId])
+  @@unique([roleId, actionId, applicationType])
 }
 
 model RoleFlowMapping {
@@ -227,6 +230,7 @@ model Users {
   renewalCurrentApplications     RenewalFormPersonalDetails[]                    @relation("RenewalCurrentApplicationOwner")
   renewalPreviousApplications    RenewalFormPersonalDetails[]                    @relation("RenewalPreviousApplicationOwner")
   flowMappingUpdates             RoleFlowMapping[]
+  allowedActionMappings          RolesActionsMapping[]
   district                       Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                       Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
   policeStation                  PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)

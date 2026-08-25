@@ -274,9 +274,12 @@ export default function ProceedingsForm({
           }
         } catch (e) {}
 
-        const data = await fetchData(
-          `/actiones${applicationId ? `?applicationId=${applicationId}` : ''}`
-        );
+        // Build query params: always include applicationType for role-scoped action filtering
+        const actionParams = new URLSearchParams();
+        if (applicationId) actionParams.set('applicationId', applicationId);
+        if (workflowApplicationType) actionParams.set('applicationType', workflowApplicationType);
+        const qs = actionParams.toString();
+        const data = await fetchData(`/actiones${qs ? `?${qs}` : ''}`);
         // data is expected to be an array of BackendAction
         const humanizeCode = (c: string) =>
           String(c || '')

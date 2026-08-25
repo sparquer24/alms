@@ -7,14 +7,21 @@ import { AdminErrorBoundary } from '../../../components/admin';
 import { AdminRoleService } from '@/services/admin/roles';
 import { AdminActionService, Action, RoleActionMapping } from '@/services/admin/actions';
 import { useAdminTheme } from '@/context/AdminThemeContext';
-import { AdminSpacing, AdminLayout, AdminBorderRadius } from '@/styles/admin-design-system';
+import { AdminLayout } from '@/styles/admin-design-system';
 
 export default function ActionMappingPage() {
   const queryClient = useQueryClient();
   const { colors } = useAdminTheme();
 
-  // Selected Role State
+  // Selected Role & Application Type State
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
+  const [selectedAppType, setSelectedAppType] = useState<string>('FRESH');
+
+  const appTypeOptions = [
+    { value: 'FRESH', label: 'Fresh' },
+    { value: 'RENEWAL', label: 'Renewal' },
+    { value: 'CANCEL', label: 'Cancellation' },
+  ];
 
   // Create Action Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -56,12 +63,12 @@ export default function ActionMappingPage() {
     },
   });
 
-  // Fetch Mappings for Selected Role
+  // Fetch Mappings for Selected Role + Application Type
   const { data: mappingsData, isLoading: isLoadingMappings } = useQuery({
-    queryKey: ['admin-action-mappings', selectedRoleId],
+    queryKey: ['admin-action-mappings', selectedRoleId, selectedAppType],
     queryFn: async () => {
       if (!selectedRoleId) return [];
-      const response = await AdminActionService.getAllActionMappings(selectedRoleId);
+      const response = await AdminActionService.getAllActionMappings(selectedRoleId, selectedAppType);
       return Array.isArray(response) ? response : [];
     },
     enabled: !!selectedRoleId,
@@ -80,20 +87,19 @@ export default function ActionMappingPage() {
           return await AdminActionService.createActionMapping({
             roleId: selectedRoleId,
             actionId: actionId,
+            applicationType: selectedAppType,
             isActive: true,
           });
         }
       } else {
         // Deactivate mapping
         if (mapping) {
-          // If the API returns error object we should handle it, but here we'll just soft-delete/deactivate
-          // Actually, our API does a soft-delete if we hit DELETE or PATCH isActive: false
           return await AdminActionService.deleteActionMapping(mapping.id);
         }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-action-mappings', selectedRoleId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-action-mappings', selectedRoleId, selectedAppType] });
       showNotification('Action mapping updated successfully', 'success');
     },
     onError: (error: any) => {
@@ -163,20 +169,37 @@ export default function ActionMappingPage() {
             </div>
             <div className='p-6 bg-white'>
               <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
-                <div className='flex flex-col gap-2 w-full md:w-auto'>
-                  <label className='font-medium text-slate-700'>Select Role to Configure</label>
-                  <select
-                    value={selectedRoleId || ''}
-                    onChange={(e) => setSelectedRoleId(Number(e.target.value) || null)}
-                    className='rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[250px]'
-                  >
-                    <option value=''>-- Select a Role --</option>
-                    {rolesData?.map((role: any) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name} ({role.code})
-                      </option>
-                    ))}
-                  </select>
+                <div className='flex flex-col md:flex-row gap-4 w-full md:w-auto'>
+                  <div className='flex flex-col gap-2'>
+                    <label className='font-medium text-slate-700'>Select Role to Configure</label>
+                    <select
+                      value={selectedRoleId || ''}
+                      onChange={(e) => setSelectedRoleId(Number(e.target.value) || null)}
+                      className='rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[250px]'
+                    >
+                      <option value=''>-- Select a Role --</option>
+                      {rolesData?.map((role: any) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name} ({role.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className='flex flex-col gap-2'>
+                    <label className='font-medium text-slate-700'>Application Type</label>
+                    <select
+                      value={selectedAppType}
+                      onChange={(e) => setSelectedAppType(e.target.value)}
+                      className='rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[200px]'
+                    >
+                      {appTypeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 
                 <button
@@ -206,7 +229,7 @@ export default function ActionMappingPage() {
                 <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
                   <div className='p-6 border-b border-slate-200'>
                     <h2 className='text-xl font-semibold text-slate-800'>Available Actions</h2>
-                    <p className='text-slate-500 mt-1 text-sm'>Toggle the switches to grant or revoke actions for the selected role.</p>
+                    <p className='text-slate-500 mt-1 text-sm'>Toggle the switches to grant or revoke actions for the selected role and application type.</p>
                   </div>
                   
                   {isLoadingActions || isLoadingMappings ? (
@@ -218,6 +241,7 @@ export default function ActionMappingPage() {
                           <tr className='bg-slate-50 border-b border-slate-200'>
                             <th className='p-4 font-semibold text-slate-600 text-sm'>Action Name</th>
                             <th className='p-4 font-semibold text-slate-600 text-sm'>Code</th>
+                            <th className='p-4 font-semibold text-slate-600 text-sm w-40'>Allowed By</th>
                             <th className='p-4 font-semibold text-slate-600 text-sm w-32 text-center'>Access</th>
                           </tr>
                         </thead>
@@ -231,6 +255,13 @@ export default function ActionMappingPage() {
                                 <td className='p-4 font-medium text-slate-800'>{action.name}</td>
                                 <td className='p-4 text-slate-500 text-sm'>
                                   <span className='bg-slate-100 px-2 py-1 rounded text-xs font-mono'>{action.code}</span>
+                                </td>
+                                <td className='p-4 text-sm text-slate-600'>
+                                  {isEnabled && mapping?.allowedBy?.username ? (
+                                    <span className='text-slate-700'>{mapping.allowedBy.username}</span>
+                                  ) : (
+                                    <span className='text-slate-400'>—</span>
+                                  )}
                                 </td>
                                 <td className='p-4 text-center'>
                                   <button
@@ -249,7 +280,7 @@ export default function ActionMappingPage() {
                           
                           {actionsData?.length === 0 && (
                             <tr>
-                              <td colSpan={3} className='p-8 text-center text-slate-500'>No actions found in the system.</td>
+                              <td colSpan={4} className='p-8 text-center text-slate-500'>No actions found in the system.</td>
                             </tr>
                           )}
                         </tbody>
