@@ -11,6 +11,7 @@ import {
   WorkflowGraphPreview,
   AdminSectionSkeleton,
 } from '@/components/admin';
+import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAdminTheme } from '@/context/AdminThemeContext';
 import {
   Layers,
@@ -188,6 +189,11 @@ export default function FlowMappingContent() {
   const [duplicateSource, setDuplicateSource] = useState<SelectOption | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Auto-fill State & District from current user's profile.
   // Admin: State is locked (read-only), District is changeable.
@@ -551,7 +557,12 @@ export default function FlowMappingContent() {
       backgroundColor: colors.surface,
       borderColor: colors.border,
       borderWidth: '1px',
-      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+      zIndex: 99999,
+    }),
+    menuPortal: (base: any) => ({
+      ...base,
+      zIndex: 99999,
     }),
     menuList: (base: any) => ({
       ...base,
@@ -588,40 +599,63 @@ export default function FlowMappingContent() {
     }),
   };
 
+  const handleResetForm = () => {
+    setCurrentRole(null);
+    setNextRoles([]);
+    setFormErrors({});
+    setSelectedStateId(userStateId);
+    setSelectedDistrictId(userDistrictId);
+    setSelectedStateName(userStateName);
+    setSelectedDistrictName(userDistrictName);
+  };
+
+  const handleOpenDuplicateModal = () => {
+    setDuplicateSource(currentRole);
+    setShowDuplicateModal(true);
+  };
+
   return (
     <AdminErrorBoundary>
-      <div
-        style={{
-          padding: AdminLayout.content.padding,
-          gap: AdminLayout.content.gap,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header Section with Gradient Background */}
-        <div
-          style={{
-            backgroundColor: colors.surface,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '12px',
-            overflow: 'hidden',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-          }}
-        >
-          <div
-            style={{
-              background: `linear-gradient(135deg, #001F54 0%, #003F88 100%)`,
-              padding: '24px 32px',
-            }}
-          >
-            <div style={{ color: '#ffffff' }}>
-              <h1 style={{ fontSize: '28px', fontWeight: 700, margin: '0 0 8px 0' }}>Flow Mapping</h1>
-              <p style={{ color: '#b3cbf2', fontSize: '15px', margin: 0, fontWeight: 500 }}>
-                Configure workflow routing between roles with circular dependency validation
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="flex flex-col flex-grow">
+        <PageSubHeader
+          title="Workflow Flow Mapping"
+          metaBadge={effectiveStateName ? `${effectiveStateName} Jurisdiction` : 'Global Jurisdiction'}
+          actions={
+            <>
+              {/* Quick Reset */}
+              <SubHeaderButton
+                onClick={handleResetForm}
+                title="Reset form configuration"
+                icon={<Eraser className="w-3.5 h-3.5" />}
+              >
+                Reset
+              </SubHeaderButton>
+
+              {/* Copy Mapping Modal */}
+              <SubHeaderButton
+                onClick={handleOpenDuplicateModal}
+                disabled={!currentRole || !currentFlowMapping || isSaving || isLoading}
+                title="Copy mapping configuration"
+                icon={<Copy className="w-3.5 h-3.5" />}
+                className="hidden sm:inline-flex"
+              >
+                Copy Flow
+              </SubHeaderButton>
+
+              {/* Save Mapping Button (Gold Primary) */}
+              <SubHeaderButton
+                variant="primary"
+                onClick={handleSubmit}
+                disabled={!currentRole || !effectiveDistrictId || nextRoles.length === 0 || isSaving || isLoading}
+                icon={isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              >
+                {isSaving ? 'Saving...' : 'Save Flow'}
+              </SubHeaderButton>
+            </>
+          }
+        />
+
+        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
         {/* Main Form Card */}
         <AdminCard title='Configure Workflow Mapping'>
@@ -652,6 +686,9 @@ export default function FlowMappingContent() {
                   placeholder='Select Application Type...'
                   isDisabled={isLoading}
                   styles={selectStyles}
+                  menuPortalTarget={isMounted && typeof document !== 'undefined' ? document.body : null}
+                  menuPosition="fixed"
+                  menuPlacement="auto"
                 />
               </MappingSection>
 
@@ -663,13 +700,7 @@ export default function FlowMappingContent() {
                 description={isSuperAdmin ? 'Select a state and district to scope this mapping' : 'Automatically scoped to your state & district'}
                 required
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                    gap: AdminSpacing.md,
-                  }}
-                >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* State */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <span
@@ -697,6 +728,9 @@ export default function FlowMappingContent() {
                         isLoading={statesLoading}
                         isDisabled={statesLoading}
                         styles={selectStyles}
+                        menuPortalTarget={isMounted && typeof document !== 'undefined' ? document.body : null}
+                        menuPosition="fixed"
+                        menuPlacement="auto"
                         noOptionsMessage={() => 'No states found'}
                       />
                     ) : (
@@ -742,6 +776,9 @@ export default function FlowMappingContent() {
                       isLoading={districtsLoading}
                       isDisabled={!(isSuperAdmin ? selectedStateId : userStateId) || districtsLoading}
                       styles={selectStyles}
+                      menuPortalTarget={isMounted && typeof document !== 'undefined' ? document.body : null}
+                      menuPosition="fixed"
+                      menuPlacement="auto"
                       noOptionsMessage={() =>
                         (isSuperAdmin ? selectedStateId : userStateId) ? 'No districts found' : 'Select a state to view districts'
                       }
@@ -771,6 +808,9 @@ export default function FlowMappingContent() {
                   isDisabled={isLoading}
                   isClearable
                   styles={selectStyles}
+                  menuPortalTarget={isMounted && typeof document !== 'undefined' ? document.body : null}
+                  menuPosition="fixed"
+                  menuPlacement="auto"
                 />
                 {formErrors.currentRole && (
                   <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
@@ -795,6 +835,9 @@ export default function FlowMappingContent() {
                   placeholder='Select next roles...'
                   isDisabled={!currentRole || isLoading}
                   styles={selectStyles}
+                  menuPortalTarget={isMounted && typeof document !== 'undefined' ? document.body : null}
+                  menuPosition="fixed"
+                  menuPlacement="auto"
                 />
                 {formErrors.nextRoles && (
                   <p style={{ color: '#ef4444', fontSize: '12px', margin: 0 }}>
@@ -1218,6 +1261,9 @@ export default function FlowMappingContent() {
                       onChange={setCurrentRole}
                       placeholder='Select target role...'
                       styles={selectStyles}
+                      menuPortalTarget={isMounted && typeof document !== 'undefined' ? document.body : null}
+                      menuPosition="fixed"
+                      menuPlacement="auto"
                     />
                   </div>
 
@@ -1356,6 +1402,7 @@ export default function FlowMappingContent() {
               </p>
             )}
           </AdminCard>
+        </div>
         </div>
       </div>
     </AdminErrorBoundary>

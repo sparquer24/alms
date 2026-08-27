@@ -66,12 +66,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Custom webpack config for bundle optimization
-  // NOTE: Do NOT override splitChunks here — Next.js manages chunk splitting internally.
-  // Overriding it breaks webpack-runtime chunk references (e.g., "Cannot find module './XXXX.js'").
   webpack: (config, { isServer, dev }) => {
-    if (isServer) {
-      config.output.chunkFilename = 'chunks/[id].js';
-    }
     return config;
   },
   // Stable build ID derived from git commit to avoid cache mismatches on redeploy.

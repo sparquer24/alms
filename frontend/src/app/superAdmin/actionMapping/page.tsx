@@ -1,7 +1,7 @@
 'use client';
 
-import ActionMappingPage from '@/app/admin/actionMapping/page';
+import ActionMappingContent from '@/components/UserManagement/ActionMappingContent';
 
 export default function SuperAdminActionMappingPage() {
-  return <ActionMappingPage />;
+  return <ActionMappingContent />;
 }

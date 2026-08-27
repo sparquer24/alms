@@ -9,7 +9,7 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
-import { canCreateApplications, isLicenseManagementRole } from '@/utils/roleUtils';
+import { canCreateApplications, isLicenseManagementRole, normalizeRole } from '@/utils/roleUtils';
 
 interface BreadcrumbItem {
   label: string;
@@ -67,6 +67,52 @@ const Header = (props: HeaderProps) => {
   const showLicenseManagement = isLicenseManagementRole(hookUserRole);
   const isLicensesActive = pathname === '/licenses';
 
+  const effectiveRole = normalizeRole(hookUserRole);
+  const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || (pathname && pathname.startsWith('/superAdmin'));
+  const roleLabel = isSuperAdmin ? 'Super Admin' : 'Admin';
+
+  const defaultRouteMeta = React.useMemo(() => {
+    if (!pathname) return null;
+    const map: Record<string, { roleTitle: string; pageTitle: string; roleHref?: string }> = {
+      '/dashboard': { roleTitle: roleLabel, pageTitle: 'Dashboard', roleHref: isSuperAdmin ? '/superAdmin/userManagement' : '/admin/userManagement' },
+      '/superAdmin/userManagement': { roleTitle: 'Super Admin', pageTitle: 'User Management', roleHref: '/superAdmin/userManagement' },
+      '/admin/userManagement': { roleTitle: 'Admin', pageTitle: 'User Management', roleHref: '/admin/userManagement' },
+      '/superAdmin/roleMapping': { roleTitle: 'Super Admin', pageTitle: 'Role Management', roleHref: '/superAdmin/roleMapping' },
+      '/admin/roleMapping': { roleTitle: 'Admin', pageTitle: 'Role Management', roleHref: '/admin/roleMapping' },
+      '/superAdmin/analytics': { roleTitle: 'Super Admin', pageTitle: 'Global Analytics', roleHref: '/superAdmin/analytics' },
+      '/admin/analytics': { roleTitle: 'Admin', pageTitle: 'Analytics', roleHref: '/admin/analytics' },
+      '/superAdmin/flowMapping': { roleTitle: 'Super Admin', pageTitle: 'Flow Mapping', roleHref: '/superAdmin/flowMapping' },
+      '/admin/flowMapping': { roleTitle: 'Admin', pageTitle: 'Flow Mapping', roleHref: '/admin/flowMapping' },
+      '/superAdmin/locationsManagement': { roleTitle: 'Super Admin', pageTitle: 'Locations Management', roleHref: '/superAdmin/locationsManagement' },
+      '/admin/locationsManagement': { roleTitle: 'Admin', pageTitle: 'Locations Management', roleHref: '/admin/locationsManagement' },
+      '/superAdmin/actionMapping': { roleTitle: 'Super Admin', pageTitle: 'Action Mapping', roleHref: '/superAdmin/actionMapping' },
+      '/admin/actionMapping': { roleTitle: 'Admin', pageTitle: 'Action Mapping', roleHref: '/admin/actionMapping' },
+      '/licenses': { roleTitle: 'Licenses', pageTitle: 'License Management', roleHref: '/licenses' },
+      '/settings': { roleTitle: 'Settings', pageTitle: 'User Settings', roleHref: '/settings' },
+      '/notifications': { roleTitle: 'Notifications', pageTitle: 'Notifications', roleHref: '/notifications' },
+      '/reports': { roleTitle: 'Reports', pageTitle: 'Reports', roleHref: '/reports' },
+    };
+
+    if (map[pathname]) return map[pathname];
+    for (const [route, meta] of Object.entries(map)) {
+      if (pathname.startsWith(route) && route !== '/') return meta;
+    }
+    return null;
+  }, [pathname, isSuperAdmin, roleLabel]);
+
+  const effectiveBreadcrumbs = React.useMemo(() => {
+    if (breadcrumbs && breadcrumbs.length > 0) return breadcrumbs;
+    if (defaultRouteMeta) {
+      return [
+        { label: defaultRouteMeta.roleTitle, href: defaultRouteMeta.roleHref },
+        { label: defaultRouteMeta.pageTitle },
+      ];
+    }
+    return undefined;
+  }, [breadcrumbs, defaultRouteMeta]);
+
+  const effectivePageTitle = pageTitle || defaultRouteMeta?.pageTitle;
+
   useEffect(() => {
     const name = userName || user?.name || user?.username;
     if (!isLoading && name) setDisplayName(name);
@@ -98,7 +144,7 @@ const Header = (props: HeaderProps) => {
   const headerLeftClass = showSidebar ? 'left-0 md:left-66' : 'left-0 md:left-4';
 
   // Determine if header needs extra height for breadcrumbs
-  const hasBreadcrumbs = breadcrumbs && breadcrumbs.length > 0;
+  const hasBreadcrumbs = effectiveBreadcrumbs && effectiveBreadcrumbs.length > 0;
 
   return (
     <header
@@ -174,11 +220,11 @@ const Header = (props: HeaderProps) => {
           )}
 
           {/* Breadcrumbs or Page Title */}
-          {(hasBreadcrumbs || pageTitle) && (
+          {(hasBreadcrumbs || effectivePageTitle) && (
             <nav className='min-w-0 flex-1' aria-label='Breadcrumb'>
-              {hasBreadcrumbs ? (
+              {hasBreadcrumbs && effectiveBreadcrumbs ? (
                 <ol className='flex items-center space-x-2 text-sm truncate'>
-                  {breadcrumbs.map((crumb, idx) => (
+                  {effectiveBreadcrumbs.map((crumb, idx) => (
                     <li key={idx} className='flex items-center space-x-2 min-w-0'>
                       {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
                       {crumb.onClick ? (
@@ -203,7 +249,7 @@ const Header = (props: HeaderProps) => {
                 </ol>
               ) : (
                 <div className='flex items-center gap-2 text-white font-semibold text-base truncate'>
-                  <span>{pageTitle}</span>
+                  <span>{effectivePageTitle}</span>
                 </div>
               )}
             </nav>

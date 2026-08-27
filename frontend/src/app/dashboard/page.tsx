@@ -58,6 +58,11 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { LayoutProvider } from '@/config/layoutContext';
 import {
+  PageSubHeader,
+  SubHeaderPills,
+  SubHeaderButton,
+} from '@/components/common/PageSubHeader';
+import {
   publicDashboardService,
   PublicDashboardData,
   SummaryKPIs,
@@ -250,94 +255,37 @@ export default function UniversalDashboard() {
         {/* Main Content Area with Header spacing */}
         <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
 
-          {/* Sticky Sub-header Navigation & Period Controls Bar */}
-          <div className="sticky top-0 z-30 bg-[#0F2D52]/95 backdrop-blur-md text-white px-4 sm:px-6 lg:px-8 py-2.5 shadow-md border-b border-[#1E3A8A]/50 transition-all">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-              {/* Breadcrumb / Title Info */}
-              <div className="flex items-center gap-2 text-xs text-gray-300">
-                <Link
-                  href={effectiveRole === 'SUPER_ADMIN' ? '/superAdmin/userManagement' : '/admin/userManagement'}
-                  className="hover:text-white transition-colors"
-                >
-                  {effectiveRole === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
-                </Link>
-                <span>/</span>
-                <span className="text-[#D4AF37] font-medium">Executive Overview Dashboard</span>
-                {mounted ? (
-                  <span className="hidden sm:inline text-gray-400">• Updated: {lastUpdated.toLocaleTimeString()}</span>
-                ) : (
-                  <span className="hidden sm:inline text-gray-400">• Real-time System Feed</span>
-                )}
-              </div>
-
-              {/* Filters Bar */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Standardized Sticky Sub-header Navigation & Period Controls Bar */}
+          <PageSubHeader
+            title="Executive Overview Dashboard"
+            metaBadge={mounted ? `Updated: ${lastUpdated.toLocaleTimeString()}` : 'Real-time System Feed'}
+            actions={
+              <>
                 {/* Application Family Filter */}
-                <div className="flex items-center rounded-lg bg-white/10 p-0.5 border border-white/10 text-xs">
-                  <button
-                    onClick={() => setAppTypeFilter('all')}
-                    className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                      appTypeFilter === 'all'
-                        ? 'bg-[#B8860B] text-white shadow'
-                        : 'text-gray-300 hover:text-white'
-                    }`}
-                  >
-                    All Types
-                  </button>
-                  <button
-                    onClick={() => setAppTypeFilter('fresh')}
-                    className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                      appTypeFilter === 'fresh'
-                        ? 'bg-[#B8860B] text-white shadow'
-                        : 'text-gray-300 hover:text-white'
-                    }`}
-                  >
-                    Fresh
-                  </button>
-                  <button
-                    onClick={() => setAppTypeFilter('renewal')}
-                    className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                      appTypeFilter === 'renewal'
-                        ? 'bg-[#B8860B] text-white shadow'
-                        : 'text-gray-300 hover:text-white'
-                    }`}
-                  >
-                    Renewal
-                  </button>
-                  <button
-                    onClick={() => setAppTypeFilter('cancel')}
-                    className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                      appTypeFilter === 'cancel'
-                        ? 'bg-[#B8860B] text-white shadow'
-                        : 'text-gray-300 hover:text-white'
-                    }`}
-                  >
-                    Cancellation
-                  </button>
-                </div>
+                <SubHeaderPills
+                  value={appTypeFilter}
+                  onChange={setAppTypeFilter}
+                  options={[
+                    { key: 'all', label: 'All Types' },
+                    { key: 'fresh', label: 'Fresh' },
+                    { key: 'renewal', label: 'Renewal' },
+                    { key: 'cancel', label: 'Cancellation' },
+                  ]}
+                />
 
                 {/* Time Range Pills */}
-                <div className="flex items-center rounded-lg bg-white/10 p-0.5 border border-white/10 text-xs">
-                  {[
+                <SubHeaderPills
+                  value={timeRange}
+                  onChange={setTimeRange}
+                  variant="white"
+                  options={[
                     { key: '7d', label: '7D' },
                     { key: '30d', label: '30D' },
                     { key: '90d', label: '90D' },
                     { key: '1y', label: '1Y' },
                     { key: 'all', label: 'All' },
-                  ].map((item) => (
-                    <button
-                      key={item.key}
-                      onClick={() => setTimeRange(item.key)}
-                      className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                        timeRange === item.key
-                          ? 'bg-white text-[#0F2D52] shadow'
-                          : 'text-gray-300 hover:text-white'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
+                  ]}
+                />
 
                 {/* Live Auto-Refresh Toggle */}
                 <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300">
@@ -353,6 +301,7 @@ export default function UniversalDashboard() {
                   </span>
                   <span>Live Feed</span>
                   <button
+                    type="button"
                     onClick={() => setAutoRefresh(!autoRefresh)}
                     className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase transition-colors ${
                       autoRefresh
@@ -365,36 +314,34 @@ export default function UniversalDashboard() {
                 </div>
 
                 {/* Manual Refresh Button */}
-                <button
+                <SubHeaderButton
                   onClick={handleManualRefresh}
                   disabled={refreshing}
                   title="Refresh Overview Data"
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 hover:text-white transition-colors border border-white/10 disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
+                  icon={<RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />}
+                />
 
                 {/* Print / Export */}
-                <button
+                <SubHeaderButton
                   onClick={handlePrint}
                   title="Print Dashboard Report"
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-200 hover:text-white text-xs flex items-center gap-1 transition-colors border border-white/10"
+                  icon={<Printer className="w-3.5 h-3.5" />}
                 >
-                  <Printer className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Print</span>
-                </button>
+                </SubHeaderButton>
 
                 {/* Quick Status Lookup Trigger */}
-                <button
+                <SubHeaderButton
+                  variant="primary"
                   onClick={() => setShowLookupModal(true)}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B8860B] hover:bg-[#A0750A] text-xs font-semibold text-white shadow-xs transition-all"
+                  icon={<Search className="w-3.5 h-3.5" />}
+                  className="hidden sm:inline-flex"
                 >
-                  <Search className="w-3.5 h-3.5" />
-                  <span>Lookup</span>
-                </button>
-              </div>
-            </div>
-          </div>
+                  Lookup
+                </SubHeaderButton>
+              </>
+            }
+          />
 
           {/* Main Dashboard Content Area */}
           <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
