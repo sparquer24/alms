@@ -31,7 +31,7 @@ import Header from '@/components/Header';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
-const LICENSE_ROLES = new Set(['ZS', 'DCP', 'CP', 'JTCP', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO']);
+const LICENSE_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'ZS', 'DCP', 'CP', 'JTCP', 'ARMS_SUPDT', 'ARMS_SEAT', 'ACO']);
 
 const VALID_TABS: LicenseTab[] = ['all', 'expiring', 'expired', 'import', 'audit'];
 

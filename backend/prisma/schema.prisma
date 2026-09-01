@@ -47,6 +47,7 @@ model States {
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("StateUsers")
   roleFlowMappings   RoleFlowMapping[]
+  cancelFormRequests CancelFormRequests[]
 }
 
 model Districts {
@@ -131,16 +132,19 @@ model Roles {
 }
 
 model RolesActionsMapping {
-  id        Int      @id @default(autoincrement())
-  roleId    Int
-  actionId  Int
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  action    Actiones @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id              Int                      @id @default(autoincrement())
+  roleId          Int
+  actionId        Int
+  applicationType RoleFlowApplicationType  @default(ALL)
+  isActive        Boolean                  @default(true)
+  allowedById     Int?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  action          Actiones                 @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role            Roles                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  allowedBy       Users?                   @relation(fields: [allowedById], references: [id])
 
-  @@unique([roleId, actionId])
+  @@unique([roleId, actionId, applicationType])
 }
 
 model RoleFlowMapping {
@@ -227,6 +231,7 @@ model Users {
   renewalCurrentApplications     RenewalFormPersonalDetails[]                    @relation("RenewalCurrentApplicationOwner")
   renewalPreviousApplications    RenewalFormPersonalDetails[]                    @relation("RenewalPreviousApplicationOwner")
   flowMappingUpdates             RoleFlowMapping[]
+  allowedActionMappings          RolesActionsMapping[]
   district                       Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                       Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
   policeStation                  PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
@@ -688,11 +693,13 @@ model CancelFormRequests {
   licenseId               Int?
   acknowledgementNo       String?                   @db.VarChar(20)
   applicantName           String?                   @db.Char(30)
+  stateId                 Int?
   actioner                Users?                    @relation("CancelRequestActioner", fields: [actionedBy], references: [id])
   currentUser             Users?                    @relation("CancelFormCurrentUser", fields: [currentUserId], references: [id])
   Licenses                Licenses?                 @relation("LicensesCancelLog", fields: [licenseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   previousUser            Users?                    @relation("CancelFormPreviousUser", fields: [previousUserId], references: [id])
   requester               Users                     @relation("CancelRequestRequester", fields: [requestedBy], references: [id])
+  state                   States?                   @relation(fields: [stateId], references: [id], onDelete: SetNull)
   workflowStatus          Statuses?                 @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id])
   cancelWorkflowHistories CancelWorkflowHistories[] @relation("CancelWorkflowHistories")
   licensesFromCancel      Licenses[]                @relation("LicenseToCancelApp")
@@ -701,6 +708,7 @@ model CancelFormRequests {
   @@index([currentUserId])
   @@index([createdAt])
   @@index([licenseId])
+  @@index([stateId])
 }
 
 model CancelWorkflowHistories {

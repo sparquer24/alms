@@ -13,8 +13,8 @@ export type UserRole = 'DCP' | 'ACP' | 'CP' | 'JTCP' | 'ADMIN' | 'SUPER_ADMIN' |
  * Maps each role to its default landing page path
  */
 const ROLE_REDIRECT_CONFIG: Record<string, string> = {
-  [RoleTypes.ADMIN]: '/admin/userManagement',
-  [RoleTypes.SUPER_ADMIN]: '/superAdmin/userManagement',  // Super Admin has separate global routes
+  [RoleTypes.ADMIN]: '/dashboard',
+  [RoleTypes.SUPER_ADMIN]: '/dashboard',
   [RoleTypes.ARMS_SUPDT]: '/inbox?type=all',
   [RoleTypes.SHO]: '/inbox?type=all',
   [RoleTypes.ZS]: '/inbox?type=all',

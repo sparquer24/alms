@@ -12,7 +12,13 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sidebar } from '../../../components/Sidebar';
+import { Plus, RefreshCw } from 'lucide-react';
+import {
+  PageSubHeader,
+  SubHeaderButton,
+  SubHeaderSearch,
+  SubHeaderPills,
+} from '@/components/common/PageSubHeader';
 import {
   RoleTable,
   RoleFormModal,
@@ -288,194 +294,128 @@ export default function RoleMappingPage() {
 
   return (
     <AdminErrorBoundary>
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: colors.background }}>
-        <Sidebar />
+      <div className="flex flex-col flex-grow">
+        <PageSubHeader
+          title="Role Management"
+          metaBadge={`${roles.length} Total Role${roles.length !== 1 ? 's' : ''}`}
+          actions={
+            <>
+              {/* Search Input */}
+              <SubHeaderSearch
+                value={searchTerm}
+                onChange={val => {
+                  setSearchTerm(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search role name or code..."
+              />
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* Header Section with Gradient Background */}
-          <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden' style={{ margin: AdminLayout.content.padding }}>
-            <div className='bg-[#001F54] text-white px-6 py-8'>
-              <div className='text-white'>
-                <h1 className='text-3xl font-bold mb-2'>Role Management</h1>
-                <p className='text-blue-100 text-lg'>
-                  Create, edit, and manage roles with customizable permissions and capabilities
-                </p>
-              </div>
-            </div>
-            <div className='p-6 bg-white'>
-              {/* Search and Filter Bar */}
-              <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4'>
-                <div className='flex flex-col sm:flex-row gap-3 flex-1'>
-                  <div className='relative flex-1 max-w-md'>
-                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                      <svg
-                        className='h-4 w-4 text-slate-400'
-                        fill='none'
-                        viewBox='0 0 24 24'
-                        stroke='currentColor'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={2}
-                          d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                        />
-                      </svg>
-                    </div>
-                    <input
-                      aria-label='Search roles'
-                      className='w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-300 bg-white text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
-                      placeholder='Search by role name or code...'
-                      value={searchTerm}
-                      onChange={e => {
-                        setSearchTerm(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    />
-                    {/* Clear search button */}
-                    {searchTerm && (
-                      <button
-                        aria-label='Clear search'
-                        title='Clear search'
-                        onClick={() => {
-                          setSearchTerm('');
-                          setCurrentPage(1);
-                        }}
-                        className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600'
-                      >
-                        <svg
-                          className='w-4 h-4'
-                          fill='none'
-                          stroke='currentColor'
-                          viewBox='0 0 24 24'
-                        >
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={2}
-                            d='M6 18L18 6M6 6l12 12'
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  <select
-                    value={statusFilter}
-                    onChange={e => {
-                      setStatusFilter(e.target.value as any);
-                      setCurrentPage(1);
-                    }}
-                    className='rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[160px]'
-                  >
-                    <option value='all'>All Statuses</option>
-                    <option value='active'>Active</option>
-                    <option value='inactive'>Inactive</option>
-                  </select>
-                </div>
-                <button
-                  onClick={handleAddRole}
-                  className='inline-flex items-center justify-center rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors whitespace-nowrap'
-                >
-                  <svg
-                    className='w-4 h-4 mr-2'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M12 4v16m8-8H4'
-                    />
-                  </svg>
-                  Add Role
-                </button>
-              </div>
-            </div>
-          </div>
+              {/* Status Filter */}
+              <SubHeaderPills
+                value={statusFilter}
+                onChange={val => {
+                  setStatusFilter(val as any);
+                  setCurrentPage(1);
+                }}
+                options={[
+                  { key: 'all', label: 'All' },
+                  { key: 'active', label: 'Active' },
+                  { key: 'inactive', label: 'Inactive' },
+                ]}
+              />
 
-          {/* Main Content */}
-          <main
-            style={{
-              flex: 1,
-              overflow: 'auto',
-              padding: AdminLayout.content.padding,
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: AdminLayout.content.gap }}>
-              {/* Error Alert */}
-              {fetchError && (
-                <AdminErrorAlert
-                  title='Failed to Load Roles'
-                  message={(fetchError as any).message || 'An error occurred'}
-                  onRetry={() => {
-                    setCurrentPage(1);
-                    refetchRoles();
-                  }}
-                />
-              )}
+              {/* Refresh Button */}
+              <SubHeaderButton
+                onClick={() => refetchRoles()}
+                disabled={isLoadingRoles}
+                title="Refresh Roles"
+                icon={<RefreshCw className={`w-3.5 h-3.5 ${isLoadingRoles ? 'animate-spin' : ''}`} />}
+              />
 
-              {/* Notification */}
-              {notification.visible && (
-                <div
-                  style={{
-                    padding: AdminSpacing.md,
-                    borderRadius: AdminBorderRadius.md,
-                    backgroundColor: notification.type === 'success' ? '#d4edda' : '#f8d7da',
-                    color: notification.type === 'success' ? '#155724' : '#856404',
-                    border: `1px solid ${notification.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <span>{notification.message}</span>
-                  <button
-                    onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      fontSize: '18px',
-                      cursor: 'pointer',
-                      color: 'inherit',
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
+              {/* Add Role Button */}
+              <SubHeaderButton
+                variant="primary"
+                onClick={handleAddRole}
+                icon={<Plus className="w-3.5 h-3.5" />}
+              >
+                Add Role
+              </SubHeaderButton>
+            </>
+          }
+        />
 
-              {/* Role Table */}
-              <div
+        {/* Main Content */}
+        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Error Alert */}
+          {fetchError && (
+            <AdminErrorAlert
+              title="Failed to Load Roles"
+              message={(fetchError as any).message || 'An error occurred'}
+              onRetry={() => {
+                setCurrentPage(1);
+                refetchRoles();
+              }}
+            />
+          )}
+
+          {/* Notification */}
+          {notification.visible && (
+            <div
+              style={{
+                padding: AdminSpacing.md,
+                borderRadius: AdminBorderRadius.md,
+                backgroundColor: notification.type === 'success' ? '#d4edda' : '#f8d7da',
+                color: notification.type === 'success' ? '#155724' : '#856404',
+                border: `1px solid ${notification.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <span>{notification.message}</span>
+              <button
+                onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
                 style={{
-                  backgroundColor: colors.surface,
-                  borderRadius: AdminBorderRadius.lg,
-                  border: `1px solid ${colors.border}`,
-                  overflow: 'hidden',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  color: 'inherit',
                 }}
               >
-                {isLoadingRoles ? (
-                  <AdminTableSkeleton rows={5} columns={6} />
-                ) : (
-                  <RoleTable
-                    roles={roles}
-                    isLoading={isLoadingRoles}
-                    sortBy={sortBy}
-                    sortOrder={sortOrder}
-                    onSort={handleSort}
-                    onEdit={handleEditRole}
-                    onDelete={handleDeleteRole}
-                    onToggleStatus={handleToggleStatus}
-                    onViewPermissions={handleViewPermissions}
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                  />
-                )}
-              </div>
+                ×
+              </button>
             </div>
-          </main>
+          )}
+
+          {/* Role Table */}
+          <div
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: AdminBorderRadius.lg,
+              border: `1px solid ${colors.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            {isLoadingRoles ? (
+              <AdminTableSkeleton rows={5} columns={6} />
+            ) : (
+              <RoleTable
+                roles={roles}
+                isLoading={isLoadingRoles}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                onEdit={handleEditRole}
+                onDelete={handleDeleteRole}
+                onToggleStatus={handleToggleStatus}
+                onViewPermissions={handleViewPermissions}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </div>
         </div>
       </div>
 

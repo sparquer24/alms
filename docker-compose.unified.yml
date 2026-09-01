@@ -10,14 +10,14 @@ services:
       - ./.env.prod
     environment:
       NODE_ENV: production
-      PORT: 3001
+      PORT: 3033
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "3001:3001"  # Expose for system nginx access
+      - "3033:3033"  # Expose for system nginx access
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3033/api/health"]
       interval: 45s
       timeout: 15s
       retries: 5
@@ -37,7 +37,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         # BACKEND_URL must be the bare origin - the Next.js rewrite appends /api/:path* itself
-        BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3001}
+        BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3033}
         # /api = same-origin: the browser calls the frontend, which proxies to the backend
         NEXT_PUBLIC_API_URL: /api
         NODE_ENV: production
@@ -47,18 +47,18 @@ services:
       - ./.env.prod
     environment:
       NEXT_PUBLIC_API_URL: /api
-      BACKEND_URL: http://backend-prod:3001
+      BACKEND_URL: http://backend-prod:3033
       HOSTNAME: 0.0.0.0
-      PORT: 5001
+      PORT: 5055
     ports:
-      - "5001:5001"  # Expose for system nginx access
+      - "5055:5055"  # Expose for system nginx access
     depends_on:
       backend-prod:
         condition: service_healthy
     networks:
       - alms-unified-net
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://backend-prod:3001/api/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://backend-prod:3033/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -90,26 +90,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # ─── AUTOMATED BACKUPS ──────────────────────────────────────────────────────
-  # Nightly pg_dump of the `db` service, retained locally per BACKUP_KEEP_* below.
-  # Restores: docker exec alms-db-backup /backup.sh (or see docs/backend/DOCKER_DATABASE_RESTORE_GUIDE.md)
-  db-backup:
-    image: prodrigestivill/postgres-backup-local:17-alpine
-    container_name: alms-db-backup
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file:
-      - ./.env.prod
-    environment:
-      POSTGRES_HOST: db
-      HEALTHCHECK_PORT: 8080
-    volumes:
-      - alms_db_backups:/backups
-    networks:
-      - alms-unified-net
-
 # ─── UNIFIED NETWORK ──────────────────────────────────────────────────────────
 networks:
   alms-unified-net:
@@ -122,5 +102,3 @@ networks:
 volumes:
   alms_pgdata:
     name: alms_pgdata
-  alms_db_backups:
-    name: alms_db_backups

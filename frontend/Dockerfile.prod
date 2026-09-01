@@ -35,5 +35,7 @@ COPY --from=builder /app/public ./public
 
 EXPOSE 5001
 
-# Run the Next.js standalone server (handles all routes including dynamic ones)
-CMD ["sh", "-c", "PORT=5001 node server.js"]
+# Run the Next.js standalone server (handles all routes including dynamic ones).
+# PORT is honored from the runtime environment (falls back to the ENV default above)
+# so docker-compose's `PORT: 5055` actually takes effect instead of being overridden.
+CMD ["sh", "-c", "node server.js"]

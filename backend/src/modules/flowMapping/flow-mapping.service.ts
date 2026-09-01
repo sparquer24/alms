@@ -1,11 +1,76 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CreateFlowMappingDto, UpdateFlowMappingDto, ValidateFlowMappingDto } from './dto/flow-mapping.dto';
 import { RoleFlowMapping, RoleFlowApplicationType } from '@prisma/client';
 import prisma from '../../db/prismaClient';
 import { FlowMappingContext, normalizeApplicationType } from '../../constants/flow-mapping';
+import { ROLE_CODES } from '../../constants/auth';
+import { LocationsService } from '../locations/locations.service';
 
 @Injectable()
 export class FlowMappingService {
+    constructor(private readonly locationsService: LocationsService) {}
+
+    /**
+     * Enforce role-based location authorization for Flow Mapping operations.
+     *
+     * SUPER_ADMIN: no restrictions – any valid state/district is allowed.
+     * ADMIN: must stay within their assigned state. If they send a
+     *        stateId that differs from their own, the request is rejected.
+     *        If they omit stateId, their assigned state is used.
+     *        districtId must belong to the resolved state.
+     *
+     * Throws ForbiddenException when an ADMIN attempts to operate
+     * outside their assigned location.
+     *
+     * @returns { stateId, districtId } with the resolved/authorized values
+     *          that downstream code MUST use instead of the raw request values.
+     */
+    async enforceLocationAuthorization(
+        userRoleCode: string | undefined,
+        userStateId: number | null | undefined,
+        userDistrictId: number | null | undefined,
+        requestedStateId: number | null | undefined,
+        requestedDistrictId: number | null | undefined,
+    ): Promise<{ stateId: number | null; districtId: number | null }> {
+        // SUPER_ADMIN bypasses all location restrictions
+        if (userRoleCode === ROLE_CODES.SUPER_ADMIN) {
+            // Still validate the hierarchy of whatever they sent
+            return this.locationsService.validateStateDistrictHierarchy(
+                requestedStateId ?? null,
+                requestedDistrictId ?? null,
+            );
+        }
+
+        // ─── ADMIN (and any other non-super-admin role) ───────────────
+        const effectiveStateId = userStateId ?? null;
+        const effectiveDistrictId = userDistrictId ?? null;
+
+        if (!effectiveStateId) {
+            throw new ForbiddenException(
+                'You are not assigned to any State. Contact a system administrator.',
+            );
+        }
+
+        // If the request provides a stateId, it MUST match the user's assigned state
+        if (requestedStateId != null && requestedStateId !== effectiveStateId) {
+            throw new ForbiddenException(
+                `You are not authorized to manage flow mappings for State ID ${requestedStateId}. ` +
+                `Your assigned state is ID ${effectiveStateId}.`,
+            );
+        }
+
+        // Resolve the districtId:
+        // - If the request provides a districtId, it must belong to the user's state
+        // - If not provided, fall back to the user's assigned district (may be null)
+        let resolvedDistrictId: number | null = requestedDistrictId ?? effectiveDistrictId;
+
+        // Validate the final (stateId, districtId) pair via the hierarchy check
+        return this.locationsService.validateStateDistrictHierarchy(
+            effectiveStateId,
+            resolvedDistrictId,
+        );
+    }
+
     /**
      * Build the shared RoleFlowMapping filter for an application-type + location context.
      * `currentRoleId` is optional so the same filter can be reused for whole-table queries.
@@ -92,6 +157,7 @@ export class FlowMappingService {
 
     /**
      * Get flow mapping for a specific role
+     * Accepts an optional userContext for authorization enforcement.
      */
     async getFlowMapping(roleId: number, context: FlowMappingContext = {}) {
         const appType = normalizeApplicationType(context.applicationType);
@@ -139,6 +205,9 @@ export class FlowMappingService {
         const stateId = data.stateId ?? null;
         const districtId = data.districtId ?? null;
 
+        // Validate State → District hierarchy before persisting
+        const validated = await this.locationsService.validateStateDistrictHierarchy(stateId, districtId);
+
         // Verify current role exists
         const currentRole = await prisma.roles.findUnique({
             where: { id: currentRoleId },
@@ -172,7 +241,7 @@ export class FlowMappingService {
         // detectCircularDependency() is still available via validateFlowMapping()
         // as an advisory check; it no longer blocks the upsert here.
 
-        return this.upsertFlowMapping(currentRoleId, appType, stateId, districtId, data.nextRoleIds, updatedBy);
+        return this.upsertFlowMapping(currentRoleId, appType, validated.stateId, validated.districtId, data.nextRoleIds, updatedBy);
     }
 
     /**
@@ -183,6 +252,9 @@ export class FlowMappingService {
         const appType = normalizeApplicationType(data.applicationType);
         const stateId = data.stateId ?? null;
         const districtId = data.districtId ?? null;
+
+        // Validate State → District hierarchy before performing validation
+        const validated = await this.locationsService.validateStateDistrictHierarchy(stateId, districtId);
 
         // Verify current role exists
         const currentRole = await prisma.roles.findUnique({
@@ -211,8 +283,8 @@ export class FlowMappingService {
             currentRoleId,
             nextRoleIds,
             appType,
-            stateId,
-            districtId,
+            validated.stateId,
+            validated.districtId,
         );
 
         return {
@@ -273,8 +345,6 @@ export class FlowMappingService {
                 } else if (recursionStack.has(neighbor)) {
                     // Cycle detected
                     const cycleStart = path.indexOf(neighbor);
-                    const cycleEnd = path.length;
-                    const circlePath = [...path.slice(cycleStart), neighbor].join(' → ');
                     return { has: true, path: [...path.slice(cycleStart), neighbor] };
                 }
             }
@@ -388,6 +458,9 @@ export class FlowMappingService {
         const stateId = context.stateId ?? null;
         const districtId = context.districtId ?? null;
 
+        // Validate State → District hierarchy before persisting
+        const validated = await this.locationsService.validateStateDistrictHierarchy(stateId, districtId);
+
         // Get source mapping
         const sourceMapping = await this.findFlowMapping(sourceRoleId, appType, stateId, districtId);
 
@@ -418,7 +491,7 @@ export class FlowMappingService {
         // detectCircularDependency() is still available via validateFlowMapping()
         // as an advisory check; it no longer blocks the upsert here.
 
-        return this.upsertFlowMapping(targetRoleId, appType, stateId, districtId, sourceMapping.nextRoleIds, updatedBy);
+        return this.upsertFlowMapping(targetRoleId, appType, validated.stateId, validated.districtId, sourceMapping.nextRoleIds, updatedBy);
     }
 
     /**

@@ -1,5 +1,6 @@
-import { Controller, Get, Param, HttpException, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Get, Param, HttpException, HttpStatus, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import * as jwt from 'jsonwebtoken';
 import { PublicService } from './public.service';
 
 /**
@@ -10,6 +11,50 @@ import { PublicService } from './public.service';
 @Controller('public')
 export class PublicController {
     constructor(private readonly publicService: PublicService) { }
+
+    @Get('dashboard/overview')
+    @ApiOperation({
+        summary: 'Get Universal Public Dashboard Overview',
+        description: 'Retrieve aggregated, anonymized statistics, volume trends, status distributions, weapon categories, zonal loads, and recent public activity for the universal dashboard. No authentication required.',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Public dashboard statistics retrieved successfully',
+    })
+    async getPublicDashboardOverview(
+        @Query('timeRange') timeRange?: string,
+        @Query('type') type?: string,
+        @Req() req?: any,
+    ) {
+        try {
+            let stateId: number | undefined;
+            let roleCode: string | undefined;
+
+            const authHeader = req?.headers?.authorization;
+            if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.replace('Bearer ', '').trim();
+                const secret = process.env.JWT_SECRET;
+                if (secret && token) {
+                    try {
+                        const decoded = jwt.verify(token, secret) as any;
+                        const parsedStateId = decoded?.state_id ?? decoded?.stateId;
+                        stateId = parsedStateId ? Number(parsedStateId) : undefined;
+                        roleCode = decoded?.role_code || (typeof decoded?.role === 'string' ? decoded.role : decoded?.role?.code);
+                    } catch (e) {
+                        // ignore token verification error, fallback to public view
+                    }
+                }
+            }
+
+            const data = await this.publicService.getPublicDashboardOverview(timeRange, type, stateId, roleCode);
+            return data;
+        } catch (err: any) {
+            throw new HttpException(
+                { success: false, error: err?.message || 'Failed to fetch public dashboard data' },
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
 
     @Get('application/:applicationId')
     @ApiOperation({
