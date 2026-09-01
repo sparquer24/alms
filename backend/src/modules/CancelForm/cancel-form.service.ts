@@ -39,7 +39,7 @@ export class CancelFormService {
         // Check if the license has been CANCELLED (inside transaction for atomicity)
         const targetLicense = await tx.licenses.findUnique({
           where: { id: dto.licenseId },
-          select: { status: true },
+          select: { status: true, presentStateId: true, permanentStateId: true },
         });
 
         if (targetLicense && targetLicense.status === 'CANCELLED') {
@@ -63,6 +63,8 @@ export class CancelFormService {
           );
         }
 
+        const resolvedStateId = targetLicense?.presentStateId || targetLicense?.permanentStateId || null;
+
         // generate a unique acknowledgement number for the cancel request
         const acknowledgementNo = `CAF${Date.now()}${Math.floor(Math.random() * 1000)}`;
         console.log('Generated acknowledgementNo:', acknowledgementNo);
@@ -73,11 +75,11 @@ export class CancelFormService {
           remarks: dto.remarks || null,
           requestedBy: currentUserId,
           currentUserId: currentUserId,
+          stateId: resolvedStateId,
           requestedDate: new Date(),
           workFlowStatusId: initiateStatus?.id || null,
           acknowledgementNo,
           applicantName: dto.applicantName,
-
         });
         const created = await tx.cancelFormRequests.create({
           data: {
@@ -87,6 +89,7 @@ export class CancelFormService {
             remarks: dto.remarks || null,
             requestedBy: currentUserId,
             currentUserId: currentUserId,
+            stateId: resolvedStateId,
             requestedDate: new Date(),
             workFlowStatusId: initiateStatus?.id || null,
             acknowledgementNo,
@@ -306,6 +309,8 @@ export class CancelFormService {
     requestedBy?: number;
     licenseId?: number;
     status?: string;
+    stateId?: number;
+    roleCode?: string;
   }): Promise<{ data: any[]; total: number; page: number; limit: number }> {
     try {
       const page = Math.max(Number(filters.page ?? 1), 1);
@@ -313,6 +318,14 @@ export class CancelFormService {
       const skip = (page - 1) * limit;
 
       const where: any = {};
+
+      if (filters.roleCode !== 'SUPER_ADMIN' && filters.stateId) {
+        where.OR = [
+          { stateId: filters.stateId },
+          { Licenses: { presentStateId: filters.stateId } },
+          { requester: { stateId: filters.stateId } },
+        ];
+      }
 
       if (filters.requestedBy) {
         where.requestedBy = filters.requestedBy;

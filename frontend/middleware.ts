@@ -9,8 +9,8 @@ import { jwtVerify } from 'jose';
  * ⚠️ Keep in sync with getRoleBasedRedirectPath in config/roleRedirections.ts
  */
 const ROLE_REDIRECT_MAP: Record<string, string> = {
-  'ADMIN': '/admin/userManagement',
-  'SUPER_ADMIN': '/superAdmin/userManagement',
+  'ADMIN': '/dashboard',
+  'SUPER_ADMIN': '/dashboard',
   'ARMS_SUPDT': '/inbox?type=forwarded',
   'SHO': '/inbox?type=forwarded',
   'ZS': '/inbox?type=forwarded',
@@ -218,6 +218,7 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname === '/' ||
     pathname === '/login' ||
+    pathname.startsWith('/public') ||
     pathname.startsWith('/reset-password') ||
     pathname.match(/\.(png|jpe?g|svg|ico)$/i);
 
@@ -231,7 +232,18 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request, pathname);
   }
 
-  // Token is valid — proceed
+  // ── Rule 3: Role-based protection for /dashboard (ADMIN & SUPER_ADMIN only) ──
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard')) {
+    const role = extractRoleFromCookies(request);
+    if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      if (role && ROLE_REDIRECT_MAP[role]) {
+        return NextResponse.redirect(new URL(ROLE_REDIRECT_MAP[role], request.url));
+      }
+      return NextResponse.redirect(new URL('/inbox?type=all', request.url));
+    }
+  }
+
+  // Token is valid and authorized — proceed
   return NextResponse.next();
 }
 

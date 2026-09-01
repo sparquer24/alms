@@ -1260,13 +1260,12 @@ async function main() {
         continue;
       }
 
-      // Check if mapping already exists
-      const existingMapping = await prisma.rolesActionsMapping.findUnique({
+      // Check if mapping already exists (unique on roleId + actionId + applicationType)
+      const existingMapping = await prisma.rolesActionsMapping.findFirst({
         where: {
-          roleId_actionId: {
-            roleId: roleId,
-            actionId: actionId
-          }
+          roleId: roleId,
+          actionId: actionId,
+          applicationType: 'ALL',
         }
       });
 

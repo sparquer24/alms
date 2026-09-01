@@ -12,10 +12,13 @@ export interface RoleActionMapping {
   id: number;
   roleId: number;
   actionId: number;
+  applicationType: string;
   isActive: boolean;
+  allowedById?: number | null;
   createdAt: string;
   updatedAt: string;
   action?: Action;
+  allowedBy?: { id: number; username: string } | null;
 }
 
 export const AdminActionService = {
@@ -25,9 +28,13 @@ export const AdminActionService = {
     return response;
   },
 
-  // Get all action mappings
-  getAllActionMappings: async (roleId?: number) => {
-    const url = roleId ? `/actiones/RolesActionsMapping?roleId=${roleId}` : '/actiones/RolesActionsMapping';
+  // Get all action mappings, optionally filtered by roleId and/or applicationType
+  getAllActionMappings: async (roleId?: number, applicationType?: string) => {
+    const params = new URLSearchParams();
+    if (roleId) params.append('roleId', String(roleId));
+    if (applicationType) params.append('applicationType', applicationType);
+    const qs = params.toString();
+    const url = qs ? `/actiones/RolesActionsMapping?${qs}` : '/actiones/RolesActionsMapping';
     const response = await apiClient.get(url);
     return response;
   },
@@ -39,13 +46,13 @@ export const AdminActionService = {
   },
 
   // Create action mapping
-  createActionMapping: async (data: { roleId: number; actionId: number; isActive: boolean }) => {
+  createActionMapping: async (data: { roleId: number; actionId: number; applicationType: string; isActive: boolean }) => {
     const response = await apiClient.post('/actiones/RolesActionsMapping', data);
     return response;
   },
 
   // Update action mapping
-  updateActionMapping: async (id: number, data: { roleId?: number; actionId?: number; isActive?: boolean }) => {
+  updateActionMapping: async (id: number, data: { roleId?: number; actionId?: number; applicationType?: string; isActive?: boolean }) => {
     const response = await apiClient.put(`/actiones/RolesActionsMapping/${id}`, data);
     return response;
   },

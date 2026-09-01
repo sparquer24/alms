@@ -7,28 +7,55 @@ import {
     Body,
     Param,
     Query,
+    Req,
+    UseGuards,
     ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { AuthGuard } from '../../middleware/auth.middleware';
 import { FlowMappingService } from './flow-mapping.service';
 import { CreateFlowMappingDto, UpdateFlowMappingDto, ValidateFlowMappingDto } from './dto/flow-mapping.dto';
 import { FlowMappingContext } from '../../constants/flow-mapping';
 
 @ApiTags('Flow Mapping')
+@ApiBearerAuth('JWT-auth')
 @Controller('flow-mapping')
+@UseGuards(AuthGuard)
 export class FlowMappingController {
     constructor(private readonly flowMappingService: FlowMappingService) { }
+
+    /**
+     * Enforce role-based location authorization from the request context.
+     *
+     * SUPER_ADMIN can operate on any valid state/district.
+     * ADMIN is restricted to their assigned state; any mismatch is rejected.
+     * Always returns resolved/authorized stateId and districtId values that
+     * callers MUST use instead of the raw request values.
+     */
+    private async authorizeLocation(
+        req: any,
+        requestedStateId?: number | null,
+        requestedDistrictId?: number | null,
+    ): Promise<{ stateId: number | null; districtId: number | null }> {
+        return this.flowMappingService.enforceLocationAuthorization(
+            req.user?.roleCode,
+            req.user?.stateId,
+            req.user?.districtId,
+            requestedStateId ?? null,
+            requestedDistrictId ?? null,
+        );
+    }
 
     /** Parse optional query params into a flow-mapping lookup context. */
     private flowMappingContext(
         applicationType?: string,
-        stateId?: string,
-        districtId?: string,
+        stateId?: string | number | null,
+        districtId?: string | number | null,
     ): FlowMappingContext {
         return {
             applicationType,
-            stateId: stateId ? parseInt(stateId, 10) : null,
-            districtId: districtId ? parseInt(districtId, 10) : null,
+            stateId: stateId != null && stateId !== '' ? Number(stateId) : null,
+            districtId: districtId != null && districtId !== '' ? Number(districtId) : null,
         };
     }
 
@@ -61,10 +88,15 @@ export class FlowMappingController {
         @Query('applicationType') applicationType?: string,
         @Query('stateId') stateId?: string,
         @Query('districtId') districtId?: string,
+        @Req() req?: any,
     ) {
+        const sId = stateId ? parseInt(stateId, 10) : null;
+        const dId = districtId ? parseInt(districtId, 10) : null;
+        const authorized = await this.authorizeLocation(req, sId, dId);
+
         const result = await this.flowMappingService.getFlowMapping(
             roleId,
-            this.flowMappingContext(applicationType, stateId, districtId),
+            this.flowMappingContext(applicationType, authorized.stateId, authorized.districtId),
         );
         return {
             success: true,
@@ -97,9 +129,14 @@ export class FlowMappingController {
         @Query('applicationType') applicationType?: string,
         @Query('stateId') stateId?: string,
         @Query('districtId') districtId?: string,
+        @Req() req?: any,
     ) {
+        const sId = stateId ? parseInt(stateId, 10) : null;
+        const dId = districtId ? parseInt(districtId, 10) : null;
+        const authorized = await this.authorizeLocation(req, sId, dId);
+
         const result = await this.flowMappingService.getAllFlowMappings(
-            this.flowMappingContext(applicationType, stateId, districtId),
+            this.flowMappingContext(applicationType, authorized.stateId, authorized.districtId),
         );
         return {
             success: true,
@@ -132,11 +169,19 @@ export class FlowMappingController {
     async updateFlowMapping(
         @Param('roleId', ParseIntPipe) roleId: number,
         @Body() updateDto: UpdateFlowMappingDto,
+        @Req() req?: any,
     ) {
+        const authorized = await this.authorizeLocation(
+            req,
+            updateDto.stateId ?? null,
+            updateDto.districtId ?? null,
+        );
+
+        // Override DTO values with authorized values to prevent privilege escalation
         const result = await this.flowMappingService.createOrUpdateFlowMapping(
             roleId,
-            updateDto,
-            updateDto.updatedBy,
+            { ...updateDto, stateId: authorized.stateId, districtId: authorized.districtId },
+            req?.user?.sub ?? updateDto.updatedBy,
         );
         return {
             success: true,
@@ -167,10 +212,18 @@ export class FlowMappingController {
     @ApiResponse({ status: 400, description: 'Bad request - Invalid role IDs or circular dependency' })
     @ApiResponse({ status: 404, description: 'Role not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async createFlowMapping(@Body() createDto: CreateFlowMappingDto) {
+    async createFlowMapping(@Body() createDto: CreateFlowMappingDto, @Req() req?: any) {
+        const authorized = await this.authorizeLocation(
+            req,
+            createDto.stateId ?? null,
+            createDto.districtId ?? null,
+        );
+
+        // Override DTO values with authorized values to prevent privilege escalation
         const result = await this.flowMappingService.createOrUpdateFlowMapping(
             createDto.currentRoleId,
-            createDto,
+            { ...createDto, stateId: authorized.stateId, districtId: authorized.districtId },
+            req?.user?.sub,
         );
         return {
             success: true,
@@ -201,8 +254,19 @@ export class FlowMappingController {
     @ApiResponse({ status: 400, description: 'Bad request - Invalid role IDs' })
     @ApiResponse({ status: 404, description: 'Role not found' })
     @ApiResponse({ status: 500, description: 'Internal server error' })
-    async validateFlowMapping(@Body() validateDto: ValidateFlowMappingDto) {
-        const result = await this.flowMappingService.validateFlowMapping(validateDto);
+    async validateFlowMapping(@Body() validateDto: ValidateFlowMappingDto, @Req() req?: any) {
+        const authorized = await this.authorizeLocation(
+            req,
+            validateDto.stateId ?? null,
+            validateDto.districtId ?? null,
+        );
+
+        // Override DTO values with authorized values to prevent privilege escalation
+        const result = await this.flowMappingService.validateFlowMapping({
+            ...validateDto,
+            stateId: authorized.stateId,
+            districtId: authorized.districtId,
+        });
         return {
             success: true,
             data: result,
@@ -228,10 +292,15 @@ export class FlowMappingController {
         @Query('applicationType') applicationType?: string,
         @Query('stateId') stateId?: string,
         @Query('districtId') districtId?: string,
+        @Req() req?: any,
     ) {
+        const sId = stateId ? parseInt(stateId, 10) : null;
+        const dId = districtId ? parseInt(districtId, 10) : null;
+        const authorized = await this.authorizeLocation(req, sId, dId);
+
         await this.flowMappingService.deleteFlowMapping(
             roleId,
-            this.flowMappingContext(applicationType, stateId, districtId),
+            this.flowMappingContext(applicationType, authorized.stateId, authorized.districtId),
         );
         return {
             success: true,
@@ -266,10 +335,15 @@ export class FlowMappingController {
         @Query('applicationType') applicationType?: string,
         @Query('stateId') stateId?: string,
         @Query('districtId') districtId?: string,
+        @Req() req?: any,
     ) {
+        const sId = stateId ? parseInt(stateId, 10) : null;
+        const dId = districtId ? parseInt(districtId, 10) : null;
+        const authorized = await this.authorizeLocation(req, sId, dId);
+
         const result = await this.flowMappingService.getNextRoles(
             roleId,
-            this.flowMappingContext(applicationType, stateId, districtId),
+            this.flowMappingContext(applicationType, authorized.stateId, authorized.districtId),
         );
         return {
             success: true,
@@ -298,11 +372,17 @@ export class FlowMappingController {
         @Query('applicationType') applicationType?: string,
         @Query('stateId') stateId?: string,
         @Query('districtId') districtId?: string,
+        @Req() req?: any,
     ) {
+        const sId = stateId ? parseInt(stateId, 10) : null;
+        const dId = districtId ? parseInt(districtId, 10) : null;
+        const authorized = await this.authorizeLocation(req, sId, dId);
+
         const result = await this.flowMappingService.duplicateFlowMapping(
             sourceRoleId,
             targetRoleId,
-            this.flowMappingContext(applicationType, stateId, districtId),
+            this.flowMappingContext(applicationType, authorized.stateId, authorized.districtId),
+            req?.user?.sub,
         );
         return {
             success: true,
@@ -330,10 +410,15 @@ export class FlowMappingController {
         @Query('applicationType') applicationType?: string,
         @Query('stateId') stateId?: string,
         @Query('districtId') districtId?: string,
+        @Req() req?: any,
     ) {
+        const sId = stateId ? parseInt(stateId, 10) : null;
+        const dId = districtId ? parseInt(districtId, 10) : null;
+        const authorized = await this.authorizeLocation(req, sId, dId);
+
         const result = await this.flowMappingService.resetFlowMapping(
             roleId,
-            this.flowMappingContext(applicationType, stateId, districtId),
+            this.flowMappingContext(applicationType, authorized.stateId, authorized.districtId),
         );
         return {
             success: true,

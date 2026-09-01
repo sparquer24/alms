@@ -15,38 +15,40 @@ export async function preloadAdminPages(): Promise<void> {
     try {
         const _items = getAdminMenuItems();
 
-        // Dynamically import admin page components to warm up the module cache
+        // Dynamically import admin components to warm up the module cache
         const imports = await Promise.allSettled([
-            import('@/app/admin/userManagement/page'),
-            import('@/app/admin/roleMapping/page'),
-            import('@/app/admin/analytics/page'),
-            import('@/app/admin/flowMapping/page'),
+            import('@/components/UserManagement/UserManagementContent'),
+            import('@/components/analytics/AnalyticsDashboard'),
+            import('@/components/UserManagement/FlowMappingContent'),
+            import('@/components/UserManagement/LocationsManagementContent'),
+            import('@/components/UserManagement/ActionMappingContent'),
         ]);
 
         // Log any import failures (don't block on them)
         imports.forEach((result, index) => {
             if (result.status === 'rejected') {
-                console.debug(`Failed to preload admin page ${index}:`, result.reason);
+                console.debug(`Failed to preload admin component ${index}:`, result.reason);
             }
         });
     } catch (err) {
         // Silent fail - preloading is just an optimization
-        console.debug('Admin page preloading error:', err);
+        console.debug('Admin component preloading error:', err);
     }
 }
 
 /**
- * Preload a specific admin page
+ * Preload a specific admin page component
  */
 export async function preloadAdminPage(key: string): Promise<void> {
     if (typeof window === 'undefined') return;
 
     try {
         const pathMap: Record<string, () => Promise<any>> = {
-            'userManagement': () => import('@/app/admin/userManagement/page'),
-            'roleMapping': () => import('@/app/admin/roleMapping/page'),
-            'analytics': () => import('@/app/admin/analytics/page'),
-            'flowMapping': () => import('@/app/admin/flowMapping/page'),
+            'userManagement': () => import('@/components/UserManagement/UserManagementContent'),
+            'analytics': () => import('@/components/analytics/AnalyticsDashboard'),
+            'flowMapping': () => import('@/components/UserManagement/FlowMappingContent'),
+            'locationsManagement': () => import('@/components/UserManagement/LocationsManagementContent'),
+            'actionMapping': () => import('@/components/UserManagement/ActionMappingContent'),
         };
 
         const importer = pathMap[key];
@@ -54,7 +56,7 @@ export async function preloadAdminPage(key: string): Promise<void> {
             await importer();
         }
     } catch (err) {
-        console.debug(`Failed to preload admin page: ${key}`, err);
+        console.debug(`Failed to preload admin component: ${key}`, err);
     }
 }
 

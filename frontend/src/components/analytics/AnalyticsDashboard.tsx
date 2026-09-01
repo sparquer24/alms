@@ -156,14 +156,7 @@ export default function AnalyticsDashboard({
 
   return (
     <AdminErrorBoundary>
-      <div
-        style={{
-          padding: AdminLayout.content.padding,
-          gap: AdminLayout.content.gap,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <div className="flex flex-col flex-grow">
         <FiltersHeader
           fromDate={fromDate}
           toDate={toDate}
@@ -178,36 +171,29 @@ export default function AnalyticsDashboard({
           isLoading={isLoading}
         />
 
-        <div style={{ display: 'flex', gap: AdminSpacing.md }}>
-          <Link
-            href={analyticsBasePath}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: 'none',
-              color: pathname === analyticsBasePath ? '#fff' : '#001F54',
-              backgroundColor: pathname === analyticsBasePath ? '#001F54' : '#E5EAF5',
-            }}
-          >
-            Overview
-          </Link>
-          <Link
-            href={applicationsPath}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: 'none',
-              color: pathname === applicationsPath ? '#fff' : '#001F54',
-              backgroundColor: pathname === applicationsPath ? '#001F54' : '#E5EAF5',
-            }}
-          >
-            Applications
-          </Link>
-        </div>
+        <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          <div className="flex gap-2 bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-gray-200/80 w-fit">
+            <Link
+              href={analyticsBasePath}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                pathname === analyticsBasePath
+                  ? 'bg-[#001F54] text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Overview
+            </Link>
+            <Link
+              href={applicationsPath}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                pathname === applicationsPath
+                  ? 'bg-[#001F54] text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              Applications
+            </Link>
+          </div>
 
         {appError && (
           <AdminErrorAlert
@@ -348,6 +334,7 @@ export default function AnalyticsDashboard({
             loading={recentAppsLoading || recentLicensesLoading}
             colors={colors}
           />
+        </div>
         </div>
       </div>
     </AdminErrorBoundary>

@@ -4,6 +4,12 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { ArrowLeft, Download, Plus } from 'lucide-react';
+import {
+  PageSubHeader,
+  SubHeaderButton,
+  SubHeaderSearch,
+} from '@/components/common/PageSubHeader';
 import {
   AdminCard,
   AdminTable,
@@ -418,181 +424,83 @@ export default function LocationsManagementContent() {
   const canNavigateToChild = currentLevel !== 'station' && items.length > 0;
 
   return (
-    <div style={{ padding: AdminSpacing.lg }}>
-      {/* Header Section with Gradient Background */}
-      <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6'>
-        <div className='bg-[#001F54] text-white px-6 py-8'>
-          <div className='text-white'>
-            <h1 className='text-3xl font-bold mb-2'>Locations Management</h1>
-            <p className='text-blue-100 text-lg'>
-              Manage the hierarchical location structure
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="flex flex-col flex-grow">
+      <PageSubHeader
+        title="Locations Management"
+        metaBadge={`${levelConfig.label}: ${items.length} Record${items.length !== 1 ? 's' : ''}`}
+        actions={
+          <>
+            {/* Search */}
+            <SubHeaderSearch
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={`Search ${levelConfig.label.toLowerCase()}...`}
+            />
 
-      {/* Breadcrumb Navigation */}
-      {breadcrumbPath.length > 1 && (
-        <div
-          style={{
-            marginBottom: AdminSpacing.lg,
-            display: 'flex',
-            alignItems: 'center',
-            gap: AdminSpacing.md,
-          }}
-        >
-          <button
-            onClick={handleNavigateBack}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: colors.border,
-              color: colors.text.primary,
-              border: 'none',
-              borderRadius: AdminBorderRadius.md,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}
-          >
-            ← Back
-          </button>
-          <div
-            style={{
-              fontSize: '14px',
-              color: colors.text.secondary,
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '4px',
-            }}
-          >
-            <strong>Manage the hierarchical location structure</strong>
-            <br />
+            {/* Excel Download */}
+            <SubHeaderButton
+              onClick={handleExportExcel}
+              disabled={allItems.length === 0}
+              title="Download Excel"
+              icon={<Download className="w-3.5 h-3.5" />}
+            >
+              <span className="hidden sm:inline">Excel</span>
+            </SubHeaderButton>
+
+            {/* Back Button if in sub-level */}
+            {breadcrumbPath.length > 1 && (
+              <SubHeaderButton
+                onClick={handleNavigateBack}
+                title="Go back to parent location level"
+                icon={<ArrowLeft className="w-3.5 h-3.5" />}
+              >
+                Back
+              </SubHeaderButton>
+            )}
+
+            {/* Create Button (Gold Primary) */}
+            <SubHeaderButton
+              variant="primary"
+              onClick={() => {
+                resetForm();
+                setShowModal(true);
+              }}
+              disabled={isSaving || (currentLevel !== 'state' && !parentId)}
+              icon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Create {levelConfig.label}
+            </SubHeaderButton>
+          </>
+        }
+      />
+
+      <div className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Breadcrumb Hierarchy Trail */}
+        {breadcrumbPath.length > 1 && (
+          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 text-xs shadow-xs">
+            <span className="text-slate-500 font-medium">Hierarchy:</span>
             {breadcrumbPath.map((item, idx) => (
-              <span key={item.level} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {idx > 0 && <span>/</span>}
+              <span key={item.level} className="flex items-center gap-2">
+                {idx > 0 && <span className="text-slate-400">/</span>}
                 <button
+                  type="button"
                   onClick={() => handleBreadcrumbClick(item.level)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: colors.text.primary,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    padding: '0',
-                  }}
+                  className={`hover:underline font-semibold ${
+                    idx === breadcrumbPath.length - 1 ? 'text-[#0F2D52]' : 'text-blue-600'
+                  }`}
                 >
-                  {item.item?.name}
+                  {item.item?.name || item.level}
                 </button>
               </span>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Error Alert */}
-      {error && <AdminErrorAlert message={(error as Error).message} title={''} />}
+        {/* Error Alert */}
+        {error && <AdminErrorAlert message={(error as Error).message} title={''} />}
 
-      {/* Main Content Card */}
-      <AdminCard title={levelConfig.label}>
-        {/* Toolbar with buttons and search */}
-        <div style={{ marginBottom: AdminSpacing.lg, display: 'flex', gap: AdminSpacing.md, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => {
-              resetForm();
-              setShowModal(true);
-            }}
-            disabled={isSaving || (currentLevel !== 'state' && !parentId)}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: colors.status.success,
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: AdminBorderRadius.md,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-              opacity: isSaving || (currentLevel !== 'state' && !parentId) ? 0.6 : 1,
-            }}
-          >
-            + Create
-          </button>
-          <button
-            onClick={handleExportExcel}
-            disabled={allItems.length === 0}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: colors.status.info,
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: AdminBorderRadius.md,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-              opacity: allItems.length === 0 ? 0.6 : 1,
-            }}
-          >
-            ⬇ Excel Download
-          </button>
-          
-          {/* Search Bar */}
-          <div style={{ marginLeft: 'auto', position: 'relative', minWidth: '300px' }}>
-            <input
-              type="text"
-              placeholder={`Search ${levelConfig.label.toLowerCase()}...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 40px 10px 16px',
-                border: `1px solid ${colors.border}`,
-                borderRadius: AdminBorderRadius.md,
-                fontSize: '14px',
-                outline: 'none',
-                backgroundColor: colors.background,
-                color: colors.text.primary,
-              }}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: colors.text.secondary,
-                  fontSize: '18px',
-                  padding: '0',
-                  lineHeight: '1',
-                }}
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-            {!searchQuery && (
-              <span
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: colors.text.secondary,
-                  fontSize: '18px',
-                  pointerEvents: 'none',
-                }}
-              >
-                🔍
-              </span>
-            )}
-          </div>
-        </div>
+        {/* Main Content Card */}
+        <AdminCard title={levelConfig.label}>
         
         {/* Search Results Info */}
         {searchQuery && (
@@ -714,7 +622,8 @@ export default function LocationsManagementContent() {
             </table>
           </div>
         )}
-      </AdminCard>
+        </AdminCard>
+      </div>
 
       {/* Modal */}
       {showModal && (

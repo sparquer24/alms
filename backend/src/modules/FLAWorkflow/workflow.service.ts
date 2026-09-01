@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { LicenseStatus } from '@prisma/client';
+import { LicenseStatus, RoleFlowApplicationType } from '@prisma/client';
 import { ForwardDto } from './dto/forward.dto';
 import { TERMINAL_ACTIONS, FORWARD_ACTIONS, ACTION_CODES, isTerminalAction, isForwardAction, isApprovalAction, isRejectionAction,  isReEnquiryAction, isRecommendAction, isNotRecommendAction } from '../../constants/workflow-actions';
 import { normalizeApplicationType } from '../../constants/flow-mapping';
@@ -208,16 +208,37 @@ export class WorkflowService {
     }
   }
 
-  /**
-   * Check if a role is allowed to perform a specific action
-   */
-  async checkRoleActionPermission(roleId: number, actionId: number): Promise<boolean> {
-    const mapping = await prisma.rolesActionsMapping.findUnique({
+  private async resolveApplicationTypeFromId(applicationId: number): Promise<RoleFlowApplicationType> {
+    const cancelRequest = await prisma.cancelFormRequests.findUnique({
+      where: { id: applicationId },
+      select: { id: true },
+    });
+    if (cancelRequest) return 'CANCEL';
+
+    const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
+      where: { id: applicationId },
+      select: { id: true },
+    });
+    if (renewalApp) return 'RENEWAL';
+
+    const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+      where: { id: applicationId },
+      select: { id: true },
+    });
+    if (freshApp) return 'FRESH';
+
+    throw new BadRequestException(
+      `Application with ID ${applicationId} not found in any application table.`,
+    );
+  }
+
+  async checkRoleActionPermission(roleId: number, actionId: number, applicationType?: string): Promise<boolean> {
+    const appType = normalizeApplicationType(applicationType ?? 'ALL');
+    const mapping = await prisma.rolesActionsMapping.findFirst({
       where: {
-        roleId_actionId: {
-          roleId: roleId,
-          actionId: actionId,
-        },
+        roleId,
+        actionId,
+        applicationType: appType,
       },
     });
     return mapping !== null && mapping.isActive === true;
@@ -859,9 +880,14 @@ export class WorkflowService {
     isRejected?: boolean;
     isRecommended?: boolean;
     isNotRecommended?: boolean;
-  }, applicationType : string,)
+  }, clientApplicationType : string,)
 
    {
+     // 1. Resolve the true application type from the database.
+     // SECURITY: Never trust the client-supplied applicationType. The backend
+     // determines the actual type by probing which table holds the applicationId.
+     const applicationType = await this.resolveApplicationTypeFromId(payload.applicationId);
+
      // 1b. Fetch current user's roleId
     const currentUser = await prisma.users.findUnique({
       where: { id: payload.currentUserId },
@@ -873,10 +899,16 @@ export class WorkflowService {
     const currentRoleId = currentUser.roleId;
 
     // 2. Validate User Permission using RolesActionsMapping
-    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId);
+    // Uses the server-resolved applicationType — a FRESH-only mapping will NOT
+    // grant access when the application is actually a RENEWAL.
+    const hasPermission = await this.checkRoleActionPermission(currentRoleId, payload.actionId, applicationType);
     if (!hasPermission) {
-      throw new ForbiddenException(`You are not authorized to perform this action. Your role does not have permission for action ID: ${payload.actionId}`);
+      throw new ForbiddenException(
+        `You are not authorized to perform this action for ${applicationType} applications. ` +
+        `Your role does not have permission for action ID: ${payload.actionId}`,
+      );
     }
+
      // 3. Determine next user and validate based on action type
     let nextUserId: number | null 
      const nextUserRoleId = await prisma.users.findUnique({
@@ -918,19 +950,15 @@ export class WorkflowService {
       }
     });
 
-      if (applicationType.toLowerCase() == 'renewalform' || applicationType.toLowerCase() == 'renewalapplicationform') {
-        await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      } else if (
-        applicationType.toLowerCase() == 'cancelform' ||
-        applicationType.toLowerCase() == 'cancelapplicationform' ||
-        applicationType.toLowerCase() == 'cancelformrequest' ||
-        applicationType.toLowerCase() == 'cancelapplication' ||
-        applicationType.toLowerCase() == 'cancelrequest'
-      ) {
-        await this.cancelFormApplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      } else{
-        await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
-      }
+    // 5. Dispatch to the correct application handler based on server-resolved type
+    if (applicationType === 'RENEWAL') {
+      await this.renewalapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+    } else if (applicationType === 'CANCEL') {
+      await this.cancelFormApplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+    } else {
+      // applicationType === 'FRESH' (or 'ALL' which shouldn't reach here after resolution)
+      await this.freshapplication(payload, status, nextUserId, actionCode, nextUserRoleId, currentRoleId)
+    }
    
     return {
       success: true,
