@@ -1,0 +1,2480 @@
+import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import prisma from '../../db/prismaClient';
+import { Sex, FileType, LicensePurpose, Prisma, RoleFlowApplicationType } from '@prisma/client';
+import { UploadFileDto } from './dto/upload-file.dto';
+import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
+import { normalizeHierarchyApplicationType } from '../../constants/flow-mapping';
+
+// Define the missing input type (adjust fields as per your requirements)
+export interface CreateFreshLicenseApplicationsFormsInput {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  filledBy?: string;
+  parentOrSpouseName: string;
+  sex: Sex;
+  placeOfBirth: string;
+  dateOfBirth: Date | string;
+  panNumber?: string;
+  aadharNumber: string;
+  dobInWords?: string;
+  stateId: number;
+  districtId: number;
+  presentAddress: CreateAddressInput;
+  permanentAddress?: CreateAddressInput;
+  contactInfo: CreateContactInfoInput;
+  occupationInfo?: CreateOccupationInfoInput;
+  biometricData?: any;
+  criminalHistory?: CreateCriminalHistoryInput[];
+  licenseHistory?: CreateLicenseHistoryInput[];
+  licenseRequestDetails?: CreateLicenseRequestDetailsInput;
+  fileUploads?: CreateFileUploadInput[];
+  currentUserId?: number;
+  previousUserId?: number;
+  previousRoleId?: number;
+  statusId: number;
+  actionTaken?: string;
+  remarks?: string;
+}
+
+export interface CreateAddressInput {
+  addressLine: string;
+  stateId: number;
+  districtId: number;
+  policeStationId: number;
+  zoneId: number;
+  divisionId: number;
+  rangeOfficeId?: number;
+  sinceResiding: Date;
+}
+
+export interface CreateContactInfoInput {
+  telephoneOffice?: string;
+  telephoneResidence?: string;
+  mobileNumber: string;
+  officeMobileNumber?: string;
+  alternativeMobile?: string;
+}
+
+export interface CreateOccupationInfoInput {
+  occupation: string;
+  officeAddress: string;
+  stateId: number;
+  districtId: number;
+  cropLocation?: string;
+  areaUnderCultivation?: number;
+  employerName?: string;
+  businessDetails?: string;
+  annualIncome?: string;
+  workExperience?: string;
+  businessType?: string;
+}
+
+export interface CreateLicenseRequestDetailsInput {
+  needForLicense?: LicensePurpose;
+  requestedWeaponIds?: string[]; // Array of WeaponTypeMaster IDs
+  areaOfValidity?: string;
+}
+
+export interface CreateCriminalHistoryInput {
+  convicted: boolean;
+  convictionData?: any; // JSON object with FIR details
+  bondExecutionOrdered?: boolean;
+  bondDate?: Date;
+  periodOfBond?: string;
+  prohibitedUnderArmsAct?: boolean;
+  prohibitedDate?: Date;
+}
+
+export interface CreateLicenseHistoryInput {
+  hasAppliedBefore: boolean;
+  previousApplications?: any; // JSON array
+  hasOtherApplications: boolean;
+  otherApplications?: any; // JSON object
+  familyMemberHasArmsLicense: boolean;
+  familyMemberLicenses?: any; // JSON array
+  hasSafePlaceForArms: boolean;
+  safeStorageDetails?: string;
+  hasUndergoneTraining: boolean;
+  trainingDetails?: string;
+}
+
+export interface CreateFileUploadInput {
+  fileName: string;
+  fileSize: number;
+  fileType: FileType;
+  fileUrl: string;
+}
+@Injectable()
+export class ApplicationFormService {
+  // Helper method to get user information with role details
+  private async getUserWithRole(userId: number) {
+    return await prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        role: true,
+      },
+    });
+  }
+
+  // Helper to extract acceptance flags from payload or personalDetails object
+  private extractAcceptanceFlagsFromPayload(payload: any) {
+    // payload may be either the whole DTO or the personalDetails object itself
+    const source = (payload && payload.personalDetails && typeof payload.personalDetails === 'object') ? payload.personalDetails : payload;
+    const result: any = {};
+    if (source?.isDeclarationAccepted !== undefined) result.isDeclarationAccepted = source.isDeclarationAccepted;
+    if (source?.isAwareOfLegalConsequences !== undefined) result.isAwareOfLegalConsequences = source.isAwareOfLegalConsequences;
+    if (source?.isTermsAccepted !== undefined) result.isTermsAccepted = source.isTermsAccepted;
+    return result;
+  }
+
+  // Helper method to determine initial status for new applications
+  private async getInitialStatus() {
+    // Get the initial status (e.g., "SUBMITTED" or "PENDING")
+    const initialStatus = await prisma.statuses.findFirst({
+      where: {
+        OR: [
+          { code: 'SUBMITTED' },
+          { code: 'PENDING' },
+          { code: 'INITIAL' }
+        ]
+      },
+      orderBy: { id: 'asc' } // Get the first available status
+    });
+
+    return initialStatus?.id || null;
+  }
+
+  // Helper methods to get valid IDs for testing
+  async getStates() {
+    return await prisma.states.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  }
+
+  /**
+   * Resolve a mixed list of status identifiers (numeric IDs or status codes/names)
+   * to an array of numeric status IDs present in the statuses table.
+   * Accepts case-insensitive codes/names. Invalid entries are ignored.
+   */
+  async resolveStatusIdentifiers(identifiers: string[]): Promise<number[]> {
+    if (!identifiers || identifiers.length === 0) return [];
+    // Separate numeric IDs and textual codes/names
+    const numericIds = identifiers
+      .map(id => Number(id))
+      .filter(n => !isNaN(n));
+    const textIdentifiers = identifiers
+      .filter(id => isNaN(Number(id)))
+      .map(s => s.toUpperCase());
+
+    const statuses = await prisma.statuses.findMany({
+      where: {
+        OR: [
+          ...(numericIds.length ? [{ id: { in: numericIds } }] : []),
+          ...(textIdentifiers.length ? [
+            { code: { in: textIdentifiers } },
+            { name: { in: textIdentifiers } }
+          ] : [])
+        ]
+      },
+      select: { id: true, code: true, name: true }
+    });
+
+    const resolved = Array.from(new Set(statuses.map((s: { id: number }) => s.id)));
+    return resolved as number[];
+  }
+
+  async getDistrictsByState(stateId: number) {
+    return await prisma.districts.findMany({
+      where: { stateId },
+      select: {
+        id: true,
+        name: true,
+        stateId: true,
+      },
+    });
+  }
+
+  async getPoliceStationsByDivision(divisionId: number) {
+    return await prisma.policeStations.findMany({
+      where: { divisionId },
+      select: {
+        id: true,
+        name: true,
+        divisionId: true,
+      },
+    });
+  }
+
+  async validateReferenceIds(ids: { stateId?: number; districtId?: number }) {
+    const validation: any = {};
+
+    if (ids.stateId) {
+      const state = await prisma.states.findUnique({
+        where: { id: ids.stateId },
+        select: { id: true, name: true }
+      });
+      validation.state = {
+        id: ids.stateId,
+        exists: !!state,
+        data: state
+      };
+    }
+
+    if (ids.districtId) {
+      const district = await prisma.districts.findUnique({
+        where: { id: ids.districtId },
+        select: { id: true, name: true, stateId: true }
+      });
+      validation.district = {
+        id: ids.districtId,
+        exists: !!district,
+        data: district
+      };
+    }
+
+    return validation;
+  }
+
+  private async validateReferencesExist(data: CreateFreshLicenseApplicationsFormsInput) {
+    // top-level state/district
+    const state = await prisma.states.findUnique({ where: { id: data.stateId } });
+    if (!state) throw new Error(`State with ID ${data.stateId} does not exist`);
+
+    const district = await prisma.districts.findUnique({ where: { id: data.districtId } });
+    if (!district) throw new Error(`District with ID ${data.districtId} does not exist`);
+
+    // present address state/district
+    const presentState = await prisma.states.findUnique({ where: { id: data.presentAddress.stateId } });
+    if (!presentState) throw new Error(`Present address state with ID ${data.presentAddress.stateId} does not exist`);
+    const presentDistrict = await prisma.districts.findUnique({ where: { id: data.presentAddress.districtId } });
+    if (!presentDistrict) throw new Error(`Present address district with ID ${data.presentAddress.districtId} does not exist`);
+
+    // permanent address
+    if (data.permanentAddress) {
+      const permState = await prisma.states.findUnique({ where: { id: data.permanentAddress.stateId } });
+      if (!permState) throw new Error(`Permanent address state with ID ${data.permanentAddress.stateId} does not exist`);
+      const permDistrict = await prisma.districts.findUnique({ where: { id: data.permanentAddress.districtId } });
+      if (!permDistrict) throw new Error(`Permanent address district with ID ${data.permanentAddress.districtId} does not exist`);
+    }
+
+    // occupation info
+    if (data.occupationInfo) {
+      const occState = await prisma.states.findUnique({ where: { id: data.occupationInfo.stateId } });
+      if (!occState) throw new Error(`Occupation state with ID ${data.occupationInfo.stateId} does not exist`);
+      const occDistrict = await prisma.districts.findUnique({ where: { id: data.occupationInfo.districtId } });
+      if (!occDistrict) throw new Error(`Occupation district with ID ${data.occupationInfo.districtId} does not exist`);
+    }
+
+    // licenseRequestDetails.requestedWeaponIds
+    if (data.licenseRequestDetails?.requestedWeaponIds?.length) {
+      // convert strings -> numbers
+      const weaponIds = data.licenseRequestDetails.requestedWeaponIds.map((id: any) => Number(id));
+      const found = await prisma.weaponTypeMaster.findMany({ where: { id: { in: weaponIds } }, select: { id: true } });
+      const foundIds = found.map((w: { id: number }) => w.id);
+      const missing = weaponIds.filter((id: number) => !foundIds.includes(id));
+      if (missing.length) throw new Error(`Requested weapons not found: ${missing.join(', ')}`);
+    }
+
+    // currentUser.roleId: ensure role exists if currentUser has a role
+    if (data.currentUserId) {
+      const user = await prisma.users.findUnique({ where: { id: data.currentUserId }, select: { id: true, roleId: true } });
+      if (!user) throw new Error(`User with ID ${data.currentUserId} not found`);
+      if (!user.roleId) throw new Error(`Current user (id:${data.currentUserId}) does not have a roleId set`);
+      const role = await prisma.roles.findUnique({ where: { id: user.roleId } });
+      if (!role) throw new Error(`Role with ID ${user.roleId} (user's roleId) does not exist`);
+    }
+  }
+
+
+  /**
+   * Creates a new fresh license application with proper user and role tracking.
+   * 
+   * This method ensures that:
+   * 1. currentUserId and currentRoleId are extracted from the authenticated user (token)
+   * 2. These fields are never left null or empty
+   * 3. previousUserId and previousRoleId are set to null for new applications
+   * 4. All required validations are performed before creation
+   * 
+   * @param data - Application data including user context from token
+   * @returns Created application with all relations
+   */
+
+
+  /**
+   * Create personal details in the dedicated personal details table and return applicationId
+   */
+  async createPersonalDetails(data: any): Promise<[any, any]> {
+    try {
+      // Pick supported fields from input
+      const {
+        acknowledgementNo,
+        firstName,
+        middleName,
+        lastName,
+        parentOrSpouseName,
+        filledBy,
+        sex,
+        placeOfBirth,
+        dateOfBirth,
+        dobInWords,
+        aadharNumber,
+        panNumber,
+        currentUserId
+      } = data || {};
+
+      // Basic validation
+      if (!firstName || !lastName) {
+        throw new BadRequestException('firstName and lastName are required');
+      }
+
+      if (!parentOrSpouseName) {
+        throw new BadRequestException('parentOrSpouseName is required');
+      }
+
+      if (!sex) {
+        throw new BadRequestException('sex is required');
+      }
+
+      // Normalize Aadhaar (keep as string to preserve leading zeros and match DB type)
+      let aadharNumberStr: string | null = null;
+      if (aadharNumber) {
+        const raw = String(aadharNumber).trim();
+        if (!/^[0-9]{12}$/.test(raw)) {
+          return [new BadRequestException('Aadhar number must be a 12-digit numeric string'), null];
+        }
+        aadharNumberStr = raw;
+      }
+
+      // Normalize PAN (keep as string; PANs are typically alphanumeric)
+      let panNumberStr: string | null = null;
+      if (panNumber) {
+        const rawPan = String(panNumber).trim();
+        // Accept any non-empty trimmed PAN string; further validation can be added if needed
+        panNumberStr = rawPan || null;
+      }
+
+      // Use string variants for personal details model to avoid integer overflow.
+      const aadharNumberForPersonal: string | null = aadharNumberStr;
+      const panNumberForPersonal: string | null = panNumberStr || null;
+
+      // Validate sex if provided
+      if (sex && !Object.values(Sex).includes(sex as Sex)) {
+        return [new BadRequestException('Invalid sex value'), null];
+      }
+      // Transaction: create only the personal-details row (no application)
+      const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Generate acknowledgementNo once
+        const finalAcknowledgementNo = acknowledgementNo ?? `FALS${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+        // Find DRAFT status ID by code (more reliable than assuming ID)
+        const draftStatus = await prisma.statuses.findFirst({
+          where: { code: STATUS_CODES.DRAFT, isActive: true }
+        });
+
+        if (!draftStatus) {
+          throw new Error(`${STATUS_CODES.DRAFT} status not found in Statuses table. Please ensure DRAFT status exists.`);
+        }
+        const almsLicenseId = `ALMS${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 8)}${new Date().toISOString().replace(/[-:T.Z]/g, '').slice(8, 14)}`;
+
+        const draftStatusId = draftStatus.id;
+
+        const personal = await tx.freshLicenseApplicationPersonalDetails.create({
+          data: ({
+            acknowledgementNo: finalAcknowledgementNo,
+            firstName,
+            middleName,
+            lastName,
+            almsLicenseId,
+            parentOrSpouseName,
+            filledBy,
+            sex,
+            placeOfBirth,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+            dobInWords,
+            aadharNumber: aadharNumberForPersonal ? aadharNumberForPersonal : undefined,
+            panNumber: panNumberForPersonal ?? undefined as any,
+            currentUserId: currentUserId || null,
+            workflowStatusId: draftStatusId,
+          } as any),
+        });
+
+        return personal;
+      });
+
+      return [null, created.id];
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const target = error?.meta?.target ? error.meta.target.join(',') : 'field';
+        return [new ConflictException(`Duplicate value for unique field(s): ${target}`), null];
+      }
+      return [error, null];
+    }
+  }
+
+  /**
+   * Patch application details - update related tables (addresses, occupation, histories, license details)
+   * @param applicationId - Application ID to update
+   * @param isSubmit - Whether this is a final submission
+   * @param data - Data to update
+   * @param currentUserId - Authenticated user ID from JWT token (optional)
+   */
+  async patchApplicationDetails(applicationId: number, isSubmit: boolean, data: any, currentUserId?: number): Promise<[any, any]> {
+    try {
+      // First validate that the application exists
+      const existingApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { id: true, acknowledgementNo: true }
+      });
+
+      if (!existingApplication) {
+        return [new BadRequestException(`Application with ID ${applicationId} not found`), null];
+      }
+
+      // Validate declaration fields only when submitting
+      if (isSubmit === true) {
+        const flags = this.extractAcceptanceFlagsFromPayload(data);
+        const missingFlags = [];
+
+        if (flags.isDeclarationAccepted !== true) {
+          missingFlags.push('isDeclarationAccepted should not be empty');
+        }
+        if (flags.isAwareOfLegalConsequences !== true) {
+          missingFlags.push('isAwareOfLegalConsequences should not be empty');
+        }
+        if (flags.isTermsAccepted !== true) {
+          missingFlags.push('isTermsAccepted should not be empty');
+        }
+
+        if (missingFlags.length > 0) {
+          return [new BadRequestException(missingFlags.join(',')), null];
+        }
+      }
+
+      const updatedSections: string[] = [];
+
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+
+
+        // 1. Handle Present Address
+        if (data.presentAddress) {
+          const presentAddressData = {
+            ...data.presentAddress,
+            sinceResiding: new Date(data.presentAddress.sinceResiding)
+          };
+
+          // Check if present address already exists
+          const existingPresentAddress = await tx.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { presentAddressId: true }
+          });
+
+          if (existingPresentAddress?.presentAddressId) {
+            // Update existing address
+            await tx.fLAFAddressesAndContactDetails.update({
+              where: { id: existingPresentAddress.presentAddressId },
+              data: presentAddressData
+            });
+          } else {
+            // Create new address and link it
+            const newPresentAddress = await tx.fLAFAddressesAndContactDetails.create({
+              data: presentAddressData
+            });
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: { presentAddressId: newPresentAddress.id }
+            });
+          }
+          updatedSections.push('presentAddress');
+        }
+
+        // 2. Handle Permanent Address
+        if (data.permanentAddress) {
+          const permanentAddressData = {
+            ...data.permanentAddress,
+            sinceResiding: new Date(data.permanentAddress.sinceResiding)
+          };
+
+          // Check if permanent address already exists
+          const existingPermanentAddress = await tx.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { permanentAddressId: true }
+          });
+
+          if (existingPermanentAddress?.permanentAddressId) {
+            // Update existing address
+            await tx.fLAFAddressesAndContactDetails.update({
+              where: { id: existingPermanentAddress.permanentAddressId },
+              data: permanentAddressData
+            });
+          } else {
+            // Create new address and link it
+            const newPermanentAddress = await tx.fLAFAddressesAndContactDetails.create({
+              data: permanentAddressData
+            });
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: { permanentAddressId: newPermanentAddress.id }
+            });
+          }
+          updatedSections.push('permanentAddress');
+        }
+
+        // 3. Handle Occupation and Business
+        if (data.occupationAndBusiness) {
+          // Sanitize and coerce occupation payload to avoid invalid FK values or wrong types
+          const rawOcc: any = data.occupationAndBusiness || {};
+          // Only pick fields that are declared in the PatchOccupationBusinessDto
+          // DTO fields: occupation, officeAddress, stateId, districtId, cropLocation, areaUnderCultivation
+          const occData: any = {
+            occupation: rawOcc.occupation,
+            officeAddress: rawOcc.officeAddress,
+            cropLocation: rawOcc.cropLocation ?? undefined,
+          };
+
+          // Coerce numeric fields only if valid positive numbers
+          if (rawOcc.areaUnderCultivation !== undefined && rawOcc.areaUnderCultivation !== null) {
+            const a = Number(rawOcc.areaUnderCultivation);
+            if (!isNaN(a)) occData.areaUnderCultivation = a;
+          }
+
+          if (rawOcc.stateId !== undefined && rawOcc.stateId !== null) {
+            const s = Number(rawOcc.stateId);
+            if (!isNaN(s)) occData.stateId = s;
+          }
+
+          if (rawOcc.districtId !== undefined && rawOcc.districtId !== null) {
+            const d = Number(rawOcc.districtId);
+            if (!isNaN(d)) occData.districtId = d;
+          }
+
+          // Check if occupation already exists
+          const existingOccupation = await tx.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: { occupationAndBusinessId: true }
+          });
+
+          if (existingOccupation?.occupationAndBusinessId) {
+            // Update existing occupation
+            await tx.fLAFOccupationAndBusiness.update({
+              where: { id: existingOccupation.occupationAndBusinessId },
+              data: occData
+            });
+          } else {
+            // Create new occupation and link it
+            const newOccupation = await tx.fLAFOccupationAndBusiness.create({
+              data: occData
+            });
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: { occupationAndBusinessId: newOccupation.id }
+            });
+          }
+          updatedSections.push('occupationAndBusiness');
+        }
+
+        // 3.a Handle Personal Details (first name, last name, aadhar, pan, dob, sex, etc.)
+        if (data.personalDetails) {
+          const pd = data.personalDetails;
+          const updateData: any = {};
+
+          if (pd.firstName !== undefined) updateData.firstName = pd.firstName;
+          if (pd.middleName !== undefined) updateData.middleName = pd.middleName;
+          if (pd.lastName !== undefined) updateData.lastName = pd.lastName;
+          if (pd.parentOrSpouseName !== undefined) updateData.parentOrSpouseName = pd.parentOrSpouseName;
+          if (pd.filledBy !== undefined) updateData.filledBy = pd.filledBy;
+          if (pd.placeOfBirth !== undefined) updateData.placeOfBirth = pd.placeOfBirth;
+          if (pd.dobInWords !== undefined) updateData.dobInWords = pd.dobInWords;
+
+          if (pd.sex !== undefined) {
+            // Validate sex enum
+            if (!Object.values(Sex).includes(pd.sex as Sex)) {
+              throw new Error('Invalid sex value');
+            }
+            updateData.sex = pd.sex;
+          }
+
+          if (pd.dateOfBirth !== undefined) {
+            const dob = pd.dateOfBirth ? new Date(pd.dateOfBirth) : null;
+            if (dob && isNaN(dob.getTime())) {
+              throw new Error('Invalid dateOfBirth');
+            }
+            updateData.dateOfBirth = dob ?? undefined;
+          }
+
+          // Aadhaar validation (format only). PAN trimming handled alongside when provided.
+          if (pd.aadharNumber !== undefined) {
+            const raw = pd.aadharNumber ? String(pd.aadharNumber).trim() : '';
+            if (raw && !/^[0-9]{12}$/.test(raw)) {
+              throw new BadRequestException('Aadhar number must be a 12-digit numeric string');
+            }
+            updateData.aadharNumber = raw || undefined; // allow clearing by setting undefined if empty string
+            updateData.panNumber = pd.panNumber ? String(pd.panNumber).trim() : undefined;
+          }
+
+          // If there is something to update, perform the update
+          // Also include acceptance flags here if provided (ensure these are
+          // updated when personalDetails is present, even if this is called
+          // outside of isSubmit flow)
+          Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(pd));
+
+          if (Object.keys(updateData).length > 0) {
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: {
+                ...updateData,
+                updatedAt: new Date()
+              }
+            });
+            updatedSections.push('personalDetails');
+          }
+        }
+
+        // 4. Handle Criminal Histories (Replace all existing)
+        if (data.criminalHistories && Array.isArray(data.criminalHistories)) {
+          // Delete existing criminal histories
+          await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
+
+          // Create new criminal histories one-by-one to surface any validation/constraint errors
+          if (data.criminalHistories.length > 0) {
+            for (const history of data.criminalHistories) {
+              const record: any = {
+                applicationId,
+                isConvicted: history.isConvicted ?? false,
+                firDetails: history.firDetails ?? null,
+                isBondExecuted: history.isBondExecuted ?? false,
+                bondDate: history.bondDate ? new Date(history.bondDate) : null,
+                bondPeriod: history.bondPeriod ?? null,
+                isProhibited: history.isProhibited ?? false,
+                prohibitionDate: history.prohibitionDate ? new Date(history.prohibitionDate) : null,
+                prohibitionPeriod: history.prohibitionPeriod ?? null,
+              };
+
+              // Create the record and let any errors bubble to the transaction so they can be handled
+              await tx.fLAFCriminalHistories.create({ data: record });
+            }
+          }
+
+          updatedSections.push('criminalHistories');
+        }
+
+        // 5. Handle License Histories (Replace all existing)
+        if (data.licenseHistories && Array.isArray(data.licenseHistories)) {
+          // Delete existing license histories
+          await tx.fLAFLicenseHistories.deleteMany({
+            where: { applicationId }
+          });
+
+          // Create new license histories
+          if (data.licenseHistories.length > 0) {
+            const licenseHistoriesData = data.licenseHistories.map((history: any) => ({
+              ...history,
+              applicationId,
+              dateAppliedFor: history.dateAppliedFor ? new Date(history.dateAppliedFor) : null
+            }));
+
+            await tx.fLAFLicenseHistories.createMany({
+              data: licenseHistoriesData
+            });
+          }
+          updatedSections.push('licenseHistories');
+        }
+
+        // 6. Handle License Details (Replace all existing)
+        if (data.licenseDetails && Array.isArray(data.licenseDetails)) {
+          // Delete existing license details (this will also remove weapon connections due to relation)
+          await tx.fLAFLicenseDetails.deleteMany({
+            where: { applicationId }
+          });
+
+          // Create new license details
+          if (data.licenseDetails.length > 0) {
+            for (const licenseDetail of data.licenseDetails) {
+              const { requestedWeaponIds, ...licenseDetailData } = licenseDetail;
+
+              const newLicenseDetail = await tx.fLAFLicenseDetails.create({
+                data: {
+                  ...licenseDetailData,
+                  applicationId
+                }
+              });
+
+              // Handle weapon connections if provided
+              if (requestedWeaponIds && requestedWeaponIds.length > 0) {
+                // Connect weapons using the many-to-many relation
+                await tx.fLAFLicenseDetails.update({
+                  where: { id: newLicenseDetail.id },
+                  data: {
+                    requestedWeapons: {
+                      connect: requestedWeaponIds.map((weaponId: number) => ({ id: weaponId }))
+                    }
+                  }
+                });
+              }
+            }
+          }
+          updatedSections.push('licenseDetails');
+        }
+
+        // 7. Handle Biometric Data
+        if (data.biometricData) {
+          const biometricDataObject = data.biometricData;
+
+          // Check if biometric data already exists for this application
+          const existingBiometric = await tx.fLAFBiometricDatas.findUnique({
+            where: { applicationId }
+          });
+
+          if (typeof biometricDataObject !== 'object' || biometricDataObject === null) {
+            throw new BadRequestException('biometricData must be an object');
+          }
+
+          if (existingBiometric) {
+            // Update existing biometric data - replace the entire object
+            await tx.fLAFBiometricDatas.update({
+              where: { applicationId },
+              data: {
+                biometricData: biometricDataObject as any
+              } as any
+            });
+          } else {
+            // Create new biometric data
+            await tx.fLAFBiometricDatas.create({
+              data: {
+                applicationId,
+                biometricData: biometricDataObject as any
+              } as any
+            });
+          }
+
+          updatedSections.push('biometricData');
+        }
+
+        // Handle workflow status updates - only when isSubmit is true
+        if (isSubmit === true) {
+          // Audit: Log application submission
+          try {
+            await prisma.auditLogs.create({
+              data: {
+                userId: currentUserId || 0,
+                applicationId: applicationId,
+                entity: 'FreshLicenseApplicationPersonalDetails',
+                entityId: String(applicationId),
+                action: 'SUBMIT',
+                newValue: { isSubmit: true },
+              },
+            });
+          } catch (auditError) {
+            // Audit failures should not block submission
+            console.error('Audit log failed for application submission:', auditError);
+          }
+          // Get the status where isStarted is true
+          const initiatedStatus = await tx.statuses.findFirst({
+            where: { isStarted: true, isActive: true } as any
+          });
+
+          // Get current application details to know the current user
+          const currentApp = await tx.freshLicenseApplicationPersonalDetails.findUnique({
+            where: { id: applicationId },
+            select: {
+              currentUserId: true,
+              previousUserId: true,
+              workflowStatusId: true
+            }
+          });
+
+          // Determine which user ID to use: passed from auth token > currentUserId from app > previousUserId from app
+          const effectiveUserId = currentUserId || currentApp?.currentUserId || currentApp?.previousUserId;
+
+          // If we still don't have a user ID, we cannot create workflow history
+          if (!effectiveUserId) {
+            throw new BadRequestException('Cannot submit application: No user information available. Please ensure you are authenticated.');
+          }
+
+          // workflowStatus and acceptance flags are saved together.
+          const updateData: any = {
+            updatedAt: new Date()
+          };
+          // mark submitted flag so it's written as part of the same update
+          updateData.isSubmit = true;
+          updateData.isPending = true;
+
+          // Update currentUserId if it was passed from auth token and is different from what's stored
+          if (currentUserId && currentApp?.currentUserId !== currentUserId) {
+            updateData.currentUserId = currentUserId;
+          }
+
+          // Only update workflowStatusId when isSubmit is true
+          if (initiatedStatus && initiatedStatus.id) {
+            updateData.workflowStatusId = initiatedStatus.id;
+          }
+
+          // Defensive: accept flags from either personalDetails or top-level payload.
+          Object.assign(updateData, this.extractAcceptanceFlagsFromPayload(data));
+
+          // If there's something other than updatedAt to save, perform the update
+          const hasUpdatableKeys = Object.keys(updateData).some(k => k !== 'updatedAt');
+          if (hasUpdatableKeys) {
+            await tx.freshLicenseApplicationPersonalDetails.update({
+              where: { id: applicationId },
+              data: updateData
+            });
+
+            // Create workflow history entry for INITIATE action
+            if (initiatedStatus) {
+              // Get user's role
+              let currentUserRoleId: number | null = null;
+              const currentUser = await tx.users.findUnique({
+                where: { id: effectiveUserId },
+                select: { roleId: true }
+              });
+              currentUserRoleId = currentUser?.roleId || null;
+
+              // Create workflow history
+              await tx.freshLicenseApplicationsFormWorkflowHistories.create({
+                data: {
+                  applicationId: applicationId,
+                  previousUserId: effectiveUserId, // Use the authenticated user as initiator
+                  nextUserId: effectiveUserId, // Same user initially
+                  actionTaken: initiatedStatus.code,
+                  remarks: 'Application submitted for review',
+                  previousRoleId: currentUserRoleId,
+                  nextRoleId: currentUserRoleId,
+                }
+              });
+
+              updatedSections.push('workflowHistory');
+            }
+
+            // Push appropriate section markers
+            if (updateData.workflowStatusId) updatedSections.push('workflowStatus');
+            if (updateData.isDeclarationAccepted !== undefined || updateData.isAwareOfLegalConsequences !== undefined || updateData.isTermsAccepted !== undefined) {
+              updatedSections.push('personalDetails');
+            }
+            if (updateData.isSubmit) updatedSections.push('isSubmit');
+          }
+        }
+      });
+
+      // Fetch updated application with all relations
+      const updatedApplication = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId },
+        include: {
+          workflowStatus: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              description: true
+            }
+          },
+          presentAddress: {
+            include: {
+              state: true,
+              district: true,
+              RangeOffices: true,
+              zone: true,
+              division: true,
+              policeStation: true
+            }
+          },
+          permanentAddress: {
+            include: {
+              state: true,
+              district: true,
+              RangeOffices: true,
+              zone: true,
+              division: true,
+              policeStation: true
+            }
+          },
+          occupationAndBusiness: {
+            include: {
+              state: true,
+              district: true
+            }
+          },
+          criminalHistories: true,
+          licenseHistories: true,
+          licenseDetails: {
+            include: {
+              requestedWeapons: true
+            }
+          },
+          biometricData: true
+        }
+      });
+
+      return [null, { updatedSections, application: updatedApplication }];
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        const target = error?.meta?.target ? error.meta.target.join(',') : 'field';
+        return [new ConflictException(`Duplicate value for unique field(s): ${target}`), null];
+      }
+      if (error?.code === 'P2003') {
+        return [new BadRequestException('Invalid foreign key reference. Please check state, district, zone, division, or weapon IDs.'), null];
+      }
+      return [error, null];
+    }
+  }
+  async deleteFileRecordById(fileId: number): Promise<[any, boolean]> {
+    try {
+      // First, check if the file record exists with its application's workflow status
+      const existingFile = await prisma.fLAFFileUploads.findUnique({
+        where: { id: fileId },
+        include: {
+          application: {
+            include: {
+              workflowStatus: true,
+            },
+          },
+        },
+      });
+      if (!existingFile) {
+        return [new BadRequestException(`File with ID ${fileId} not found`), false];
+      }
+
+      // Only allow file deletion if the application is in DRAFT status
+      if (!existingFile.application?.workflowStatus || existingFile.application.workflowStatus.code !== 'DRAFT') {
+        const statusName = existingFile.application?.workflowStatus?.name || 'UNKNOWN';
+        return [new BadRequestException(
+          `Cannot delete file from an application with "${statusName}" status. Files can only be deleted from DRAFT applications.`,
+        ), false];
+      }
+
+      // Delete the physical file from disk if it's a local file
+      if (existingFile.fileUrl && !existingFile.fileUrl.startsWith('http')) {
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.resolve(process.cwd(), existingFile.fileUrl);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (fsError) {
+          // Log but don't fail if file deletion from disk fails
+          console.error(`Failed to delete physical file: ${existingFile.fileUrl}`, fsError);
+        }
+      }
+
+      // Delete the file record
+      await prisma.fLAFFileUploads.delete({
+        where: { id: fileId }
+      });
+      return [null, true];
+    }
+    catch (error) {
+      return [error, false];
+    }
+  }
+  /**
+   * Delete an entire application and its related child records. Only allowed for DRAFT applications.
+   * Returns [error, true] on success or [error, false] on failure.
+   */
+  async deleteApplicationById(applicationId: number): Promise<[any, boolean]> {
+    try {
+      const existing = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId },
+        select: { id: true, workflowStatusId: true, presentAddressId: true, permanentAddressId: true }
+      });
+
+      if (!existing) {
+        return [new BadRequestException(`Application with ID ${applicationId} not found`), false];
+      }
+
+      // Verify application is in DRAFT status
+      const draftStatus = await prisma.statuses.findFirst({ where: { code: STATUS_CODES.DRAFT } });
+      if (!draftStatus) {
+        return [new InternalServerErrorException('DRAFT status not configured on server'), false];
+      }
+
+      if (Number(existing.workflowStatusId) !== Number(draftStatus.id)) {
+        return [new BadRequestException('Only applications in DRAFT status can be deleted'), false];
+      }
+
+      // Perform a transaction that deletes related rows first then the application
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Delete related simple child tables
+        await tx.fLAFCriminalHistories.deleteMany({ where: { applicationId } });
+        await tx.fLAFLicenseHistories.deleteMany({ where: { applicationId } });
+        await tx.fLAFLicenseDetails.deleteMany({ where: { applicationId } });
+        await tx.fLAFBiometricDatas.deleteMany({ where: { applicationId } });
+        await tx.fLAFFileUploads.deleteMany({ where: { applicationId } });
+
+        // Delete address records if they exist (present & permanent)
+        const addrIds: number[] = [];
+        if (existing.presentAddressId) addrIds.push(Number(existing.presentAddressId));
+        if (existing.permanentAddressId) addrIds.push(Number(existing.permanentAddressId));
+        if (addrIds.length > 0) {
+          await tx.fLAFAddressesAndContactDetails.deleteMany({ where: { id: { in: addrIds } } });
+        }
+
+        // Finally delete the main application record
+        await tx.freshLicenseApplicationPersonalDetails.delete({ where: { id: applicationId } });
+      });
+
+      return [null, true];
+    } catch (error) {
+      return [error, false];
+    }
+  }
+
+
+  /**
+   * Get application by ID or acknowledgement number with optimized queries.
+   * 
+   * Optimizations:
+   * 1. Parallel execution of application and workflow history queries
+   * 2. Early return if application not found
+   * 3. Simplified where condition building
+   * 4. Reusable select objects for user details
+   * 5. Efficient transformation using destructuring
+   */
+  async getApplicationById(id?: number | undefined, acknowledgementNo?: string | undefined | null): Promise<[any, any]> {
+    try {
+      // Build where condition - at least one parameter is required
+      const whereCondition: any = {};
+      if (id) whereCondition.id = id;
+      if (acknowledgementNo) whereCondition.acknowledgementNo = acknowledgementNo;
+
+      // Reusable user select object to avoid duplication
+      const userSelect = {
+        id: true,
+        username: true,
+        email: true,
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true
+          }
+        }
+      };
+
+      // Reusable address include object to avoid duplication
+      const addressInclude = {
+        state: true,
+        district: true,
+        RangeOffices: true,
+        zone: true,
+        division: true,
+        policeStation: true
+      };
+
+      // First, fetch the application
+      const application: any = await prisma.freshLicenseApplicationPersonalDetails.findFirst({
+        where: whereCondition,
+        include: {
+          workflowStatus: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            }
+          },
+          currentUser: { select: userSelect },
+          previousUser: { select: userSelect },
+          presentAddress: { include: addressInclude },
+          permanentAddress: { include: addressInclude },
+          occupationAndBusiness: {
+            include: {
+              state: true,
+              district: true
+            }
+          },
+          biometricData: true,
+          criminalHistories: true,
+          licenseHistories: true,
+          licenseDetails: {
+            include: {
+              requestedWeapons: true,
+            }
+          },
+          fileUploads: true,
+        },
+      });
+
+      // Early return if application not found
+      if (!application) {
+        return [null, null];
+      }
+
+      // Fetch workflow histories in parallel (after we know application exists)
+      const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+        where: { applicationId: application.id },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          previousRole: true,
+          previousUser: true,
+          nextRole: true,
+          nextUser: true,
+          actiones: true,
+        }
+      });
+
+      // Transform and attach workflow histories if any exist
+      if (workflowHistories.length > 0) {
+        application.workflowHistories = workflowHistories.map(({ previousUser, previousRole, nextUser, nextRole, ...rest }: { previousUser: any; previousRole: any; nextUser: any; nextRole: any;[key: string]: any }) => ({
+          ...rest,
+          previousUserName: previousUser?.username ?? null,
+          previousRoleName: previousRole?.name ?? null,
+          nextUserName: nextUser?.username ?? null,
+          nextRoleName: nextRole?.name ?? null,
+        }));
+      }
+
+      return [null, application];
+    } catch (err) {
+      return [err, null];
+    }
+  }
+
+
+  // page: pageNum,
+  // limit: limitNum,
+  // searchField: parsedSearchField,
+  // search: parsedSearchValue,
+  // orderBy: parsedOrderBy,
+  // order: parsedOrder as 'asc' | 'desc',
+  // currentUserId: req.user?.sub, 
+  public async getFilteredApplications(filter: {
+    statusIds?: Array<number | string>;
+    currentUserId?: string;
+    page?: number;
+    limit?: number;
+    searchField?: string;
+    search?: string;
+    orderBy?: string;
+    order?: 'asc' | 'desc';
+    isOwned?: boolean;
+    isSent?: boolean;
+    applicationType?: string;
+  }) {
+    try {
+      const where: any = {};
+      const page = Math.max(Number(filter.page ?? 1), 1);
+      const limit = Math.max(Number(filter.limit ?? 10), 1);
+      const skip = (page - 1) * limit;
+
+      // Handle isSent parameter - fetch latest action per application from workflow history
+      if (filter.isSent === true && filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          // We'll get the latest action per application
+          const workflowHistories = await prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+            where: {
+              previousUserId: parsedUserId
+            },
+            select: {
+              id: true,
+              applicationId: true,
+              createdAt: true,
+              actionTaken: true,
+              remarks: true,
+              application: {
+                select: {
+                  id: true,
+                  almsLicenseId: true,
+                  acknowledgementNo: true,
+                  createdAt: true,
+                  firstName: true,
+                  middleName: true,
+                  lastName: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          });
+          // need to get renewal applications as well 
+          const renewalWorkflowHistories = await prisma.renewalApplicationsFormWorkflowHistories.findMany({
+            where: {
+              previousUserId: parsedUserId
+            },
+            select: {
+              id: true,
+              applicationId: true,
+              createdAt: true,
+              actionTaken: true,
+              remarks: true,
+              application: {
+                select: {
+                  id: true,
+                  acknowledgementNo: true,
+                  createdAt: true,
+                  firstName: true,
+                  middleName: true,
+                  lastName: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          });
+          // Fetch cancel license histories for isSent
+          const historyData = await prisma.cancelWorkflowHistories.findMany({
+            where: {
+              previousUserId: parsedUserId
+            },
+            select: {
+              id: true,
+              applicationId: true,
+              createdAt: true,
+              remarks: true,
+              actionTaken: true,
+              application: {
+                select: {
+                  id: true,
+                  licenseId: true,
+                  cancellationReason: true,
+                  createdAt: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          });
+
+          // Resolve original application details for cancel requests
+          const freshLicenseIds = historyData.map((h: any) => h.application?.licenseId)
+            .filter((id: any): id is number => id != null);
+          const uniqueFreshLicenseIds = [...new Set(freshLicenseIds)];
+
+          // Batch-fetch original application details to avoid N+1 queries
+          const originalAppsMap = new Map<number, any>();
+          if (uniqueFreshLicenseIds.length > 0) {
+            const [freshApps, renewalApps] = await Promise.all([
+              prisma.freshLicenseApplicationPersonalDetails.findMany({
+                where: { id: { in: uniqueFreshLicenseIds } },
+                select: { id: true, acknowledgementNo: true, firstName: true, middleName: true, lastName: true, createdAt: true },
+              }),
+              prisma.renewalFormPersonalDetails.findMany({
+                where: { id: { in: uniqueFreshLicenseIds } },
+                select: { id: true, acknowledgementNo: true, firstName: true, middleName: true, lastName: true, createdAt: true },
+              })
+            ]);
+            [...freshApps, ...renewalApps].forEach((app: any) => {
+              originalAppsMap.set(app.id, app);
+            });
+          }
+
+          // "applicationType": "Renewal License",   "applicationType": "Fresh",
+          const allworkflowHistories = [
+            ...workflowHistories.map(h => ({ ...h, applicationType: 'Fresh' })),
+            ...renewalWorkflowHistories.map(h => ({ ...h, applicationType: 'Renewal License' })),
+            ...historyData.map((h: any) => {
+              const freshLicenseId = h.application?.licenseId;
+              const originalApp = freshLicenseId ? originalAppsMap.get(freshLicenseId) : null;
+              return {
+                id: h.id,
+                applicationId: h.application?.id ?? h.applicationId,
+                createdAt: h.createdAt,
+                actionTaken: h.actionTaken || 'CANCELLED',
+                remarks: h.remarks || h.application?.cancellationReason || '',
+                application: {
+                  id: h.application?.id ?? h.applicationId,
+                  acknowledgementNo: originalApp?.acknowledgementNo ?? null,
+                  createdAt: originalApp?.createdAt || h.application?.createdAt || h.createdAt,
+                  firstName: originalApp?.firstName ?? null,
+                  middleName: originalApp?.middleName ?? null,
+                  lastName: originalApp?.lastName ?? null,
+                },
+                applicationType: 'Cancel Request',
+              };
+            }),
+          ];
+
+          if (allworkflowHistories.length === 0) {
+            return [null, { total: 0, page, limit, data: [] }];
+          }
+
+          // Group by applicationId and keep only the latest action per application
+          const latestActionsMap = new Map<number, any>();
+          for (const history of allworkflowHistories) {
+            if (!latestActionsMap.has(history.applicationId)) {
+              latestActionsMap.set(history.applicationId, history);
+            }
+          }
+
+          // Convert to array
+          let latestActions = Array.from(latestActionsMap.values());
+
+          // Apply ordering if specified
+          const allowedOrderFields = ['applicationId', 'acknowledgementNo', "applicationType", 'createdAt', 'applicantName', 'actionTakenAt'];
+          const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'actionTakenAt';
+          const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+          latestActions.sort((a, b) => {
+            let aValue, bValue;
+
+            if (orderByField === 'actionTakenAt') {
+              aValue = a.createdAt;
+              bValue = b.createdAt;
+            } else if (orderByField === 'applicationId') {
+              aValue = a.application?.id;
+              bValue = b.application?.id;
+            } else if (orderByField === 'acknowledgementNo') {
+              aValue = a.application?.acknowledgementNo;
+              bValue = b.application?.acknowledgementNo;
+            } else if (orderByField === 'createdAt') {
+              aValue = a.application?.createdAt;
+              bValue = b.application?.createdAt;
+            } else if (orderByField === 'applicantName') {
+              aValue = a.application?.firstName;
+              bValue = b.application?.firstName;
+            } else {
+              aValue = a.createdAt;
+              bValue = b.createdAt;
+            }
+
+            if (aValue < bValue) return orderDirection === 'asc' ? -1 : 1;
+            if (aValue > bValue) return orderDirection === 'asc' ? 1 : -1;
+            return 0;
+          });
+
+          // Apply pagination
+          const total = latestActions.length;
+          const paginatedActions = latestActions.slice(skip, skip + limit);
+
+          // Transform the data to match the expected output format
+          const paginatedResults = paginatedActions.map(history => {
+            const applicantName = [
+              history.application?.firstName,
+              history.application?.middleName,
+              history.application?.lastName
+            ].filter(Boolean).join(' ');
+
+            return {
+              applicationId: history.application?.id,
+              acknowledgementNo: history.application?.acknowledgementNo,
+              createdAt: history.application?.createdAt,
+              applicantName: applicantName,
+              workflowHistoryId: history.id,
+              actionTakenAt: history.createdAt,
+              actionTaken: history.actionTaken,
+              actionRemarks: history.remarks,
+              applicationType: history.applicationType
+            };
+          });
+
+          return [null, { total, page, limit, data: paginatedResults }];
+        }
+      }
+
+      // Role-based filtering: Get current user's role
+      let userRole = null;
+      if (filter.currentUserId) {
+        const parsedUserId = Number(filter.currentUserId);
+        if (!isNaN(parsedUserId)) {
+          const user = await prisma.users.findUnique({
+            where: { id: parsedUserId },
+            include: { role: true }
+          });
+          userRole = user?.role?.code;
+
+          // For non-ZS users, filter by currentUserId
+          // ZS users can see all applications
+          // if (userRole && userRole !== ROLE_CODES.ZS) {
+          where.currentUserId = parsedUserId;
+          // }
+        }
+      }
+
+      // Workflow status filter: accept numeric IDs or textual identifiers (codes/names)
+      if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
+        // Split numeric-like entries and non-numeric entries
+        const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
+        const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
+
+        let resolvedIds: number[] = [...numericCandidates];
+
+        if (nonNumeric.length > 0) {
+          // Use existing helper to resolve textual identifiers (codes/names) to numeric IDs
+          const fromResolver = await this.resolveStatusIdentifiers(nonNumeric);
+          if (fromResolver && fromResolver.length > 0) {
+            resolvedIds = Array.from(new Set([...resolvedIds, ...fromResolver]));
+          }
+        }
+
+        // If we didn't resolve any numeric IDs, return empty result set early (no statuses match)
+        if (!resolvedIds || resolvedIds.length === 0) {
+          return [null, { total: 0, page, limit, data: [] }];
+        }
+
+        where.workflowStatusId = { in: resolvedIds };
+      }
+
+      // Specific application ID filter (ownership) - for explicit isOwned flag
+      if (filter.isOwned == true && filter.currentUserId) {
+        // currentUserId might be string; convert if numeric
+        const parsed = Number(filter.currentUserId);
+        where.currentUserId = !isNaN(parsed) ? parsed : filter.currentUserId;
+      }
+
+      // Search filter (supports id exact match or text contains on allowed fields)
+      if (filter.searchField && filter.search) {
+        const allowed = ['id', 'firstName', 'lastName', 'acknowledgementNo'];
+        if (allowed.includes(filter.searchField)) {
+          if (filter.searchField === 'id') {
+            const idVal = Number(filter.search);
+            if (!isNaN(idVal)) where.id = idVal;
+          } else {
+            // case-insensitive partial match for frontend search
+            where[filter.searchField] = { contains: String(filter.search), mode: 'insensitive' };
+          }
+        }
+      }
+
+      // Ordering: allow only a small set of fields for safety
+      const allowedOrderFields = ['id', 'firstName', 'lastName', 'acknowledgementNo', 'createdAt'];
+      const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'createdAt';
+      const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+      const orderByObj: any = { [orderByField]: orderDirection };
+
+      // Minimal selects for list view (frontend needs these fields)
+      const select = {
+        id: true,
+        almsLicenseId: true,
+        acknowledgementNo: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        createdAt: true,
+        workflowStatusId: true,
+        // Workflow status
+        workflowStatus: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          }
+        },
+        // User and role tracking (role accessed through user.role)
+        currentUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                code: true,
+              }
+            }
+          }
+        },
+        previousUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+              }
+            }
+          }
+        },
+      };
+
+      // Determine which application types to fetch based on filter
+      const appType = filter.applicationType ? filter.applicationType.trim().toLowerCase() : undefined;
+      const fetchFresh = !appType || appType === 'freshlicense' || appType === 'fresh';
+      const fetchRenewal = !appType || appType === 'renewalform' || appType === 'renewal';
+      const fetchCancel = !appType || appType === 'cancelform' || appType === 'cancel' || appType === 'cancelformrequest' || appType === 'cancelrequest';
+
+      let freshLicenseTotal = 0;
+      let freshLicenseTransformed: any[] = [];
+      let renewalByStatusId: Map<number, any[]> = new Map();
+      let cancelFormResult: { total: number; data: any[] } = { total: 0, data: [] };
+
+      // Fetch Fresh Applications
+      if (fetchFresh) {
+        const rawData = await prisma.freshLicenseApplicationPersonalDetails.findMany({
+          where,
+          orderBy: orderByObj,
+          select,
+        });
+
+        freshLicenseTransformed = (rawData || []).map((row: any) => {
+          const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+          const { firstName, middleName, lastName, ...rest } = row;
+
+          return {
+            id: rest.id,
+            almsLicenseId: rest.almsLicenseId,
+            acknowledgementNo: rest.acknowledgementNo,
+            applicantName: parts.join(' '),
+            applicationType: 'Fresh',
+            createdAt: rest.createdAt,
+            workflowStatusId: rest.workflowStatusId,
+            workflowStatus: rest.workflowStatus,
+            currentUser: rest.currentUser,
+            previousUser: rest.previousUser
+          };
+        });
+      }
+
+      // Fetch Renewal License Applications (no pagination, grouped by workflowStatusId)
+      if (fetchRenewal) {
+        const renewalRawData = await prisma.renewalFormPersonalDetails.findMany({
+          where,
+          select: {
+            id: true,
+            licenseNumber: true,
+            acknowledgementNo: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            createdAt: true,
+            workflowStatusId: true,
+            workflowStatus: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              }
+            },
+            currentUser: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                role: {
+                  select: {
+                    code: true,
+                  }
+                }
+              }
+            },
+            previousUser: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                role: {
+                  select: {
+                    id: true,
+                    code: true,
+                  }
+                }
+              }
+            },
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+
+        // Transform and group renewal data by workflowStatusId
+        (renewalRawData || []).forEach((row: any) => {
+          const parts = [row.firstName, row.middleName, row.lastName].filter((p: any) => p && String(p).trim());
+          const { firstName, middleName, lastName, ...rest } = row;
+          const transformedRenewal = {
+            id: rest.id,
+            licenseNumber: rest.licenseNumber,
+            acknowledgementNo: rest.acknowledgementNo,
+            applicantName: parts.join(' '),
+            applicationType: 'Renewal License',
+            createdAt: rest.createdAt,
+            workflowStatusId: rest.workflowStatusId,
+            workflowStatus: rest.workflowStatus,
+            currentUser: rest.currentUser,
+            previousUser: rest.previousUser
+          };
+
+          const statusId = row.workflowStatusId;
+          if (!renewalByStatusId.has(statusId)) {
+            renewalByStatusId.set(statusId, []);
+          }
+          renewalByStatusId.get(statusId)!.push(transformedRenewal);
+        });
+      }
+
+      // Fetch Cancel Form Requests (paginated)
+      if (fetchCancel) {
+        cancelFormResult = await this.getCancelFormRequests(filter);
+      }
+
+      // Build renewal data by status (only if fresh data exists to map currentUser)
+      const renewalDataByStatus: { [key: number]: any[] } = {};
+      if (fetchRenewal && renewalByStatusId.size > 0) {
+        // For each fresh license, if it's the first with its status, capture its currentUser
+        const statusUserMap: { [key: number]: any } = {};
+        freshLicenseTransformed.forEach((freshApp: any) => {
+          if (freshApp.workflowStatusId && !statusUserMap[freshApp.workflowStatusId]) {
+            statusUserMap[freshApp.workflowStatusId] = freshApp.currentUser;
+          }
+        });
+
+        // Attach fresh license's currentUser to each renewal record
+        renewalByStatusId.forEach((renewals: any[], statusId: number) => {
+          const freshLicenseUser = statusUserMap[statusId];
+          renewalDataByStatus[statusId] = renewals.map((renewal: any) => ({
+            ...renewal,
+            currentUser: freshLicenseUser
+          }));
+        });
+      } else if (fetchRenewal) {
+        // If only renewals are requested (no fresh data to map), keep renewals as-is
+        renewalByStatusId.forEach((renewals: any[], statusId: number) => {
+          renewalDataByStatus[statusId] = renewals;
+        });
+      }
+
+      // Combine all data into one array
+      const combinedData: any[] = [];
+
+      // Add fresh licenses
+      if (fetchFresh) {
+        combinedData.push(...freshLicenseTransformed);
+      }
+
+      // Add renewals
+      if (fetchRenewal) {
+        Object.values(renewalDataByStatus).forEach((renewals: any[]) => {
+          combinedData.push(...renewals);
+        });
+      }
+
+      // Add cancel form requests
+      if (fetchCancel) {
+        combinedData.push(...cancelFormResult.data);
+      }
+
+      // Calculate total count of combined records
+      const total = combinedData.length;
+
+      // Apply in-memory sorting
+      const sortField = filter.orderBy || 'createdAt';
+      const sortOrder = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+      combinedData.sort((a, b) => {
+        let aVal = a[sortField];
+        let bVal = b[sortField];
+
+        if (aVal === undefined || aVal === null) return 1;
+        if (bVal === undefined || bVal === null) return -1;
+
+        if (sortField === 'createdAt' || sortField === 'actionTakenAt') {
+          aVal = new Date(aVal).getTime();
+          bVal = new Date(bVal).getTime();
+        }
+
+        if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Apply pagination on sorted combined data
+      const paginatedData = combinedData.slice(skip, skip + limit);
+
+      // Return in the [error, result] tuple format
+      return [null, {
+        total,
+        page,
+        limit,
+        data: paginatedData
+      }];
+    } catch (error) {
+      return [error, null];
+    }
+  }
+
+
+  /**
+   * Resolve a CancelForm request to its original application's address and current user role.
+   * Returns { originalAppId, currentUserId, roleId, presentAddress } or null if not found.
+   */
+  private async resolveCancelFormHierarchy(applicationId: number): Promise<{
+    originalAppId: number;
+    currentUserId: number;
+    roleId: number;
+    presentAddress: {
+      stateId: number;
+      districtId: number;
+      zoneId: number;
+      divisionId: number;
+      policeStationId: number;
+      rangeOfficeId: number;
+    };
+  } | null> {
+    // Fetch the cancel request to get the license link and current assignee
+    const cancelRequest = await prisma.cancelFormRequests.findUnique({
+      where: { id: applicationId },
+      select: {
+        id: true,
+        licenseId: true,
+        currentUserId: true,
+        currentUser: {
+          select: { roleId: true }
+        }
+      }
+    });
+
+    if (!cancelRequest) return null;
+
+    // Determine which user's role to use: currentUserId (assignee) or fall back
+    const effectiveUserId = cancelRequest.currentUserId;
+    if (!effectiveUserId) return null;
+
+    // Fetch the effective user's role
+    const effectiveUser = cancelRequest.currentUser
+      ? cancelRequest.currentUser
+      : await prisma.users.findUnique({
+        where: { id: effectiveUserId },
+        select: { roleId: true }
+      });
+
+    if (!effectiveUser?.roleId) return null;
+
+    if (!cancelRequest.licenseId) return null;
+
+    // ----------------------------------------------------------------
+    // FIX: cancelRequest.licenseId is the ID in the `licenses` table,
+    // NOT a direct FK into the application personal details tables.
+    // We must first look up the license record to get the source
+    // application IDs (freshApplicationId / renewalApplicationId).
+    // ----------------------------------------------------------------
+    const license = await prisma.licenses.findUnique({
+      where: { id: cancelRequest.licenseId },
+      select: {
+        id: true,
+        freshApplicationId: true,
+        renewalApplicationId: true,
+        // License also has flattened address fields as a fallback
+        presentStateId: true,
+        presentDistrictId: true,
+        presentZoneId: true,
+        presentDivisionId: true,
+        presentPoliceStationId: true,
+        presentRangeOfficeId: true,
+      }
+    });
+
+    if (!license) return null;
+
+    const addressSelect = {
+      select: {
+        stateId: true,
+        districtId: true,
+        zoneId: true,
+        divisionId: true,
+        policeStationId: true,
+        rangeOfficeId: true
+      }
+    };
+
+    let sourceAppId: number | null = null;
+    let presentAddress: {
+      stateId: number;
+      districtId: number;
+      zoneId: number;
+      divisionId: number;
+      policeStationId: number;
+      rangeOfficeId: number;
+    } | null = null;
+
+    // 1) Try fresh application link
+    if (license.freshApplicationId) {
+      const freshApp = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: license.freshApplicationId },
+        select: {
+          id: true,
+          presentAddress: addressSelect
+        }
+      });
+      if (freshApp?.presentAddress) {
+        sourceAppId = freshApp.id;
+        presentAddress = freshApp.presentAddress as any;
+      }
+    }
+
+    // 2) Try renewal application link (if fresh didn't yield an address)
+    if (!presentAddress && license.renewalApplicationId) {
+      const renewalApp = await prisma.renewalFormPersonalDetails.findUnique({
+        where: { id: license.renewalApplicationId },
+        select: {
+          id: true,
+          presentAddress: addressSelect
+        }
+      });
+      if (renewalApp?.presentAddress) {
+        sourceAppId = renewalApp.id;
+        presentAddress = renewalApp.presentAddress as any;
+      }
+    }
+
+    // 3) Fallback: use the license's own flattened address fields
+    if (!presentAddress && license.presentStateId && license.presentDistrictId) {
+      sourceAppId = cancelRequest.licenseId;
+      presentAddress = {
+        stateId: license.presentStateId,
+        districtId: license.presentDistrictId,
+        zoneId: license.presentZoneId ?? 0,
+        divisionId: license.presentDivisionId ?? 0,
+        policeStationId: license.presentPoliceStationId ?? 0,
+        rangeOfficeId: license.presentRangeOfficeId ?? 0,
+      };
+    }
+
+    if (!presentAddress || sourceAppId === null) return null;
+
+    return {
+      originalAppId: sourceAppId,
+      currentUserId: effectiveUserId,
+      roleId: effectiveUser.roleId,
+      presentAddress
+    };
+  }
+
+  /**
+   * Find users by role IDs and location hierarchy.
+   * Shared helper used by both Fresh/Renewal and CancelForm hierarchy resolution.
+   */
+  private async findUsersByLocationAndRoles(
+    roleIds: number[],
+    location: { policeStationId: number; rangeOfficeId: number; divisionId: number; zoneId: number; districtId: number; stateId: number }
+  ): Promise<[any, any]> {
+    const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = location;
+
+    const locationConditions: any[] = [];
+
+    // Add conditions for each level (most specific to least specific)
+    if (policeStationId) {
+      locationConditions.push({ policeStationId });
+    }
+    if (divisionId) {
+      locationConditions.push({ divisionId, policeStationId: null });
+    }
+    if (zoneId) {
+      locationConditions.push({ zoneId, divisionId: null });
+    }
+    if (rangeOfficeId) {
+      locationConditions.push({ rangeOfficeId, zoneId: null });
+    }
+    if (districtId) {
+      locationConditions.push({ districtId, rangeOfficeId: null });
+    }
+    if (stateId) {
+      locationConditions.push({ stateId, districtId: null });
+    }
+
+    // If no location conditions, return empty
+    if (locationConditions.length === 0) {
+      return [null, []];
+    }
+
+    // Reusable select object to return only essential fields
+    const userSelect = {
+      id: true,
+      username: true,
+      roleId: true,
+      role: {
+        select: {
+          code: true
+        }
+      }
+    };
+
+    // Single optimized query with role filtering at database level
+    const users = await prisma.users.findMany({
+      where: {
+        roleId: { in: roleIds },
+        OR: locationConditions
+      },
+      select: userSelect,
+      orderBy: [
+        { role: { name: 'asc' } },
+        { username: 'asc' }
+      ]
+    });
+
+    // Transform to flatten roleCode
+    const transformedUsers = users.map((user: { id: number; username: string; roleId: number; role: { code: string } | null }) => ({
+      id: user.id,
+      username: user.username,
+      roleId: user.roleId,
+      roleCode: user.role?.code || null
+    }));
+
+    return [null, transformedUsers];
+  }
+
+  /**
+   * Resolve the next role IDs for a role within an application-type + location context.
+   * Resolution is ordered by specificity:
+   *   1. Exact mapping for (stateId, districtId)
+   *   2. State-level mapping (stateId set, districtId null)
+   *   3. Global mapping (stateId null, districtId null)
+   * This mirrors how flow mappings are configured (scoped to state/district or global),
+   * so an application in an unmapped state/district still falls back to the global workflow.
+   */
+  private async resolveRoleFlowMapping(
+    currentRoleId: number,
+    applicationType: RoleFlowApplicationType,
+    stateId: number | null,
+    districtId: number | null,
+  ): Promise<number[]> {
+    const roleMapping = await prisma.roleFlowMapping.findFirst({
+      where: {
+        currentRoleId,
+        applicationType,
+        purpose: 'ALL',
+        OR: [
+          { stateId, districtId },
+          { stateId, districtId: null },
+          { stateId: null, districtId: null },
+        ],
+      },
+      orderBy: [
+        { stateId: { sort: 'desc', nulls: 'last' } },
+        { districtId: { sort: 'desc', nulls: 'last' } },
+      ],
+      select: { nextRoleIds: true },
+    });
+
+    return roleMapping?.nextRoleIds ?? [];
+  }
+
+  async getUsersInHierarchy(applicationId: number, applicationType?: string): Promise<[any, any]> {
+    try {
+      const resolvedType = normalizeHierarchyApplicationType(applicationType);
+
+      // Handle CancelForm: resolve through the cancel request to the original application
+      if (resolvedType === 'cancel') {
+        const cancelHierarchy = await this.resolveCancelFormHierarchy(applicationId);
+        if (!cancelHierarchy) {
+          return [new BadRequestException('Cancel request not found or missing required data for hierarchy resolution'), null];
+        }
+
+        if (!cancelHierarchy.presentAddress) {
+          return [new BadRequestException('Original application does not have a present address defined'), null];
+        }
+
+        // Map applicationType to flow mapping enum value
+        const flowAppType = 'CANCEL';
+        const cancelStateId = cancelHierarchy.presentAddress.stateId ?? null;
+        const cancelDistrictId = cancelHierarchy.presentAddress.districtId ?? null;
+
+        // Resolve next roles from role flow mapping (exact → state-level → global)
+        const nextRoleIds = await this.resolveRoleFlowMapping(
+          cancelHierarchy.roleId,
+          flowAppType,
+          cancelStateId,
+          cancelDistrictId,
+        );
+
+        if (nextRoleIds.length === 0) {
+          return [null, []];
+        }
+
+        // Build location hierarchy conditions
+        const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = cancelHierarchy.presentAddress;
+        return this.findUsersByLocationAndRoles(nextRoleIds, {
+          policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId
+        });
+      }
+
+      const isRenewal = resolvedType === 'renewal';
+
+      // Fetch application, current user, and role flow mapping in parallel
+      const application = isRenewal
+        ? await prisma.renewalFormPersonalDetails.findUnique({
+          where: { id: applicationId },
+          select: {
+            id: true,
+            currentUserId: true,
+            currentUser: {
+              select: {
+                id: true,
+                roleId: true
+              }
+            },
+            presentAddress: {
+              select: {
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                rangeOfficeId: true
+              }
+            }
+          }
+        })
+        : await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+          where: { id: applicationId },
+          select: {
+            id: true,
+            currentUserId: true,
+            currentUser: {
+              select: {
+                id: true,
+                roleId: true
+              }
+            },
+            presentAddress: {
+              select: {
+                stateId: true,
+                districtId: true,
+                zoneId: true,
+                divisionId: true,
+                policeStationId: true,
+                rangeOfficeId: true
+              }
+            }
+          }
+        });
+      if (!application) {
+        return [new BadRequestException('Application not found'), null];
+      }
+
+      if (!application.presentAddress) {
+        return [new BadRequestException('Application does not have a present address defined'), null];
+      }
+      if (!application.currentUserId || !application.currentUser) {
+        return [new BadRequestException('Application does not have a current user assigned'), null];
+      }
+
+      if (!application.currentUser.roleId) {
+        return [new BadRequestException('Current user does not have a role assigned'), null];
+      }
+
+      // Map normalised type to flow mapping enum
+      const flowAppType = resolvedType === 'renewal' ? 'RENEWAL' : 'FRESH';
+
+      // Resolve next roles from role flow mapping (exact → state-level → global)
+      // using the application's present address as the location context.
+      const { stateId: appStateId, districtId: appDistrictId } = application.presentAddress;
+
+      const nextRoleIds = await this.resolveRoleFlowMapping(
+        application.currentUser.roleId,
+        flowAppType,
+        appStateId,
+        appDistrictId,
+      );
+
+      if (nextRoleIds.length === 0) {
+        return [null, []];
+      }
+
+      // Build location hierarchy conditions - using OR for all levels in a single query
+      const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = application.presentAddress;
+      const locationConditions: any[] = [];
+
+      // Add conditions for each level (most specific to least specific)
+      if (policeStationId) {
+        locationConditions.push({ policeStationId });
+      }
+      if (divisionId) {
+        locationConditions.push({ divisionId, policeStationId: null });
+      }
+      if (zoneId) {
+        locationConditions.push({ zoneId, divisionId: null });
+      }
+      if (rangeOfficeId) {
+        locationConditions.push({ rangeOfficeId, zoneId: null });
+      }
+      if (districtId) {
+        locationConditions.push({ districtId, rangeOfficeId: null });
+      }
+      if (stateId) {
+        locationConditions.push({ stateId, districtId: null });
+      }
+
+      // If no location conditions, return empty
+      if (locationConditions.length === 0) {
+        return [null, []];
+      }
+
+      // Reusable select object to return only essential fields
+      const userSelect = {
+        id: true,
+        username: true,
+        roleId: true,
+        role: {
+          select: {
+            code: true
+          }
+        }
+      };
+      // Single optimized query with role filtering at database level
+      const users = await prisma.users.findMany({
+        where: {
+          roleId: { in: nextRoleIds },
+          OR: locationConditions
+        },
+        select: userSelect,
+        orderBy: [
+          { role: { name: 'asc' } },
+          { username: 'asc' }
+        ]
+      });
+
+      // Transform to flatten roleCode
+      const transformedUsers = users.map((user: { id: number; username: string; roleId: number; role: { code: string } | null }) => ({
+        id: user.id,
+        username: user.username,
+        roleId: user.roleId,
+        roleCode: user.role?.code || null
+      }));
+
+      return [null, transformedUsers];
+    } catch (error) {
+      return [error, null];
+    }
+  }
+
+  public async getUserApplications(userId: string) {
+    const userIdNum = parseInt(userId);
+    return await prisma.freshLicenseApplicationPersonalDetails.findMany({
+      where: {
+        currentUserId: userIdNum
+      },
+      include: {
+        // User and role tracking (role accessed through user.role)
+        currentUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true
+              }
+            }
+          }
+        },
+        previousUser: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: {
+              select: {
+                id: true,
+                code: true,
+              }
+            }
+          }
+        },
+        // Address details
+        presentAddress: {
+          include: {
+            state: true,
+            district: true,
+            zone: true,
+            division: true,
+            policeStation: true,
+          }
+        },
+        permanentAddress: {
+          include: {
+            state: true,
+            district: true,
+            zone: true,
+            division: true,
+            policeStation: true,
+          }
+        },
+        // Other details
+        occupationAndBusiness: {
+          include: {
+            state: true,
+            district: true,
+          }
+        },
+        biometricData: true,
+        criminalHistories: true,
+        licenseHistories: true,
+        licenseDetails: {
+          include: {
+            requestedWeapons: true,
+          }
+        },
+        fileUploads: true,
+      },
+    });
+  }
+
+  /**
+   * Upload file for application
+   * For certain file types (PHOTOGRAPH, SIGNATURE_THUMB, etc.), only keep the latest file
+   */
+  async uploadFile(applicationId: number, dto: UploadFileDto): Promise<[any, any]> {
+    try {
+      // Validate application exists
+      const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
+        where: { id: applicationId }
+      });
+
+      if (!application) {
+        return ['Application not found', null];
+      }
+
+      // File size validation (10MB limit)
+      const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (dto.fileSize > maxFileSize) {
+        return ['File size too large. Maximum allowed size is 10MB', null];
+      }
+
+      // For PHOTOGRAPH and SIGNATURE_THUMB types, delete existing files to keep only the latest
+      const singleFileTypes = ['PHOTOGRAPH', 'SIGNATURE_THUMB', 'IRIS_SCAN'];
+      if (singleFileTypes.includes(dto.fileType)) {
+        await prisma.fLAFFileUploads.deleteMany({
+          where: {
+            applicationId: applicationId,
+            fileType: dto.fileType
+          }
+        });
+      }
+
+      // Save file record to database
+      const fileRecord = await prisma.fLAFFileUploads.create({
+        data: {
+          applicationId: applicationId,
+          fileType: dto.fileType,
+          fileName: dto.fileName,
+          fileUrl: dto.fileUrl,
+          fileSize: dto.fileSize
+        }
+      });
+
+      return [null, {
+        id: fileRecord.id,
+        applicationId: fileRecord.applicationId,
+        fileType: fileRecord.fileType,
+        fileName: fileRecord.fileName,
+        fileUrl: fileRecord.fileUrl,
+        fileSize: fileRecord.fileSize,
+        uploadedAt: fileRecord.uploadedAt
+      }];
+
+    } catch (error: any) {
+      console.error('Error storing file metadata:', error);
+
+      if (error.code === 'P2002') {
+        return ['File metadata storage failed due to duplicate entry', null];
+      }
+
+      return [`File metadata storage failed: ${error.message || 'Unknown error'}`, null];
+    }
+  }
+
+  /**
+   * Get status ID by status code
+   * This ensures we get the correct ID regardless of insertion order
+   */
+  private async getStatusIdByCode(statusCode: string): Promise<number> {
+    const status = await prisma.statuses.findFirst({
+      where: {
+        code: statusCode,
+        isActive: true
+      },
+      select: { id: true }
+    });
+
+    if (!status) {
+      throw new Error(`Status with code '${statusCode}' not found or inactive`);
+    }
+
+    return status.id;
+  }
+
+  /**
+   * Get standard status IDs from Statuses table
+   * This ensures consistent status IDs across the application
+   */
+  async getStatusIds() {
+    const statusCodes = ['DRAFT', 'INITIATE', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
+    const statusMap: Record<string, number> = {};
+
+    for (const code of statusCodes) {
+      try {
+        statusMap[code] = await this.getStatusIdByCode(code);
+      } catch (error) {
+        // Don't throw error, just skip missing statuses
+      }
+    }
+
+    return statusMap;
+  }
+
+  /**
+   * Fetch cancel form requests with filtering, pagination, and transform to unified format
+   * Includes both pending CancelFormRequests and approved CancelLicenseHistory records.
+   */
+  private async getCancelFormRequests(filter: {
+    statusIds?: Array<number | string>;
+    currentUserId?: string;
+    page?: number;
+    limit?: number;
+    searchField?: string;
+    search?: string;
+    orderBy?: string;
+    order?: 'asc' | 'desc';
+    isOwned?: boolean;
+    isSent?: boolean;
+    applicationType?: string;
+  }): Promise<{ total: number; data: any[] }> {
+    const page = Math.max(Number(filter.page ?? 1), 1);
+    const limit = Math.max(Number(filter.limit ?? 10), 1);
+    const skip = (page - 1) * limit;
+
+    // --- Fetch from CancelFormRequests (pending/active requests) ---
+    const cancelFormWhere: any = {};
+
+    // User/citizen filter: map currentUserId to the cancel request's currentUserId (who it's assigned to)
+    // matching the exact logic used in getFilteredApplications
+    if (filter.currentUserId) {
+      const parsedUserId = Number(filter.currentUserId);
+      if (!isNaN(parsedUserId)) {
+        cancelFormWhere.currentUserId = parsedUserId;
+      }
+    }
+
+    // Status filter - map workflowStatusId filter matching resolved IDs in getFilteredApplications
+    if (filter.statusIds && Array.isArray(filter.statusIds) && filter.statusIds.length > 0) {
+      const numericCandidates = filter.statusIds.map((s: any) => Number(s)).filter((n: any) => !isNaN(n));
+      const nonNumeric = filter.statusIds.filter((s: any) => isNaN(Number(s))).map(String);
+      let resolvedIds: number[] = [...numericCandidates];
+
+      if (nonNumeric.length > 0) {
+        const fromResolver = await this.resolveStatusIdentifiers(nonNumeric);
+        if (fromResolver && fromResolver.length > 0) {
+          resolvedIds = Array.from(new Set([...resolvedIds, ...fromResolver]));
+        }
+      }
+
+      if (resolvedIds.length > 0) {
+        cancelFormWhere.workFlowStatusId = { in: resolvedIds };
+      }
+    }
+
+    // Search filter - support id, firstName, lastName, acknowledgementNo via relation lookup
+    if (filter.searchField && filter.search) {
+      if (filter.searchField === 'id') {
+        const idVal = Number(filter.search);
+        if (!isNaN(idVal)) cancelFormWhere.id = idVal;
+      } else if (['firstName', 'lastName', 'acknowledgementNo'].includes(filter.searchField)) {
+        cancelFormWhere.Licenses = {
+          [filter.searchField]: { contains: String(filter.search), mode: 'insensitive' }
+        };
+      }
+    }
+
+    // Ordering
+    const allowedOrderFields = ['id', 'createdAt', 'acknowledgementNo'];
+    const orderByField = (filter.orderBy && allowedOrderFields.includes(filter.orderBy)) ? filter.orderBy : 'createdAt';
+    const orderDirection = filter.order && filter.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const orderByObj: any = { [orderByField]: orderDirection };
+
+    let cancelFormRawData: any[] = [];
+    let cancelFormTotal = 0;
+
+    // --- Fetch from CancelFormRequests (pending/active requests) ONLY if isSent is false ---
+    if (!filter.isSent) {
+      const [total, data] = await Promise.all([
+        prisma.cancelFormRequests.count({ where: cancelFormWhere }),
+        prisma.cancelFormRequests.findMany({
+          where: cancelFormWhere,
+          orderBy: orderByObj,
+          select: {
+            id: true,
+            licenseId: true,
+            acknowledgementNo: true,
+            cancellationReason: true,
+            createdAt: true,
+            workFlowStatusId: true,
+            workflowStatus: {
+              select: { id: true, code: true, name: true },
+            },
+            currentUser: {
+              select: { id: true, username: true, email: true, role: { select: { code: true } } },
+            },
+            requester: {
+              select: { id: true, username: true, email: true, role: { select: { code: true } } },
+            },
+            Licenses: {
+              select: {
+                licenseNumber: true,
+                firstName: true,
+                middleName: true,
+                lastName: true,
+              },
+            },
+          },
+        }),
+      ]);
+      cancelFormTotal = total;
+      cancelFormRawData = data;
+    }
+
+
+    // Transform CancelFormRequests: look up original application for applicant name & acknowledgementNo
+    const transformedCancelRequests = await Promise.all((cancelFormRawData || []).map(async (row: any) => {
+      const freshApplicantName = row.Licenses
+        ? [row.Licenses.firstName, row.Licenses.middleName, row.Licenses.lastName]
+          .filter((part: any) => part && String(part).trim())
+          .join(' ')
+        : '';
+      const applicantName = freshApplicantName || row.requester?.username || `Cancel Request #${row.id}`;
+      const acknowledgementNo: string | null = row.acknowledgementNo || row.Licenses?.licenseNumber || null;
+
+      return {
+        id: row.id,
+        freshLicenseId: row.licenseId,
+        cancellationReason: row.cancellationReason,
+        status: row.workflowStatus?.code || 'PENDING',
+        acknowledgementNo,
+        applicantName,
+        applicationType: 'Cancel Request',
+        createdAt: row.createdAt,
+        workflowStatusId: row.workFlowStatusId,
+        workflowStatus: row.workflowStatus,
+        currentUser: row.currentUser ? {
+          id: row.currentUser.id,
+          username: row.currentUser.username,
+          email: row.currentUser.email,
+          role: row.currentUser.role,
+        } : null,
+        previousUser: null,
+      };
+    }));
+
+    return { total: cancelFormTotal, data: transformedCancelRequests };
+  }
+
+  /**
+   * Initialize default statuses if they don't exist
+   * Call this method to ensure required statuses are available
+   */
+  async initializeDefaultStatuses() {
+    const defaultStatuses = [
+      { code: 'DRAFT', name: 'Draft', description: 'Application is being filled out' },
+      { code: 'INITIATE', name: 'Initiate', description: 'Application has been submitted for review' },
+      { code: 'UNDER_REVIEW', name: 'Under Review', description: 'Application is being reviewed by officer' },
+      { code: 'APPROVED', name: 'Approved', description: 'Application has been approved' },
+      { code: 'REJECTED', name: 'Rejected', description: 'Application has been rejected' }
+    ];
+
+    for (const statusData of defaultStatuses) {
+      const existingStatus = await prisma.statuses.findFirst({
+        where: { code: statusData.code }
+      });
+
+      if (!existingStatus) {
+        await prisma.statuses.create({
+          data: statusData
+        });
+      }
+    }
+  }
+}

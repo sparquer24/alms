@@ -1,0 +1,245 @@
+/**
+ * Centralized Admin Menu Configuration Service
+ * Provides stable, cached menu items for admin role across all admin pages
+ */
+
+import { MenuItem } from './roles';
+
+export type AdminMenuItemKey =
+    | 'dashboard'
+    | 'userManagement'
+    | 'roleMapping'
+    | 'analytics'
+    | 'flowMapping'
+    | 'locationsManagement'
+    | 'actionMapping';
+
+export interface AdminMenuItem extends MenuItem {
+    path: string;
+    key: AdminMenuItemKey;
+    label: string;
+    order: number;
+}
+
+/**
+ * Core admin menu items - These are the required admin pages
+ * Ordered for consistent display in sidebar
+ */
+export const ADMIN_MENU_ITEMS: Record<AdminMenuItemKey, AdminMenuItem> = {
+    dashboard: {
+        name: 'dashboard',
+        key: 'dashboard',
+        label: 'Dashboard',
+        path: '/dashboard',
+        order: 1,
+    },
+    userManagement: {
+        name: 'userManagement',
+        key: 'userManagement',
+        label: 'User Management',
+        path: '/admin/userManagement',
+        order: 2,
+    },
+    roleMapping: {
+        name: 'roleMapping',
+        key: 'roleMapping',
+        label: 'Role Management',
+        path: '/admin/roleMapping',
+        order: 3,
+    },
+    analytics: {
+        name: 'analytics',
+        key: 'analytics',
+        label: 'Analytics',
+        path: '/admin/analytics',
+        order: 4,
+    },
+    flowMapping: {
+        name: 'flowMapping',
+        key: 'flowMapping',
+        label: 'Flow Mapping',
+        path: '/admin/flowMapping',
+        order: 5,
+    },
+    locationsManagement: {
+        name: 'locationsManagement',
+        key: 'locationsManagement',
+        label: 'Locations Management',
+        path: '/admin/locationsManagement',
+        order: 6,
+    },
+    actionMapping: {
+        name: 'actionMapping',
+        key: 'actionMapping',
+        label: 'Action Mapping',
+        path: '/admin/actionMapping',
+        order: 7,
+    },
+};
+
+/**
+ * Get the full admin menu items ordered by priority
+ */
+export function getAdminMenuItems(): AdminMenuItem[] {
+    return Object.values(ADMIN_MENU_ITEMS).sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Get admin menu item by key
+ */
+export function getAdminMenuItem(key: AdminMenuItemKey): AdminMenuItem | undefined {
+    return ADMIN_MENU_ITEMS[key];
+}
+
+/**
+ * Get admin menu item path by key
+ */
+export function getAdminMenuPath(key: AdminMenuItemKey): string | undefined {
+    return ADMIN_MENU_ITEMS[key]?.path;
+}
+
+/**
+ * Check if a path is an admin menu path
+ */
+export function isAdminMenuPath(pathname: string): boolean {
+    return Object.values(ADMIN_MENU_ITEMS).some(item => pathname === item.path || pathname.startsWith(item.path));
+}
+
+/**
+ * Extract admin menu key from pathname
+ */
+export function getAdminMenuKeyFromPath(pathname: string): AdminMenuItemKey | null {
+    const item = Object.values(ADMIN_MENU_ITEMS).find(
+        item => pathname === item.path || pathname.startsWith(item.path)
+    );
+    return item?.key || null;
+}
+
+/**
+ * Normalize admin menu item names (handle various formats from backend)
+ */
+export function normalizeAdminMenuItem(name: string): AdminMenuItemKey | null {
+    const normalized = name.toLowerCase().replace(/\s+/g, '');
+    const candidates: Record<string, AdminMenuItemKey> = {
+        'dashboard': 'dashboard',
+        'admindashboard': 'dashboard',
+        'superadmindashboard': 'dashboard',
+        'usermanagement': 'userManagement',
+        'user_management': 'userManagement',
+        'user-management': 'userManagement',
+        'rolemapping': 'roleMapping',
+        'role_mapping': 'roleMapping',
+        'role-mapping': 'roleMapping',
+        'rolemanagement': 'roleMapping',
+        'role_management': 'roleMapping',
+        'role-management': 'roleMapping',
+        'rolesmanagement': 'roleMapping',
+        'roles_management': 'roleMapping',
+        'roles-management': 'roleMapping',
+        'analytics': 'analytics',
+        'flowmapping': 'flowMapping',
+        'flow_mapping': 'flowMapping',
+        'flow-mapping': 'flowMapping',
+        // 'flowmanagement': 'flowMapping',
+        // 'flow_management': 'flowMapping',
+        // 'flow-management': 'flowMapping',
+        'flowmap': 'flowMapping',
+        'flow': 'flowMapping',
+        'locationsmanagement': 'locationsManagement',
+        'locations_management': 'locationsManagement',
+        'locations-management': 'locationsManagement',
+        'locationmanagement': 'locationsManagement',
+        'location_management': 'locationsManagement',
+        'location-management': 'locationsManagement',
+        'locations': 'locationsManagement',
+        'actionmapping': 'actionMapping',
+        'action_mapping': 'actionMapping',
+        'action-mapping': 'actionMapping',
+        'actionsmapping': 'actionMapping',
+    };
+
+    // Try direct match first
+    if (candidates[normalized]) {
+        return candidates[normalized];
+    }
+
+    // Try partial matches for edge cases
+    for (const [key, value] of Object.entries(candidates)) {
+        if (normalized.includes(key) || key.includes(normalized)) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Build menu items array from raw menu item names (from DB/API)
+ * Ensures only valid admin menu items are included and in correct order
+ */
+export function buildAdminMenuItemsFromNames(names: (string | MenuItem)[]): AdminMenuItem[] {
+    if (!Array.isArray(names)) return [];
+
+    const validItems = new Set<AdminMenuItemKey>();
+
+    names.forEach(item => {
+        const itemName = typeof item === 'string' ? item : (item?.name || '');
+        const normalized = normalizeAdminMenuItem(itemName);
+        if (normalized) {
+            validItems.add(normalized);
+        }
+    });
+
+    // If empty, return all admin items (Admin role should see everything)
+    if (validItems.size === 0) {
+        return getAdminMenuItems();
+    }
+
+    return getAdminMenuItems().filter(item => validItems.has(item.key));
+}
+
+/**
+ * Ensure Admin role always has all menu items
+ * This function overrides any restricted menu item list for ADMIN users
+ */
+export function getMenuItemsForAdminRole(
+    roleCode?: string,
+    menuItemsFromRole?: (string | MenuItem)[]
+): AdminMenuItem[] {
+    const upperRoleCode = roleCode?.toUpperCase();
+    const isAdmin = upperRoleCode === 'ADMIN' || upperRoleCode === 'SUPER_ADMIN';
+
+    if (isAdmin) {
+        // Admin and Super Admin always get all menu items
+        return getAdminMenuItems();
+    }
+
+    // For other roles, filter to valid items
+    if (menuItemsFromRole && menuItemsFromRole.length > 0) {
+        return buildAdminMenuItemsFromNames(menuItemsFromRole);
+    }
+
+    return [];
+}
+
+/**
+ * Get the full admin path (e.g., '/admin/userManagement') for a menu item name
+ * Handles normalization and returns the correct path from ADMIN_MENU_ITEMS
+ */
+export function getAdminPathForMenuItem(itemName: string): string | null {
+    if (!itemName) return null;
+
+    // Try direct match first
+    const key = itemName as AdminMenuItemKey;
+    if (ADMIN_MENU_ITEMS[key]) {
+        return ADMIN_MENU_ITEMS[key].path;
+    }
+
+    // Try normalized match
+    const normalized = normalizeAdminMenuItem(itemName);
+    if (normalized && ADMIN_MENU_ITEMS[normalized]) {
+        return ADMIN_MENU_ITEMS[normalized].path;
+    }
+
+    return null;
+}

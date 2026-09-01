@@ -2,11 +2,10 @@
 node_modules
 jspm_packages
 
-# Serverless directories
-.serverless
-
 # esbuild directories
 .esbuild
 
 # env
 .env
+.env.dev
+.env.prod

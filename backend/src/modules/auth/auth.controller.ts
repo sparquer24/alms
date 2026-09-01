@@ -1,0 +1,222 @@
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Request, Res, UnauthorizedException, Headers } from '@nestjs/common';
+import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { LoginRequest } from '../../request/auth';
+import { LoginResponse, UserProfileResponse } from '../../response/auth';
+import { AuthGuard } from '../../middleware/auth.middleware';
+
+@ApiTags('Authentication')
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) { }
+
+  /**
+   * Login endpoint
+   * @param loginData - Login credentials
+   * @returns Authentication response with token
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'User Login',
+    description: 'Authenticate user with username and password to get JWT token'
+  })
+  @ApiBody({
+    type: LoginRequest,
+    description: 'User login credentials',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful',
+    type: LoginResponse,
+  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async login(@Body() loginData: LoginRequest, @Res({ passthrough: true }) res: Response): Promise<any> {
+    try {
+      const result = await this.authService.authenticateUser(loginData);
+
+      // If the authenticated user payload includes a role, set an HttpOnly
+      // role cookie on the response so server-side middleware receives it
+      // immediately on subsequent requests. We use passthrough so we can
+      // still return the standard LoginResponse object.
+      try {
+        const roleObj = result?.user?.role;
+        const candidate = roleObj?.code ?? roleObj ?? (result?.user as any)?.roleCode ?? (roleObj && roleObj.id ? String(roleObj.id) : null);
+        if (candidate) {
+          const normalized = String(candidate).toUpperCase();
+          // 24 hours
+          res.cookie('role', normalized, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, path: '/', sameSite: 'lax' });
+        }
+      } catch (cookieErr) {
+        // Best-effort: don't fail login if cookie setting fails
+      }
+
+      return result;
+    } catch (error) {
+      // If login failed due to Unauthorized (bad creds or role inactive),
+      // set the response status and return a plain serializable body. Returning
+      // the Express `res` object directly would cause Nest to attempt to
+      // serialize it (circular), so avoid calling `res.json` as the return
+      // value.
+      if (error instanceof UnauthorizedException) {
+        res.status(HttpStatus.UNAUTHORIZED);
+        return { success: false, message: error.message };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get user profile (protected route)
+   * @param req - Request object with user data
+   * @returns User profile information
+   */
+  @Get('getMe')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Get Current User Profile',
+    description: 'Get the profile information of the currently authenticated user'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+    type: UserProfileResponse,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  async getProfile(@Request() req: any): Promise<UserProfileResponse> {
+    const tokenUser = req.user;
+
+    // Fetch full user via AuthService (includes role and location relations)
+    const user = await this.authService.getUserWithLocation(Number(tokenUser.sub));
+
+    if (!user) {
+      // Fallback to token data if DB lookup fails
+      return {
+        id: tokenUser.sub,
+        username: tokenUser.username,
+        email: tokenUser.email,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+
+    return {
+      id: String(user.id),
+      username: user.username,
+      email: user.email ?? undefined,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      role: user.role,
+      location: {
+        state: user.state ? { id: String(user.state.id), name: user.state.name } : undefined,
+        district: user.district ? { id: String(user.district.id), name: user.district.name } : undefined,
+        division: user.division ? { id: String(user.division.id), name: user.division.name } : undefined,
+        zone: user.zone ? { id: String(user.zone.id), name: user.zone.name } : undefined,
+        policeStation: user.policeStation ? { id: String(user.policeStation.id), name: user.policeStation.name } : undefined,
+        rangeOffice: (user as any).RangeOffices ? { id: String((user as any).RangeOffices.id), name: (user as any).RangeOffices.name } : undefined,
+      },
+    };
+  }
+
+  /**
+   * Refresh token endpoint
+   * Accepts a valid (not expired) JWT and returns a new JWT with extended expiry.
+   */
+  @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh JWT Token',
+    description: 'Accepts a valid JWT token and returns a new token with extended expiry. ' +
+      'The provided token must still be valid (not expired).'
+  })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer <token>',
+    required: true,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: { type: 'string', description: 'Current JWT token (optional, can also be provided via Authorization header)' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token refreshed successfully',
+    schema: {
+      example: {
+        success: true,
+        token: 'eyJhbGciOiJIUzI1NiIs...',
+        message: 'Token refreshed successfully',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async refreshToken(
+    @Body('token') bodyToken: string,
+    @Headers('authorization') authHeader: string,
+  ): Promise<any> {
+    // Extract token from body or Authorization header
+    const token = bodyToken || (authHeader ? authHeader.replace('Bearer ', '') : null);
+
+    if (!token) {
+      throw new UnauthorizedException('Token is required in the request body or Authorization header.');
+    }
+
+    const newToken = await this.authService.refreshToken(token);
+    return {
+      success: true,
+      token: newToken,
+      message: 'Token refreshed successfully',
+    };
+  }
+
+  /**
+   * Logout endpoint
+   * @returns Logout response
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'User Logout',
+    description: 'Invalidate the user session (best-effort)'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful',
+  })
+  async logout(): Promise<{ success: boolean; message: string }> {
+    // Best-effort: just return success. Token invalidation can be handled
+    // by frontend clearing cookies and backend token expiry.
+    return { success: true, message: 'Logged out' };
+  }
+
+  /**
+   * Verify token endpoint
+   * @param req - Request object with user data
+   * @returns Token verification status
+   */
+  @Get('verify')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Verify JWT Token',
+    description: 'Verify if the provided JWT token is valid and return user information'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token is valid',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
+  async verifyToken(@Request() req: any): Promise<{ valid: boolean; user: any }> {
+    return {
+      valid: true,
+      user: req.user
+    };
+  }
+}

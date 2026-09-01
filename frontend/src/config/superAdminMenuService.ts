@@ -1,0 +1,184 @@
+/**
+ * Centralized Super Admin Menu Configuration Service
+ * Provides stable, cached menu items for SUPER_ADMIN role
+ * 
+ * KEY DIFFERENCE: Super Admin has GLOBAL ACCESS - no state/location restrictions
+ * While Admin menu items point to /admin/*, Super Admin points to /superAdmin/*
+ */
+
+import { MenuItem } from './roles';
+
+export type SuperAdminMenuItemKey =
+    | 'dashboard'
+    | 'userManagement'
+    | 'roleMapping'
+    | 'analytics'
+    | 'flowMapping'
+    | 'locationsManagement'
+    | 'actionMapping';
+
+export interface SuperAdminMenuItem extends MenuItem {
+    path: string;
+    key: SuperAdminMenuItemKey;
+    label: string;
+    order: number;
+}
+
+/**
+ * Core Super Admin menu items - Global access versions of admin pages
+ * Ordered for consistent display in sidebar
+ */
+export const SUPER_ADMIN_MENU_ITEMS: Record<SuperAdminMenuItemKey, SuperAdminMenuItem> = {
+    dashboard: {
+        name: 'dashboard',
+        key: 'dashboard',
+        label: 'Dashboard',
+        path: '/dashboard',
+        order: 1,
+    },
+    userManagement: {
+        name: 'userManagement',
+        key: 'userManagement',
+        label: 'User Management',
+        path: '/superAdmin/userManagement',
+        order: 2,
+    },
+    roleMapping: {
+        name: 'roleMapping',
+        key: 'roleMapping',
+        label: 'Role Management',
+        path: '/superAdmin/roleMapping',
+        order: 3,
+    },
+    analytics: {
+        name: 'analytics',
+        key: 'analytics',
+        label: 'Global Analytics',
+        path: '/superAdmin/analytics',
+        order: 4,
+    },
+    flowMapping: {
+        name: 'flowMapping',
+        key: 'flowMapping',
+        label: 'Flow Mapping',
+        path: '/superAdmin/flowMapping',
+        order: 5,
+    },
+    locationsManagement: {
+        name: 'locationsManagement',
+        key: 'locationsManagement',
+        label: 'Locations Management',
+        path: '/superAdmin/locationsManagement',
+        order: 6,
+    },
+    actionMapping: {
+        name: 'actionMapping',
+        key: 'actionMapping',
+        label: 'Action Mapping',
+        path: '/superAdmin/actionMapping',
+        order: 7,
+    }
+};
+
+/**
+ * Get the full Super Admin menu items ordered by priority
+ */
+export function getSuperAdminMenuItems(): SuperAdminMenuItem[] {
+    return Object.values(SUPER_ADMIN_MENU_ITEMS).sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Get Super Admin menu item by key
+ */
+export function getSuperAdminMenuItem(key: SuperAdminMenuItemKey): SuperAdminMenuItem | undefined {
+    return SUPER_ADMIN_MENU_ITEMS[key];
+}
+
+/**
+ * Get Super Admin menu item path by key
+ */
+export function getSuperAdminMenuPath(key: SuperAdminMenuItemKey): string | undefined {
+    return SUPER_ADMIN_MENU_ITEMS[key]?.path;
+}
+
+/**
+ * Check if a path is a Super Admin menu path
+ */
+export function isSuperAdminMenuPath(pathname: string): boolean {
+    return Object.values(SUPER_ADMIN_MENU_ITEMS).some(item => pathname === item.path || pathname.startsWith(item.path));
+}
+
+/**
+ * Extract Super Admin menu key from pathname
+ */
+export function getSuperAdminMenuKeyFromPath(pathname: string): SuperAdminMenuItemKey | null {
+    const item = Object.values(SUPER_ADMIN_MENU_ITEMS).find(
+        item => pathname === item.path || pathname.startsWith(item.path)
+    );
+    return item?.key || null;
+}
+
+/**
+ * Normalize Super Admin menu item names to canonical keys
+ * Handles various naming conventions: camelCase, snake_case, kebab-case, spaces
+ */
+export function normalizeSuperAdminMenuItem(name: string): SuperAdminMenuItemKey | null {
+    const normalized = name.toLowerCase().replace(/\s+/g, '');
+    const candidates: Record<string, SuperAdminMenuItemKey> = {
+        'dashboard': 'dashboard',
+        'admindashboard': 'dashboard',
+        'superadmindashboard': 'dashboard',
+        'usermanagement': 'userManagement',
+        'user_management': 'userManagement',
+        'user-management': 'userManagement',
+        'rolemapping': 'roleMapping',
+        'role_mapping': 'roleMapping',
+        'role-mapping': 'roleMapping',
+        'rolemanagement': 'roleMapping',
+        'role_management': 'roleMapping',
+        'role-management': 'roleMapping',
+        'rolesmanagement': 'roleMapping',
+        'roles_management': 'roleMapping',
+        'roles-management': 'roleMapping',
+        'analytics': 'analytics',
+        'flowmapping': 'flowMapping',
+        'flow_mapping': 'flowMapping',
+        'flow-mapping': 'flowMapping',
+        'flowmap': 'flowMapping',
+        'flow': 'flowMapping',
+        'locationsmanagement': 'locationsManagement',
+        'locations_management': 'locationsManagement',
+        'locations-management': 'locationsManagement',
+        'locationmanagement': 'locationsManagement',
+        'location_management': 'locationsManagement',
+        'location-management': 'locationsManagement',
+        'locations': 'locationsManagement',
+        'actionmapping': 'actionMapping',
+        'action_mapping': 'actionMapping',
+        'action-mapping': 'actionMapping',
+        'actionsmapping': 'actionMapping'
+    };
+
+    return candidates[normalized] || null;
+}
+
+/**
+ * Get the full Super Admin path (e.g., '/superAdmin/userManagement') for a menu item name
+ */
+export function getSuperAdminPathForMenuItem(itemName: string): string | null {
+    if (!itemName) return null;
+
+    // Try direct match first
+    const key = itemName as SuperAdminMenuItemKey;
+    if (SUPER_ADMIN_MENU_ITEMS[key]) {
+        return SUPER_ADMIN_MENU_ITEMS[key].path;
+    }
+
+    // Try normalized match
+    const normalized = normalizeSuperAdminMenuItem(itemName);
+    if (normalized && SUPER_ADMIN_MENU_ITEMS[normalized]) {
+        return SUPER_ADMIN_MENU_ITEMS[normalized].path;
+    }
+
+    return null;
+}

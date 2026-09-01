@@ -1,0 +1,1053 @@
+import React, { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { ApplicationData } from '../types';
+import styles from './ApplicationTable.module.css';
+import { useApplications } from '../context/ApplicationContext';
+// Removed PDF generation feature
+import { useAuth } from '@/hooks/useAuth';
+import { useGlobalAction } from '../context/GlobalActionContext';
+import { TableSkeleton } from './Skeleton';
+import { ApplicationApi, RenewalApi } from '../config/APIClient';
+import { RenewalService } from '../api/renewalService';
+import { Edit, Trash2, Eye } from 'lucide-react';
+import { getStatusStyle } from '../utils/statusColors';
+
+// Type assertion for lucide-react icons to fix React 18 compatibility
+// Lucide icons are React components that accept SVG props. We type it conservatively.
+const EditFixed = Edit as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
+const TrashFixed = Trash2 as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
+const EyeFixed = Eye as unknown as React.FC<React.SVGProps<SVGSVGElement>>;
+
+// Note: Excel export uses dynamic import of 'xlsx' to avoid SSR issues
+
+interface UserData {
+  id: string;
+  username: string;
+  officeName: string;
+  phoneNo: string;
+  role: string;
+  createdAt: string;
+}
+
+// Local helper types for partially-typed data often present on ApplicationData
+interface WorkflowStatus {
+  name?: string;
+  code?: string | number;
+}
+
+interface StatusObj {
+  id?: number | string;
+  name?: string;
+}
+
+function extractWorkflowStatusName(app: ApplicationData): string {
+  const wf = (app as any).workflowStatus as WorkflowStatus | undefined;
+  if (wf?.name) return String(wf.name);
+  if (wf?.code) return String(wf.code);
+  const st = (app as any).status;
+  if (st) {
+    if (typeof st === 'string') return st;
+    if (typeof st === 'object' && 'name' in st && st.name) return String(st.name);
+    if (typeof st === 'object' && 'code' in st && st.code) return String(st.code);
+  }
+  return 'unknown';
+}
+
+function getForwardedTo(app: ApplicationData): string | undefined {
+  return (app as any).forwardedTo as string | undefined;
+}
+
+function getIsViewed(app: ApplicationData): boolean {
+  return Boolean((app as any).isViewed);
+}
+
+interface ApplicationTableProps {
+  users?: UserData[];
+  isLoading?: boolean;
+  statusIdFilter?: string;
+  applications?: ApplicationData[]; // Applications prop for backward compatibility
+  filteredApplications?: ApplicationData[]; // Optional filtered applications list
+  pageType?: string; // Type of page being viewed (e.g., 'drafts', 'forwarded', etc.)
+  showActionColumn?: boolean;
+  selectedFormType?: 'fresh' | 'renewal';
+  onSelectedFormTypeChange?: (value: 'fresh' | 'renewal') => void;
+}
+
+const ApplicationTable: React.FC<ApplicationTableProps> = React.memo(
+  ({
+    users: _users,
+    applications,
+    filteredApplications,
+    isLoading = false,
+    statusIdFilter: _statusIdFilter,
+    pageType,
+    showActionColumn = true,
+    selectedFormType,
+    onSelectedFormTypeChange,
+  }) => {
+    // Get applications from context
+    const { applications: contextApplications } = useApplications();
+
+    // Check if we're on the drafts page or sent page
+    const isDraftsPage = pageType === 'drafts';
+    const isSentPage = pageType === 'sent';
+    const isRenewalPage = pageType === 'renewal';
+
+    // Local search state
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    // Application type filter state: 'All' | 'Fresh' | 'Renewal'
+    const [applicationTypeFilter, setApplicationTypeFilter] = React.useState<string>('All');
+
+    // Determine base applications list in this order: filtered -> prop -> context -> empty array
+    const baseApplications = React.useMemo(
+      () => filteredApplications || applications || contextApplications || [],
+      [filteredApplications, applications, contextApplications]
+    );
+
+    // Apply search filter and application type filter
+    const effectiveApplications = React.useMemo(() => {
+      let filtered = baseApplications;
+
+      // Filter by application type (unless 'All')
+      if (applicationTypeFilter !== 'All') {
+        filtered = filtered.filter(app => {
+          const appType = (app.applicationType || '').toLowerCase();
+          return appType.includes(applicationTypeFilter.toLowerCase());
+        });
+      }
+
+      // Apply search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(app => {
+          const applicant = (
+            app.applicantName ||
+            [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ') ||
+            ''
+          ).toLowerCase();
+          const type = (app.applicationType || '').toLowerCase();
+          const ackNo = (
+            (app as any).acknowledgementNo ||
+            (app as any).ackNo ||
+            (app as any).acknowledgementNumber ||
+            String(app.id || '')
+          ).toLowerCase();
+          const status = extractWorkflowStatusName(app).toLowerCase();
+          const actionTaken = ((app as any).actionTaken || '').toLowerCase();
+          return (
+            applicant.includes(q) ||
+            type.includes(q) ||
+            ackNo.includes(q) ||
+            status.includes(q) ||
+            actionTaken.includes(q)
+          );
+        });
+      }
+
+      return filtered;
+    }, [baseApplications, searchQuery, applicationTypeFilter]);
+
+    const router = useRouter();
+    const { executeAction, setActiveNavigationPath } = useGlobalAction();
+
+    // Compute visible table column names so header and export use same labels
+    const tableColumns = React.useMemo(() => {
+      const base = isSentPage
+        ? [
+            'S. No.',
+            'Acknowledgement No.',
+            'Applicant Name',
+            'Application Type',
+            'Action Taken At',
+            'Action Taken',
+          ]
+        : [
+            'S. No.',
+            'Acknowledgement No.',
+            'Applicant Name',
+            'Application Type',
+            'Date & Time',
+            'Status',
+          ];
+      if (showActionColumn) base.push('Action');
+      return base;
+    }, [isSentPage, isRenewalPage, showActionColumn]);
+
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+    const [loadingRowId, setLoadingRowId] = useState<string | null>(null);
+    const { userRole } = useAuth();
+
+    // Clear loadingRowId when component unmounts (e.g. during page navigation)
+    // so the spinner state is reset when the user returns to the table.
+    React.useEffect(() => {
+      return () => {
+        setLoadingRowId(null);
+      };
+    }, []);
+
+    const isApplicationUnread = useCallback(
+      (app: ApplicationData): boolean => {
+        return getForwardedTo(app) === userRole && getIsViewed(app) === false;
+      },
+      [userRole]
+    );
+
+    const handleViewApplication = useCallback(
+      (id: string) => {
+        setLoadingRowId(id);
+        const actionId = `navigate-application-${id}`;
+        // Clear any stale navigation path first so canNavigateTo never blocks
+        // a second visit to the same record after returning from it.
+        setActiveNavigationPath(null);
+        // executeAction will prevent duplicate navigations for same actionId
+        void executeAction(actionId, async () => {
+          const app = (baseApplications || []).find(a => a.id === id);
+          const route = /cancel/i.test(String(app?.applicationType || ''))
+            ? `/cancelForm/${id}`
+            : /renewal/i.test(String(app?.applicationType || ''))
+              ? `/renewalApplication/${id}`
+              : `/application/${id}`;
+          setActiveNavigationPath(route);
+          await router.push(route);
+          setLoadingRowId(null);
+        }).catch(() => setLoadingRowId(null));
+      },
+      [router, executeAction, setActiveNavigationPath, baseApplications]
+    );
+
+    const handleEditDraft = useCallback(
+      async (id: string) => {
+        setLoadingRowId(id);
+        const actionId = `edit-draft-${id}`;
+        const result = await executeAction(actionId, async () => {
+          try {
+            const draftApp = (baseApplications || []).find(app => app.id === id);
+
+            // Detect renewal drafts via:
+            // 1. The applicationType field on the app object, OR
+            // 2. The selectedFormType prop ('renewal' tab is active), OR
+            // 3. Presence of a renewalId / renewalApplicationId linkage field on the app
+            const isRenewalDraft =
+              /renewal/i.test(String(draftApp?.applicationType || '')) ||
+              selectedFormType === 'renewal' ||
+              Boolean((draftApp as any)?.renewalId || (draftApp as any)?.renewalApplicationId);
+
+            if (isRenewalDraft) {
+              const renewalId = String(
+                (draftApp as any)?.renewalId ||
+                  (draftApp as any)?.renewalApplicationId ||
+                  draftApp?.id ||
+                  id
+              );
+              let licenseId = String(
+                (draftApp as any)?.licenseNumber ||
+                  (draftApp as any)?.licenseId ||
+                  (draftApp as any)?.freshLicenseId ||
+                  (draftApp as any)?.applicationId ||
+                  (draftApp as any)?.freshApplicationId ||
+                  (draftApp as any)?.sourceApplicationId ||
+                  (draftApp as any)?.renewalLicenseId ||
+                  ''
+              );
+
+              // If licenseId is empty, fetch the renewal form to get the linked license details
+              if (!licenseId && renewalId) {
+                try {
+                  const renewalResponse = await RenewalService.getRenewalForm(renewalId);
+                  const renewalData = renewalResponse?.data || renewalResponse;
+                  licenseId = String(
+                    renewalData?.licenseNumber ||
+                      renewalData?.licenseId ||
+                      renewalData?.freshLicenseId ||
+                      renewalData?.applicationId ||
+                      renewalData?.freshApplicationId ||
+                      renewalData?.sourceApplicationId ||
+                      renewalData?.renewalLicenseId ||
+                      ''
+                  );
+                } catch (err) {
+                  // If fetch fails, continue with empty licenseId - the renewal form will handle it
+                  console.error('Failed to fetch renewal form for licenseId:', err);
+                }
+              }
+
+              await router.push(
+                `/forms/renewal?licenseId=${encodeURIComponent(licenseId)}&renewalId=${encodeURIComponent(renewalId)}`
+              );
+              return;
+            }
+
+            const response = await ApplicationApi.getById(Number(id));
+
+            if (response?.success && response?.data) {
+              // Store the application data in sessionStorage to use in the form
+              sessionStorage.setItem('draftApplicationData', JSON.stringify(response.data));
+              sessionStorage.setItem('editingApplicationId', id);
+              // Navigate to the form with application ID as query parameter
+              await router.push(`/forms/createFreshApplication/personal-information?id=${id}`);
+            } else {
+              setErrorMessage('Failed to load draft application');
+              setTimeout(() => setErrorMessage(null), 3000);
+            }
+          } catch {
+            setErrorMessage('Error loading draft application');
+            setTimeout(() => setErrorMessage(null), 3000);
+          }
+        }).catch(() => setLoadingRowId(null));
+
+        // If executeAction returned null it means the action was blocked (duplicate), so we simply return
+        if (result === null) {
+          setLoadingRowId(null);
+          return;
+        }
+      },
+      [router, executeAction, baseApplications, selectedFormType]
+    );
+
+    const formatDateTime = useCallback((dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toLocaleString();
+    }, []);
+
+    // Removed PDF generation handler
+    const handleExportExcel = useCallback(async () => {
+      if (exportingExcel) return;
+      try {
+        setExportingExcel(true);
+        const XLSX = await import('xlsx');
+
+        // Exclude UI-only columns (like 'Action') from the exported columns
+        const exportColumns = tableColumns.filter(c => c !== 'Action');
+
+        const rows = effectiveApplications.map((app, idx) => {
+          const statusName = extractWorkflowStatusName(app);
+          const createdAtVal =
+            (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate;
+
+          const row: Record<string, string | number> = {};
+          exportColumns.forEach(col => {
+            switch (col) {
+              case 'S. No.':
+                row[col] = idx + 1;
+                break;
+              case 'Acknowledgement No.':
+                row[col] = app.acknowledgementNo || '';
+                break;
+              case 'Applicant Name':
+                row[col] = app.applicantName || '';
+                break;
+              case 'Application Type':
+                row[col] = app.applicationType || '';
+                break;
+              case 'Date & Time':
+              case 'Created At':
+              case 'Action Taken At':
+                row[col] = formatDateTime(createdAtVal || '');
+                break;
+              case 'Status':
+                row[col] = statusName;
+                break;
+              case 'Action Taken':
+                row[col] = (app as any).actionTaken || '';
+                break;
+              // 'Action' column intentionally omitted from export via exportColumns
+              default:
+                row[col] = '';
+            }
+          });
+          return row;
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Applications');
+        const fileName = `applications_export_${new Date().toISOString().replace(/[:T]/g, '-').split('.')[0]}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+        setSuccessMessage('Applications exported to Excel successfully');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } catch (error) {
+        console.error('Failed to export applications to Excel', error);
+        setErrorMessage('Failed to export applications to Excel');
+        setTimeout(() => setErrorMessage(null), 5000);
+      } finally {
+        setExportingExcel(false);
+      }
+    }, [effectiveApplications, exportingExcel, formatDateTime, tableColumns]);
+
+    if (isLoading) {
+      return <TableSkeleton rows={8} columns={6} />;
+    }
+
+    return (
+      <div className={`${styles.tableContainer} min-w-full flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg shadow`}>
+        {/* Display messages */}
+        {successMessage && <Message type='success' message={successMessage} />}
+
+        {errorMessage && <Message type='error' message={errorMessage} />}
+
+        {/* Controls (search + export) stay above the scrollable table, never scroll away */}
+        <div className='flex-none px-4 pt-4 pb-2 bg-white'>
+          <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+            <div className='relative w-full sm:w-72'>
+              <input
+                type='text'
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder='Search (name, type, status)'
+                className='w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                aria-label='Search applications'
+              />
+              <svg
+                className='w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none'
+                fill='none'
+                stroke='currentColor'
+                strokeWidth={2}
+                viewBox='0 0 24 24'
+                aria-hidden='true'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  d='M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z'
+                />
+              </svg>
+            </div>
+
+            <div className='flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto'>
+              {/* Application Type Filter */}
+              <select
+                value={applicationTypeFilter}
+                onChange={e => setApplicationTypeFilter(e.target.value)}
+                className='w-full sm:w-48 h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                aria-label='Filter by application type'
+              >
+                <option value='All'>All Types</option>
+                <option value='Fresh'>Fresh</option>
+                <option value='Renewal'>Renewal</option>
+                <option value='Cancel'>Cancel</option>
+              </select>
+
+              <button
+                type='button'
+                onClick={handleExportExcel}
+                disabled={exportingExcel}
+                className='inline-flex items-center gap-2 h-9 px-3 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-gray-300 disabled:text-gray-600 transition-colors shadow-sm text-sm font-medium'
+                aria-label={
+                  exportingExcel
+                    ? 'Exporting applications to Excel'
+                    : 'Download applications Excel file'
+                }
+                title={exportingExcel ? 'Exporting...' : 'Download Excel'}
+              >
+                {exportingExcel ? (
+                  <>
+                    <svg
+                      className='animate-spin h-4 w-4'
+                      xmlns='http://www.w3.org/2000/svg'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                    >
+                      <circle
+                        className='opacity-25'
+                        cx='12'
+                        cy='12'
+                        r='10'
+                        stroke='currentColor'
+                        strokeWidth='4'
+                      ></circle>
+                      <path
+                        className='opacity-75'
+                        fill='currentColor'
+                        d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                      ></path>
+                    </svg>
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='2'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      className='w-5 h-5'
+                    >
+                      <path d='M4 4h16v4H4z' />
+                      <path d='M4 20h16v-4H4z' />
+                      <path d='M12 8v6' />
+                      <path d='M9 11l3 3 3-3' />
+                    </svg>
+                    <span>Download Excel</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className={`${styles.tableWrapper} w-full min-w-0 flex-1 min-h-0 overflow-y-auto`}>
+          <table className='w-full table-fixed border-separate border-spacing-0'>
+            <colgroup>
+              {(() => {
+                const cols = isSentPage
+                  ? showActionColumn
+                    ? ['5%', '20%', '15%', '12%', '20%', '18%', '10%']
+                    : ['5%', '22%', '18%', '15%', '20%', '20%']
+                  : showActionColumn
+                    ? ['5%', '20%', '16%', '14%', '17%', '18%', '10%']
+                    : ['5%', '22%', '18%', '16%', '19%', '20%'];
+                return cols.map((w, i) => <col key={i} style={{ width: w }} />);
+              })()}
+            </colgroup>
+            <thead className='bg-gray-50'>
+              <tr>
+                {tableColumns.map(col => {
+                  const isAction = col === 'Action';
+                  return (
+                    <th
+                      key={col}
+                      scope='col'
+                      style={{ textAlign: isAction ? 'center' : 'left' }}
+                      className={`${styles.tableHeaderCell} text-sm font-medium text-black`}
+                    >
+                      {col}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className='bg-white divide-y divide-gray-200'>
+              {effectiveApplications.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={tableColumns.length}
+                    className='text-center py-8 text-gray-500 bg-white text-sm'
+                  >
+                    {baseApplications.length === 0
+                      ? 'No applications found.'
+                      : 'No applications found matching your criteria.'}
+                  </td>
+                </tr>
+              ) : (
+                effectiveApplications.map((app, index) => (
+                  <TableRow
+                    key={`${app.id}-${index}`}
+                    app={app}
+                    index={index}
+                    handleViewApplication={handleViewApplication}
+                    handleEditDraft={handleEditDraft}
+                    isDraftsPage={isDraftsPage}
+                    isSentPage={isSentPage}
+                    isRenewalPage={isRenewalPage}
+                    userRole={userRole || null}
+                    isApplicationUnread={isApplicationUnread}
+                    formatDateTime={formatDateTime}
+                    showActionColumn={showActionColumn}
+                    loadingRowId={loadingRowId}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+);
+
+const Message: React.FC<{ type: 'success' | 'error'; message: string }> = ({ type, message }) => {
+  const typeClasses =
+    type === 'success'
+      ? 'bg-green-50 border-green-200 text-green-800'
+      : 'bg-red-50 border-red-200 text-red-800';
+  return (
+    <div className={`mb-4 p-3 border rounded-lg ${typeClasses}`}>
+      <div className='flex items-center'>
+        <svg className='w-5 h-5 mr-2' fill='currentColor' viewBox='0 0 20 20'>
+          {type === 'success' ? (
+            <path
+              fillRule='evenodd'
+              d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+              clipRule='evenodd'
+            />
+          ) : (
+            <path
+              fillRule='evenodd'
+              d='M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z'
+              clipRule='evenodd'
+            />
+          )}
+        </svg>
+        {message}
+      </div>
+    </div>
+  );
+};
+
+// TableHeader removed; controls and column headers are rendered separately above.
+
+const TableRow: React.FC<{
+  app: ApplicationData;
+  index: number;
+  handleViewApplication: (id: string) => void;
+  handleEditDraft: (id: string) => Promise<void>;
+  isDraftsPage: boolean;
+  isSentPage?: boolean;
+  isRenewalPage?: boolean;
+  userRole: string | null;
+  isApplicationUnread: (app: ApplicationData) => boolean;
+  formatDateTime: (dateStr: string) => string;
+  showActionColumn?: boolean;
+  loadingRowId?: string | null;
+}> = ({
+  app,
+  index,
+  handleViewApplication,
+  handleEditDraft,
+  isDraftsPage,
+  isSentPage = false,
+  isRenewalPage = false,
+  userRole,
+  isApplicationUnread,
+  formatDateTime,
+  showActionColumn = true,
+  loadingRowId,
+}) => {
+  const isRowLoading = String(loadingRowId) === String(app.id);
+  // Check if user is ZS role
+  const isZSRole = userRole === 'ZS' || userRole === 'zs';
+
+  // Show Edit button only if:
+  // 1. User is ZS role, AND
+  // 2. On drafts page OR status_id is 13
+  const statusId = (app.status_id ?? ((app as any).status as StatusObj | undefined)?.id) as
+    | number
+    | string
+    | undefined;
+  const isDraftByStatus = Number(statusId) === 13 || String(statusId) === '13';
+  const isDrafts = (isDraftsPage || isDraftByStatus) && isZSRole;
+
+  // Render different columns for sent page
+  if (isSentPage) {
+    return (
+      <tr
+        key={`${(app as any).workflowHistoryId || app.id}-${index}`}
+        className={`${styles.tableRow}`}
+        aria-label={`Row for sent application ${app.id}`}
+      >
+        <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+        <td
+          className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`}
+          title={(app as any).acknowledgementNo || 'N/A'}
+        >
+          {(app as any).acknowledgementNo || 'N/A'}
+        </td>
+
+        <td
+          className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`}
+          title={app.applicantName || 'N/A'}
+        >
+          <div className='flex items-center gap-2 w-full min-w-0'>
+            {isRowLoading && (
+              <svg
+                className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                />
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                />
+              </svg>
+            )}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              disabled={isRowLoading}
+              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate text-left ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              style={{ maxWidth: '100%', display: 'block' }}
+              aria-label={`View details for application ${app.id}`}
+            >
+              {app.applicantName}
+            </button>
+          </div>
+        </td>
+        <td
+          className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`}
+          title={app.applicationType || 'N/A'}
+        >
+          {app.applicationType || 'N/A'}
+        </td>
+        <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
+          {formatDateTime(
+            (app as any).actionTakenAt || (app as any).createdAt || app.applicationDate
+          )}
+        </td>
+        <td className={`${styles.tableCell}`}>
+          {(() => {
+            const actionStr = (app as any).actionTaken || 'N/A';
+            let displayStr = actionStr;
+            const normalized = actionStr.toLowerCase().trim();
+            if (normalized === 'forward') {
+              displayStr = 'Forwarded';
+            } else if (normalized === 'return') {
+              displayStr = 'Returned';
+            } else if (normalized === 'approve') {
+              displayStr = 'Approved';
+            } else if (normalized === 'reject') {
+              displayStr = 'Rejected';
+            } else {
+              displayStr = displayStr
+                .replace(/[-_]+/g, ' ')
+                .replace(/\b\w/g, (c: string) => c.toUpperCase());
+            }
+
+            const style = getStatusStyle(actionStr);
+            return (
+              <span
+                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill}`}
+                style={{
+                  backgroundColor: style.bg,
+                  color: style.text,
+                  border: `1px solid ${style.border}`,
+                }}
+              >
+                {displayStr}
+              </span>
+            );
+          })()}
+        </td>
+        {showActionColumn && (
+          <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              disabled={isRowLoading}
+              className={`p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors inline-flex items-center justify-center ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              aria-label={`View application ${app.id}`}
+              title='View Details'
+            >
+              {isRowLoading ? (
+                <svg
+                  className='animate-spin h-5 w-5 text-blue-600'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  />
+                </svg>
+              ) : (
+                <EyeFixed className='w-5 h-5' />
+              )}
+            </button>
+          </td>
+        )}
+      </tr>
+    );
+  }
+
+  // Normal rendering for non-sent pages
+  return (
+    <tr
+      key={`${app.id}-${index}`}
+      className={`${styles.tableRow} ${isApplicationUnread(app) ? 'font-bold' : ''}`}
+      aria-label={`Row for application ${app.id}`}
+    >
+      <td className={`${styles.tableCell} text-sm text-black`}>{index + 1}</td>
+      <td
+        className={`${styles.tableCell} text-sm text-black ${styles.truncateCell}`}
+        title={(app as any).acknowledgementNo || 'N/A'}
+      >
+        {(app as any).acknowledgementNo || 'N/A'}
+      </td>
+      <td
+        className={`${styles.tableCell} text-sm font-medium ${styles.truncateCell}`}
+        title={app.applicantName || 'N/A'}
+      >
+        {isDrafts ? (
+          <span className='text-gray-900 truncate block' style={{ maxWidth: '100%' }}>
+            {app.applicantName}
+          </span>
+        ) : (
+          <div className='flex items-center gap-2 w-full min-w-0'>
+            {isRowLoading && (
+              <svg
+                className='animate-spin h-4 w-4 text-blue-600 flex-shrink-0'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                />
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                />
+              </svg>
+            )}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              disabled={isRowLoading}
+              className={`text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate text-left ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              style={{ maxWidth: '100%', display: 'block' }}
+              aria-label={`View details for application ${app.id}`}
+            >
+              {app.applicantName}
+            </button>
+          </div>
+        )}
+      </td>
+      <td className={`${styles.tableCell} text-sm text-black`}>{app.applicationType}</td>
+      <td className={`${styles.tableCell} text-sm text-black ${styles.nowrapCell}`}>
+        {formatDateTime(app.applicationDate)}
+      </td>
+      <td className={`${styles.tableCell}`}>
+        {(() => {
+          const statusStr = extractWorkflowStatusName(app);
+          const display = statusStr
+            .replace(/[-_]+/g, ' ')
+            .replace(/\b\w/g, (c: string) => c.toUpperCase());
+          const style = getStatusStyle(statusStr);
+          return (
+            <span
+              className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${styles.statusPill}`}
+              style={{
+                backgroundColor: style.bg,
+                color: style.text,
+                border: `1px solid ${style.border}`,
+              }}
+              title={`Status: ${display}`}
+              aria-label={`Status: ${display}`}
+            >
+              {display}
+            </span>
+          );
+        })()}
+      </td>
+      {showActionColumn && (
+        <td className={`${styles.tableCell} text-center text-sm text-gray-500`}>
+          {isDrafts ? (
+            <div className='flex items-center gap-1 justify-center'>
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  handleEditDraft(app.id);
+                }}
+                className='inline-flex items-center gap-0 px-2 py-1 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors'
+                aria-label={`Edit draft application ${app.id}`}
+              >
+                <EditFixed className='w-4 h-4' />
+              </button>
+              {/renewal/i.test(String(app.applicationType || '')) ? (
+                <DeleteRenewalDraftButton renewalId={app.id} />
+              ) : (
+                <DeleteDraftButton appId={app.id} />
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleViewApplication(app.id);
+              }}
+              disabled={isRowLoading}
+              className={`p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors inline-flex items-center justify-center ${isRowLoading ? 'opacity-60 cursor-wait' : ''}`}
+              aria-label={`View application ${app.id}`}
+              title='View Details'
+            >
+              {isRowLoading ? (
+                <svg
+                  className='animate-spin h-5 w-5 text-blue-600'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                >
+                  <circle
+                    className='opacity-25'
+                    cx='12'
+                    cy='12'
+                    r='10'
+                    stroke='currentColor'
+                    strokeWidth='4'
+                  />
+                  <path
+                    className='opacity-75'
+                    fill='currentColor'
+                    d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                  />
+                </svg>
+              ) : (
+                <EyeFixed className='w-5 h-5' />
+              )}
+            </button>
+          )}
+        </td>
+      )}
+    </tr>
+  );
+};
+
+export default ApplicationTable;
+
+// Small helper component for delete action to keep TableRow clean
+const DeleteDraftButton: React.FC<{ appId: string | number }> = ({ appId }) => {
+  const [deleting, setDeleting] = React.useState(false);
+  const [toast, setToast] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setDeleting(true);
+      await ApplicationApi.deleteApplication(String(appId));
+      // Show success toast
+      setToast({
+        type: 'success',
+        message: 'Draft application deleted successfully.',
+      });
+      // Refresh the page after a brief delay to show the toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to delete application', err);
+      setToast({
+        type: 'error',
+        message: 'Failed to delete draft application. Please try again.',
+      });
+      // Auto-hide toast after 4 seconds
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
+        aria-label={`Delete draft application ${appId}`}
+        title='Delete'
+      >
+        <TrashFixed className='w-4 h-4' />
+      </button>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg text-white z-50 animate-in fade-in slide-in-from-bottom-4 ${
+            toast.type === 'success' ? 'bg-red-500' : 'bg-red-500'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
+  );
+};
+
+// Small helper component for delete renewal draft action
+const DeleteRenewalDraftButton: React.FC<{ renewalId: string | number }> = ({ renewalId }) => {
+  const [deleting, setDeleting] = React.useState(false);
+  const [toast, setToast] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setDeleting(true);
+      await RenewalApi.deleteRenewal(String(renewalId));
+      // Show success toast
+      setToast({
+        type: 'success',
+        message: 'Renewal draft deleted successfully.',
+      });
+      // Refresh the page after a brief delay to show the toast
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to delete renewal draft', error);
+      setToast({
+        type: 'error',
+        message: 'Failed to delete renewal draft. Please try again.',
+      });
+      // Auto-hide toast after 4 seconds
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className='inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors disabled:opacity-60'
+        aria-label={`Delete renewal draft ${renewalId}`}
+        title='Delete'
+      >
+        <TrashFixed className='w-4 h-4' />
+      </button>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg text-white z-50 animate-in fade-in slide-in-from-bottom-4 ${
+            toast.type === 'success' ? 'bg-red-500' : 'bg-red-500'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
+  );
+};

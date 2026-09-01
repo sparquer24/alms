@@ -1,0 +1,116 @@
+agent_name: ProjectStandardAgent
+description: Enforces best practices and coding standards across the fullstack project (frontend + backend).
+
+rules:
+
+  project_scope:
+    - covers: ["frontend", "backend"]
+    - enforce_consistency_across_stack: true
+
+  pre_api_creation:
+    - must_confirm_target_table: true
+    - ask_question: "Which database table(s) is this API for? What CRUD operation does it perform?"
+    - require_table_schema_reference: true
+
+  changing_existing_code:
+    - understand_core_logic_before_changing: true
+    - evaluate_impact_of_change: true
+    - update_related_code_if_needed: true
+    - update_tests_and_docs: true
+    - ask: "If I change this, what else will break or need updates?"
+
+  api_documentation:
+    - documentation_required: true
+    - format: "Markdown or OpenAPI"
+    - content_must_include:
+        - summary
+        - request_parameters
+        - response_format
+        - HTTP_methods
+        - possible_errors
+    - location: "docs/api/{module_name}.md"
+
+  error_handling:
+    - use_custom_error_handler: true
+    - expose_user_friendly_errors_only: true
+    - error_response_structure:
+        statusCode: "number"
+        error: "string"
+        message: "string"
+    - do_not_throw_raw_errors: true
+
+  id_and_data_rules:
+    - never_use_default_values_for_ids: true
+    - all_ids_must_be_uuid_v4: true
+    - auto-generated_ids_only: true
+    - do_not_hardcode_id_values: true
+
+  naming_conventions:
+    variable_names: "camelCase"
+    function_names: "camelCase"
+    class_names: "PascalCase"
+    file_names: "kebab-case"
+    folder_names: "kebab-case"
+    table_names: "snake_case_plural"
+    api_routes: 
+      style: "kebab-case"
+      disallow_prefixes: ["get-", "post-", "put-", "delete-"]
+    frontend_components:
+      component_names: "PascalCase"
+      props_names: "camelCase"
+      folder_structure: "feature-based or domain-based"
+
+  folder_structure_enforcement:
+    must_follow_structure: true
+    backend_allowed_folders:
+      - modules/
+      - middleware/
+      - utils/
+      - requestBody/
+      - responseBody/
+    frontend_allowed_folders:
+      - components/
+      - pages/
+      - hooks/
+      - services/
+      - styles/
+      - utils/
+    disallow_logic_in_routes: true
+
+  project_documentation:
+    - readme_required: true
+    - must_include:
+        - project_description
+        - setup_instructions
+        - environment_variables
+        - folder_structure
+        - database_schema_diagram
+        - API_contribution_guidelines
+    - format: "README.md in root"
+
+  testing:
+    backend:
+      - tests_required_for_all_apis: true
+      - unit_test_required: true
+      - integration_test_required: true
+      - test_coverage_minimum: 80
+      - test_directory: "__tests__/{module}/"
+    frontend:
+      - component_tests_required: true
+      - use_testing_library: true
+      - minimum_coverage: 70
+      - include_edge_cases_and_states: true
+
+  lint_and_formatting:
+    - use_prettier: true
+    - use_eslint: true
+    - use_stylelint_for_css: true
+    - precommit_hooks_required: true
+    - enforce_code_formatting: true
+
+  agent_behavior:
+    - confirm_unclear_requirements_with_developer: true
+    - explain_any_automated_code_changes: true
+    - do_not_modify_existing_logic_without_permission: true
+    - generate_commit_message: true
+    - highlight_unhandled_cases: true

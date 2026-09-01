@@ -1,0 +1,298 @@
+import { apiClient } from '../config/authenticatedApiClient';
+import { patchData } from './axiosConfig';
+
+export interface RenewalFileUploadRequest {
+  fileType: string;
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  description?: string;
+}
+
+export interface RenewalFileUploadResponse {
+  id: number;
+  renewalApplicationId: number;
+  fileType: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  uploadedAt?: string;
+}
+
+const RENEWAL_FILE_TYPE_MAP: Record<string, string> = {
+  idProofUploaded: 'AADHAR_CARD',
+  panCardUploaded: 'PAN_CARD',
+  trainingCertificateUploaded: 'TRAINING_CERTIFICATE',
+  medicalCertificateUploaded: 'MEDICAL_REPORT',
+  otherStateLicenseUploaded: 'OTHER_STATE_LICENSE',
+  existingArmsLicenseUploaded: 'EXISTING_LICENSE',
+  safeCustodyUploaded: 'SAFE_CUSTODY',
+  photographUploaded: 'PHOTOGRAPH',
+  selectedFingerprint: 'SIGNATURE_THUMB',
+  signature: 'SIGNATURE_THUMB',
+  irisScan: 'IRIS_SCAN',
+  claimDocsUploaded: 'CLAIM_DOCS',
+  specialEvidenceUploaded: 'CLAIM_DOCS',
+  rejectedLicenseUploaded: 'REJECTED_LICENSE',
+  otherUploaded: 'OTHER',
+  addressProofUploaded: 'OTHER',
+  characterCertificateUploaded: 'OTHER',
+};
+
+export class RenewalService {
+  private static normalizeFileType(fileType: string): string {
+    const trimmed = fileType?.trim();
+    if (!trimmed) return 'OTHER';
+
+    if (Object.values(RENEWAL_FILE_TYPE_MAP).includes(trimmed)) {
+      return trimmed;
+    }
+
+    return RENEWAL_FILE_TYPE_MAP[trimmed] || 'OTHER';
+  }
+
+  private static async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+          return;
+        }
+
+        resolve('');
+      };
+      reader.onerror = () => reject(new Error('Failed to read file for upload'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  static async findRenewalByLicenseNumber(
+    licenseNumber: string,
+  ): Promise<{ licenseNumber?: string; [key: string]: unknown } | null> {
+    if (!licenseNumber?.trim()) return null;
+
+    try {
+      const response = await apiClient.get<any>(
+        '/renewal-forms',
+        {
+          search: licenseNumber.trim(),
+          limit: 25,
+          page: 1,
+        },
+      );
+
+      const raw = response?.data ?? response;
+      const list: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+        ? raw.data
+        : Array.isArray(raw?.items)
+        ? raw.items
+        : [];
+
+      const normalizedLicense = licenseNumber.trim().toLowerCase();
+      const getLicNo = (item: any) =>
+        String(item?.licenseNumber || item?.licenseNo || item?.license?.licenseNumber || item?.license?.licenseNo || '').toLowerCase();
+
+      const exactMatch = list.find((item) => getLicNo(item) === normalizedLicense);
+      if (exactMatch) return exactMatch;
+
+      const partialMatch = list.find((item) => getLicNo(item).includes(normalizedLicense));
+      if (partialMatch) return partialMatch;
+
+      if (list.length > 0) return list[0];
+      return null;
+    } catch (err) {
+      console.warn('findRenewalByLicenseNumber query error:', err);
+      return null;
+    }
+  }
+
+  static async createRenewalForm(payload: Record<string, any>): Promise<any> {
+    try {
+      return await apiClient.post('/renewal-forms', payload);
+    } catch (error: any) {
+      // Catch HTTP 409 Conflict — "A Renewal application is already in progress."
+      // Re-throw with a user-friendly message so the caller can display it.
+      if (error?.status === 409 || error?.response?.status === 409) {
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'A Renewal application is already in progress.';
+        const enhancedError = new Error(message);
+        (enhancedError as any).status = 409;
+        throw enhancedError;
+      }
+      throw error;
+    }
+  }
+
+  static async getRenewalForm(renewalId: string | number): Promise<any> {
+    return apiClient.get(`/renewal-forms/${renewalId}`);
+  }
+
+  static async updateRenewalForm(
+    renewalApplicationId: string | number,
+    payload: Record<string, any>,
+    options?: { isSubmit?: boolean },
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append('applicationId', String(renewalApplicationId));
+    if (typeof options?.isSubmit === 'boolean') {
+      params.append('isSubmit', String(options.isSubmit));
+    }
+    return patchData(`/renewal-forms?${params.toString()}`, payload);
+  }
+
+  static async uploadDocument(
+    renewalApplicationId: string | number,
+    fileType: string,
+    file: File,
+  ): Promise<RenewalFileUploadResponse> {
+    const fileUrl = await this.fileToBase64(file);
+    return this.uploadDocumentPayload(renewalApplicationId, fileType, {
+      fileUrl,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+  }
+
+  static async uploadDocumentPayload(
+    renewalApplicationId: string | number,
+    fileType: string,
+    payload: Omit<RenewalFileUploadRequest, 'fileType'> | RenewalFileUploadRequest,
+  ): Promise<RenewalFileUploadResponse> {
+    const payloadFileType = 'fileType' in payload && payload.fileType ? payload.fileType : fileType;
+
+    return apiClient.post(`/renewal-forms/${renewalApplicationId}/upload-file`, {
+      ...payload,
+      fileType: this.normalizeFileType(payloadFileType),
+    });
+  }
+
+  static async deleteRenewalFile(fileId: string | number): Promise<any> {
+    return apiClient.delete(`/renewal-forms/file/${fileId}`);
+  }
+
+  /**
+   * Get all statuses and available actions for workflow
+   */
+  static async getWorkflowStatusesAndActions(): Promise<any> {
+    return apiClient.get('/workflow/statuses-actions');
+  }
+
+  /**
+   * Get renewal applications - fetch applications by type
+   */
+  static async getRenewalApplications(filters?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams({
+      applicationType: 'RenewalApplicationForm',
+      ...(filters?.page && { page: String(filters.page) }),
+      ...(filters?.limit && { limit: String(filters.limit) }),
+      ...(filters?.status && { status: filters.status }),
+    });
+
+    return apiClient.get(`/workflow/applications?${params.toString()}`);
+  }
+
+  /**
+   * Handle workflow action (forward, approve, reject, etc.) on renewal application
+   * @param applicationId - Renewal ID to perform action on
+   * @param actionId - Action ID from Actiones table
+   * @param nextUserId - User ID to forward/assign to (required for forward action)
+   * @param remarks - Remarks/comments for the action
+   * @param attachments - Optional attachments array
+   * @param applicationType - Application type (FreshLicenseApplicationForm or RenewalApplicationForm)
+   */
+  static async handleWorkflowAction(
+    applicationId: number,
+    actionId: number,
+    nextUserId: number | undefined,
+    remarks: string,
+    attachments?: Array<{ name: string; type: string; contentType: string; url: string }>,
+    applicationType?: string,
+  ): Promise<any> {
+    const payload: Record<string, any> = {
+      applicationId,
+      actionId,
+      remarks,
+    };
+
+    if (nextUserId !== undefined) {
+      payload.nextUserId = nextUserId;
+    }
+
+    if (applicationType) {
+      payload.applicationType = applicationType;
+    }
+
+    if (attachments && attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+
+    return apiClient.post('/workflow/action', payload);
+  }
+
+  /**
+   * Submit renewal application for workflow (change status to INITIATED)
+   * Equivalent to submitting the form
+   */
+  static async submitRenewalForWorkflow(
+    applicationId: number,
+    actionId: number,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, 'Application submitted for review');
+  }
+
+  /**
+   * Forward renewal application to next user/role
+   */
+  static async forwardRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    nextUserId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, nextUserId, remarks);
+  }
+
+  /**
+   * Approve renewal application
+   */
+  static async approveRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
+  }
+
+  /**
+   * Reject renewal application
+   */
+  static async rejectRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
+  }
+
+  /**
+   * Request additional info from applicant
+   */
+  static async requestInfoRenewalApplication(
+    applicationId: number,
+    actionId: number,
+    remarks: string,
+  ): Promise<any> {
+    return this.handleWorkflowAction(applicationId, actionId, undefined, remarks);
+  }
+}
+
+export default RenewalService;

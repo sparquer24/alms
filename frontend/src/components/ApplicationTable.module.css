@@ -1,0 +1,282 @@
+/* ApplicationTable.module.css */
+.tableContainer {
+  width: 100%;
+  box-sizing: border-box;
+  /* allow the table to fill the parent card fully */
+  max-width: 100%;
+  margin: 0; /* let parent control alignment */
+  padding-right: 0;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.tableWrapper {
+  /* This is the single scroll region for the table: horizontal scroll for
+     wide tables, vertical scroll for rows (added via Tailwind's flex-1
+     min-h-0 overflow-y-auto in the markup so it fills exactly the space
+     left over after the title/search/controls above it). */
+  overflow-x: auto;
+}
+
+@media (min-width: 1024px) {
+  .tableWrapper {
+    overflow-x: auto; /* Allow horizontal scroll if table is wider than layout */
+  }
+}
+
+/* Responsive: on small screens use full width (no offset) */
+@media (max-width: 768px) {
+  .tableContainer {
+    max-width: 100%;
+    margin-left: 0;
+    padding-right: 0.5rem;
+    border-radius: 0.5rem;
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.tableHeader {
+  background-color: #f9fafb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tableHeaderCell {
+  padding: 0.625rem 0.75rem; /* Reduced padding (10px vertical, 12px horizontal) */
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 500; /* Medium font weight instead of overly bold */
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap; /* Prevent any wrapping */
+  vertical-align: middle; /* Vertically centered alignment */
+}
+
+.tableRow {
+  transition: background-color 0.2s ease;
+  position: relative;
+  height: 3.5rem; /* Consistent row height */
+}
+
+/* Zebra striping for readability */
+.tableRow:nth-child(even) {
+  background-color: #fafbfc; /* Modern portal soft zebra */
+}
+
+/* Unread emphasis: keep existing bold from tailwind, add subtle left indicator when bold present */
+tr.font-bold::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #2563eb; /* cleaner blue indicator */
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+.tableRow:hover {
+  background-color: #f0f7ff; /* professional soft blue hover */
+}
+
+/* Keyboard accessibility */
+.tableRow:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.tableCell {
+  padding: 0.625rem 0.75rem; /* Reduced padding (10px vertical, 12px horizontal) */
+  font-size: 0.875rem;
+  color: #374151;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.tableRow:hover .tableCell {
+  color: #111827;
+}
+
+.tableRow:hover td button:not(.statusPill) {
+  color: #1d4ed8 !important;
+}
+
+.idLink {
+  color: #2563eb;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.idLink:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.tableRow:hover .idLink {
+  color: #1d4ed8;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  width: 6.25rem; /* smaller fixed equal width (100px) */
+  height: 1.625rem; /* smaller fixed equal height (26px) */
+  font-size: 0.7rem; /* slightly smaller text size */
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  letter-spacing: .25px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.nowrapCell {
+  white-space: nowrap !important;
+}
+
+.truncateCell {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Status pill colors */
+.initiated {
+  background-color: #A7F3D0;
+  color: #065f46;
+}
+
+.approved {
+  background-color: #10B981;
+  color: white;
+}
+
+.pending {
+  background-color: #FACC15;
+  color: black;
+}
+
+.rejected {
+  background-color: #EF4444;
+  color: white;
+}
+
+/* Maintain status pill colors on hover */
+/* Darker tone on row hover */
+.tableRow:hover .initiated {
+  background-color: #34D399; /* darker than #A7F3D0 */
+  color: #064e3b !important; /* retain readable green text */
+}
+
+.tableRow:hover .approved {
+  background-color: #059669; /* darker emerald */
+  color: #ffffff !important; /* keep white */
+}
+
+.tableRow:hover .pending {
+  background-color: #d4af0a; /* slightly darker gold */
+  color: #111827 !important; /* keep dark text */
+}
+
+.tableRow:hover .rejected {
+  background-color: #dc2626; /* darker red */
+  color: #ffffff !important; /* keep white */
+}
+
+.redFlagged {
+  background-color: #DC2626;
+  color: white;
+}
+
+.tableRow:hover .redFlagged {
+  background-color: #b91c1c; /* deeper red */
+  color: #ffffff !important; /* keep white */
+}
+
+.sent {
+  background-color: #3B82F6;
+  color: white;
+}
+
+.tableRow:hover .sent {
+  background-color: #2563EB; /* darker blue */
+  color: #ffffff !important; /* keep white */
+}
+
+/* Loading state */
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+.spinner {
+  border: 2px solid rgba(99, 102, 241, 0.1);
+  border-left-color: #7300ff9c; /* spinner accent uses app primary */
+  border-radius: 50%;
+  width: 3rem;
+  height: 3rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty state */
+.emptyState {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+/* Scrollbar styling for webkit browsers */
+.tableWrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tableWrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* For Firefox */
+.tableWrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* Ensure table header cells stick above the rows and do not get overlapped */
+.tableWrapper table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f9fafb; /* same as header background */
+}
+
+/* Add a subtle divider/shadow so header separates from scrolling rows */
+.tableWrapper table thead th { box-shadow: 0 2px 4px rgba(0,0,0,0.04); }

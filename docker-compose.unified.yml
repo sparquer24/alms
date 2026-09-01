@@ -1,0 +1,104 @@
+services:
+  # ─── PRODUCTION SERVICES ─────────────────────────────────────────────────────
+  backend-prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: alms-backend-prod
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    environment:
+      NODE_ENV: production
+      PORT: 3033
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3033:3033"  # Expose for system nginx access
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3033/api/health"]
+      interval: 45s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+    networks:
+      - alms-unified-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  frontend-prod:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        # BACKEND_URL must be the bare origin - the Next.js rewrite appends /api/:path* itself
+        BACKEND_URL: ${BACKEND_URL:-http://backend-prod:3033}
+        # /api = same-origin: the browser calls the frontend, which proxies to the backend
+        NEXT_PUBLIC_API_URL: /api
+        NODE_ENV: production
+    container_name: alms-frontend-prod
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    environment:
+      NEXT_PUBLIC_API_URL: /api
+      BACKEND_URL: http://backend-prod:3033
+      HOSTNAME: 0.0.0.0
+      PORT: 5055
+    ports:
+      - "5055:5055"  # Expose for system nginx access
+    depends_on:
+      backend-prod:
+        condition: service_healthy
+    networks:
+      - alms-unified-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=3", "--spider", "http://backend-prod:3033/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+  db:
+    image: postgres:17-alpine
+    container_name: alms-db
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - alms_pgdata:/var/lib/postgresql/data
+    networks:
+      - alms-unified-net
+    healthcheck:
+      # $$ escapes compose interpolation - resolved by the shell inside the
+      # container, where env_file has already set POSTGRES_USER/POSTGRES_DB
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# ─── UNIFIED NETWORK ──────────────────────────────────────────────────────────
+networks:
+  alms-unified-net:
+    name: alms-unified-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  alms_pgdata:
+    name: alms_pgdata

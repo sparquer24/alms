@@ -1,0 +1,603 @@
+/**
+ * ALMS API Client
+ * This file contains utility functions to interact with the APIs
+ */
+
+import { apiClient, getAuthToken, redirectToLogin } from './authenticatedApiClient';
+// Import the underlying axios instance so we can make public (no-token) calls
+// without triggering the authenticated client's ensureAuthHeader() guard.
+import axiosInstance, { setAuthToken } from '../api/axiosConfig';
+import {
+  BASE_URL,
+  AUTH_APIS,
+  APPLICATION_APIS,
+  DOCUMENT_APIS,
+  REPORT_APIS, USER_APIS,
+  ROLE_APIS,
+  NOTIFICATION_APIS,
+  DASHBOARD_APIS,
+  LoginParams,
+  ApplicationQueryParams,
+  CreateApplicationParams,
+  UpdateStatusParams,
+  ForwardApplicationParams,
+  ReportQueryParams,
+  ApplicationsByStatusParams,
+  UserQueryParams,
+  NotificationQueryParams,
+  UserPreferencesParams,
+  BatchProcessParams,
+  ApiResponse,
+  appendQueryParams,
+  getHeaders,
+  getMultipartHeaders,
+} from './APIsEndpoints';
+import { parse } from 'cookie';
+
+/**
+ * Authentication API client - These endpoints don't require authorization headers
+ */
+export const AuthApi = {
+  login: async (params: LoginParams): Promise<ApiResponse<any>> => {
+    const url = AUTH_APIS.LOGIN;
+    const headers = getHeaders();
+    const body = JSON.stringify(params);
+    try {
+      // IMPORTANT: Do NOT use apiClient.post here because it enforces an auth token
+      // via ensureAuthHeader(). During login we have no token yet, so using apiClient
+      // causes an immediate redirect back to /login and the real network call never happens.
+      // We call the raw axios instance directly so a 401 (invalid credentials) can be surfaced
+      // normally to the thunk instead of forcing a navigation.
+      // Convert HeadersInit to a plain object acceptable by axios (in case getHeaders returns a Headers instance)
+      const axiosHeaders: Record<string, string> = Array.isArray(headers)
+        ? headers.reduce((acc, [k, v]) => { acc[k] = v; return acc; }, {} as Record<string, string>)
+        : (headers as Record<string, string>);
+      // Try primary login endpoint first
+      try {
+        const response = await axiosInstance.post(url, params as any, { headers: axiosHeaders });
+        const data = response.data;
+        return data as any;
+      } catch (primaryErr: any) {
+        // If server responded with 404 or 405 try the alternate `/api` prefixed path
+        const status = primaryErr?.response?.status;
+        // Dev-time debug
+        if (process.env.NODE_ENV === 'development') {
+           
+          console.debug('[AuthApi.login] primary login failed', { url, status, err: primaryErr?.response?.data ?? primaryErr?.message });
+        }
+        if (status === 404 || status === 405) {
+          // Construct alternate URL toggling `/api` segment
+          let alternate = url;
+          if (url.includes('/api/')) {
+            alternate = url.replace('/api/', '/');
+          } else {
+            // insert /api before auth
+            alternate = url.replace('/auth/', '/api/auth/');
+          }
+          try {
+            if (process.env.NODE_ENV === 'development') {
+               
+              console.debug('[AuthApi.login] attempting alternate login URL', { alternate });
+            }
+            const resp2 = await axiosInstance.post(alternate, params as any, { headers: axiosHeaders });
+            return resp2.data as any;
+          } catch (altErr: any) {
+            if (process.env.NODE_ENV === 'development') {
+               
+              console.debug('[AuthApi.login] alternate login also failed', { alternate, status: altErr?.response?.status, err: altErr?.response?.data ?? altErr?.message });
+            }
+            throw altErr;
+          }
+        }
+        throw primaryErr;
+      }
+    } catch (error: any) {
+      // Extract and re-throw with proper error message from response
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        // Create a new error with the message from the API response
+        const errorMessage = errorData.message || errorData.error || error.message || 'Login failed';
+        const enrichedError = new Error(errorMessage);
+        // Preserve the original response for additional context
+        (enrichedError as any).response = error.response;
+        throw enrichedError;
+      }
+      throw error;
+    }
+  },
+
+  // Note: getCurrentUser is the only auth endpoint that requires authorization (for getting current user info)
+  getCurrentUser: async (token: string): Promise<ApiResponse<any>> => {
+    try {
+      // If a token was passed (e.g. immediately after login), ensure axios has it set
+      if (token) {
+        try {
+          setAuthToken(token);
+        } catch (e) {
+          // ignore
+        }
+      }
+      return await apiClient.get('/auth/me');
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // New: call /auth/getMe which returns a trimmed user object and accepts a token
+  getMe: async (token?: string): Promise<ApiResponse<any>> => {
+    try {
+      // If a token is provided (as during login), set it on the axios instance so apiClient.get works
+      if (token) {
+        try {
+          setAuthToken(token);
+        } catch (e) {
+          // ignore
+        }
+      }
+      return await apiClient.get('/auth/getMe');
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // All other auth endpoints use the authenticated client
+  logout: async (): Promise<ApiResponse<any>> => {
+    // Call POST /auth/logout on the backend (best-effort) to invalidate the server session.
+    // Then call the Next.js API route so httpOnly cookies are cleared server-side.
+    try {
+      await apiClient.post('/auth/logout', {});
+    } catch {
+      // Non-fatal — backend may not expose this endpoint yet
+    }
+    try {
+      // Clear httpOnly cookies via Next.js server action
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      // Non-fatal
+    }
+    return { statusCode: 200, success: true, body: { message: 'Logged out' } } as any;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.post('/auth/change-password', { currentPassword, newPassword });
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  resetPassword: async (email: string): Promise<ApiResponse<any>> => {
+    return await apiClient.post(AUTH_APIS.RESET_PASSWORD, { email });
+  },
+
+  refreshToken: async (refreshToken: string): Promise<ApiResponse<any>> => {
+    return await apiClient.post(AUTH_APIS.REFRESH_TOKEN, { refreshToken });
+  },
+};
+
+/**
+ * Application API client - All endpoints require authentication
+ */
+import { Application } from '../types/application';
+
+export const ApplicationApi = {
+  getAll: async (params: ApplicationQueryParams = {}): Promise<ApiResponse<Application[]>> => {
+    // Read role from cookies. `parse` is the cookie parser; use it on document.cookie.
+    // Note: document may be undefined during SSR — guard for that.
+    let role: string | undefined;
+    try {
+      if (typeof document !== 'undefined' && document.cookie) {
+        const cookies = parse(document.cookie || '');
+        role = cookies.role || cookies.Roles || cookies.role_code; // try a few common keys
+      }
+    } catch (e) {
+      // ignore cookie parse errors
+      role = undefined;
+    }
+
+    // If the user is a ZS, the backend expects a special param; add it to params.
+    const requestParams = { ...params } as Record<string, any>;
+    if (role === 'ZS' || role === 'zs') {
+      // attach a flag so backend can filter appropriately. Use 'role' param to be explicit.
+      requestParams.isOwned = 'true';
+    }
+    try {
+      // debug: log outgoing params for troubleshooting
+      try { console.debug('[ApplicationApi.getAll] requestParams:', requestParams); } catch (e) { }
+      return await apiClient.get('/application-form', requestParams as any);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getById: async (id: number): Promise<ApiResponse<Application>> => {
+    try {
+      return await apiClient.get(`/application-form/?applicationId=${id}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  create: async (params: CreateApplicationParams): Promise<ApiResponse<Application>> => {
+    try {
+      return await apiClient.post('/application-form', params);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updateStatus: async (id: string, params: UpdateStatusParams): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.put(`/applications/${id}/status`, params);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  forward: async (id: string, params: ForwardApplicationParams): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.post(`/applications/${id}/forward`, params);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  batchProcess: async (params: BatchProcessParams): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.post('/applications/batch', params);
+    } catch (error) {
+      throw error;
+    }
+  },
+  // New: fetch applications using the application-form endpoint filtered by status ids.
+  // Expects statusIds as array of string|number; optional query params like page/limit can be provided.
+  getByStatuses: async (statusIds: Array<string | number>, params: Record<string, any> = {}): Promise<ApiResponse<any>> => {
+    try {
+      const ids = (statusIds || []).map(String).join(',');
+      const query = { ...params, statusIds: ids };
+      // apiClient.get accepts params object; pass constructed query
+      return await apiClient.get(`/application-form`, query as any);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  deleteApplication: async (id: string | number): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.delete(`/application-form/application/${id}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * Renewal API client - All endpoints require authentication
+ */
+export const RenewalApi = {
+  deleteRenewal: async (renewalId: string | number): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.delete(`/renewal-forms/application/${renewalId}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * Document API client - All endpoints require authentication
+ */
+export const DocumentApi = {
+  upload: async (applicationId: string, file: File, documentType: string): Promise<ApiResponse<any>> => {
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('documentType', documentType);
+
+      return await apiClient.uploadFile(`/applications/${applicationId}/documents`, formData);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // New: Store file URL and metadata for application (based on API documentation)
+  storeFileUrl: async (applicationId: string, fileMetadata: {
+    fileType: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    description?: string;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const endpoint = `/application-form/${applicationId}/upload-file`;
+      return await apiClient.post(endpoint, fileMetadata);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getAll: async (applicationId: string): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get(`/applications/${applicationId}/documents`);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  delete: async (applicationId: string, documentId: string): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.delete(`/applications/${applicationId}/documents/${documentId}`);
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * Report API client - All endpoints require authentication
+ */
+export const ReportApi = {
+  getStatistics: async (params: ReportQueryParams = {}): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get('/reports/statistics', params);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getApplicationsByStatus: async (params: ApplicationsByStatusParams): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get('/reports/applications-by-status', params);
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  generatePdf: async (applicationId: string): Promise<Blob> => {
+    try {
+      // Special handling for blob response
+      const token = getAuthToken();
+      if (!token) {
+        redirectToLogin();
+        throw new Error('Authentication required');
+      }
+
+      // Use apiClient which ensures auth headers are set
+      const blob = await apiClient.get(`/applications/${applicationId}/pdf`);
+      // apiClient.get may return parsed JSON; if server returns blob, adapt accordingly
+      if (blob instanceof Blob) return blob;
+      // If axios returned data as ArrayBuffer or base64, convert accordingly
+      // Fallback: try requesting via axiosInstance directly
+      const axios = await import('../api/axiosConfig');
+      const resp = await axios.default.get(`/applications/${applicationId}/pdf`, { responseType: 'blob' });
+      return resp.data as Blob;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * User API client - All endpoints require authentication
+ */
+export const UserApi = {
+  getByRole: async (role: string): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get('/users', { role });
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getPreferences: async (): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get('/users/preferences');
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  updatePreferences: async (preferences: UserPreferencesParams): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.put('/users/preferences', preferences);
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+/**
+ * Role API client - All endpoints require authentication
+ */
+export const RoleApi = {
+  getAvailableActions: async (): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get('/roles/actions');
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  getHierarchy: async (): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get('/roles/hierarchy');
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * Notification API client - All endpoints require authentication
+ */
+export const NotificationApi = {
+  getAll: async (params: NotificationQueryParams = {}): Promise<ApiResponse<any>> => {
+    try {
+      // Endpoint removed. Return exactly 3 simple placeholder notifications to keep UI concise.
+      const notifications = [
+        {
+          id: 'local-1',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Notifications API disabled',
+          isRead: false,
+          createdAt: new Date(Date.now() - 1 * 60_000).toISOString(),
+        },
+        {
+          id: 'local-2',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Showing local placeholder',
+          isRead: false,
+          createdAt: new Date(Date.now() - 30 * 60_000).toISOString(),
+        },
+        {
+          id: 'local-3',
+          type: 'INFO',
+          title: 'notifications',
+          message: 'Check back later',
+          isRead: false,
+          createdAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+        },
+      ];
+      return { statusCode: 200, success: true, body: { notifications } } as any;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  markAsRead: async (notificationId: string): Promise<ApiResponse<any>> => {
+    try {
+      // No-op locally, reflect success
+      return { statusCode: 200, success: true, body: { id: notificationId } } as any;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  markAllAsRead: async (): Promise<ApiResponse<any>> => {
+    try {
+      // No-op locally
+      return { statusCode: 200, success: true } as any;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+
+
+/**
+ * Public API client - No authentication required
+ * Used for QR code scanned application details
+ */
+export const PublicApi = {
+  /**
+   * Get public application details (no auth required)
+   * Used when scanning QR code
+   */
+  getApplicationDetails: async (applicationId: string | number, type?: string): Promise<ApiResponse<any>> => {
+    try {
+      // Use raw axios instance to bypass auth header requirement
+      const url = type ? `/public/application/${applicationId}?type=${type}` : `/public/application/${applicationId}`;
+      const response = await axiosInstance.get(url);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
+/**
+ * Dashboard API client - All endpoints require authentication
+ */
+export const DashboardApi = {
+  getSummary: async (): Promise<ApiResponse<any>> => {
+    try {
+      let pending = 0;
+      let approved = 0;
+      let rejected = 0;
+      let returned = 0;
+
+      // 1. Fetch states
+      try {
+        const statesRes = await apiClient.get<any>('/admin/analytics/states');
+        if (statesRes && statesRes.success && Array.isArray(statesRes.data)) {
+          statesRes.data.forEach((s: any) => {
+            const stateLower = String(s.state).toLowerCase();
+            if (stateLower === 'pending') pending = s.count || 0;
+            if (stateLower === 'approved') approved = s.count || 0;
+            if (stateLower === 'rejected') rejected = s.count || 0;
+            if (stateLower === 'returned') returned = s.count || 0;
+          });
+        }
+      } catch (err) {
+         
+        console.error('[DashboardApi] Failed to fetch states:', err);
+      }
+
+      // 2. Fetch trends
+      const trendDates: string[] = [];
+      const trendCounts: number[] = [];
+      try {
+        const trendRes = await apiClient.get<any>('/admin/analytics/applications');
+        if (trendRes && trendRes.success && Array.isArray(trendRes.data)) {
+          trendRes.data.forEach((t: any) => {
+            trendDates.push(t.week || t.date || '');
+            trendCounts.push(t.count || 0);
+          });
+        }
+      } catch (err) {
+         
+        console.error('[DashboardApi] Failed to fetch trends:', err);
+      }
+
+      // 3. Fetch activities
+      let recentActivities: any[] = [];
+      try {
+        const activitiesRes = await apiClient.get<any>('/admin/analytics/admin-activities');
+        if (activitiesRes && activitiesRes.success && Array.isArray(activitiesRes.data)) {
+          recentActivities = activitiesRes.data.slice(0, 10).map((act: any) => ({
+            action: act.action || 'APPLICATION_UPDATED',
+            applicationId: act.almsLicenseId || `APP-${act.id || 'Unknown'}`,
+            timestamp: act.timestamp ? new Date(act.timestamp).toISOString() : new Date().toISOString(),
+          }));
+        }
+      } catch (err) {
+         
+        console.error('[DashboardApi] Failed to fetch activities:', err);
+      }
+
+      return {
+        statusCode: 200,
+        success: true,
+        body: {
+          pendingApplications: pending,
+          approvedApplications: approved,
+          rejectedApplications: rejected,
+          returnedApplications: returned,
+          verifiedApplications: 0,
+          unreadNotifications: 0,
+          applicationTrends: {
+            dates: trendDates,
+            pending: trendCounts,
+            approved: trendCounts.map(() => 0),
+            rejected: trendCounts.map(() => 0),
+          },
+          processingTimes: {
+            licenseTypes: ['Fresh', 'Renewal'],
+            averageDays: [7, 5],
+          },
+          recentActivities,
+          userStats: {
+            totalProcessed: approved + rejected + returned,
+            approvalRate: (approved + rejected) > 0 ? Math.round((approved / (approved + rejected)) * 100) : 0,
+            averageProcessTime: '6.2d',
+          },
+        },
+      } as any;
+    } catch (error) {
+      throw error;
+    }
+  }
+};

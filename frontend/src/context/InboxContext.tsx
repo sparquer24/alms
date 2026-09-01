@@ -1,0 +1,91 @@
+"use client";
+
+import React, { createContext, useCallback, useContext, useMemo, useState, useRef } from "react";
+import { fetchApplicationsByStatusKey } from "../services/sidebarApiCalls";
+import { ApplicationData } from "../types";
+
+type InboxContextValue = {
+  selectedType: string | null;
+  applications: ApplicationData[];
+  isLoading: boolean;
+  loadType: (type: string, force?: boolean, statusIds?: number[]) => Promise<void>;
+};
+
+const InboxContext = createContext<InboxContextValue | undefined>(undefined);
+
+export const InboxProvider = ({ children }: { children: React.ReactNode }) => {
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [applications, setApplications] = useState<ApplicationData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  // request id to ignore stale responses when switching types quickly
+  const requestIdRef = useRef(0);
+
+  // Make `loadType` stable (no changing identity) so consumers can safely
+  // depend on it in useEffect without causing infinite loops. We avoid
+  // reading `selectedType` from closure and instead use a functional
+  // updater to decide whether to fetch.
+  const loadType = useCallback(async (type: string, force = false, statusIds?: number[]) => {
+    if (!type) return;
+    const normalized = String(type);
+
+    // Decide whether we should fetch. We use the functional updater to
+    // synchronously inspect previous selectedType and set the new one.
+    let shouldFetch = false;
+    setSelectedType((prev) => {
+      if (prev === normalized && !force) {
+        shouldFetch = false;
+        return prev;
+      }
+      shouldFetch = true;
+      return normalized;
+    });
+
+    if (!shouldFetch) {
+      setIsLoading(false);
+      return;
+    }
+
+    // bump request id for this load, so we can ignore stale responses
+    const requestId = ++requestIdRef.current;
+
+    try {
+      setIsLoading(true);
+      // Use custom statusIds if provided, otherwise use default mapping
+      const apps = await fetchApplicationsByStatusKey(normalized, statusIds);
+      // only apply results if this is the latest request
+      if (requestId === requestIdRef.current) {
+        setApplications(apps ?? []);
+      }
+    } catch (err) {
+      // only report/clear if this is the latest request
+      if (requestId === requestIdRef.current) {
+        setApplications([]);
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
+  const value = useMemo(() => ({ selectedType, applications, isLoading, loadType }), [selectedType, applications, isLoading, loadType]);
+
+  return <InboxContext.Provider value={value}>{children}</InboxContext.Provider>;
+};
+
+export const useInbox = () => {
+  const ctx = useContext(InboxContext);
+  if (!ctx) {
+    // Fallback safe implementation so components rendered outside the provider don't crash.
+    // This logs so we can find and wrap callers with the provider if needed.
+    return {
+      selectedType: null,
+      applications: [],
+      isLoading: false,
+      loadType: async () => { /* noop */ },
+    } as InboxContextValue;
+  }
+  return ctx;
+};
+
+export default InboxContext;
