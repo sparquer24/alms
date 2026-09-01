@@ -47,6 +47,7 @@ model States {
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("StateUsers")
   roleFlowMappings   RoleFlowMapping[]
+  cancelFormRequests CancelFormRequests[]
 }
 
 model Districts {
@@ -692,11 +693,13 @@ model CancelFormRequests {
   licenseId               Int?
   acknowledgementNo       String?                   @db.VarChar(20)
   applicantName           String?                   @db.Char(30)
+  stateId                 Int?
   actioner                Users?                    @relation("CancelRequestActioner", fields: [actionedBy], references: [id])
   currentUser             Users?                    @relation("CancelFormCurrentUser", fields: [currentUserId], references: [id])
   Licenses                Licenses?                 @relation("LicensesCancelLog", fields: [licenseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   previousUser            Users?                    @relation("CancelFormPreviousUser", fields: [previousUserId], references: [id])
   requester               Users                     @relation("CancelRequestRequester", fields: [requestedBy], references: [id])
+  state                   States?                   @relation(fields: [stateId], references: [id], onDelete: SetNull)
   workflowStatus          Statuses?                 @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id])
   cancelWorkflowHistories CancelWorkflowHistories[] @relation("CancelWorkflowHistories")
   licensesFromCancel      Licenses[]                @relation("LicenseToCancelApp")
@@ -705,6 +708,7 @@ model CancelFormRequests {
   @@index([currentUserId])
   @@index([createdAt])
   @@index([licenseId])
+  @@index([stateId])
 }
 
 model CancelWorkflowHistories {

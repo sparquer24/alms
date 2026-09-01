@@ -67,9 +67,16 @@ export class AnalyticsService {
                 }
             }
 
-            // For cancel, filter by createdAt only
+            // For cancel, filter by createdAt and state
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
+                cancelWhere.OR = [
+                    { stateId: stateId },
+                    { Licenses: { presentStateId: stateId } },
+                    { requester: { stateId: stateId } },
+                ];
             }
 
             // Fetch all three types of applications within date range
@@ -290,10 +297,17 @@ export class AnalyticsService {
                 }
             }
 
-            // For cancel, only filter by date
+            // For cancel, filter by date and state
             const cancelWhere: any = {};
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
+                cancelWhere.OR = [
+                    { stateId: stateId },
+                    { Licenses: { presentStateId: stateId } },
+                    { requester: { stateId: stateId } },
+                ];
             }
 
             // Get all applications with their status
@@ -426,6 +440,15 @@ export class AnalyticsService {
             const cancelWhere: any = {};
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
+                cancelWhere.application = {
+                    OR: [
+                        { stateId: stateId },
+                        { Licenses: { presentStateId: stateId } },
+                        { requester: { stateId: stateId } },
+                    ],
+                };
             }
 
             // Fetch workflow history for all three types
@@ -672,6 +695,13 @@ export class AnalyticsService {
             const cancelWhere: any = {};
             if (where.createdAt) {
                 cancelWhere.createdAt = { ...where.createdAt };
+            }
+            if (roleCode !== ROLE_CODES.SUPER_ADMIN && stateId) {
+                cancelWhere.OR = [
+                    { stateId: stateId },
+                    { Licenses: { presentStateId: stateId } },
+                    { requester: { stateId: stateId } },
+                ];
             }
 
             // Count total matching records from the requested source(s)

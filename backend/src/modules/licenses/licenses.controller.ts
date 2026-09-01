@@ -1,11 +1,37 @@
-import { Controller, Get, Post, Param, Query, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, NotFoundException, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
+import * as jwt from 'jsonwebtoken';
 import { LicensesService } from './licenses.service';
 
 @ApiTags('Licenses')
 @Controller('licenses')
 export class LicensesController {
   constructor(private readonly licensesService: LicensesService) {}
+
+  private extractUserFromReq(req: any): { stateId?: number; roleCode?: string } {
+    if (req?.user) {
+      const stateId = req.user.stateId ? Number(req.user.stateId) : undefined;
+      const roleCode = req.user.roleCode || (typeof req.user.role === 'string' ? req.user.role : req.user.role?.code);
+      return { stateId, roleCode };
+    }
+    const authHeader = req?.headers?.authorization;
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '').trim();
+      const secret = process.env.JWT_SECRET;
+      if (secret && token) {
+        try {
+          const decoded = jwt.verify(token, secret) as any;
+          const parsedStateId = decoded?.state_id ?? decoded?.stateId;
+          const stateId = parsedStateId ? Number(parsedStateId) : undefined;
+          const roleCode = decoded?.role_code || (typeof decoded?.role === 'string' ? decoded.role : decoded?.role?.code);
+          return { stateId, roleCode };
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    return {};
+  }
 
   @Post('generate/:freshApplicationId')
   @ApiOperation({ summary: 'Generate a license PDF from a fresh application' })
@@ -48,7 +74,9 @@ export class LicensesController {
     @Query('renewedOnly') renewedOnly?: string,
     @Query('orderBy') orderBy?: string,
     @Query('order') order?: 'asc' | 'desc',
+    @Req() req?: any,
   ) {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -63,13 +91,16 @@ export class LicensesController {
       renewedOnly: renewedOnly === 'true',
       orderBy,
       order,
+      stateId,
+      roleCode,
     });
   }
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get license dashboard counts and expiry buckets' })
-  async getLicenseDashboard() {
-    return this.licensesService.getLicenseStatistics();
+  async getLicenseDashboard(@Req() req?: any) {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
+    return this.licensesService.getLicenseStatistics(stateId, roleCode);
   }
 
   @Get('expiring')
@@ -82,7 +113,9 @@ export class LicensesController {
     @Query('search') search?: string,
     @Query('purpose') purpose?: string,
     @Query('renewedOnly') renewedOnly?: string,
+    @Req() req?: any,
   ) {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -93,6 +126,8 @@ export class LicensesController {
       renewedOnly: renewedOnly === 'true',
       orderBy: 'validTill',
       order: 'asc',
+      stateId,
+      roleCode,
     });
   }
 
@@ -104,7 +139,9 @@ export class LicensesController {
     @Query('search') search?: string,
     @Query('purpose') purpose?: string,
     @Query('renewedOnly') renewedOnly?: string,
+    @Req() req?: any,
   ) {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getAllLicenses({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -114,13 +151,16 @@ export class LicensesController {
       renewedOnly: renewedOnly === 'true',
       orderBy: 'validTill',
       order: 'desc',
+      stateId,
+      roleCode,
     });
   }
 
   @Get('stats/overview')
   @ApiOperation({ summary: 'Get license statistics (counts by status)' })
-  async getLicenseStatistics() {
-    return this.licensesService.getLicenseStatistics();
+  async getLicenseStatistics(@Req() req?: any) {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
+    return this.licensesService.getLicenseStatistics(stateId, roleCode);
   }
 
   @Get('audit/logs')
@@ -138,7 +178,9 @@ export class LicensesController {
     @Query('action') action?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Req() req?: any,
   ) {
+    const { stateId, roleCode } = this.extractUserFromReq(req);
     return this.licensesService.getLicenseAuditLogs({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -146,6 +188,8 @@ export class LicensesController {
       action,
       dateFrom,
       dateTo,
+      stateId,
+      roleCode,
     });
   }
 

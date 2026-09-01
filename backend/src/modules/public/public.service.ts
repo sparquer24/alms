@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
+import { ROLE_CODES } from '../../constants/auth';
 
 /**
  * Public Service - Handles public-facing data retrieval
@@ -98,35 +99,28 @@ export class PublicService {
                         needForLicense: ld.needForLicense,
                         armsCategory: ld.armsCategory,
                         areaOfValidity: ld.areaOfValidity,
+                        ammunitionDescription: ld.ammunitionDescription,
                         requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
                             name: w.name,
                             description: w.description,
                         })),
                     })),
 
-                    // Address Info (district/state only for verification)
-                    permanentAddress: application.permanentAddress
-                        ? {
-                            state: application.permanentAddress.state?.name,
-                            district: application.permanentAddress.district?.name,
-                            policeStation: application.permanentAddress.policeStation?.name,
-                        }
-                        : null,
-                    presentAddress: application.presentAddress
-                        ? {
-                            state: application.presentAddress.state?.name,
-                            district: application.presentAddress.district?.name,
-                            policeStation: application.presentAddress.policeStation?.name,
-                        }
-                        : null,
+                    // Basic Location (State & District only, no full address)
+                    presentState: application.presentAddress?.state?.name || null,
+                    presentDistrict: application.presentAddress?.district?.name || null,
+                    permanentState: application.permanentAddress?.state?.name || null,
+                    permanentDistrict: application.permanentAddress?.district?.name || null,
 
-                    createdAt: application.createdAt,
-                    updatedAt: application.updatedAt,
+                    // Timestamps
+                    submittedDate: application.createdAt,
+                    lastUpdatedDate: application.updatedAt,
                 };
 
                 return [null, publicData];
             }
 
+            // Default: Fresh Application
             const application = await prisma.freshLicenseApplicationPersonalDetails.findUnique({
                 where: { id: applicationId },
                 include: {
@@ -178,12 +172,9 @@ export class PublicService {
                 return ['Application not found', null];
             }
 
-            // Get photo URL from fileUploads
             const photoUpload = application.fileUploads?.[0];
             const photoUrl = photoUpload?.fileUrl || null;
 
-            // Build sanitized public response
-            // Only include non-sensitive information
             const publicData = {
                 applicationId: application.id,
                 acknowledgementNo: application.acknowledgementNo,
@@ -207,35 +198,26 @@ export class PublicService {
                 isNotRecommended: application.isNotRecommended,
 
                 // License Details (public info only)
-                licenseDetails: application.licenseDetails?.map((ld: { needForLicense: any; armsCategory: any; areaOfValidity: string | null; requestedWeapons: { name: string; description: string | null }[] }) => ({
+                licenseDetails: application.licenseDetails?.map((ld: any) => ({
                     needForLicense: ld.needForLicense,
                     armsCategory: ld.armsCategory,
                     areaOfValidity: ld.areaOfValidity,
-                    requestedWeapons: ld.requestedWeapons?.map((w: { name: string; description: string | null }) => ({
+                    ammunitionDescription: ld.ammunitionDescription,
+                    requestedWeapons: ld.requestedWeapons?.map((w: any) => ({
                         name: w.name,
                         description: w.description,
                     })),
                 })),
 
-                // Address Info (district/state only for verification)
-                permanentAddress: application.permanentAddress
-                    ? {
-                        state: application.permanentAddress.state?.name,
-                        district: application.permanentAddress.district?.name,
-                        policeStation: application.permanentAddress.policeStation?.name,
-                    }
-                    : null,
-                presentAddress: application.presentAddress
-                    ? {
-                        state: application.presentAddress.state?.name,
-                        district: application.presentAddress.district?.name,
-                        policeStation: application.presentAddress.policeStation?.name,
-                    }
-                    : null,
+                // Basic Location (State & District only, no full address)
+                presentState: application.presentAddress?.state?.name || null,
+                presentDistrict: application.presentAddress?.district?.name || null,
+                permanentState: application.permanentAddress?.state?.name || null,
+                permanentDistrict: application.permanentAddress?.district?.name || null,
 
                 // Timestamps
-                createdAt: application.createdAt,
-                updatedAt: application.updatedAt,
+                submittedDate: application.createdAt,
+                lastUpdatedDate: application.updatedAt,
             };
 
             return [null, publicData];
@@ -247,9 +229,15 @@ export class PublicService {
 
     /**
      * Get aggregated universal dashboard overview data
-     * Completely public, anonymized, and role-agnostic summary of the system
+     * Filters by state for ADMIN users (stateId derived from auth credentials).
+     * SUPER_ADMIN sees combined, aggregated data across all states.
      */
-    async getPublicDashboardOverview(timeRange?: string, typeFilter?: string) {
+    async getPublicDashboardOverview(
+        timeRange?: string,
+        typeFilter?: string,
+        stateId?: number,
+        roleCode?: string,
+    ) {
         try {
             const now = new Date();
             let dateFilter: Date | undefined;
@@ -264,9 +252,23 @@ export class PublicService {
                 dateFilter = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
             }
 
+            const isStateScoped = Boolean(stateId && roleCode !== ROLE_CODES.SUPER_ADMIN);
+
             const freshWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const renewalWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
             const cancelWhere: any = dateFilter ? { createdAt: { gte: dateFilter } } : {};
+            const licenseWhere: any = {};
+
+            if (isStateScoped) {
+                freshWhere.permanentAddress = { stateId };
+                renewalWhere.permanentAddress = { stateId };
+                cancelWhere.OR = [
+                    { stateId: stateId },
+                    { Licenses: { presentStateId: stateId } },
+                    { requester: { stateId: stateId } },
+                ];
+                licenseWhere.presentStateId = stateId;
+            }
 
             const [
                 totalFresh,
@@ -289,7 +291,6 @@ export class PublicService {
                 expiring30,
                 expiring60,
                 expiring90,
-                zones,
             ] = await Promise.all([
                 prisma.freshLicenseApplicationPersonalDetails.count({ where: freshWhere }).catch(() => 0),
                 prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...freshWhere, isApproved: true } }).catch(() => 0),
@@ -306,13 +307,14 @@ export class PublicService {
                 prisma.cancelFormRequests.count({ where: { ...cancelWhere, isPending: true } }).catch(() => 0),
                 prisma.cancelFormRequests.count({ where: { ...cancelWhere, isRejected: true } }).catch(() => 0),
 
-                prisma.licenses.count().catch(() => 0),
-                prisma.licenses.count({ where: { status: 'ACTIVE' as any } }).catch(() => 0),
-                prisma.licenses.count({ where: { status: 'EXPIRED' as any } }).catch(() => 0),
-                prisma.licenses.count({ where: { status: 'SUSPENDED' as any } }).catch(() => 0),
-                prisma.licenses.count({ where: { status: 'REVOKED' as any } }).catch(() => 0),
+                prisma.licenses.count({ where: licenseWhere }).catch(() => 0),
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'ACTIVE' as any } }).catch(() => 0),
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'EXPIRED' as any } }).catch(() => 0),
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'SUSPENDED' as any } }).catch(() => 0),
+                prisma.licenses.count({ where: { ...licenseWhere, status: 'REVOKED' as any } }).catch(() => 0),
                 prisma.licenses.count({
                     where: {
+                        ...licenseWhere,
                         status: 'ACTIVE' as any,
                         validTill: {
                             gte: now,
@@ -322,6 +324,7 @@ export class PublicService {
                 }).catch(() => 0),
                 prisma.licenses.count({
                     where: {
+                        ...licenseWhere,
                         status: 'ACTIVE' as any,
                         validTill: {
                             gte: now,
@@ -331,6 +334,7 @@ export class PublicService {
                 }).catch(() => 0),
                 prisma.licenses.count({
                     where: {
+                        ...licenseWhere,
                         status: 'ACTIVE' as any,
                         validTill: {
                             gte: now,
@@ -338,15 +342,6 @@ export class PublicService {
                         },
                     },
                 }).catch(() => 0),
-
-                prisma.zones.findMany({
-                    select: {
-                        id: true,
-                        name: true,
-                        divisions: { select: { id: true, name: true } },
-                    },
-                    take: 10,
-                }).catch(() => []),
             ]);
 
             const totalApplications = totalFresh + totalRenewal + totalCancel;
@@ -355,8 +350,13 @@ export class PublicService {
             const totalRejected = freshRejected + renewalRejected + cancelRejected;
 
             // Real average processing turnaround calculation
+            const completedFreshWhere: any = { OR: [{ isApproved: true }, { isRejected: true }] };
+            if (isStateScoped) {
+                completedFreshWhere.permanentAddress = { stateId };
+            }
+
             const completedFresh = await prisma.freshLicenseApplicationPersonalDetails.findMany({
-                where: { OR: [{ isApproved: true }, { isRejected: true }] },
+                where: completedFreshWhere,
                 select: { createdAt: true, updatedAt: true },
                 take: 100,
             }).catch(() => []);
@@ -368,7 +368,8 @@ export class PublicService {
             }
 
             // Real Biometric compliance rate
-            const totalBiometrics = await prisma.fLAFBiometricDatas.count().catch(() => 0);
+            const biometricsWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
+            const totalBiometrics = await prisma.fLAFBiometricDatas.count({ where: biometricsWhere }).catch(() => 0);
             const biometricComplianceRate = totalFresh > 0 ? Number(((totalBiometrics / totalFresh) * 100).toFixed(1)) : 0;
 
             const summary = {
@@ -405,12 +406,26 @@ export class PublicService {
 
             const trend = await Promise.all(
                 months.map(async (m) => {
+                    const trendFreshWhere: any = { createdAt: { gte: m.start, lt: m.end } };
+                    const trendRenewalWhere: any = { createdAt: { gte: m.start, lt: m.end } };
+                    const trendCancelWhere: any = { createdAt: { gte: m.start, lt: m.end } };
+
+                    if (isStateScoped) {
+                        trendFreshWhere.permanentAddress = { stateId };
+                        trendRenewalWhere.permanentAddress = { stateId };
+                        trendCancelWhere.OR = [
+                            { stateId: stateId },
+                            { Licenses: { presentStateId: stateId } },
+                            { requester: { stateId: stateId } },
+                        ];
+                    }
+
                     const [freshCount, renewalCount, cancelCount, approvedFresh, approvedRenewal] = await Promise.all([
-                        prisma.freshLicenseApplicationPersonalDetails.count({ where: { createdAt: { gte: m.start, lt: m.end } } }).catch(() => 0),
-                        prisma.renewalFormPersonalDetails.count({ where: { createdAt: { gte: m.start, lt: m.end } } }).catch(() => 0),
-                        prisma.cancelFormRequests.count({ where: { createdAt: { gte: m.start, lt: m.end } } }).catch(() => 0),
-                        prisma.freshLicenseApplicationPersonalDetails.count({ where: { createdAt: { gte: m.start, lt: m.end }, isApproved: true } }).catch(() => 0),
-                        prisma.renewalFormPersonalDetails.count({ where: { createdAt: { gte: m.start, lt: m.end }, isApproved: true } }).catch(() => 0),
+                        prisma.freshLicenseApplicationPersonalDetails.count({ where: trendFreshWhere }).catch(() => 0),
+                        prisma.renewalFormPersonalDetails.count({ where: trendRenewalWhere }).catch(() => 0),
+                        prisma.cancelFormRequests.count({ where: trendCancelWhere }).catch(() => 0),
+                        prisma.freshLicenseApplicationPersonalDetails.count({ where: { ...trendFreshWhere, isApproved: true } }).catch(() => 0),
+                        prisma.renewalFormPersonalDetails.count({ where: { ...trendRenewalWhere, isApproved: true } }).catch(() => 0),
                     ]);
                     const total = freshCount + renewalCount + cancelCount;
                     return {
@@ -425,23 +440,58 @@ export class PublicService {
             );
 
             // Real status lifecycle distribution from DB
-            const statuses = await prisma.statuses.findMany({
-                include: {
-                    _count: {
-                        select: {
-                            applications: true,
-                            renewalApplications: true,
-                            cancelFormRequests: true,
-                        },
-                    },
-                },
-            }).catch(() => []);
-
             const statusColors = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444', '#6366F1', '#EC4899'];
             const totalAppCount = totalApplications > 0 ? totalApplications : 1;
 
-            const statusDistribution = statuses.length > 0
-                ? statuses.map((st, idx) => {
+            let statusDistribution: any[] = [];
+            if (isStateScoped) {
+                const statuses = await prisma.statuses.findMany({
+                    include: {
+                        applications: {
+                            where: { permanentAddress: { stateId } },
+                            select: { id: true },
+                        },
+                        renewalApplications: {
+                            where: { permanentAddress: { stateId } },
+                            select: { id: true },
+                        },
+                        cancelFormRequests: {
+                            where: {
+                                OR: [
+                                    { stateId: stateId },
+                                    { Licenses: { presentStateId: stateId } },
+                                    { requester: { stateId: stateId } },
+                                ],
+                            },
+                            select: { id: true },
+                        },
+                    },
+                }).catch(() => []);
+
+                statusDistribution = statuses.map((st, idx) => {
+                    const count = (st.applications?.length || 0) + (st.renewalApplications?.length || 0) + (st.cancelFormRequests?.length || 0);
+                    return {
+                        status: st.name,
+                        count,
+                        percentage: Number(((count / totalAppCount) * 100).toFixed(1)),
+                        color: statusColors[idx % statusColors.length],
+                        stage: st.isStarted ? 'In Progress' : 'Workflow State',
+                    };
+                }).filter((s) => s.count > 0);
+            } else {
+                const statuses = await prisma.statuses.findMany({
+                    include: {
+                        _count: {
+                            select: {
+                                applications: true,
+                                renewalApplications: true,
+                                cancelFormRequests: true,
+                            },
+                        },
+                    },
+                }).catch(() => []);
+
+                statusDistribution = statuses.map((st, idx) => {
                     const count = (st._count?.applications || 0) + (st._count?.renewalApplications || 0) + (st._count?.cancelFormRequests || 0);
                     return {
                         status: st.name,
@@ -450,19 +500,26 @@ export class PublicService {
                         color: statusColors[idx % statusColors.length],
                         stage: st.isStarted ? 'In Progress' : 'Workflow State',
                     };
-                }).filter((s) => s.count > 0)
-                : [
+                }).filter((s) => s.count > 0);
+            }
+
+            if (statusDistribution.length === 0) {
+                statusDistribution = [
                     { status: 'Approved & Issued', count: summary.approvedApplications, percentage: totalApplications > 0 ? Number(((summary.approvedApplications / totalAppCount) * 100).toFixed(1)) : 0, color: '#10B981', stage: 'Completed' },
                     { status: 'Pending Verification', count: summary.pendingApplications, percentage: totalApplications > 0 ? Number(((summary.pendingApplications / totalAppCount) * 100).toFixed(1)) : 0, color: '#3B82F6', stage: 'In Progress' },
                     { status: 'Rejected / Disallowed', count: summary.rejectedApplications, percentage: totalApplications > 0 ? Number(((summary.rejectedApplications / totalAppCount) * 100).toFixed(1)) : 0, color: '#EF4444', stage: 'Closed' },
                 ];
+            }
 
             // Real weapon categories & purposes from License details
+            const appDetailsWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
             const [freshLicenseDetails, renewalLicenseDetails] = await Promise.all([
                 prisma.fLAFLicenseDetails.findMany({
+                    where: appDetailsWhere,
                     select: { armsCategory: true, needForLicense: true },
                 }).catch(() => []),
                 prisma.renewalLicenseDetails.findMany({
+                    where: appDetailsWhere,
                     select: { armsCategory: true, needForLicense: true },
                 }).catch(() => []),
             ]);
@@ -510,15 +567,25 @@ export class PublicService {
                     { purpose: 'Crop Protection & Agriculture', count: 0, percentage: 0, icon: 'Trees' },
                 ];
 
-            // Real Zonal Workloads from DB
+            // Real Zonal Workloads from DB (filtered for state if scoped)
+            const zoneFilter: any = isStateScoped ? {
+                OR: [
+                    { RangeOffices: { district: { stateId } } },
+                    { addresses: { some: { stateId } } },
+                    { renewalAddresses: { some: { stateId } } },
+                ],
+            } : {};
+
             const zonesWithCounts = await prisma.zones.findMany({
+                where: zoneFilter,
                 select: {
                     id: true,
                     name: true,
                     divisions: { select: { id: true, name: true } },
-                    addresses: { select: { id: true } },
-                    renewalAddresses: { select: { id: true } },
+                    addresses: isStateScoped ? { where: { stateId }, select: { id: true } } : { select: { id: true } },
+                    renewalAddresses: isStateScoped ? { where: { stateId }, select: { id: true } } : { select: { id: true } },
                 },
+                take: isStateScoped ? 20 : 10,
             }).catch(() => []);
 
             const zoneLoads = zonesWithCounts.map((z) => {
@@ -534,8 +601,20 @@ export class PublicService {
             });
 
             // Real Live Activity Feed from workflow histories or recent applications
-            const [freshHistories, renewalHistories] = await Promise.all([
+            const historyWhere: any = isStateScoped ? { application: { permanentAddress: { stateId } } } : {};
+            const cancelHistoryWhere: any = isStateScoped ? {
+                application: {
+                    OR: [
+                        { stateId: stateId },
+                        { Licenses: { presentStateId: stateId } },
+                        { requester: { stateId: stateId } },
+                    ],
+                },
+            } : {};
+
+            const [freshHistories, renewalHistories, cancelHistories] = await Promise.all([
                 prisma.freshLicenseApplicationsFormWorkflowHistories.findMany({
+                    where: historyWhere,
                     take: 5,
                     orderBy: { createdAt: 'desc' },
                     include: {
@@ -546,11 +625,23 @@ export class PublicService {
                     },
                 }).catch(() => []),
                 prisma.renewalApplicationsFormWorkflowHistories.findMany({
+                    where: historyWhere,
                     take: 5,
                     orderBy: { createdAt: 'desc' },
                     include: {
                         application: {
                             select: { id: true, acknowledgementNo: true, firstName: true, lastName: true },
+                        },
+                        actiones: { select: { name: true } },
+                    },
+                }).catch(() => []),
+                prisma.cancelWorkflowHistories.findMany({
+                    where: cancelHistoryWhere,
+                    take: 5,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        application: {
+                            select: { id: true, acknowledgementNo: true, applicantName: true },
                         },
                         actiones: { select: { name: true } },
                     },
@@ -576,10 +667,20 @@ export class PublicService {
                     timestamp: h.createdAt.toISOString(),
                     category: 'Renewal License',
                 })),
+                ...cancelHistories.map((h) => ({
+                    id: `c-${h.id}`,
+                    type: 'CANCEL_APPLICATION',
+                    title: h.actiones?.name || h.actionTaken || 'Cancellation Action Taken',
+                    reference: h.application?.acknowledgementNo || `CAN-${h.application?.id || h.applicationId}`,
+                    location: h.application?.applicantName || 'Cancellation Request',
+                    timestamp: h.createdAt.toISOString(),
+                    category: 'License Cancellation',
+                })),
             ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
 
             if (recentActivities.length === 0) {
                 const recentFresh = await prisma.freshLicenseApplicationPersonalDetails.findMany({
+                    where: historyWhere,
                     take: 5,
                     orderBy: { createdAt: 'desc' },
                     include: { workflowStatus: true },

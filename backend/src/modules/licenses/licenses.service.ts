@@ -982,12 +982,18 @@ export class LicensesService {
     renewedOnly?: boolean;
     orderBy?: string;
     order?: 'asc' | 'desc';
+    stateId?: number;
+    roleCode?: string;
   }) {
     const page = Math.max(Number(filters.page ?? 1), 1);
     const limit = Math.max(Number(filters.limit ?? 10), 1);
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    if (filters.roleCode !== 'SUPER_ADMIN' && filters.stateId) {
+      where.presentStateId = filters.stateId;
+    }
 
     if (filters.freshApplicationId) {
       where.freshApplicationId = filters.freshApplicationId;
@@ -1186,20 +1192,27 @@ export class LicensesService {
 
   /**
    * Get license statistics (counts by status)
+   * Filters by state for ADMIN users, SUPER_ADMIN sees all states
    */
-  async getLicenseStatistics() {
+  async getLicenseStatistics(stateId?: number, roleCode?: string) {
     const now = new Date();
     const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
+    const baseWhere: any = {};
+    if (roleCode !== 'SUPER_ADMIN' && stateId) {
+      baseWhere.presentStateId = stateId;
+    }
+
     const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
-      this.prisma.licenses.count(),
-      this.prisma.licenses.count({ where: { status: 'ACTIVE' as any } }),
-      this.prisma.licenses.count({ where: { status: 'EXPIRED' as any } }),
-      this.prisma.licenses.count({ where: { status: 'CANCELLED' as any } }),
-      this.prisma.licenses.count({ where: { status: 'SUSPENDED' as any } }),
-      this.prisma.licenses.count({ where: { status: 'REVOKED' as any } }),
+      this.prisma.licenses.count({ where: baseWhere }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'ACTIVE' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'EXPIRED' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'CANCELLED' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'SUSPENDED' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'REVOKED' as any } }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           status: 'ACTIVE' as any,
           validTill: {
             lte: daysFromNow(30),
@@ -1209,6 +1222,7 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           status: 'ACTIVE' as any,
           validTill: {
             lte: daysFromNow(60),
@@ -1218,6 +1232,7 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           status: 'ACTIVE' as any,
           validTill: {
             lte: daysFromNow(90),
@@ -1227,6 +1242,7 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           renewalCount: {
             gt: 0
           }
@@ -1259,12 +1275,18 @@ export class LicensesService {
     action?: string;
     dateFrom?: string;
     dateTo?: string;
+    stateId?: number;
+    roleCode?: string;
   }) {
     const page = Math.max(Number(filters.page ?? 1), 1);
     const limit = Math.max(Number(filters.limit ?? 10), 1);
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    if (filters.roleCode !== 'SUPER_ADMIN' && filters.stateId) {
+      where.license = { presentStateId: filters.stateId };
+    }
 
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {};
