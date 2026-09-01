@@ -1,16 +1,20 @@
 'use client';
 
-import { Sidebar } from '../Sidebar';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams } from 'next/navigation';
 import { getCookie, setCookie } from 'cookies-next';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { Download, Plus, Upload } from 'lucide-react';
+import {
+  PageSubHeader,
+  SubHeaderButton,
+  SubHeaderSearch,
+} from '../common/PageSubHeader';
 import { fetchData, postData, putData, deleteData } from '../../api/axiosConfig';
 import { useLocationHierarchy } from '../../hooks/useLocationHierarchy';
 import { ROLE_CODES, LOCATION_HIERARCHY_ROLES } from '../../constants';
-import EditUserPage from '../../app/admin/users/[id]/edit/page';
 import { getUserFromCookie } from '../../utils/authCookies';
 
 // Types representing API user + transformed UI user
@@ -596,132 +600,66 @@ export default function UserManagementContent() {
   const skeletonRows = Array.from({ length: 6 });
 
   return (
-    <div className='flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50'>
-      <Sidebar />
-      <div className='flex-1 p-4 md:p-8'>
-        <div className='mx-auto w-full max-w-7xl 2xl:max-w-[1600px] flex flex-col gap-6'>
-          {/* Header Section */}
-          <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'>
-            <div className='bg-[#001F54] text-white px-6 py-8'>
-              <div className='text-white'>
-                <h1 className='text-3xl font-bold mb-2'>User Management</h1>
-                <p className='text-blue-100 text-lg'>
-                  Quickly manage users, assign roles, and onboard teams — search, add, or bulk
-                  import users.
-                </p>
-              </div>
-            </div>
-            <div className='p-6 bg-white'>
-              <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4'>
-                <div className='flex flex-col sm:flex-row gap-3 flex-1'>
-                  <div className='relative flex-1 max-w-md'>
-                    <div className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none'>
-                      <svg
-                        className='h-4 w-4 text-slate-400'
-                        fill='none'
-                        viewBox='0 0 24 24'
-                        stroke='currentColor'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={2}
-                          d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                        />
-                      </svg>
-                    </div>
-                    <input
-                      aria-label='Search users'
-                      className='w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-300 bg-white text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200'
-                      placeholder='Search username, email, or phone...'
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                    />
-                    {/* Clear search button */}
-                    {search && (
-                      <button
-                        aria-label='Clear search'
-                        title='Clear search'
-                        onClick={() => setSearch('')}
-                        className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600'
-                      >
-                        <svg
-                          className='w-4 h-4'
-                          fill='none'
-                          stroke='currentColor'
-                          viewBox='0 0 24 24'
-                        >
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={2}
-                            d='M6 18L18 6M6 6l12 12'
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  <select
-                    value={roleFilter}
-                    onChange={e => setRoleFilter(e.target.value)}
-                    className='rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[160px]'
-                  >
-                    <option value=''>All Roles</option>
-                    {apiRoles.map(r => (
-                      <option key={r.code} value={r.code}>
-                        {r.code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className='flex gap-3'>
-                  <button
-                    onClick={handleDownloadAll}
-                    disabled={downloadLoading}
-                    className='inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 disabled:opacity-50'
-                  >
-                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={2}
-                        d='M3 10h4v6a2 2 0 002 2h6a2 2 0 002-2v-6h4M12 3v13'
-                      />
-                    </svg>
-                    <span>{downloadLoading ? 'Preparing…' : 'Download Excel'}</span>
-                  </button>
-                  <button
-                    onClick={handleOpenAddModal}
-                    className='inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2'
-                  >
-                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={2}
-                        d='M12 4v16m8-8H4'
-                      />
-                    </svg>
-                    Add User
-                  </button>
-                  <button
-                    onClick={() => setShowBulkModal(true)}
-                    className='inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:ring-offset-2'
-                  >
-                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={2}
-                        d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12'
-                      />
-                    </svg>
-                    Bulk Upload
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+    <div className='flex flex-col flex-grow'>
+      <PageSubHeader
+        title="User Management"
+        metaBadge={`${filteredUsers.length} Active User${filteredUsers.length !== 1 ? 's' : ''}`}
+        actions={
+          <>
+            {/* Search Input */}
+            <SubHeaderSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Search username, email, phone..."
+            />
+
+            {/* Role Filter */}
+            <select
+              value={roleFilter}
+              onChange={e => setRoleFilter(e.target.value)}
+              className="rounded-lg bg-white/10 border border-white/10 text-xs text-white px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all cursor-pointer"
+            >
+              <option value="" className="bg-[#0F2D52] text-white">All Roles</option>
+              {apiRoles.map(r => (
+                <option key={r.code} value={r.code} className="bg-[#0F2D52] text-white">
+                  {r.code}
+                </option>
+              ))}
+            </select>
+
+            {/* Excel Download */}
+            <SubHeaderButton
+              onClick={handleDownloadAll}
+              disabled={downloadLoading}
+              title="Download Excel"
+              icon={<Download className="w-3.5 h-3.5" />}
+            >
+              <span className="hidden sm:inline">{downloadLoading ? 'Preparing…' : 'Excel'}</span>
+            </SubHeaderButton>
+
+            {/* Bulk Upload */}
+            <SubHeaderButton
+              onClick={() => setShowBulkModal(true)}
+              title="Bulk Upload Users"
+              icon={<Upload className="w-3.5 h-3.5" />}
+              className="hidden sm:inline-flex"
+            >
+              Bulk Upload
+            </SubHeaderButton>
+
+            {/* Add User Button */}
+            <SubHeaderButton
+              variant="primary"
+              onClick={handleOpenAddModal}
+              icon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Add User
+            </SubHeaderButton>
+          </>
+        }
+      />
+
+      <div className='flex-grow max-w-7xl 2xl:max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6'>
 
           {/* Error Alert */}
           {error && (
@@ -987,7 +925,6 @@ export default function UserManagementContent() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Add User Modal */}
       {showAddModal && (

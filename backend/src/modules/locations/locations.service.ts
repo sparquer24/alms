@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
 
 @Injectable()
@@ -424,6 +424,73 @@ export class LocationsService {
       console.error('Error in getLocationHierarchy:', error);
       throw error;
     }
+  }
+
+  /* ===== HIERARCHY VALIDATION ===== */
+
+  /**
+   * Validate that the provided stateId and districtId form a valid hierarchy.
+   *
+   * Rules:
+   *  - If both stateId and districtId are provided:
+   *      * Verify the State exists.
+   *      * Verify the District exists.
+   *      * Verify District.stateId === stateId.
+   *  - If only districtId is provided:
+   *      * Verify the District exists.
+   *  - If only stateId is provided:
+   *      * Verify the State exists.
+   *  - If neither is provided: no validation (global context).
+   *
+   * Throws BadRequestException or NotFoundException on invalid input.
+   * Returns { stateId, districtId } with the resolved/corrected values.
+   */
+  async validateStateDistrictHierarchy(
+    stateId?: number | null,
+    districtId?: number | null,
+  ): Promise<{ stateId: number | null; districtId: number | null }> {
+    // Neither provided — global context, nothing to validate
+    if (stateId == null && districtId == null) {
+      return { stateId: null, districtId: null };
+    }
+
+    // Only stateId provided — verify the State exists
+    if (stateId != null && districtId == null) {
+      const state = await prisma.states.findUnique({ where: { id: stateId } });
+      if (!state) {
+        throw new NotFoundException(`State with ID ${stateId} not found`);
+      }
+      return { stateId, districtId: null };
+    }
+
+    // Only districtId provided — verify the District exists
+    if (stateId == null && districtId != null) {
+      const district = await prisma.districts.findUnique({ where: { id: districtId } });
+      if (!district) {
+        throw new NotFoundException(`District with ID ${districtId} not found`);
+      }
+      return { stateId: null, districtId };
+    }
+
+    // Both stateId and districtId provided — verify both exist and district belongs to state
+    const [state, district] = await Promise.all([
+      prisma.states.findUnique({ where: { id: stateId! } }),
+      prisma.districts.findUnique({ where: { id: districtId! } }),
+    ]);
+
+    if (!state) {
+      throw new NotFoundException(`State with ID ${stateId} not found`);
+    }
+    if (!district) {
+      throw new NotFoundException(`District with ID ${districtId} not found`);
+    }
+    if (district.stateId !== stateId!) {
+      throw new BadRequestException(
+        `Selected District (ID ${districtId}, belonging to State ID ${district.stateId}) does not belong to the selected State (ID ${stateId}).`,
+      );
+    }
+
+    return { stateId: stateId!, districtId: districtId! };
   }
 
   /* ===== CREATE METHODS ===== */

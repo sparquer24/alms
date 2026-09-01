@@ -169,6 +169,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   const [originDocuments, setOriginDocuments] = useState<any[]>([]);
   const [originDocumentsLoading, setOriginDocumentsLoading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  // Becomes false while the hidden print layout's document/PDF previews are still
+  // rendering, so the Print buttons don't fire window.print() on blank thumbnails.
+  const [printReady, setPrintReady] = useState(true);
   const [dividerPosition, setDividerPosition] = useState(66.66); // Left section percentage (2 of 3 columns)
   const [isDragging, setIsDragging] = useState(false);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -232,6 +235,41 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   const showFullApplicationDetails =
     !isRenewalView || activeTab === 'info' || activeTab === 'original';
+
+  // Workflow history for the printout: use the same source the on-screen
+  // timeline uses (the separately-fetched `workflowHistory` state / the Origin
+  // tab's `originalLicenseHistory`) rather than application.workflowHistories,
+  // which is often empty for renewals and caused "Application History" to be
+  // missing from the print output.
+  const printWorkflowHistory = useMemo(() => {
+    if (isRenewalView && activeTab === 'original') {
+      return originalLicenseHistory && originalLicenseHistory.length > 0
+        ? originalLicenseHistory
+        : (currentDisplayApp as any)?.workflowHistories || [];
+    }
+    return workflowHistory && workflowHistory.length > 0
+      ? workflowHistory
+      : (currentDisplayApp as any)?.workflowHistories || [];
+  }, [isRenewalView, activeTab, originalLicenseHistory, workflowHistory, currentDisplayApp]);
+
+  // Base the printout on currentDisplayApp — the same source the on-screen
+  // details panel renders from — so printing the Original License Details
+  // tab prints the license's original data (currentDisplayApp swaps to
+  // originalLicenseData there) instead of always printing the renewal
+  // application's own data regardless of which tab is active. Documents get
+  // the same origin-tab override used by the on-screen Documents table.
+  const printApplication = useMemo(() => {
+    if (!currentDisplayApp) return null;
+    if (
+      isRenewalView &&
+      activeTab === 'original' &&
+      originDocuments &&
+      originDocuments.length > 0
+    ) {
+      return { ...currentDisplayApp, documents: originDocuments };
+    }
+    return currentDisplayApp;
+  }, [currentDisplayApp, isRenewalView, activeTab, originDocuments]);
 
   // Handle params Promise for React 18 compatibility
   useEffect(() => {
@@ -370,42 +408,42 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
           setOriginalLicenseHistory([]);
           return;
         }
-        setOriginalLicenseData(license);          // Now call the Workflow History API using the source application data
-          // from the License API response, matching the Documents API logic:
-          //   - id: the source application's primary key (license.id from the License API)
-          //   - type: derived from the first character of the acknowledgement number:
-          //       'F' → FRESH | 'R' → RENEWAL | 'C' → CANCELLATION
-          if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
-            originalLicenseHistoryLoadedIdRef.current = licenseId;
-            setOriginalLicenseHistory([]);
+        setOriginalLicenseData(license); // Now call the Workflow History API using the source application data
+        // from the License API response, matching the Documents API logic:
+        //   - id: the source application's primary key (license.id from the License API)
+        //   - type: derived from the first character of the acknowledgement number:
+        //       'F' → FRESH | 'R' → RENEWAL | 'C' → CANCELLATION
+        if (String(licenseId) !== String(originalLicenseHistoryLoadedIdRef.current)) {
+          originalLicenseHistoryLoadedIdRef.current = licenseId;
+          setOriginalLicenseHistory([]);
 
-            // Source application ID from the License API response
-            const srcAppId = (license as any).id;
-            const ackNo = (license as any).acknowledgementNo;
+          // Source application ID from the License API response
+          const srcAppId = (license as any).id;
+          const ackNo = (license as any).acknowledgementNo;
 
-            if (srcAppId && ackNo) {
-              // Derive the type from the first character of the acknowledgement number
-              const firstChar = String(ackNo).charAt(0).toUpperCase();
-              let derivedType: string;
-              if (firstChar === 'R') derivedType = 'RENEWAL';
-              else if (firstChar === 'C') derivedType = 'CANCELLATION';
-              else derivedType = 'FRESH';
+          if (srcAppId && ackNo) {
+            // Derive the type from the first character of the acknowledgement number
+            const firstChar = String(ackNo).charAt(0).toUpperCase();
+            let derivedType: string;
+            if (firstChar === 'R') derivedType = 'RENEWAL';
+            else if (firstChar === 'C') derivedType = 'CANCELLATION';
+            else derivedType = 'FRESH';
 
-              try {
-                const historyResponse = await apiClient.get<any>(
-                  `/workflow/history/${srcAppId}?type=${derivedType}`
-                );
-                if (historyResponse && historyResponse.success) {
-                  setOriginalLicenseHistory(historyResponse.data);
-                } else if (Array.isArray(historyResponse)) {
-                  setOriginalLicenseHistory(historyResponse);
-                }
-              } catch (historyErr) {
-                console.error('Failed to fetch original license workflow history', historyErr);
-                setOriginalLicenseHistory([]);
+            try {
+              const historyResponse = await apiClient.get<any>(
+                `/workflow/history/${srcAppId}?type=${derivedType}`
+              );
+              if (historyResponse && historyResponse.success) {
+                setOriginalLicenseHistory(historyResponse.data);
+              } else if (Array.isArray(historyResponse)) {
+                setOriginalLicenseHistory(historyResponse);
               }
+            } catch (historyErr) {
+              console.error('Failed to fetch original license workflow history', historyErr);
+              setOriginalLicenseHistory([]);
             }
           }
+        }
       } catch (err) {
         console.error('Failed to fetch original license on tab change', err);
       } finally {
@@ -461,7 +499,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     fetchOriginDocuments();
   }, [activeTab, originalLicenseData]);
 
-// Clear success message after 5 seconds
+  // Clear success message after 5 seconds
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -638,6 +676,10 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
   // Print the redesigned dashboard layout directly
   const handleBrowserPrint = () => {
+    // Guard against firing window.print() while the hidden print layout's
+    // document/PDF previews are still rendering asynchronously — otherwise the
+    // printout can show blank thumbnails for Uploaded Documents/attachments.
+    if (!printReady) return;
     window.print();
   };
 
@@ -702,43 +744,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
     setTimeout(() => {
       router.push('/inbox?type=all');
     }, 2000);
-  };
-
-  const handleGenerateLicense = async () => {
-    if (!applicationId) return;
-    try {
-      setSuccessMessage('Generating License PDF...');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const response = await fetch(`${apiUrl}/licenses/generate/${applicationId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issuedBy: user?.id || 1 }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSuccessMessage('License generated successfully!');
-        if (data.pdfUrl) {
-          if (data.pdfUrl.startsWith('data:')) {
-            // It's a base64 data URI, convert to Blob to preview in a new tab
-            fetch(data.pdfUrl)
-              .then(res => res.blob())
-              .then(blob => {
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-              });
-          } else {
-            // It's a relative path from the backend
-            const baseUrl =
-              process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3001';
-            window.open(`${baseUrl}${data.pdfUrl}`, '_blank');
-          }
-        }
-      } else {
-        setErrorMessage(data.message || 'Failed to generate license');
-      }
-    } catch (error) {
-      setErrorMessage('Failed to generate license');
-    }
   };
 
   // Show skeleton loading while authenticating or loading data
@@ -968,25 +973,19 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 </h3>
                               </div>
                               <div className='flex gap-2'>
-                                {userRole === 'ZS' && (
-                                  <button
-                                    type='button'
-                                    onClick={handleGenerateLicense}
-                                    className='inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-sm text-sm font-semibold hover:bg-blue-700 transition-all duration-200 print:hidden'
-                                    title='Generate PDF License'
-                                  >
-                                    <FileCheck className='w-4.5 h-4.5' />
-                                    Generate License
-                                  </button>
-                                )}
                                 <button
                                   type='button'
                                   onClick={handleBrowserPrint}
-                                  className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden'
-                                  title='Print application details'
+                                  disabled={!printReady}
+                                  className='inline-flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl shadow-sm text-sm font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 print:hidden disabled:opacity-60 disabled:cursor-not-allowed'
+                                  title={
+                                    printReady
+                                      ? 'Print application details'
+                                      : 'Preparing document previews for printing…'
+                                  }
                                 >
                                   <Printer className='w-4.5 h-4.5 text-slate-500' />
-                                  Print Details
+                                  {printReady ? 'Print Details' : 'Preparing…'}
                                 </button>
                               </div>
                             </div>
@@ -2083,13 +2082,64 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                 ? Number(user.id)
                                 : null;
                             const applicationUserId = Number(displayApp?.currentUser?.id) || null;
+                            // Check for final/closed status first — if final, show only a status message
+                            const finalStatuses = [
+                              'REJECTED',
+                              'CANCELLED',
+                              'DISPOSED',
+                              'EXPIRED',
+                              'CLOSE',
+                            ];
+                            const rawStatusCode =
+                              displayApp?.workflowStatus?.code || displayApp?.status || '';
+                            const rawStatusName = displayApp?.workflowStatus?.name || rawStatusCode;
+                            const isFinalStatus = finalStatuses.some(
+                              s =>
+                                String(rawStatusCode).toUpperCase() === s ||
+                                String(rawStatusName).toUpperCase() === s
+                            );
+                            if (isFinalStatus) {
+                              const displayStatus =
+                                String(rawStatusName).charAt(0).toUpperCase() +
+                                String(rawStatusName).slice(1).toLowerCase();
+                              const isClosedStatus = String(rawStatusCode).toUpperCase() === 'CLOSE' || String(rawStatusName).toUpperCase() === 'CLOSE';
+                              return (
+                                <div className='bg-amber-50 border-2 border-amber-400 rounded-xl p-4 flex items-start gap-3 shadow-sm'>
+                                  <div className='p-1.5 rounded-full bg-amber-100 text-amber-600 flex-shrink-0'>
+                                    <svg
+                                      className='w-5 h-5'
+                                      fill='none'
+                                      stroke='currentColor'
+                                      viewBox='0 0 24 24'
+                                    >
+                                      <path
+                                        strokeLinecap='round'
+                                        strokeLinejoin='round'
+                                        strokeWidth={2}
+                                        d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                                      />
+                                    </svg>
+                                  </div>
+                                  <div>
+                                    <p className='text-sm font-semibold text-amber-900'>
+                                      {isClosedStatus ? (
+                                        <>Your application has been <span className='uppercase font-bold'>Closed</span>. No further processing is allowed.</>
+                                      ) : (
+                                        <>Your application has been <span className='uppercase font-bold'>{displayStatus}</span>. No further processing is allowed.</>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             const statusName = (
                               displayApp?.workflowStatus?.name || ''
                             ).toLowerCase();
-                            const statusId = Number(
-                              displayApp?.status_id || displayApp?.workflowStatus?.id
-                            );
-                            const isClosed = statusName === 'closed' || statusId === 10;
+                            const statusCode = (
+                              displayApp?.workflowStatus?.code || ''
+                            ).toUpperCase();
+                            const isClosed = statusCode === 'CLOSE' || statusName === 'close';
 
                             const canTakeAction =
                               currentUserId &&
@@ -2527,8 +2577,15 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
 
                         <div className='space-y-4'>
                           <div
-                            className='p-4 border border-gray-200 rounded-xl hover:bg-gray-50 hover:shadow-sm cursor-pointer transition-all duration-200'
+                            className={`p-4 border border-gray-200 rounded-xl transition-all duration-200 ${
+                              printReady
+                                ? 'hover:bg-gray-50 hover:shadow-sm cursor-pointer'
+                                : 'opacity-60 cursor-not-allowed'
+                            }`}
                             onClick={handleBrowserPrint}
+                            title={
+                              printReady ? undefined : 'Preparing document previews for printing…'
+                            }
                           >
                             <div className='flex items-center'>
                               <div className='bg-blue-100 p-3 rounded-xl mr-4'>
@@ -2550,7 +2607,9 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                               <div>
                                 <h4 className='font-semibold text-gray-900'>Print using browser</h4>
                                 <p className='text-sm text-gray-600 mt-1'>
-                                  Opens a printable view in a new window
+                                  {printReady
+                                    ? 'Opens a printable view in a new window'
+                                    : 'Preparing document previews…'}
                                 </p>
                               </div>
                             </div>
@@ -2709,9 +2768,14 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
       )}
 
       {/* Print-Only Layout Component */}
-      {application && (
+      {printApplication && (
         <div className='hidden print:block print:w-full print:bg-white print:text-black'>
-          <PrintApplicationForm application={application} applicantName={applicantName} />
+          <PrintApplicationForm
+            application={printApplication}
+            applicantName={applicantName}
+            workflowHistory={printWorkflowHistory}
+            onReadyChange={setPrintReady}
+          />
         </div>
       )}
 
@@ -2726,7 +2790,17 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             background: #fff !important;
             color: #000 !important;
             width: 210mm;
-            height: 297mm;
+            /* Not a fixed height: the app shell normally sets html/body to
+               overflow: hidden/auto for its fixed-viewport layout. Combining
+               that with a fixed height: 297mm (exactly one page) turns the
+               body into a single-page scroll box in Chromium's print engine,
+               which silently swallows every page-break rule below and
+               clips/overlaps anything past page 1. height: auto plus
+               overflow: visible lets the printout paginate across as many
+               pages as the content actually needs. */
+            height: auto !important;
+            min-height: 297mm;
+            overflow: visible !important;
           }
           header,
           footer,

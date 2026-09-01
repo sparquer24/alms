@@ -84,6 +84,31 @@ export const isLicenseManagementRole = (role: RoleValue): boolean =>
   isRoleIn(role, LICENSE_MANAGEMENT_ROLES);
 
 /**
+ * Roles that can create new applications (Fresh / Renewal / Cancel) from the
+ * header "Create Form" dropdown and the New Forms page.
+ */
+export const CREATE_APPLICATION_ROLES = [
+  'ZS',
+  'SHO',
+  'ACP',
+  'DCP',
+  'AS',
+  'ADO',
+  'CADO',
+  'JTCP',
+  'CP',
+  'ARMS_SUPDT',
+  'ARMS_SEAT',
+  'ACO',
+];
+
+/**
+ * Check if a role can create new applications.
+ */
+export const canCreateApplications = (role: RoleValue): boolean =>
+  isRoleIn(role, CREATE_APPLICATION_ROLES);
+
+/**
  * Check if a role matches any of the provided roles
  */
 export const isRoleIn = (role: RoleValue, allowedRoles: string[]): boolean => {

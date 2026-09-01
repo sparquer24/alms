@@ -123,13 +123,21 @@ export class CancelFormController {
     @Query('status') status?: string,
     @Query('requestedBy') requestedBy?: number,
     @Query('licenseId') licenseId?: number,
+    @Request() req?: any,
   ) {
     try {
+      const user = req?.user;
+      const stateId = user?.stateId ? Number(user.stateId) : (user?.state_id ? Number(user.state_id) : undefined);
+      const roleCode = user?.roleCode || (typeof user?.role === 'string' ? user.role : user?.role?.code);
+
       const result = await this.cancelFormService.getCancelRequests({
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
         requestedBy: requestedBy ? Number(requestedBy) : undefined,
         licenseId: licenseId ? Number(licenseId) : undefined,
+        status: status || undefined,
+        stateId,
+        roleCode,
       });
 
       return {

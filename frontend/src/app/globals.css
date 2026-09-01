@@ -11,6 +11,19 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Site-wide density reduction: Tailwind's spacing/typography scale is rem-based,
+   so shrinking the root font-size scales paddings, gaps, icon sizes and text
+   uniformly across every page without needing per-component edits. */
+html {
+  font-size: 87.5%;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   background: #fff !important;
 }

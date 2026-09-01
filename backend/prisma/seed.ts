@@ -1260,13 +1260,12 @@ async function main() {
         continue;
       }
 
-      // Check if mapping already exists
-      const existingMapping = await prisma.rolesActionsMapping.findUnique({
+      // Check if mapping already exists (unique on roleId + actionId + applicationType)
+      const existingMapping = await prisma.rolesActionsMapping.findFirst({
         where: {
-          roleId_actionId: {
-            roleId: roleId,
-            actionId: actionId
-          }
+          roleId: roleId,
+          actionId: actionId,
+          applicationType: 'ALL',
         }
       });
 
@@ -1326,15 +1325,28 @@ async function main() {
       continue;
     }
 
-    // Check if mapping already exists
+    // Check if mapping already exists. Since the unique key is now the compound
+    // (currentRoleId, applicationType, purpose), look up the default ALL/ALL flow.
     const existingMapping = await prisma.roleFlowMapping.findUnique({
-      where: { currentRoleId },
+      where: {
+        currentRoleId_applicationType_purpose: {
+          currentRoleId,
+          applicationType: 'ALL',
+          purpose: 'ALL',
+        },
+      },
     });
 
     if (existingMapping) {
       // Update nextRoleIds if existing
       await prisma.roleFlowMapping.update({
-        where: { currentRoleId },
+        where: {
+          currentRoleId_applicationType_purpose: {
+            currentRoleId,
+            applicationType: 'ALL',
+            purpose: 'ALL',
+          },
+        },
         data: { nextRoleIds },
       });
       console.log(`Updated role flow mapping for ${flow.currentRole} -> [${flow.nextRoles.join(', ')}]`);

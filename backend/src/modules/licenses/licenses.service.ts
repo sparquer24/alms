@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
-import { LicenseStatus } from '@prisma/client';
+import { LicenseStatus, Prisma } from '@prisma/client';
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -102,7 +102,7 @@ export class LicensesService {
           district: true,
         },
       },
-      //   biometricData: true,
+      biometricData: true,
       criminalHistories: true,
       licenseHistories: true,
       licenseDetails: {
@@ -110,7 +110,7 @@ export class LicensesService {
           requestedWeapons: true,
         },
       },
-      //   fileUploads: true,
+      fileUploads: true,
     };
   }
 
@@ -377,6 +377,9 @@ export class LicensesService {
       renewalApplicationId: license.renewalApplicationId,
       cancelApplicationId: license.cancelApplicationId,
       lastModifiedAppType: license.lastModifiedAppType,
+      lastModifiedAppId: license.lastModifiedAppId ?? null,
+      previousModifiedAppType: license.previousModifiedAppType ?? null,
+      previousModifiedAppId: license.previousModifiedAppId ?? null,
       lastModifiedRenewalId: license.lastModifiedRenewalId ?? null,
       renewalIds: license.renewalIds ?? [],
     };
@@ -700,7 +703,7 @@ export class LicensesService {
                 </tr>
                 <tr>
                   <th>Valid Till</th>
-                  <td style="color: #c0392b; font-weight: 600;">${validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
+                  <td style="color: #c0392b; font-weight: 600;">${validTill ? validTill.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}</td>
                 </tr>
                 <tr>
                   <th>Area of Validity</th>
@@ -871,6 +874,7 @@ export class LicensesService {
           // === TRACKING ===
           renewalCount: 0,
           lastModifiedAppType: 'FRESH',
+          lastModifiedAppId: freshApplicationId,
         }
       });
 
@@ -939,6 +943,9 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
         lastModifiedRenewalId: true,
         renewalIds: true,
       },
@@ -971,14 +978,22 @@ export class LicensesService {
     freshApplicationId?: number;
     expiringWithinDays?: number;
     createdFrom?: string;
+    purpose?: string;
+    renewedOnly?: boolean;
     orderBy?: string;
     order?: 'asc' | 'desc';
+    stateId?: number;
+    roleCode?: string;
   }) {
     const page = Math.max(Number(filters.page ?? 1), 1);
     const limit = Math.max(Number(filters.limit ?? 10), 1);
     const skip = (page - 1) * limit;
 
     const where: any = {};
+
+    if (filters.roleCode !== 'SUPER_ADMIN' && filters.stateId) {
+      where.presentStateId = filters.stateId;
+    }
 
     if (filters.freshApplicationId) {
       where.freshApplicationId = filters.freshApplicationId;
@@ -1021,6 +1036,14 @@ export class LicensesService {
 
     if (filters.aadharNumber) {
       where.aadharNumber = { contains: filters.aadharNumber };
+    }
+
+    if (filters.purpose) {
+      where.needForLicense = filters.purpose as any;
+    }
+
+    if (filters.renewedOnly) {
+      where.renewalCount = { gt: 0 };
     }
 
     const allowedOrderFields = ['id', 'licenseNumber', 'firstName', 'lastName', 'createdAt', 'validTill', 'status'];
@@ -1169,20 +1192,27 @@ export class LicensesService {
 
   /**
    * Get license statistics (counts by status)
+   * Filters by state for ADMIN users, SUPER_ADMIN sees all states
    */
-  async getLicenseStatistics() {
+  async getLicenseStatistics(stateId?: number, roleCode?: string) {
     const now = new Date();
     const daysFromNow = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
+    const baseWhere: any = {};
+    if (roleCode !== 'SUPER_ADMIN' && stateId) {
+      baseWhere.presentStateId = stateId;
+    }
+
     const [total, activeCount, expiredCount, cancelledCount, suspendedCount, revokedCount, expiringSoonCount, expiringWithin60Days, expiringWithin90Days, renewedCount] = await Promise.all([
-      this.prisma.licenses.count(),
-      this.prisma.licenses.count({ where: { status: 'ACTIVE' as any } }),
-      this.prisma.licenses.count({ where: { status: 'EXPIRED' as any } }),
-      this.prisma.licenses.count({ where: { status: 'CANCELLED' as any } }),
-      this.prisma.licenses.count({ where: { status: 'SUSPENDED' as any } }),
-      this.prisma.licenses.count({ where: { status: 'REVOKED' as any } }),
+      this.prisma.licenses.count({ where: baseWhere }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'ACTIVE' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'EXPIRED' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'CANCELLED' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'SUSPENDED' as any } }),
+      this.prisma.licenses.count({ where: { ...baseWhere, status: 'REVOKED' as any } }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           status: 'ACTIVE' as any,
           validTill: {
             lte: daysFromNow(30),
@@ -1192,6 +1222,7 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           status: 'ACTIVE' as any,
           validTill: {
             lte: daysFromNow(60),
@@ -1201,6 +1232,7 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           status: 'ACTIVE' as any,
           validTill: {
             lte: daysFromNow(90),
@@ -1210,6 +1242,7 @@ export class LicensesService {
       }),
       this.prisma.licenses.count({
         where: {
+          ...baseWhere,
           renewalCount: {
             gt: 0
           }
@@ -1229,6 +1262,93 @@ export class LicensesService {
       expiringWithin90Days,
       renewed: renewedCount,
     };
+  }
+
+  /**
+   * List/search workflow audit history across ALL licenses, with pagination.
+   * Backs the dashboard's global "Audit & Activity Logs" tab.
+   */
+  async getLicenseAuditLogs(filters: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    action?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    stateId?: number;
+    roleCode?: string;
+  }) {
+    const page = Math.max(Number(filters.page ?? 1), 1);
+    const limit = Math.max(Number(filters.limit ?? 10), 1);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (filters.roleCode !== 'SUPER_ADMIN' && filters.stateId) {
+      where.license = { presentStateId: filters.stateId };
+    }
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        const start = new Date(filters.dateFrom);
+        if (!Number.isNaN(start.getTime())) where.createdAt.gte = start;
+      }
+      if (filters.dateTo) {
+        const end = new Date(filters.dateTo);
+        if (!Number.isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          where.createdAt.lte = end;
+        }
+      }
+    }
+
+    if (filters.action) {
+      where.action = filters.action;
+    }
+
+    if (filters.search) {
+      where.OR = [
+        { action: { contains: filters.search, mode: 'insensitive' } },
+        { remarks: { contains: filters.search, mode: 'insensitive' } },
+        { license: { licenseNumber: { contains: filters.search, mode: 'insensitive' } } },
+        { license: { firstName: { contains: filters.search, mode: 'insensitive' } } },
+        { license: { lastName: { contains: filters.search, mode: 'insensitive' } } },
+        { changedByUser: { username: { contains: filters.search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.licenseWorkflowHistory.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          license: { select: { id: true, licenseNumber: true, firstName: true, lastName: true } },
+          changedByUser: { select: { id: true, username: true } },
+        },
+      }),
+      this.prisma.licenseWorkflowHistory.count({ where }),
+    ]);
+
+    const data = rows.map((entry) => ({
+      id: entry.id,
+      licenseId: entry.licenseId,
+      licenseNumber: entry.license?.licenseNumber ?? null,
+      licenseHolderName:
+        [entry.license?.firstName, entry.license?.lastName].filter(Boolean).join(' ') || null,
+      event: entry.action,
+      previousStatus: entry.previousStatus,
+      newStatus: entry.newStatus,
+      officer: entry.changedByUser?.username || (entry.changedBy != null ? String(entry.changedBy) : '-'),
+      remarks: entry.remarks,
+      applicationId: entry.applicationId,
+      applicationType: entry.applicationType,
+      createdAt: entry.createdAt,
+    }));
+
+    return { data, total, page, limit };
   }
 
   async getLicenseAudit(licenseId: number) {
@@ -1259,6 +1379,9 @@ export class LicensesService {
         renewalApplicationId: true,
         cancelApplicationId: true,
         lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        previousModifiedAppType: true,
+        previousModifiedAppId: true,
         lastModifiedRenewalId: true,
         renewalIds: true,
         licenseNumber: true,
@@ -1355,5 +1478,60 @@ export class LicensesService {
     }
 
     return null;
+  }
+
+  async cancelLicense(
+    licenseId: number,
+    reason: string,
+    applicationId: number,
+    currentUserId: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    // Capture the license's current status and tracking fields BEFORE the update
+    // so the workflow history and previous-modified tracking are accurate.
+    const currentLicense = await tx.licenses.findUnique({
+      where: { id: licenseId },
+      select: {
+        status: true,
+        lastModifiedAppType: true,
+        lastModifiedAppId: true,
+        lastModifiedRenewalId: true,
+        renewalApplicationId: true,
+        freshApplicationId: true,
+      },
+    });
+
+    await tx.licenses.update({
+      where: { id: licenseId },
+      data: {
+        status: LicenseStatus.CANCELLED,
+        validTill: null,
+        cancellationReason: reason,
+        cancellationDate: new Date(),
+        cancelApplicationId: applicationId,
+        // Shift current → previous tracking
+        previousModifiedAppType: currentLicense?.lastModifiedAppType,
+        previousModifiedAppId: currentLicense?.lastModifiedAppId ?? (
+          (currentLicense?.lastModifiedAppType || '').toUpperCase() === 'FRESH'
+            ? currentLicense?.freshApplicationId
+            : currentLicense?.lastModifiedRenewalId ?? currentLicense?.renewalApplicationId
+        ),
+        lastModifiedAppType: 'CANCELLATION',
+        lastModifiedAppId: applicationId,
+      },
+    });
+
+    await tx.licenseWorkflowHistory.create({
+      data: {
+        licenseId,
+        action: 'CANCELLED',
+        applicationId,
+        applicationType: 'CANCELLATION',
+        previousStatus: currentLicense?.status ?? LicenseStatus.ACTIVE,
+        newStatus: LicenseStatus.CANCELLED,
+        changedBy: currentUserId,
+        remarks: `License cancelled. Reason: ${reason}`,
+      },
+    });
   }
 }

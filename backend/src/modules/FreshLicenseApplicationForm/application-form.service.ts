@@ -1,8 +1,9 @@
 import { Injectable, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import prisma from '../../db/prismaClient';
-import { Sex, FileType, LicensePurpose, Prisma } from '@prisma/client';
+import { Sex, FileType, LicensePurpose, Prisma, RoleFlowApplicationType } from '@prisma/client';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { STATUS_CODES, ACTION_CODES, ROLE_CODES } from '../../constants/workflow-actions';
+import { normalizeHierarchyApplicationType } from '../../constants/flow-mapping';
 
 // Define the missing input type (adjust fields as per your requirements)
 export interface CreateFreshLicenseApplicationsFormsInput {
@@ -1685,34 +1686,6 @@ export class ApplicationFormService {
   }
 
 
-  /*
-    * Get users in the hierarchy based on application present address and current user's role
-  */
-  private normalizeApplicationType(applicationType?: string): 'fresh' | 'renewal' | 'cancel' {
-    const normalized = String(applicationType || '').trim().toLowerCase();
-
-    if (!normalized) return 'fresh';
-
-    if (
-      normalized.includes('renew') ||
-      normalized.includes('renewalapplicationform') ||
-      normalized.includes('renewal')
-    ) {
-      return 'renewal';
-    }
-
-    if (
-      normalized.includes('cancel') ||
-      normalized.includes('cancelform') ||
-      normalized.includes('cancelapplication') ||
-      normalized.includes('cancelrequest')
-    ) {
-      return 'cancel';
-    }
-
-    return 'fresh';
-  }
-
   /**
    * Resolve a CancelForm request to its original application's address and current user role.
    * Returns { originalAppId, currentUserId, roleId, presentAddress } or null if not found.
@@ -1932,9 +1905,45 @@ export class ApplicationFormService {
     return [null, transformedUsers];
   }
 
+  /**
+   * Resolve the next role IDs for a role within an application-type + location context.
+   * Resolution is ordered by specificity:
+   *   1. Exact mapping for (stateId, districtId)
+   *   2. State-level mapping (stateId set, districtId null)
+   *   3. Global mapping (stateId null, districtId null)
+   * This mirrors how flow mappings are configured (scoped to state/district or global),
+   * so an application in an unmapped state/district still falls back to the global workflow.
+   */
+  private async resolveRoleFlowMapping(
+    currentRoleId: number,
+    applicationType: RoleFlowApplicationType,
+    stateId: number | null,
+    districtId: number | null,
+  ): Promise<number[]> {
+    const roleMapping = await prisma.roleFlowMapping.findFirst({
+      where: {
+        currentRoleId,
+        applicationType,
+        purpose: 'ALL',
+        OR: [
+          { stateId, districtId },
+          { stateId, districtId: null },
+          { stateId: null, districtId: null },
+        ],
+      },
+      orderBy: [
+        { stateId: { sort: 'desc', nulls: 'last' } },
+        { districtId: { sort: 'desc', nulls: 'last' } },
+      ],
+      select: { nextRoleIds: true },
+    });
+
+    return roleMapping?.nextRoleIds ?? [];
+  }
+
   async getUsersInHierarchy(applicationId: number, applicationType?: string): Promise<[any, any]> {
     try {
-      const resolvedType = this.normalizeApplicationType(applicationType);
+      const resolvedType = normalizeHierarchyApplicationType(applicationType);
 
       // Handle CancelForm: resolve through the cancel request to the original application
       if (resolvedType === 'cancel') {
@@ -1947,19 +1956,26 @@ export class ApplicationFormService {
           return [new BadRequestException('Original application does not have a present address defined'), null];
         }
 
-        // Fetch role flow mapping using the current assignee's role
-        const roleMapping = await prisma.roleFlowMapping.findUnique({
-          where: { currentRoleId: cancelHierarchy.roleId },
-          select: { nextRoleIds: true }
-        });
+        // Map applicationType to flow mapping enum value
+        const flowAppType = 'CANCEL';
+        const cancelStateId = cancelHierarchy.presentAddress.stateId ?? null;
+        const cancelDistrictId = cancelHierarchy.presentAddress.districtId ?? null;
 
-        if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+        // Resolve next roles from role flow mapping (exact → state-level → global)
+        const nextRoleIds = await this.resolveRoleFlowMapping(
+          cancelHierarchy.roleId,
+          flowAppType,
+          cancelStateId,
+          cancelDistrictId,
+        );
+
+        if (nextRoleIds.length === 0) {
           return [null, []];
         }
 
         // Build location hierarchy conditions
         const { policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId } = cancelHierarchy.presentAddress;
-        return this.findUsersByLocationAndRoles(roleMapping.nextRoleIds, {
+        return this.findUsersByLocationAndRoles(nextRoleIds, {
           policeStationId, divisionId, zoneId, districtId, stateId, rangeOfficeId
         });
       }
@@ -2021,7 +2037,6 @@ export class ApplicationFormService {
       if (!application.presentAddress) {
         return [new BadRequestException('Application does not have a present address defined'), null];
       }
-      console.log(application.presentAddress)
       if (!application.currentUserId || !application.currentUser) {
         return [new BadRequestException('Application does not have a current user assigned'), null];
       }
@@ -2030,15 +2045,21 @@ export class ApplicationFormService {
         return [new BadRequestException('Current user does not have a role assigned'), null];
       }
 
-      // Fetch role flow mapping
-      const roleMapping = await prisma.roleFlowMapping.findUnique({
-        where: { currentRoleId: application.currentUser.roleId },
-        select: {
-          nextRoleIds: true
-        }
-      });
+      // Map normalised type to flow mapping enum
+      const flowAppType = resolvedType === 'renewal' ? 'RENEWAL' : 'FRESH';
 
-      if (!roleMapping || !roleMapping.nextRoleIds || roleMapping.nextRoleIds.length === 0) {
+      // Resolve next roles from role flow mapping (exact → state-level → global)
+      // using the application's present address as the location context.
+      const { stateId: appStateId, districtId: appDistrictId } = application.presentAddress;
+
+      const nextRoleIds = await this.resolveRoleFlowMapping(
+        application.currentUser.roleId,
+        flowAppType,
+        appStateId,
+        appDistrictId,
+      );
+
+      if (nextRoleIds.length === 0) {
         return [null, []];
       }
 
@@ -2085,7 +2106,7 @@ export class ApplicationFormService {
       // Single optimized query with role filtering at database level
       const users = await prisma.users.findMany({
         where: {
-          roleId: { in: roleMapping.nextRoleIds },
+          roleId: { in: nextRoleIds },
           OR: locationConditions
         },
         select: userSelect,

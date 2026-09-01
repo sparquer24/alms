@@ -46,6 +46,8 @@ model States {
   renewalAddresses   RenewalAddressesAndContactDetails[]
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("StateUsers")
+  roleFlowMappings   RoleFlowMapping[]
+  cancelFormRequests CancelFormRequests[]
 }
 
 model Districts {
@@ -58,6 +60,7 @@ model Districts {
   addresses          FLAFAddressesAndContactDetails[]
   occupations        FLAFOccupationAndBusiness[]
   RangeOffices       RangeOffices[]
+  roleFlowMappings   RoleFlowMapping[]
   renewalAddresses   RenewalAddressesAndContactDetails[]
   renewalOccupations RenewalOccupationAndBusiness[]
   users              Users[]                             @relation("DistrictUsers")
@@ -123,33 +126,59 @@ model Roles {
   workflowHistoryPrevious        FreshLicenseApplicationsFormWorkflowHistories[] @relation("WorkflowPreviousRole")
   renewalWorkflowHistoryNext     RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalWorkflowNextRole")
   renewalWorkflowHistoryPrevious RenewalApplicationsFormWorkflowHistories[]      @relation("RenewalWorkflowPreviousRole")
-  currentRoleFlowMappings        RoleFlowMapping?                                @relation("CurrentRole")
+  currentRoleFlowMappings        RoleFlowMapping[]                               @relation("CurrentRole")
   rolesActionsMapping            RolesActionsMapping[]
   users                          Users[]
 }
 
 model RolesActionsMapping {
-  id        Int      @id @default(autoincrement())
-  roleId    Int
-  actionId  Int
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  action    Actiones @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  role      Roles    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id              Int                      @id @default(autoincrement())
+  roleId          Int
+  actionId        Int
+  applicationType RoleFlowApplicationType  @default(ALL)
+  isActive        Boolean                  @default(true)
+  allowedById     Int?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  action          Actiones                 @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role            Roles                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  allowedBy       Users?                   @relation(fields: [allowedById], references: [id])
 
-  @@unique([roleId, actionId])
+  @@unique([roleId, actionId, applicationType])
 }
 
 model RoleFlowMapping {
-  id            Int      @id @default(autoincrement())
-  currentRoleId Int      @unique
-  nextRoleIds   Int[]
-  updatedBy     Int?
-  updatedAt     DateTime @default(now()) @updatedAt
-  createdAt     DateTime @default(now())
-  currentRole   Roles    @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
-  updatedByUser Users?   @relation(fields: [updatedBy], references: [id])
+  id              Int                       @id @default(autoincrement())
+  currentRoleId   Int
+  nextRoleIds     Int[]
+  updatedBy       Int?
+  updatedAt       DateTime                  @default(now()) @updatedAt
+  createdAt       DateTime                  @default(now())
+  applicationType RoleFlowApplicationType   @default(ALL)
+  purpose         RoleFlowPurpose           @default(ALL)
+  stateId         Int?
+  districtId      Int?
+  currentRole     Roles                     @relation("CurrentRole", fields: [currentRoleId], references: [id], onDelete: Cascade)
+  updatedByUser   Users?                    @relation(fields: [updatedBy], references: [id])
+  state           States?                   @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district        Districts?                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@unique([currentRoleId, applicationType, purpose, stateId, districtId], name: "RoleFlowMapping_currentRoleId_applicationType_purpose_state_key")
+}
+
+enum RoleFlowApplicationType {
+  ALL
+  FRESH
+  RENEWAL
+  CANCEL
+}
+
+enum RoleFlowPurpose {
+  ALL
+  SELF_PROTECTION
+  SPORTS
+  HEIRLOOM_POLICY
+  CROP_PROTECTION
 }
 
 model WeaponTypeMaster {
@@ -202,6 +231,7 @@ model Users {
   renewalCurrentApplications     RenewalFormPersonalDetails[]                    @relation("RenewalCurrentApplicationOwner")
   renewalPreviousApplications    RenewalFormPersonalDetails[]                    @relation("RenewalPreviousApplicationOwner")
   flowMappingUpdates             RoleFlowMapping[]
+  allowedActionMappings          RolesActionsMapping[]
   district                       Districts?                                      @relation("DistrictUsers", fields: [districtId], references: [id], onDelete: Cascade)
   division                       Divisions?                                      @relation("DivisionUsers", fields: [divisionId], references: [id], onDelete: Cascade)
   policeStation                  PoliceStations?                                 @relation("PoliceStationUsers", fields: [policeStationId], references: [id], onDelete: Cascade)
@@ -663,11 +693,13 @@ model CancelFormRequests {
   licenseId               Int?
   acknowledgementNo       String?                   @db.VarChar(20)
   applicantName           String?                   @db.Char(30)
+  stateId                 Int?
   actioner                Users?                    @relation("CancelRequestActioner", fields: [actionedBy], references: [id])
   currentUser             Users?                    @relation("CancelFormCurrentUser", fields: [currentUserId], references: [id])
   Licenses                Licenses?                 @relation("LicensesCancelLog", fields: [licenseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   previousUser            Users?                    @relation("CancelFormPreviousUser", fields: [previousUserId], references: [id])
   requester               Users                     @relation("CancelRequestRequester", fields: [requestedBy], references: [id])
+  state                   States?                   @relation(fields: [stateId], references: [id], onDelete: SetNull)
   workflowStatus          Statuses?                 @relation("CancelFormWorkflowStatus", fields: [workFlowStatusId], references: [id])
   cancelWorkflowHistories CancelWorkflowHistories[] @relation("CancelWorkflowHistories")
   licensesFromCancel      Licenses[]                @relation("LicenseToCancelApp")
@@ -676,6 +708,7 @@ model CancelFormRequests {
   @@index([currentUserId])
   @@index([createdAt])
   @@index([licenseId])
+  @@index([stateId])
 }
 
 model CancelWorkflowHistories {
@@ -733,7 +766,7 @@ model Licenses {
   aadharNumber               String?
   panNumber                  String?
   validFrom                  DateTime
-  validTill                  DateTime
+  validTill                  DateTime?
   armsCategory               ArmsCategory?
   areaOfValidity             String?
   ammunitionDescription      String?
@@ -774,7 +807,10 @@ model Licenses {
   renewalApplication           RenewalFormPersonalDetails?             @relation("LicenseToRenewalApp", fields: [renewalApplicationId], references: [id])
   cancelApplicationId          Int?
   cancelApplication            CancelFormRequests?                     @relation("LicenseToCancelApp", fields: [cancelApplicationId], references: [id])
+  lastModifiedAppId          Int?
   lastModifiedAppType          String?
+  previousModifiedAppType      String?
+  previousModifiedAppId        Int?
   renewalCount                 Int                                      @default(0)
   createdAt                    DateTime                                 @default(now())
   updatedAt                    DateTime                                 @updatedAt

@@ -180,6 +180,19 @@ export default function CancelRequestModal({
         throw new Error('No license data found for the provided License ID or License Number.');
       }
 
+      // Check if the license has been CANCELLED
+      if (freshData.status === 'CANCELLED') {
+        // Use a sentinel value to indicate cancelled-license state in the FAILED UI path.
+        // The id of -1 prevents any accidental routing matches.
+        setExistingCancel({ id: -1, status: 'APPROVED' });
+        setVerificationStatus('FAILED');
+        setVerificationError(
+          'This license has been permanently cancelled. No further cancellation requests can be raised for this license.',
+        );
+        setVerificationChecking(false);
+        return;
+      }
+
       const numericLicenseId = String(freshData.licenseId || freshData.id || licenseIdentifier);
       const bioData = freshData.biometricData?.biometricData || freshData.biometricData || null;
       const fingerprints = bioData?.fingerprints || [];

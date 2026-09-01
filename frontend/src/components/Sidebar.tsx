@@ -268,6 +268,19 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
   useEffect(() => {
     const normalizedRole = userRole ? String(userRole).toUpperCase() : cookieRole?.toUpperCase();
     if (!pathname || !normalizedRole?.includes('ADMIN')) return;
+    
+    if (pathname === '/dashboard' || pathname.startsWith('/dashboard')) {
+      if (activeFreezeRef.current && activeItem === 'dashboard') return;
+      setActiveItem('dashboard');
+      try {
+        localStorage.setItem('activeNavItem', 'dashboard');
+      } catch (e) {}
+      if (adminMenuContext?.setActiveMenuKey) {
+        adminMenuContext.setActiveMenuKey('dashboard' as any);
+      }
+      return;
+    }
+
     const adminKey = getAdminMenuKeyFromPath(pathname);
     if (adminKey) {
       // Allow pathname sync to update activeItem even during freeze,
@@ -1347,23 +1360,34 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
         />
       )}
       <aside
-        className={`z-40 w-[80vw] max-w-xs md:w-[18%] h-screen bg-white border-r border-gray-200 fixed left-0 top-0 flex flex-col shadow-xl md:shadow-none
+        className={`z-40 w-[80vw] max-w-xs md:w-60 h-screen md:h-auto bg-white border border-gray-200 fixed left-0 top-0 md:left-4 md:top-4 md:bottom-4 flex flex-col shadow-xl md:shadow-lg md:rounded-2xl overflow-hidden
         transition-all duration-300 ease-in-out
         ${showSidebar || mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0`}
       >
-        <div className='p-4 flex items-center border-b border-gray-100'>
+        <div className='p-3 flex items-center gap-2 border-b border-gray-100'>
           <ImageFixed
             src='/icon-alms.svg'
             alt='Arms License Icon'
-            width={52}
-            height={52}
-            className='mr-2'
+            width={36}
+            height={36}
           />
-          <h1 className='text-lg font-bold'>Arms License</h1>
+          <h1 className='text-sm font-bold leading-tight truncate'>Arms License</h1>
         </div>
-        <div className='bg-[#001F54] text-white p-4 flex items-center'>
-          <span className='mr-3'>
+        {isAdminRole(effectiveRole) ? (
+          <button
+            type='button'
+            onClick={() => {
+              setActiveItem('dashboard');
+              persistActiveNavToLocal('dashboard');
+              router.push('/dashboard');
+            }}
+            className={`w-full text-left px-3 py-2.5 flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none ${
+              pathname === '/dashboard'
+                ? 'bg-[#0F2D52] text-[#D4AF37] font-bold border-l-4 border-[#D4AF37] shadow-inner'
+                : 'bg-[#001F54] text-white hover:bg-[#0A1C33]'
+            }`}
+          >
             <svg
               xmlns='http://www.w3.org/2000/svg'
               viewBox='0 0 24 24'
@@ -1372,14 +1396,31 @@ export const Sidebar = memo(({ onStatusSelect, onTableReload }: SidebarProps = {
               strokeWidth='2'
               strokeLinecap='round'
               strokeLinejoin='round'
-              className='w-5 h-5'
+              className='w-4 h-4 flex-shrink-0'
             >
               <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
               <circle cx='12' cy='7' r='4' />
             </svg>
-          </span>
-          <span className='font-bold'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
-        </div>
+            <span className='font-semibold text-sm truncate flex-1'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+          </button>
+        ) : (
+          <div className='bg-[#001F54] text-white px-3 py-2.5 flex items-center gap-2'>
+            <svg
+              xmlns='http://www.w3.org/2000/svg'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+              strokeLinecap='round'
+              strokeLinejoin='round'
+              className='w-4 h-4 flex-shrink-0'
+            >
+              <path d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' />
+              <circle cx='12' cy='7' r='4' />
+            </svg>
+            <span className='font-semibold text-sm truncate'>{roleConfig?.dashboardTitle ?? 'Dashboard'}</span>
+          </div>
+        )}
 
         <nav className='flex-1 overflow-y-auto py-2 px-2'>
           <ul className='space-y-1'>

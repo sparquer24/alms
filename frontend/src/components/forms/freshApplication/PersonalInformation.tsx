@@ -40,7 +40,7 @@ const personalInfoRules: FieldRule[] = [
   { name: 'parentOrSpouseName', type: 'text', required: true },
   { name: 'sex', type: 'select', required: true, errorMessages: { required: 'Please select Gender.' } },
   { name: 'placeOfBirth', type: 'text', required: true },
-  { name: 'dateOfBirth', type: 'date', required: true, noFuture: true, minAge: 21, maxAge: 30, errorMessages: { noFuture: 'Date of Birth cannot be a future date.', minAge: 'Applicant must be at least 21 years old.', maxAge: 'Applicant must not be older than 30 years.' } },
+  { name: 'dateOfBirth', type: 'date', required: true, noFuture: true, minAge: 21, maxAge: 150, errorMessages: { noFuture: 'Date of Birth cannot be a future date.', minAge: 'Applicant must be at least 21 years old.', maxAge: 'Applicant must not be older than 150 years.' } },
   { name: 'panNumber', type: 'pan', required: true },
   { name: 'aadharNumber', type: 'aadhaar', required: true, errorMessages: { format: 'Aadhaar Number must contain exactly 12 digits.' } },
 ];

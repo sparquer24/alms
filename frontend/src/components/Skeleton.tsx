@@ -171,16 +171,16 @@ export const ApplicationDetailSkeleton: React.FC = () => (
 
 // Sidebar Skeleton
 export const SidebarSkeleton: React.FC = () => (
-  <div className="fixed left-0 top-0 h-full w-[80vw] max-w-xs md:w-[18%] bg-white shadow-lg border-r border-gray-200 z-40">
+  <div className="fixed left-0 top-0 h-full md:h-auto w-[80vw] max-w-xs md:w-60 md:left-4 md:top-4 md:bottom-4 bg-white shadow-lg border border-gray-200 md:rounded-2xl overflow-hidden z-40">
     {/* Logo & Brand Area */}
-    <div className="p-4 flex items-center border-b border-gray-100">
-      <Skeleton className="h-[52px] w-[52px] rounded mr-2" />
-      <Skeleton className="h-5 w-24" />
+    <div className="p-3 flex items-center gap-2 border-b border-gray-100">
+      <Skeleton className="h-9 w-9 rounded" />
+      <Skeleton className="h-4 w-24" />
     </div>
-    
+
     {/* Role Badge */}
-    <div className="bg-gray-100 p-4">
-      <Skeleton className="h-5 w-5 inline-block mr-3" />
+    <div className="bg-gray-100 px-3 py-2.5">
+      <Skeleton className="h-4 w-4 inline-block mr-3" />
       <Skeleton className="h-4 w-28" />
     </div>
     
@@ -206,7 +206,7 @@ export const SidebarSkeleton: React.FC = () => (
 
 // Header Skeleton
 export const HeaderSkeleton: React.FC = () => (
-  <div className="fixed top-0 left-[80px] md:left-[18%] right-0 h-[64px] md:h-[70px] bg-white shadow-sm border-b border-gray-200 z-30">
+  <div className="fixed top-0 md:top-4 left-0 md:left-66 right-0 md:right-4 h-[64px] md:h-[70px] bg-white shadow-sm border border-gray-200 md:rounded-2xl z-30">
     <div className="flex items-center justify-between h-full px-4 md:px-6">
       {/* Search Area */}
       <div className="flex items-center space-x-4 flex-1">
@@ -229,7 +229,7 @@ export const PageLayoutSkeleton: React.FC<{ children?: React.ReactNode }> = ({ c
   <div className="flex h-screen w-full bg-gray-50">
     <SidebarSkeleton />
     <HeaderSkeleton />
-  <main className="flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]">
+  <main className="flex-1 p-2 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]">
       {children || (
         <div className="bg-white rounded-lg shadow p-6">
           <Skeleton className="h-8 w-48 mb-6" />
@@ -284,6 +284,61 @@ export const MessageSkeleton: React.FC = () => (
   <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
     <Skeleton className="h-4 w-32 mb-2" />
     <Skeleton className="h-4 w-48" />
+  </div>
+);
+
+// Renewal Application wizard skeleton — mirrors the step-header + card layout
+export const RenewalFormSkeleton: React.FC = () => (
+  <div
+    className="relative min-h-screen"
+    style={{
+      backgroundImage: 'url(/backgroundIMGALMS.jpeg)',
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+    }}
+  >
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl 2xl:max-w-[2000px] flex-col px-4 py-5 sm:px-6 lg:px-8">
+      {/* Title */}
+      <div className="mx-auto mb-2 h-7 w-72 animate-pulse rounded bg-blue-900/20" />
+
+      {/* Gradient nav bar */}
+      <div className="mb-2 flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#0d2977] to-[#23408e] px-4 py-3">
+        <div className="h-8 w-8 flex-shrink-0 animate-pulse rounded-full bg-white/70" />
+        <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="h-8 w-20 animate-pulse rounded bg-white/25" />
+          ))}
+        </div>
+      </div>
+
+      {/* Summary strip */}
+      <div className="mb-2 flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-4 w-20" />
+        ))}
+      </div>
+
+      {/* Step card */}
+      <div className="rounded-lg bg-white p-6 shadow-lg">
+        <Skeleton className="mb-6 h-7 w-56" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer actions */}
+      <div className="mt-4 flex justify-end gap-3">
+        <Skeleton className="h-10 w-32 rounded-md" />
+        <Skeleton className="h-10 w-28 rounded-md" />
+      </div>
+    </div>
   </div>
 );
 

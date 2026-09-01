@@ -131,7 +131,7 @@ export default function WorkflowsPage() {
     return (
       <div className='flex h-screen w-full bg-gray-50'>
         <Sidebar />
-        <div className='flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]'>
+        <div className='flex-1 p-2 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]'>
           <AdminTableSkeleton rows={8} columns={6} />
         </div>
       </div>
@@ -143,7 +143,7 @@ export default function WorkflowsPage() {
       <Sidebar />
       <Header />
 
-      <main className='flex-1 p-8 overflow-y-auto ml-[80px] md:ml-[18%] mt-[64px] md:mt-[70px]'>
+      <main className='flex-1 p-2 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]'>
         {/* Header Section with Gradient Background */}
         <div className='bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6'>
           <div className='bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8'>

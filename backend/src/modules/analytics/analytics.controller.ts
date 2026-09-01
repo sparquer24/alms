@@ -320,6 +320,12 @@ export class AnalyticsController {
         type: String,
         description: "Optional sort field, prefix with '-' for desc (e.g. '-updatedAt')",
     })
+    @ApiQuery({
+        name: 'type',
+        required: false,
+        type: String,
+        description: 'Optional application family filter: fresh | renewal | cancel. Omit for all.',
+    })
     @ApiResponse({
         status: 200,
         description: 'Successfully retrieved applications details',
@@ -333,6 +339,7 @@ export class AnalyticsController {
         @Query('sort') sort?: string,
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
+        @Query('type') type?: string,
         @Req() req?: any,
     ): Promise<AnalyticsResponseDto<ApplicationRecordDto[]>> {
         try {
@@ -345,7 +352,7 @@ export class AnalyticsController {
             const zoneId = user?.zoneId;
             const roleCode = user?.roleCode;
 
-            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId);
+            const result = await this.analyticsService.getApplicationsDetails(status, pageNum, limitNum, q, sort, fromDate, toDate, stateId, roleCode, zoneId, type);
 
             const pages = result.limit && result.limit > 0 ? Math.ceil((result.total || 0) / result.limit) : 1;
 

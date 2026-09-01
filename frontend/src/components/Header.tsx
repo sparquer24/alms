@@ -9,9 +9,7 @@ import { useNotifications } from '../config/notificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import Link from 'next/link';
 import { APPLICATION_TYPES } from '../config/helpers';
-import { ApplicationService } from '../api/applicationService';
-import { CancelService } from '../api/cancelService';
-import { isLicenseManagementRole } from '@/utils/roleUtils';
+import { canCreateApplications, isLicenseManagementRole, normalizeRole } from '@/utils/roleUtils';
 
 interface BreadcrumbItem {
   label: string;
@@ -48,7 +46,7 @@ const Header = (props: HeaderProps) => {
   const {
     onShowMessage,
     breadcrumbs,
-    pageTitle: _pageTitle,
+    pageTitle,
     statusBadge,
     hidePrint,
     hideCreateForm,
@@ -62,16 +60,58 @@ const Header = (props: HeaderProps) => {
   const { unreadCount } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelLicenseId, setCancelLicenseId] = useState('');
-  const [cancelLookupError, setCancelLookupError] = useState<string | null>(null);
-  const [isCancelLookupLoading, setIsCancelLookupLoading] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
 
   const showLicenseManagement = isLicenseManagementRole(hookUserRole);
   const isLicensesActive = pathname === '/licenses';
+
+  const effectiveRole = normalizeRole(hookUserRole);
+  const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || (pathname && pathname.startsWith('/superAdmin'));
+  const roleLabel = isSuperAdmin ? 'Super Admin' : 'Admin';
+
+  const defaultRouteMeta = React.useMemo(() => {
+    if (!pathname) return null;
+    const map: Record<string, { roleTitle: string; pageTitle: string; roleHref?: string }> = {
+      '/dashboard': { roleTitle: roleLabel, pageTitle: 'Dashboard', roleHref: isSuperAdmin ? '/superAdmin/userManagement' : '/admin/userManagement' },
+      '/superAdmin/userManagement': { roleTitle: 'Super Admin', pageTitle: 'User Management', roleHref: '/superAdmin/userManagement' },
+      '/admin/userManagement': { roleTitle: 'Admin', pageTitle: 'User Management', roleHref: '/admin/userManagement' },
+      '/superAdmin/roleMapping': { roleTitle: 'Super Admin', pageTitle: 'Role Management', roleHref: '/superAdmin/roleMapping' },
+      '/admin/roleMapping': { roleTitle: 'Admin', pageTitle: 'Role Management', roleHref: '/admin/roleMapping' },
+      '/superAdmin/analytics': { roleTitle: 'Super Admin', pageTitle: 'Global Analytics', roleHref: '/superAdmin/analytics' },
+      '/admin/analytics': { roleTitle: 'Admin', pageTitle: 'Analytics', roleHref: '/admin/analytics' },
+      '/superAdmin/flowMapping': { roleTitle: 'Super Admin', pageTitle: 'Flow Mapping', roleHref: '/superAdmin/flowMapping' },
+      '/admin/flowMapping': { roleTitle: 'Admin', pageTitle: 'Flow Mapping', roleHref: '/admin/flowMapping' },
+      '/superAdmin/locationsManagement': { roleTitle: 'Super Admin', pageTitle: 'Locations Management', roleHref: '/superAdmin/locationsManagement' },
+      '/admin/locationsManagement': { roleTitle: 'Admin', pageTitle: 'Locations Management', roleHref: '/admin/locationsManagement' },
+      '/superAdmin/actionMapping': { roleTitle: 'Super Admin', pageTitle: 'Action Mapping', roleHref: '/superAdmin/actionMapping' },
+      '/admin/actionMapping': { roleTitle: 'Admin', pageTitle: 'Action Mapping', roleHref: '/admin/actionMapping' },
+      '/licenses': { roleTitle: 'Licenses', pageTitle: 'License Management', roleHref: '/licenses' },
+      '/settings': { roleTitle: 'Settings', pageTitle: 'User Settings', roleHref: '/settings' },
+      '/notifications': { roleTitle: 'Notifications', pageTitle: 'Notifications', roleHref: '/notifications' },
+      '/reports': { roleTitle: 'Reports', pageTitle: 'Reports', roleHref: '/reports' },
+    };
+
+    if (map[pathname]) return map[pathname];
+    for (const [route, meta] of Object.entries(map)) {
+      if (pathname.startsWith(route) && route !== '/') return meta;
+    }
+    return null;
+  }, [pathname, isSuperAdmin, roleLabel]);
+
+  const effectiveBreadcrumbs = React.useMemo(() => {
+    if (breadcrumbs && breadcrumbs.length > 0) return breadcrumbs;
+    if (defaultRouteMeta) {
+      return [
+        { label: defaultRouteMeta.roleTitle, href: defaultRouteMeta.roleHref },
+        { label: defaultRouteMeta.pageTitle },
+      ];
+    }
+    return undefined;
+  }, [breadcrumbs, defaultRouteMeta]);
+
+  const effectivePageTitle = pageTitle || defaultRouteMeta?.pageTitle;
 
   useEffect(() => {
     const name = userName || user?.name || user?.username;
@@ -87,9 +127,7 @@ const Header = (props: HeaderProps) => {
       } else if (type.key === 'renewal') {
         router.push('/forms/renewal');
       } else if (type.key === 'cancel') {
-        setCancelLicenseId('');
-        setCancelLookupError(null);
-        setShowCancelModal(true);
+        router.push('/cancelForm/new');
       } else {
         router.push(`/inbox?type=all?type=${encodeURIComponent(type.key)}`);
       }
@@ -98,81 +136,22 @@ const Header = (props: HeaderProps) => {
     }
   };
 
-  const handleCancelSubmit = async () => {
-    const id = cancelLicenseId.trim();
-
-    if (!id) {
-      setCancelLookupError('Enter a License ID or License Number.');
-      return;
-    }
-
-    try {
-      setIsCancelLookupLoading(true);
-      setCancelLookupError(null);
-
-      const response = await ApplicationService.getLicense(id);
-      const freshApplication = response?.data ?? response;
-
-      if (!freshApplication) {
-        throw new Error('No license data returned for that ID or number.');
-      }
-
-      const workflowStatusCode = freshApplication?.workflowStatus?.code?.toString().toUpperCase();
-      const hasApprovedHistory =
-        Array.isArray(freshApplication?.workflowHistories) &&
-        freshApplication.workflowHistories.some(
-          (history: any) => history?.actionTaken?.toString().toUpperCase() === 'APPROVED'
-        );
-
-      if (workflowStatusCode !== 'APPROVED' && !hasApprovedHistory) {
-        throw new Error('Only approved licenses can create a cancellation form.');
-      }
-
-      // Check if a cancellation request already exists for this license
-      try {
-        const resolvedLicenseId = Number(freshApplication.licenseId || freshApplication.id);
-        const existingCancelResponse = await CancelService.getCancelRequests({ licenseId: resolvedLicenseId });
-        const existingCancel = existingCancelResponse?.data || existingCancelResponse;
-        if (Array.isArray(existingCancel) && existingCancel.length > 0) {
-          throw new Error('A cancellation request already exists for this license.');
-        }
-      } catch (err: any) {
-        if (!err.message.includes('already exists')) {
-          // If it's a general network error/not found, ignore it and let user proceed, but if it has matching message, throw.
-        } else {
-          throw err;
-        }
-      }
-
-      setShowCancelModal(false);
-      router.push(
-        `/cancelForm/new?licenseId=${encodeURIComponent(String(freshApplication.licenseId || freshApplication.id))}`
-      );
-    } catch (error: any) {
-      const message = error?.message || 'Unable to fetch fresh application data.';
-      setCancelLookupError(message);
-      onShowMessage?.(message, 'error');
-    } finally {
-      setIsCancelLookupLoading(false);
-    }
-  };
-
   if (!showHeader) return null;
 
-  const isZSUser = hookUserRole?.toUpperCase() === 'ZS';
+  const canCreateApplication = canCreateApplications(hookUserRole);
 
   // Adjust header position based on sidebar visibility
-  const headerLeftClass = showSidebar ? 'left-[80px] md:left-[18%]' : 'left-0';
+  const headerLeftClass = showSidebar ? 'left-0 md:left-66' : 'left-0 md:left-4';
 
   // Determine if header needs extra height for breadcrumbs
-  const hasBreadcrumbs = breadcrumbs && breadcrumbs.length > 0;
+  const hasBreadcrumbs = effectiveBreadcrumbs && effectiveBreadcrumbs.length > 0;
 
   return (
     <header
-      className={`fixed top-0 right-0 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg z-40 transition-all duration-300`}
+      className={`fixed top-0 md:top-4 right-0 md:right-4 ${headerLeftClass} min-w-[200px] bg-[#001F54] ${hasBreadcrumbs ? 'h-auto min-h-[64px] md:min-h-[70px] py-3' : 'h-[64px] md:h-[70px]'} px-4 md:px-6 flex items-center justify-between shadow-lg md:rounded-2xl z-40 transition-all duration-300`}
     >
       <div className='max-w-8xl w-full mx-auto flex items-center justify-between'>
-        {/* Left section: breadcrumbs / create form */}
+        {/* Left section: breadcrumbs / page title / create form */}
         <div className='flex items-center gap-4 min-w-0'>
           {/* Back button */}
           {showBackButton && (
@@ -190,7 +169,7 @@ const Header = (props: HeaderProps) => {
               or when explicitly forced via the showCreateForm prop */}
           {(showSidebar || showCreateForm) && !hideCreateForm && (
             <div className='relative flex-shrink-0'>
-              {isZSUser && (
+              {canCreateApplication && (
                 <>
                   <button
                     className='px-4 py-2 bg-white text-[#001F54] rounded-md hover:bg-gray-100 flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap shadow-sm'
@@ -240,33 +219,39 @@ const Header = (props: HeaderProps) => {
             </div>
           )}
 
-          {/* Breadcrumbs */}
-          {hasBreadcrumbs && (
+          {/* Breadcrumbs or Page Title */}
+          {(hasBreadcrumbs || effectivePageTitle) && (
             <nav className='min-w-0 flex-1' aria-label='Breadcrumb'>
-              <ol className='flex items-center space-x-2 text-sm truncate'>
-                {breadcrumbs.map((crumb, idx) => (
-                  <li key={idx} className='flex items-center space-x-2 min-w-0'>
-                    {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
-                    {crumb.onClick ? (
-                      <button
-                        onClick={crumb.onClick}
-                        className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
-                      >
-                        {crumb.label}
-                      </button>
-                    ) : crumb.href ? (
-                      <Link
-                        href={crumb.href}
-                        className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className='text-white font-medium truncate'>{crumb.label}</span>
-                    )}
-                  </li>
-                ))}
-              </ol>
+              {hasBreadcrumbs && effectiveBreadcrumbs ? (
+                <ol className='flex items-center space-x-2 text-sm truncate'>
+                  {effectiveBreadcrumbs.map((crumb, idx) => (
+                    <li key={idx} className='flex items-center space-x-2 min-w-0'>
+                      {idx > 0 && <span className='text-white text-opacity-50 flex-shrink-0'>/</span>}
+                      {crumb.onClick ? (
+                        <button
+                          onClick={crumb.onClick}
+                          className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
+                        >
+                          {crumb.label}
+                        </button>
+                      ) : crumb.href ? (
+                        <Link
+                          href={crumb.href}
+                          className='text-white text-opacity-70 hover:text-opacity-100 transition-colors truncate'
+                        >
+                          {crumb.label}
+                        </Link>
+                      ) : (
+                        <span className='text-white font-medium truncate'>{crumb.label}</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className='flex items-center gap-2 text-white font-semibold text-base truncate'>
+                  <span>{effectivePageTitle}</span>
+                </div>
+              )}
             </nav>
           )}
         </div>
@@ -420,57 +405,6 @@ const Header = (props: HeaderProps) => {
 
 
 
-      {showCancelModal && (
-        <div className='fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4'>
-          <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl'>
-            <h2 className='text-lg font-semibold text-gray-900'>Cancel Application</h2>
-            <p className='mt-2 text-sm text-gray-600'>
-              Enter the approved License ID or License Number to initiate the cancellation request.
-            </p>
-
-            <div className='mt-4'>
-              <label
-                htmlFor='cancel-license-id'
-                className='block text-sm font-medium text-gray-700'
-              >
-                License ID / License Number
-              </label>
-              <input
-                id='cancel-license-id'
-                value={cancelLicenseId}
-                onChange={e => {
-                  setCancelLicenseId(e.target.value);
-                  if (cancelLookupError) setCancelLookupError(null);
-                }}
-                placeholder='Enter License ID or License Number (e.g., LUAN...)'
-                className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#001F54] focus:ring-2 focus:ring-[#001F54]/20'
-                autoFocus
-              />
-              {cancelLookupError && (
-                <p className='mt-2 text-sm text-red-600'>{cancelLookupError}</p>
-              )}
-            </div>
-
-            <div className='mt-6 flex justify-end gap-3'>
-              <button
-                type='button'
-                onClick={() => setShowCancelModal(false)}
-                className='rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
-              >
-                Cancel
-              </button>
-              <button
-                type='button'
-                onClick={handleCancelSubmit}
-                disabled={isCancelLookupLoading}
-                className='rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70'
-              >
-                {isCancelLookupLoading ? 'Loading…' : 'Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

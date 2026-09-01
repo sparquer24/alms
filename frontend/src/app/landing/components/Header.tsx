@@ -48,15 +48,25 @@ export default function LandingHeader({ navLinks, logoSrc = "/icon-alms.svg" }: 
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="px-3 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) =>
+              link.href.startsWith('/') ? (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="px-3 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="px-3 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                >
+                  {link.label}
+                </a>
+              )
+            )}
             <Link
               href="/login"
               className="ml-3 px-5 py-2 text-sm font-semibold rounded-md bg-[#B8860B] text-white hover:bg-[#A0750A] transition-colors shadow-sm"
@@ -87,16 +97,27 @@ export default function LandingHeader({ navLinks, logoSrc = "/icon-alms.svg" }: 
         {/* Mobile Navigation */}
         {mobileOpen && (
           <nav className="md:hidden pt-4 pb-2 border-t border-white/20 mt-3" aria-label="Mobile navigation">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className="block px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) =>
+              link.href.startsWith('/') ? (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="block px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="block px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {link.label}
+                </a>
+              )
+            )}
             <Link
               href="/login"
               className="block mt-2 px-5 py-2.5 text-sm font-semibold rounded-md bg-[#B8860B] text-white hover:bg-[#A0750A] text-center transition-colors"
