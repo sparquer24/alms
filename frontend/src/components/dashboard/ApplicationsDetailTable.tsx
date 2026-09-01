@@ -1,17 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import {
   Search,
-  Filter,
   RefreshCw,
   Download,
   FileText,
   Clock,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
   User,

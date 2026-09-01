@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import {
   TrendingUp,
   Clock,
@@ -9,11 +8,8 @@ import {
   AlertTriangle,
   Search,
   RefreshCw,
-  Download,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
-  Shield,
   FileText,
   Eye,
 } from 'lucide-react';
