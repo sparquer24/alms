@@ -10,7 +10,9 @@ import axiosInstance from '../api/axiosConfig';
 import { normalizeRenewalApplication } from '../utils/applicationFormatters';
 import { analyticsService, ApplicationRecord } from '../services/analyticsService';
 
-type FreshFormViewType = 'fresh' | 'renewal';
+import { PageSubHeader, SubHeaderPills, SubHeaderSearch, SubHeaderSelect, SubHeaderButton } from './common/PageSubHeader';
+import { Download } from 'lucide-react';
+import { ApplicationTableRef } from './ApplicationTable';
 
 // Maps the analytics "Applications Overview" card types to the org-wide
 // (state/zone-scoped, not per-user) analytics/applications/details query.
@@ -126,6 +128,22 @@ export default function ApplicationsByTypeView({
   const isDraftsPage = !isOrgWide && queryType === 'drafts';
 
   const [selectedFormType, setSelectedFormType] = useState<FreshFormViewType>('fresh');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [applicationTypeFilter, setApplicationTypeFilter] = useState('All');
+  const [isExporting, setIsExporting] = useState(false);
+  const tableRef = React.useRef<ApplicationTableRef>(null);
+
+  const handleExportExcel = async () => {
+    if (tableRef.current) {
+      try {
+        setIsExporting(true);
+        await tableRef.current.exportExcel();
+      } finally {
+        setIsExporting(false);
+      }
+    }
+  };
+
   const { isAuthenticated, initialized } = useAuth();
 
   const { applications: contextApplications, isLoading: isContextLoading, loadType } = useInbox();
@@ -229,98 +247,104 @@ export default function ApplicationsByTypeView({
     }
   }, [isOrgWide, queryType, initialized, isAuthenticated, loadType]);
 
+type FreshFormViewType = 'fresh' | 'renewal';
+
   return (
-    <div className='max-w-8xl w-full mx-auto flex-1 min-h-0 flex flex-col'>
-      <div className='bg-white rounded-lg shadow p-4 sm:p-5 flex-1 flex flex-col min-h-0'>
-        <h1 className='flex-none text-2xl font-bold mb-3'>
-          {getPageTitle(queryType, selectedFormType)}
-        </h1>
+    <div className='flex flex-col flex-1 min-h-0 w-full'>
+      <PageSubHeader
+        title={getPageTitle(queryType, selectedFormType)}
+        metaBadge={applications.length > 0 ? `${applications.length} Application${applications.length !== 1 ? 's' : ''}` : undefined}
+        actions={
+          <div className='flex flex-wrap items-center gap-2 sm:gap-2.5'>
+            {/* Search Input in SubHeader */}
+            <SubHeaderSearch
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder='Search (name, type, status)'
+            />
 
-        {!isOrgWide && queryType === 'all' && (
-          <div className='mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
-            <div className='flex items-center'>
-              <svg
-                xmlns='http://www.w3.org/2000/svg'
-                className='h-5 w-5 text-blue-600 mr-2'
-                viewBox='0 0 20 20'
-                fill='currentColor'
-              >
-                <path
-                  fillRule='evenodd'
-                  d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z'
-                  clipRule='evenodd'
-                />
-              </svg>
-              <span className='text-blue-800 font-medium'>Showing approved applications only</span>
+            {/* Application Type Filter / Pills in SubHeader */}
+            {(isDraftsPage || isFreshFormsPage) ? (
+              <SubHeaderPills<FreshFormViewType>
+                options={[
+                  { key: 'fresh', label: 'Fresh' },
+                  { key: 'renewal', label: 'Renewal' },
+                ]}
+                value={selectedFormType}
+                onChange={setSelectedFormType}
+              />
+            ) : (
+              <SubHeaderSelect
+                value={applicationTypeFilter}
+                onChange={setApplicationTypeFilter}
+                options={[
+                  { value: 'All', label: 'All Types' },
+                  { value: 'Fresh', label: 'Fresh' },
+                  { value: 'Renewal', label: 'Renewal' },
+                  { value: 'Cancel', label: 'Cancel' },
+                ]}
+              />
+            )}
+
+            {/* Download Excel in SubHeader */}
+            <SubHeaderButton
+              variant='success'
+              onClick={handleExportExcel}
+              disabled={isExporting || isLoading}
+              icon={<Download className='w-3.5 h-3.5' />}
+              title='Download applications Excel file'
+            >
+              {isExporting ? 'Exporting...' : 'Download Excel'}
+            </SubHeaderButton>
+          </div>
+        }
+      />
+
+      <div className='flex-1 min-h-0 flex flex-col p-2.5 sm:p-3 md:p-4'>
+        <div className='bg-white rounded-2xl shadow-xs border border-gray-200/80 p-2 sm:p-3 flex-1 flex flex-col min-h-0 overflow-hidden'>
+          <div className='flex-1 min-h-0 flex flex-col'>
+            <ApplicationTable
+              ref={tableRef}
+              applications={applications}
+              isLoading={isLoading}
+              pageType={queryType}
+              selectedFormType={selectedFormType}
+              onSelectedFormTypeChange={setSelectedFormType}
+              showActionColumn={showActionColumn}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              applicationTypeFilter={applicationTypeFilter}
+              onApplicationTypeFilterChange={setApplicationTypeFilter}
+              hideControls={true}
+            />
+          </div>
+
+          {isOrgWide && orgTotalPages > 1 && (
+            <div className='flex-none flex items-center justify-between border-t border-gray-200 pt-3 mt-3'>
+              <div className='text-xs text-gray-600'>
+                Page {orgPage} of {orgTotalPages} ({orgTotal} total)
+              </div>
+              <div className='flex gap-2'>
+                <button
+                  type='button'
+                  onClick={() => setOrgPage(p => Math.max(1, p - 1))}
+                  disabled={orgPage === 1 || orgLoading}
+                  className='px-3 py-1 text-xs font-medium border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors'
+                >
+                  Previous
+                </button>
+                <button
+                  type='button'
+                  onClick={() => setOrgPage(p => Math.min(orgTotalPages, p + 1))}
+                  disabled={orgPage === orgTotalPages || orgLoading}
+                  className='px-3 py-1 text-xs font-medium border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors'
+                >
+                  Next
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-        {(isDraftsPage || isFreshFormsPage) && (
-          <div className='mb-4 flex gap-2'>
-            <button
-              type='button'
-              onClick={() => setSelectedFormType('fresh')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedFormType === 'fresh'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              aria-pressed={selectedFormType === 'fresh'}
-            >
-              Fresh
-            </button>
-            <button
-              type='button'
-              onClick={() => setSelectedFormType('renewal')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                selectedFormType === 'renewal'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              aria-pressed={selectedFormType === 'renewal'}
-            >
-              Renewal
-            </button>
-          </div>
-        )}
-
-        <div className='flex-1 min-h-0 flex flex-col'>
-          <ApplicationTable
-            applications={applications}
-            isLoading={isLoading}
-            pageType={queryType}
-            selectedFormType={selectedFormType}
-            onSelectedFormTypeChange={setSelectedFormType}
-            showActionColumn={showActionColumn}
-          />
+          )}
         </div>
-
-        {isOrgWide && orgTotalPages > 1 && (
-          <div className='flex-none flex items-center justify-between border-t border-gray-200 pt-3 mt-3'>
-            <div className='text-sm text-gray-700'>
-              Page {orgPage} of {orgTotalPages} ({orgTotal} total)
-            </div>
-            <div className='flex gap-2'>
-              <button
-                type='button'
-                onClick={() => setOrgPage(p => Math.max(1, p - 1))}
-                disabled={orgPage === 1 || orgLoading}
-                className='px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50'
-              >
-                Previous
-              </button>
-              <button
-                type='button'
-                onClick={() => setOrgPage(p => Math.min(orgTotalPages, p + 1))}
-                disabled={orgPage === orgTotalPages || orgLoading}
-                className='px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50'
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

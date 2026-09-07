@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { PageSubHeader } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useDispatch } from 'react-redux';
 import { logoutUser } from '../../store/thunks/authThunks';
@@ -117,13 +119,18 @@ export default function SettingsPage() {
   if (!authLoading && !isAuthenticated) return null;
 
   return (
-    <div className='flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
+    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
       <Sidebar />
       <Header />
 
-      <main className='flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px]'>
-        <div className='bg-white rounded-lg shadow p-4 sm:p-6 max-w-6xl mx-auto'>
-          <h1 className='text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800'>User Information</h1>
+      <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>
+        <PageSubHeader
+          title="User Profile & Settings"
+          metaBadge={currentUser?.username ? `Logged in as: ${currentUser.username}` : undefined}
+        />
+
+        <div className='flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6'>
+          <div className='bg-white rounded-2xl shadow-xs border border-gray-200/80 p-6 sm:p-8'>
 
           {!currentUser && (
             <div className='mb-4 sm:mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-md'>
@@ -320,12 +327,14 @@ export default function SettingsPage() {
           <div className='mt-6 sm:mt-8'>
             <button
               onClick={handleLogout}
-              className='w-full sm:w-auto px-6 py-2.5 bg-red-600 text-white rounded-md shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium'
+              className='w-full sm:w-auto px-6 py-2.5 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium text-sm'
             >
               Logout
             </button>
           </div>
         </div>
+        </div>
+        <Footer />
       </main>
     </div>
   );

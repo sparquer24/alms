@@ -591,7 +591,7 @@ function OriginalLicenseDetails({
             title='Print application details'
             disabled={!printReady}
           >
-            <Printer className='w-4.5 h-4.5 text-slate-500' />
+            <Printer className='w-4 h-4 text-slate-500' />
             {printReady ? 'Print Details' : 'Preparing…'}
           </button>
         </div>

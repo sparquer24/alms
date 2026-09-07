@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../config/layoutContext';
 import { ApplicationData } from '../../types';
@@ -121,13 +123,28 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+    <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
       <Sidebar onStatusSelect={setSelectedStatusKey} />
       <Header />
 
-  <main className="flex-1 p-2 overflow-y-auto ml-0 md:ml-66">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h1 className="text-2xl font-bold mb-6">My Reports</h1>
+      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+        <PageSubHeader
+          title="My Reports & Analytics"
+          metaBadge={selectedStatusKey ? `Filtered by: ${selectedStatusKey}` : undefined}
+          actions={
+            selectedStatusKey ? (
+              <SubHeaderButton
+                onClick={() => setSelectedStatusKey(null)}
+                title="Clear status filter"
+              >
+                Back to Overview
+              </SubHeaderButton>
+            ) : undefined
+          }
+        />
+
+        <div className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6">
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 p-6">
 
           {/* Render analytics above the rest of the report UI */}
           <MyReportsAnalytics userId={userId ?? undefined} />
@@ -292,7 +309,9 @@ export default function ReportsPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
+        <Footer />
       </main>
     </div>
   );

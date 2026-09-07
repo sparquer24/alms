@@ -367,14 +367,6 @@ export default function UniversalDashboard() {
                   icon={<RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />}
                 />
 
-                {/* Print / Export */}
-                <SubHeaderButton
-                  onClick={handlePrint}
-                  title="Print Dashboard Report"
-                  icon={<Printer className="w-3.5 h-3.5" />}
-                >
-                  <span className="hidden sm:inline">Print</span>
-                </SubHeaderButton>
 
                 {/* Quick Status Lookup Trigger */}
                 <SubHeaderButton

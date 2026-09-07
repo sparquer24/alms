@@ -69,12 +69,24 @@ const Header = (props: HeaderProps) => {
 
   const effectiveRole = normalizeRole(hookUserRole);
   const isSuperAdmin = effectiveRole === 'SUPER_ADMIN' || (pathname && pathname.startsWith('/superAdmin'));
-  const roleLabel = isSuperAdmin ? 'Super Admin' : 'Admin';
+  const isAdmin = effectiveRole === 'ADMIN' || (pathname && pathname.startsWith('/admin'));
+  
+  const roleLabel = React.useMemo(() => {
+    if (isSuperAdmin) return 'Super Admin';
+    if (isAdmin) return 'Admin';
+    if (hookUserRole) {
+      const clean = String(hookUserRole).replace(/_/g, ' ').trim();
+      return clean.charAt(0).toUpperCase() + clean.slice(1);
+    }
+    return 'User';
+  }, [isSuperAdmin, isAdmin, hookUserRole]);
 
   const defaultRouteMeta = React.useMemo(() => {
     if (!pathname) return null;
+    const defaultRoleHref = isSuperAdmin ? '/superAdmin/userManagement' : isAdmin ? '/admin/userManagement' : '/inbox?type=all';
     const map: Record<string, { roleTitle: string; pageTitle: string; roleHref?: string }> = {
-      '/dashboard': { roleTitle: roleLabel, pageTitle: 'Dashboard', roleHref: isSuperAdmin ? '/superAdmin/userManagement' : '/admin/userManagement' },
+      '/dashboard': { roleTitle: roleLabel, pageTitle: 'Dashboard', roleHref: defaultRoleHref },
+      '/inbox': { roleTitle: roleLabel, pageTitle: 'Inbox', roleHref: '/inbox?type=all' },
       '/superAdmin/userManagement': { roleTitle: 'Super Admin', pageTitle: 'User Management', roleHref: '/superAdmin/userManagement' },
       '/admin/userManagement': { roleTitle: 'Admin', pageTitle: 'User Management', roleHref: '/admin/userManagement' },
       '/superAdmin/roleMapping': { roleTitle: 'Super Admin', pageTitle: 'Role Management', roleHref: '/superAdmin/roleMapping' },
@@ -87,10 +99,14 @@ const Header = (props: HeaderProps) => {
       '/admin/locationsManagement': { roleTitle: 'Admin', pageTitle: 'Locations Management', roleHref: '/admin/locationsManagement' },
       '/superAdmin/actionMapping': { roleTitle: 'Super Admin', pageTitle: 'Action Mapping', roleHref: '/superAdmin/actionMapping' },
       '/admin/actionMapping': { roleTitle: 'Admin', pageTitle: 'Action Mapping', roleHref: '/admin/actionMapping' },
-      '/licenses': { roleTitle: 'Licenses', pageTitle: 'License Management', roleHref: '/licenses' },
-      '/settings': { roleTitle: 'Settings', pageTitle: 'User Settings', roleHref: '/settings' },
-      '/notifications': { roleTitle: 'Notifications', pageTitle: 'Notifications', roleHref: '/notifications' },
-      '/reports': { roleTitle: 'Reports', pageTitle: 'Reports', roleHref: '/reports' },
+      '/licenses': { roleTitle: roleLabel, pageTitle: 'License Management', roleHref: '/licenses' },
+      '/settings': { roleTitle: roleLabel, pageTitle: 'User Settings', roleHref: '/settings' },
+      '/notifications': { roleTitle: roleLabel, pageTitle: 'Notifications', roleHref: '/notifications' },
+      '/reports': { roleTitle: roleLabel, pageTitle: 'Reports', roleHref: '/reports' },
+      '/freshform': { roleTitle: roleLabel, pageTitle: 'Fresh Applications', roleHref: '/freshform' },
+      '/cancelForm': { roleTitle: roleLabel, pageTitle: 'Cancellation Requests', roleHref: '/cancelForm' },
+      '/application': { roleTitle: roleLabel, pageTitle: 'Application Details', roleHref: '/inbox?type=all' },
+      '/renewalApplication': { roleTitle: roleLabel, pageTitle: 'Renewal Application', roleHref: '/inbox?type=all' },
     };
 
     if (map[pathname]) return map[pathname];
@@ -98,7 +114,7 @@ const Header = (props: HeaderProps) => {
       if (pathname.startsWith(route) && route !== '/') return meta;
     }
     return null;
-  }, [pathname, isSuperAdmin, roleLabel]);
+  }, [pathname, isSuperAdmin, isAdmin, roleLabel]);
 
   const effectiveBreadcrumbs = React.useMemo(() => {
     if (breadcrumbs && breadcrumbs.length > 0) return breadcrumbs;
@@ -172,11 +188,11 @@ const Header = (props: HeaderProps) => {
               {canCreateApplication && (
                 <>
                   <button
-                    className='px-4 py-2 bg-white text-[#001F54] rounded-md hover:bg-gray-100 flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap shadow-sm'
+                    className='px-3.5 py-1.5 bg-white text-[#001F54] hover:bg-gray-100 rounded-lg flex items-center justify-center h-8.5 z-50 font-semibold text-xs whitespace-nowrap shadow-xs transition-all'
                     onClick={() => setShowDropdown(v => !v)}
                   >
-                    <span className='mr-2'>Create Form</span>
-                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <span className='mr-1.5'>Create Form</span>
+                    <svg className='w-3.5 h-3.5 text-[#001F54]' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                       <path
                         strokeLinecap='round'
                         strokeLinejoin='round'
@@ -186,11 +202,11 @@ const Header = (props: HeaderProps) => {
                     </svg>
                   </button>
                   {showDropdown && (
-                    <div className='absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-50'>
+                    <div className='absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1 overflow-hidden'>
                       {APPLICATION_TYPES.map(type => (
                         <button
                           key={type.key}
-                          className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${type.enabled ? '' : 'text-gray-400 cursor-not-allowed'}`}
+                          className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-100 transition-colors ${type.enabled ? 'text-gray-800' : 'text-gray-400 cursor-not-allowed'}`}
                           onClick={() => handleDropdownClick(type)}
                           disabled={!type.enabled}
                         >
@@ -211,9 +227,9 @@ const Header = (props: HeaderProps) => {
                 type='button'
                 onClick={() => router.push('/licenses')}
                 aria-current={isLicensesActive ? 'page' : undefined}
-                className='px-4 py-2 bg-white text-[#001F54] rounded-md hover:bg-gray-100 flex items-center justify-center h-10 min-w-[120px] z-50 font-medium text-sm whitespace-nowrap shadow-sm'
+                className='px-3.5 py-1.5 bg-white text-[#001F54] hover:bg-gray-100 rounded-lg flex items-center justify-center h-8.5 z-50 font-semibold text-xs whitespace-nowrap shadow-xs transition-all'
               >
-                <BadgeCheck className='w-4 h-4 mr-2' aria-hidden='true' />
+                <BadgeCheck className='w-3.5 h-3.5 mr-1.5' aria-hidden='true' />
                 <span>License Management</span>
               </button>
             </div>

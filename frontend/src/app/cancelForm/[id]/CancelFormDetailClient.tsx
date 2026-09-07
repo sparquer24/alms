@@ -13,6 +13,7 @@ import { truncateFilename } from '@/utils/string';
 import { openAttachment } from '@/utils/attachmentViewer';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
 import { History, Clock, ChevronDown, FileText, Shield, Home } from 'lucide-react';
+import { PageSubHeader } from '@/components/common/PageSubHeader';
 
 const ClockIcon = Clock as any;
 const ChevronDownIcon = ChevronDown as any;
@@ -246,19 +247,26 @@ export default function CancelFormDetailClient() {
   const showApplicationProcessingSection = activeTab === 'info';
 
   return (
-    <div className='min-h-screen bg-slate-50 font-[family-name:var(--font-geist-sans)] print:min-h-0 print:bg-white'>
-      <main className='w-full'>
-        <div className='w-full'>
-          <div className='space-y-6'>
-            <CancelRequestDetail
-              request={request}
-              licenseId={request.licenseId}
-              licenseNumber={request.licenseNumber}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-              loading={cancelInfoLoading}
-              loadOriginal={originalLoaded}
-            />
+    <div className='flex flex-col flex-1 w-full'>
+      <PageSubHeader
+        title="Cancellation Request Details"
+        breadcrumbs={[
+          { label: 'Inbox', href: '/inbox?type=cancel' },
+          { label: request?.licenseNumber ? `License #${request.licenseNumber}` : `Request #${params?.id || ''}` },
+        ]}
+        metaBadge={request?.status ? `Status: ${request.status}` : undefined}
+      />
+
+      <div className='p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6'>
+        <CancelRequestDetail
+          request={request}
+          licenseId={request.licenseId}
+          licenseNumber={request.licenseNumber}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          loading={cancelInfoLoading}
+          loadOriginal={originalLoaded}
+        />
 
             {activeTab === 'info' && (
             <div className='rounded-3xl bg-white shadow-xl border border-slate-200 overflow-hidden print:hidden'>
@@ -545,7 +553,5 @@ export default function CancelFormDetailClient() {
             )}
           </div>
         </div>
-      </main>
-    </div>
-  );
-}
+    );
+  }

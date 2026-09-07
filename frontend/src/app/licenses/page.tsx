@@ -28,6 +28,8 @@ import { normalizeRole } from '@/utils/roleUtils';
 import { getRoleBasedRedirectPath } from '@/config/roleRedirections';
 import { useLayout } from '@/config/layoutContext';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { PageSubHeader, SubHeaderButton, SubHeaderSearch, SubHeaderPills, SubHeaderSelect } from '@/components/common/PageSubHeader';
 
 type LicenseTab = 'all' | 'expiring' | 'expired' | 'import' | 'audit';
 
@@ -529,10 +531,192 @@ function LicenseManagementContent() {
   }
 
   return (
-    <div className='h-screen w-full overflow-hidden bg-[#F5F7FB] font-[family-name:var(--font-geist-sans)] print:h-auto print:overflow-visible'>
+    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white print:h-auto print:overflow-visible'>
       <Header showCreateForm showBackButton />
 
-      <main className='flex h-[calc(100vh-64px)] md:h-[calc(100vh-90px)] flex-col overflow-hidden mt-[64px] md:mt-[90px] p-2 sm:p-3 md:px-3 print:mt-0 print:h-auto print:overflow-visible print:p-0'>
+      <main className='flex-1 ml-0 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px] print:ml-0 print:pt-0'>
+        <PageSubHeader
+          title="License Management"
+          metaBadge={`${total || stats?.total || 0} Total Records`}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Tabs as Pills in SubHeader */}
+              <SubHeaderPills<LicenseTab>
+                options={[
+                  { key: 'all', label: 'All Licenses' },
+                  { key: 'expiring', label: 'Expiring' },
+                  { key: 'expired', label: 'Expired' },
+                  { key: 'import', label: 'Import' },
+                  { key: 'audit', label: 'Audit Logs' },
+                ]}
+                value={tab}
+                onChange={nextTab => {
+                  setTab(nextTab);
+                  setStatusFilter('');
+                  setPurposeFilter('');
+                  setExpiringDays(90);
+                  setRenewedOnly(false);
+                  setPage(1);
+                  setAuditSearch('');
+                  setAuditAction('');
+                  setAuditDateFrom('');
+                  setAuditDateTo('');
+                  setAuditPage(1);
+                  router.push(buildLicensesUrl({ tab: nextTab, search }), { scroll: false });
+                }}
+              />
+
+              {tab === 'audit' ? (
+                <>
+                  <SubHeaderSearch
+                    value={auditSearch}
+                    onChange={val => {
+                      setAuditSearch(val);
+                      setAuditPage(1);
+                    }}
+                    placeholder="Search audit logs..."
+                  />
+
+                  <SubHeaderSelect
+                    value={auditAction}
+                    onChange={val => {
+                      setAuditAction(val);
+                      setAuditPage(1);
+                    }}
+                    options={AUDIT_ACTION_OPTIONS}
+                  />
+
+                  <input
+                    type="date"
+                    value={auditDateFrom}
+                    onChange={event => {
+                      setAuditDateFrom(event.target.value);
+                      setAuditPage(1);
+                    }}
+                    max={auditDateTo || undefined}
+                    className="rounded-lg bg-[#1E3A8A]/40 border border-[#3B82F6]/30 px-2 py-1 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                    aria-label="From date"
+                    title="From date"
+                  />
+
+                  <input
+                    type="date"
+                    value={auditDateTo}
+                    onChange={event => {
+                      setAuditDateTo(event.target.value);
+                      setAuditPage(1);
+                    }}
+                    min={auditDateFrom || undefined}
+                    className="rounded-lg bg-[#1E3A8A]/40 border border-[#3B82F6]/30 px-2 py-1 text-xs text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                    aria-label="To date"
+                    title="To date"
+                  />
+
+                  <SubHeaderButton
+                    onClick={exportAuditCsv}
+                    title="Export Audit CSV"
+                    icon={<FileDown className="w-3.5 h-3.5" />}
+                  >
+                    CSV
+                  </SubHeaderButton>
+
+                  <SubHeaderButton
+                    onClick={printTable}
+                    title="Print"
+                    icon={<Printer className="w-3.5 h-3.5" />}
+                  >
+                    Print
+                  </SubHeaderButton>
+                </>
+              ) : tab === 'import' ? (
+                <SubHeaderButton
+                  variant="primary"
+                  onClick={downloadTemplate}
+                  title="Download Import Template"
+                  icon={<Download className="w-3.5 h-3.5" />}
+                >
+                  Download Template
+                </SubHeaderButton>
+              ) : (
+                <>
+                  {/* Search Bar in SubHeader */}
+                  <SubHeaderSearch
+                    value={search}
+                    onChange={val => {
+                      setSearch(val);
+                      setPage(1);
+                    }}
+                    placeholder="Search name, license no..."
+                  />
+
+                  {/* Status Dropdown in SubHeader */}
+                  <SubHeaderSelect
+                    value={statusFilter}
+                    onChange={val => {
+                      setStatusFilter(val);
+                      setPage(1);
+                    }}
+                    options={[
+                      { value: '', label: 'All Status' },
+                      { value: 'ACTIVE', label: 'Active' },
+                      { value: 'EXPIRED', label: 'Expired' },
+                      { value: 'CANCELLED', label: 'Cancelled' },
+                      { value: 'SUSPENDED', label: 'Suspended' },
+                      { value: 'REVOKED', label: 'Revoked' },
+                    ]}
+                  />
+
+                  <SubHeaderSelect
+                    value={purposeFilter}
+                    onChange={val => {
+                      setPurposeFilter(val);
+                      setPage(1);
+                    }}
+                    options={[{ value: '', label: 'All Purposes' }, ...PURPOSE_OPTIONS]}
+                  />
+
+                  {/* Refresh Button */}
+                  <SubHeaderButton
+                    onClick={() => loadLicenses()}
+                    disabled={loading}
+                    title="Refresh licenses"
+                    icon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
+                  >
+                    Refresh
+                  </SubHeaderButton>
+
+                  {/* Export Excel Button */}
+                  <SubHeaderButton
+                    variant="primary"
+                    onClick={exportExcel}
+                    title="Export Excel"
+                    icon={<Download className="w-3.5 h-3.5" />}
+                  >
+                    Export Excel
+                  </SubHeaderButton>
+
+                  <SubHeaderButton
+                    onClick={exportCsv}
+                    title="Export CSV"
+                    icon={<FileDown className="w-3.5 h-3.5" />}
+                  >
+                    CSV
+                  </SubHeaderButton>
+
+                  <SubHeaderButton
+                    onClick={printTable}
+                    title="Print Table"
+                    icon={<Printer className="w-3.5 h-3.5" />}
+                  >
+                    Print
+                  </SubHeaderButton>
+                </>
+              )}
+            </div>
+          }
+        />
+
+        <div className='flex-grow p-3 sm:p-4 md:p-6 flex flex-col gap-4 min-h-0'>
         <section className='flex-none grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 print:hidden'>
           {[
             {
@@ -651,45 +835,6 @@ function LicenseManagementContent() {
           })}
         </section>
         <section className='mt-2 flex-1 min-h-0 flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden print:flex-none'>
-          <div className='flex-none flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-1.5 print:hidden'>
-            {[
-              ['all', 'All Licenses'],
-              ['expiring', 'Expiring Licenses'],
-              ['expired', 'Expired Licenses'],
-              ['import', 'Import Licenses'],
-              ['audit', 'Audit & Activity Logs'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type='button'
-                onClick={() => {
-                  const nextTab = key as LicenseTab;
-                  setTab(nextTab);
-                  // Switching tabs directly (not via a stat card) starts from a clean
-                  // slate so a stale status/purpose/expiry/renewed filter from a previous
-                  // card click can't silently keep narrowing results on the new tab.
-                  // Search is preserved since it's a cross-cutting filter valid on every tab.
-                  setStatusFilter('');
-                  setPurposeFilter('');
-                  setExpiringDays(90);
-                  setRenewedOnly(false);
-                  setPage(1);
-                  setAuditSearch('');
-                  setAuditAction('');
-                  setAuditDateFrom('');
-                  setAuditDateTo('');
-                  setAuditPage(1);
-                  router.push(buildLicensesUrl({ tab: nextTab, search }), { scroll: false });
-                }}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                  tab === key ? 'bg-[#001F54] text-white' : 'text-gray-700 hover:bg-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
           {tab === 'import' ? (
             <div className='flex-1 min-h-0 overflow-auto p-6'>
               <div className='rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center'>
@@ -712,75 +857,6 @@ function LicenseManagementContent() {
             </div>
           ) : tab === 'audit' ? (
             <>
-              <div className='flex-none grid gap-3 border-b border-gray-200 px-4 py-3 lg:grid-cols-[1fr_160px_160px_160px_auto] print:hidden'>
-                <div className='relative'>
-                  <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400' />
-                  <input
-                    value={auditSearch}
-                    onChange={event => {
-                      setAuditSearch(event.target.value);
-                      setAuditPage(1);
-                    }}
-                    placeholder='Search by license number, holder name, officer...'
-                    className='w-full rounded-md border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
-                  />
-                </div>
-                <select
-                  value={auditAction}
-                  onChange={event => {
-                    setAuditAction(event.target.value);
-                    setAuditPage(1);
-                  }}
-                  className='rounded-md border border-gray-300 px-3 py-2 text-sm'
-                >
-                  {AUDIT_ACTION_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type='date'
-                  value={auditDateFrom}
-                  onChange={event => {
-                    setAuditDateFrom(event.target.value);
-                    setAuditPage(1);
-                  }}
-                  max={auditDateTo || undefined}
-                  className='rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700'
-                  aria-label='From date'
-                />
-                <input
-                  type='date'
-                  value={auditDateTo}
-                  onChange={event => {
-                    setAuditDateTo(event.target.value);
-                    setAuditPage(1);
-                  }}
-                  min={auditDateFrom || undefined}
-                  className='rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700'
-                  aria-label='To date'
-                />
-                <div className='flex items-center gap-2'>
-                  <button
-                    type='button'
-                    onClick={exportAuditCsv}
-                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
-                    title='Export CSV'
-                  >
-                    <FileDown className='h-4 w-4' />
-                  </button>
-                  <button
-                    type='button'
-                    onClick={printTable}
-                    className='rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
-                    title='Print'
-                  >
-                    <Printer className='h-4 w-4' />
-                  </button>
-                </div>
-              </div>
-
               {auditLogError && (
                 <div className='flex-none m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
                   {auditLogError}
@@ -868,73 +944,6 @@ function LicenseManagementContent() {
             </>
           ) : (
             <>
-              <div className='flex-none grid gap-3 border-b border-gray-200 px-4 py-1.5 lg:grid-cols-[1fr_160px_180px_auto] print:hidden'>
-                <div className='relative'>
-                  <Search className='pointer-events-none absolute left-3 top-2 h-4 w-4 text-gray-400' />
-                  <input
-                    value={search}
-                    onChange={event => {
-                      setSearch(event.target.value);
-                      setPage(1);
-                    }}
-                    placeholder='Global search by name, license number, aadhar...'
-                    className='w-full rounded-md border border-gray-300 py-1.5 pl-9 pr-3 text-sm focus:border-[#001F54] focus:outline-none focus:ring-1 focus:ring-[#001F54]'
-                  />
-                </div>
-                <select
-                  value={statusFilter}
-                  onChange={event => {
-                    setStatusFilter(event.target.value);
-                    setPage(1);
-                  }}
-                  className='rounded-md border border-gray-300 px-3 py-1.5 text-sm'
-                >
-                  <option value=''>All Status</option>
-                  <option value='ACTIVE'>Active</option>
-                  <option value='EXPIRED'>Expired</option>
-                  <option value='CANCELLED'>Cancelled</option>
-                  <option value='SUSPENDED'>Suspended</option>
-                  <option value='REVOKED'>Revoked</option>
-                </select>
-                <select
-                  value={purposeFilter}
-                  onChange={event => {
-                    setPurposeFilter(event.target.value);
-                    setPage(1);
-                  }}
-                  className='rounded-md border border-gray-300 px-3 py-1.5 text-sm'
-                >
-                  {PURPOSE_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <div className='flex items-center gap-2'>
-                  <button
-                    type='button'
-                    onClick={exportCsv}
-                    className='rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50'
-                  >
-                    <FileDown className='h-4 w-4' />
-                  </button>
-                  <button
-                    type='button'
-                    onClick={exportExcel}
-                    className='rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50'
-                  >
-                    <Download className='h-4 w-4' />
-                  </button>
-                  <button
-                    type='button'
-                    onClick={printTable}
-                    className='rounded-md border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50'
-                  >
-                    <Printer className='h-4 w-4' />
-                  </button>
-                </div>
-              </div>
-
               {error && (
                 <div className='flex-none m-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700'>
                   {error}
@@ -1141,6 +1150,8 @@ function LicenseManagementContent() {
             </>
           )}
         </section>
+        </div>
+        <Footer />
       </main>
 
       {selectedLicense && (

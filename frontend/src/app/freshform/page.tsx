@@ -10,9 +10,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { filterApplications, getApplicationsByStatus, fetchApplicationsByStatusKey } from '../../services/sidebarApiCalls';
 import { ApplicationData } from '../../types';
 import { getRoleConfig } from '../../config/roles';
-import { canCreateApplications } from '../../utils/roleUtils';
-import { PageLayoutSkeleton, TableSkeleton } from '../../components/Skeleton';
+import { PageSubHeader, SubHeaderSearch, SubHeaderButton } from '@/components/common/PageSubHeader';
+import { Plus } from 'lucide-react';
 import Footer from '../../components/Footer';
+import { canCreateApplications } from '@/utils/roleUtils';
+import { PageLayoutSkeleton } from '../../components/Skeleton';
 
 
 
@@ -134,7 +136,7 @@ function FreshFormContent() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]">
+    <div className="flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white">
       {/* Always render sidebar and header */}
       <Sidebar />
       <Header
@@ -143,104 +145,62 @@ function FreshFormContent() {
       />
 
       {/* Main Content */}
+      <main className="flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]">
+        <PageSubHeader
+          title="Fresh Applications"
+          metaBadge={filteredApplications.length > 0 ? `${filteredApplications.length} Application${filteredApplications.length !== 1 ? 's' : ''}` : undefined}
+          actions={
+            <div className="flex items-center gap-2">
+              <SubHeaderSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search fresh applications..."
+              />
+              {canCreate && (
+                <SubHeaderButton
+                  variant="primary"
+                  onClick={() => router.push('/forms/createFreshApplication/personal-information')}
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                >
+                  New Fresh Application
+                </SubHeaderButton>
+              )}
+            </div>
+          }
+        />
 
-  <main className="flex-1 overflow-y-auto ml-0 md:ml-66 mt-[64px] md:mt-[90px] flex flex-col">          
-
-    <div className="flex-grow p-4 sm:p-6">
-
-
-
+        <div className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6">
           {/* Success message */}
-
           {successMessage && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                {successMessage}
-              </div>
+            <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 flex items-center">
+              <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>{successMessage}</span>
             </div>
           )}
 
           {/* Error message */}
           {errorMessage && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                {errorMessage}
-              </div>
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 flex items-center">
+              <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Display the regular list view with white background container */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Fresh Application Forms</h1>
-                  <p className="mt-1 text-sm text-gray-500">Initiated fresh license applications</p>
-                </div>
-                {canCreate && (
-                  <button
-                    type="button"
-                    onClick={() => router.push('/forms/createFreshApplication/personal-information')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#001F54] hover:bg-[#0d2a70] text-white text-sm font-medium rounded-md shadow-sm transition-colors"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    New Fresh Application
-                  </button>
-                )}
-              </div>
-
-              {/* Display search and filter information if applied */}
-              {(searchQuery || startDate || endDate) && (
-                <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                  <h3 className="font-semibold text-blue-700">Active Filters:</h3>
-                  <div className="mt-2 text-sm text-gray-700 space-y-1">
-                    {searchQuery && <p>Search: {searchQuery}</p>}
-                    {(startDate || endDate) && (
-                      <p>Date Range: {startDate || "Any"} to {endDate || "Any"}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {/* Show application count */}
-              <div className="mb-6">
-                <p className="text-gray-600">
-                  Showing {filteredApplications.length} fresh application(s)
-                </p>
-              </div>
-
-              {/* Display the application table */}
-              <ApplicationTable
-
-                applications={filteredApplications}
-
-                isLoading={isLoading}
-
-                showActionColumn={true}
-
-              />
-
-            </div>
-
-      </div>
+          <div className="bg-white rounded-2xl shadow-xs border border-gray-200/80 p-4 sm:p-6 flex-1 flex flex-col min-h-0">
+            <ApplicationTable
+              applications={filteredApplications}
+              isLoading={isLoading}
+              showActionColumn={true}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              hideControls={true}
+            />
+          </div>
+        </div>
 
       <Footer />
 

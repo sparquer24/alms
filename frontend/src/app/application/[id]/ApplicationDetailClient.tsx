@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Sidebar } from '../../../components/Sidebar';
 import Header from '../../../components/Header';
+import Footer from '../../../components/Footer';
+import { PageSubHeader, SubHeaderButton } from '@/components/common/PageSubHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { useLayout } from '../../../config/layoutContext';
 import { ApplicationApi } from '../../../config/APIClient';
@@ -756,8 +758,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
   }
 
   return (
-    <div className='flex flex-col min-h-screen w-full bg-gray-50 font-[family-name:var(--font-geist-sans)]'>
-      {/* Use shared Header with breadcrumbs and status badge */}
+    <div className='flex h-screen bg-[#F4F6F9] font-sans antialiased overflow-hidden selection:bg-[#0F2D52] selection:text-white'>
+      <Sidebar />
       <Header
         breadcrumbs={[
           { label: 'Home', onClick: () => router.push('/') },
@@ -791,8 +793,25 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
         hidePrint={true}
       />
 
-      <main className='flex-1 p-6 overflow-y-auto mt-[120px]'>
-        <div className='bg-white rounded-lg shadow'>
+      <main className='flex-1 ml-0 md:ml-66 min-w-0 overflow-auto flex flex-col pt-[64px] md:pt-[86px]'>
+        <PageSubHeader
+          title={isRenewalView ? 'Renewal Application Details' : 'Fresh Application Details'}
+          breadcrumbs={[
+            { label: 'Inbox', href: '/inbox?type=all' },
+            { label: applicationId ? `Application #${applicationId}` : 'Details' },
+          ]}
+          metaBadge={application?.applicantName ? `Applicant: ${application.applicantName}` : undefined}
+          actions={
+            <SubHeaderButton
+              onClick={() => setShowPrintOptions(true)}
+              icon={<Printer className='w-3.5 h-3.5' />}
+            >
+              Print Form
+            </SubHeaderButton>
+          }
+        />
+
+        <div className='flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6'>
           {/* Success Message - Fixed Position at Top */}
           {successMessage && (
             <div className='fixed top-4 right-4 z-50 max-w-md animate-slide-in'>
@@ -866,7 +885,6 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
               </div>
             </div>
           )}
-        </div>
 
         {isRenewalView && application && (
           <div className='mb-6'>
@@ -984,7 +1002,7 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
                                       : 'Preparing document previews for printing…'
                                   }
                                 >
-                                  <Printer className='w-4.5 h-4.5 text-slate-500' />
+                                  <Printer className='w-4 h-4 text-slate-500' />
                                   {printReady ? 'Print Details' : 'Preparing…'}
                                 </button>
                               </div>
@@ -2746,6 +2764,8 @@ export default function ApplicationDetailPage({ params }: ApplicationDetailPageP
             </div>
           )}
         </div>
+        </div>
+        <Footer />
       </main>
 
       {/* Loading Overlay */}
